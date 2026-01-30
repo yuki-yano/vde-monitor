@@ -208,6 +208,30 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [ensureServerReady]);
 
   React.useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        ensureServerReady();
+      }
+    };
+    const handleFocus = () => {
+      ensureServerReady();
+    };
+    const handleOnline = () => {
+      ensureServerReady();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [ensureServerReady]);
+
+  React.useEffect(() => {
     if (!token) return;
     readyRef.current = false;
     ensureServerReady();
