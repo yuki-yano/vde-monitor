@@ -3,19 +3,11 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  tone?:
-    | "running"
-    | "waiting"
-    | "permission"
-    | "done"
-    | "unknown"
-    | "codex"
-    | "claude";
+  tone?: "running" | "waiting" | "permission" | "done" | "unknown" | "codex" | "claude";
 };
 
 const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
-  running:
-    "bg-latte-green/20 text-latte-green border-latte-green/40 animate-pulse-soft",
+  running: "bg-latte-green/20 text-latte-green border-latte-green/40 animate-pulse-soft",
   waiting: "bg-latte-peach/20 text-latte-peach border-latte-peach/40",
   permission:
     "bg-latte-red/20 text-latte-red border-latte-red/40 shadow-[0_0_12px_rgb(var(--ctp-red)/0.4)]",

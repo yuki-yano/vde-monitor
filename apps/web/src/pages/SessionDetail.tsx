@@ -882,17 +882,9 @@ export const SessionDetailPage = () => {
 
   const tabLabel = shiftHeld ? "Shift+Tab" : "Tab";
   const agentTone =
-    session?.agent === "codex"
-      ? "codex"
-      : session?.agent === "claude"
-        ? "claude"
-        : "unknown";
+    session?.agent === "codex" ? "codex" : session?.agent === "claude" ? "claude" : "unknown";
   const agentLabel =
-    session?.agent === "codex"
-      ? "CODEX"
-      : session?.agent === "claude"
-        ? "CLAUDE"
-        : "UNKNOWN";
+    session?.agent === "codex" ? "CODEX" : session?.agent === "claude" ? "CLAUDE" : "UNKNOWN";
 
   if (!session) {
     return (
