@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -48,26 +49,31 @@ export const SessionListPage = () => {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-10">
-      <header className="shadow-glass flex flex-col gap-4 rounded-[32px] border border-white/60 bg-white/80 p-6 backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex justify-end">
+        <ThemeToggle />
+      </div>
+      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-4 rounded-[32px] border p-6 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-latte-subtext0 text-xs uppercase tracking-[0.5em]">
               tmux-agent-monitor
             </p>
             <h1 className="font-display text-latte-text text-3xl">Live Sessions</h1>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                className={`h-2 w-2 rounded-full ${connected ? "bg-latte-green" : "bg-latte-red"}`}
-              />
-              <span className="text-latte-subtext0 text-xs">
-                {connected ? "Connected" : "Reconnecting"}
-              </span>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${connected ? "bg-latte-green" : "bg-latte-red"}`}
+                />
+                <span className="text-latte-subtext0 text-xs">
+                  {connected ? "Connected" : "Reconnecting"}
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => refreshSessions()}>
+                Refresh
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => refreshSessions()}>
-              Refresh
-            </Button>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">

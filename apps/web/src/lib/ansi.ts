@@ -1,5 +1,7 @@
 import AnsiToHtml from "ansi-to-html";
 
+import type { Theme } from "@/lib/theme";
+
 const catppuccinLatteAnsi: Record<number, string> = {
   0: "#4c4f69",
   1: "#d20f39",
@@ -19,12 +21,44 @@ const catppuccinLatteAnsi: Record<number, string> = {
   15: "#eff1f5",
 };
 
-const ansiToHtml = new AnsiToHtml({
-  fg: "#4c4f69",
-  bg: "transparent",
-  escapeXML: true,
-  colors: catppuccinLatteAnsi,
-});
+const catppuccinMochaAnsi: Record<number, string> = {
+  0: "#1e1e2e",
+  1: "#f38ba8",
+  2: "#a6e3a1",
+  3: "#f9e2af",
+  4: "#89b4fa",
+  5: "#cba6f7",
+  6: "#94e2d5",
+  7: "#cdd6f4",
+  8: "#7f849c",
+  9: "#f38ba8",
+  10: "#a6e3a1",
+  11: "#fab387",
+  12: "#b4befe",
+  13: "#f5c2e7",
+  14: "#89dceb",
+  15: "#cdd6f4",
+};
+
+const ansiToHtmlByTheme: Record<Theme, AnsiToHtml> = {
+  latte: new AnsiToHtml({
+    fg: "#4c4f69",
+    bg: "transparent",
+    escapeXML: true,
+    colors: catppuccinLatteAnsi,
+  }),
+  mocha: new AnsiToHtml({
+    fg: "#cdd6f4",
+    bg: "transparent",
+    escapeXML: true,
+    colors: catppuccinMochaAnsi,
+  }),
+};
+
+const fallbackByTheme: Record<Theme, { background: string; text: string }> = {
+  latte: { background: "#e6e9ef", text: "#4c4f69" },
+  mocha: { background: "#313244", text: "#cdd6f4" },
+};
 
 const parseColor = (value: string | null): [number, number, number] | null => {
   if (!value) return null;
@@ -66,25 +100,34 @@ const luminance = (rgb: [number, number, number]) => {
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 };
 
-const adjustLowContrast = (html: string): string => {
+const contrastRatio = (a: [number, number, number], b: [number, number, number]) => {
+  const lumA = luminance(a);
+  const lumB = luminance(b);
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
+const adjustLowContrast = (html: string, theme: Theme): string => {
   if (typeof window === "undefined") {
     return html;
   }
+  const fallback = fallbackByTheme[theme];
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const nodes = Array.from(doc.querySelectorAll<HTMLElement>("[style]"));
   nodes.forEach((node) => {
     const bg = parseColor(node.style.backgroundColor);
-    if (!bg) return;
-    const bgLum = luminance(bg);
-    if (bgLum > 0.28) return;
-    node.style.backgroundColor = "#e6e9ef";
-    node.style.color = "#4c4f69";
+    const fg = parseColor(node.style.color);
+    if (!bg || !fg) return;
+    if (contrastRatio(bg, fg) >= 3) return;
+    node.style.backgroundColor = fallback.background;
+    node.style.color = fallback.text;
   });
   return doc.body.innerHTML;
 };
 
-export const renderAnsi = (text: string): string => {
-  const html = ansiToHtml.toHtml(text);
-  return adjustLowContrast(html);
+export const renderAnsi = (text: string, theme: Theme = "latte"): string => {
+  const html = ansiToHtmlByTheme[theme].toHtml(text);
+  return adjustLowContrast(html, theme);
 };

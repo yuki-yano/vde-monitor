@@ -30,7 +30,7 @@ const TabsTrigger = forwardRef<
     className={cn(
       "text-latte-subtext0 rounded-full px-3 py-1 text-xs font-semibold transition",
       "hover:bg-latte-surface1/70 hover:text-latte-text",
-      "data-[state=active]:text-latte-text data-[state=active]:bg-white data-[state=active]:shadow-sm",
+      "data-[state=active]:text-latte-text data-[state=active]:bg-latte-base/90 data-[state=active]:shadow-sm",
       className,
     )}
     {...props}

@@ -8,7 +8,7 @@ const Card = ({ className, ...props }: CardProps) => {
   return (
     <div
       className={cn(
-        "shadow-glass rounded-3xl border border-white/70 bg-white/80 p-4 backdrop-blur",
+        "shadow-glass border-latte-surface1/60 bg-latte-base/80 rounded-3xl border p-4 backdrop-blur",
         className,
       )}
       {...props}

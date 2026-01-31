@@ -8,9 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-latte-lavender text-white shadow-glow hover:translate-y-[-1px]",
+        primary: "bg-latte-lavender text-latte-base shadow-glow hover:translate-y-[-1px]",
         ghost: "bg-transparent text-latte-text border border-latte-surface2 hover:bg-latte-crust",
-        danger: "bg-latte-red text-white shadow-glow hover:translate-y-[-1px]",
+        danger: "bg-latte-red text-latte-base shadow-glow hover:translate-y-[-1px]",
       },
       size: {
         sm: "px-3 py-1.5 text-xs",

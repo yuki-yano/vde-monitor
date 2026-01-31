@@ -31,6 +31,7 @@ import {
 import { Link, useParams } from "react-router-dom";
 import { useStickToBottom } from "use-stick-to-bottom";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,6 +43,7 @@ import {
   type ScreenMode,
 } from "@/lib/screen-loading";
 import { useSessions } from "@/state/session-context";
+import { useTheme } from "@/state/theme-context";
 
 const stateTone = (state: string) => {
   switch (state) {
@@ -195,6 +197,7 @@ export const SessionDetailPage = () => {
     sendKeys,
     readOnly,
   } = useSessions();
+  const { resolvedTheme } = useTheme();
   const session = getSessionDetail(paneId);
   const [mode, setMode] = useState<ScreenMode>("text");
   const [screen, setScreen] = useState<string>("");
@@ -238,7 +241,10 @@ export const SessionDetailPage = () => {
   const modeSwitchRef = useRef<ScreenMode | null>(null);
   const refreshInFlightRef = useRef<null | { id: number; mode: ScreenMode }>(null);
   const refreshRequestIdRef = useRef(0);
-  const renderedScreen = useMemo(() => renderAnsi(screen || "No screen data"), [screen]);
+  const renderedScreen = useMemo(
+    () => renderAnsi(screen || "No screen data", resolvedTheme),
+    [screen, resolvedTheme],
+  );
   const commitPageSize = 10;
   const { scrollRef, contentRef, stopScroll } = useStickToBottom({
     initial: "instant",
@@ -830,7 +836,10 @@ export const SessionDetailPage = () => {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-10">
-      <header className="shadow-glass flex flex-col gap-4 rounded-[32px] border border-white/60 bg-white/80 p-6 backdrop-blur">
+      <div className="flex justify-end">
+        <ThemeToggle />
+      </div>
+      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-4 rounded-[32px] border p-6 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <Link to="/" className="text-latte-subtext0 text-xs uppercase tracking-[0.4em]">
@@ -841,7 +850,7 @@ export const SessionDetailPage = () => {
             </h1>
             <p className="text-latte-subtext0 text-sm">{formatPath(session.currentPath)}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="text-latte-subtext1 flex items-center gap-2 text-[10px] uppercase tracking-[0.3em]">
               Agent
               <span className="border-latte-lavender/35 bg-latte-lavender/10 text-latte-lavender inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.2em]">
@@ -900,7 +909,7 @@ export const SessionDetailPage = () => {
           )}
           <div className="border-latte-surface1 bg-latte-mantle/40 relative flex min-h-[320px] w-full min-w-0 max-w-full flex-1 overflow-hidden rounded-2xl border p-4">
             {isScreenLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+              <div className="bg-latte-base/60 absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm">
                 <div className="border-latte-lavender/40 border-t-latte-lavender h-8 w-8 animate-spin rounded-full border-2" />
               </div>
             )}
@@ -937,7 +946,7 @@ export const SessionDetailPage = () => {
                   placeholder="Type a command…"
                   ref={textInputRef}
                   rows={2}
-                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 min-h-[64px] min-w-0 flex-1 resize-y rounded-2xl border bg-white/70 px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 md:text-sm"
+                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-h-[64px] min-w-0 flex-1 resize-y rounded-2xl border px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 md:text-sm"
                 />
                 <div className="flex shrink-0 flex-col items-end gap-2 self-start">
                   <Button onClick={handleSendText}>Send</Button>
@@ -1131,7 +1140,7 @@ export const SessionDetailPage = () => {
             return (
               <div
                 key={`${file.path}-${file.status}`}
-                className="border-latte-surface2/70 rounded-2xl border bg-white/70"
+                className="border-latte-surface2/70 bg-latte-base/70 rounded-2xl border"
               >
                 <button
                   type="button"
@@ -1235,7 +1244,7 @@ export const SessionDetailPage = () => {
             return (
               <div
                 key={commit.hash}
-                className="border-latte-surface2/70 rounded-2xl border bg-white/70"
+                className="border-latte-surface2/70 bg-latte-base/70 rounded-2xl border"
               >
                 <div className="flex w-full flex-wrap items-start justify-between gap-3 px-4 py-3">
                   <div className="flex min-w-0 items-start gap-3">
@@ -1336,7 +1345,7 @@ export const SessionDetailPage = () => {
                                 </div>
                               </div>
                               {fileOpen && (
-                                <div className="border-latte-surface2/70 rounded-xl border bg-white/60 px-3 py-2">
+                                <div className="border-latte-surface2/70 bg-latte-base/60 rounded-xl border px-3 py-2">
                                   {loadingFile && (
                                     <p className="text-latte-subtext0 text-xs">Loading diff…</p>
                                   )}
