@@ -50,6 +50,34 @@ const buildAgent = (hint: string): "codex" | "claude" | "unknown" => {
 const mergeHints = (...parts: Array<string | null | undefined>) =>
   parts.filter((part) => Boolean(part && part.trim().length > 0)).join(" ");
 
+const editorCommandNames = new Set(["vim", "nvim", "vi", "gvim", "nvim-qt", "neovim"]);
+const agentHintPattern = /codex|claude/i;
+
+const isEditorCommand = (command: string | null | undefined) => {
+  if (!command) return false;
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const binary = trimmed.split(/\s+/)[0] ?? "";
+  if (!binary) return false;
+  return editorCommandNames.has(path.basename(binary));
+};
+
+const editorCommandHasAgentArg = (command: string | null | undefined) => {
+  if (!command) return false;
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const tokens = trimmed.split(/\s+/);
+  const binary = tokens.shift() ?? "";
+  if (!editorCommandNames.has(path.basename(binary))) {
+    return false;
+  }
+  const rest = tokens.join(" ");
+  return rest.length > 0 && agentHintPattern.test(rest);
+};
+
+const hasAgentHint = (value: string | null | undefined) =>
+  Boolean(value && agentHintPattern.test(value));
+
 const processCacheTtlMs = 5000;
 const processCommandCache = new Map<number, { command: string; at: number }>();
 const ttyAgentCache = new Map<string, { agent: "codex" | "claude" | "unknown"; at: number }>();
@@ -329,9 +357,29 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
       }
 
       const baseHint = mergeHints(pane.currentCommand, pane.paneStartCommand, pane.paneTitle);
+      const isEditorPane =
+        isEditorCommand(pane.currentCommand) || isEditorCommand(pane.paneStartCommand);
+      let processCommand: string | null = null;
+      let ignoreEditor = false;
+      if (isEditorPane) {
+        if (editorCommandHasAgentArg(pane.paneStartCommand) || hasAgentHint(pane.paneTitle)) {
+          ignoreEditor = true;
+        } else {
+          processCommand = await getProcessCommand(pane.panePid);
+          if (editorCommandHasAgentArg(processCommand)) {
+            ignoreEditor = true;
+          }
+        }
+      }
+      if (ignoreEditor) {
+        continue;
+      }
+
       let agent = buildAgent(baseHint);
       if (agent === "unknown") {
-        const processCommand = await getProcessCommand(pane.panePid);
+        if (!processCommand) {
+          processCommand = await getProcessCommand(pane.panePid);
+        }
         if (processCommand) {
           agent = buildAgent(processCommand);
         }
