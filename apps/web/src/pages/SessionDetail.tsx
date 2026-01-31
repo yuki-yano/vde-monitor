@@ -1229,9 +1229,12 @@ export const SessionDetailPage = () => {
                   <div className="flex items-center gap-3 text-xs">
                     <span className="text-latte-green">+{additionsLabel}</span>
                     <span className="text-latte-red">-{deletionsLabel}</span>
-                    <span className="text-latte-subtext0 min-w-[3.25rem] text-right">
-                      {isOpen ? "Hide" : "Show"}
-                    </span>
+                    {isOpen ? (
+                      <ChevronUp className="text-latte-subtext0 h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="text-latte-subtext0 h-4 w-4" />
+                    )}
+                    <span className="sr-only">{isOpen ? "Hide" : "Show"}</span>
                   </div>
                 </button>
                 {isOpen && (
@@ -1242,7 +1245,7 @@ export const SessionDetailPage = () => {
                     )}
                     {!loadingFile && !fileData?.binary && fileData?.patch && (
                       <div className="max-h-[360px] overflow-auto">
-                        <pre className="whitespace-pre font-mono text-xs">
+                        <pre className="whitespace-pre pl-4 font-mono text-xs">
                           {renderDiffPatch(fileData.patch)}
                         </pre>
                         {fileData.truncated && (
@@ -1345,14 +1348,14 @@ export const SessionDetailPage = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleToggleCommit(commit.hash)}
-                    className="flex items-center gap-1 text-xs"
+                    className="flex items-center text-xs"
                   >
                     {isOpen ? (
                       <ChevronUp className="h-4 w-4" />
                     ) : (
                       <ChevronDown className="h-4 w-4" />
                     )}
-                    {isOpen ? "Hide" : "Show"}
+                    <span className="sr-only">{isOpen ? "Hide" : "Show"}</span>
                   </Button>
                 </div>
                 {isOpen && (
@@ -1413,9 +1416,7 @@ export const SessionDetailPage = () => {
                                     ) : (
                                       <ChevronDown className="h-3.5 w-3.5" />
                                     )}
-                                    <span className="min-w-[3.25rem] text-right">
-                                      {fileOpen ? "Hide" : "Show"}
-                                    </span>
+                                    <span className="sr-only">{fileOpen ? "Hide" : "Show"}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1431,7 +1432,7 @@ export const SessionDetailPage = () => {
                                   )}
                                   {!loadingFile && !fileDetail?.binary && fileDetail?.patch && (
                                     <div className="max-h-[240px] overflow-auto">
-                                      <pre className="whitespace-pre font-mono text-xs">
+                                      <pre className="whitespace-pre pl-4 font-mono text-xs">
                                         {renderDiffPatch(fileDetail.patch)}
                                       </pre>
                                       {fileDetail.truncated && (
