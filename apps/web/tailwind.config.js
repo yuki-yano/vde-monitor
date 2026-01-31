@@ -32,7 +32,17 @@ module.exports = {
       fontFamily: {
         display: ["Fraunces", "serif"],
         body: ["IBM Plex Sans", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        mono: [
+          "IBM Plex Mono",
+          "M PLUS 1 Code",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "Liberation Mono",
+          "monospace",
+        ],
       },
       boxShadow: {
         glass: "0 20px 60px -30px rgb(var(--ctp-shadow) / 0.35)",
