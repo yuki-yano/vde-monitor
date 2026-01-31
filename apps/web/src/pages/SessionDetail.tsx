@@ -61,6 +61,8 @@ const stateTone = (state: string) => {
 const compilePatterns = () =>
   defaultDangerCommandPatterns.map((pattern) => new RegExp(pattern, "i"));
 
+const AUTO_REFRESH_INTERVAL_MS = 15_000;
+
 const formatPath = (value: string | null) => {
   if (!value) return "—";
   const match = value.match(/^\/(Users|home)\/[^/]+(\/.*)?$/);
@@ -604,7 +606,7 @@ export const SessionDetailPage = () => {
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
       void pollDiffSummary();
-    }, 60_000);
+    }, AUTO_REFRESH_INTERVAL_MS);
     return () => {
       window.clearInterval(intervalId);
     };
@@ -662,7 +664,7 @@ export const SessionDetailPage = () => {
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
       void pollCommitLog();
-    }, 60_000);
+    }, AUTO_REFRESH_INTERVAL_MS);
     return () => {
       window.clearInterval(intervalId);
     };
