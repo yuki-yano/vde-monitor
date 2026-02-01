@@ -1355,41 +1355,41 @@ export const SessionDetailPage = () => {
                 key={commit.hash}
                 className="border-latte-surface2/70 bg-latte-base/70 rounded-2xl border"
               >
-                <div className="flex w-full flex-wrap items-start justify-between gap-3 px-4 py-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyHash(commit.hash)}
-                      className="border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.2em] transition"
-                      aria-label={`Copy commit hash ${commit.shortHash}`}
-                    >
-                      <span className="font-mono">{commit.shortHash}</span>
-                      {copiedHash === commit.hash ? (
-                        <Check className="text-latte-green h-3.5 w-3.5" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                <div className="flex w-full flex-wrap items-start gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyHash(commit.hash)}
+                    className="border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.2em] transition"
+                    aria-label={`Copy commit hash ${commit.shortHash}`}
+                  >
+                    <span className="font-mono">{commit.shortHash}</span>
+                    {copiedHash === commit.hash ? (
+                      <Check className="text-latte-green h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div className="min-w-0">
                       <p className="text-latte-text text-sm">{commit.subject}</p>
                       <p className="text-latte-subtext0 text-xs">
                         {commit.authorName} · {formatTimestamp(commit.authoredAt)}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleCommit(commit.hash)}
+                      className="ml-auto flex items-center border-0 px-2 text-xs"
+                    >
+                      {isOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">{isOpen ? "Hide" : "Show"}</span>
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggleCommit(commit.hash)}
-                    className="flex items-center text-xs"
-                  >
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                    <span className="sr-only">{isOpen ? "Hide" : "Show"}</span>
-                  </Button>
                 </div>
                 {isOpen && (
                   <div className="border-latte-surface2/70 border-t px-4 py-3">
