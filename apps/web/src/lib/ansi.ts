@@ -70,6 +70,17 @@ const fallbackByTheme: Record<Theme, { background: string; text: string }> = {
   mocha: { background: "#313244", text: "#cdd6f4" },
 };
 
+type RenderAnsiOptions = {
+  agent?: "codex" | "claude" | "unknown";
+};
+
+const needsLowContrastAdjust = (html: string, theme: Theme, options?: RenderAnsiOptions) => {
+  if (html.includes("background-color")) {
+    return true;
+  }
+  return theme === "latte" && options?.agent === "claude" && html.includes("color:");
+};
+
 const parseColor = (value: string | null): [number, number, number] | null => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -118,11 +129,11 @@ const contrastRatio = (a: [number, number, number], b: [number, number, number])
   return (lighter + 0.05) / (darker + 0.05);
 };
 
-const adjustLowContrast = (html: string, theme: Theme): string => {
+const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptions): string => {
   if (typeof window === "undefined") {
     return html;
   }
-  if (!html.includes("background-color")) {
+  if (!needsLowContrastAdjust(html, theme, options)) {
     return html;
   }
   const fallback = fallbackByTheme[theme];
@@ -131,14 +142,23 @@ const adjustLowContrast = (html: string, theme: Theme): string => {
   const nodes = Array.from(doc.querySelectorAll<HTMLElement>("[style]"));
   nodes.forEach((node) => {
     const bg = parseColor(node.style.backgroundColor);
-    if (!bg) return;
     if (theme === "latte") {
-      const bgLum = luminance(bg);
-      if (bgLum > 0.28) return;
-      node.style.backgroundColor = fallback.background;
-      node.style.color = fallback.text;
+      if (bg) {
+        const bgLum = luminance(bg);
+        if (bgLum > 0.28) return;
+        node.style.backgroundColor = fallback.background;
+        node.style.color = fallback.text;
+        return;
+      }
+      if (options?.agent === "claude") {
+        const fg = parseColor(node.style.color);
+        if (!fg) return;
+        if (luminance(fg) <= 0.85) return;
+        node.style.color = fallback.text;
+      }
       return;
     }
+    if (!bg) return;
     const fg = parseColor(node.style.color);
     if (!fg) return;
     if (contrastRatio(bg, fg) >= 3) return;
@@ -161,10 +181,6 @@ const ensureLineContent = (html: string): string => {
     return html.replace(/(<\/[^>]+>)+$/, `${placeholder}$1`);
   }
   return `${html}${placeholder}`;
-};
-
-type RenderAnsiOptions = {
-  agent?: "codex" | "claude" | "unknown";
 };
 
 const ansiEscapePattern = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, "g");
@@ -265,7 +281,7 @@ export const renderAnsiLines = (
   if (options?.agent !== "claude") {
     return lines.map((line) => {
       const html = converter.toHtml(line);
-      return ensureLineContent(adjustLowContrast(html, theme));
+      return ensureLineContent(adjustLowContrast(html, theme, options));
     });
   }
   const plainLines = lines.map(stripAnsi);
@@ -273,7 +289,7 @@ export const renderAnsiLines = (
   return lines.map((line, index) => {
     if (!diffMask[index]) {
       const html = converter.toHtml(line);
-      return ensureLineContent(adjustLowContrast(html, theme));
+      return ensureLineContent(adjustLowContrast(html, theme, options));
     }
     const plainLine = plainLines[index] ?? "";
     return ensureLineContent(renderClaudeDiffLine(plainLine));

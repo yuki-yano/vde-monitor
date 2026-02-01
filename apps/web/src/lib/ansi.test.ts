@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
 import { renderAnsiLines } from "./ansi";
@@ -41,5 +42,12 @@ describe("renderAnsiLines", () => {
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
     expect(lines[2]).toContain("text-latte-text");
     expect(lines[2]).toContain("...");
+  });
+
+  it("normalizes bright ANSI text for Claude in latte theme", () => {
+    const text = "\u001b[97mPrompt\u001b[0m";
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    expect(lines[0]).not.toMatch(/#eff1f5|rgb\(239, 241, 245\)/);
+    expect(lines[0]).toMatch(/76,\s*79,\s*105|#4c4f69/);
   });
 });
