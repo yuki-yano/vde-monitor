@@ -1841,7 +1841,7 @@ export const SessionDetailPage = () => {
               </>
             )}
           </div>
-          <div className="pt-4">
+          <div>
             {!readOnly ? (
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
