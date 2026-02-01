@@ -162,6 +162,7 @@ export const ControlsPanel = ({
               {[
                 { label: "Esc", key: "Escape" },
                 { label: tabLabel, key: "Tab" },
+                { label: "Backspace", key: "BSpace" },
                 { label: "Enter", key: "Enter" },
               ].map((item) => (
                 <KeyButton key={item.key} label={item.label} onClick={() => onSendKey(item.key)} />
