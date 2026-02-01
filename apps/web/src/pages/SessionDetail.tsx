@@ -880,7 +880,7 @@ export const SessionDetailPage = () => {
       </span>
     ));
 
-  const tabLabel = shiftHeld ? "Shift+Tab" : "Tab";
+  const tabLabel = "Tab";
   const agentTone =
     session?.agent === "codex" ? "codex" : session?.agent === "claude" ? "claude" : "unknown";
   const agentLabel =
@@ -939,7 +939,7 @@ export const SessionDetailPage = () => {
         )}
       </header>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="flex min-w-0 flex-col gap-6">
         <Card className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -1027,155 +1027,154 @@ export const SessionDetailPage = () => {
               </>
             )}
           </div>
-        </Card>
-
-        <div className="flex flex-col gap-6">
-          {!readOnly ? (
-            <Card className="space-y-3">
-              <div className="flex items-start gap-3">
-                <textarea
-                  placeholder="Type a command…"
-                  ref={textInputRef}
-                  rows={2}
-                  disabled={!connected}
-                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-h-[64px] min-w-0 flex-1 resize-y rounded-2xl border px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
-                />
-                <div className="flex shrink-0 items-center self-center">
-                  <Button onClick={handleSendText} aria-label="Send" className="h-11 w-11 p-0">
-                    <Send className="h-4 w-4" />
-                    <span className="sr-only">Send</span>
-                  </Button>
+          <div className="pt-2">
+            {!readOnly ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <textarea
+                    placeholder="Type a prompt…"
+                    ref={textInputRef}
+                    rows={2}
+                    disabled={!connected}
+                    className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-h-[64px] min-w-0 flex-1 resize-y rounded-2xl border px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
+                  />
+                  <div className="flex shrink-0 items-center self-center">
+                    <Button onClick={handleSendText} aria-label="Send" className="h-11 w-11 p-0">
+                      <Send className="h-4 w-4" />
+                      <span className="sr-only">Send</span>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setControlsOpen((prev) => !prev)}
-                  aria-expanded={controlsOpen}
-                  aria-controls="session-controls"
-                  className="text-latte-subtext0 flex items-center gap-2 text-[11px] uppercase tracking-[0.32em]"
-                >
-                  {controlsOpen ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Keys
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setAutoEnter((prev) => !prev)}
-                  aria-pressed={autoEnter}
-                  title="Auto-enter after send"
-                  className={`group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] transition ${
-                    autoEnter
-                      ? "border-latte-lavender/60 bg-latte-lavender/10 text-latte-lavender shadow-[inset_0_0_0_1px_rgba(114,135,253,0.12)]"
-                      : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:text-latte-text"
-                  }`}
-                >
-                  <span className="text-[9px] font-semibold tracking-[0.3em]">Auto</span>
-                  <CornerDownLeft className="h-3.5 w-3.5" />
-                  <span className="sr-only">Auto-enter</span>
-                </button>
-              </div>
-              {controlsOpen && (
-                <div id="session-controls" className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setControlsOpen((prev) => !prev)}
+                    aria-expanded={controlsOpen}
+                    aria-controls="session-controls"
+                    className="text-latte-subtext0 flex items-center gap-2 text-[11px] uppercase tracking-[0.32em]"
+                  >
+                    {controlsOpen ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    Keys
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setAutoEnter((prev) => !prev)}
+                    aria-pressed={autoEnter}
+                    title="Auto-enter after send"
+                    className={`group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] transition ${
+                      autoEnter
+                        ? "border-latte-lavender/60 bg-latte-lavender/10 text-latte-lavender shadow-[inset_0_0_0_1px_rgba(114,135,253,0.12)]"
+                        : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:text-latte-text"
+                    }`}
+                  >
+                    <span className="text-[9px] font-semibold tracking-[0.3em]">Auto</span>
+                    <CornerDownLeft className="h-3.5 w-3.5" />
+                    <span className="sr-only">Auto-enter</span>
+                  </button>
+                </div>
+                {controlsOpen && (
+                  <div id="session-controls" className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={shiftHeld ? "primary" : "ghost"}
+                          size="sm"
+                          onClick={() => setShiftHeld((prev) => !prev)}
+                          aria-pressed={shiftHeld}
+                          className="font-mono text-[11px] uppercase tracking-[0.3em]"
+                        >
+                          Shift
+                        </Button>
+                        <Button
+                          variant={ctrlHeld ? "primary" : "ghost"}
+                          size="sm"
+                          onClick={() => setCtrlHeld((prev) => !prev)}
+                          aria-pressed={ctrlHeld}
+                          className="font-mono text-[11px] uppercase tracking-[0.3em]"
+                        >
+                          Ctrl
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: "Esc", key: "Escape" },
+                        { label: tabLabel, key: "Tab" },
+                        { label: "Enter", key: "Enter" },
+                      ].map((item) => (
+                        <KeyButton
+                          key={item.key}
+                          label={item.label}
+                          onClick={() => handleSendKey(item.key)}
+                        />
+                      ))}
+                    </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant={shiftHeld ? "primary" : "ghost"}
-                        size="sm"
-                        onClick={() => setShiftHeld((prev) => !prev)}
-                        aria-pressed={shiftHeld}
-                        className="font-mono text-[11px] uppercase tracking-[0.3em]"
-                      >
-                        Shift
-                      </Button>
-                      <Button
-                        variant={ctrlHeld ? "primary" : "ghost"}
-                        size="sm"
-                        onClick={() => setCtrlHeld((prev) => !prev)}
-                        aria-pressed={ctrlHeld}
-                        className="font-mono text-[11px] uppercase tracking-[0.3em]"
-                      >
-                        Ctrl
-                      </Button>
+                      {[
+                        {
+                          label: (
+                            <>
+                              <ArrowLeft className="h-4 w-4" />
+                              <span className="sr-only">Left</span>
+                            </>
+                          ),
+                          key: "Left",
+                          ariaLabel: "Left",
+                        },
+                        {
+                          label: (
+                            <>
+                              <ArrowUp className="h-4 w-4" />
+                              <span className="sr-only">Up</span>
+                            </>
+                          ),
+                          key: "Up",
+                          ariaLabel: "Up",
+                        },
+                        {
+                          label: (
+                            <>
+                              <ArrowDown className="h-4 w-4" />
+                              <span className="sr-only">Down</span>
+                            </>
+                          ),
+                          key: "Down",
+                          ariaLabel: "Down",
+                        },
+                        {
+                          label: (
+                            <>
+                              <ArrowRight className="h-4 w-4" />
+                              <span className="sr-only">Right</span>
+                            </>
+                          ),
+                          key: "Right",
+                          ariaLabel: "Right",
+                        },
+                      ].map((item) => (
+                        <KeyButton
+                          key={item.key}
+                          label={item.label}
+                          ariaLabel={item.ariaLabel}
+                          onClick={() => handleSendKey(item.key)}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: "Esc", key: "Escape" },
-                      { label: tabLabel, key: "Tab" },
-                      { label: "Enter", key: "Enter" },
-                    ].map((item) => (
-                      <KeyButton
-                        key={item.key}
-                        label={item.label}
-                        onClick={() => handleSendKey(item.key)}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {[
-                      {
-                        label: (
-                          <>
-                            <ArrowLeft className="h-4 w-4" />
-                            <span className="sr-only">Left</span>
-                          </>
-                        ),
-                        key: "Left",
-                        ariaLabel: "Left",
-                      },
-                      {
-                        label: (
-                          <>
-                            <ArrowUp className="h-4 w-4" />
-                            <span className="sr-only">Up</span>
-                          </>
-                        ),
-                        key: "Up",
-                        ariaLabel: "Up",
-                      },
-                      {
-                        label: (
-                          <>
-                            <ArrowDown className="h-4 w-4" />
-                            <span className="sr-only">Down</span>
-                          </>
-                        ),
-                        key: "Down",
-                        ariaLabel: "Down",
-                      },
-                      {
-                        label: (
-                          <>
-                            <ArrowRight className="h-4 w-4" />
-                            <span className="sr-only">Right</span>
-                          </>
-                        ),
-                        key: "Right",
-                        ariaLabel: "Right",
-                      },
-                    ].map((item) => (
-                      <KeyButton
-                        key={item.key}
-                        label={item.label}
-                        ariaLabel={item.ariaLabel}
-                        onClick={() => handleSendKey(item.key)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          ) : (
-            <Card className="border-latte-peach/50 bg-latte-peach/10 text-latte-peach border text-sm">
-              Read-only mode is active. Interactive controls are hidden.
-            </Card>
-          )}
-        </div>
+                )}
+              </div>
+            ) : (
+              <div className="border-latte-peach/50 bg-latte-peach/10 text-latte-peach rounded-2xl border px-4 py-2 text-sm">
+                Read-only mode is active. Interactive controls are hidden.
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
 
       <Card className="flex flex-col gap-4">
