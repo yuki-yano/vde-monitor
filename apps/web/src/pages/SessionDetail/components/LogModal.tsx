@@ -1,7 +1,7 @@
 import type { SessionSummary } from "@tmux-agent-monitor/shared";
-import { CornerDownLeft, ExternalLink, X } from "lucide-react";
-import { forwardRef, type HTMLAttributes } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { ArrowDown, CornerDownLeft, ExternalLink, X } from "lucide-react";
+import { forwardRef, type HTMLAttributes, useEffect, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +22,7 @@ const VirtuosoScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       {...props}
-      className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl ${className ?? ""}`}
+      className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-2xl ${className ?? ""}`}
     />
   ),
 );
@@ -51,6 +51,31 @@ export const LogModal = ({
   onOpenHere,
   onOpenNewTab,
 }: LogModalProps) => {
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  useEffect(() => {
+    if (open && logLines.length > 0) {
+      // モーダルが開いたときに一番下にスクロール
+      const timer = setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: logLines.length - 1,
+          behavior: "auto",
+          align: "end",
+        });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open, logLines.length]);
+
+  const scrollToBottom = () => {
+    virtuosoRef.current?.scrollToIndex({
+      index: logLines.length - 1,
+      behavior: "smooth",
+      align: "end",
+    });
+  };
+
   if (!open || !session) return null;
 
   return (
@@ -107,12 +132,14 @@ export const LogModal = ({
             </div>
           )}
           <Virtuoso
+            ref={virtuosoRef}
             data={logLines}
             initialTopMostItemIndex={Math.max(logLines.length - 1, 0)}
             followOutput="auto"
+            atBottomStateChange={setIsAtBottom}
             components={{ Scroller: VirtuosoScroller, List: QuickLogList }}
             className="w-full min-w-0 max-w-full"
-            style={{ height: "66vh", minHeight: "260px", maxHeight: "78vh" }}
+            style={{ height: "72dvh", minHeight: "260px", maxHeight: "calc(100dvh - 10rem)" }}
             itemContent={(_index, line) => (
               <div
                 className="min-h-4 whitespace-pre leading-5"
@@ -120,6 +147,16 @@ export const LogModal = ({
               />
             )}
           />
+          {!isAtBottom && (
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              aria-label="Scroll to bottom"
+              className="border-latte-surface2 bg-latte-base/80 text-latte-text hover:border-latte-lavender/60 hover:text-latte-lavender focus-visible:ring-latte-lavender absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-md backdrop-blur transition focus-visible:outline-none focus-visible:ring-2"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </Card>
     </div>

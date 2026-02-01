@@ -26,7 +26,7 @@ export const QuickPanel = ({
   return (
     <div className="fixed bottom-4 left-6 z-40 flex flex-col items-start gap-3">
       {open && (
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 relative max-h-[72vh] w-[calc(100vw-3rem)] max-w-[320px] overflow-hidden rounded-[28px] border-2 p-4 shadow-[0_25px_80px_-20px_rgba(114,135,253,0.4),0_0_0_1px_rgba(114,135,253,0.15)] ring-1 ring-inset ring-white/10 backdrop-blur-xl">
+        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 relative max-h-[80dvh] w-[calc(100vw-3rem)] max-w-[320px] overflow-hidden rounded-[28px] border-2 p-4 shadow-[0_25px_80px_-20px_rgba(114,135,253,0.4),0_0_0_1px_rgba(114,135,253,0.15)] ring-1 ring-inset ring-white/10 backdrop-blur-xl">
           <button
             type="button"
             onClick={onClose}
@@ -35,7 +35,7 @@ export const QuickPanel = ({
           >
             <X className="h-4 w-4" />
           </button>
-          <div className="custom-scrollbar -mr-4 mt-2 max-h-[62vh] overflow-y-auto">
+          <div className="custom-scrollbar -mr-4 mt-2 max-h-[70dvh] overflow-y-auto overscroll-contain">
             <div className="space-y-3 pr-5">
               {sessionGroups.length === 0 && (
                 <div className="border-latte-lavender/20 bg-latte-crust/50 text-latte-subtext0 rounded-2xl border px-3 py-4 text-center text-xs">
