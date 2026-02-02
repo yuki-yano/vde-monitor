@@ -62,6 +62,7 @@ type SessionContextValue = {
   ) => Promise<ScreenResponse>;
   sendText: (paneId: string, text: string, enter?: boolean) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: string[]) => Promise<CommandResponse>;
+  touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   getSessionDetail: (paneId: string) => SessionDetail | null;
 };
@@ -538,6 +539,38 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     [apiClient, refreshSessions, token, updateSession],
   );
 
+  const touchSession = useCallback(
+    async (paneId: string) => {
+      if (!token) {
+        throw new Error("Missing token");
+      }
+      const res = await apiClient.sessions[":paneId"].touch.$post({
+        param: { paneId: encodePaneId(paneId) },
+      });
+      let data: { session?: SessionSummary; error?: { message?: string; code?: string } } = {};
+      try {
+        data = (await res.json()) as {
+          session?: SessionSummary;
+          error?: { message?: string; code?: string };
+        };
+      } catch {
+        // ignore parse failures
+      }
+      if (!res.ok) {
+        if (data.error?.code === "READ_ONLY") {
+          setReadOnly(true);
+        }
+        throw new Error(data.error?.message ?? "Failed to update session activity");
+      }
+      if (data.session) {
+        updateSession(data.session);
+        return;
+      }
+      await refreshSessions();
+    },
+    [apiClient, refreshSessions, token, updateSession],
+  );
+
   const getSessionDetail = useCallback(
     (paneId: string) => {
       const session = sessions.find((item) => item.paneId === paneId);
@@ -564,6 +597,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         requestScreen,
         sendText,
         sendKeys,
+        touchSession,
         updateSessionTitle,
         getSessionDetail,
       }}

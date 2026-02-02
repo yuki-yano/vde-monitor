@@ -21,6 +21,7 @@ describe("ControlsPanel", () => {
         ctrlHeld={false}
         onToggleCtrl={vi.fn()}
         onSendKey={vi.fn()}
+        onTouchSession={vi.fn()}
       />,
     );
 
@@ -32,6 +33,7 @@ describe("ControlsPanel", () => {
   it("invokes send and toggle handlers", () => {
     const onSendText = vi.fn();
     const onToggleControls = vi.fn();
+    const onTouchSession = vi.fn();
     render(
       <ControlsPanel
         readOnly={false}
@@ -47,6 +49,7 @@ describe("ControlsPanel", () => {
         ctrlHeld={false}
         onToggleCtrl={vi.fn()}
         onSendKey={vi.fn()}
+        onTouchSession={onTouchSession}
       />,
     );
 
@@ -55,6 +58,9 @@ describe("ControlsPanel", () => {
 
     fireEvent.click(screen.getByText("Keys"));
     expect(onToggleControls).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("Pin session to top"));
+    expect(onTouchSession).toHaveBeenCalled();
   });
 
   it("sends keys when controls are open", () => {
@@ -76,6 +82,7 @@ describe("ControlsPanel", () => {
         ctrlHeld={false}
         onToggleCtrl={onToggleCtrl}
         onSendKey={onSendKey}
+        onTouchSession={vi.fn()}
       />,
     );
 

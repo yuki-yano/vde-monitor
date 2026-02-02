@@ -6,11 +6,12 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
+  Pin,
   Send,
 } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 
-import { Button, Callout, ModifierToggle, PillToggle, Toolbar } from "@/components/ui";
+import { Button, Callout, IconButton, ModifierToggle, PillToggle, Toolbar } from "@/components/ui";
 
 type ControlsPanelProps = {
   readOnly: boolean;
@@ -26,6 +27,7 @@ type ControlsPanelProps = {
   ctrlHeld: boolean;
   onToggleCtrl: () => void;
   onSendKey: (key: string) => void;
+  onTouchSession: () => void;
 };
 
 const KeyButton = ({
@@ -67,6 +69,7 @@ export const ControlsPanel = ({
   ctrlHeld,
   onToggleCtrl,
   onSendKey,
+  onTouchSession,
 }: ControlsPanelProps) => {
   const tabLabel = "Tab";
 
@@ -107,17 +110,29 @@ export const ControlsPanel = ({
           {controlsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           Keys
         </Button>
-        <PillToggle
-          type="button"
-          onClick={onToggleAutoEnter}
-          active={autoEnter}
-          title="Auto-enter after send"
-          className="group"
-        >
-          <span className="text-[9px] font-semibold tracking-[0.3em]">Auto</span>
-          <CornerDownLeft className="h-3.5 w-3.5" />
-          <span className="sr-only">Auto-enter</span>
-        </PillToggle>
+        <div className="flex items-center gap-2">
+          <IconButton
+            type="button"
+            size="sm"
+            onClick={onTouchSession}
+            disabled={!connected}
+            aria-label="Pin session to top"
+            title="Pin session to top"
+          >
+            <Pin className="h-4 w-4" />
+          </IconButton>
+          <PillToggle
+            type="button"
+            onClick={onToggleAutoEnter}
+            active={autoEnter}
+            title="Auto-enter after send"
+            className="group"
+          >
+            <span className="text-[9px] font-semibold tracking-[0.3em]">Auto</span>
+            <CornerDownLeft className="h-3.5 w-3.5" />
+            <span className="sr-only">Auto-enter</span>
+          </PillToggle>
+        </div>
       </Toolbar>
       {controlsOpen && (
         <div id="session-controls" className="space-y-4">

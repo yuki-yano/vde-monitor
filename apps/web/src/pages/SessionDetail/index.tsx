@@ -39,6 +39,7 @@ export const SessionDetailPage = () => {
     requestScreen,
     sendText,
     sendKeys,
+    touchSession,
     updateSessionTitle,
     readOnly,
   } = useSessions();
@@ -187,6 +188,10 @@ export const SessionDetailPage = () => {
     window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
   }, [selectedPaneId]);
 
+  const handleTouchSession = useCallback(() => {
+    void touchSession(paneId).catch(() => null);
+  }, [paneId, touchSession]);
+
   const handleOpenHere = useCallback(() => {
     if (!selectedPaneId) return;
     closeQuickPanel();
@@ -257,6 +262,7 @@ export const SessionDetailPage = () => {
                 ctrlHeld={ctrlHeld}
                 onToggleCtrl={toggleCtrl}
                 onSendKey={handleSendKey}
+                onTouchSession={handleTouchSession}
               />
             }
           />

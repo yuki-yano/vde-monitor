@@ -157,6 +157,22 @@ const createApiRouter = ({ config, monitor }: ApiContext) => {
       const updated = monitor.registry.getDetail(paneId) ?? detail;
       return c.json({ session: updated });
     })
+    .post("/sessions/:paneId/touch", (c) => {
+      if (config.readOnly) {
+        return c.json({ error: buildError("READ_ONLY", "read-only mode") }, 403);
+      }
+      const paneId = c.req.param("paneId");
+      if (!paneId) {
+        return c.json({ error: buildError("INVALID_PAYLOAD", "invalid pane id") }, 400);
+      }
+      const detail = monitor.registry.getDetail(paneId);
+      if (!detail) {
+        return c.json({ error: buildError("NOT_FOUND", "pane not found") }, 404);
+      }
+      monitor.recordInput(paneId);
+      const updated = monitor.registry.getDetail(paneId) ?? detail;
+      return c.json({ session: updated });
+    })
     .get("/sessions/:paneId/diff", zValidator("query", forceQuerySchema), async (c) => {
       const paneId = c.req.param("paneId");
       if (!paneId) {
