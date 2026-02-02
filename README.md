@@ -47,6 +47,7 @@ Recommended access methods:
 ## CLI options
 
 ```
+--bind <ip>     Bind to a specific IPv4 address
 --public        Bind to 0.0.0.0 instead of 127.0.0.1
 --tailscale     Use the Tailscale IP when printing the URL
 --no-attach     Do not auto-attach tmux panes
@@ -55,6 +56,14 @@ Recommended access methods:
 --socket-name   tmux socket name
 --socket-path   tmux socket path
 ```
+
+Notes:
+
+- `--bind` cannot be used with `--tailscale`.
+- `--bind` takes priority over `--public`.
+- `--tailscale` requires a Tailscale IP. The server will fail to start if it cannot be resolved.
+- `--tailscale` without `--public` binds to the Tailscale IP.
+- `--public` with `--tailscale` binds to `0.0.0.0` and prints a Tailscale URL.
 
 Rotate the auth token:
 
