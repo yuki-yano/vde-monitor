@@ -10,7 +10,7 @@ const ChipButton = forwardRef<HTMLButtonElement, ChipButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60",
+          "border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60",
           className,
         )}
         {...props}
