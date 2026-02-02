@@ -218,10 +218,9 @@ export type ClaudeHookEvent = {
   payload: { raw: string };
 };
 
-export type AgentMonitorConfig = {
+export type AgentMonitorConfigBase = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
-  token: string;
   readOnly: boolean;
   attachOnServe: boolean;
   staticAuth: boolean;
@@ -260,6 +259,12 @@ export type AgentMonitorConfig = {
   logs: { maxPaneLogBytes: number; maxEventLogBytes: number; retainRotations: number };
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
 };
+
+export type AgentMonitorConfig = AgentMonitorConfigBase & {
+  token: string;
+};
+
+export type AgentMonitorConfigFile = AgentMonitorConfigBase;
 
 export type PaneMeta = {
   paneId: string;

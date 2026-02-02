@@ -64,7 +64,9 @@ vde-monitor token rotate
 
 ## Configuration
 
-Config is stored at `~/.vde-monitor/config.json`. It is created automatically on first run.
+Config is stored at `$XDG_CONFIG_HOME/vde/monitor/config.json` (defaults to
+`~/.config/vde/monitor/config.json`). It is created automatically on first run.
+Auth token is stored separately at `~/.vde-monitor/token.json`.
 
 Example (use Alacritty for image capture):
 

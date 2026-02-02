@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "./types.js";
+import type { AgentMonitorConfigFile } from "./types.js";
 
 export const allowedKeys = [
   "Enter",
@@ -56,10 +56,9 @@ export const defaultDangerCommandPatterns = [
   "wget.*\\|\\s*(ba)?sh",
 ];
 
-export const defaultConfig: AgentMonitorConfig = {
+export const defaultConfig: AgentMonitorConfigFile = {
   bind: "127.0.0.1",
   port: 11080,
-  token: "",
   readOnly: false,
   attachOnServe: true,
   staticAuth: false,

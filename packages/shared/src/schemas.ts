@@ -146,7 +146,6 @@ export const claudeHookEventSchema = z.object({
 export const configSchema = z.object({
   bind: z.enum(["127.0.0.1", "0.0.0.0"]),
   port: z.number(),
-  token: z.string(),
   readOnly: z.boolean(),
   attachOnServe: z.boolean(),
   staticAuth: z.boolean(),

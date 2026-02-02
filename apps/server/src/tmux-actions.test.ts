@@ -10,6 +10,7 @@ describe("createTmuxActions.sendText", () => {
     };
     const config = {
       ...defaultConfig,
+      token: "test-token",
       input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
@@ -34,6 +35,7 @@ describe("createTmuxActions.sendText", () => {
     };
     const config = {
       ...defaultConfig,
+      token: "test-token",
       input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
@@ -64,6 +66,7 @@ describe("createTmuxActions.sendText", () => {
     };
     const config = {
       ...defaultConfig,
+      token: "test-token",
       input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
@@ -83,7 +86,7 @@ describe("createTmuxActions.sendKeys", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, defaultConfig);
+    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
 
     const result = await tmuxActions.sendKeys("%1", ["C-c"]);
 

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { resolveServerKey } from "@vde-monitor/shared";
+import { resolveConfigDir, resolveServerKey } from "@vde-monitor/shared";
 
 const readStdin = (): string => {
   try {
@@ -29,7 +29,7 @@ const resolveTranscriptPath = (
 };
 
 const loadConfig = () => {
-  const configPath = path.join(os.homedir(), ".vde-monitor", "config.json");
+  const configPath = path.join(resolveConfigDir(), "config.json");
   try {
     const raw = fs.readFileSync(configPath, "utf8");
     return JSON.parse(raw) as { tmux?: { socketName?: string | null; socketPath?: string | null } };

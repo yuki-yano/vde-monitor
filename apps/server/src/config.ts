@@ -3,17 +3,23 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
-import { configSchema, defaultConfig } from "@vde-monitor/shared";
-
-const configDirName = ".vde-monitor";
+import type { AgentMonitorConfig, AgentMonitorConfigFile } from "@vde-monitor/shared";
+import { configSchema, defaultConfig, resolveConfigDir } from "@vde-monitor/shared";
 
 export const getConfigDir = () => {
-  return path.join(os.homedir(), configDirName);
+  return resolveConfigDir();
 };
 
 export const getConfigPath = () => {
   return path.join(getConfigDir(), "config.json");
+};
+
+const getTokenDir = () => {
+  return path.join(os.homedir(), ".vde-monitor");
+};
+
+const getTokenPath = () => {
+  return path.join(getTokenDir(), "token.json");
 };
 
 const ensureDir = (dir: string) => {
@@ -33,7 +39,37 @@ const generateToken = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-export const loadConfig = (): AgentMonitorConfig | null => {
+const loadToken = (): string | null => {
+  const tokenPath = getTokenPath();
+  try {
+    const raw = fs.readFileSync(tokenPath, "utf8");
+    const parsed = JSON.parse(raw) as { token?: unknown };
+    if (typeof parsed.token === "string" && parsed.token.trim().length > 0) {
+      return parsed.token;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const saveToken = (token: string) => {
+  const dir = getTokenDir();
+  ensureDir(dir);
+  writeFileSafe(getTokenPath(), `${JSON.stringify({ token }, null, 2)}\n`);
+};
+
+const ensureToken = () => {
+  const existing = loadToken();
+  if (existing) {
+    return existing;
+  }
+  const token = generateToken();
+  saveToken(token);
+  return token;
+};
+
+export const loadConfig = (): AgentMonitorConfigFile | null => {
   const configPath = getConfigPath();
   try {
     const raw = fs.readFileSync(configPath, "utf8");
@@ -47,13 +83,13 @@ export const loadConfig = (): AgentMonitorConfig | null => {
   }
 };
 
-export const saveConfig = (config: AgentMonitorConfig) => {
+export const saveConfig = (config: AgentMonitorConfigFile) => {
   const dir = getConfigDir();
   ensureDir(dir);
   writeFileSafe(getConfigPath(), `${JSON.stringify(config, null, 2)}\n`);
 };
 
-export const ensureConfig = (overrides?: Partial<AgentMonitorConfig>) => {
+export const ensureConfig = (overrides?: Partial<AgentMonitorConfigFile>) => {
   const existing = loadConfig();
   if (existing) {
     let next = existing;
@@ -78,20 +114,20 @@ export const ensureConfig = (overrides?: Partial<AgentMonitorConfig>) => {
     if (migrated) {
       saveConfig(next);
     }
-    return { ...next, ...overrides };
+    const token = ensureToken();
+    return { ...next, ...overrides, token };
   }
-  const token = generateToken();
-  const config = { ...defaultConfig, ...overrides, token };
+  const config = { ...defaultConfig, ...overrides };
   saveConfig(config);
-  return config;
+  const token = ensureToken();
+  return { ...config, token };
 };
 
 export const rotateToken = () => {
   const config = ensureConfig();
   const token = generateToken();
-  const next = { ...config, token };
-  saveConfig(next);
-  return next;
+  saveToken(token);
+  return { ...config, token };
 };
 
 export const applyRuntimeOverrides = (
