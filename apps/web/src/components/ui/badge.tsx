@@ -34,7 +34,7 @@ const Badge = ({ className, tone = "unknown", children, ...props }: BadgeProps) 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
         toneClass[tone],
         className,
       )}

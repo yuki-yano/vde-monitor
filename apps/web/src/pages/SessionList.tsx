@@ -81,6 +81,7 @@ export const SessionListPage = () => {
         <FilterToggleGroup
           value={filter}
           onChange={setFilter}
+          buttonClassName="uppercase tracking-[0.14em] text-[11px] px-3 py-1"
           options={["ALL", "RUNNING", "WAITING_INPUT", "WAITING_PERMISSION", "UNKNOWN"].map(
             (state) => ({
               value: state,
