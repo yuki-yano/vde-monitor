@@ -31,6 +31,9 @@ describe("useSessionLogs", () => {
     );
 
     act(() => {
+      result.current.toggleQuickPanel();
+    });
+    act(() => {
       result.current.openLogModal(session.paneId);
     });
 
@@ -58,5 +61,42 @@ describe("useSessionLogs", () => {
       result.current.toggleQuickPanel();
     });
     expect(result.current.quickPanelOpen).toBe(true);
+  });
+
+  it("closes log modal when quick panel closes", async () => {
+    const session = createSessionDetail();
+    const { result } = renderHook(() =>
+      useSessionLogs({
+        connected: true,
+        connectionIssue: null,
+        sessions: [session],
+        requestScreen: vi.fn().mockResolvedValue({
+          ok: true,
+          paneId: session.paneId,
+          mode: "text",
+          capturedAt: new Date(0).toISOString(),
+          screen: "line1",
+        }),
+        resolvedTheme: "latte",
+      }),
+    );
+
+    act(() => {
+      result.current.toggleQuickPanel();
+    });
+    act(() => {
+      result.current.openLogModal(session.paneId);
+    });
+
+    expect(result.current.logModalOpen).toBe(true);
+
+    act(() => {
+      result.current.toggleQuickPanel();
+    });
+
+    expect(result.current.quickPanelOpen).toBe(false);
+    await waitFor(() => {
+      expect(result.current.logModalOpen).toBe(false);
+    });
   });
 });

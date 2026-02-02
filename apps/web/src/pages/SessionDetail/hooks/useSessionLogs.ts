@@ -155,6 +155,13 @@ export const useSessionLogs = ({
     setQuickPanelOpen((prev) => !prev);
   }, []);
 
+  useEffect(() => {
+    if (quickPanelOpen || !logModalOpen) {
+      return;
+    }
+    closeLogModal();
+  }, [closeLogModal, logModalOpen, quickPanelOpen]);
+
   const closeQuickPanel = useCallback(() => {
     setQuickPanelOpen(false);
     setLogModalOpen(false);
