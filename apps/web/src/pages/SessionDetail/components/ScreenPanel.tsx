@@ -1,5 +1,5 @@
 import { ArrowDown, FileText, Image, RefreshCw } from "lucide-react";
-import { forwardRef, type HTMLAttributes, type ReactNode, type RefObject } from "react";
+import { forwardRef, type HTMLAttributes, type ReactNode, type RefObject, useMemo } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import {
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui";
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
+
 type ScreenPanelProps = {
   mode: ScreenMode;
   onModeChange: (mode: ScreenMode) => void;
@@ -26,23 +28,13 @@ type ScreenPanelProps = {
   imageBase64: string | null;
   screenLines: string[];
   virtuosoRef: RefObject<VirtuosoHandle | null>;
+  scrollerRef: RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
+  forceFollow: boolean;
   onAtBottomChange: (value: boolean) => void;
   onScrollToBottom: (behavior: "auto" | "smooth") => void;
   controls: ReactNode;
 };
-
-const VirtuosoScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl ${className ?? ""}`}
-    />
-  ),
-);
-
-VirtuosoScroller.displayName = "VirtuosoScroller";
 
 const VirtuosoList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
@@ -67,11 +59,42 @@ export const ScreenPanel = ({
   imageBase64,
   screenLines,
   virtuosoRef,
+  scrollerRef,
   isAtBottom,
+  forceFollow,
   onAtBottomChange,
   onScrollToBottom,
   controls,
 }: ScreenPanelProps) => {
+  const { scrollerRef: stableScrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
+    items: screenLines,
+    isAtBottom,
+    enabled: mode === "text",
+    scrollerRef,
+    isUserScrolling: forceFollow,
+  });
+
+  const VirtuosoScroller = useMemo(() => {
+    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+      ({ className, ...props }, ref) => (
+        <div
+          ref={(node) => {
+            if (typeof ref === "function") {
+              ref(node);
+            } else if (ref) {
+              ref.current = node;
+            }
+            stableScrollerRef.current = node;
+          }}
+          {...props}
+          className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl ${className ?? ""}`}
+        />
+      ),
+    );
+    Component.displayName = "VirtuosoScroller";
+    return Component;
+  }, [stableScrollerRef]);
+
   return (
     <Card className="flex min-w-0 flex-col gap-3 p-4">
       <Toolbar className="gap-3">
@@ -138,6 +161,7 @@ export const ScreenPanel = ({
               initialTopMostItemIndex={Math.max(screenLines.length - 1, 0)}
               followOutput="auto"
               atBottomStateChange={onAtBottomChange}
+              rangeChanged={handleRangeChanged}
               components={{ Scroller: VirtuosoScroller, List: VirtuosoList }}
               className="w-full min-w-0 max-w-full"
               style={{ height: "60vh" }}

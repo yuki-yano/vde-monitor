@@ -57,11 +57,13 @@ export const SessionDetailPage = () => {
     setScreenError,
     isScreenLoading,
     isAtBottom,
-    setIsAtBottom,
+    handleAtBottomChange,
+    forceFollow,
     refreshScreen,
     scrollToBottom,
     handleModeChange,
     virtuosoRef,
+    scrollerRef,
   } = useSessionScreen({
     paneId,
     connected,
@@ -244,8 +246,10 @@ export const SessionDetailPage = () => {
             imageBase64={imageBase64}
             screenLines={screenLines}
             virtuosoRef={virtuosoRef}
+            scrollerRef={scrollerRef}
             isAtBottom={isAtBottom}
-            onAtBottomChange={setIsAtBottom}
+            forceFollow={forceFollow}
+            onAtBottomChange={handleAtBottomChange}
             onScrollToBottom={scrollToBottom}
             controls={
               <ControlsPanel

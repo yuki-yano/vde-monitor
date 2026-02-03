@@ -53,8 +53,11 @@ export const useSessionScreen = ({
   );
   const [modeLoaded, setModeLoaded] = useState({ text: false, image: false });
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [forceFollow, setForceFollow] = useState(false);
 
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const forceFollowTimerRef = useRef<number | null>(null);
   const prevModeRef = useRef<ScreenMode>(mode);
   const snapToBottomRef = useRef(false);
   const screenRef = useRef<string>("");
@@ -87,9 +90,34 @@ export const useSessionScreen = ({
       if (!virtuosoRef.current || screenLines.length === 0) return;
       const index = screenLines.length - 1;
       virtuosoRef.current.scrollToIndex({ index, align: "end", behavior });
+      setForceFollow(true);
+      if (forceFollowTimerRef.current !== null) {
+        window.clearTimeout(forceFollowTimerRef.current);
+      }
+      forceFollowTimerRef.current = window.setTimeout(() => {
+        setForceFollow(false);
+        forceFollowTimerRef.current = null;
+      }, 500);
+      window.requestAnimationFrame(() => {
+        const scroller = scrollerRef.current;
+        if (scroller) {
+          scroller.scrollTo({ top: scroller.scrollHeight, left: 0, behavior });
+        }
+      });
     },
     [screenLines.length],
   );
+
+  const handleAtBottomChange = useCallback((value: boolean) => {
+    setIsAtBottom(value);
+    if (value) {
+      setForceFollow(false);
+      if (forceFollowTimerRef.current !== null) {
+        window.clearTimeout(forceFollowTimerRef.current);
+        forceFollowTimerRef.current = null;
+      }
+    }
+  }, []);
 
   const isScreenLoading = screenLoadingState.loading && screenLoadingState.mode === mode;
 
@@ -112,8 +140,17 @@ export const useSessionScreen = ({
   useEffect(() => {
     if (mode !== "text") {
       setIsAtBottom(true);
+      setForceFollow(false);
     }
   }, [mode]);
+
+  useEffect(() => {
+    return () => {
+      if (forceFollowTimerRef.current !== null) {
+        window.clearTimeout(forceFollowTimerRef.current);
+      }
+    };
+  }, []);
 
   const refreshScreen = useCallback(async () => {
     if (!paneId) return;
@@ -291,10 +328,12 @@ export const useSessionScreen = ({
     setScreenError: setError,
     isScreenLoading,
     isAtBottom,
-    setIsAtBottom,
+    handleAtBottomChange,
+    forceFollow,
     refreshScreen,
     scrollToBottom,
     handleModeChange,
     virtuosoRef,
+    scrollerRef,
   };
 };

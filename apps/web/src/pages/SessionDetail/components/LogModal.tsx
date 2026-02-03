@@ -1,9 +1,11 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { ArrowDown, CornerDownLeft, ExternalLink, X } from "lucide-react";
-import { forwardRef, type HTMLAttributes, useEffect, useRef, useState } from "react";
+import { forwardRef, type HTMLAttributes, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, LoadingOverlay, Toolbar } from "@/components/ui";
+
+import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
 type LogModalProps = {
   open: boolean;
@@ -15,18 +17,6 @@ type LogModalProps = {
   onOpenHere: () => void;
   onOpenNewTab: () => void;
 };
-
-const VirtuosoScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-2xl ${className ?? ""}`}
-    />
-  ),
-);
-
-VirtuosoScroller.displayName = "VirtuosoScroller";
 
 const QuickLogList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
@@ -52,6 +42,32 @@ export const LogModal = ({
 }: LogModalProps) => {
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const { scrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
+    items: logLines,
+    isAtBottom,
+    enabled: open,
+  });
+
+  const VirtuosoScroller = useMemo(() => {
+    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+      ({ className, ...props }, ref) => (
+        <div
+          ref={(node) => {
+            if (typeof ref === "function") {
+              ref(node);
+            } else if (ref) {
+              ref.current = node;
+            }
+            scrollerRef.current = node;
+          }}
+          {...props}
+          className={`custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-2xl ${className ?? ""}`}
+        />
+      ),
+    );
+    Component.displayName = "VirtuosoScroller";
+    return Component;
+  }, [scrollerRef]);
 
   useEffect(() => {
     if (open && logLines.length > 0) {
@@ -73,6 +89,13 @@ export const LogModal = ({
       behavior: "smooth",
       align: "end",
     });
+    if (scrollerRef.current) {
+      scrollerRef.current.scrollTo({
+        top: scrollerRef.current.scrollHeight,
+        left: 0,
+        behavior: "smooth",
+      });
+    }
   };
 
   if (!open || !session) return null;
@@ -130,6 +153,7 @@ export const LogModal = ({
             initialTopMostItemIndex={Math.max(logLines.length - 1, 0)}
             followOutput="auto"
             atBottomStateChange={setIsAtBottom}
+            rangeChanged={handleRangeChanged}
             components={{ Scroller: VirtuosoScroller, List: QuickLogList }}
             className="w-full min-w-0 max-w-full"
             style={{ height: "72dvh", minHeight: "260px", maxHeight: "calc(100dvh - 10rem)" }}

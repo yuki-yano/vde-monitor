@@ -9,6 +9,7 @@ export default defineConfig({
     },
   },
   test: {
+    watch: false,
     setupFiles: ["./vitest.setup.ts"],
     include: [
       "packages/**/*.test.ts",
