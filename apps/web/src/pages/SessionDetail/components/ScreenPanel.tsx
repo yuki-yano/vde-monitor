@@ -1,5 +1,13 @@
 import { ArrowDown, FileText, Image, RefreshCw } from "lucide-react";
-import { forwardRef, type HTMLAttributes, type ReactNode, type RefObject, useMemo } from "react";
+import {
+  type ClipboardEvent,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useMemo,
+} from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import {
@@ -13,6 +21,7 @@ import {
   TabsTrigger,
   Toolbar,
 } from "@/components/ui";
+import { sanitizeLogCopyText } from "@/lib/clipboard";
 import type { ScreenMode } from "@/lib/screen-loading";
 
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
@@ -98,6 +107,16 @@ export const ScreenPanel = ({
     return Component;
   }, [stableScrollerRef]);
 
+  const handleCopy = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+    const selection = window.getSelection?.();
+    const raw = selection?.toString() ?? "";
+    if (!raw) return;
+    const sanitized = sanitizeLogCopyText(raw);
+    if (sanitized === raw || !event.clipboardData) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", sanitized);
+  }, []);
+
   return (
     <Card className="flex min-w-0 flex-col gap-3 p-4">
       <Toolbar className="gap-3">
@@ -146,7 +165,10 @@ export const ScreenPanel = ({
           {error}
         </Callout>
       )}
-      <div className="border-latte-surface2/80 bg-latte-crust/95 relative min-h-[320px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 shadow-inner">
+      <div
+        className="border-latte-surface2/80 bg-latte-crust/95 relative min-h-[320px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 shadow-inner"
+        onCopy={handleCopy}
+      >
         {isScreenLoading && <LoadingOverlay label="Loading screen..." />}
         {mode === "image" && imageBase64 ? (
           <div className="flex w-full items-center justify-center p-3">

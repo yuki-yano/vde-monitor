@@ -134,4 +134,42 @@ describe("ScreenPanel", () => {
     fireEvent.click(first as Element);
     expect(onRefresh).toHaveBeenCalled();
   });
+
+  it("sanitizes copied log text", () => {
+    const selection = { toString: () => "line\u0007bell" } as unknown as Selection;
+    const getSelectionSpy = vi.spyOn(window, "getSelection").mockReturnValue(selection);
+    const setData = vi.fn();
+
+    render(
+      <ScreenPanel
+        mode="text"
+        onModeChange={vi.fn()}
+        connected
+        onRefresh={vi.fn()}
+        fallbackReason={null}
+        error={null}
+        isScreenLoading={false}
+        imageBase64={null}
+        screenLines={["line"]}
+        virtuosoRef={{ current: null }}
+        scrollerRef={{ current: null }}
+        isAtBottom
+        forceFollow={false}
+        onAtBottomChange={vi.fn()}
+        onScrollToBottom={vi.fn()}
+        onUserScrollStateChange={vi.fn()}
+        controls={null}
+      />,
+    );
+
+    const container = screen.getByTestId("virtuoso").parentElement;
+    expect(container).toBeTruthy();
+    const event = new Event("copy", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: { setData } });
+    container?.dispatchEvent(event);
+
+    expect(setData).toHaveBeenCalledWith("text/plain", "linebell");
+    expect(event.defaultPrevented).toBe(true);
+    getSelectionSpy.mockRestore();
+  });
 });

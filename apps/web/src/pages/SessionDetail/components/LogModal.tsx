@@ -1,6 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { ArrowDown, CornerDownLeft, ExternalLink, X } from "lucide-react";
 import {
+  type ClipboardEvent,
   forwardRef,
   type HTMLAttributes,
   useCallback,
@@ -12,6 +13,7 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, LoadingOverlay, Toolbar } from "@/components/ui";
+import { sanitizeLogCopyText } from "@/lib/clipboard";
 
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
@@ -130,6 +132,16 @@ export const LogModal = ({
     }
   };
 
+  const handleCopy = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+    const selection = window.getSelection?.();
+    const raw = selection?.toString() ?? "";
+    if (!raw) return;
+    const sanitized = sanitizeLogCopyText(raw);
+    if (sanitized === raw || !event.clipboardData) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", sanitized);
+  }, []);
+
   if (!open || !session) return null;
 
   return (
@@ -177,7 +189,10 @@ export const LogModal = ({
             {error}
           </Callout>
         )}
-        <div className="border-latte-surface2/50 bg-latte-crust/60 relative mt-3 min-h-[200px] w-full rounded-2xl border shadow-inner">
+        <div
+          className="border-latte-surface2/50 bg-latte-crust/60 relative mt-3 min-h-[200px] w-full rounded-2xl border shadow-inner"
+          onCopy={handleCopy}
+        >
           {loading && <LoadingOverlay label="Loading log..." size="sm" />}
           <Virtuoso
             ref={virtuosoRef}
