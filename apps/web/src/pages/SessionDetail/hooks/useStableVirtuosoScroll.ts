@@ -48,6 +48,7 @@ export const useStableVirtuosoScroll = ({
   const lastUserScrollAtRef = useRef(0);
   const scrollEndTimerRef = useRef<number | null>(null);
   const isAdjustingRef = useRef(false);
+  const allowCorrectionOnceRef = useRef(false);
   const scrollSuppressMs = 300;
   const onUserScrollStateChangeRef = useRef(onUserScrollStateChange);
 
@@ -88,6 +89,7 @@ export const useStableVirtuosoScroll = ({
       isUserScrollingRef.current = value;
       if (!value) {
         updateBaseline(anchorIndexRef.current);
+        allowCorrectionOnceRef.current = true;
       }
       onUserScrollStateChangeRef.current?.(value);
     },
@@ -153,6 +155,7 @@ export const useStableVirtuosoScroll = ({
       prevAnchorHeightRef.current = null;
       prevScrollTopRef.current = null;
       prevAnchorIndexRef.current = 0;
+      allowCorrectionOnceRef.current = false;
       return;
     }
 
@@ -160,7 +163,9 @@ export const useStableVirtuosoScroll = ({
     const prevItems = prevItemsRef.current;
     const itemsChanged = prevItems !== items;
     const recentlyScrolled = performance.now() - lastUserScrollAtRef.current < scrollSuppressMs;
-    const isScrolling = (isUserScrolling ?? isUserScrollingRef.current) || recentlyScrolled;
+    const allowCorrection = allowCorrectionOnceRef.current;
+    const isScrolling =
+      (isUserScrolling ?? isUserScrollingRef.current) || (recentlyScrolled && !allowCorrection);
     if (itemsChanged && scroller && !isAtBottom && !isScrolling) {
       const anchorIndex = clampIndex(prevAnchorIndexRef.current, prevItems.length);
       const nextIndex = mapAnchorIndex(prevItems, items, anchorIndex);
@@ -191,6 +196,10 @@ export const useStableVirtuosoScroll = ({
           isAdjustingRef.current = false;
         });
       }
+    }
+
+    if (itemsChanged) {
+      allowCorrectionOnceRef.current = false;
     }
 
     if (scroller) {
