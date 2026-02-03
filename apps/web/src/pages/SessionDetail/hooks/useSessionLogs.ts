@@ -158,15 +158,15 @@ export const useSessionLogs = ({
   }, []);
 
   const toggleQuickPanel = useCallback(() => {
-    setQuickPanelOpen((prev) => !prev);
+    setQuickPanelOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setLogModalOpen(false);
+        setSelectedPaneId(null);
+      }
+      return next;
+    });
   }, []);
-
-  useEffect(() => {
-    if (quickPanelOpen || !logModalOpen) {
-      return;
-    }
-    closeLogModal();
-  }, [closeLogModal, logModalOpen, quickPanelOpen]);
 
   const closeQuickPanel = useCallback(() => {
     setQuickPanelOpen(false);

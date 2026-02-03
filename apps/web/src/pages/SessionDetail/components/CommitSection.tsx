@@ -267,6 +267,7 @@ export const CommitSection = memo(
                                       renamedFrom={file.renamedFrom}
                                       size="xs"
                                       tailSegments={3}
+                                      className="font-mono"
                                     />
                                   </div>
                                   <div className="flex shrink-0 items-center gap-3 text-xs">

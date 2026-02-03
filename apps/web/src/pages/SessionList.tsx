@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Clock, MonitorX, RefreshCw, Search } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useMemo, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -27,11 +27,13 @@ import {
 } from "@/lib/session-format";
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
+import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import { useSessions } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import { LogModal } from "./SessionDetail/components/LogModal";
 import { QuickPanel } from "./SessionDetail/components/QuickPanel";
+import { SessionSidebar } from "./SessionDetail/components/SessionSidebar";
 import { useSessionLogs } from "./SessionDetail/hooks/useSessionLogs";
 
 const formatRepoLabel = (value: string | null) => {
@@ -54,6 +56,7 @@ export const SessionListPage = () => {
   const nowMs = useNowMs();
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
+  const { sidebarWidth, handlePointerDown } = useSidebarWidth();
 
   const filtered = useMemo(() => {
     return sessions.filter((session) => {
@@ -101,7 +104,29 @@ export const SessionListPage = () => {
 
   return (
     <>
-      <div className="animate-fade-in-up mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 pb-10 pt-6">
+      <div
+        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        <SessionSidebar
+          sessionGroups={quickPanelGroups}
+          nowMs={nowMs}
+          currentPaneId={null}
+          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-[32px] border-r"
+        />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
+          onPointerDown={handlePointerDown}
+        />
+      </div>
+
+      <div
+        className="animate-fade-in-up w-full px-4 pb-10 pt-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      >
         <div className="flex items-center justify-between gap-3">
           <div />
           <ThemeToggle />
@@ -153,129 +178,138 @@ export const SessionListPage = () => {
         </header>
 
         <div className="flex flex-col gap-6">
-          {sessions.length === 0 && (
-            <EmptyCard
-              icon={<MonitorX className="text-latte-overlay1 h-10 w-10" />}
-              title="No Active Sessions"
-              description="Start a tmux session with Codex or Claude Code to see it here. Sessions will appear automatically when detected."
-              className="py-16"
-              iconWrapperClassName="bg-latte-surface1/50 h-20 w-20"
-              titleClassName="text-xl"
-              descriptionClassName="max-w-sm"
-              action={
-                <Button variant="ghost" size="sm" onClick={refreshSessions} className="mt-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Check Again
-                </Button>
-              }
-            />
-          )}
-          {sessions.length > 0 && groups.length === 0 && (
-            <EmptyCard
-              icon={<Search className="text-latte-overlay1 h-8 w-8" />}
-              title="No Matching Sessions"
-              description="No sessions match the selected filter. Try selecting a different status."
-              className="py-12"
-              iconWrapperClassName="bg-latte-surface1/50 h-16 w-16"
-              titleClassName="text-lg"
-              action={
-                <Button variant="ghost" size="sm" onClick={() => setFilter("ALL")} className="mt-2">
-                  Show All Sessions
-                </Button>
-              }
-            />
-          )}
-          {groups.map((group) => {
-            const groupTone = getLastInputTone(group.lastInputAt, nowMs);
-            return (
-              <GlowCard key={group.repoRoot ?? "no-repo"}>
-                <GlassPanel>
-                  <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.4em]">
-                    Repository
-                  </p>
-                  <p className="text-latte-text mt-1 text-base font-semibold">
-                    {formatRepoLabel(group.repoRoot)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                    <TagPill tone="neutral">{group.sessions.length} sessions</TagPill>
-                    <LastInputPill
-                      tone={groupTone}
-                      label={<Clock className="h-3 w-3" />}
-                      srLabel="Latest input"
-                      value={formatRelativeTime(group.lastInputAt, nowMs)}
-                      size="md"
-                      showDot={false}
-                    />
-                  </div>
-                </GlassPanel>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {group.sessions.map((session) => {
-                    const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
-                    return (
-                      <Link
-                        key={session.paneId}
-                        to="/sessions/$paneId"
-                        params={{ paneId: session.paneId }}
-                        className="group"
-                      >
-                        <Card interactive className="p-6">
-                          <div className="flex flex-col gap-2">
-                            <Toolbar className="gap-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge tone={stateTone(session.state)}>{session.state}</Badge>
-                                <Badge tone={agentToneFor(session.agent)}>
-                                  {agentLabelFor(session.agent)}
-                                </Badge>
-                                <LastInputPill
-                                  tone={sessionTone}
-                                  label={<Clock className="h-3 w-3" />}
-                                  srLabel="Last input"
-                                  value={formatRelativeTime(session.lastInputAt, nowMs)}
-                                  size="sm"
-                                  showDot={false}
-                                />
-                              </div>
-                              {session.pipeConflict && (
-                                <TagPill tone="danger">Pipe conflict</TagPill>
+          <div className="flex min-w-0 flex-1 flex-col gap-6">
+            {sessions.length === 0 && (
+              <EmptyCard
+                icon={<MonitorX className="text-latte-overlay1 h-10 w-10" />}
+                title="No Active Sessions"
+                description="Start a tmux session with Codex or Claude Code to see it here. Sessions will appear automatically when detected."
+                className="py-16"
+                iconWrapperClassName="bg-latte-surface1/50 h-20 w-20"
+                titleClassName="text-xl"
+                descriptionClassName="max-w-sm"
+                action={
+                  <Button variant="ghost" size="sm" onClick={refreshSessions} className="mt-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Check Again
+                  </Button>
+                }
+              />
+            )}
+            {sessions.length > 0 && groups.length === 0 && (
+              <EmptyCard
+                icon={<Search className="text-latte-overlay1 h-8 w-8" />}
+                title="No Matching Sessions"
+                description="No sessions match the selected filter. Try selecting a different status."
+                className="py-12"
+                iconWrapperClassName="bg-latte-surface1/50 h-16 w-16"
+                titleClassName="text-lg"
+                action={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilter("ALL")}
+                    className="mt-2"
+                  >
+                    Show All Sessions
+                  </Button>
+                }
+              />
+            )}
+            {groups.map((group) => {
+              const groupTone = getLastInputTone(group.lastInputAt, nowMs);
+              return (
+                <GlowCard key={group.repoRoot ?? "no-repo"}>
+                  <GlassPanel>
+                    <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.4em]">
+                      Repository
+                    </p>
+                    <p className="text-latte-text mt-1 text-base font-semibold">
+                      {formatRepoLabel(group.repoRoot)}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <TagPill tone="neutral">{group.sessions.length} sessions</TagPill>
+                      <LastInputPill
+                        tone={groupTone}
+                        label={<Clock className="h-3 w-3" />}
+                        srLabel="Latest input"
+                        value={formatRelativeTime(group.lastInputAt, nowMs)}
+                        size="md"
+                        showDot={false}
+                      />
+                    </div>
+                  </GlassPanel>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                    {group.sessions.map((session) => {
+                      const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
+                      return (
+                        <Link
+                          key={session.paneId}
+                          to="/sessions/$paneId"
+                          params={{ paneId: session.paneId }}
+                          className="group"
+                        >
+                          <Card interactive className="p-6">
+                            <div className="flex flex-col gap-2">
+                              <Toolbar className="gap-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge tone={stateTone(session.state)}>{session.state}</Badge>
+                                  <Badge tone={agentToneFor(session.agent)}>
+                                    {agentLabelFor(session.agent)}
+                                  </Badge>
+                                  <LastInputPill
+                                    tone={sessionTone}
+                                    label={<Clock className="h-3 w-3" />}
+                                    srLabel="Last input"
+                                    value={formatRelativeTime(session.lastInputAt, nowMs)}
+                                    size="sm"
+                                    showDot={false}
+                                  />
+                                </div>
+                                {session.pipeConflict && (
+                                  <TagPill tone="danger">Pipe conflict</TagPill>
+                                )}
+                              </Toolbar>
+                            </div>
+                            <div className="mt-4 space-y-3">
+                              <h3 className="font-display text-latte-text text-lg">
+                                {session.customTitle ?? session.title ?? session.sessionName}
+                              </h3>
+                              <p className="text-latte-subtext0 text-sm">
+                                {formatPath(session.currentPath)}
+                              </p>
+                              {session.lastMessage && (
+                                <p className="text-latte-overlay1 text-xs">{session.lastMessage}</p>
                               )}
-                            </Toolbar>
-                          </div>
-                          <div className="mt-4 space-y-3">
-                            <h3 className="font-display text-latte-text text-lg">
-                              {session.customTitle ?? session.title ?? session.sessionName}
-                            </h3>
-                            <p className="text-latte-subtext0 text-sm">
-                              {formatPath(session.currentPath)}
-                            </p>
-                            {session.lastMessage && (
-                              <p className="text-latte-overlay1 text-xs">{session.lastMessage}</p>
-                            )}
-                          </div>
-                          <div className="text-latte-overlay1 mt-4 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                            <TagPill tone="meta">Session {session.sessionName}</TagPill>
-                            <TagPill tone="meta">Window {session.windowIndex}</TagPill>
-                            <TagPill tone="meta">Pane {session.paneId}</TagPill>
-                          </div>
-                        </Card>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </GlowCard>
-            );
-          })}
+                            </div>
+                            <div className="text-latte-overlay1 mt-4 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                              <TagPill tone="meta">Session {session.sessionName}</TagPill>
+                              <TagPill tone="meta">Window {session.windowIndex}</TagPill>
+                              <TagPill tone="meta">Pane {session.paneId}</TagPill>
+                            </div>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </GlowCard>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <QuickPanel
-        open={quickPanelOpen}
-        sessionGroups={quickPanelGroups}
-        nowMs={nowMs}
-        currentPaneId={null}
-        onOpenLogModal={openLogModal}
-        onClose={closeQuickPanel}
-        onToggle={toggleQuickPanel}
-      />
+      <div className="md:hidden">
+        <QuickPanel
+          open={quickPanelOpen}
+          sessionGroups={quickPanelGroups}
+          nowMs={nowMs}
+          currentPaneId={null}
+          onOpenLogModal={openLogModal}
+          onClose={closeQuickPanel}
+          onToggle={toggleQuickPanel}
+        />
+      </div>
 
       <LogModal
         open={logModalOpen}

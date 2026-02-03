@@ -63,6 +63,34 @@ describe("ControlsPanel", () => {
     expect(onTouchSession).toHaveBeenCalled();
   });
 
+  it("sends prompt on ctrl/meta enter", () => {
+    const onSendText = vi.fn();
+    render(
+      <ControlsPanel
+        readOnly={false}
+        connected
+        textInputRef={{ current: null }}
+        onSendText={onSendText}
+        autoEnter
+        onToggleAutoEnter={vi.fn()}
+        controlsOpen={false}
+        onToggleControls={vi.fn()}
+        shiftHeld={false}
+        onToggleShift={vi.fn()}
+        ctrlHeld={false}
+        onToggleCtrl={vi.fn()}
+        onSendKey={vi.fn()}
+        onTouchSession={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…");
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
+
+    expect(onSendText).toHaveBeenCalledTimes(2);
+  });
+
   it("sends keys when controls are open", () => {
     const onSendKey = vi.fn();
     const onToggleShift = vi.fn();

@@ -63,89 +63,87 @@ export const SessionHeader = ({
         <ThemeToggle />
       </div>
       <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-2xl border p-4 backdrop-blur">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {titleEditing ? (
-                <input
-                  type="text"
-                  value={titleDraft}
-                  onChange={(event) => {
-                    onTitleDraftChange(event.target.value);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void onTitleSave();
-                    }
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      onCloseTitleEditor();
-                    }
-                  }}
-                  onBlur={() => {
-                    if (titleSaving) return;
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {titleEditing ? (
+              <input
+                type="text"
+                value={titleDraft}
+                onChange={(event) => {
+                  onTitleDraftChange(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void onTitleSave();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
                     onCloseTitleEditor();
-                  }}
-                  placeholder={sessionAutoTitle || "Untitled session"}
-                  maxLength={80}
-                  enterKeyHint="done"
-                  disabled={titleSaving}
-                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-w-[180px] flex-1 rounded-2xl border px-3 py-1.5 text-xl shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Custom session title"
-                  autoFocus
-                />
-              ) : (
-                <TextButton
-                  type="button"
-                  onClick={onOpenTitleEditor}
-                  disabled={readOnly}
-                  variant="title"
-                  className={`transition ${
-                    readOnly ? "cursor-default" : "hover:text-latte-lavender cursor-text"
-                  } disabled:opacity-70`}
-                  aria-label="Edit session title"
-                >
-                  {sessionDisplayTitle}
-                </TextButton>
-              )}
-              {sessionCustomTitle && !readOnly && !titleEditing && (
-                <IconButton
-                  type="button"
-                  onClick={() => void onTitleClear()}
-                  disabled={titleSaving}
-                  variant="dangerOutline"
-                  size="xs"
-                  aria-label="Clear custom title"
-                  title="Clear custom title"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </IconButton>
-              )}
-            </div>
-            <div className="space-y-4">
-              <p className="text-latte-subtext0 text-sm">{formatPath(session.currentPath)}</p>
-            </div>
-            {titleError && <p className="text-latte-red text-xs">{titleError}</p>}
-          </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <Badge tone={stateTone(session.state)}>{session.state}</Badge>
-              <Badge tone={agentTone}>{agentLabel}</Badge>
-              <LastInputPill
-                tone={lastInputTone}
-                label={<Clock className="h-3 w-3" />}
-                srLabel="Last input"
-                value={formatRelativeTime(session.lastInputAt, nowMs)}
-                size="sm"
-                showDot={false}
+                  }
+                }}
+                onBlur={() => {
+                  if (titleSaving) return;
+                  onCloseTitleEditor();
+                }}
+                placeholder={sessionAutoTitle || "Untitled session"}
+                maxLength={80}
+                enterKeyHint="done"
+                disabled={titleSaving}
+                className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-w-[180px] flex-1 rounded-2xl border px-3 py-1.5 text-xl shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Custom session title"
+                autoFocus
               />
-            </div>
-            <div className="text-latte-overlay1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-              <TagPill tone="meta">Session {session.sessionName}</TagPill>
-              <TagPill tone="meta">Window {session.windowIndex}</TagPill>
-              <TagPill tone="meta">Pane {session.paneId}</TagPill>
-            </div>
+            ) : (
+              <TextButton
+                type="button"
+                onClick={onOpenTitleEditor}
+                disabled={readOnly}
+                variant="title"
+                className={`transition ${
+                  readOnly
+                    ? "cursor-default"
+                    : "hover:text-latte-lavender cursor-default hover:cursor-pointer"
+                } disabled:opacity-70`}
+                aria-label="Edit session title"
+              >
+                {sessionDisplayTitle}
+              </TextButton>
+            )}
+            {sessionCustomTitle && !readOnly && !titleEditing && (
+              <IconButton
+                type="button"
+                onClick={() => void onTitleClear()}
+                disabled={titleSaving}
+                variant="dangerOutline"
+                size="xs"
+                aria-label="Clear custom title"
+                title="Clear custom title"
+              >
+                <X className="h-3.5 w-3.5" />
+              </IconButton>
+            )}
+            <span className="text-latte-subtext0 max-w-full truncate text-xs sm:max-w-[360px] sm:text-sm">
+              {formatPath(session.currentPath)}
+            </span>
+          </div>
+          {titleError && <p className="text-latte-red text-xs">{titleError}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={stateTone(session.state)}>{session.state}</Badge>
+            <Badge tone={agentTone}>{agentLabel}</Badge>
+            <LastInputPill
+              tone={lastInputTone}
+              label={<Clock className="h-3 w-3" />}
+              srLabel="Last input"
+              value={formatRelativeTime(session.lastInputAt, nowMs)}
+              size="sm"
+              showDot={false}
+            />
+          </div>
+          <div className="text-latte-overlay1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+            <TagPill tone="meta">Session {session.sessionName}</TagPill>
+            <TagPill tone="meta">Window {session.windowIndex}</TagPill>
+            <TagPill tone="meta">Pane {session.paneId}</TagPill>
           </div>
         </div>
         {session.pipeConflict && (

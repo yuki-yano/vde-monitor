@@ -218,7 +218,12 @@ export const DiffSection = memo(
                       <TagPill tone="status" className={`${diffStatusClass(statusLabel)} shrink-0`}>
                         {statusLabel}
                       </TagPill>
-                      <FilePathLabel path={file.path} size="sm" tailSegments={3} />
+                      <FilePathLabel
+                        path={file.path}
+                        size="sm"
+                        tailSegments={3}
+                        className="font-mono"
+                      />
                     </div>
                     <div className="flex items-center gap-3 text-xs">
                       <span className="text-latte-green">+{additionsLabel}</span>
