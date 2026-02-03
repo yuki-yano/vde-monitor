@@ -16,6 +16,7 @@ type HarnessProps = {
   enabled?: boolean;
   hideDataIndex?: boolean;
   isUserScrollingOverride?: boolean;
+  onUserScrollStateChange?: (value: boolean) => void;
   onReady: (control: Control) => void;
   children?: ReactNode;
 };
@@ -37,6 +38,7 @@ const TestHarness = ({
   enabled = true,
   hideDataIndex = false,
   isUserScrollingOverride,
+  onUserScrollStateChange,
   onReady,
 }: HarnessProps) => {
   const { scrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
@@ -44,6 +46,7 @@ const TestHarness = ({
     isAtBottom,
     enabled,
     isUserScrolling: isUserScrollingOverride,
+    onUserScrollStateChange,
   });
 
   useEffect(() => {
@@ -259,6 +262,35 @@ describe("useStableVirtuosoScroll", () => {
     );
 
     expect(getControl().scroller.scrollTop).toBe(40);
+    rectSpy.mockRestore();
+  });
+
+  it("does not treat programmatic scroll as user scroll", () => {
+    const rectSpy = mockRects();
+    let control: Control | null = null;
+    const onUserScrollStateChange = vi.fn();
+    const getControl = () => {
+      if (!control) throw new Error("control not ready");
+      return control;
+    };
+
+    render(
+      <TestHarness
+        items={["A", "B", "C"]}
+        isAtBottom={false}
+        onUserScrollStateChange={onUserScrollStateChange}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    const event = new Event("scroll");
+    act(() => {
+      getControl().scroller.dispatchEvent(event);
+    });
+
+    expect(onUserScrollStateChange).not.toHaveBeenCalled();
     rectSpy.mockRestore();
   });
 });
