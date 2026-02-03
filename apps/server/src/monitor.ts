@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 
 import { estimateState } from "@vde-monitor/agents";
 import {
@@ -22,13 +20,14 @@ import {
 } from "@vde-monitor/tmux";
 
 import { resolveActivityTimestamp } from "./activity-resolver.js";
-import { resolveRepoRoot as resolveRepoRootShared } from "./git-utils.js";
 import {
   createJsonlTailer,
   createLogActivityPoller,
   ensureDir,
   rotateLogIfNeeded,
 } from "./logs.js";
+import { resolvePaneAgent } from "./monitor/agent-resolver.js";
+import { resolveRepoRootCached } from "./monitor/repo-root.js";
 import { createSessionRegistry } from "./session-registry.js";
 import { restoreSessions, saveState } from "./state-store.js";
 
@@ -38,59 +37,6 @@ type HookEventContext = {
 };
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
-
-const execFileAsync = promisify(execFile);
-
-const buildAgent = (hint: string): "codex" | "claude" | "unknown" => {
-  const normalized = hint.toLowerCase();
-  if (normalized.includes("codex")) return "codex";
-  if (normalized.includes("claude")) return "claude";
-  return "unknown";
-};
-
-const mergeHints = (...parts: Array<string | null | undefined>) =>
-  parts.filter((part) => Boolean(part && part.trim().length > 0)).join(" ");
-
-const editorCommandNames = new Set(["vim", "nvim", "vi", "gvim", "nvim-qt", "neovim"]);
-const agentHintPattern = /codex|claude/i;
-
-const isEditorCommand = (command: string | null | undefined) => {
-  if (!command) return false;
-  const trimmed = command.trim();
-  if (!trimmed) return false;
-  const binary = trimmed.split(/\s+/)[0] ?? "";
-  if (!binary) return false;
-  return editorCommandNames.has(path.basename(binary));
-};
-
-const editorCommandHasAgentArg = (command: string | null | undefined) => {
-  if (!command) return false;
-  const trimmed = command.trim();
-  if (!trimmed) return false;
-  const tokens = trimmed.split(/\s+/);
-  const binary = tokens.shift() ?? "";
-  if (!editorCommandNames.has(path.basename(binary))) {
-    return false;
-  }
-  const rest = tokens.join(" ");
-  return rest.length > 0 && agentHintPattern.test(rest);
-};
-
-const hasAgentHint = (value: string | null | undefined) =>
-  Boolean(value && agentHintPattern.test(value));
-
-const processCacheTtlMs = 5000;
-const processCommandCache = new Map<number, { command: string; at: number }>();
-const ttyAgentCache = new Map<string, { agent: "codex" | "claude" | "unknown"; at: number }>();
-const repoRootCacheTtlMs = 10000;
-const repoRootCache = new Map<string, { repoRoot: string | null; at: number }>();
-const processSnapshotCache = {
-  at: 0,
-  byPid: new Map<number, { pid: number; ppid: number; command: string }>(),
-  children: new Map<number, number[]>(),
-};
-
-const normalizeTty = (tty: string) => tty.replace(/^\/dev\//, "");
 
 const fingerprintLineCount = 20;
 
@@ -132,150 +78,6 @@ const hostCandidates = (() => {
   const short = host.split(".")[0] ?? host;
   return new Set([host, short, `${host}.local`, `${short}.local`]);
 })();
-
-const resolveRepoRoot = async (cwd: string | null) => {
-  if (!cwd) return null;
-  return resolveRepoRootShared(cwd, {
-    timeoutMs: 2000,
-    maxBuffer: 2_000_000,
-    allowStdoutOnError: false,
-  });
-};
-
-const resolveRepoRootCached = async (cwd: string | null) => {
-  if (!cwd) return null;
-  const normalized = cwd.replace(/\/+$/, "");
-  if (!normalized) return null;
-  const nowMs = Date.now();
-  const cached = repoRootCache.get(normalized);
-  if (cached && nowMs - cached.at < repoRootCacheTtlMs) {
-    return cached.repoRoot;
-  }
-  const repoRoot = await resolveRepoRoot(normalized);
-  repoRootCache.set(normalized, { repoRoot, at: nowMs });
-  return repoRoot;
-};
-
-const getProcessCommand = async (pid: number | null) => {
-  if (!pid) {
-    return null;
-  }
-  const cached = processCommandCache.get(pid);
-  const nowMs = Date.now();
-  if (cached && nowMs - cached.at < processCacheTtlMs) {
-    return cached.command;
-  }
-  try {
-    const result = await execFileAsync("ps", ["-p", String(pid), "-o", "command="], {
-      encoding: "utf8",
-      timeout: 1000,
-    });
-    const command = (result.stdout ?? "").trim();
-    if (command.length === 0) {
-      return null;
-    }
-    processCommandCache.set(pid, { command, at: nowMs });
-    return command;
-  } catch {
-    return null;
-  }
-};
-
-const loadProcessSnapshot = async () => {
-  const nowMs = Date.now();
-  if (nowMs - processSnapshotCache.at < processCacheTtlMs) {
-    return processSnapshotCache;
-  }
-  try {
-    const result = await execFileAsync("ps", ["-ax", "-o", "pid=,ppid=,command="], {
-      encoding: "utf8",
-      timeout: 2000,
-    });
-    const byPid = new Map<number, { pid: number; ppid: number; command: string }>();
-    const children = new Map<number, number[]>();
-    const lines = (result.stdout ?? "").split("\n").filter((line) => line.trim().length > 0);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      const match = trimmed.match(/^(\d+)\s+(\d+)\s+(.*)$/);
-      if (!match) {
-        continue;
-      }
-      const pid = Number.parseInt(match[1] ?? "", 10);
-      const ppid = Number.parseInt(match[2] ?? "", 10);
-      if (Number.isNaN(pid) || Number.isNaN(ppid)) {
-        continue;
-      }
-      const command = match[3] ?? "";
-      byPid.set(pid, { pid, ppid, command });
-      const list = children.get(ppid) ?? [];
-      list.push(pid);
-      children.set(ppid, list);
-    }
-    processSnapshotCache.at = nowMs;
-    processSnapshotCache.byPid = byPid;
-    processSnapshotCache.children = children;
-  } catch {
-    // ignore snapshot failures
-  }
-  return processSnapshotCache;
-};
-
-const findAgentFromPidTree = async (pid: number | null) => {
-  if (!pid) {
-    return "unknown" as const;
-  }
-  const snapshot = await loadProcessSnapshot();
-  const visited = new Set<number>();
-  const stack = [pid];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current || visited.has(current)) {
-      continue;
-    }
-    visited.add(current);
-    const entry = snapshot.byPid.get(current);
-    if (entry) {
-      const agent = buildAgent(entry.command);
-      if (agent !== "unknown") {
-        return agent;
-      }
-    }
-    const next = snapshot.children.get(current) ?? [];
-    next.forEach((child) => {
-      if (!visited.has(child)) {
-        stack.push(child);
-      }
-    });
-  }
-  return "unknown" as const;
-};
-
-const getAgentFromTty = async (tty: string | null) => {
-  if (!tty) {
-    return "unknown" as const;
-  }
-  const normalized = normalizeTty(tty);
-  const cached = ttyAgentCache.get(normalized);
-  const nowMs = Date.now();
-  if (cached && nowMs - cached.at < processCacheTtlMs) {
-    return cached.agent;
-  }
-  try {
-    const result = await execFileAsync("ps", ["-o", "command=", "-t", normalized], {
-      encoding: "utf8",
-      timeout: 1000,
-    });
-    const lines = (result.stdout ?? "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const agent = buildAgent(lines.join(" "));
-    ttyAgentCache.set(normalized, { agent, at: nowMs });
-    return agent;
-  } catch {
-    return "unknown" as const;
-  }
-};
 
 const deriveHookState = (hookEventName: string, notificationType?: string) => {
   if (hookEventName === "Notification" && notificationType === "permission_prompt") {
@@ -390,41 +192,14 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
         pane.pipeTagValue = fallback;
       }
 
-      const baseHint = mergeHints(pane.currentCommand, pane.paneStartCommand, pane.paneTitle);
-      const isEditorPane =
-        isEditorCommand(pane.currentCommand) || isEditorCommand(pane.paneStartCommand);
-      let processCommand: string | null = null;
-      let ignoreEditor = false;
-      if (isEditorPane) {
-        if (editorCommandHasAgentArg(pane.paneStartCommand) || hasAgentHint(pane.paneTitle)) {
-          ignoreEditor = true;
-        } else {
-          processCommand = await getProcessCommand(pane.panePid);
-          if (editorCommandHasAgentArg(processCommand)) {
-            ignoreEditor = true;
-          }
-        }
-      }
-      if (ignoreEditor) {
-        continue;
-      }
-
-      let agent = buildAgent(baseHint);
-      if (agent === "unknown") {
-        if (!processCommand) {
-          processCommand = await getProcessCommand(pane.panePid);
-        }
-        if (processCommand) {
-          agent = buildAgent(processCommand);
-        }
-      }
-      if (agent === "unknown") {
-        agent = await findAgentFromPidTree(pane.panePid);
-      }
-      if (agent === "unknown") {
-        agent = await getAgentFromTty(pane.paneTty);
-      }
-      const monitored = agent !== "unknown";
+      const { agent, ignore } = await resolvePaneAgent({
+        currentCommand: pane.currentCommand,
+        paneStartCommand: pane.paneStartCommand,
+        paneTitle: pane.paneTitle,
+        panePid: pane.panePid,
+        paneTty: pane.paneTty,
+      });
+      const monitored = !ignore && agent !== "unknown";
 
       if (!monitored) {
         continue;
