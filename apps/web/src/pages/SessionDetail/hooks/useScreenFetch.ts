@@ -1,4 +1,5 @@
 import type { ScreenResponse } from "@vde-monitor/shared";
+import { useAtom } from "jotai";
 import {
   type Dispatch,
   type MutableRefObject,
@@ -7,14 +8,27 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState,
 } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { applyScreenDeltas } from "@/lib/screen-delta";
 import type { ScreenLoadingEvent, ScreenMode } from "@/lib/screen-loading";
 
+import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
+
+const normalizeScreenText = (text: string) => text.replace(/\r\n/g, "\n");
+
+const shouldUseFullResponse = (response: ScreenResponse) =>
+  response.full || response.screen !== undefined || !response.deltas;
+
+const buildScreenOptions = (mode: ScreenMode, cursor: string | null) => {
+  const options: { mode: ScreenMode; cursor?: string } = { mode };
+  if (mode === "text" && cursor) {
+    options.cursor = cursor;
+  }
+  return options;
+};
 
 type UseScreenFetchParams = {
   paneId: string;
@@ -60,10 +74,72 @@ export const useScreenFetch = ({
   dispatchScreenLoading,
   onModeLoaded,
 }: UseScreenFetchParams) => {
-  const [fallbackReason, setFallbackReason] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [fallbackReason, setFallbackReason] = useAtom(screenFallbackReasonAtom);
+  const [error, setError] = useAtom(screenErrorAtom);
   const refreshInFlightRef = useRef<null | { id: number; mode: ScreenMode }>(null);
   const refreshRequestIdRef = useRef(0);
+
+  const updateImageScreen = useCallback(
+    (nextImage: string | null) => {
+      if (imageRef.current !== nextImage || screenRef.current !== "") {
+        startTransition(() => {
+          setImageBase64(nextImage);
+          setScreen("");
+        });
+        imageRef.current = nextImage;
+        screenRef.current = "";
+        pendingScreenRef.current = null;
+      }
+    },
+    [imageRef, pendingScreenRef, screenRef, setImageBase64, setScreen],
+  );
+
+  const updateTextScreen = useCallback(
+    (
+      nextScreen: string,
+      nextLines: string[],
+      nextCursor: string | null,
+      suppressRender: boolean,
+    ) => {
+      screenLinesRef.current = nextLines;
+      cursorRef.current = nextCursor;
+      if (suppressRender) {
+        pendingScreenRef.current = nextScreen;
+        return;
+      }
+      if (screenRef.current !== nextScreen || imageRef.current !== null) {
+        startTransition(() => {
+          setScreen(nextScreen);
+          setImageBase64(null);
+        });
+        screenRef.current = nextScreen;
+        imageRef.current = null;
+        pendingScreenRef.current = null;
+      }
+    },
+    [cursorRef, imageRef, pendingScreenRef, screenLinesRef, screenRef, setImageBase64, setScreen],
+  );
+
+  const applyTextResponse = useCallback(
+    (response: ScreenResponse, suppressRender: boolean) => {
+      const nextCursor = response.cursor ?? null;
+      if (shouldUseFullResponse(response)) {
+        const nextScreen = response.screen ?? "";
+        const nextLines = normalizeScreenText(nextScreen).split("\n");
+        updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender);
+        return;
+      }
+      const applied = applyScreenDeltas(screenLinesRef.current, response.deltas ?? []);
+      if (!applied.ok) {
+        cursorRef.current = null;
+        return;
+      }
+      const nextLines = applied.lines;
+      const nextScreen = nextLines.join("\n");
+      updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender);
+    },
+    [cursorRef, screenLinesRef, updateTextScreen],
+  );
 
   const refreshScreen = useCallback(async () => {
     if (!paneId) return;
@@ -90,11 +166,7 @@ export const useScreenFetch = ({
     }
     refreshInFlightRef.current = { id: requestId, mode };
     try {
-      const options: { mode: ScreenMode; cursor?: string } = { mode };
-      if (mode === "text" && cursorRef.current) {
-        options.cursor = cursorRef.current;
-      }
-      const response = await requestScreen(paneId, options);
+      const response = await requestScreen(paneId, buildScreenOptions(mode, cursorRef.current));
       if (refreshInFlightRef.current?.id !== requestId) {
         return;
       }
@@ -105,57 +177,9 @@ export const useScreenFetch = ({
       setFallbackReason(response.fallbackReason ?? null);
       const suppressRender = mode === "text" && !isAtBottom && isUserScrollingRef.current;
       if (response.mode === "image") {
-        const nextImage = response.imageBase64 ?? null;
-        if (imageRef.current !== nextImage || screenRef.current !== "") {
-          startTransition(() => {
-            setImageBase64(nextImage);
-            setScreen("");
-          });
-          imageRef.current = nextImage;
-          screenRef.current = "";
-          pendingScreenRef.current = null;
-        }
+        updateImageScreen(response.imageBase64 ?? null);
       } else {
-        const nextCursor = response.cursor ?? null;
-        const shouldUseFull = response.full || response.screen !== undefined || !response.deltas;
-        if (shouldUseFull) {
-          const nextScreen = response.screen ?? "";
-          const nextLines = nextScreen.replace(/\r\n/g, "\n").split("\n");
-          screenLinesRef.current = nextLines;
-          cursorRef.current = nextCursor;
-          if (suppressRender) {
-            pendingScreenRef.current = nextScreen;
-          } else if (screenRef.current !== nextScreen || imageRef.current !== null) {
-            startTransition(() => {
-              setScreen(nextScreen);
-              setImageBase64(null);
-            });
-            screenRef.current = nextScreen;
-            imageRef.current = null;
-            pendingScreenRef.current = null;
-          }
-        } else {
-          const applied = applyScreenDeltas(screenLinesRef.current, response.deltas ?? []);
-          if (!applied.ok) {
-            cursorRef.current = null;
-            return;
-          }
-          const nextLines = applied.lines;
-          const nextScreen = nextLines.join("\n");
-          screenLinesRef.current = nextLines;
-          cursorRef.current = nextCursor;
-          if (suppressRender) {
-            pendingScreenRef.current = nextScreen;
-          } else if (screenRef.current !== nextScreen || imageRef.current !== null) {
-            startTransition(() => {
-              setScreen(nextScreen);
-              setImageBase64(null);
-            });
-            screenRef.current = nextScreen;
-            imageRef.current = null;
-            pendingScreenRef.current = null;
-          }
-        }
+        applyTextResponse(response, suppressRender);
       }
       onModeLoaded(mode);
     } catch (err) {
@@ -172,11 +196,11 @@ export const useScreenFetch = ({
       }
     }
   }, [
+    applyTextResponse,
     connected,
     connectionIssue,
     cursorRef,
     dispatchScreenLoading,
-    imageRef,
     isAtBottom,
     isUserScrollingRef,
     mode,
@@ -184,12 +208,10 @@ export const useScreenFetch = ({
     modeSwitchRef,
     onModeLoaded,
     paneId,
-    pendingScreenRef,
     requestScreen,
-    screenLinesRef,
-    screenRef,
-    setImageBase64,
-    setScreen,
+    setError,
+    setFallbackReason,
+    updateImageScreen,
   ]);
 
   useEffect(() => {
@@ -209,7 +231,7 @@ export const useScreenFetch = ({
     if (error === DISCONNECTED_MESSAGE) {
       setError(null);
     }
-  }, [connected, connectionIssue, dispatchScreenLoading, error, modeSwitchRef]);
+  }, [connected, connectionIssue, dispatchScreenLoading, error, modeSwitchRef, setError]);
 
   useEffect(() => {
     if (!paneId || !connected) {

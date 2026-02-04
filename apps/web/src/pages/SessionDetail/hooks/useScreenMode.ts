@@ -1,13 +1,9 @@
-import {
-  type Dispatch,
-  type MutableRefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useAtom } from "jotai";
+import { type Dispatch, type MutableRefObject, useCallback, useEffect, useRef } from "react";
 
 import type { ScreenLoadingEvent, ScreenMode } from "@/lib/screen-loading";
+
+import { screenModeAtom, screenModeLoadedAtom } from "../atoms/screenAtoms";
 
 type UseScreenModeParams = {
   connected: boolean;
@@ -28,8 +24,8 @@ export const useScreenMode = ({
   cursorRef,
   screenLinesRef,
 }: UseScreenModeParams) => {
-  const [mode, setMode] = useState<ScreenMode>("text");
-  const [modeLoaded, setModeLoaded] = useState(initialModeLoaded);
+  const [mode, setMode] = useAtom(screenModeAtom);
+  const [modeLoaded, setModeLoaded] = useAtom(screenModeLoadedAtom);
   const modeLoadedRef = useRef(modeLoaded);
 
   useEffect(() => {
@@ -38,20 +34,23 @@ export const useScreenMode = ({
 
   useEffect(() => {
     setModeLoaded(initialModeLoaded);
-  }, [paneId]);
+  }, [paneId, setModeLoaded]);
 
-  const markModeLoaded = useCallback((value: ScreenMode) => {
-    setModeLoaded((prev) => {
-      if (prev[value]) {
-        return prev;
-      }
-      return { ...prev, [value]: true };
-    });
-  }, []);
+  const markModeLoaded = useCallback(
+    (value: ScreenMode) => {
+      setModeLoaded((prev) => {
+        if (prev[value]) {
+          return prev;
+        }
+        return { ...prev, [value]: true };
+      });
+    },
+    [setModeLoaded],
+  );
 
   const resetModeLoaded = useCallback(() => {
     setModeLoaded(initialModeLoaded);
-  }, []);
+  }, [setModeLoaded]);
 
   const handleModeChange = useCallback(
     (value: ScreenMode) => {
@@ -68,7 +67,7 @@ export const useScreenMode = ({
       dispatchScreenLoading({ type: "start", mode: value });
       setMode(value);
     },
-    [connected, dispatchScreenLoading, mode, modeSwitchRef, cursorRef, screenLinesRef],
+    [connected, dispatchScreenLoading, mode, modeSwitchRef, cursorRef, screenLinesRef, setMode],
   );
 
   return {

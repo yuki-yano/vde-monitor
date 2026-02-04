@@ -9,12 +9,27 @@ type PointerDragOptions<T> = {
 
 export const usePointerDrag = <T>({ cursor, onMove, onEnd }: PointerDragOptions<T>) => {
   const dragContextRef = useRef<T | null>(null);
+  const onMoveRef = useRef(onMove);
+  const onEndRef = useRef(onEnd);
+  const cursorRef = useRef(cursor);
+
+  useEffect(() => {
+    onMoveRef.current = onMove;
+  }, [onMove]);
+
+  useEffect(() => {
+    onEndRef.current = onEnd;
+  }, [onEnd]);
+
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handlePointerMove = (event: PointerEvent) => {
       if (!dragContextRef.current) return;
-      onMove(event, dragContextRef.current);
+      onMoveRef.current(event, dragContextRef.current);
     };
 
     const stopDrag = () => {
@@ -23,7 +38,7 @@ export const usePointerDrag = <T>({ cursor, onMove, onEnd }: PointerDragOptions<
       dragContextRef.current = null;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
-      onEnd?.(context);
+      onEndRef.current?.(context);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -36,16 +51,13 @@ export const usePointerDrag = <T>({ cursor, onMove, onEnd }: PointerDragOptions<
       window.removeEventListener("pointercancel", stopDrag);
       stopDrag();
     };
-  }, [onEnd, onMove]);
+  }, []);
 
-  const startDrag = useCallback(
-    (event: ReactPointerEvent<HTMLElement>, context: T) => {
-      dragContextRef.current = context;
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = cursor ?? "col-resize";
-    },
-    [cursor],
-  );
+  const startDrag = useCallback((_event: ReactPointerEvent<HTMLElement>, context: T) => {
+    dragContextRef.current = context;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = cursorRef.current ?? "col-resize";
+  }, []);
 
   return { startDrag };
 };

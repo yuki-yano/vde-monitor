@@ -1,6 +1,7 @@
 import { type DiffFile, type DiffSummary } from "@vde-monitor/shared";
+import { useAtom } from "jotai";
 import { ChevronDown, ChevronUp, FileCheck, RefreshCw } from "lucide-react";
-import { memo, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo } from "react";
 
 import {
   Button,
@@ -10,7 +11,6 @@ import {
   FilePathLabel,
   InsetPanel,
   LoadingOverlay,
-  MonoBlock,
   PanelSection,
   RowButton,
   SectionHeader,
@@ -18,13 +18,17 @@ import {
 } from "@/components/ui";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
+import { diffExpandedAtom } from "../atoms/diffAtoms";
 import {
-  diffLineClass,
   diffStatusClass,
+  formatDiffCount,
+  formatDiffStatusLabel,
   formatPath,
   MAX_DIFF_LINES,
   PREVIEW_DIFF_LINES,
+  sumFileStats,
 } from "../sessionDetailUtils";
+import { DiffPatch } from "./DiffPatch";
 
 type DiffSectionState = {
   diffSummary: DiffSummary | null;
@@ -48,28 +52,8 @@ type DiffSectionProps = {
 export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
   const { diffSummary, diffError, diffLoading, diffFiles, diffOpen, diffLoadingFiles } = state;
   const { onRefresh, onToggle } = actions;
-  const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
-  const totals = useMemo(() => {
-    if (!diffSummary) return null;
-    if (diffSummary.files.length === 0) {
-      return { additions: 0, deletions: 0 };
-    }
-    let additions = 0;
-    let deletions = 0;
-    let hasTotals = false;
-    diffSummary.files.forEach((file) => {
-      if (typeof file.additions === "number") {
-        additions += file.additions;
-        hasTotals = true;
-      }
-      if (typeof file.deletions === "number") {
-        deletions += file.deletions;
-        hasTotals = true;
-      }
-    });
-    if (!hasTotals) return null;
-    return { additions, deletions };
-  }, [diffSummary]);
+  const [expandedDiffs, setExpandedDiffs] = useAtom(diffExpandedAtom);
+  const totals = useMemo(() => sumFileStats(diffSummary?.files), [diffSummary]);
 
   useEffect(() => {
     if (!diffSummary?.files.length) {
@@ -86,17 +70,20 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
       });
       return next;
     });
-  }, [diffSummary]);
+  }, [diffSummary, setExpandedDiffs]);
 
-  const handleExpandDiff = useCallback((path: string) => {
-    setExpandedDiffs((prev) => (prev[path] ? prev : { ...prev, [path]: true }));
-  }, []);
+  const handleExpandDiff = useCallback(
+    (path: string) => {
+      setExpandedDiffs((prev) => (prev[path] ? prev : { ...prev, [path]: true }));
+    },
+    [setExpandedDiffs],
+  );
 
   const renderedPatches = useMemo<
     Record<
       string,
       {
-        nodes: ReactNode;
+        lines: string[];
         truncated: boolean;
         totalLines: number;
         previewLines: number;
@@ -109,7 +96,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
     }
     const next: Record<
       string,
-      { nodes: ReactNode; truncated: boolean; totalLines: number; previewLines: number }
+      { lines: string[]; truncated: boolean; totalLines: number; previewLines: number }
     > = {};
     entries.forEach(([path, isOpen]) => {
       if (!isOpen) return;
@@ -120,14 +107,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
       const shouldTruncate = totalLines > MAX_DIFF_LINES && !expandedDiffs[path];
       const visibleLines = shouldTruncate ? lines.slice(0, PREVIEW_DIFF_LINES) : lines;
       next[path] = {
-        nodes: visibleLines.map((line, index) => (
-          <div
-            key={`${index}-${line.slice(0, 12)}`}
-            className={`${diffLineClass(line)} -mx-2 block w-full rounded-sm px-2`}
-          >
-            {line || " "}
-          </div>
-        )),
+        lines: visibleLines,
         truncated: shouldTruncate,
         totalLines,
         previewLines: visibleLines.length,
@@ -203,15 +183,9 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
             const loadingFile = Boolean(diffLoadingFiles[file.path]);
             const fileData = diffFiles[file.path];
             const renderedPatch = renderedPatches[file.path];
-            const statusLabel = file.status === "?" ? "A" : file.status;
-            const additionsLabel =
-              file.additions === null || typeof file.additions === "undefined"
-                ? "—"
-                : String(file.additions);
-            const deletionsLabel =
-              file.deletions === null || typeof file.deletions === "undefined"
-                ? "—"
-                : String(file.deletions);
+            const statusLabel = formatDiffStatusLabel(file.status);
+            const additionsLabel = formatDiffCount(file.additions);
+            const deletionsLabel = formatDiffCount(file.deletions);
             return (
               <InsetPanel key={`${file.path}-${file.status}`}>
                 <RowButton type="button" onClick={() => onToggle(file.path)}>
@@ -245,7 +219,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
                     )}
                     {!loadingFile && !fileData?.binary && fileData?.patch && (
                       <div className="custom-scrollbar max-h-[360px] overflow-auto">
-                        <MonoBlock>{renderedPatch?.nodes}</MonoBlock>
+                        {renderedPatch && <DiffPatch lines={renderedPatch.lines} />}
                         {renderedPatch?.truncated && (
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             <span className="text-latte-subtext0">

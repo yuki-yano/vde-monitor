@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "hono": "^4.11.4",
     "lucide-react": "^0.544.0",
+    "jotai": "^2.12.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-use-websocket": "^4.13.0",

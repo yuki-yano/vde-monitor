@@ -8,7 +8,7 @@ import {
   GitCommitHorizontal,
   RefreshCw,
 } from "lucide-react";
-import { memo, type ReactNode, useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 
 import {
   Button,
@@ -19,14 +19,21 @@ import {
   FilePathLabel,
   InsetPanel,
   LoadingOverlay,
-  MonoBlock,
   PanelSection,
   SectionHeader,
   TagPill,
 } from "@/components/ui";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
-import { diffLineClass, diffStatusClass, formatPath, formatTimestamp } from "../sessionDetailUtils";
+import {
+  diffStatusClass,
+  formatDiffCount,
+  formatDiffStatusLabel,
+  formatPath,
+  formatTimestamp,
+  sumFileStats,
+} from "../sessionDetailUtils";
+import { DiffPatch } from "./DiffPatch";
 
 type CommitSectionState = {
   commitLog: CommitLog | null;
@@ -64,7 +71,7 @@ type CommitFileRowProps = {
   deletions: string;
   loadingFile: boolean;
   fileDetail?: CommitFileDiff;
-  renderedPatch?: ReactNode;
+  renderedPatch?: string[];
   onToggleCommitFile: (hash: string, path: string) => void;
 };
 
@@ -81,7 +88,7 @@ const CommitFileRow = memo(
     onToggleCommitFile,
   }: CommitFileRowProps) => {
     const labelContainerRef = useRef<HTMLDivElement | null>(null);
-    const statusLabel = file.status === "?" ? "A" : file.status;
+    const statusLabel = formatDiffStatusLabel(file.status);
 
     return (
       <div key={`${file.path}-${file.status}`} className="flex flex-col gap-2">
@@ -125,7 +132,7 @@ const CommitFileRow = memo(
             )}
             {!loadingFile && !fileDetail?.binary && fileDetail?.patch && (
               <div className="custom-scrollbar max-h-[240px] overflow-auto">
-                <MonoBlock>{renderedPatch}</MonoBlock>
+                {renderedPatch && <DiffPatch lines={renderedPatch} />}
                 {fileDetail.truncated && (
                   <p className="text-latte-subtext0 mt-2 text-xs">Diff truncated.</p>
                 )}
@@ -159,24 +166,17 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
     copiedHash,
   } = state;
   const { onRefresh, onLoadMore, onToggleCommit, onToggleCommitFile, onCopyHash } = actions;
-  const renderedPatches = useMemo<Record<string, ReactNode>>(() => {
+  const renderedPatches = useMemo<Record<string, string[]>>(() => {
     const entries = Object.entries(commitFileOpen);
     if (entries.length === 0) {
       return {};
     }
-    const next: Record<string, ReactNode> = {};
+    const next: Record<string, string[]> = {};
     entries.forEach(([key, isOpen]) => {
       if (!isOpen) return;
       const file = commitFileDetails[key];
       if (!file?.patch) return;
-      next[key] = file.patch.split("\n").map((line, index) => (
-        <div
-          key={`${index}-${line.slice(0, 12)}`}
-          className={`${diffLineClass(line)} -mx-2 block w-full rounded-sm px-2`}
-        >
-          {line || " "}
-        </div>
-      ));
+      next[key] = file.patch.split("\n");
     });
     return next;
   }, [commitFileDetails, commitFileOpen]);
@@ -242,27 +242,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
             const detail = commitDetails[commit.hash];
             const loadingDetail = Boolean(commitLoadingDetails[commit.hash]);
             const commitBody = detail?.body ?? commit.body;
-            const totals = (() => {
-              if (!detail?.files) return null;
-              if (detail.files.length === 0) {
-                return { additions: 0, deletions: 0 };
-              }
-              let additions = 0;
-              let deletions = 0;
-              let hasTotals = false;
-              detail.files.forEach((file) => {
-                if (typeof file.additions === "number") {
-                  additions += file.additions;
-                  hasTotals = true;
-                }
-                if (typeof file.deletions === "number") {
-                  deletions += file.deletions;
-                  hasTotals = true;
-                }
-              });
-              if (!hasTotals) return null;
-              return { additions, deletions };
-            })();
+            const totals = sumFileStats(detail?.files);
             return (
               <InsetPanel key={commit.hash}>
                 <div
@@ -327,14 +307,8 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
                           const fileOpen = Boolean(commitFileOpen[fileKey]);
                           const fileDetail = commitFileDetails[fileKey];
                           const loadingFile = Boolean(commitFileLoading[fileKey]);
-                          const additions =
-                            file.additions === null || typeof file.additions === "undefined"
-                              ? "—"
-                              : String(file.additions);
-                          const deletions =
-                            file.deletions === null || typeof file.deletions === "undefined"
-                              ? "—"
-                              : String(file.deletions);
+                          const additions = formatDiffCount(file.additions);
+                          const deletions = formatDiffCount(file.deletions);
                           const renderedPatch = renderedPatches[fileKey];
                           return (
                             <CommitFileRow

@@ -1,25 +1,39 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { commitStateAtom, initialCommitState } from "../atoms/commitAtoms";
 import { createCommitDetail, createCommitFileDiff, createCommitLog } from "../test-helpers";
 import { useSessionCommits } from "./useSessionCommits";
 
 describe("useSessionCommits", () => {
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(commitStateAtom, initialCommitState);
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   it("loads commit log on mount", async () => {
     const commitLog = createCommitLog();
     const requestCommitLog = vi.fn().mockResolvedValue(commitLog);
     const requestCommitDetail = vi.fn().mockResolvedValue(createCommitDetail());
     const requestCommitFile = vi.fn().mockResolvedValue(createCommitFileDiff());
 
-    const { result } = renderHook(() =>
-      useSessionCommits({
-        paneId: "pane-1",
-        connected: true,
-        requestCommitLog,
-        requestCommitDetail,
-        requestCommitFile,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionCommits({
+          paneId: "pane-1",
+          connected: true,
+          requestCommitLog,
+          requestCommitDetail,
+          requestCommitFile,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -39,14 +53,17 @@ describe("useSessionCommits", () => {
     const requestCommitDetail = vi.fn().mockResolvedValue(createCommitDetail());
     const requestCommitFile = vi.fn().mockResolvedValue(createCommitFileDiff());
 
-    const { result } = renderHook(() =>
-      useSessionCommits({
-        paneId: "pane-1",
-        connected: true,
-        requestCommitLog,
-        requestCommitDetail,
-        requestCommitFile,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionCommits({
+          paneId: "pane-1",
+          connected: true,
+          requestCommitLog,
+          requestCommitDetail,
+          requestCommitFile,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -74,14 +91,17 @@ describe("useSessionCommits", () => {
       configurable: true,
     });
 
-    const { result } = renderHook(() =>
-      useSessionCommits({
-        paneId: "pane-1",
-        connected: true,
-        requestCommitLog,
-        requestCommitDetail,
-        requestCommitFile,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionCommits({
+          paneId: "pane-1",
+          connected: true,
+          requestCommitLog,
+          requestCommitDetail,
+          requestCommitFile,
+        }),
+      { wrapper },
     );
 
     await act(async () => {

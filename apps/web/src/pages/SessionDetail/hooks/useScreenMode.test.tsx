@@ -1,25 +1,40 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { screenModeAtom, screenModeLoadedAtom } from "../atoms/screenAtoms";
 import { useScreenMode } from "./useScreenMode";
 
 describe("useScreenMode", () => {
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(screenModeAtom, "text");
+    store.set(screenModeLoadedAtom, { text: false, image: false });
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   it("starts loading and updates refs when switching modes while connected", () => {
     const dispatchScreenLoading = vi.fn();
     const modeSwitchRef = { current: null as "text" | "image" | null };
     const cursorRef = { current: "cursor-1" as string | null };
     const screenLinesRef = { current: ["line-1"] };
 
-    const { result } = renderHook(() =>
-      useScreenMode({
-        connected: true,
-        paneId: "pane-1",
-        dispatchScreenLoading,
-        modeSwitchRef,
-        cursorRef,
-        screenLinesRef,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useScreenMode({
+          connected: true,
+          paneId: "pane-1",
+          dispatchScreenLoading,
+          modeSwitchRef,
+          cursorRef,
+          screenLinesRef,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -39,15 +54,18 @@ describe("useScreenMode", () => {
     const cursorRef = { current: "cursor-1" as string | null };
     const screenLinesRef = { current: ["line-1"] };
 
-    const { result } = renderHook(() =>
-      useScreenMode({
-        connected: false,
-        paneId: "pane-1",
-        dispatchScreenLoading,
-        modeSwitchRef,
-        cursorRef,
-        screenLinesRef,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useScreenMode({
+          connected: false,
+          paneId: "pane-1",
+          dispatchScreenLoading,
+          modeSwitchRef,
+          cursorRef,
+          screenLinesRef,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -67,15 +85,18 @@ describe("useScreenMode", () => {
     const cursorRef = { current: null as string | null };
     const screenLinesRef = { current: [] as string[] };
 
-    const { result } = renderHook(() =>
-      useScreenMode({
-        connected: true,
-        paneId: "pane-1",
-        dispatchScreenLoading,
-        modeSwitchRef,
-        cursorRef,
-        screenLinesRef,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useScreenMode({
+          connected: true,
+          paneId: "pane-1",
+          dispatchScreenLoading,
+          modeSwitchRef,
+          cursorRef,
+          screenLinesRef,
+        }),
+      { wrapper },
     );
 
     act(() => {

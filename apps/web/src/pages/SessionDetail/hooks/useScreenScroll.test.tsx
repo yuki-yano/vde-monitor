@@ -1,12 +1,24 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
 import { useScreenScroll } from "./useScreenScroll";
 
 describe("useScreenScroll", () => {
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(screenAtBottomAtom, true);
+    store.set(screenForceFollowAtom, false);
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -17,14 +29,17 @@ describe("useScreenScroll", () => {
     const onFlushPending = vi.fn();
     const onClearPending = vi.fn();
 
-    const { result } = renderHook(() =>
-      useScreenScroll({
-        mode: "text",
-        screenLinesLength: 1,
-        isUserScrollingRef,
-        onFlushPending,
-        onClearPending,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useScreenScroll({
+          mode: "text",
+          screenLinesLength: 1,
+          isUserScrollingRef,
+          onFlushPending,
+          onClearPending,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -46,14 +61,17 @@ describe("useScreenScroll", () => {
     const onFlushPending = vi.fn();
     const onClearPending = vi.fn();
 
-    const { result } = renderHook(() =>
-      useScreenScroll({
-        mode: "text",
-        screenLinesLength: 2,
-        isUserScrollingRef,
-        onFlushPending,
-        onClearPending,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useScreenScroll({
+          mode: "text",
+          screenLinesLength: 2,
+          isUserScrollingRef,
+          onFlushPending,
+          onClearPending,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -98,6 +116,7 @@ describe("useScreenScroll", () => {
     const scrollToIndex = vi.fn();
     const scrollTo = vi.fn();
 
+    const wrapper = createWrapper();
     const { result, rerender } = renderHook(
       ({ mode, screenLinesLength }: { mode: ScreenMode; screenLinesLength: number }) =>
         useScreenScroll({
@@ -107,7 +126,7 @@ describe("useScreenScroll", () => {
           onFlushPending,
           onClearPending,
         }),
-      { initialProps: { mode: "image" as ScreenMode, screenLinesLength: 2 } },
+      { initialProps: { mode: "image" as ScreenMode, screenLinesLength: 2 }, wrapper },
     );
 
     act(() => {

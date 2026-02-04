@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ScreenResponse } from "@vde-monitor/shared";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { useScreenFetch } from "./useScreenFetch";
 
 describe("useScreenFetch", () => {
@@ -44,7 +47,13 @@ describe("useScreenFetch", () => {
       ...overrides,
     };
 
-    const hook = renderHook(() => useScreenFetch(params));
+    const store = createStore();
+    store.set(screenErrorAtom, null);
+    store.set(screenFallbackReasonAtom, null);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+    const hook = renderHook(() => useScreenFetch(params), { wrapper });
     return { ...hook, params, requestScreen };
   };
 

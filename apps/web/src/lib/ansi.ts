@@ -5,6 +5,15 @@ import type { Theme } from "@/lib/theme";
 
 import { applyClaudeDiffMask, buildClaudeDiffMask, renderClaudeDiffLine } from "./ansi-claude-diff";
 import { blendRgb, contrastRatio, luminance, parseColor } from "./ansi-colors";
+import {
+  ensureLineContent,
+  extractBackgroundColor,
+  hasVisibleText,
+  replaceBackgroundColors,
+  splitLines,
+  stripAnsi,
+  wrapLineBackground,
+} from "./ansi-text-utils";
 
 const catppuccinLatteAnsi: Record<number, string> = {
   0: "#4c4f69",
@@ -145,42 +154,12 @@ const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptio
   return doc.body.innerHTML;
 };
 
-const ensureLineContent = (html: string): string => {
-  const placeholder = "&#x200B;";
-  if (!html) {
-    return placeholder;
-  }
-  const text = html.replace(/<[^>]*>/g, "");
-  if (text.length > 0) {
-    return html;
-  }
-  if (html.includes("</")) {
-    return html.replace(/(<\/[^>]+>)+$/, `${placeholder}$1`);
-  }
-  return `${html}${placeholder}`;
-};
-
-const normalizeLineBreaks = (text: string) => text.replace(/\r\n/g, "\n");
-
-const splitLines = (text: string) => normalizeLineBreaks(text).split("\n");
-
 const convertAnsiLineToHtml = (
   converter: AnsiToHtml,
   line: string,
   theme: Theme,
   options?: RenderAnsiOptions,
 ) => adjustLowContrast(converter.toHtml(line), theme, options);
-
-const ansiEscapePattern = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, "g");
-const stripAnsi = (value: string) => value.replace(ansiEscapePattern, "");
-
-const backgroundColorPattern = /background-color:\s*([^;"']+)/i;
-const backgroundColorPatternGlobal = /background-color:\s*([^;"']+)/gi;
-
-const extractBackgroundColor = (html: string): string | null => {
-  const match = html.match(backgroundColorPattern);
-  return match?.[1]?.trim() ?? null;
-};
 
 const codexLatteBackgroundTarget = "#e6e9ef";
 
@@ -199,7 +178,7 @@ const normalizeCodexBackgrounds = (
   if (!fallbackRgb) {
     return html;
   }
-  return html.replace(backgroundColorPatternGlobal, (match, rawValue: string) => {
+  return replaceBackgroundColors(html, (match, rawValue: string) => {
     const value = rawValue.trim();
     const rgb = parseColor(value);
     if (!rgb) {
@@ -212,12 +191,6 @@ const normalizeCodexBackgrounds = (
     return `background-color: rgb(${blended[0]}, ${blended[1]}, ${blended[2]})`;
   });
 };
-
-const wrapLineBackground = (html: string, color: string): string => {
-  return `<span style="background-color:${color}; display:block; width:100%;">${html}</span>`;
-};
-
-const hasVisibleText = (line: string): boolean => stripAnsi(line).length > 0;
 
 const applyAdjacentBackgroundPadding = (htmlLines: string[], rawLines: string[]): string[] => {
   if (htmlLines.length === 0) return htmlLines;

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { SessionDetail } from "@vde-monitor/shared";
+import type { SessionSummary } from "@vde-monitor/shared";
 import { ArrowLeft, Clock, X } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -16,7 +16,7 @@ import {
 } from "../sessionDetailUtils";
 
 type SessionHeaderState = {
-  session: SessionDetail;
+  session: SessionSummary;
   readOnly: boolean;
   connectionIssue: string | null;
   nowMs: number;

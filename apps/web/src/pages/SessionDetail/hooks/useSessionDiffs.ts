@@ -1,8 +1,17 @@
 import type { DiffFile, DiffSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useAtom } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
+import {
+  diffErrorAtom,
+  diffFilesAtom,
+  diffLoadingAtom,
+  diffLoadingFilesAtom,
+  diffOpenAtom,
+  diffSummaryAtom,
+} from "../atoms/diffAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySignature } from "../sessionDetailUtils";
 
 type UseSessionDiffsParams = {
@@ -23,12 +32,12 @@ export const useSessionDiffs = ({
   requestDiffSummary,
   requestDiffFile,
 }: UseSessionDiffsParams) => {
-  const [diffSummary, setDiffSummary] = useState<DiffSummary | null>(null);
-  const [diffError, setDiffError] = useState<string | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffFiles, setDiffFiles] = useState<Record<string, DiffFile>>({});
-  const [diffOpen, setDiffOpen] = useState<Record<string, boolean>>({});
-  const [diffLoadingFiles, setDiffLoadingFiles] = useState<Record<string, boolean>>({});
+  const [diffSummary, setDiffSummary] = useAtom(diffSummaryAtom);
+  const [diffError, setDiffError] = useAtom(diffErrorAtom);
+  const [diffLoading, setDiffLoading] = useAtom(diffLoadingAtom);
+  const [diffFiles, setDiffFiles] = useAtom(diffFilesAtom);
+  const [diffOpen, setDiffOpen] = useAtom(diffOpenAtom);
+  const [diffLoadingFiles, setDiffLoadingFiles] = useAtom(diffLoadingFilesAtom);
 
   const diffOpenRef = useRef<Record<string, boolean>>({});
   const diffSignatureRef = useRef<string | null>(null);
@@ -66,7 +75,7 @@ export const useSessionDiffs = ({
         );
       }
     },
-    [paneId, requestDiffFile],
+    [paneId, requestDiffFile, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary],
   );
 
   const loadDiffSummary = useCallback(async () => {
@@ -81,7 +90,7 @@ export const useSessionDiffs = ({
     } finally {
       setDiffLoading(false);
     }
-  }, [applyDiffSummary, paneId, requestDiffSummary]);
+  }, [applyDiffSummary, paneId, requestDiffSummary, setDiffError, setDiffLoading]);
 
   const pollDiffSummary = useCallback(async () => {
     if (!paneId) return;
@@ -96,7 +105,7 @@ export const useSessionDiffs = ({
     } catch {
       return;
     }
-  }, [applyDiffSummary, paneId, requestDiffSummary]);
+  }, [applyDiffSummary, paneId, requestDiffSummary, setDiffError]);
 
   const loadDiffFile = useCallback(
     async (path: string) => {
@@ -112,7 +121,15 @@ export const useSessionDiffs = ({
         setDiffLoadingFiles((prev) => ({ ...prev, [path]: false }));
       }
     },
-    [diffLoadingFiles, diffSummary?.rev, paneId, requestDiffFile],
+    [
+      diffLoadingFiles,
+      diffSummary?.rev,
+      paneId,
+      requestDiffFile,
+      setDiffError,
+      setDiffFiles,
+      setDiffLoadingFiles,
+    ],
   );
 
   const toggleDiff = useCallback(
@@ -125,7 +142,7 @@ export const useSessionDiffs = ({
         return { ...prev, [path]: nextOpen };
       });
     },
-    [loadDiffFile],
+    [loadDiffFile, setDiffOpen],
   );
 
   useEffect(() => {
@@ -151,7 +168,7 @@ export const useSessionDiffs = ({
     setDiffOpen({});
     setDiffError(null);
     diffSignatureRef.current = null;
-  }, [paneId]);
+  }, [paneId, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary]);
 
   useEffect(() => {
     diffOpenRef.current = diffOpen;

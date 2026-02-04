@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 
 import { buildSessionGroups } from "@/lib/session-group";
@@ -6,9 +7,17 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import { useSplitRatio } from "@/lib/use-split-ratio";
-import { useSessions } from "@/state/session-context";
-import { useTheme } from "@/state/theme-context";
 
+import {
+  connectedAtom,
+  connectionIssueAtom,
+  currentSessionAtom,
+  highlightCorrectionsAtom,
+  readOnlyAtom,
+  resolvedThemeAtom,
+  sessionApiAtom,
+  sessionsAtom,
+} from "./atoms/sessionDetailAtoms";
 import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionControls } from "./hooks/useSessionControls";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
@@ -17,11 +26,18 @@ import { useSessionScreen } from "./hooks/useSessionScreen";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 
 export const useSessionDetailVM = (paneId: string) => {
+  const sessions = useAtomValue(sessionsAtom);
+  const connected = useAtomValue(connectedAtom);
+  const connectionIssue = useAtomValue(connectionIssueAtom);
+  const readOnly = useAtomValue(readOnlyAtom);
+  const highlightCorrections = useAtomValue(highlightCorrectionsAtom);
+  const resolvedTheme = useAtomValue(resolvedThemeAtom);
+  const session = useAtomValue(currentSessionAtom);
+  const sessionApi = useAtomValue(sessionApiAtom);
+  if (!sessionApi) {
+    throw new Error("SessionDetailProvider is required");
+  }
   const {
-    sessions,
-    connected,
-    connectionIssue,
-    getSessionDetail,
     reconnect,
     requestCommitDetail,
     requestCommitFile,
@@ -34,11 +50,7 @@ export const useSessionDetailVM = (paneId: string) => {
     sendRaw,
     touchSession,
     updateSessionTitle,
-    readOnly,
-    highlightCorrections,
-  } = useSessions();
-  const { resolvedTheme } = useTheme();
-  const session = getSessionDetail(paneId);
+  } = sessionApi;
   const navigate = useNavigate();
   const nowMs = useNowMs();
 
@@ -64,9 +76,6 @@ export const useSessionDetailVM = (paneId: string) => {
     connected,
     connectionIssue,
     requestScreen,
-    resolvedTheme,
-    agent: session?.agent,
-    highlightCorrections,
   });
 
   const {

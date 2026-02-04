@@ -3,20 +3,18 @@ import type {
   ScreenResponse,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtom } from "jotai";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { renderAnsiLines } from "@/lib/ansi";
 import type { Theme } from "@/lib/theme";
 
+import {
+  type PreviewFrame,
+  sidebarHoveredPaneIdAtom,
+  sidebarPreviewFrameAtom,
+} from "../atoms/sidebarPreviewAtoms";
 import { useSessionPreview } from "./useSessionPreview";
-
-export type PreviewFrame = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  lines: number;
-};
 
 type SidebarPreview = {
   paneId: string;
@@ -65,8 +63,8 @@ export const useSidebarPreview = ({
     connectionIssue,
     requestScreen,
   });
-  const [hoveredPaneId, setHoveredPaneId] = useState<string | null>(null);
-  const [previewFrame, setPreviewFrame] = useState<PreviewFrame | null>(null);
+  const [hoveredPaneId, setHoveredPaneId] = useAtom(sidebarHoveredPaneIdAtom);
+  const [previewFrame, setPreviewFrame] = useAtom(sidebarPreviewFrameAtom);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const hoverTimerRef = useRef<number | null>(null);
   const pendingHoverRef = useRef<string | null>(null);
@@ -95,35 +93,38 @@ export const useSidebarPreview = ({
   const hoveredPreviewLoading = hoveredPaneId ? Boolean(previewLoading[hoveredPaneId]) : false;
   const hoveredPreviewError = hoveredPaneId ? (previewError[hoveredPaneId] ?? null) : null;
 
-  const updatePreviewPosition = useCallback((paneId: string) => {
-    const node = itemRefs.current.get(paneId);
-    if (!node || typeof window === "undefined") return;
-    const rect = node.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+  const updatePreviewPosition = useCallback(
+    (paneId: string) => {
+      const node = itemRefs.current.get(paneId);
+      if (!node || typeof window === "undefined") return;
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
 
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const maxWidth = Math.min(PREVIEW_MAX_WIDTH, viewportWidth - 48);
-    const maxHeight = Math.min(PREVIEW_MAX_HEIGHT, viewportHeight - 120);
-    const width = clamp(Math.round(viewportWidth * 0.56), PREVIEW_MIN_WIDTH, maxWidth);
-    const height = clamp(Math.round(viewportHeight * 0.68), PREVIEW_MIN_HEIGHT, maxHeight);
-    const bodyHeight = Math.max(
-      height - PREVIEW_HEADER_OFFSET,
-      PREVIEW_MIN_HEIGHT - PREVIEW_HEADER_OFFSET,
-    );
-    const lines = Math.max(20, Math.floor(bodyHeight / PREVIEW_LINE_HEIGHT) - 1);
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const maxWidth = Math.min(PREVIEW_MAX_WIDTH, viewportWidth - 48);
+      const maxHeight = Math.min(PREVIEW_MAX_HEIGHT, viewportHeight - 120);
+      const width = clamp(Math.round(viewportWidth * 0.56), PREVIEW_MIN_WIDTH, maxWidth);
+      const height = clamp(Math.round(viewportHeight * 0.68), PREVIEW_MIN_HEIGHT, maxHeight);
+      const bodyHeight = Math.max(
+        height - PREVIEW_HEADER_OFFSET,
+        PREVIEW_MIN_HEIGHT - PREVIEW_HEADER_OFFSET,
+      );
+      const lines = Math.max(20, Math.floor(bodyHeight / PREVIEW_LINE_HEIGHT) - 1);
 
-    let left = rect.right + PREVIEW_MARGIN;
-    const maxLeft = viewportWidth - width - 24;
-    if (left > maxLeft) {
-      left = Math.max(24, maxLeft);
-    }
-    let top = rect.top + rect.height / 2;
-    const minTop = height / 2 + 24;
-    const maxTop = viewportHeight - height / 2 - 24;
-    top = Math.min(Math.max(top, minTop), maxTop);
-    setPreviewFrame({ left, top, width, height, lines });
-  }, []);
+      let left = rect.right + PREVIEW_MARGIN;
+      const maxLeft = viewportWidth - width - 24;
+      if (left > maxLeft) {
+        left = Math.max(24, maxLeft);
+      }
+      let top = rect.top + rect.height / 2;
+      const minTop = height / 2 + 24;
+      const maxTop = viewportHeight - height / 2 - 24;
+      top = Math.min(Math.max(top, minTop), maxTop);
+      setPreviewFrame({ left, top, width, height, lines });
+    },
+    [setPreviewFrame],
+  );
 
   const schedulePreviewPosition = useCallback(
     (paneId: string) => {
@@ -160,7 +161,7 @@ export const useSidebarPreview = ({
         return null;
       });
     },
-    [clearHoverTimer],
+    [clearHoverTimer, setHoveredPaneId, setPreviewFrame],
   );
 
   const registerItemRef = useCallback((paneId: string, node: HTMLDivElement | null) => {
@@ -183,7 +184,7 @@ export const useSidebarPreview = ({
         clearHoverTimer();
       }, HOVER_PREVIEW_DELAY_MS);
     },
-    [clearHoverTimer, currentPaneId, prefetchPreview],
+    [clearHoverTimer, currentPaneId, prefetchPreview, setHoveredPaneId],
   );
 
   const handleHoverEnd = useCallback(
@@ -200,7 +201,7 @@ export const useSidebarPreview = ({
       setHoveredPaneId(paneId);
       void prefetchPreview(paneId);
     },
-    [clearHoverTimer, currentPaneId, prefetchPreview],
+    [clearHoverTimer, currentPaneId, prefetchPreview, setHoveredPaneId],
   );
 
   const handleBlur = useCallback(
@@ -214,7 +215,7 @@ export const useSidebarPreview = ({
     clearHoverTimer();
     setHoveredPaneId(null);
     setPreviewFrame(null);
-  }, [clearHoverTimer]);
+  }, [clearHoverTimer, setHoveredPaneId, setPreviewFrame]);
 
   useEffect(() => {
     if (!hoveredPaneId) {
@@ -223,7 +224,7 @@ export const useSidebarPreview = ({
       return;
     }
     updatePreviewPosition(hoveredPaneId);
-  }, [hoveredPaneId, updatePreviewPosition]);
+  }, [hoveredPaneId, setPreviewFrame, updatePreviewPosition]);
 
   useEffect(() => {
     if (!hoveredPaneId) return;
@@ -294,3 +295,5 @@ export const useSidebarPreview = ({
     registerItemRef,
   };
 };
+
+export type { PreviewFrame };

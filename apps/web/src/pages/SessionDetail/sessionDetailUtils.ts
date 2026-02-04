@@ -66,6 +66,35 @@ export const diffStatusClass = (status: string) => {
   }
 };
 
+export const formatDiffStatusLabel = (status: string) => (status === "?" ? "A" : status);
+
+export const formatDiffCount = (value: number | null | undefined) =>
+  value === null || typeof value === "undefined" ? "—" : String(value);
+
+export const sumFileStats = (
+  files: Array<{ additions?: number | null; deletions?: number | null }> | null | undefined,
+) => {
+  if (!files) return null;
+  if (files.length === 0) {
+    return { additions: 0, deletions: 0 };
+  }
+  let additions = 0;
+  let deletions = 0;
+  let hasTotals = false;
+  files.forEach((file) => {
+    if (typeof file.additions === "number") {
+      additions += file.additions;
+      hasTotals = true;
+    }
+    if (typeof file.deletions === "number") {
+      deletions += file.deletions;
+      hasTotals = true;
+    }
+  });
+  if (!hasTotals) return null;
+  return { additions, deletions };
+};
+
 export const formatTimestamp = (value: string) => {
   if (!value) return "—";
   const date = new Date(value);

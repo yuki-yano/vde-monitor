@@ -1,11 +1,34 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import type { FormEvent } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  controlsAllowDangerKeysAtom,
+  controlsAutoEnterAtom,
+  controlsCtrlHeldAtom,
+  controlsOpenAtom,
+  controlsRawModeAtom,
+  controlsShiftHeldAtom,
+} from "../atoms/controlAtoms";
 import { useSessionControls } from "./useSessionControls";
 
 describe("useSessionControls", () => {
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(controlsAutoEnterAtom, true);
+    store.set(controlsShiftHeldAtom, false);
+    store.set(controlsCtrlHeldAtom, false);
+    store.set(controlsOpenAtom, false);
+    store.set(controlsRawModeAtom, false);
+    store.set(controlsAllowDangerKeysAtom, false);
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -19,17 +42,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -59,17 +85,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -94,17 +123,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -135,17 +167,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -182,17 +217,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -227,17 +265,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -272,17 +313,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -325,17 +369,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     const textarea = document.createElement("textarea");
@@ -369,17 +416,20 @@ describe("useSessionControls", () => {
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
-    const { result } = renderHook(() =>
-      useSessionControls({
-        paneId: "pane-1",
-        readOnly: false,
-        mode: "text",
-        sendText,
-        sendKeys,
-        sendRaw,
-        setScreenError,
-        scrollToBottom,
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          readOnly: false,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
     );
 
     expect(result.current.autoEnter).toBe(true);

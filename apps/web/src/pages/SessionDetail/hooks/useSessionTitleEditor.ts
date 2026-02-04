@@ -1,10 +1,17 @@
-import type { SessionDetail } from "@vde-monitor/shared";
-import { useCallback, useEffect, useState } from "react";
+import type { SessionSummary } from "@vde-monitor/shared";
+import { useAtom } from "jotai";
+import { useCallback, useEffect } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
+import {
+  titleDraftAtom,
+  titleEditingAtom,
+  titleErrorAtom,
+  titleSavingAtom,
+} from "../atoms/titleAtoms";
 type UseSessionTitleEditorParams = {
-  session: SessionDetail | null;
+  session: SessionSummary | null;
   paneId: string;
   readOnly: boolean;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
@@ -17,40 +24,43 @@ export const useSessionTitleEditor = ({
   updateSessionTitle,
 }: UseSessionTitleEditorParams) => {
   const sessionCustomTitle = session?.customTitle ?? null;
-  const [titleDraft, setTitleDraft] = useState("");
-  const [titleEditing, setTitleEditing] = useState(false);
-  const [titleSaving, setTitleSaving] = useState(false);
-  const [titleError, setTitleError] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useAtom(titleDraftAtom);
+  const [titleEditing, setTitleEditing] = useAtom(titleEditingAtom);
+  const [titleSaving, setTitleSaving] = useAtom(titleSavingAtom);
+  const [titleError, setTitleError] = useAtom(titleErrorAtom);
 
   useEffect(() => {
     setTitleEditing(false);
     setTitleSaving(false);
     setTitleError(null);
     setTitleDraft(sessionCustomTitle ?? "");
-  }, [paneId, sessionCustomTitle]);
+  }, [paneId, sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError, setTitleSaving]);
 
   useEffect(() => {
     if (titleEditing) return;
     setTitleDraft(sessionCustomTitle ?? "");
-  }, [sessionCustomTitle, titleEditing]);
+  }, [sessionCustomTitle, titleEditing, setTitleDraft]);
 
   const openTitleEditor = useCallback(() => {
     if (readOnly || !session) return;
     setTitleError(null);
     setTitleDraft(sessionCustomTitle ?? "");
     setTitleEditing(true);
-  }, [readOnly, session, sessionCustomTitle]);
+  }, [readOnly, session, sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError]);
 
   const closeTitleEditor = useCallback(() => {
     setTitleEditing(false);
     setTitleError(null);
     setTitleDraft(sessionCustomTitle ?? "");
-  }, [sessionCustomTitle]);
+  }, [sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError]);
 
-  const updateTitleDraft = useCallback((value: string) => {
-    setTitleDraft(value);
-    setTitleError(null);
-  }, []);
+  const updateTitleDraft = useCallback(
+    (value: string) => {
+      setTitleDraft(value);
+      setTitleError(null);
+    },
+    [setTitleDraft, setTitleError],
+  );
 
   const saveTitle = useCallback(async () => {
     if (!session || titleSaving) return;
@@ -69,7 +79,15 @@ export const useSessionTitleEditor = ({
     } finally {
       setTitleSaving(false);
     }
-  }, [session, titleDraft, titleSaving, updateSessionTitle]);
+  }, [
+    session,
+    titleDraft,
+    titleSaving,
+    updateSessionTitle,
+    setTitleEditing,
+    setTitleError,
+    setTitleSaving,
+  ]);
 
   const clearTitle = useCallback(async () => {
     if (!session || titleSaving) return;
@@ -84,7 +102,15 @@ export const useSessionTitleEditor = ({
     } finally {
       setTitleSaving(false);
     }
-  }, [session, titleSaving, updateSessionTitle]);
+  }, [
+    session,
+    titleSaving,
+    updateSessionTitle,
+    setTitleDraft,
+    setTitleEditing,
+    setTitleError,
+    setTitleSaving,
+  ]);
 
   return {
     titleDraft,

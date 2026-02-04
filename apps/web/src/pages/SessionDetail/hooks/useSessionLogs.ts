@@ -3,19 +3,15 @@ import type {
   ScreenResponse,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtom } from "jotai";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
 
-import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
-
-type LogCacheEntry = {
-  screen: string;
-  capturedAt: string;
-  truncated?: boolean | null;
-};
+import { logModalOpenAtom, quickPanelOpenAtom, selectedPaneIdAtom } from "../atoms/logAtoms";
+import { useScreenCache } from "./useScreenCache";
 
 type UseSessionLogsParams = {
   connected: boolean;
@@ -37,17 +33,24 @@ export const useSessionLogs = ({
   resolvedTheme,
   highlightCorrections,
 }: UseSessionLogsParams) => {
-  const [quickPanelOpen, setQuickPanelOpen] = useState(false);
-  const [logModalOpen, setLogModalOpen] = useState(false);
-  const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
-  const [logCache, setLogCache] = useState<Record<string, LogCacheEntry>>({});
-  const [logLoading, setLogLoading] = useState<Record<string, boolean>>({});
-  const [logError, setLogError] = useState<Record<string, string | null>>({});
-
-  const logCacheRef = useRef<Record<string, LogCacheEntry>>({});
-  const logRequestIdRef = useRef(0);
-  const logLatestRequestRef = useRef<Record<string, number>>({});
-  const logInflightRef = useRef(new Set<string>());
+  const [quickPanelOpen, setQuickPanelOpen] = useAtom(quickPanelOpenAtom);
+  const [logModalOpen, setLogModalOpen] = useAtom(logModalOpenAtom);
+  const [selectedPaneId, setSelectedPaneId] = useAtom(selectedPaneIdAtom);
+  const {
+    cache: logCache,
+    loading: logLoading,
+    error: logError,
+    fetchScreen,
+  } = useScreenCache({
+    connected,
+    connectionIssue,
+    requestScreen,
+    cacheKey: "logs",
+    errorMessages: {
+      load: API_ERROR_MESSAGES.logLoad,
+      requestFailed: API_ERROR_MESSAGES.logRequestFailed,
+    },
+  });
 
   const selectedSession = useMemo(
     () =>
@@ -70,67 +73,11 @@ export const useSessionLogs = ({
   const selectedLogLoading = Boolean(selectedPaneId && logLoading[selectedPaneId]);
   const selectedLogError = selectedPaneId ? (logError[selectedPaneId] ?? null) : null;
 
-  useEffect(() => {
-    logCacheRef.current = logCache;
-  }, [logCache]);
-
   const fetchLog = useCallback(
     async (paneId: string) => {
-      if (!paneId) return;
-      if (!connected) {
-        setLogError((prev) => ({
-          ...prev,
-          [paneId]: connectionIssue ?? DISCONNECTED_MESSAGE,
-        }));
-        return;
-      }
-      if (logInflightRef.current.has(paneId)) {
-        return;
-      }
-      const hasCache = Boolean(logCacheRef.current[paneId]);
-      logInflightRef.current.add(paneId);
-      const requestId = (logRequestIdRef.current += 1);
-      logLatestRequestRef.current[paneId] = requestId;
-      if (!hasCache) {
-        setLogLoading((prev) => ({ ...prev, [paneId]: true }));
-      }
-      setLogError((prev) => ({ ...prev, [paneId]: null }));
-      try {
-        const response = await requestScreen(paneId, { mode: "text" });
-        if (logLatestRequestRef.current[paneId] !== requestId) {
-          return;
-        }
-        if (!response.ok) {
-          setLogError((prev) => ({
-            ...prev,
-            [paneId]: response.error?.message ?? API_ERROR_MESSAGES.logLoad,
-          }));
-          return;
-        }
-        setLogCache((prev) => ({
-          ...prev,
-          [paneId]: {
-            screen: response.screen ?? "",
-            capturedAt: response.capturedAt,
-            truncated: response.truncated ?? null,
-          },
-        }));
-      } catch (err) {
-        if (logLatestRequestRef.current[paneId] !== requestId) {
-          return;
-        }
-        setLogError((prev) => ({
-          ...prev,
-          [paneId]: err instanceof Error ? err.message : API_ERROR_MESSAGES.logRequestFailed,
-        }));
-      } finally {
-        logInflightRef.current.delete(paneId);
-        if (!hasCache && logLatestRequestRef.current[paneId] === requestId) {
-          setLogLoading((prev) => ({ ...prev, [paneId]: false }));
-        }
-      }
+      await fetchScreen(paneId, { loading: "if-empty" });
     },
-    [connected, connectionIssue, requestScreen],
+    [fetchScreen],
   );
 
   useEffect(() => {
@@ -148,15 +95,18 @@ export const useSessionLogs = ({
     };
   }, [fetchLog, logModalOpen, selectedPaneId]);
 
-  const openLogModal = useCallback((paneId: string) => {
-    setSelectedPaneId(paneId);
-    setLogModalOpen(true);
-  }, []);
+  const openLogModal = useCallback(
+    (paneId: string) => {
+      setSelectedPaneId(paneId);
+      setLogModalOpen(true);
+    },
+    [setLogModalOpen, setSelectedPaneId],
+  );
 
   const closeLogModal = useCallback(() => {
     setLogModalOpen(false);
     setSelectedPaneId(null);
-  }, []);
+  }, [setLogModalOpen, setSelectedPaneId]);
 
   const toggleQuickPanel = useCallback(() => {
     setQuickPanelOpen((prev) => {
@@ -167,13 +117,13 @@ export const useSessionLogs = ({
       }
       return next;
     });
-  }, []);
+  }, [setLogModalOpen, setQuickPanelOpen, setSelectedPaneId]);
 
   const closeQuickPanel = useCallback(() => {
     setQuickPanelOpen(false);
     setLogModalOpen(false);
     setSelectedPaneId(null);
-  }, []);
+  }, [setLogModalOpen, setQuickPanelOpen, setSelectedPaneId]);
 
   useEffect(() => {
     if (!quickPanelOpen && !logModalOpen) {

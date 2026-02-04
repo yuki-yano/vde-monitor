@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { logModalDisplayLinesAtom, logModalIsAtBottomAtom } from "../atoms/logAtoms";
 import { createSessionDetail } from "../test-helpers";
 import { LogModal } from "./LogModal";
 
@@ -42,6 +44,15 @@ describe("LogModal", () => {
   type LogModalState = Parameters<typeof LogModal>[0]["state"];
   type LogModalActions = Parameters<typeof LogModal>[0]["actions"];
 
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(logModalIsAtBottomAtom, true);
+    store.set(logModalDisplayLinesAtom, []);
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   const buildState = (overrides: Partial<LogModalState> = {}): LogModalState => ({
     open: true,
     session: createSessionDetail(),
@@ -61,7 +72,8 @@ describe("LogModal", () => {
   it("returns null when closed", () => {
     const state = buildState({ open: false });
     const actions = buildActions();
-    const { container } = render(<LogModal state={state} actions={actions} />);
+    const wrapper = createWrapper();
+    const { container } = render(<LogModal state={state} actions={actions} />, { wrapper });
 
     expect(container.firstChild).toBeNull();
   });
@@ -79,7 +91,8 @@ describe("LogModal", () => {
       error: "Log error",
     });
     const actions = buildActions({ onClose, onOpenHere, onOpenNewTab });
-    render(<LogModal state={state} actions={actions} />);
+    const wrapper = createWrapper();
+    render(<LogModal state={state} actions={actions} />, { wrapper });
 
     expect(screen.getByText("Custom")).toBeTruthy();
     expect(screen.getByText("Log error")).toBeTruthy();
@@ -99,7 +112,8 @@ describe("LogModal", () => {
     const session = createSessionDetail();
     const state = buildState({ session, logLines: ["line1"] });
     const actions = buildActions();
-    const { rerender } = render(<LogModal state={state} actions={actions} />);
+    const wrapper = createWrapper();
+    const { rerender } = render(<LogModal state={state} actions={actions} />, { wrapper });
 
     expect(screen.getByText("line1")).toBeTruthy();
 

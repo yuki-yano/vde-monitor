@@ -1,4 +1,5 @@
 import type { SessionSummary } from "@vde-monitor/shared";
+import { useAtom } from "jotai";
 import { ArrowDown, CornerDownLeft, ExternalLink, X } from "lucide-react";
 import {
   type ClipboardEvent,
@@ -8,13 +9,13 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, LoadingOverlay, Toolbar } from "@/components/ui";
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 
+import { logModalDisplayLinesAtom, logModalIsAtBottomAtom } from "../atoms/logAtoms";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
 type LogModalState = {
@@ -52,17 +53,20 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
   const { open, session, logLines, loading, error } = state;
   const { onClose, onOpenHere, onOpenNewTab } = actions;
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [displayLines, setDisplayLines] = useState(logLines);
+  const [isAtBottom, setIsAtBottom] = useAtom(logModalIsAtBottomAtom);
+  const [displayLines, setDisplayLines] = useAtom(logModalDisplayLinesAtom);
   const pendingLinesRef = useRef<string[] | null>(null);
   const isUserScrollingRef = useRef(false);
-  const handleUserScrollStateChange = useCallback((value: boolean) => {
-    isUserScrollingRef.current = value;
-    if (!value && pendingLinesRef.current) {
-      setDisplayLines(pendingLinesRef.current);
-      pendingLinesRef.current = null;
-    }
-  }, []);
+  const handleUserScrollStateChange = useCallback(
+    (value: boolean) => {
+      isUserScrollingRef.current = value;
+      if (!value && pendingLinesRef.current) {
+        setDisplayLines(pendingLinesRef.current);
+        pendingLinesRef.current = null;
+      }
+    },
+    [setDisplayLines],
+  );
   const { scrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: displayLines,
     isAtBottom,
@@ -116,7 +120,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     }
     setDisplayLines(logLines);
     pendingLinesRef.current = null;
-  }, [logLines, open]);
+  }, [logLines, open, setDisplayLines]);
 
   const scrollToBottom = () => {
     virtuosoRef.current?.scrollToIndex({

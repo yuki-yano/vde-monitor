@@ -1,14 +1,10 @@
-import {
-  type MutableRefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useAtom } from "jotai";
+import { type MutableRefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import type { ScreenMode } from "@/lib/screen-loading";
+
+import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
 
 type UseScreenScrollParams = {
   mode: ScreenMode;
@@ -25,8 +21,8 @@ export const useScreenScroll = ({
   onFlushPending,
   onClearPending,
 }: UseScreenScrollParams) => {
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [forceFollow, setForceFollow] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useAtom(screenAtBottomAtom);
+  const [forceFollow, setForceFollow] = useAtom(screenForceFollowAtom);
 
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -54,7 +50,7 @@ export const useScreenScroll = ({
         }
       });
     },
-    [screenLinesLength],
+    [screenLinesLength, setForceFollow],
   );
 
   const handleAtBottomChange = useCallback(
@@ -69,7 +65,7 @@ export const useScreenScroll = ({
         onFlushPending();
       }
     },
-    [onFlushPending],
+    [onFlushPending, setForceFollow, setIsAtBottom],
   );
 
   const handleUserScrollStateChange = useCallback(
@@ -104,7 +100,7 @@ export const useScreenScroll = ({
       setForceFollow(false);
       onClearPending();
     }
-  }, [mode, onClearPending]);
+  }, [mode, onClearPending, setForceFollow, setIsAtBottom]);
 
   useEffect(() => {
     return () => {

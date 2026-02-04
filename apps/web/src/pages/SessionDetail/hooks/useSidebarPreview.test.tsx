@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Theme } from "@/lib/theme";
 
+import { sidebarHoveredPaneIdAtom, sidebarPreviewFrameAtom } from "../atoms/sidebarPreviewAtoms";
 import { useSidebarPreview } from "./useSidebarPreview";
 
 const prefetchPreview = vi.fn();
@@ -67,16 +70,24 @@ describe("useSidebarPreview", () => {
     const sessionIndex = new Map<string, SessionSummary>([[session.paneId, session]]);
     const resolvedTheme = "latte" as Theme;
     const requestScreen = vi.fn();
+    const store = createStore();
+    store.set(sidebarHoveredPaneIdAtom, null);
+    store.set(sidebarPreviewFrameAtom, null);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
 
-    return renderHook(() =>
-      useSidebarPreview({
-        sessionIndex,
-        currentPaneId: null,
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme,
-      }),
+    return renderHook(
+      () =>
+        useSidebarPreview({
+          sessionIndex,
+          currentPaneId: null,
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+          resolvedTheme,
+        }),
+      { wrapper },
     );
   };
 

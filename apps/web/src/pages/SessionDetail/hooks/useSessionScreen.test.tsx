@@ -1,7 +1,23 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { initialScreenLoadingState } from "@/lib/screen-loading";
+
+import {
+  screenAtBottomAtom,
+  screenErrorAtom,
+  screenFallbackReasonAtom,
+  screenForceFollowAtom,
+  screenImageAtom,
+  screenLoadingAtom,
+  screenModeAtom,
+  screenModeLoadedAtom,
+  screenTextAtom,
+} from "../atoms/screenAtoms";
+import { paneIdAtom, sessionsAtom } from "../atoms/sessionDetailAtoms";
 import { useSessionScreen } from "./useSessionScreen";
 
 vi.mock("@/lib/ansi", () => ({
@@ -9,17 +25,36 @@ vi.mock("@/lib/ansi", () => ({
 }));
 
 describe("useSessionScreen", () => {
+  const createWrapper = () => {
+    const store = createStore();
+    store.set(paneIdAtom, "pane-1");
+    store.set(sessionsAtom, []);
+    store.set(screenModeAtom, "text");
+    store.set(screenModeLoadedAtom, { text: false, image: false });
+    store.set(screenAtBottomAtom, true);
+    store.set(screenForceFollowAtom, false);
+    store.set(screenTextAtom, "");
+    store.set(screenImageAtom, null);
+    store.set(screenFallbackReasonAtom, null);
+    store.set(screenErrorAtom, null);
+    store.set(screenLoadingAtom, initialScreenLoadingState);
+    return ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+  };
+
   it("sets disconnected error when not connected", async () => {
     const requestScreen = vi.fn();
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: false,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: false,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -36,15 +71,16 @@ describe("useSessionScreen", () => {
       screen: "hello",
     });
 
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -74,15 +110,16 @@ describe("useSessionScreen", () => {
         deltas: [{ start: 1, deleteCount: 1, insertLines: ["world!"] }],
       });
 
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -109,15 +146,16 @@ describe("useSessionScreen", () => {
       screen: "hello",
     });
 
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     act(() => {
@@ -145,15 +183,16 @@ describe("useSessionScreen", () => {
         screen: "first\nsecond",
       });
 
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
@@ -205,15 +244,16 @@ describe("useSessionScreen", () => {
         screen: "first\nsecond\nthird",
       });
 
-    const { result } = renderHook(() =>
-      useSessionScreen({
-        paneId: "pane-1",
-        connected: true,
-        connectionIssue: null,
-        requestScreen,
-        resolvedTheme: "latte",
-        agent: "codex",
-      }),
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
     );
 
     await waitFor(() => {
