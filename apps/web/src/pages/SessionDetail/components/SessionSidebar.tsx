@@ -3,16 +3,21 @@ import type { SessionSummary } from "@vde-monitor/shared";
 import { Clock } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Card, LastInputPill, TagPill } from "@/components/ui";
+import { Badge, Card, LastInputPill, TagPill } from "@/components/ui";
 import { renderAnsiLines } from "@/lib/ansi";
 import { cn } from "@/lib/cn";
-import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
+import { formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
 import type { SessionGroup } from "@/lib/session-group";
 import { useSessions } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import { useSessionPreview } from "../hooks/useSessionPreview";
-import { formatRelativeTime, getLastInputTone } from "../sessionDetailUtils";
+import {
+  agentLabelFor,
+  agentToneFor,
+  formatRelativeTime,
+  getLastInputTone,
+} from "../sessionDetailUtils";
 
 type SessionSidebarProps = {
   sessionGroups: SessionGroup[];
@@ -36,7 +41,7 @@ const HOVER_PREVIEW_DELAY_MS = 320;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const SidebarBackdrop = memo(() => (
-  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-none rounded-r-[32px]">
+  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-none rounded-r-3xl">
     <div className="bg-latte-lavender/15 absolute -left-10 top-10 h-32 w-32 rounded-full blur-3xl" />
     <div className="bg-latte-peach/15 absolute -right-12 top-40 h-36 w-36 rounded-full blur-3xl" />
     <div className="from-latte-lavender/70 via-latte-peach/40 absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b to-transparent" />
@@ -105,9 +110,7 @@ const SessionSidebarItem = memo(
     const displayTitle = item.customTitle ?? item.title ?? item.sessionName;
     const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
     const statusMeta = statusIconMeta(item.state);
-    const agentMeta = agentIconMeta(item.agent);
     const StatusIcon = statusMeta.icon;
-    const AgentIcon = agentMeta.icon;
 
     const handleRef = useCallback(
       (node: HTMLDivElement | null) => {
@@ -169,14 +172,10 @@ const SessionSidebarItem = memo(
               {displayTitle}
             </span>
           </div>
-          <div className="text-latte-subtext0 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${agentMeta.wrap}`}
-              aria-label={agentMeta.label}
-            >
-              <AgentIcon className={`h-3.5 w-3.5 ${agentMeta.className}`} />
-              <span className="text-[9px] uppercase tracking-[0.2em]">{agentMeta.label}</span>
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={agentToneFor(item.agent)} size="sm">
+              {agentLabelFor(item.agent)}
+            </Badge>
             <LastInputPill
               tone={lastInputTone}
               label={<Clock className="h-3 w-3" />}
@@ -494,9 +493,7 @@ export const SessionSidebar = ({
                   <p className="text-latte-lavender/70 text-[11px] font-semibold uppercase tracking-wider">
                     {formatRepoDirLabel(group.repoRoot)}
                   </p>
-                  <TagPill tone="meta" className="text-latte-subtext0 text-[10px] uppercase">
-                    {group.sessions.length} sessions
-                  </TagPill>
+                  <TagPill tone="meta">{group.sessions.length} sessions</TagPill>
                 </div>
                 <div className="space-y-2">
                   {group.sessions.map((item) => (

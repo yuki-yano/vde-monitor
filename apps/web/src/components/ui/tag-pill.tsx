@@ -8,7 +8,7 @@ const tagPillVariants = cva("rounded-full px-3 py-1 font-semibold", {
     tone: {
       danger: "bg-latte-red/15 text-latte-red text-[10px] uppercase tracking-[0.3em]",
       neutral: "border border-latte-surface2/70 bg-latte-crust/60 text-latte-subtext0 text-xs",
-      meta: "border border-latte-surface2/60 bg-latte-crust/40",
+      meta: "border border-latte-surface2/60 bg-latte-crust/40 text-latte-subtext0 text-[10px]",
       status: "px-0 py-0 rounded-none text-[10px] uppercase tracking-[0.25em]",
     },
   },

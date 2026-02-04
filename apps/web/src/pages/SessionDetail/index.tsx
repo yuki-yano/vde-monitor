@@ -245,7 +245,7 @@ export const SessionDetailPage = () => {
           sessionGroups={sessionGroups}
           nowMs={nowMs}
           currentPaneId={paneId}
-          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-[32px] border-r"
+          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r"
         />
         <div
           role="separator"

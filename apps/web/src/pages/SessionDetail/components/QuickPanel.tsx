@@ -1,11 +1,16 @@
 import { Clock, List, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import { Card, IconButton, LastInputPill, SurfaceButton } from "@/components/ui";
-import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
+import { Badge, Card, IconButton, LastInputPill, SurfaceButton } from "@/components/ui";
+import { formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
 import type { SessionGroup } from "@/lib/session-group";
 
-import { formatRelativeTime, getLastInputTone } from "../sessionDetailUtils";
+import {
+  agentLabelFor,
+  agentToneFor,
+  formatRelativeTime,
+  getLastInputTone,
+} from "../sessionDetailUtils";
 
 type QuickPanelProps = {
   open: boolean;
@@ -90,7 +95,7 @@ export const QuickPanel = ({
   return (
     <div className="fixed bottom-4 left-6 z-40 flex flex-col items-start gap-3">
       {open && (
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 relative flex max-h-[80dvh] w-[calc(100vw-3rem)] max-w-[320px] flex-col overflow-hidden rounded-[28px] border-2 p-4 shadow-[0_25px_80px_-20px_rgba(114,135,253,0.4),0_0_0_1px_rgba(114,135,253,0.15)] ring-1 ring-inset ring-white/10 backdrop-blur-xl">
+        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 relative flex max-h-[80dvh] w-[calc(100vw-3rem)] max-w-[320px] flex-col overflow-hidden rounded-3xl border-2 p-4 shadow-[0_25px_80px_-20px_rgba(114,135,253,0.4),0_0_0_1px_rgba(114,135,253,0.15)] ring-1 ring-inset ring-white/10 backdrop-blur-xl">
           <IconButton
             type="button"
             onClick={onClose}
@@ -121,9 +126,7 @@ export const QuickPanel = ({
                       const displayTitle = item.customTitle ?? item.title ?? item.sessionName;
                       const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
                       const statusMeta = statusIconMeta(item.state);
-                      const agentMeta = agentIconMeta(item.agent);
                       const StatusIcon = statusMeta.icon;
-                      const AgentIcon = agentMeta.icon;
                       const isCurrent = currentPaneId === item.paneId;
                       return (
                         <SurfaceButton
@@ -148,16 +151,10 @@ export const QuickPanel = ({
                               {displayTitle}
                             </span>
                           </div>
-                          <div className="text-latte-subtext0 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${agentMeta.wrap}`}
-                              aria-label={agentMeta.label}
-                            >
-                              <AgentIcon className={`h-3.5 w-3.5 ${agentMeta.className}`} />
-                              <span className="text-[9px] uppercase tracking-[0.2em]">
-                                {agentMeta.label}
-                              </span>
-                            </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge tone={agentToneFor(item.agent)} size="sm">
+                              {agentLabelFor(item.agent)}
+                            </Badge>
                             <LastInputPill
                               tone={lastInputTone}
                               label={<Clock className="h-3 w-3" />}

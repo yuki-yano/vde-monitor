@@ -111,7 +111,7 @@ export const ControlsPanel = ({
           disabled={!connected}
           onInput={handleTextareaInput}
           onKeyDown={handleTextareaKeyDown}
-          className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl border px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
+          className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 min-h-[64px] min-w-0 flex-1 resize-none rounded-2xl border px-4 py-2 text-base shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
         />
         <div className="flex shrink-0 items-center self-center">
           <Button onClick={handleSendText} aria-label="Send" className="h-11 w-11 p-0">

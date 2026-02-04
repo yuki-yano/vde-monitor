@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   tone?: "running" | "waiting" | "permission" | "done" | "unknown" | "codex" | "claude";
+  size?: "sm" | "md";
 };
 
 const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
@@ -20,27 +21,38 @@ const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
   claude: "bg-latte-lavender/15 text-latte-lavender border-latte-lavender/40",
 };
 
-const toneIcon: Record<NonNullable<BadgeProps["tone"]>, ReactNode> = {
-  running: <Loader2 className="h-3 w-3 animate-spin" />,
-  waiting: <Clock className="h-3 w-3" />,
-  permission: <AlertTriangle className="animate-bounce-subtle h-3 w-3" />,
-  done: <CheckCircle className="h-3 w-3" />,
-  unknown: <Circle className="h-3 w-3" />,
-  codex: <Sparkles className="h-3 w-3" />,
-  claude: <Zap className="h-3 w-3" />,
+const toneIcon: Record<NonNullable<BadgeProps["tone"]>, (className: string) => ReactNode> = {
+  running: (className) => <Loader2 className={cn("animate-spin", className)} />,
+  waiting: (className) => <Clock className={className} />,
+  permission: (className) => <AlertTriangle className={cn("animate-bounce-subtle", className)} />,
+  done: (className) => <CheckCircle className={className} />,
+  unknown: (className) => <Circle className={className} />,
+  codex: (className) => <Sparkles className={className} />,
+  claude: (className) => <Zap className={className} />,
 };
 
-const Badge = ({ className, tone = "unknown", children, ...props }: BadgeProps) => {
+const sizeClass = {
+  md: "px-3 py-1 text-[11px] tracking-[0.14em]",
+  sm: "px-2.5 py-0.5 text-[10px] tracking-[0.12em]",
+};
+
+const iconSizeClass = {
+  md: "h-3 w-3",
+  sm: "h-2.5 w-2.5",
+};
+
+const Badge = ({ className, tone = "unknown", size = "md", children, ...props }: BadgeProps) => {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]",
+        "inline-flex items-center gap-1.5 rounded-full border font-semibold uppercase",
+        sizeClass[size],
         toneClass[tone],
         className,
       )}
       {...props}
     >
-      {toneIcon[tone]}
+      {toneIcon[tone](iconSizeClass[size])}
       {children}
     </span>
   );

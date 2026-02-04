@@ -62,7 +62,7 @@ export const SessionHeader = ({
         </Link>
         <ThemeToggle />
       </div>
-      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-2xl border p-4 backdrop-blur">
+      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-4 backdrop-blur">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             {titleEditing ? (
@@ -129,18 +129,22 @@ export const SessionHeader = ({
           </div>
           {titleError && <p className="text-latte-red text-xs">{titleError}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={stateTone(session.state)}>{session.state}</Badge>
-            <Badge tone={agentTone}>{agentLabel}</Badge>
+            <Badge tone={stateTone(session.state)} size="sm">
+              {session.state.replace(/_/g, " ")}
+            </Badge>
+            <Badge tone={agentTone} size="sm">
+              {agentLabel}
+            </Badge>
             <LastInputPill
               tone={lastInputTone}
-              label={<Clock className="h-3 w-3" />}
+              label={<Clock className="h-2.5 w-2.5" />}
               srLabel="Last input"
               value={formatRelativeTime(session.lastInputAt, nowMs)}
-              size="sm"
+              size="xs"
               showDot={false}
             />
           </div>
-          <div className="text-latte-overlay1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          <div className="flex flex-wrap items-center gap-2">
             <TagPill tone="meta">Session {session.sessionName}</TagPill>
             <TagPill tone="meta">Window {session.windowIndex}</TagPill>
             <TagPill tone="meta">Pane {session.paneId}</TagPill>

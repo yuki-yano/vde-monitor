@@ -24,6 +24,7 @@ import {
   formatPath,
   formatRelativeTime,
   getLastInputTone,
+  stateTone,
 } from "@/lib/session-format";
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
@@ -119,7 +120,7 @@ export const SessionListPage = () => {
           sessionGroups={quickPanelGroups}
           nowMs={nowMs}
           currentPaneId={null}
-          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-[32px] border-r"
+          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r"
         />
         <div
           role="separator"
@@ -138,7 +139,7 @@ export const SessionListPage = () => {
           <div />
           <ThemeToggle />
         </div>
-        <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 animate-fade-in stagger-1 flex flex-col gap-4 rounded-[32px] border p-6 opacity-0 backdrop-blur">
+        <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 animate-fade-in stagger-1 flex flex-col gap-4 rounded-3xl border p-6 opacity-0 backdrop-blur">
           <Toolbar className="gap-3">
             <div>
               <p className="text-latte-subtext0 text-xs uppercase tracking-[0.5em]">vde-monitor</p>
@@ -303,29 +304,11 @@ export const SessionListPage = () => {
                             />
 
                             {/* セクション1: ステータスバー */}
-                            <div className="relative flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "h-2 w-2 shrink-0 rounded-full",
-                                  session.state === "RUNNING" && "animate-pulse bg-green-500",
-                                  session.state === "WAITING_INPUT" && "bg-amber-500",
-                                  session.state === "WAITING_PERMISSION" &&
-                                    "animate-pulse bg-red-500",
-                                  session.state === "UNKNOWN" && "bg-gray-400",
-                                )}
-                              />
-                              <span
-                                className={cn(
-                                  "text-[9px] font-medium uppercase tracking-wider",
-                                  session.state === "RUNNING" && "text-green-600",
-                                  session.state === "WAITING_INPUT" && "text-amber-600",
-                                  session.state === "WAITING_PERMISSION" && "text-red-600",
-                                  session.state === "UNKNOWN" && "text-gray-500",
-                                )}
-                              >
+                            <div className="relative flex flex-wrap items-center gap-2">
+                              <Badge tone={stateTone(session.state)} size="sm">
                                 {session.state.replace(/_/g, " ")}
-                              </span>
-                              <Badge tone={agentToneFor(session.agent)} className="text-[10px]">
+                              </Badge>
+                              <Badge tone={agentToneFor(session.agent)} size="sm">
                                 {agentLabelFor(session.agent)}
                               </Badge>
                               {session.pipeConflict && (
@@ -365,15 +348,9 @@ export const SessionListPage = () => {
 
                             {/* セクション3: メタ情報フッター */}
                             <div className="border-latte-surface1/30 relative mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
-                              <TagPill tone="meta" className="text-[9px]">
-                                Session {session.sessionName}
-                              </TagPill>
-                              <TagPill tone="meta" className="text-[9px]">
-                                Window {session.windowIndex}
-                              </TagPill>
-                              <TagPill tone="meta" className="text-[9px]">
-                                Pane {session.paneId}
-                              </TagPill>
+                              <TagPill tone="meta">Session {session.sessionName}</TagPill>
+                              <TagPill tone="meta">Window {session.windowIndex}</TagPill>
+                              <TagPill tone="meta">Pane {session.paneId}</TagPill>
                             </div>
                           </Card>
                         </Link>
