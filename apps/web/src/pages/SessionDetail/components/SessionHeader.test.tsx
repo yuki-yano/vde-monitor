@@ -36,25 +36,38 @@ describe("SessionHeader", () => {
     );
   };
 
+  type SessionHeaderState = Parameters<typeof SessionHeader>[0]["state"];
+  type SessionHeaderActions = Parameters<typeof SessionHeader>[0]["actions"];
+
+  const buildState = (overrides: Partial<SessionHeaderState> = {}): SessionHeaderState => ({
+    session: createSessionDetail(),
+    readOnly: false,
+    connectionIssue: null,
+    nowMs: Date.now(),
+    titleDraft: "",
+    titleEditing: false,
+    titleSaving: false,
+    titleError: null,
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<SessionHeaderActions> = {}): SessionHeaderActions => ({
+    onTitleDraftChange: vi.fn(),
+    onTitleSave: vi.fn(),
+    onTitleClear: vi.fn(),
+    onOpenTitleEditor: vi.fn(),
+    onCloseTitleEditor: vi.fn(),
+    ...overrides,
+  });
+
   it("renders session title and metadata", () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
-    renderWithRouter(
-      <SessionHeader
-        session={session}
-        readOnly={false}
-        connectionIssue={null}
-        nowMs={Date.now()}
-        titleDraft="Custom Title"
-        titleEditing={false}
-        titleSaving={false}
-        titleError={null}
-        onTitleDraftChange={vi.fn()}
-        onTitleSave={vi.fn()}
-        onTitleClear={vi.fn()}
-        onOpenTitleEditor={vi.fn()}
-        onCloseTitleEditor={vi.fn()}
-      />,
-    );
+    const state = buildState({
+      session,
+      titleDraft: "Custom Title",
+    });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const titleButton = screen.getByRole("button", { name: "Edit session title" });
     expect(titleButton.textContent).toContain("Custom Title");
@@ -69,24 +82,18 @@ describe("SessionHeader", () => {
     const onTitleDraftChange = vi.fn();
     const onTitleSave = vi.fn();
     const onCloseTitleEditor = vi.fn();
+    const state = buildState({
+      session,
+      titleDraft: "Custom Title",
+      titleEditing: true,
+    });
+    const actions = buildActions({
+      onTitleDraftChange,
+      onTitleSave,
+      onCloseTitleEditor,
+    });
 
-    renderWithRouter(
-      <SessionHeader
-        session={session}
-        readOnly={false}
-        connectionIssue={null}
-        nowMs={Date.now()}
-        titleDraft="Custom Title"
-        titleEditing
-        titleSaving={false}
-        titleError={null}
-        onTitleDraftChange={onTitleDraftChange}
-        onTitleSave={onTitleSave}
-        onTitleClear={vi.fn()}
-        onOpenTitleEditor={vi.fn()}
-        onCloseTitleEditor={onCloseTitleEditor}
-      />,
-    );
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const input = screen.getByLabelText("Custom session title");
     fireEvent.change(input, { target: { value: "Updated Title" } });
@@ -102,23 +109,13 @@ describe("SessionHeader", () => {
   it("disables title editing when read-only", () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
     const onOpenTitleEditor = vi.fn();
-    renderWithRouter(
-      <SessionHeader
-        session={session}
-        readOnly
-        connectionIssue={null}
-        nowMs={Date.now()}
-        titleDraft="Custom Title"
-        titleEditing={false}
-        titleSaving={false}
-        titleError={null}
-        onTitleDraftChange={vi.fn()}
-        onTitleSave={vi.fn()}
-        onTitleClear={vi.fn()}
-        onOpenTitleEditor={onOpenTitleEditor}
-        onCloseTitleEditor={vi.fn()}
-      />,
-    );
+    const state = buildState({
+      session,
+      readOnly: true,
+      titleDraft: "Custom Title",
+    });
+    const actions = buildActions({ onOpenTitleEditor });
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const titleButton = screen.getByRole("button", { name: "Edit session title" });
     expect((titleButton as HTMLButtonElement).disabled).toBe(true);
@@ -128,23 +125,15 @@ describe("SessionHeader", () => {
 
   it("renders alerts when read-only, pipe conflict, or connection issue", () => {
     const session = createSessionDetail({ pipeConflict: true });
-    renderWithRouter(
-      <SessionHeader
-        session={session}
-        readOnly
-        connectionIssue="Connection lost"
-        nowMs={Date.now()}
-        titleDraft="Custom Title"
-        titleEditing={false}
-        titleSaving={false}
-        titleError="Title error"
-        onTitleDraftChange={vi.fn()}
-        onTitleSave={vi.fn()}
-        onTitleClear={vi.fn()}
-        onOpenTitleEditor={vi.fn()}
-        onCloseTitleEditor={vi.fn()}
-      />,
-    );
+    const state = buildState({
+      session,
+      readOnly: true,
+      connectionIssue: "Connection lost",
+      titleDraft: "Custom Title",
+      titleError: "Title error",
+    });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     expect(screen.getByText("Read-only mode is active. Actions are disabled.")).toBeTruthy();
     expect(screen.getByText("Another pipe-pane is attached. Screen is capture-only.")).toBeTruthy();

@@ -15,7 +15,7 @@ import {
   stateTone,
 } from "../sessionDetailUtils";
 
-type SessionHeaderProps = {
+type SessionHeaderState = {
   session: SessionDetail;
   readOnly: boolean;
   connectionIssue: string | null;
@@ -24,6 +24,9 @@ type SessionHeaderProps = {
   titleEditing: boolean;
   titleSaving: boolean;
   titleError: string | null;
+};
+
+type SessionHeaderActions = {
   onTitleDraftChange: (value: string) => void;
   onTitleSave: () => void;
   onTitleClear: () => void;
@@ -31,21 +34,24 @@ type SessionHeaderProps = {
   onCloseTitleEditor: () => void;
 };
 
-export const SessionHeader = ({
-  session,
-  readOnly,
-  connectionIssue,
-  nowMs,
-  titleDraft,
-  titleEditing,
-  titleSaving,
-  titleError,
-  onTitleDraftChange,
-  onTitleSave,
-  onTitleClear,
-  onOpenTitleEditor,
-  onCloseTitleEditor,
-}: SessionHeaderProps) => {
+type SessionHeaderProps = {
+  state: SessionHeaderState;
+  actions: SessionHeaderActions;
+};
+
+export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
+  const {
+    session,
+    readOnly,
+    connectionIssue,
+    nowMs,
+    titleDraft,
+    titleEditing,
+    titleSaving,
+    titleError,
+  } = state;
+  const { onTitleDraftChange, onTitleSave, onTitleClear, onOpenTitleEditor, onCloseTitleEditor } =
+    actions;
   const sessionCustomTitle = session.customTitle ?? null;
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;

@@ -22,22 +22,25 @@ import {
 
 import { Button, Callout, IconButton, ModifierToggle, PillToggle, Toolbar } from "@/components/ui";
 
-type ControlsPanelProps = {
+type ControlsPanelState = {
   readOnly: boolean;
   connected: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
-  onSendText: () => void;
   autoEnter: boolean;
-  onToggleAutoEnter: () => void;
   controlsOpen: boolean;
-  onToggleControls: () => void;
   rawMode: boolean;
-  onToggleRawMode: () => void;
   allowDangerKeys: boolean;
-  onToggleAllowDangerKeys: () => void;
   shiftHeld: boolean;
-  onToggleShift: () => void;
   ctrlHeld: boolean;
+};
+
+type ControlsPanelActions = {
+  onSendText: () => void;
+  onToggleAutoEnter: () => void;
+  onToggleControls: () => void;
+  onToggleRawMode: () => void;
+  onToggleAllowDangerKeys: () => void;
+  onToggleShift: () => void;
   onToggleCtrl: () => void;
   onSendKey: (key: string) => void;
   onRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
@@ -46,6 +49,11 @@ type ControlsPanelProps = {
   onRawCompositionStart: (event: CompositionEvent<HTMLTextAreaElement>) => void;
   onRawCompositionEnd: (event: CompositionEvent<HTMLTextAreaElement>) => void;
   onTouchSession: () => void;
+};
+
+type ControlsPanelProps = {
+  state: ControlsPanelState;
+  actions: ControlsPanelActions;
 };
 
 const PROMPT_SCALE = 0.875;
@@ -76,31 +84,34 @@ const KeyButton = ({
   </Button>
 );
 
-export const ControlsPanel = ({
-  readOnly,
-  connected,
-  textInputRef,
-  onSendText,
-  autoEnter,
-  onToggleAutoEnter,
-  controlsOpen,
-  onToggleControls,
-  rawMode,
-  onToggleRawMode,
-  allowDangerKeys,
-  onToggleAllowDangerKeys,
-  shiftHeld,
-  onToggleShift,
-  ctrlHeld,
-  onToggleCtrl,
-  onSendKey,
-  onRawBeforeInput,
-  onRawInput,
-  onRawKeyDown,
-  onRawCompositionStart,
-  onRawCompositionEnd,
-  onTouchSession,
-}: ControlsPanelProps) => {
+export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
+  const {
+    readOnly,
+    connected,
+    textInputRef,
+    autoEnter,
+    controlsOpen,
+    rawMode,
+    allowDangerKeys,
+    shiftHeld,
+    ctrlHeld,
+  } = state;
+  const {
+    onSendText,
+    onToggleAutoEnter,
+    onToggleControls,
+    onToggleRawMode,
+    onToggleAllowDangerKeys,
+    onToggleShift,
+    onToggleCtrl,
+    onSendKey,
+    onRawBeforeInput,
+    onRawInput,
+    onRawKeyDown,
+    onRawCompositionStart,
+    onRawCompositionEnd,
+    onTouchSession,
+  } = actions;
   const tabLabel = "Tab";
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const placeholder = rawMode ? "Raw input (sent immediately)..." : "Type a prompt…";

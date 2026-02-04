@@ -5,39 +5,44 @@ import { describe, expect, it, vi } from "vitest";
 import { ControlsPanel } from "./ControlsPanel";
 
 describe("ControlsPanel", () => {
-  const buildRawProps = () => ({
+  type ControlsPanelState = Parameters<typeof ControlsPanel>[0]["state"];
+  type ControlsPanelActions = Parameters<typeof ControlsPanel>[0]["actions"];
+
+  const buildState = (overrides: Partial<ControlsPanelState> = {}): ControlsPanelState => ({
+    readOnly: false,
+    connected: true,
+    textInputRef: { current: null },
+    autoEnter: true,
+    controlsOpen: false,
     rawMode: false,
-    onToggleRawMode: vi.fn(),
     allowDangerKeys: false,
+    shiftHeld: false,
+    ctrlHeld: false,
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<ControlsPanelActions> = {}): ControlsPanelActions => ({
+    onSendText: vi.fn(),
+    onToggleAutoEnter: vi.fn(),
+    onToggleControls: vi.fn(),
+    onToggleRawMode: vi.fn(),
     onToggleAllowDangerKeys: vi.fn(),
+    onToggleShift: vi.fn(),
+    onToggleCtrl: vi.fn(),
+    onSendKey: vi.fn(),
     onRawBeforeInput: vi.fn(),
     onRawInput: vi.fn(),
     onRawKeyDown: vi.fn(),
     onRawCompositionStart: vi.fn(),
     onRawCompositionEnd: vi.fn(),
+    onTouchSession: vi.fn(),
+    ...overrides,
   });
 
   it("renders read-only banner when disabled", () => {
-    const rawProps = buildRawProps();
-    render(
-      <ControlsPanel
-        readOnly
-        connected
-        textInputRef={{ current: null }}
-        onSendText={vi.fn()}
-        autoEnter
-        onToggleAutoEnter={vi.fn()}
-        controlsOpen={false}
-        onToggleControls={vi.fn()}
-        {...rawProps}
-        shiftHeld={false}
-        onToggleShift={vi.fn()}
-        ctrlHeld={false}
-        onToggleCtrl={vi.fn()}
-        onSendKey={vi.fn()}
-        onTouchSession={vi.fn()}
-      />,
-    );
+    const state = buildState({ readOnly: true });
+    const actions = buildActions();
+    render(<ControlsPanel state={state} actions={actions} />);
 
     expect(
       screen.getByText("Read-only mode is active. Interactive controls are hidden."),
@@ -48,26 +53,13 @@ describe("ControlsPanel", () => {
     const onSendText = vi.fn();
     const onToggleControls = vi.fn();
     const onTouchSession = vi.fn();
-    const rawProps = buildRawProps();
-    render(
-      <ControlsPanel
-        readOnly={false}
-        connected
-        textInputRef={{ current: null }}
-        onSendText={onSendText}
-        autoEnter
-        onToggleAutoEnter={vi.fn()}
-        controlsOpen={false}
-        onToggleControls={onToggleControls}
-        {...rawProps}
-        shiftHeld={false}
-        onToggleShift={vi.fn()}
-        ctrlHeld={false}
-        onToggleCtrl={vi.fn()}
-        onSendKey={vi.fn()}
-        onTouchSession={onTouchSession}
-      />,
-    );
+    const state = buildState();
+    const actions = buildActions({
+      onSendText,
+      onToggleControls,
+      onTouchSession,
+    });
+    render(<ControlsPanel state={state} actions={actions} />);
 
     fireEvent.click(screen.getByLabelText("Send"));
     expect(onSendText).toHaveBeenCalled();
@@ -81,26 +73,9 @@ describe("ControlsPanel", () => {
 
   it("sends prompt on ctrl/meta enter", () => {
     const onSendText = vi.fn();
-    const rawProps = buildRawProps();
-    render(
-      <ControlsPanel
-        readOnly={false}
-        connected
-        textInputRef={{ current: null }}
-        onSendText={onSendText}
-        autoEnter
-        onToggleAutoEnter={vi.fn()}
-        controlsOpen={false}
-        onToggleControls={vi.fn()}
-        {...rawProps}
-        shiftHeld={false}
-        onToggleShift={vi.fn()}
-        ctrlHeld={false}
-        onToggleCtrl={vi.fn()}
-        onSendKey={vi.fn()}
-        onTouchSession={vi.fn()}
-      />,
-    );
+    const state = buildState();
+    const actions = buildActions({ onSendText });
+    render(<ControlsPanel state={state} actions={actions} />);
 
     const textarea = screen.getByPlaceholderText("Type a prompt…");
     fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
@@ -113,26 +88,13 @@ describe("ControlsPanel", () => {
     const onSendKey = vi.fn();
     const onToggleShift = vi.fn();
     const onToggleCtrl = vi.fn();
-    const rawProps = buildRawProps();
-    render(
-      <ControlsPanel
-        readOnly={false}
-        connected
-        textInputRef={{ current: null }}
-        onSendText={vi.fn()}
-        autoEnter
-        onToggleAutoEnter={vi.fn()}
-        controlsOpen
-        onToggleControls={vi.fn()}
-        {...rawProps}
-        shiftHeld={false}
-        onToggleShift={onToggleShift}
-        ctrlHeld={false}
-        onToggleCtrl={onToggleCtrl}
-        onSendKey={onSendKey}
-        onTouchSession={vi.fn()}
-      />,
-    );
+    const state = buildState({ controlsOpen: true });
+    const actions = buildActions({
+      onSendKey,
+      onToggleShift,
+      onToggleCtrl,
+    });
+    render(<ControlsPanel state={state} actions={actions} />);
 
     fireEvent.click(screen.getByText("Shift"));
     expect(onToggleShift).toHaveBeenCalled();

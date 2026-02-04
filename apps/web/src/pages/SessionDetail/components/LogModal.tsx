@@ -17,15 +17,23 @@ import { sanitizeLogCopyText } from "@/lib/clipboard";
 
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
-type LogModalProps = {
+type LogModalState = {
   open: boolean;
   session: SessionSummary | null;
   logLines: string[];
   loading: boolean;
   error: string | null;
+};
+
+type LogModalActions = {
   onClose: () => void;
   onOpenHere: () => void;
   onOpenNewTab: () => void;
+};
+
+type LogModalProps = {
+  state: LogModalState;
+  actions: LogModalActions;
 };
 
 const QuickLogList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -40,16 +48,9 @@ const QuickLogList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 
 QuickLogList.displayName = "QuickLogList";
 
-export const LogModal = ({
-  open,
-  session,
-  logLines,
-  loading,
-  error,
-  onClose,
-  onOpenHere,
-  onOpenNewTab,
-}: LogModalProps) => {
+export const LogModal = ({ state, actions }: LogModalProps) => {
+  const { open, session, logLines, loading, error } = state;
+  const { onClose, onOpenHere, onOpenNewTab } = actions;
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [displayLines, setDisplayLines] = useState(logLines);

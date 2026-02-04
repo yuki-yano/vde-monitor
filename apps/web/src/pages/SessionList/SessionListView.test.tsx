@@ -21,26 +21,24 @@ vi.mock("@/components/theme-toggle", () => ({
 }));
 
 vi.mock("@/pages/SessionDetail/components/SessionSidebar", () => ({
-  SessionSidebar: ({ sessionGroups }: { sessionGroups: unknown[] }) => (
-    <div data-testid="session-sidebar" data-count={sessionGroups.length} />
+  SessionSidebar: ({ state }: { state: { sessionGroups: unknown[] } }) => (
+    <div data-testid="session-sidebar" data-count={state.sessionGroups.length} />
   ),
 }));
 
 vi.mock("@/pages/SessionDetail/components/QuickPanel", () => ({
   QuickPanel: ({
-    open,
-    onOpenLogModal,
-    onToggle,
+    state,
+    actions,
   }: {
-    open: boolean;
-    onOpenLogModal: (paneId: string) => void;
-    onToggle: () => void;
+    state: { open: boolean };
+    actions: { onOpenLogModal: (paneId: string) => void; onToggle: () => void };
   }) => (
-    <div data-testid="quick-panel" data-open={String(open)}>
-      <button type="button" onClick={() => onOpenLogModal("pane-quick")}>
+    <div data-testid="quick-panel" data-open={String(state.open)}>
+      <button type="button" onClick={() => actions.onOpenLogModal("pane-quick")}>
         open-log
       </button>
-      <button type="button" onClick={onToggle}>
+      <button type="button" onClick={actions.onToggle}>
         toggle-panel
       </button>
     </div>
@@ -48,18 +46,12 @@ vi.mock("@/pages/SessionDetail/components/QuickPanel", () => ({
 }));
 
 vi.mock("@/pages/SessionDetail/components/LogModal", () => ({
-  LogModal: ({
-    onOpenHere,
-    onOpenNewTab,
-  }: {
-    onOpenHere: () => void;
-    onOpenNewTab: () => void;
-  }) => (
+  LogModal: ({ actions }: { actions: { onOpenHere: () => void; onOpenNewTab: () => void } }) => (
     <div data-testid="log-modal">
-      <button type="button" onClick={onOpenHere}>
+      <button type="button" onClick={actions.onOpenHere}>
         open-here
       </button>
-      <button type="button" onClick={onOpenNewTab}>
+      <button type="button" onClick={actions.onOpenNewTab}>
         open-new-tab
       </button>
     </div>

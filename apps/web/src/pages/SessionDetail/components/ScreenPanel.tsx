@@ -26,11 +26,9 @@ import type { ScreenMode } from "@/lib/screen-loading";
 
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
-type ScreenPanelProps = {
+type ScreenPanelState = {
   mode: ScreenMode;
-  onModeChange: (mode: ScreenMode) => void;
   connected: boolean;
-  onRefresh: () => void;
   fallbackReason: string | null;
   error: string | null;
   isScreenLoading: boolean;
@@ -40,11 +38,21 @@ type ScreenPanelProps = {
   scrollerRef: RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
   forceFollow: boolean;
+  rawMode: boolean;
+  allowDangerKeys: boolean;
+};
+
+type ScreenPanelActions = {
+  onModeChange: (mode: ScreenMode) => void;
+  onRefresh: () => void;
   onAtBottomChange: (value: boolean) => void;
   onScrollToBottom: (behavior: "auto" | "smooth") => void;
   onUserScrollStateChange: (value: boolean) => void;
-  rawMode: boolean;
-  allowDangerKeys: boolean;
+};
+
+type ScreenPanelProps = {
+  state: ScreenPanelState;
+  actions: ScreenPanelActions;
   controls: ReactNode;
 };
 
@@ -60,27 +68,24 @@ const VirtuosoList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 
 VirtuosoList.displayName = "VirtuosoList";
 
-export const ScreenPanel = ({
-  mode,
-  onModeChange,
-  connected,
-  onRefresh,
-  fallbackReason,
-  error,
-  isScreenLoading,
-  imageBase64,
-  screenLines,
-  virtuosoRef,
-  scrollerRef,
-  isAtBottom,
-  forceFollow,
-  onAtBottomChange,
-  onScrollToBottom,
-  onUserScrollStateChange,
-  rawMode,
-  allowDangerKeys,
-  controls,
-}: ScreenPanelProps) => {
+export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
+  const {
+    mode,
+    connected,
+    fallbackReason,
+    error,
+    isScreenLoading,
+    imageBase64,
+    screenLines,
+    virtuosoRef,
+    scrollerRef,
+    isAtBottom,
+    forceFollow,
+    rawMode,
+    allowDangerKeys,
+  } = state;
+  const { onModeChange, onRefresh, onAtBottomChange, onScrollToBottom, onUserScrollStateChange } =
+    actions;
   const { scrollerRef: stableScrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: screenLines,
     isAtBottom,

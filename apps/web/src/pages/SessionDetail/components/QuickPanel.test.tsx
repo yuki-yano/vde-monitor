@@ -6,34 +6,37 @@ import { createSessionDetail } from "../test-helpers";
 import { QuickPanel } from "./QuickPanel";
 
 describe("QuickPanel", () => {
+  type QuickPanelState = Parameters<typeof QuickPanel>[0]["state"];
+  type QuickPanelActions = Parameters<typeof QuickPanel>[0]["actions"];
+
+  const buildState = (overrides: Partial<QuickPanelState> = {}): QuickPanelState => ({
+    open: true,
+    sessionGroups: [],
+    nowMs: Date.now(),
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<QuickPanelActions> = {}): QuickPanelActions => ({
+    onOpenLogModal: vi.fn(),
+    onClose: vi.fn(),
+    onToggle: vi.fn(),
+    ...overrides,
+  });
+
   it("renders toggle button when closed", () => {
     const onToggle = vi.fn();
-    render(
-      <QuickPanel
-        open={false}
-        sessionGroups={[]}
-        nowMs={Date.now()}
-        onOpenLogModal={vi.fn()}
-        onClose={vi.fn()}
-        onToggle={onToggle}
-      />,
-    );
+    const state = buildState({ open: false });
+    const actions = buildActions({ onToggle });
+    render(<QuickPanel state={state} actions={actions} />);
 
     fireEvent.click(screen.getByLabelText("Toggle session quick panel"));
     expect(onToggle).toHaveBeenCalled();
   });
 
   it("renders empty state when no sessions", () => {
-    render(
-      <QuickPanel
-        open
-        sessionGroups={[]}
-        nowMs={Date.now()}
-        onOpenLogModal={vi.fn()}
-        onClose={vi.fn()}
-        onToggle={vi.fn()}
-      />,
-    );
+    const state = buildState({ open: true, sessionGroups: [] });
+    const actions = buildActions();
+    render(<QuickPanel state={state} actions={actions} />);
 
     expect(screen.getByText("No sessions available.")).toBeTruthy();
   });
@@ -41,22 +44,18 @@ describe("QuickPanel", () => {
   it("opens log modal for selected session", () => {
     const session = createSessionDetail();
     const onOpenLogModal = vi.fn();
-    render(
-      <QuickPanel
-        open
-        sessionGroups={[
-          {
-            repoRoot: session.repoRoot,
-            sessions: [session],
-            lastInputAt: session.lastInputAt,
-          },
-        ]}
-        nowMs={Date.now()}
-        onOpenLogModal={onOpenLogModal}
-        onClose={vi.fn()}
-        onToggle={vi.fn()}
-      />,
-    );
+    const state = buildState({
+      open: true,
+      sessionGroups: [
+        {
+          repoRoot: session.repoRoot,
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+    });
+    const actions = buildActions({ onOpenLogModal });
+    render(<QuickPanel state={state} actions={actions} />);
 
     fireEvent.click(screen.getByText("Session Title"));
     expect(onOpenLogModal).toHaveBeenCalledWith("pane-1");

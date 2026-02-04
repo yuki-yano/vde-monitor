@@ -39,19 +39,29 @@ vi.mock("react-virtuoso", () => ({
 }));
 
 describe("LogModal", () => {
+  type LogModalState = Parameters<typeof LogModal>[0]["state"];
+  type LogModalActions = Parameters<typeof LogModal>[0]["actions"];
+
+  const buildState = (overrides: Partial<LogModalState> = {}): LogModalState => ({
+    open: true,
+    session: createSessionDetail(),
+    logLines: [],
+    loading: false,
+    error: null,
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<LogModalActions> = {}): LogModalActions => ({
+    onClose: vi.fn(),
+    onOpenHere: vi.fn(),
+    onOpenNewTab: vi.fn(),
+    ...overrides,
+  });
+
   it("returns null when closed", () => {
-    const { container } = render(
-      <LogModal
-        open={false}
-        session={createSessionDetail()}
-        logLines={[]}
-        loading={false}
-        error={null}
-        onClose={vi.fn()}
-        onOpenHere={vi.fn()}
-        onOpenNewTab={vi.fn()}
-      />,
-    );
+    const state = buildState({ open: false });
+    const actions = buildActions();
+    const { container } = render(<LogModal state={state} actions={actions} />);
 
     expect(container.firstChild).toBeNull();
   });
@@ -61,18 +71,15 @@ describe("LogModal", () => {
     const onOpenHere = vi.fn();
     const onOpenNewTab = vi.fn();
     const session = createSessionDetail({ customTitle: "Custom" });
-    render(
-      <LogModal
-        open
-        session={session}
-        logLines={["line1"]}
-        loading
-        error="Log error"
-        onClose={onClose}
-        onOpenHere={onOpenHere}
-        onOpenNewTab={onOpenNewTab}
-      />,
-    );
+    const state = buildState({
+      open: true,
+      session,
+      logLines: ["line1"],
+      loading: true,
+      error: "Log error",
+    });
+    const actions = buildActions({ onClose, onOpenHere, onOpenNewTab });
+    render(<LogModal state={state} actions={actions} />);
 
     expect(screen.getByText("Custom")).toBeTruthy();
     expect(screen.getByText("Log error")).toBeTruthy();
@@ -90,18 +97,9 @@ describe("LogModal", () => {
 
   it("buffers log lines while user is scrolling", () => {
     const session = createSessionDetail();
-    const { rerender } = render(
-      <LogModal
-        open
-        session={session}
-        logLines={["line1"]}
-        loading={false}
-        error={null}
-        onClose={vi.fn()}
-        onOpenHere={vi.fn()}
-        onOpenNewTab={vi.fn()}
-      />,
-    );
+    const state = buildState({ session, logLines: ["line1"] });
+    const actions = buildActions();
+    const { rerender } = render(<LogModal state={state} actions={actions} />);
 
     expect(screen.getByText("line1")).toBeTruthy();
 
@@ -111,14 +109,11 @@ describe("LogModal", () => {
 
     rerender(
       <LogModal
-        open
-        session={session}
-        logLines={["line1", "line2"]}
-        loading={false}
-        error={null}
-        onClose={vi.fn()}
-        onOpenHere={vi.fn()}
-        onOpenNewTab={vi.fn()}
+        state={{
+          ...state,
+          logLines: ["line1", "line2"],
+        }}
+        actions={actions}
       />,
     );
 

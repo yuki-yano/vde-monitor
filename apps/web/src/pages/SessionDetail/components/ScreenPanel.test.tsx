@@ -22,88 +22,61 @@ vi.mock("react-virtuoso", () => ({
 }));
 
 describe("ScreenPanel", () => {
-  const baseRawProps = { rawMode: false, allowDangerKeys: false };
+  type ScreenPanelState = Parameters<typeof ScreenPanel>[0]["state"];
+  type ScreenPanelActions = Parameters<typeof ScreenPanel>[0]["actions"];
+
+  const buildState = (overrides: Partial<ScreenPanelState> = {}): ScreenPanelState => ({
+    mode: "text",
+    connected: true,
+    fallbackReason: null,
+    error: null,
+    isScreenLoading: false,
+    imageBase64: null,
+    screenLines: ["line"],
+    virtuosoRef: { current: null },
+    scrollerRef: { current: null },
+    isAtBottom: true,
+    forceFollow: false,
+    rawMode: false,
+    allowDangerKeys: false,
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<ScreenPanelActions> = {}): ScreenPanelActions => ({
+    onModeChange: vi.fn(),
+    onRefresh: vi.fn(),
+    onAtBottomChange: vi.fn(),
+    onScrollToBottom: vi.fn(),
+    onUserScrollStateChange: vi.fn(),
+    ...overrides,
+  });
 
   it("shows raw indicator when enabled", () => {
-    render(
-      <ScreenPanel
-        mode="text"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={vi.fn()}
-        fallbackReason={null}
-        error={null}
-        isScreenLoading={false}
-        imageBase64={null}
-        screenLines={["line"]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={vi.fn()}
-        onUserScrollStateChange={vi.fn()}
-        rawMode
-        allowDangerKeys
-        controls={null}
-      />,
-    );
+    const state = buildState({ rawMode: true, allowDangerKeys: true });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.getByText("Raw")).toBeTruthy();
     expect(screen.getByText("Unsafe")).toBeTruthy();
   });
 
   it("renders fallback and error messages", () => {
-    render(
-      <ScreenPanel
-        mode="text"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={vi.fn()}
-        fallbackReason="image_failed"
-        error="Screen error"
-        isScreenLoading={false}
-        imageBase64={null}
-        screenLines={["line"]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={vi.fn()}
-        onUserScrollStateChange={vi.fn()}
-        {...baseRawProps}
-        controls={null}
-      />,
-    );
+    const state = buildState({ fallbackReason: "image_failed", error: "Screen error" });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.getByText("Image fallback: image_failed")).toBeTruthy();
     expect(screen.getByText("Screen error")).toBeTruthy();
   });
 
   it("renders image mode content", () => {
-    render(
-      <ScreenPanel
-        mode="image"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={vi.fn()}
-        fallbackReason={null}
-        error={null}
-        isScreenLoading={false}
-        imageBase64="abc123"
-        screenLines={[]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={vi.fn()}
-        onUserScrollStateChange={vi.fn()}
-        {...baseRawProps}
-        controls={null}
-      />,
-    );
+    const state = buildState({
+      mode: "image",
+      imageBase64: "abc123",
+      screenLines: [],
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     const img = screen.getByAltText("screen") as HTMLImageElement;
     expect(img.src).toContain("data:image/png;base64,abc123");
@@ -111,28 +84,9 @@ describe("ScreenPanel", () => {
 
   it("shows scroll-to-bottom button when not at bottom", () => {
     const onScrollToBottom = vi.fn();
-    render(
-      <ScreenPanel
-        mode="text"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={vi.fn()}
-        fallbackReason={null}
-        error={null}
-        isScreenLoading={false}
-        imageBase64={null}
-        screenLines={["line"]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom={false}
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={onScrollToBottom}
-        onUserScrollStateChange={vi.fn()}
-        {...baseRawProps}
-        controls={null}
-      />,
-    );
+    const state = buildState({ isAtBottom: false });
+    const actions = buildActions({ onScrollToBottom });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     fireEvent.click(screen.getByLabelText("Scroll to bottom"));
     expect(onScrollToBottom).toHaveBeenCalledWith("smooth");
@@ -140,28 +94,9 @@ describe("ScreenPanel", () => {
 
   it("invokes refresh handler", () => {
     const onRefresh = vi.fn();
-    render(
-      <ScreenPanel
-        mode="text"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={onRefresh}
-        fallbackReason={null}
-        error={null}
-        isScreenLoading={false}
-        imageBase64={null}
-        screenLines={["line"]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={vi.fn()}
-        onUserScrollStateChange={vi.fn()}
-        {...baseRawProps}
-        controls={null}
-      />,
-    );
+    const state = buildState();
+    const actions = buildActions({ onRefresh });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     const buttons = screen.queryAllByLabelText("Refresh screen");
     const first = buttons[0];
@@ -174,29 +109,10 @@ describe("ScreenPanel", () => {
     const selection = { toString: () => "line\u0007bell" } as unknown as Selection;
     const getSelectionSpy = vi.spyOn(window, "getSelection").mockReturnValue(selection);
     const setData = vi.fn();
+    const state = buildState();
+    const actions = buildActions();
 
-    render(
-      <ScreenPanel
-        mode="text"
-        onModeChange={vi.fn()}
-        connected
-        onRefresh={vi.fn()}
-        fallbackReason={null}
-        error={null}
-        isScreenLoading={false}
-        imageBase64={null}
-        screenLines={["line"]}
-        virtuosoRef={{ current: null }}
-        scrollerRef={{ current: null }}
-        isAtBottom
-        forceFollow={false}
-        onAtBottomChange={vi.fn()}
-        onScrollToBottom={vi.fn()}
-        onUserScrollStateChange={vi.fn()}
-        {...baseRawProps}
-        controls={null}
-      />,
-    );
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     const container = screen.getByTestId("virtuoso").parentElement;
     expect(container).toBeTruthy();

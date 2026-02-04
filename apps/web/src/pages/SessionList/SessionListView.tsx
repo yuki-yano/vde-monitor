@@ -48,10 +48,13 @@ export const SessionListView = ({
         style={{ width: `${sidebarWidth}px` }}
       >
         <SessionSidebar
-          sessionGroups={quickPanelGroups}
-          nowMs={nowMs}
-          currentPaneId={null}
-          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r"
+          state={{
+            sessionGroups: quickPanelGroups,
+            nowMs,
+            currentPaneId: null,
+            className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
+          }}
+          actions={{}}
         />
         <div
           role="separator"
@@ -129,25 +132,33 @@ export const SessionListView = ({
 
       <div className="md:hidden">
         <QuickPanel
-          open={quickPanelOpen}
-          sessionGroups={quickPanelGroups}
-          nowMs={nowMs}
-          currentPaneId={null}
-          onOpenLogModal={onOpenLogModal}
-          onClose={onCloseQuickPanel}
-          onToggle={onToggleQuickPanel}
+          state={{
+            open: quickPanelOpen,
+            sessionGroups: quickPanelGroups,
+            nowMs,
+            currentPaneId: null,
+          }}
+          actions={{
+            onOpenLogModal,
+            onClose: onCloseQuickPanel,
+            onToggle: onToggleQuickPanel,
+          }}
         />
       </div>
 
       <LogModal
-        open={logModalOpen}
-        session={selectedSession}
-        logLines={selectedLogLines}
-        loading={selectedLogLoading}
-        error={selectedLogError}
-        onClose={onCloseLogModal}
-        onOpenHere={onOpenHere}
-        onOpenNewTab={onOpenNewTab}
+        state={{
+          open: logModalOpen,
+          session: selectedSession,
+          logLines: selectedLogLines,
+          loading: selectedLogLoading,
+          error: selectedLogError,
+        }}
+        actions={{
+          onClose: onCloseLogModal,
+          onOpenHere,
+          onOpenNewTab,
+        }}
       />
     </>
   );

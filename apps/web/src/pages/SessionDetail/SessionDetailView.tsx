@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useMemo } from "react";
 
 import { Card } from "@/components/ui";
 
@@ -18,102 +18,391 @@ import type { SessionDetailVM } from "./useSessionDetailVM";
 export type SessionDetailViewProps = SessionDetailVM;
 
 export const SessionDetailView = ({
-  paneId,
-  session,
-  sessionGroups,
-  nowMs,
-  connected,
-  connectionIssue,
-  readOnly,
-  is2xlUp,
-  sidebarWidth,
-  handleSidebarPointerDown,
-  detailSplitRatio,
-  detailSplitRef,
-  handleDetailSplitPointerDown,
-  mode,
-  screenLines,
-  imageBase64,
-  fallbackReason,
-  error,
-  isScreenLoading,
-  isAtBottom,
-  handleAtBottomChange,
-  handleUserScrollStateChange,
-  forceFollow,
-  scrollToBottom,
-  handleModeChange,
-  virtuosoRef,
-  scrollerRef,
-  handleRefreshScreen,
-  textInputRef,
-  autoEnter,
-  shiftHeld,
-  ctrlHeld,
-  controlsOpen,
-  rawMode,
-  allowDangerKeys,
-  handleSendKey,
-  handleSendText,
-  handleRawBeforeInput,
-  handleRawInput,
-  handleRawKeyDown,
-  handleRawCompositionStart,
-  handleRawCompositionEnd,
-  toggleAutoEnter,
-  toggleControls,
-  toggleShift,
-  toggleCtrl,
-  toggleRawMode,
-  toggleAllowDangerKeys,
-  handleTouchSession,
-  diffSummary,
-  diffError,
-  diffLoading,
-  diffFiles,
-  diffOpen,
-  diffLoadingFiles,
-  refreshDiff,
-  toggleDiff,
-  commitLog,
-  commitError,
-  commitLoading,
-  commitLoadingMore,
-  commitHasMore,
-  commitDetails,
-  commitFileDetails,
-  commitFileOpen,
-  commitFileLoading,
-  commitOpen,
-  commitLoadingDetails,
-  copiedHash,
-  refreshCommitLog,
-  loadMoreCommits,
-  toggleCommit,
-  toggleCommitFile,
-  copyHash,
-  quickPanelOpen,
-  logModalOpen,
-  selectedSession,
-  selectedLogLines,
-  selectedLogLoading,
-  selectedLogError,
-  openLogModal,
-  closeLogModal,
-  toggleQuickPanel,
-  closeQuickPanel,
-  titleDraft,
-  titleEditing,
-  titleSaving,
-  titleError,
-  openTitleEditor,
-  closeTitleEditor,
-  updateTitleDraft,
-  saveTitle,
-  clearTitle,
-  handleOpenHere,
-  handleOpenInNewTab,
+  meta,
+  sidebar,
+  layout,
+  screen,
+  controls,
+  diffs,
+  commits,
+  logs,
+  title,
+  actions,
 }: SessionDetailViewProps) => {
+  const { paneId, session, nowMs, connected, connectionIssue, readOnly } = meta;
+  const { sessionGroups } = sidebar;
+  const {
+    is2xlUp,
+    sidebarWidth,
+    handleSidebarPointerDown,
+    detailSplitRatio,
+    detailSplitRef,
+    handleDetailSplitPointerDown,
+  } = layout;
+  const {
+    mode,
+    screenLines,
+    imageBase64,
+    fallbackReason,
+    error,
+    isScreenLoading,
+    isAtBottom,
+    handleAtBottomChange,
+    handleUserScrollStateChange,
+    forceFollow,
+    scrollToBottom,
+    handleModeChange,
+    virtuosoRef,
+    scrollerRef,
+    handleRefreshScreen,
+  } = screen;
+  const {
+    textInputRef,
+    autoEnter,
+    shiftHeld,
+    ctrlHeld,
+    controlsOpen,
+    rawMode,
+    allowDangerKeys,
+    handleSendKey,
+    handleSendText,
+    handleRawBeforeInput,
+    handleRawInput,
+    handleRawKeyDown,
+    handleRawCompositionStart,
+    handleRawCompositionEnd,
+    toggleAutoEnter,
+    toggleControls,
+    toggleShift,
+    toggleCtrl,
+    toggleRawMode,
+    toggleAllowDangerKeys,
+    handleTouchSession,
+  } = controls;
+  const {
+    diffSummary,
+    diffError,
+    diffLoading,
+    diffFiles,
+    diffOpen,
+    diffLoadingFiles,
+    refreshDiff,
+    toggleDiff,
+  } = diffs;
+  const {
+    commitLog,
+    commitError,
+    commitLoading,
+    commitLoadingMore,
+    commitHasMore,
+    commitDetails,
+    commitFileDetails,
+    commitFileOpen,
+    commitFileLoading,
+    commitOpen,
+    commitLoadingDetails,
+    copiedHash,
+    refreshCommitLog,
+    loadMoreCommits,
+    toggleCommit,
+    toggleCommitFile,
+    copyHash,
+  } = commits;
+  const {
+    quickPanelOpen,
+    logModalOpen,
+    selectedSession,
+    selectedLogLines,
+    selectedLogLoading,
+    selectedLogError,
+    openLogModal,
+    closeLogModal,
+    toggleQuickPanel,
+    closeQuickPanel,
+  } = logs;
+  const {
+    titleDraft,
+    titleEditing,
+    titleSaving,
+    titleError,
+    openTitleEditor,
+    closeTitleEditor,
+    updateTitleDraft,
+    saveTitle,
+    clearTitle,
+  } = title;
+  const { handleOpenHere, handleOpenInNewTab } = actions;
+
+  const diffSectionProps = useMemo(
+    () => ({
+      state: {
+        diffSummary,
+        diffError,
+        diffLoading,
+        diffFiles,
+        diffOpen,
+        diffLoadingFiles,
+      },
+      actions: {
+        onRefresh: refreshDiff,
+        onToggle: toggleDiff,
+      },
+    }),
+    [
+      diffSummary,
+      diffError,
+      diffLoading,
+      diffFiles,
+      diffOpen,
+      diffLoadingFiles,
+      refreshDiff,
+      toggleDiff,
+    ],
+  );
+
+  const commitSectionProps = useMemo(
+    () => ({
+      state: {
+        commitLog,
+        commitError,
+        commitLoading,
+        commitLoadingMore,
+        commitHasMore,
+        commitDetails,
+        commitFileDetails,
+        commitFileOpen,
+        commitFileLoading,
+        commitOpen,
+        commitLoadingDetails,
+        copiedHash,
+      },
+      actions: {
+        onRefresh: refreshCommitLog,
+        onLoadMore: loadMoreCommits,
+        onToggleCommit: toggleCommit,
+        onToggleCommitFile: toggleCommitFile,
+        onCopyHash: copyHash,
+      },
+    }),
+    [
+      commitLog,
+      commitError,
+      commitLoading,
+      commitLoadingMore,
+      commitHasMore,
+      commitDetails,
+      commitFileDetails,
+      commitFileOpen,
+      commitFileLoading,
+      commitOpen,
+      commitLoadingDetails,
+      copiedHash,
+      refreshCommitLog,
+      loadMoreCommits,
+      toggleCommit,
+      toggleCommitFile,
+      copyHash,
+    ],
+  );
+
+  const screenPanelProps = useMemo(
+    () => ({
+      state: {
+        mode,
+        connected,
+        fallbackReason,
+        error,
+        isScreenLoading,
+        imageBase64,
+        screenLines,
+        virtuosoRef,
+        scrollerRef,
+        isAtBottom,
+        forceFollow,
+        rawMode,
+        allowDangerKeys,
+      },
+      actions: {
+        onModeChange: handleModeChange,
+        onRefresh: handleRefreshScreen,
+        onAtBottomChange: handleAtBottomChange,
+        onScrollToBottom: scrollToBottom,
+        onUserScrollStateChange: handleUserScrollStateChange,
+      },
+    }),
+    [
+      mode,
+      connected,
+      fallbackReason,
+      error,
+      isScreenLoading,
+      imageBase64,
+      screenLines,
+      virtuosoRef,
+      scrollerRef,
+      isAtBottom,
+      forceFollow,
+      rawMode,
+      allowDangerKeys,
+      handleModeChange,
+      handleRefreshScreen,
+      handleAtBottomChange,
+      scrollToBottom,
+      handleUserScrollStateChange,
+    ],
+  );
+
+  const quickPanelProps = useMemo(
+    () => ({
+      state: {
+        open: quickPanelOpen,
+        sessionGroups,
+        nowMs,
+        currentPaneId: paneId,
+      },
+      actions: {
+        onOpenLogModal: openLogModal,
+        onClose: closeQuickPanel,
+        onToggle: toggleQuickPanel,
+      },
+    }),
+    [quickPanelOpen, sessionGroups, nowMs, paneId, openLogModal, closeQuickPanel, toggleQuickPanel],
+  );
+
+  const logModalProps = useMemo(
+    () => ({
+      state: {
+        open: logModalOpen,
+        session: selectedSession,
+        logLines: selectedLogLines,
+        loading: selectedLogLoading,
+        error: selectedLogError,
+      },
+      actions: {
+        onClose: closeLogModal,
+        onOpenHere: handleOpenHere,
+        onOpenNewTab: handleOpenInNewTab,
+      },
+    }),
+    [
+      logModalOpen,
+      selectedSession,
+      selectedLogLines,
+      selectedLogLoading,
+      selectedLogError,
+      closeLogModal,
+      handleOpenHere,
+      handleOpenInNewTab,
+    ],
+  );
+
+  const sessionHeaderProps = useMemo(
+    () => ({
+      state: {
+        session: session!,
+        readOnly,
+        connectionIssue,
+        nowMs,
+        titleDraft,
+        titleEditing,
+        titleSaving,
+        titleError,
+      },
+      actions: {
+        onTitleDraftChange: updateTitleDraft,
+        onTitleSave: saveTitle,
+        onTitleClear: clearTitle,
+        onOpenTitleEditor: openTitleEditor,
+        onCloseTitleEditor: closeTitleEditor,
+      },
+    }),
+    [
+      session,
+      readOnly,
+      connectionIssue,
+      nowMs,
+      titleDraft,
+      titleEditing,
+      titleSaving,
+      titleError,
+      updateTitleDraft,
+      saveTitle,
+      clearTitle,
+      openTitleEditor,
+      closeTitleEditor,
+    ],
+  );
+
+  const sessionSidebarProps = useMemo(
+    () => ({
+      state: {
+        sessionGroups,
+        nowMs,
+        currentPaneId: paneId,
+        className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
+      },
+      actions: {},
+    }),
+    [sessionGroups, nowMs, paneId],
+  );
+
+  const controlsPanelProps = useMemo(
+    () => ({
+      state: {
+        readOnly,
+        connected,
+        textInputRef,
+        autoEnter,
+        controlsOpen,
+        rawMode,
+        allowDangerKeys,
+        shiftHeld,
+        ctrlHeld,
+      },
+      actions: {
+        onSendText: handleSendText,
+        onToggleAutoEnter: toggleAutoEnter,
+        onToggleControls: toggleControls,
+        onToggleRawMode: toggleRawMode,
+        onToggleAllowDangerKeys: toggleAllowDangerKeys,
+        onToggleShift: toggleShift,
+        onToggleCtrl: toggleCtrl,
+        onSendKey: handleSendKey,
+        onRawBeforeInput: handleRawBeforeInput,
+        onRawInput: handleRawInput,
+        onRawKeyDown: handleRawKeyDown,
+        onRawCompositionStart: handleRawCompositionStart,
+        onRawCompositionEnd: handleRawCompositionEnd,
+        onTouchSession: handleTouchSession,
+      },
+    }),
+    [
+      readOnly,
+      connected,
+      textInputRef,
+      autoEnter,
+      controlsOpen,
+      rawMode,
+      allowDangerKeys,
+      shiftHeld,
+      ctrlHeld,
+      handleSendText,
+      toggleAutoEnter,
+      toggleControls,
+      toggleRawMode,
+      toggleAllowDangerKeys,
+      toggleShift,
+      toggleCtrl,
+      handleSendKey,
+      handleRawBeforeInput,
+      handleRawInput,
+      handleRawKeyDown,
+      handleRawCompositionStart,
+      handleRawCompositionEnd,
+      handleTouchSession,
+    ],
+  );
+
   if (!session) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
@@ -134,12 +423,7 @@ export const SessionDetailView = ({
         className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
         style={{ width: `${sidebarWidth}px` }}
       >
-        <SessionSidebar
-          sessionGroups={sessionGroups}
-          nowMs={nowMs}
-          currentPaneId={paneId}
-          className="border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r"
-        />
+        <SessionSidebar {...sessionSidebarProps} />
         <div
           role="separator"
           aria-orientation="vertical"
@@ -154,21 +438,7 @@ export const SessionDetailView = ({
         style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
       >
         <div className="flex min-w-0 flex-col gap-4">
-          <SessionHeader
-            session={session}
-            readOnly={readOnly}
-            connectionIssue={connectionIssue}
-            nowMs={nowMs}
-            titleDraft={titleDraft}
-            titleEditing={titleEditing}
-            titleSaving={titleSaving}
-            titleError={titleError}
-            onTitleDraftChange={updateTitleDraft}
-            onTitleSave={saveTitle}
-            onTitleClear={clearTitle}
-            onOpenTitleEditor={openTitleEditor}
-            onCloseTitleEditor={closeTitleEditor}
-          />
+          <SessionHeader {...sessionHeaderProps} />
 
           <div
             ref={detailSplitRef}
@@ -181,51 +451,8 @@ export const SessionDetailView = ({
               style={is2xlUp ? { flexBasis: `${detailSplitRatio * 100}%` } : undefined}
             >
               <ScreenPanel
-                mode={mode}
-                onModeChange={handleModeChange}
-                connected={connected}
-                onRefresh={handleRefreshScreen}
-                fallbackReason={fallbackReason}
-                error={error}
-                isScreenLoading={isScreenLoading}
-                imageBase64={imageBase64}
-                screenLines={screenLines}
-                virtuosoRef={virtuosoRef}
-                scrollerRef={scrollerRef}
-                isAtBottom={isAtBottom}
-                forceFollow={forceFollow}
-                onAtBottomChange={handleAtBottomChange}
-                onScrollToBottom={scrollToBottom}
-                onUserScrollStateChange={handleUserScrollStateChange}
-                rawMode={rawMode}
-                allowDangerKeys={allowDangerKeys}
-                controls={
-                  <ControlsPanel
-                    readOnly={readOnly}
-                    connected={connected}
-                    textInputRef={textInputRef}
-                    onSendText={handleSendText}
-                    autoEnter={autoEnter}
-                    onToggleAutoEnter={toggleAutoEnter}
-                    controlsOpen={controlsOpen}
-                    onToggleControls={toggleControls}
-                    rawMode={rawMode}
-                    onToggleRawMode={toggleRawMode}
-                    allowDangerKeys={allowDangerKeys}
-                    onToggleAllowDangerKeys={toggleAllowDangerKeys}
-                    shiftHeld={shiftHeld}
-                    onToggleShift={toggleShift}
-                    ctrlHeld={ctrlHeld}
-                    onToggleCtrl={toggleCtrl}
-                    onSendKey={handleSendKey}
-                    onRawBeforeInput={handleRawBeforeInput}
-                    onRawInput={handleRawInput}
-                    onRawKeyDown={handleRawKeyDown}
-                    onRawCompositionStart={handleRawCompositionStart}
-                    onRawCompositionEnd={handleRawCompositionEnd}
-                    onTouchSession={handleTouchSession}
-                  />
-                }
+                {...screenPanelProps}
+                controls={<ControlsPanel {...controlsPanelProps} />}
               />
             </div>
 
@@ -248,63 +475,19 @@ export const SessionDetailView = ({
               </span>
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-4">
-              <DiffSection
-                diffSummary={diffSummary}
-                diffError={diffError}
-                diffLoading={diffLoading}
-                diffFiles={diffFiles}
-                diffOpen={diffOpen}
-                diffLoadingFiles={diffLoadingFiles}
-                onRefresh={refreshDiff}
-                onToggle={toggleDiff}
-              />
+              <DiffSection {...diffSectionProps} />
 
-              <CommitSection
-                commitLog={commitLog}
-                commitError={commitError}
-                commitLoading={commitLoading}
-                commitLoadingMore={commitLoadingMore}
-                commitHasMore={commitHasMore}
-                commitDetails={commitDetails}
-                commitFileDetails={commitFileDetails}
-                commitFileOpen={commitFileOpen}
-                commitFileLoading={commitFileLoading}
-                commitOpen={commitOpen}
-                commitLoadingDetails={commitLoadingDetails}
-                copiedHash={copiedHash}
-                onRefresh={refreshCommitLog}
-                onLoadMore={loadMoreCommits}
-                onToggleCommit={toggleCommit}
-                onToggleCommitFile={toggleCommitFile}
-                onCopyHash={copyHash}
-              />
+              <CommitSection {...commitSectionProps} />
             </div>
           </div>
         </div>
       </div>
 
       <div className="md:hidden">
-        <QuickPanel
-          open={quickPanelOpen}
-          sessionGroups={sessionGroups}
-          nowMs={nowMs}
-          currentPaneId={paneId}
-          onOpenLogModal={openLogModal}
-          onClose={closeQuickPanel}
-          onToggle={toggleQuickPanel}
-        />
+        <QuickPanel {...quickPanelProps} />
       </div>
 
-      <LogModal
-        open={logModalOpen}
-        session={selectedSession}
-        logLines={selectedLogLines}
-        loading={selectedLogLoading}
-        error={selectedLogError}
-        onClose={closeLogModal}
-        onOpenHere={handleOpenHere}
-        onOpenNewTab={handleOpenInNewTab}
-      />
+      <LogModal {...logModalProps} />
     </>
   );
 };

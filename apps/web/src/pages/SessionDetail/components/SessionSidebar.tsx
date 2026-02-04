@@ -18,11 +18,20 @@ import {
   getLastInputTone,
 } from "../sessionDetailUtils";
 
-type SessionSidebarProps = {
+type SessionSidebarState = {
   sessionGroups: SessionGroup[];
   nowMs: number;
   currentPaneId?: string | null;
   className?: string;
+};
+
+type SessionSidebarActions = {
+  onSelectSession?: (paneId: string) => void;
+};
+
+type SessionSidebarProps = {
+  state: SessionSidebarState;
+  actions: SessionSidebarActions;
 };
 
 const surfaceLinkClass =
@@ -223,12 +232,9 @@ const SessionPreviewPopover = memo(
 
 SessionPreviewPopover.displayName = "SessionPreviewPopover";
 
-export const SessionSidebar = ({
-  sessionGroups,
-  nowMs,
-  currentPaneId,
-  className,
-}: SessionSidebarProps) => {
+export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
+  const { sessionGroups, nowMs, currentPaneId, className } = state;
+  const { onSelectSession } = actions;
   const { connected, connectionIssue, requestScreen, highlightCorrections } = useSessions();
   const { resolvedTheme } = useTheme();
 
@@ -250,7 +256,7 @@ export const SessionSidebar = ({
     handleHoverEnd,
     handleFocus,
     handleBlur,
-    handleSelect,
+    handleSelect: handlePreviewSelect,
     handleListScroll,
     registerItemRef,
   } = useSidebarPreview({
@@ -262,6 +268,14 @@ export const SessionSidebar = ({
     resolvedTheme,
     highlightCorrections,
   });
+
+  const handleSelect = useCallback(
+    (paneId: string) => {
+      onSelectSession?.(paneId);
+      handlePreviewSelect();
+    },
+    [handlePreviewSelect, onSelectSession],
+  );
 
   return (
     <Card
@@ -304,7 +318,7 @@ export const SessionSidebar = ({
                       onHoverEnd={handleHoverEnd}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
-                      onSelect={handleSelect}
+                      onSelect={() => handleSelect(item.paneId)}
                       registerItemRef={registerItemRef}
                     />
                   ))}

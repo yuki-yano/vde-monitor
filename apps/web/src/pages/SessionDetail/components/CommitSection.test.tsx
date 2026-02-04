@@ -6,30 +6,40 @@ import { createCommitDetail, createCommitFileDiff, createCommitLog } from "../te
 import { CommitSection } from "./CommitSection";
 
 describe("CommitSection", () => {
+  type CommitSectionState = Parameters<typeof CommitSection>[0]["state"];
+  type CommitSectionActions = Parameters<typeof CommitSection>[0]["actions"];
+
+  const buildState = (overrides: Partial<CommitSectionState> = {}): CommitSectionState => ({
+    commitLog: null,
+    commitError: null,
+    commitLoading: false,
+    commitLoadingMore: false,
+    commitHasMore: false,
+    commitDetails: {},
+    commitFileDetails: {},
+    commitFileOpen: {},
+    commitFileLoading: {},
+    commitOpen: {},
+    commitLoadingDetails: {},
+    copiedHash: null,
+    ...overrides,
+  });
+
+  const buildActions = (overrides: Partial<CommitSectionActions> = {}): CommitSectionActions => ({
+    onRefresh: vi.fn(),
+    onLoadMore: vi.fn(),
+    onToggleCommit: vi.fn(),
+    onToggleCommitFile: vi.fn(),
+    onCopyHash: vi.fn(),
+    ...overrides,
+  });
+
   it("renders commit log and handles copy", () => {
     const commitLog = createCommitLog();
     const onCopyHash = vi.fn();
-    render(
-      <CommitSection
-        commitLog={commitLog}
-        commitError={null}
-        commitLoading={false}
-        commitLoadingMore={false}
-        commitHasMore={false}
-        commitDetails={{}}
-        commitFileDetails={{}}
-        commitFileOpen={{}}
-        commitFileLoading={{}}
-        commitOpen={{}}
-        commitLoadingDetails={{}}
-        copiedHash={null}
-        onRefresh={vi.fn()}
-        onLoadMore={vi.fn()}
-        onToggleCommit={vi.fn()}
-        onToggleCommitFile={vi.fn()}
-        onCopyHash={onCopyHash}
-      />,
-    );
+    const state = buildState({ commitLog });
+    const actions = buildActions({ onCopyHash });
+    render(<CommitSection state={state} actions={actions} />);
 
     expect(screen.getByText("Initial commit")).toBeTruthy();
 
@@ -43,27 +53,15 @@ describe("CommitSection", () => {
     const onToggleCommitFile = vi.fn();
     const detail = createCommitDetail();
     const fileKey = "abc123:src/index.ts";
-    render(
-      <CommitSection
-        commitLog={commitLog}
-        commitError={null}
-        commitLoading={false}
-        commitLoadingMore={false}
-        commitHasMore={false}
-        commitDetails={{ abc123: detail }}
-        commitFileDetails={{ [fileKey]: createCommitFileDiff() }}
-        commitFileOpen={{ [fileKey]: true }}
-        commitFileLoading={{}}
-        commitOpen={{ abc123: true }}
-        commitLoadingDetails={{}}
-        copiedHash={null}
-        onRefresh={vi.fn()}
-        onLoadMore={vi.fn()}
-        onToggleCommit={onToggleCommit}
-        onToggleCommitFile={onToggleCommitFile}
-        onCopyHash={vi.fn()}
-      />,
-    );
+    const state = buildState({
+      commitLog,
+      commitDetails: { abc123: detail },
+      commitFileDetails: { [fileKey]: createCommitFileDiff() },
+      commitFileOpen: { [fileKey]: true },
+      commitOpen: { abc123: true },
+    });
+    const actions = buildActions({ onToggleCommit, onToggleCommitFile });
+    render(<CommitSection state={state} actions={actions} />);
 
     const commitToggle = screen.getByLabelText("Collapse commit");
     expect(commitToggle).toBeTruthy();
@@ -78,27 +76,9 @@ describe("CommitSection", () => {
   it("renders load more button when available", () => {
     const commitLog = createCommitLog();
     const onLoadMore = vi.fn();
-    render(
-      <CommitSection
-        commitLog={commitLog}
-        commitError={null}
-        commitLoading={false}
-        commitLoadingMore={false}
-        commitHasMore
-        commitDetails={{}}
-        commitFileDetails={{}}
-        commitFileOpen={{}}
-        commitFileLoading={{}}
-        commitOpen={{}}
-        commitLoadingDetails={{}}
-        copiedHash={null}
-        onRefresh={vi.fn()}
-        onLoadMore={onLoadMore}
-        onToggleCommit={vi.fn()}
-        onToggleCommitFile={vi.fn()}
-        onCopyHash={vi.fn()}
-      />,
-    );
+    const state = buildState({ commitLog, commitHasMore: true });
+    const actions = buildActions({ onLoadMore });
+    render(<CommitSection state={state} actions={actions} />);
 
     fireEvent.click(screen.getByText("Load more"));
     expect(onLoadMore).toHaveBeenCalled();

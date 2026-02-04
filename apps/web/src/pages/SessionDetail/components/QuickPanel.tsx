@@ -12,25 +12,27 @@ import {
   getLastInputTone,
 } from "../sessionDetailUtils";
 
-type QuickPanelProps = {
+type QuickPanelState = {
   open: boolean;
   sessionGroups: SessionGroup[];
   nowMs: number;
   currentPaneId?: string | null;
+};
+
+type QuickPanelActions = {
   onOpenLogModal: (paneId: string) => void;
   onClose: () => void;
   onToggle: () => void;
 };
 
-export const QuickPanel = ({
-  open,
-  sessionGroups,
-  nowMs,
-  currentPaneId,
-  onOpenLogModal,
-  onClose,
-  onToggle,
-}: QuickPanelProps) => {
+type QuickPanelProps = {
+  state: QuickPanelState;
+  actions: QuickPanelActions;
+};
+
+export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
+  const { open, sessionGroups, nowMs, currentPaneId } = state;
+  const { onOpenLogModal, onClose, onToggle } = actions;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
