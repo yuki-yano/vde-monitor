@@ -192,13 +192,25 @@ SessionSidebarItem.displayName = "SessionSidebarItem";
 type SessionPreviewPopoverProps = {
   frame: PreviewFrame;
   title: string;
+  sessionName: string | null;
+  windowIndex: number | null;
+  paneId: string;
   lines: string[];
   loading: boolean;
   error: string | null;
 };
 
 const SessionPreviewPopover = memo(
-  ({ frame, title, lines, loading, error }: SessionPreviewPopoverProps) => (
+  ({
+    frame,
+    title,
+    sessionName,
+    windowIndex,
+    paneId,
+    lines,
+    loading,
+    error,
+  }: SessionPreviewPopoverProps) => (
     <div
       className="pointer-events-none fixed z-50 hidden -translate-y-1/2 md:block"
       style={{
@@ -212,6 +224,13 @@ const SessionPreviewPopover = memo(
       <div className="border-latte-surface1/70 bg-latte-base/90 relative flex h-full flex-col rounded-2xl border p-4 shadow-[0_20px_60px_-30px_rgba(17,17,27,0.65)] backdrop-blur-xl">
         <div className="flex items-center justify-between gap-2">
           <p className="text-latte-text truncate text-sm font-semibold">{title}</p>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {sessionName && <TagPill tone="meta">Session {sessionName}</TagPill>}
+          {windowIndex !== null && windowIndex !== undefined && (
+            <TagPill tone="meta">Window {windowIndex}</TagPill>
+          )}
+          <TagPill tone="meta">Pane {paneId}</TagPill>
         </div>
         <div className="border-latte-surface2/70 bg-latte-crust/70 mt-3 min-h-0 flex-1 overflow-hidden rounded-xl border px-3 py-3 font-mono text-[12px] leading-[16px]">
           {loading && <p className="text-latte-subtext0 text-xs">Loading preview...</p>}
@@ -396,6 +415,9 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
         <SessionPreviewPopover
           frame={preview.frame}
           title={preview.title}
+          sessionName={preview.sessionName}
+          windowIndex={preview.windowIndex}
+          paneId={preview.paneId}
           lines={preview.lines}
           loading={preview.loading}
           error={preview.error ?? null}

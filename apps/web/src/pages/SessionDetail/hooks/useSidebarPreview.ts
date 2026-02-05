@@ -18,6 +18,8 @@ import { useSessionPreview } from "./useSessionPreview";
 
 type SidebarPreview = {
   paneId: string;
+  sessionName: string | null;
+  windowIndex: number | null;
   frame: PreviewFrame;
   title: string;
   lines: string[];
@@ -43,7 +45,7 @@ const PREVIEW_MAX_WIDTH = 1200;
 const PREVIEW_MIN_HEIGHT = 420;
 const PREVIEW_MAX_HEIGHT = 760;
 const PREVIEW_MARGIN = 16;
-const PREVIEW_HEADER_OFFSET = 96;
+const PREVIEW_HEADER_OFFSET = 120;
 const PREVIEW_LINE_HEIGHT = 16;
 const HOVER_PREVIEW_DELAY_MS = 320;
 
@@ -258,11 +260,15 @@ export const useSidebarPreview = ({
     hoveredSession?.title ??
     hoveredSession?.sessionName ??
     "Session";
+  const previewSessionName = hoveredSession?.sessionName ?? null;
+  const previewWindowIndex = hoveredSession?.windowIndex ?? null;
 
   const preview = useMemo<SidebarPreview | null>(() => {
     if (!hoveredPaneId || !previewFrame) return null;
     return {
       paneId: hoveredPaneId,
+      sessionName: previewSessionName,
+      windowIndex: previewWindowIndex,
       frame: previewFrame,
       title: previewTitle,
       lines: previewLines,
@@ -276,6 +282,8 @@ export const useSidebarPreview = ({
     previewLines,
     hoveredPreviewLoading,
     hoveredPreviewError,
+    previewSessionName,
+    previewWindowIndex,
   ]);
 
   const handleListScroll = useCallback(() => {

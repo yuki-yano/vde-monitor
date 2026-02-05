@@ -118,6 +118,9 @@ describe("useSidebarPreview", () => {
     });
 
     expect(result.current.preview?.title).toBe("Custom Title");
+    expect(result.current.preview?.sessionName).toBe("session-1");
+    expect(result.current.preview?.windowIndex).toBe(1);
+    expect(result.current.preview?.paneId).toBe("pane-1");
     expect(result.current.preview?.lines).toEqual(["line1", "line2"]);
     expect(prefetchPreview).toHaveBeenCalledWith("pane-1");
   });
