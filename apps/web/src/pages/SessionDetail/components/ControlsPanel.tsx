@@ -24,7 +24,7 @@ import { Button, Callout, IconButton, ModifierToggle, PillToggle, Toolbar } from
 
 type ControlsPanelState = {
   readOnly: boolean;
-  connected: boolean;
+  interactive: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
   autoEnter: boolean;
   controlsOpen: boolean;
@@ -87,7 +87,7 @@ const KeyButton = ({
 export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
   const {
     readOnly,
-    connected,
+    interactive,
     textInputRef,
     autoEnter,
     controlsOpen,
@@ -182,7 +182,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
             placeholder={placeholder}
             ref={textInputRef}
             rows={2}
-            disabled={!connected}
+            disabled={!interactive}
             onBeforeInput={onRawBeforeInput}
             onCompositionStart={onRawCompositionStart}
             onCompositionEnd={onRawCompositionEnd}
@@ -201,7 +201,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
             onClick={handleSendText}
             aria-label="Send"
             className="h-11 w-11 p-0"
-            disabled={rawMode || !connected}
+            disabled={rawMode || !interactive}
           >
             <Send className="h-4 w-4" />
             <span className="sr-only">Send</span>
@@ -225,7 +225,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
             type="button"
             onClick={onToggleRawMode}
             active={rawMode}
-            disabled={!connected}
+            disabled={!interactive}
             title="Raw input mode"
           >
             Raw
@@ -251,7 +251,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
             type="button"
             size="sm"
             onClick={onTouchSession}
-            disabled={!connected}
+            disabled={!interactive}
             aria-label="Pin session to top"
             title="Pin session to top"
           >

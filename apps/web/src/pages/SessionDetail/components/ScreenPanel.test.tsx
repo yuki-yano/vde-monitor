@@ -27,7 +27,6 @@ describe("ScreenPanel", () => {
 
   const buildState = (overrides: Partial<ScreenPanelState> = {}): ScreenPanelState => ({
     mode: "text",
-    connected: true,
     connectionIssue: null,
     fallbackReason: null,
     error: null,

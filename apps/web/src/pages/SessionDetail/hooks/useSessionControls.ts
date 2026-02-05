@@ -27,7 +27,7 @@ type UseSessionControlsParams = {
   readOnly: boolean;
   mode: ScreenMode;
   sendText: (paneId: string, text: string, enter?: boolean) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: string[]) => Promise<CommandResponse>;
+  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   setScreenError: (error: string | null) => void;
   scrollToBottom: (behavior?: "auto" | "smooth") => void;
@@ -86,7 +86,7 @@ export const useSessionControls = ({
         const confirmed = window.confirm("Dangerous key detected. Send anyway?");
         if (!confirmed) return;
       }
-      const result = await sendKeys(paneId, [mapped]);
+      const result = await sendKeys(paneId, [mapped as AllowedKey]);
       if (!result.ok) {
         setScreenError(result.error?.message ?? API_ERROR_MESSAGES.sendKeys);
       }

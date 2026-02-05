@@ -13,6 +13,7 @@ import {
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { applyScreenDeltas } from "@/lib/screen-delta";
 import type { ScreenLoadingEvent, ScreenMode } from "@/lib/screen-loading";
+import { useRestoreTrigger } from "@/lib/use-restore-trigger";
 
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
@@ -218,6 +219,16 @@ export const useScreenFetch = ({
     refreshScreen();
   }, [refreshScreen]);
 
+  useRestoreTrigger(() => {
+    if (!paneId || !connected) {
+      return;
+    }
+    if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
+      return;
+    }
+    void refreshScreen();
+  });
+
   useEffect(() => {
     if (!connected) {
       refreshInFlightRef.current = null;
@@ -238,14 +249,54 @@ export const useScreenFetch = ({
       return;
     }
     const intervalMs = mode === "image" ? 2000 : 1000;
-    const intervalId = window.setInterval(() => {
-      if (document.hidden) return;
-      refreshScreen();
-    }, intervalMs);
-    return () => {
-      window.clearInterval(intervalId);
+    let intervalId: number | null = null;
+    const canPoll = () => {
+      if (document.hidden) return false;
+      if (connectionIssue === API_ERROR_MESSAGES.unauthorized) return false;
+      if (navigator.onLine === false) return false;
+      return true;
     };
-  }, [connected, mode, paneId, refreshScreen]);
+    const stop = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const start = () => {
+      if (intervalId !== null) return;
+      intervalId = window.setInterval(() => {
+        if (!canPoll()) {
+          stop();
+          return;
+        }
+        refreshScreen();
+      }, intervalMs);
+    };
+    const handleResume = () => {
+      if (!canPoll()) {
+        stop();
+        return;
+      }
+      refreshScreen();
+      start();
+    };
+
+    if (canPoll()) {
+      start();
+    }
+
+    window.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("online", handleResume);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("offline", stop);
+
+    return () => {
+      stop();
+      window.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("online", handleResume);
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("offline", stop);
+    };
+  }, [connected, connectionIssue, mode, paneId, refreshScreen]);
 
   return {
     refreshScreen,

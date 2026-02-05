@@ -29,7 +29,7 @@ export const SessionDetailView = ({
   title,
   actions,
 }: SessionDetailViewProps) => {
-  const { paneId, session, nowMs, connected, connectionIssue, readOnly } = meta;
+  const { paneId, session, nowMs, connectionIssue, readOnly } = meta;
   const { sessionGroups } = sidebar;
   const {
     is2xlUp,
@@ -64,6 +64,7 @@ export const SessionDetailView = ({
     controlsOpen,
     rawMode,
     allowDangerKeys,
+    interactive,
     handleSendKey,
     handleSendText,
     handleRawBeforeInput,
@@ -209,7 +210,6 @@ export const SessionDetailView = ({
     () => ({
       state: {
         mode,
-        connected,
         connectionIssue,
         fallbackReason,
         error,
@@ -233,7 +233,6 @@ export const SessionDetailView = ({
     }),
     [
       mode,
-      connected,
       connectionIssue,
       fallbackReason,
       error,
@@ -352,7 +351,7 @@ export const SessionDetailView = ({
     () => ({
       state: {
         readOnly,
-        connected,
+        interactive,
         textInputRef,
         autoEnter,
         controlsOpen,
@@ -380,7 +379,7 @@ export const SessionDetailView = ({
     }),
     [
       readOnly,
-      connected,
+      interactive,
       textInputRef,
       autoEnter,
       controlsOpen,

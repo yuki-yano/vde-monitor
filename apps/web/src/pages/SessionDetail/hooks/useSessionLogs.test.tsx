@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
+import type { ScreenResponse } from "@vde-monitor/shared";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   logModalDisplayLinesAtom,
@@ -24,6 +25,13 @@ vi.mock("@/lib/ansi", () => ({
 }));
 
 describe("useSessionLogs", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+  });
+
   const createWrapper = () => {
     const store = createStore();
     store.set(quickPanelOpenAtom, false);
@@ -164,5 +172,159 @@ describe("useSessionLogs", () => {
     await waitFor(() => {
       expect(result.current.logModalOpen).toBe(false);
     });
+  });
+
+  it("keeps log cache when switching selected pane", async () => {
+    const sessionA = createSessionDetail({ paneId: "pane-1" });
+    const sessionB = createSessionDetail({ paneId: "pane-2" });
+    const store = createStore();
+    store.set(quickPanelOpenAtom, false);
+    store.set(logModalOpenAtom, false);
+    store.set(logModalIsAtBottomAtom, true);
+    store.set(logModalDisplayLinesAtom, []);
+    store.set(selectedPaneIdAtom, null);
+    store.set(getScreenCacheAtom("logs"), {
+      "pane-1": {
+        screen: "line1",
+        capturedAt: new Date(0).toISOString(),
+        updatedAt: Date.now(),
+      },
+      "pane-2": {
+        screen: "line2",
+        capturedAt: new Date(0).toISOString(),
+        updatedAt: Date.now(),
+      },
+    });
+    store.set(getScreenCacheLoadingAtom("logs"), {});
+    store.set(getScreenCacheErrorAtom("logs"), {});
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    const { result } = renderHook(
+      () =>
+        useSessionLogs({
+          connected: true,
+          connectionIssue: null,
+          sessions: [sessionA, sessionB],
+          requestScreen: vi.fn().mockResolvedValue({
+            ok: true,
+            paneId: "pane-1",
+            mode: "text",
+            capturedAt: new Date(0).toISOString(),
+            screen: "line1",
+          }),
+          resolvedTheme: "latte",
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.openLogModal("pane-1");
+    });
+    act(() => {
+      result.current.openLogModal("pane-2");
+    });
+
+    await waitFor(() => {
+      const cache = store.get(getScreenCacheAtom("logs"));
+      expect(cache["pane-1"]).toBeDefined();
+      expect(cache["pane-2"]).toBeDefined();
+    });
+  });
+
+  it("pauses polling while hidden and resumes on visibilitychange", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    const addListenerSpy = vi.spyOn(window, "addEventListener");
+    const requestScreen = vi.fn().mockResolvedValue({
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "line1",
+    });
+    const store = createStore();
+    store.set(quickPanelOpenAtom, false);
+    store.set(logModalOpenAtom, true);
+    store.set(logModalIsAtBottomAtom, true);
+    store.set(logModalDisplayLinesAtom, []);
+    store.set(selectedPaneIdAtom, "pane-1");
+    store.set(getScreenCacheAtom("logs"), {});
+    store.set(getScreenCacheLoadingAtom("logs"), {});
+    store.set(getScreenCacheErrorAtom("logs"), {});
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    renderHook(
+      () =>
+        useSessionLogs({
+          connected: true,
+          connectionIssue: null,
+          sessions: [createSessionDetail({ paneId: "pane-1" })],
+          requestScreen,
+          resolvedTheme: "latte",
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(requestScreen).toHaveBeenCalledTimes(1);
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    const visibilityListener = addListenerSpy.mock.calls.find(
+      ([event]) => event === "visibilitychange",
+    )?.[1] as EventListener;
+    act(() => {
+      visibilityListener(new Event("visibilitychange"));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(requestScreen).toHaveBeenCalledTimes(2);
+    expect(setIntervalSpy).toHaveBeenCalled();
+  });
+
+  it("renders cached logs immediately when opening after navigation", async () => {
+    const session = createSessionDetail({ paneId: "pane-1" });
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+    const store = createStore();
+    store.set(quickPanelOpenAtom, false);
+    store.set(logModalOpenAtom, true);
+    store.set(logModalIsAtBottomAtom, true);
+    store.set(logModalDisplayLinesAtom, []);
+    store.set(selectedPaneIdAtom, "pane-1");
+    store.set(getScreenCacheAtom("logs"), {
+      "pane-1": {
+        screen: "cached1\ncached2",
+        capturedAt: new Date(0).toISOString(),
+        updatedAt: Date.now(),
+      },
+    });
+    store.set(getScreenCacheLoadingAtom("logs"), {});
+    store.set(getScreenCacheErrorAtom("logs"), {});
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    const { result } = renderHook(
+      () =>
+        useSessionLogs({
+          connected: true,
+          connectionIssue: null,
+          sessions: [session],
+          requestScreen,
+          resolvedTheme: "latte",
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.selectedLogLines).toEqual(["cached1", "cached2"]);
   });
 });

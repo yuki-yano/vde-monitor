@@ -88,14 +88,13 @@ const runServe = async (flags: Map<string, string | boolean>) => {
   await monitor.start();
 
   const tmuxActions = createTmuxActions(adapter, config);
-  const { app, injectWebSocket } = createApp({ config, monitor, tmuxActions });
+  const { app } = createApp({ config, monitor, tmuxActions });
 
-  const server = serve({
+  serve({
     fetch: app.fetch,
     port,
     hostname: host,
   });
-  injectWebSocket(server);
 
   const displayPort = parsePort(webPortFlag) ?? port;
   const url = `http://${displayHost}:${displayPort}/?token=${config.token}`;

@@ -1,4 +1,5 @@
 import type {
+  AllowedKey,
   CommandResponse,
   CommitDetail,
   CommitFileDiff,
@@ -11,10 +12,20 @@ import type {
   SessionDetail,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { useSessionApi } from "./use-session-api";
-import { useSessionSocket } from "./use-session-socket";
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { useRestoreTrigger } from "@/lib/use-restore-trigger";
+
+import { type RefreshSessionsResult, useSessionApi } from "./use-session-api";
 import { useSessionStore } from "./use-session-store";
 import { useSessionToken } from "./use-session-token";
 
@@ -22,6 +33,7 @@ type SessionContextValue = {
   token: string | null;
   sessions: SessionSummary[];
   connected: boolean;
+  connectionStatus: "healthy" | "degraded" | "disconnected";
   connectionIssue: string | null;
   readOnly: boolean;
   highlightCorrections: HighlightCorrectionConfig;
@@ -54,31 +66,33 @@ type SessionContextValue = {
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
   sendText: (paneId: string, text: string, enter?: boolean) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: string[]) => Promise<CommandResponse>;
+  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   getSessionDetail: (paneId: string) => SessionDetail | null;
 };
 
+const SESSION_POLL_INTERVAL_MS = 1000;
+const RATE_LIMIT_BACKOFF_STEP_MS = 5000;
+const MAX_RATE_LIMIT_STEPS = 3;
+
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const { token } = useSessionToken();
-  const {
-    sessions,
-    setSessions,
-    applySessionsSnapshot,
-    updateSession,
-    removeSession,
-    getSessionDetail,
-  } = useSessionStore();
+  const { sessions, setSessions, updateSession, removeSession, getSessionDetail } =
+    useSessionStore();
   const [connectionIssue, setConnectionIssue] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [highlightCorrections, setHighlightCorrections] = useState<HighlightCorrectionConfig>({
     codex: true,
     claude: true,
   });
+  const [connected, setConnected] = useState(false);
+  const [authBlocked, setAuthBlocked] = useState(false);
+  const [pollBackoffMs, setPollBackoffMs] = useState(0);
+  const backoffStepRef = useRef(0);
 
   const markReadOnly = useCallback(() => {
     setReadOnly(true);
@@ -88,23 +102,44 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     setHighlightCorrections((prev) => ({ ...prev, ...nextHighlight }));
   }, []);
 
-  const { connected, reconnect, requestScreen, sendText, sendKeys, sendRaw } = useSessionSocket({
-    token,
-    onSessionsSnapshot: applySessionsSnapshot,
-    onSessionUpdated: updateSession,
-    onSessionRemoved: removeSession,
-    onReadOnly: markReadOnly,
-    onConnectionIssue: setConnectionIssue,
-    onHighlightCorrections: applyHighlightCorrections,
-  });
+  const applyRateLimitBackoff = useCallback(() => {
+    const nextStep = Math.min(backoffStepRef.current + 1, MAX_RATE_LIMIT_STEPS);
+    if (nextStep === backoffStepRef.current) {
+      return;
+    }
+    backoffStepRef.current = nextStep;
+    setPollBackoffMs(nextStep * RATE_LIMIT_BACKOFF_STEP_MS);
+  }, []);
+
+  const resetRateLimitBackoff = useCallback(() => {
+    if (backoffStepRef.current === 0) {
+      return;
+    }
+    backoffStepRef.current = 0;
+    setPollBackoffMs(0);
+  }, []);
+
+  const hasToken = Boolean(token);
+  const connectionStatus: SessionContextValue["connectionStatus"] =
+    !hasToken || authBlocked
+      ? "disconnected"
+      : connected
+        ? pollBackoffMs > 0
+          ? "degraded"
+          : "healthy"
+        : "degraded";
 
   const {
-    refreshSessions,
+    refreshSessions: refreshSessionsApi,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
+    requestScreen,
+    sendText,
+    sendKeys,
+    sendRaw,
     updateSessionTitle,
     touchSession,
   } = useSessionApi({
@@ -113,13 +148,128 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     onConnectionIssue: setConnectionIssue,
     onReadOnly: markReadOnly,
     onSessionUpdated: updateSession,
+    onSessionRemoved: removeSession,
+    onHighlightCorrections: applyHighlightCorrections,
+  });
+
+  const handleRefreshResult = useCallback(
+    (result: RefreshSessionsResult) => {
+      if (!result.ok) {
+        if (result.authError) {
+          setAuthBlocked(true);
+        }
+        if (result.rateLimited) {
+          applyRateLimitBackoff();
+          setConnected(true);
+        } else {
+          setConnected(false);
+        }
+        return;
+      }
+      if (authBlocked) {
+        setAuthBlocked(false);
+      }
+      setConnected(true);
+      resetRateLimitBackoff();
+    },
+    [applyRateLimitBackoff, authBlocked, resetRateLimitBackoff],
+  );
+
+  const refreshSessions = useCallback(async () => {
+    if (!hasToken || authBlocked) {
+      return;
+    }
+    const result = await refreshSessionsApi();
+    handleRefreshResult(result);
+  }, [authBlocked, handleRefreshResult, hasToken, refreshSessionsApi]);
+
+  const reconnect = useCallback(() => {
+    if (!token) return;
+    setAuthBlocked(false);
+    setConnectionIssue("Reconnecting...");
+    void refreshSessions();
+  }, [refreshSessions, token]);
+
+  useRestoreTrigger(() => {
+    if (!hasToken || authBlocked) {
+      return;
+    }
+    void refreshSessions();
   });
 
   useEffect(() => {
-    if (connected) {
-      refreshSessions();
+    if (!hasToken || authBlocked) {
+      return;
     }
-  }, [connected, refreshSessions]);
+    void refreshSessions();
+  }, [authBlocked, hasToken, refreshSessions]);
+
+  useEffect(() => {
+    if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
+      setAuthBlocked(true);
+      setConnected(false);
+    }
+  }, [connectionIssue]);
+
+  useEffect(() => {
+    if (!hasToken || authBlocked) {
+      return;
+    }
+    const intervalMs = SESSION_POLL_INTERVAL_MS + pollBackoffMs;
+    let intervalId: number | null = null;
+    const canPoll = () => {
+      if (document.hidden) return false;
+      if (navigator.onLine === false) return false;
+      return true;
+    };
+    const stop = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const start = () => {
+      if (intervalId !== null) return;
+      intervalId = window.setInterval(() => {
+        if (!canPoll()) {
+          stop();
+          return;
+        }
+        void refreshSessions();
+      }, intervalMs);
+    };
+    const handleResume = () => {
+      if (!canPoll()) {
+        stop();
+        return;
+      }
+      void refreshSessions();
+      start();
+    };
+
+    if (canPoll()) {
+      start();
+    }
+
+    window.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("online", handleResume);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("offline", stop);
+
+    return () => {
+      stop();
+      window.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("online", handleResume);
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("offline", stop);
+    };
+  }, [authBlocked, hasToken, pollBackoffMs, refreshSessions]);
+
+  useEffect(() => {
+    setAuthBlocked(false);
+    resetRateLimitBackoff();
+    setConnectionIssue(null);
+    setConnected(false);
+  }, [resetRateLimitBackoff, token]);
 
   return (
     <SessionContext.Provider
@@ -127,6 +277,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         token,
         sessions,
         connected,
+        connectionStatus,
         connectionIssue,
         readOnly,
         highlightCorrections,

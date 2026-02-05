@@ -23,7 +23,7 @@ export const useSessionPreview = ({
   lines = 240,
   ttlMs = 5000,
 }: UseSessionPreviewParams) => {
-  const { cache, loading, error, fetchScreen } = useScreenCache({
+  const { cache, loading, error, fetchScreen, clearCache } = useScreenCache({
     connected,
     connectionIssue,
     requestScreen,
@@ -35,6 +35,12 @@ export const useSessionPreview = ({
       requestFailed: API_ERROR_MESSAGES.previewRequestFailed,
     },
   });
+  const clearPreviewCache = useCallback(
+    (paneId?: string) => {
+      clearCache(paneId);
+    },
+    [clearCache],
+  );
   const prefetchPreview = useCallback(
     async (paneId: string) => {
       await fetchScreen(paneId);
@@ -47,5 +53,6 @@ export const useSessionPreview = ({
     previewLoading: loading,
     previewError: error,
     prefetchPreview,
+    clearPreviewCache,
   };
 };

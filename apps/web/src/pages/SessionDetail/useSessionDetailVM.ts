@@ -11,6 +11,7 @@ import { useSplitRatio } from "@/lib/use-split-ratio";
 import {
   connectedAtom,
   connectionIssueAtom,
+  connectionStatusAtom,
   currentSessionAtom,
   highlightCorrectionsAtom,
   readOnlyAtom,
@@ -28,6 +29,7 @@ import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 export const useSessionDetailVM = (paneId: string) => {
   const sessions = useAtomValue(sessionsAtom);
   const connected = useAtomValue(connectedAtom);
+  const connectionStatus = useAtomValue(connectionStatusAtom);
   const connectionIssue = useAtomValue(connectionIssueAtom);
   const readOnly = useAtomValue(readOnlyAtom);
   const highlightCorrections = useAtomValue(highlightCorrectionsAtom);
@@ -38,7 +40,6 @@ export const useSessionDetailVM = (paneId: string) => {
     throw new Error("SessionDetailProvider is required");
   }
   const {
-    reconnect,
     requestCommitDetail,
     requestCommitFile,
     requestCommitLog,
@@ -205,12 +206,8 @@ export const useSessionDetailVM = (paneId: string) => {
   });
 
   const handleRefreshScreen = useCallback(() => {
-    if (connected) {
-      void refreshScreen();
-    } else {
-      reconnect();
-    }
-  }, [connected, reconnect, refreshScreen]);
+    void refreshScreen();
+  }, [refreshScreen]);
 
   const handleOpenInNewTab = useCallback(() => {
     if (!selectedPaneId) return;
@@ -267,6 +264,7 @@ export const useSessionDetailVM = (paneId: string) => {
       handleRefreshScreen,
     },
     controls: {
+      interactive: connectionStatus !== "disconnected",
       textInputRef,
       autoEnter,
       shiftHeld,

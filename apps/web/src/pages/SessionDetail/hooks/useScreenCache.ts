@@ -146,10 +146,53 @@ export const useScreenCache = ({
     ],
   );
 
+  const clearCache = useCallback(
+    (paneId?: string) => {
+      if (!paneId) {
+        cacheRef.current = {};
+        inflightRef.current.clear();
+        latestRequestRef.current = {};
+        setCache({});
+        setLoading({});
+        setError({});
+        return;
+      }
+
+      if (cacheRef.current[paneId]) {
+        const nextCache = { ...cacheRef.current };
+        delete nextCache[paneId];
+        cacheRef.current = nextCache;
+      }
+      inflightRef.current.delete(paneId);
+      latestRequestRef.current[paneId] = Number.MAX_SAFE_INTEGER;
+
+      setCache((prev) => {
+        if (!(paneId in prev)) return prev;
+        const next = { ...prev };
+        delete next[paneId];
+        return next;
+      });
+      setLoading((prev) => {
+        if (!(paneId in prev)) return prev;
+        const next = { ...prev };
+        delete next[paneId];
+        return next;
+      });
+      setError((prev) => {
+        if (!(paneId in prev)) return prev;
+        const next = { ...prev };
+        delete next[paneId];
+        return next;
+      });
+    },
+    [setCache, setError, setLoading],
+  );
+
   return {
     cache,
     loading,
     error,
     fetchScreen,
+    clearCache,
   };
 };

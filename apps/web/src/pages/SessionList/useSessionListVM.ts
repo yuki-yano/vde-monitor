@@ -22,9 +22,9 @@ export const useSessionListVM = () => {
   const {
     sessions,
     connected,
+    connectionStatus,
     connectionIssue,
     readOnly,
-    reconnect,
     refreshSessions,
     requestScreen,
     highlightCorrections,
@@ -90,10 +90,6 @@ export const useSessionListVM = () => {
     refreshSessions();
   }, [refreshSessions]);
 
-  const handleReconnect = useCallback(() => {
-    reconnect();
-  }, [reconnect]);
-
   return {
     sessions,
     groups,
@@ -101,14 +97,13 @@ export const useSessionListVM = () => {
     quickPanelGroups,
     filter,
     filterOptions: FILTER_OPTIONS,
-    connected,
+    connectionStatus,
     connectionIssue,
     readOnly,
     nowMs,
     sidebarWidth,
     onFilterChange: handleFilterChange,
     onRefresh: handleRefresh,
-    onReconnect: handleReconnect,
     onSidebarResizeStart: handlePointerDown,
     quickPanelOpen,
     logModalOpen,

@@ -20,14 +20,13 @@ export const SessionListView = ({
   quickPanelGroups,
   filter,
   filterOptions,
-  connected,
+  connectionStatus,
   connectionIssue,
   readOnly,
   nowMs,
   sidebarWidth,
   onFilterChange,
   onRefresh,
-  onReconnect,
   onSidebarResizeStart,
   quickPanelOpen,
   logModalOpen,
@@ -76,14 +75,13 @@ export const SessionListView = ({
             <ThemeToggle />
           </div>
           <SessionListHeader
-            connected={connected}
+            connectionStatus={connectionStatus}
             connectionIssue={connectionIssue}
             readOnly={readOnly}
             filter={filter}
             filterOptions={filterOptions}
             onFilterChange={onFilterChange}
             onRefresh={onRefresh}
-            onReconnect={onReconnect}
           />
 
           <div className="flex flex-col gap-6">
@@ -129,6 +127,7 @@ export const SessionListView = ({
                 <SessionGroupSection
                   key={group.repoRoot ?? "no-repo"}
                   group={group}
+                  allSessions={sessions}
                   nowMs={nowMs}
                 />
               ))}

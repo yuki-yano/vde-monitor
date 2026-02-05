@@ -29,7 +29,6 @@ import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 
 type ScreenPanelState = {
   mode: ScreenMode;
-  connected: boolean;
   connectionIssue: string | null;
   fallbackReason: string | null;
   error: string | null;
@@ -73,7 +72,6 @@ VirtuosoList.displayName = "VirtuosoList";
 export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const {
     mode,
-    connected,
     connectionIssue,
     fallbackReason,
     error,
@@ -171,14 +169,9 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
               )}
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            aria-label={connected ? "Refresh screen" : "Reconnect"}
-          >
+          <Button variant="ghost" size="sm" onClick={onRefresh} aria-label="Refresh screen">
             <RefreshCw className="h-4 w-4" />
-            <span className="sr-only">{connected ? "Refresh" : "Reconnect"}</span>
+            <span className="sr-only">Refresh</span>
           </Button>
         </div>
       </Toolbar>

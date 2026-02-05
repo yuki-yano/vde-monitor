@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
+import { useRestoreTrigger } from "@/lib/use-restore-trigger";
 
 import { logModalOpenAtom, quickPanelOpenAtom, selectedPaneIdAtom } from "../atoms/logAtoms";
 import { useScreenCache } from "./useScreenCache";
@@ -41,6 +42,7 @@ export const useSessionLogs = ({
     loading: logLoading,
     error: logError,
     fetchScreen,
+    clearCache,
   } = useScreenCache({
     connected,
     connectionIssue,
@@ -86,14 +88,74 @@ export const useSessionLogs = ({
     }
     void fetchLog(selectedPaneId);
     const intervalMs = 2000;
-    const intervalId = window.setInterval(() => {
-      if (document.hidden) return;
-      void fetchLog(selectedPaneId);
-    }, intervalMs);
-    return () => {
-      window.clearInterval(intervalId);
+    let intervalId: number | null = null;
+    const canPoll = () => {
+      if (document.hidden) return false;
+      if (connectionIssue === API_ERROR_MESSAGES.unauthorized) return false;
+      if (navigator.onLine === false) return false;
+      return true;
     };
-  }, [fetchLog, logModalOpen, selectedPaneId]);
+    const stop = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const start = () => {
+      if (intervalId !== null) return;
+      intervalId = window.setInterval(() => {
+        if (!canPoll()) {
+          stop();
+          return;
+        }
+        void fetchLog(selectedPaneId);
+      }, intervalMs);
+    };
+    const handleResume = () => {
+      if (!canPoll()) {
+        stop();
+        return;
+      }
+      void fetchLog(selectedPaneId);
+      start();
+    };
+
+    if (canPoll()) {
+      start();
+    }
+
+    window.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("online", handleResume);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("offline", stop);
+
+    return () => {
+      stop();
+      window.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("online", handleResume);
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("offline", stop);
+    };
+  }, [connectionIssue, fetchLog, logModalOpen, selectedPaneId]);
+
+  useRestoreTrigger(() => {
+    if (!logModalOpen || !selectedPaneId) {
+      return;
+    }
+    if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
+      return;
+    }
+    void fetchLog(selectedPaneId);
+  });
+
+  useEffect(() => {
+    if (Object.keys(logCache).length === 0) return;
+    const activePaneIds = new Set(sessions.map((session) => session.paneId));
+    Object.keys(logCache).forEach((paneId) => {
+      if (!activePaneIds.has(paneId)) {
+        clearCache(paneId);
+      }
+    });
+  }, [clearCache, logCache, sessions]);
 
   const openLogModal = useCallback(
     (paneId: string) => {

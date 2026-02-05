@@ -1,4 +1,4 @@
-import { Provider as JotaiProvider, useSetAtom } from "jotai";
+import { useSetAtom } from "jotai";
 import { useHydrateAtoms } from "jotai/utils";
 import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
@@ -9,6 +9,7 @@ import { useTheme } from "@/state/theme-context";
 import {
   connectedAtom,
   connectionIssueAtom,
+  connectionStatusAtom,
   highlightCorrectionsAtom,
   paneIdAtom,
   readOnlyAtom,
@@ -27,6 +28,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
   const {
     sessions,
     connected,
+    connectionStatus,
     connectionIssue,
     readOnly,
     highlightCorrections,
@@ -48,6 +50,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
   const setPaneId = useSetAtom(paneIdAtom);
   const setSessions = useSetAtom(sessionsAtom);
   const setConnected = useSetAtom(connectedAtom);
+  const setConnectionStatus = useSetAtom(connectionStatusAtom);
   const setConnectionIssue = useSetAtom(connectionIssueAtom);
   const setReadOnly = useSetAtom(readOnlyAtom);
   const setHighlightCorrections = useSetAtom(highlightCorrectionsAtom);
@@ -89,6 +92,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
     [paneIdAtom, paneId],
     [sessionsAtom, sessions],
     [connectedAtom, connected],
+    [connectionStatusAtom, connectionStatus],
     [connectionIssueAtom, connectionIssue],
     [readOnlyAtom, readOnly],
     [highlightCorrectionsAtom, highlightCorrections],
@@ -107,6 +111,10 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
   useEffect(() => {
     setConnected(connected);
   }, [connected, setConnected]);
+
+  useEffect(() => {
+    setConnectionStatus(connectionStatus);
+  }, [connectionStatus, setConnectionStatus]);
 
   useEffect(() => {
     setConnectionIssue(connectionIssue);
@@ -133,9 +141,9 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
 
 export const SessionDetailProvider = ({ paneId, children }: SessionDetailProviderProps) => {
   return (
-    <JotaiProvider>
+    <>
       <SessionDetailHydrator paneId={paneId} />
       {children}
-    </JotaiProvider>
+    </>
   );
 };

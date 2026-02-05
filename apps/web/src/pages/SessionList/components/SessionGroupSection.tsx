@@ -1,3 +1,4 @@
+import type { SessionSummary } from "@vde-monitor/shared";
 import { Clock, FolderGit2 } from "lucide-react";
 
 import { GlassPanel, GlowCard, LastInputPill, TagPill } from "@/components/ui";
@@ -11,12 +12,23 @@ import { SessionWindowSection } from "./SessionWindowSection";
 type SessionGroupSectionProps = {
   group: SessionGroup;
   nowMs: number;
+  allSessions: SessionSummary[];
 };
 
-export const SessionGroupSection = ({ group, nowMs }: SessionGroupSectionProps) => {
+export const SessionGroupSection = ({ group, nowMs, allSessions }: SessionGroupSectionProps) => {
   const groupTone = getLastInputTone(group.lastInputAt, nowMs);
   const repoName = formatRepoName(group.repoRoot);
   const repoPath = formatRepoPath(group.repoRoot);
+  const repoSessions = allSessions.filter(
+    (session) => (session.repoRoot ?? null) === group.repoRoot,
+  );
+  const totalWindowGroups = buildSessionWindowGroups(repoSessions);
+  const totalPaneMap = new Map(
+    totalWindowGroups.map((windowGroup) => [
+      `${windowGroup.sessionName}:${windowGroup.windowIndex}`,
+      windowGroup.sessions.length,
+    ]),
+  );
   const windowGroups = buildSessionWindowGroups(group.sessions);
 
   return (
@@ -81,7 +93,10 @@ export const SessionGroupSection = ({ group, nowMs }: SessionGroupSectionProps) 
           <SessionWindowSection
             key={`${windowGroup.sessionName}:${windowGroup.windowIndex}`}
             group={windowGroup}
-            totalPanes={group.sessions.length}
+            totalPanes={
+              totalPaneMap.get(`${windowGroup.sessionName}:${windowGroup.windowIndex}`) ??
+              windowGroup.sessions.length
+            }
             nowMs={nowMs}
           />
         ))}

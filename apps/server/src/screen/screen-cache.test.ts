@@ -50,4 +50,27 @@ describe("createScreenCache", () => {
 
     expect(second.full).toBe(true);
   });
+
+  it("forces full response when line count changes", () => {
+    const cache = createScreenCache();
+    const first = cache.buildTextResponse({
+      paneId: "%1",
+      lineCount: 2,
+      screen: "a\nb",
+      alternateOn: false,
+      truncated: null,
+    });
+
+    const second = cache.buildTextResponse({
+      paneId: "%1",
+      lineCount: 3,
+      screen: "a\nb\nc",
+      alternateOn: false,
+      truncated: null,
+      cursor: first.cursor,
+    });
+
+    expect(second.full).toBe(true);
+    expect(second.screen).toBe("a\nb\nc");
+  });
 });

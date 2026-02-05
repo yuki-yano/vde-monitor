@@ -23,7 +23,6 @@
     "jotai": "^2.12.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-use-websocket": "^4.13.0",
     "react-virtuoso": "^4.18.1",
     "tailwind-merge": "^3.3.1",
     "use-stick-to-bottom": "^1.1.2"

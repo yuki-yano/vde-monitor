@@ -3,25 +3,34 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 type ConnectionStatusPillProps = HTMLAttributes<HTMLDivElement> & {
-  connected: boolean;
-  connectedLabel?: string;
+  status: "healthy" | "degraded" | "disconnected";
+  healthyLabel?: string;
+  degradedLabel?: string;
   disconnectedLabel?: string;
 };
 
 const ConnectionStatusPill = ({
   className,
-  connected,
-  connectedLabel = "Connected",
-  disconnectedLabel = "Reconnecting...",
+  status,
+  healthyLabel = "Connected",
+  degradedLabel = "Degraded",
+  disconnectedLabel = "Disconnected",
   ...props
 }: ConnectionStatusPillProps) => {
-  const label = connected ? connectedLabel : disconnectedLabel;
-  const wrapperClass = connected
-    ? "border-latte-green/40 bg-latte-green/10 text-latte-green"
-    : "border-latte-red/40 bg-latte-red/10 text-latte-red animate-pulse";
-  const dotClass = connected
-    ? "bg-latte-green shadow-[0_0_8px_rgb(var(--ctp-green)/0.6)]"
-    : "bg-latte-red shadow-[0_0_8px_rgb(var(--ctp-red)/0.6)]";
+  const label =
+    status === "healthy" ? healthyLabel : status === "degraded" ? degradedLabel : disconnectedLabel;
+  const wrapperClass =
+    status === "healthy"
+      ? "border-latte-green/40 bg-latte-green/10 text-latte-green"
+      : status === "degraded"
+        ? "border-latte-yellow/40 bg-latte-yellow/10 text-latte-yellow"
+        : "border-latte-red/40 bg-latte-red/10 text-latte-red animate-pulse";
+  const dotClass =
+    status === "healthy"
+      ? "bg-latte-green shadow-[0_0_8px_rgb(var(--ctp-green)/0.6)]"
+      : status === "degraded"
+        ? "bg-latte-yellow shadow-[0_0_8px_rgb(var(--ctp-yellow)/0.6)]"
+        : "bg-latte-red shadow-[0_0_8px_rgb(var(--ctp-red)/0.6)]";
 
   return (
     <div

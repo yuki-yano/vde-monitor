@@ -10,7 +10,7 @@ describe("ControlsPanel", () => {
 
   const buildState = (overrides: Partial<ControlsPanelState> = {}): ControlsPanelState => ({
     readOnly: false,
-    connected: true,
+    interactive: true,
     textInputRef: { current: null },
     autoEnter: true,
     controlsOpen: false,

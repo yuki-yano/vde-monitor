@@ -170,6 +170,7 @@ describe("useScreenFetch", () => {
     Object.defineProperty(document, "hidden", { value: false, configurable: true });
 
     act(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
       vi.advanceTimersByTime(1000);
     });
 

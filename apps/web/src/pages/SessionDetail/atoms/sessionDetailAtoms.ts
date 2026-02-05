@@ -1,4 +1,5 @@
 import type {
+  AllowedKey,
   CommandResponse,
   CommitDetail,
   CommitFileDiff,
@@ -43,15 +44,18 @@ export type SessionApi = {
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
   sendText: (paneId: string, text: string, enter?: boolean) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: string[]) => Promise<CommandResponse>;
+  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
 };
 
+export type ConnectionStatus = "healthy" | "degraded" | "disconnected";
+
 export const paneIdAtom = atom<string | null>(null);
 export const sessionsAtom = atom<SessionSummary[]>([]);
 export const connectedAtom = atom(false);
+export const connectionStatusAtom = atom<ConnectionStatus>("degraded");
 export const connectionIssueAtom = atom<string | null>(null);
 export const readOnlyAtom = atom(false);
 export const highlightCorrectionsAtom = atom<HighlightCorrectionConfig>({

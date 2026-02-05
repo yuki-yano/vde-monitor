@@ -164,4 +164,26 @@ describe("useScreenCache", () => {
 
     expect(requestScreen).toHaveBeenCalledTimes(2);
   });
+
+  it("clears cached entries", async () => {
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.fetchScreen("pane-1");
+    });
+
+    await waitFor(() => {
+      expect(result.current.cache["pane-1"]).toBeDefined();
+    });
+
+    act(() => {
+      result.current.clearCache("pane-1");
+    });
+
+    await waitFor(() => {
+      expect(result.current.cache["pane-1"]).toBeUndefined();
+      expect(result.current.loading["pane-1"]).toBeUndefined();
+      expect(result.current.error["pane-1"]).toBeUndefined();
+    });
+  });
 });

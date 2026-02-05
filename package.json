@@ -46,12 +46,10 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.4",
-    "@hono/node-ws": "^1.2.0",
     "@hono/zod-validator": "^0.7.6",
     "execa": "^9.6.0",
     "hono": "^4.11.4",
     "qrcode-terminal": "^0.12.0",
-    "ws": "^8.18.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {

@@ -84,6 +84,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       handleRefreshScreen: vi.fn(),
     },
     controls: {
+      interactive: true,
       textInputRef: { current: null } as MutableRefObject<HTMLTextAreaElement | null>,
       autoEnter: false,
       shiftHeld: false,

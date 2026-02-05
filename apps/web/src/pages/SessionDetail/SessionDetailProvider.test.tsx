@@ -17,6 +17,7 @@ const mockSession = createSessionDetail({ paneId: "pane-1" });
 const mockSessionsContext = {
   sessions: [mockSession],
   connected: true,
+  connectionStatus: "healthy",
   connectionIssue: null,
   readOnly: false,
   highlightCorrections: { codex: false, claude: true },

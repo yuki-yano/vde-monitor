@@ -25,6 +25,7 @@ vi.mock("./useSessionPreview", () => ({
     previewLoading: {},
     previewError: {},
     prefetchPreview,
+    clearPreviewCache: vi.fn(),
   }),
 }));
 

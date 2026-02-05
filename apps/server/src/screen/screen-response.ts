@@ -1,123 +1,105 @@
-import type {
-  AgentMonitorConfig,
-  ScreenResponse,
-  SessionDetail,
-  WsClientMessage,
-  WsServerMessage,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig, ScreenResponse, SessionDetail } from "@vde-monitor/shared";
 
 import { buildError, nowIso } from "../http/helpers.js";
 import type { createSessionMonitor } from "../monitor.js";
 import { captureTerminalScreen } from "../screen-service.js";
-import { buildEnvelope } from "./envelope.js";
 import type { ScreenCache } from "./screen-cache.js";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 type ScreenLimiter = (key: string) => boolean;
-type ScreenRequestMessage = Extract<WsClientMessage, { type: "screen.request" }>;
-type SendMessage = (message: WsServerMessage) => void;
 
-type ScreenHandlerArgs = {
+type ScreenResponseParams = {
   config: AgentMonitorConfig;
   monitor: Monitor;
-  message: ScreenRequestMessage;
-  reqId?: string;
   target: SessionDetail;
+  mode?: "text" | "image";
+  lines?: number;
+  cursor?: string;
   screenLimiter: ScreenLimiter;
+  limiterKey: string;
   buildTextResponse: ScreenCache["buildTextResponse"];
-  send: SendMessage;
 };
 
-export const handleScreenRequest = async ({
+export const createScreenResponse = async ({
   config,
   monitor,
-  message,
-  reqId,
   target,
+  mode,
+  lines,
+  cursor,
   screenLimiter,
+  limiterKey,
   buildTextResponse,
-  send,
-}: ScreenHandlerArgs) => {
-  const sendResponse = (response: ScreenResponse) => {
-    send(buildEnvelope("screen.response", response, reqId));
-  };
+}: ScreenResponseParams): Promise<ScreenResponse> => {
+  const lineCount = Math.min(lines ?? config.screen.defaultLines, config.screen.maxLines);
 
-  const captureTextAndRespond = async (
+  const captureTextResponse = async (
     fallbackReason?: "image_failed" | "image_disabled",
-  ): Promise<void> => {
+    applyCursor = true,
+  ): Promise<ScreenResponse> => {
     try {
       const text = await monitor.getScreenCapture().captureText({
-        paneId: message.data.paneId,
+        paneId: target.paneId,
         lines: lineCount,
         joinLines: config.screen.joinLines,
         includeAnsi: config.screen.ansi,
         altScreen: config.screen.altScreen,
         alternateOn: target.alternateOn,
       });
-      const response = buildTextResponse({
-        paneId: message.data.paneId,
+      return buildTextResponse({
+        paneId: target.paneId,
         lineCount,
         screen: text.screen,
         alternateOn: text.alternateOn,
         truncated: text.truncated,
-        cursor: message.data.cursor,
+        cursor: applyCursor ? cursor : undefined,
         fallbackReason,
       });
-      sendResponse(response);
     } catch {
-      sendResponse({
+      return {
         ok: false,
-        paneId: message.data.paneId,
+        paneId: target.paneId,
         mode: "text",
         capturedAt: nowIso(),
         error: buildError("INTERNAL", "screen capture failed"),
-      });
+      };
     }
   };
 
-  const clientKey = "ws";
-  if (!screenLimiter(clientKey)) {
-    sendResponse({
+  if (!screenLimiter(limiterKey)) {
+    return {
       ok: false,
-      paneId: message.data.paneId,
+      paneId: target.paneId,
       mode: "text",
       capturedAt: nowIso(),
       error: buildError("RATE_LIMIT", "rate limited"),
-    });
-    return;
+    };
   }
 
-  const mode = message.data.mode ?? config.screen.mode;
-  const lineCount = Math.min(
-    message.data.lines ?? config.screen.defaultLines,
-    config.screen.maxLines,
-  );
+  const effectiveMode = mode ?? config.screen.mode;
 
-  if (mode === "image") {
+  if (effectiveMode === "image") {
     if (!config.screen.image.enabled) {
-      await captureTextAndRespond("image_disabled");
-      return;
+      return captureTextResponse("image_disabled", false);
     }
     const imageResult = await captureTerminalScreen(target.paneTty, {
-      paneId: message.data.paneId,
+      paneId: target.paneId,
       tmux: config.tmux,
       cropPane: config.screen.image.cropPane,
       backend: config.screen.image.backend,
     });
     if (imageResult) {
-      sendResponse({
+      return {
         ok: true,
-        paneId: message.data.paneId,
+        paneId: target.paneId,
         mode: "image",
         capturedAt: nowIso(),
         imageBase64: imageResult.imageBase64,
         cropped: imageResult.cropped,
-      });
-      return;
+      };
     }
-    await captureTextAndRespond("image_failed");
-    return;
+    return captureTextResponse("image_failed", false);
   }
 
-  await captureTextAndRespond();
+  return captureTextResponse();
 };

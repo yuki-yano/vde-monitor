@@ -60,11 +60,12 @@ export const useSidebarPreview = ({
   resolvedTheme,
   highlightCorrections,
 }: UseSidebarPreviewParams) => {
-  const { previewCache, previewLoading, previewError, prefetchPreview } = useSessionPreview({
-    connected,
-    connectionIssue,
-    requestScreen,
-  });
+  const { previewCache, previewLoading, previewError, prefetchPreview, clearPreviewCache } =
+    useSessionPreview({
+      connected,
+      connectionIssue,
+      requestScreen,
+    });
   const [hoveredPaneId, setHoveredPaneId] = useAtom(sidebarHoveredPaneIdAtom);
   const [previewFrame, setPreviewFrame] = useAtom(sidebarPreviewFrameAtom);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
@@ -227,6 +228,16 @@ export const useSidebarPreview = ({
     }
     updatePreviewPosition(hoveredPaneId);
   }, [hoveredPaneId, setPreviewFrame, updatePreviewPosition]);
+
+  useEffect(() => {
+    if (Object.keys(previewCache).length === 0) return;
+    const activePaneIds = new Set(sessionIndex.keys());
+    Object.keys(previewCache).forEach((paneId) => {
+      if (!activePaneIds.has(paneId)) {
+        clearPreviewCache(paneId);
+      }
+    });
+  }, [clearPreviewCache, previewCache, sessionIndex]);
 
   useEffect(() => {
     if (!hoveredPaneId) return;

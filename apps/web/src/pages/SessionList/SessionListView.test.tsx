@@ -120,14 +120,13 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     quickPanelGroups,
     filter: "AGENT",
     filterOptions,
-    connected: true,
+    connectionStatus: "healthy",
     connectionIssue: null,
     readOnly: false,
     nowMs: Date.now(),
     sidebarWidth: 280,
     onFilterChange: vi.fn(),
     onRefresh: vi.fn(),
-    onReconnect: vi.fn(),
     onSidebarResizeStart: vi.fn(),
     quickPanelOpen: false,
     logModalOpen: false,
@@ -176,22 +175,13 @@ describe("SessionListView", () => {
     expect(onFilterChange).toHaveBeenCalledWith("ALL");
   });
 
-  it("calls refresh when connected", () => {
+  it("calls refresh when refresh button is clicked", () => {
     const onRefresh = vi.fn();
-    const props = createViewProps({ connected: true, onRefresh });
+    const props = createViewProps({ connectionStatus: "healthy", onRefresh });
     renderWithRouter(<SessionListView {...props} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(onRefresh).toHaveBeenCalled();
-  });
-
-  it("calls reconnect when disconnected", () => {
-    const onReconnect = vi.fn();
-    const props = createViewProps({ connected: false, onReconnect });
-    renderWithRouter(<SessionListView {...props} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
-    expect(onReconnect).toHaveBeenCalled();
   });
 
   it("calls onFilterChange when filter button is clicked", () => {
@@ -227,6 +217,46 @@ describe("SessionListView", () => {
     const cardScope = within(cardLink);
     expect(cardScope.getByText("RUNNING")).toBeTruthy();
     expect(cardScope.getByText("CODEX")).toBeTruthy();
+  });
+
+  it("uses window-level pane totals for each window section", () => {
+    const agentPane = buildSession({
+      paneId: "pane-1",
+      windowIndex: 1,
+      paneIndex: 0,
+      state: "RUNNING",
+    });
+    const shellPane1 = buildSession({
+      paneId: "pane-2",
+      windowIndex: 1,
+      paneIndex: 1,
+      state: "SHELL",
+    });
+    const shellPane2 = buildSession({
+      paneId: "pane-3",
+      windowIndex: 1,
+      paneIndex: 2,
+      state: "SHELL",
+    });
+    const agentPane2 = buildSession({
+      paneId: "pane-4",
+      windowIndex: 2,
+      paneIndex: 0,
+      state: "RUNNING",
+    });
+    const sessions = [agentPane, shellPane1, shellPane2, agentPane2];
+    const visibleSessions = [agentPane, agentPane2];
+    const props = createViewProps({
+      sessions,
+      groups: buildSessionGroups(visibleSessions),
+      visibleSessionCount: visibleSessions.length,
+    });
+
+    renderWithRouter(<SessionListView {...props} />);
+
+    expect(screen.getAllByText("1 / 3 panes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1 / 1 panes").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("1 / 2 panes").length).toBe(0);
   });
 
   it("wires LogModal actions", () => {
