@@ -1,5 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
@@ -8,12 +8,14 @@ import { useSessions } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import { useSessionLogs } from "../SessionDetail/hooks/useSessionLogs";
+import {
+  DEFAULT_SESSION_LIST_FILTER,
+  isSessionListFilter,
+  SESSION_LIST_FILTER_VALUES,
+  storeSessionListFilter,
+} from "./sessionListFilters";
 
-type SessionListFilter = "ALL" | "AGENT" | "SHELL" | "UNKNOWN";
-
-const FILTER_VALUES: SessionListFilter[] = ["ALL", "AGENT", "SHELL", "UNKNOWN"];
-
-const FILTER_OPTIONS = FILTER_VALUES.map((value) => ({
+const FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
   value,
   label: value.replace("_", " "),
 }));
@@ -29,11 +31,16 @@ export const useSessionListVM = () => {
     requestScreen,
     highlightCorrections,
   } = useSessions();
-  const [filter, setFilter] = useState<SessionListFilter>("AGENT");
   const nowMs = useNowMs();
-  const navigate = useNavigate();
+  const search = useSearch({ from: "/" });
+  const filter = isSessionListFilter(search.filter) ? search.filter : DEFAULT_SESSION_LIST_FILTER;
+  const navigate = useNavigate({ from: "/" });
   const { resolvedTheme } = useTheme();
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
+
+  useEffect(() => {
+    storeSessionListFilter(filter);
+  }, [filter]);
 
   const visibleSessions = useMemo(() => {
     return sessions.filter((session) => {
@@ -82,9 +89,17 @@ export const useSessionListVM = () => {
     closeLogModal();
   }, [closeLogModal, closeQuickPanel, navigate, selectedPaneId]);
 
-  const handleFilterChange = useCallback((value: string) => {
-    setFilter(value as SessionListFilter);
-  }, []);
+  const handleFilterChange = useCallback(
+    (value: string) => {
+      const nextFilter = isSessionListFilter(value) ? value : DEFAULT_SESSION_LIST_FILTER;
+      if (nextFilter === filter) return;
+      void navigate({
+        search: { filter: nextFilter },
+        replace: true,
+      });
+    },
+    [filter, navigate],
+  );
 
   const handleRefresh = useCallback(() => {
     refreshSessions();

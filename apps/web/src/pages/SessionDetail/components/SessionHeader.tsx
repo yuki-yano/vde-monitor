@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, X } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge, Callout, IconButton, LastInputPill, TagPill, TextButton } from "@/components/ui";
+import { readStoredSessionListFilter } from "@/pages/SessionList/sessionListFilters";
 
 import {
   agentLabelFor,
@@ -61,11 +62,12 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   const showAgentBadge = isKnownAgent(session.agent);
   const agentTone = agentToneFor(session.agent);
   const agentLabel = agentLabelFor(session.agent);
+  const backToListSearch = { filter: readStoredSessionListFilter() };
 
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <Link to="/" className={backLinkClass}>
+        <Link to="/" search={backToListSearch} className={backLinkClass}>
           <ArrowLeft className="h-4 w-4" />
           Back to list
         </Link>

@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { type CSSProperties, useMemo } from "react";
 
 import { Card } from "@/components/ui";
+import { readStoredSessionListFilter } from "@/pages/SessionList/sessionListFilters";
 
 import { CommitSection } from "./components/CommitSection";
 import { ControlsPanel } from "./components/ControlsPanel";
@@ -31,6 +32,7 @@ export const SessionDetailView = ({
 }: SessionDetailViewProps) => {
   const { paneId, session, nowMs, connectionIssue, readOnly } = meta;
   const { sessionGroups } = sidebar;
+  const backToListSearch = useMemo(() => ({ filter: readStoredSessionListFilter() }), []);
   const {
     is2xlUp,
     sidebarWidth,
@@ -410,7 +412,7 @@ export const SessionDetailView = ({
       <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
         <Card>
           <p className="text-latte-subtext0 text-sm">Session not found.</p>
-          <Link to="/" className={`${backLinkClass} mt-4`}>
+          <Link to="/" search={backToListSearch} className={`${backLinkClass} mt-4`}>
             <ArrowLeft className="h-4 w-4" />
             Back to list
           </Link>
