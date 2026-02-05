@@ -8,7 +8,6 @@ import { blendRgb, contrastRatio, luminance, parseColor } from "./ansi-colors";
 import {
   ensureLineContent,
   extractBackgroundColor,
-  hasVisibleText,
   replaceBackgroundColors,
   splitLines,
   stripAnsi,
@@ -192,44 +191,220 @@ const normalizeCodexBackgrounds = (
   });
 };
 
+const buildBackgroundActivityMask = (rawLines: string[]): boolean[] => {
+  // eslint-disable-next-line no-control-regex
+  const pattern = /\u001b\[([0-9;]*)m/g;
+  let backgroundActive = false;
+  return rawLines.map((line) => {
+    let lineHasBackground = backgroundActive;
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(line))) {
+      const rawCodes = match[1] ?? "";
+      const codes = rawCodes === "" ? [0] : rawCodes.split(";").map((value) => Number(value));
+      let index = 0;
+      while (index < codes.length) {
+        const code = codes[index];
+        if (code === undefined || !Number.isFinite(code)) {
+          index += 1;
+          continue;
+        }
+        if (code === 0 || code === 49) {
+          backgroundActive = false;
+          index += 1;
+          continue;
+        }
+        if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+          backgroundActive = true;
+          lineHasBackground = true;
+          index += 1;
+          continue;
+        }
+        if (code === 48) {
+          const mode = codes[index + 1];
+          backgroundActive = true;
+          lineHasBackground = true;
+          if (mode === 5) {
+            index += 3;
+            continue;
+          }
+          if (mode === 2) {
+            index += 5;
+            continue;
+          }
+          index += 1;
+          continue;
+        }
+        index += 1;
+      }
+    }
+    return lineHasBackground;
+  });
+};
+
 const applyAdjacentBackgroundPadding = (htmlLines: string[], rawLines: string[]): string[] => {
   if (htmlLines.length === 0) return htmlLines;
   const baseColors = htmlLines.map(extractBackgroundColor);
+  const plainLines = rawLines.map((line) => stripAnsi(line ?? ""));
+  const lineHasContent = plainLines.map((line) => line.trim().length > 0);
+  const promptStartPattern = /^\s*\u203A(?:\s|$)/;
+  const isPromptStart = plainLines.map((line) => promptStartPattern.test(line));
+  const hasPromptMarkers = isPromptStart.some(Boolean);
+  const backgroundActive = buildBackgroundActivityMask(rawLines);
+  const lineHasBackground = backgroundActive.map(
+    (active, index) => active || Boolean(baseColors[index]),
+  );
+
+  const nextColorIndex = new Array<number>(baseColors.length).fill(-1);
+  let nextColor = -1;
+  for (let i = baseColors.length - 1; i >= 0; i -= 1) {
+    nextColorIndex[i] = nextColor;
+    if (baseColors[i]) {
+      nextColor = i;
+    }
+  }
+
+  if (hasPromptMarkers) {
+    const highlightMask = new Array<boolean>(rawLines.length).fill(false);
+    const lineStartsWithWhitespace = plainLines.map((line) => line.length > 0 && /^\s/.test(line));
+    const applyPromptBlock = (start: number, endExclusive: number) => {
+      let lastContent = -1;
+      for (let i = start; i < endExclusive; i += 1) {
+        if (isPromptStart[i] || lineHasContent[i]) {
+          lastContent = i;
+        }
+      }
+      if (lastContent === -1) return;
+      for (let i = start; i <= lastContent; i += 1) {
+        highlightMask[i] = true;
+      }
+      const trailing = lastContent + 1;
+      if (trailing < endExclusive && !lineHasContent[trailing]) {
+        highlightMask[trailing] = true;
+      }
+    };
+
+    for (let i = 0; i < rawLines.length; i += 1) {
+      if (!isPromptStart[i]) {
+        continue;
+      }
+      let endExclusive = rawLines.length;
+      for (let j = i + 1; j < rawLines.length; j += 1) {
+        if (isPromptStart[j]) {
+          endExclusive = j;
+          break;
+        }
+        if (lineHasContent[j] && !lineStartsWithWhitespace[j]) {
+          endExclusive = j;
+          break;
+        }
+      }
+      applyPromptBlock(i, endExclusive);
+      i = endExclusive - 1;
+    }
+
+    const paddedColors: Array<string | null> = [...baseColors];
+    let inBlock = false;
+    let blockColor: string | null = null;
+    for (let i = 0; i < highlightMask.length; i += 1) {
+      if (!highlightMask[i]) {
+        inBlock = false;
+        blockColor = null;
+        continue;
+      }
+      const baseColor = baseColors[i] ?? null;
+      if (!inBlock) {
+        inBlock = true;
+        const nextIndex = nextColorIndex[i];
+        const nextColor =
+          typeof nextIndex === "number" && nextIndex >= 0 ? (baseColors[nextIndex] ?? null) : null;
+        blockColor = baseColor ?? nextColor;
+      } else if (baseColor) {
+        blockColor = baseColor;
+      }
+      if (blockColor && !paddedColors[i]) {
+        paddedColors[i] = blockColor;
+      }
+    }
+
+    return htmlLines.map((html, index) => {
+      const color = paddedColors[index];
+      if (!color) return html;
+      return wrapLineBackground(html, color);
+    });
+  }
+
+  const segmentBreakers = lineHasContent.map(
+    (hasText, index) => hasText && !lineHasBackground[index],
+  );
+  const nextBackgroundInSegment = new Array<number>(lineHasBackground.length).fill(-1);
+  let nextBackground = -1;
+  for (let i = lineHasBackground.length - 1; i >= 0; i -= 1) {
+    if (segmentBreakers[i]) {
+      nextBackground = -1;
+      nextBackgroundInSegment[i] = -1;
+      continue;
+    }
+    nextBackgroundInSegment[i] = nextBackground;
+    if (lineHasBackground[i]) {
+      nextBackground = i;
+    }
+  }
+
   const paddedColors: Array<string | null> = [...baseColors];
   let inBlock = false;
   let blockColor: string | null = null;
-  let blockEnd = -1;
+  let trailingPadUsed = false;
 
-  for (let i = 0; i < baseColors.length; i += 1) {
-    const baseColor = baseColors[i];
-    if (baseColor) {
-      inBlock = true;
-      blockColor = baseColor;
-      blockEnd = i;
-      continue;
-    }
-    if (inBlock && hasVisibleText(rawLines[i] ?? "")) {
-      if (!paddedColors[i]) {
-        paddedColors[i] = blockColor;
-      }
-      blockEnd = i;
-      continue;
-    }
-    if (inBlock) {
-      const below = i;
-      if (blockColor && below < paddedColors.length && !paddedColors[below]) {
-        paddedColors[below] = blockColor;
-      }
+  for (let i = 0; i < lineHasBackground.length; i += 1) {
+    if (segmentBreakers[i]) {
       inBlock = false;
       blockColor = null;
-      blockEnd = -1;
+      trailingPadUsed = false;
+      continue;
     }
-  }
-  if (inBlock) {
-    const below = blockEnd + 1;
-    if (blockColor && below < paddedColors.length && !paddedColors[below]) {
-      paddedColors[below] = blockColor;
+
+    if (lineHasBackground[i]) {
+      inBlock = true;
+      trailingPadUsed = false;
+      const baseColor = baseColors[i] ?? null;
+      if (baseColor) {
+        blockColor = baseColor;
+      } else if (!blockColor) {
+        const nextIndex = nextColorIndex[i];
+        if (typeof nextIndex === "number" && nextIndex >= 0) {
+          blockColor = baseColors[nextIndex] ?? null;
+        }
+      }
+      if (blockColor && !paddedColors[i]) {
+        paddedColors[i] = blockColor;
+      }
+      continue;
     }
+
+    if (!inBlock) {
+      continue;
+    }
+
+    if (!lineHasContent[i]) {
+      if (nextBackgroundInSegment[i] !== -1) {
+        if (blockColor && !paddedColors[i]) {
+          paddedColors[i] = blockColor;
+        }
+        continue;
+      }
+      if (!trailingPadUsed) {
+        if (blockColor && !paddedColors[i]) {
+          paddedColors[i] = blockColor;
+        }
+        trailingPadUsed = true;
+        continue;
+      }
+    }
+
+    inBlock = false;
+    blockColor = null;
+    trailingPadUsed = false;
   }
 
   return htmlLines.map((html, index) => {

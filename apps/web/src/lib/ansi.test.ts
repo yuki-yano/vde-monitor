@@ -85,6 +85,112 @@ describe("renderAnsiLines", () => {
     expect(unknownLines[1]).not.toContain("background-color");
   });
 
+  it("keeps codex background padding across empty lines", () => {
+    const text = ["\u001b[41mfirst", "", "second"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[0]).toContain("background-color");
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+  });
+
+  it("keeps codex prompt padding across trailing empty lines", () => {
+    const text = ["\u001b[41m\u203A first\u001b[0m", "", ""].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[0]).toContain("background-color");
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).not.toContain("background-color");
+  });
+
+  it("keeps codex prompt padding across consecutive empty lines in a block", () => {
+    const text = ["\u001b[41m\u203A first\u001b[0m", "", "", "\u001b[41m  second\u001b[0m"].join(
+      "\n",
+    );
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+    expect(lines[3]).toContain("background-color");
+  });
+
+  it("keeps codex prompt padding when continuation lines lack background", () => {
+    const text = ["\u001b[41m\u203A a\u001b[0m", "  b", "", "  c", "", "output"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+    expect(lines[3]).toContain("background-color");
+    expect(lines[4]).toContain("background-color");
+    expect(lines[5]).not.toContain("background-color");
+  });
+
+  it("keeps codex prompt padding through trailing whitespace-only lines before output", () => {
+    const text = [
+      "\u001b[41m\u203A a\u001b[0m",
+      "\u001b[41m  b\u001b[0m",
+      "  ",
+      "\u001b[41m  c\u001b[0m",
+      "  ",
+      "  ",
+      "output",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[4]).toContain("background-color");
+    expect(lines[5]).not.toContain("background-color");
+    expect(lines[6]).not.toContain("background-color");
+  });
+
+  it("handles multiple prompt blocks without bleeding into output", () => {
+    const text = [
+      "intro",
+      "\u001b[41m\u203A a\u001b[0m",
+      "\u001b[41m  b\u001b[0m",
+      "  ",
+      "\u001b[41m  c\u001b[0m",
+      "  ",
+      "  ",
+      "output line",
+      "",
+      "\u001b[41m\u203A next\u001b[0m",
+      "  ",
+      "\u001b[41m  more\u001b[0m",
+      "  ",
+      "  ",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[1]).toContain("background-color");
+    expect(lines[4]).toContain("background-color");
+    expect(lines[5]).toContain("background-color");
+    expect(lines[6]).not.toContain("background-color");
+    expect(lines[7]).not.toContain("background-color");
+    expect(lines[9]).toContain("background-color");
+    expect(lines[10]).toContain("background-color");
+    expect(lines[11]).toContain("background-color");
+    expect(lines[12]).toContain("background-color");
+    expect(lines[13]).not.toContain("background-color");
+  });
+
+  it("limits codex padding to prompt blocks when prompt markers are present", () => {
+    const text = ["\u001b[41m\u203A first\u001b[0m", "", "output", ""].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).not.toContain("background-color");
+    expect(lines[3]).not.toContain("background-color");
+  });
+
+  it("keeps codex background padding across consecutive empty lines", () => {
+    const text = ["\u001b[41mfirst\u001b[0m", "", "", "\u001b[41msecond\u001b[0m"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+    expect(lines[3]).toContain("background-color");
+  });
+
+  it("pads only one trailing empty line after a codex block", () => {
+    const text = ["\u001b[41mfirst\u001b[0m", "", ""].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[0]).toContain("background-color");
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).not.toContain("background-color");
+  });
+
   it("normalizes codex latte background fills to the latte base", () => {
     const text = "\u001b[40mfoo\u001b[0m";
     const lines = renderAnsiLines(text, "latte", { agent: "codex" });

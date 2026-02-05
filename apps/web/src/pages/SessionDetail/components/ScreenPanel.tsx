@@ -24,8 +24,8 @@ import {
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 import type { ScreenMode } from "@/lib/screen-loading";
 
-import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
+import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 
 type ScreenPanelState = {
   mode: ScreenMode;
