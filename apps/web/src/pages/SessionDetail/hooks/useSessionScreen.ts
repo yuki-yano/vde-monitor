@@ -136,21 +136,23 @@ export const useSessionScreen = ({
     setScreen("");
     setImageBase64(null);
     setScreenFallbackReason(null);
-    if (connected) {
-      setScreenError(null);
-    } else {
-      setScreenError(connectionIssue ?? DISCONNECTED_MESSAGE);
-    }
+    setScreenError(null);
   }, [
     paneId,
-    connected,
-    connectionIssue,
     setImageBase64,
     setScreen,
     setScreenError,
     setScreenFallbackReason,
     setScreenLoadingState,
   ]);
+
+  useEffect(() => {
+    if (connected) {
+      setScreenError(null);
+      return;
+    }
+    setScreenError(connectionIssue ?? DISCONNECTED_MESSAGE);
+  }, [connected, connectionIssue, setScreenError]);
 
   return {
     mode,

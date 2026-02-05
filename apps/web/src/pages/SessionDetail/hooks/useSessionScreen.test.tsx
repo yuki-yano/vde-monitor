@@ -88,6 +88,38 @@ describe("useSessionScreen", () => {
     });
   });
 
+  it("keeps screen lines when disconnected", async () => {
+    const requestScreen = vi.fn().mockResolvedValue({
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "hello",
+    });
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      ({ connected }) =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper, initialProps: { connected: true } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.screenLines).toEqual(["hello"]);
+    });
+
+    rerender({ connected: false });
+
+    await waitFor(() => {
+      expect(result.current.screenLines).toEqual(["hello"]);
+    });
+  });
+
   it("applies deltas when cursor is provided", async () => {
     const requestScreen = vi
       .fn()
