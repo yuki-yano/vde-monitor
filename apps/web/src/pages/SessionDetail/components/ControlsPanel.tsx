@@ -115,6 +115,16 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
   const tabLabel = "Tab";
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const placeholder = rawMode ? "Raw input (sent immediately)..." : "Type a prompt…";
+  const rawModeInputClass = rawMode
+    ? allowDangerKeys
+      ? "border-latte-red/90 bg-latte-base/90 ring-4 ring-latte-red/50 ring-offset-2 ring-offset-latte-base/70 shadow-[0_0_0_1px_rgb(var(--ctp-red)/0.25),0_0_24px_rgb(var(--ctp-red)/0.6),0_0_52px_rgb(var(--ctp-red)/0.28)]"
+      : "border-latte-peach/90 bg-latte-base/90 ring-4 ring-latte-peach/55 ring-offset-2 ring-offset-latte-base/70 shadow-[0_0_0_1px_rgb(var(--ctp-peach)/0.25),0_0_24px_rgb(var(--ctp-peach)/0.6),0_0_52px_rgb(var(--ctp-peach)/0.28)]"
+    : "focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 focus-within:ring-2";
+  const rawModeToggleClass = rawMode
+    ? allowDangerKeys
+      ? "border-latte-red/85 bg-latte-red/20 text-latte-red ring-2 ring-latte-red/40 ring-offset-2 ring-offset-latte-base/70 shadow-[0_0_0_1px_rgb(var(--ctp-red)/0.3),0_0_16px_rgb(var(--ctp-red)/0.45)]"
+      : "border-latte-peach/85 bg-latte-peach/20 text-latte-peach ring-2 ring-latte-peach/45 ring-offset-2 ring-offset-latte-base/70 shadow-[0_0_0_1px_rgb(var(--ctp-peach)/0.3),0_0_16px_rgb(var(--ctp-peach)/0.45)]"
+    : undefined;
 
   const syncPromptHeight = useCallback((textarea: HTMLTextAreaElement) => {
     textarea.style.height = "auto";
@@ -171,11 +181,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
         <div
           ref={inputWrapperRef}
           className={`border-latte-surface2/80 bg-latte-base/70 min-h-[56px] min-w-0 flex-1 overflow-hidden rounded-2xl border transition ${
-            rawMode
-              ? allowDangerKeys
-                ? "border-latte-red/70 bg-latte-base/80 shadow-[0_0_10px_rgb(var(--ctp-red)/0.32),0_0_22px_rgb(var(--ctp-red)/0.14)]"
-                : "border-latte-peach/70 bg-latte-base/80 shadow-[0_0_10px_rgb(var(--ctp-peach)/0.32),0_0_22px_rgb(var(--ctp-peach)/0.14)]"
-              : "focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 focus-within:ring-2"
+            rawModeInputClass
           }`}
         >
           <textarea
@@ -227,6 +233,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
             active={rawMode}
             disabled={!interactive}
             title="Raw input mode"
+            className={rawModeToggleClass}
           >
             Raw
           </PillToggle>
