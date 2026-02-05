@@ -28,6 +28,7 @@ describe("ScreenPanel", () => {
   const buildState = (overrides: Partial<ScreenPanelState> = {}): ScreenPanelState => ({
     mode: "text",
     connected: true,
+    connectionIssue: null,
     fallbackReason: null,
     error: null,
     isScreenLoading: false,
@@ -67,6 +68,17 @@ describe("ScreenPanel", () => {
 
     expect(screen.getByText("Image fallback: image_failed")).toBeTruthy();
     expect(screen.getByText("Screen error")).toBeTruthy();
+  });
+
+  it("hides duplicate connection errors", () => {
+    const state = buildState({
+      connectionIssue: "Disconnected. Reconnecting...",
+      error: "Disconnected. Reconnecting...",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.queryByText("Disconnected. Reconnecting...")).toBeNull();
   });
 
   it("renders image mode content", () => {

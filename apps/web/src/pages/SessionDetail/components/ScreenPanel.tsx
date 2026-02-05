@@ -24,11 +24,13 @@ import {
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 
 type ScreenPanelState = {
   mode: ScreenMode;
   connected: boolean;
+  connectionIssue: string | null;
   fallbackReason: string | null;
   error: string | null;
   isScreenLoading: boolean;
@@ -72,6 +74,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const {
     mode,
     connected,
+    connectionIssue,
     fallbackReason,
     error,
     isScreenLoading,
@@ -86,6 +89,9 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   } = state;
   const { onModeChange, onRefresh, onAtBottomChange, onScrollToBottom, onUserScrollStateChange } =
     actions;
+  const showError =
+    Boolean(error) &&
+    (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
   const { scrollerRef: stableScrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: screenLines,
     isAtBottom,
@@ -181,7 +187,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           Image fallback: {fallbackReason}
         </Callout>
       )}
-      {error && (
+      {showError && (
         <Callout tone="error" size="xs">
           {error}
         </Callout>

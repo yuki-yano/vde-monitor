@@ -210,6 +210,7 @@ export const SessionDetailView = ({
       state: {
         mode,
         connected,
+        connectionIssue,
         fallbackReason,
         error,
         isScreenLoading,
@@ -233,6 +234,7 @@ export const SessionDetailView = ({
     [
       mode,
       connected,
+      connectionIssue,
       fallbackReason,
       error,
       isScreenLoading,
