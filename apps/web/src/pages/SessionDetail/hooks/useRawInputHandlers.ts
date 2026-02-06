@@ -10,16 +10,19 @@ import {
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
-import { CTRL_KEY_MAP } from "./sessionControlKeys";
+import {
+  INPUT_TYPE_DELETE_BACKWARD,
+  INPUT_TYPE_INSERT_COMPOSITION,
+  INPUT_TYPE_INSERT_FROM_PASTE,
+  INPUT_TYPE_INSERT_LINE_BREAK,
+  INPUT_TYPE_INSERT_PARAGRAPH,
+  INPUT_TYPE_INSERT_REPLACEMENT,
+  INPUT_TYPE_INSERT_TEXT,
+  resolveRawBeforeInput,
+} from "./raw-input-beforeinput";
+import { resolveRawKeyInput } from "./raw-input-keymap";
 
 const RAW_FLUSH_DELAY_MS = 16;
-const INPUT_TYPE_INSERT_TEXT = "insertText";
-const INPUT_TYPE_INSERT_FROM_PASTE = "insertFromPaste";
-const INPUT_TYPE_INSERT_LINE_BREAK = "insertLineBreak";
-const INPUT_TYPE_INSERT_PARAGRAPH = "insertParagraph";
-const INPUT_TYPE_DELETE_BACKWARD = "deleteContentBackward";
-const INPUT_TYPE_INSERT_COMPOSITION = "insertCompositionText";
-const INPUT_TYPE_INSERT_REPLACEMENT = "insertReplacementText";
 
 type UseRawInputHandlersParams = {
   paneId: string;
@@ -191,31 +194,24 @@ export const useRawInputHandlers = ({
 
   const handleRawBeforeInput = useCallback(
     (event: FormEvent<HTMLTextAreaElement>) => {
-      if (!rawMode || readOnly) return;
-      if (suppressNextBeforeInputRef.current) {
+      const inputEvent = event.nativeEvent as InputEvent | undefined;
+      const resolution = resolveRawBeforeInput({
+        rawMode,
+        readOnly,
+        suppressNextBeforeInput: suppressNextBeforeInputRef.current,
+        isComposing: isComposingRef.current,
+        inputType: inputEvent?.inputType ?? null,
+        data: typeof inputEvent?.data === "string" ? inputEvent.data : null,
+      });
+      if (resolution.kind === "ignored") {
+        return;
+      }
+      if (resolution.kind === "consumeSuppressFlag") {
         suppressNextBeforeInputRef.current = false;
         return;
       }
-      const inputEvent = event.nativeEvent as InputEvent | undefined;
-      const inputType = inputEvent?.inputType ?? null;
-      if (isComposingRef.current && inputType === INPUT_TYPE_INSERT_COMPOSITION) {
-        return;
-      }
-      const data = typeof inputEvent?.data === "string" ? inputEvent.data : null;
-      const canHandleWithoutData =
-        inputType === INPUT_TYPE_INSERT_LINE_BREAK ||
-        inputType === INPUT_TYPE_INSERT_PARAGRAPH ||
-        inputType === INPUT_TYPE_DELETE_BACKWARD;
-      const isTextInputType =
-        inputType === INPUT_TYPE_INSERT_TEXT ||
-        inputType === INPUT_TYPE_INSERT_FROM_PASTE ||
-        inputType === INPUT_TYPE_INSERT_REPLACEMENT ||
-        inputType === INPUT_TYPE_INSERT_COMPOSITION;
-      if (!canHandleWithoutData && (!isTextInputType || !data)) {
-        return;
-      }
       suppressNextInputRef.current = true;
-      handleRawInputType(inputType, data);
+      handleRawInputType(resolution.inputType, resolution.data);
       event.preventDefault();
       resetRawInputValue(event.currentTarget);
       scheduleClearSuppressedInput();
@@ -251,69 +247,22 @@ export const useRawInputHandlers = ({
       if (event.nativeEvent.isComposing) return;
       const ctrlActive = ctrlHeld || event.ctrlKey;
       const shiftActive = shiftHeld || event.shiftKey;
-      const key = event.key;
-
-      if (key === "Tab") {
-        event.preventDefault();
-        const base = shiftActive ? "BTab" : "Tab";
-        const mapped = ctrlActive && CTRL_KEY_MAP[base] ? CTRL_KEY_MAP[base] : base;
-        enqueueRawKey(mapped as AllowedKey);
-        resetRawInputValue(event.currentTarget);
+      const resolved = resolveRawKeyInput({
+        key: event.key,
+        ctrlActive,
+        shiftActive,
+      });
+      if (!resolved) {
         return;
       }
 
-      if (key === "Escape") {
-        event.preventDefault();
-        const mapped = ctrlActive ? CTRL_KEY_MAP.Escape : "Escape";
-        enqueueRawKey(mapped as AllowedKey);
-        resetRawInputValue(event.currentTarget);
-        return;
-      }
-
-      if (key === "Enter" && ctrlActive) {
-        event.preventDefault();
-        enqueueRawKey("C-Enter");
-        resetRawInputValue(event.currentTarget);
-        return;
-      }
-
-      if (key === "ArrowUp" || key === "ArrowDown" || key === "ArrowLeft" || key === "ArrowRight") {
-        event.preventDefault();
-        const base =
-          key === "ArrowUp"
-            ? "Up"
-            : key === "ArrowDown"
-              ? "Down"
-              : key === "ArrowLeft"
-                ? "Left"
-                : "Right";
-        const mapped = ctrlActive && CTRL_KEY_MAP[base] ? CTRL_KEY_MAP[base] : base;
-        enqueueRawKey(mapped as AllowedKey);
-        resetRawInputValue(event.currentTarget);
-        return;
-      }
-
-      if (key === "Home" || key === "End" || key === "PageUp" || key === "PageDown") {
-        event.preventDefault();
-        enqueueRawKey(key as AllowedKey);
-        resetRawInputValue(event.currentTarget);
-        return;
-      }
-
-      if (/^F(1[0-2]|[1-9])$/.test(key)) {
-        event.preventDefault();
-        enqueueRawKey(key as AllowedKey);
-        resetRawInputValue(event.currentTarget);
-        return;
-      }
-
-      if (ctrlActive && key.length === 1 && /[a-z]/i.test(key)) {
-        event.preventDefault();
+      event.preventDefault();
+      if (resolved.suppressBeforeInput) {
         suppressNextBeforeInputRef.current = true;
         scheduleClearSuppressedBeforeInput();
-        enqueueRawKey(`C-${key.toLowerCase()}` as AllowedKey);
-        resetRawInputValue(event.currentTarget);
       }
+      enqueueRawKey(resolved.key);
+      resetRawInputValue(event.currentTarget);
     },
     [
       ctrlHeld,

@@ -3,15 +3,14 @@ import AnsiToHtml from "ansi-to-html";
 
 import type { Theme } from "@/lib/theme";
 
+import { applyAdjacentBackgroundPadding } from "./ansi-background-padding";
 import { applyClaudeDiffMask, buildClaudeDiffMask, renderClaudeDiffLine } from "./ansi-claude-diff";
 import { blendRgb, contrastRatio, luminance, parseColor } from "./ansi-colors";
 import {
   ensureLineContent,
-  extractBackgroundColor,
   replaceBackgroundColors,
   splitLines,
   stripAnsi,
-  wrapLineBackground,
 } from "./ansi-text-utils";
 
 const catppuccinLatteAnsi: Record<number, string> = {
@@ -114,6 +113,58 @@ const resolveInlineColor = (node: HTMLElement): ReturnType<typeof parseColor> =>
   return null;
 };
 
+const applyContrastFallback = (
+  node: HTMLElement,
+  fallback: { background: string; text: string },
+): void => {
+  node.style.backgroundColor = fallback.background;
+  node.style.color = fallback.text;
+};
+
+const adjustLatteNodeContrast = (
+  node: HTMLElement,
+  fallback: { background: string; text: string },
+  options?: RenderAnsiOptions,
+): void => {
+  const bg = parseColor(node.style.backgroundColor);
+  if (bg) {
+    if (luminance(bg) > 0.28) {
+      return;
+    }
+    applyContrastFallback(node, fallback);
+    return;
+  }
+  if (options?.agent !== "claude") {
+    return;
+  }
+  const fg = parseColor(node.style.color);
+  if (!fg) {
+    return;
+  }
+  if (luminance(fg) <= 0.85) {
+    return;
+  }
+  node.style.color = fallback.text;
+};
+
+const adjustMochaNodeContrast = (
+  node: HTMLElement,
+  fallback: { background: string; text: string },
+): void => {
+  const bg = parseColor(node.style.backgroundColor);
+  if (!bg) {
+    return;
+  }
+  const fg = resolveInlineColor(node);
+  if (!fg) {
+    return;
+  }
+  if (contrastRatio(bg, fg) >= 3) {
+    return;
+  }
+  applyContrastFallback(node, fallback);
+};
+
 const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptions): string => {
   if (typeof window === "undefined") {
     return html;
@@ -126,29 +177,11 @@ const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptio
   const doc = parser.parseFromString(html, "text/html");
   const nodes = Array.from(doc.querySelectorAll<HTMLElement>("[style]"));
   nodes.forEach((node) => {
-    const bg = parseColor(node.style.backgroundColor);
     if (theme === "latte") {
-      if (bg) {
-        const bgLum = luminance(bg);
-        if (bgLum > 0.28) return;
-        node.style.backgroundColor = fallback.background;
-        node.style.color = fallback.text;
-        return;
-      }
-      if (options?.agent === "claude") {
-        const fg = parseColor(node.style.color);
-        if (!fg) return;
-        if (luminance(fg) <= 0.85) return;
-        node.style.color = fallback.text;
-      }
+      adjustLatteNodeContrast(node, fallback, options);
       return;
     }
-    if (!bg) return;
-    const fg = resolveInlineColor(node);
-    if (!fg) return;
-    if (contrastRatio(bg, fg) >= 3) return;
-    node.style.backgroundColor = fallback.background;
-    node.style.color = fallback.text;
+    adjustMochaNodeContrast(node, fallback);
   });
   return doc.body.innerHTML;
 };
@@ -188,229 +221,6 @@ const normalizeCodexBackgrounds = (
     }
     const blended = blendRgb(rgb, fallbackRgb, 1);
     return `background-color: rgb(${blended[0]}, ${blended[1]}, ${blended[2]})`;
-  });
-};
-
-const buildBackgroundActivityMask = (rawLines: string[]): boolean[] => {
-  // eslint-disable-next-line no-control-regex
-  const pattern = /\u001b\[([0-9;]*)m/g;
-  let backgroundActive = false;
-  return rawLines.map((line) => {
-    let lineHasBackground = backgroundActive;
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(line))) {
-      const rawCodes = match[1] ?? "";
-      const codes = rawCodes === "" ? [0] : rawCodes.split(";").map((value) => Number(value));
-      let index = 0;
-      while (index < codes.length) {
-        const code = codes[index];
-        if (code === undefined || !Number.isFinite(code)) {
-          index += 1;
-          continue;
-        }
-        if (code === 0 || code === 49) {
-          backgroundActive = false;
-          index += 1;
-          continue;
-        }
-        if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
-          backgroundActive = true;
-          lineHasBackground = true;
-          index += 1;
-          continue;
-        }
-        if (code === 48) {
-          const mode = codes[index + 1];
-          backgroundActive = true;
-          lineHasBackground = true;
-          if (mode === 5) {
-            index += 3;
-            continue;
-          }
-          if (mode === 2) {
-            index += 5;
-            continue;
-          }
-          index += 1;
-          continue;
-        }
-        index += 1;
-      }
-    }
-    return lineHasBackground;
-  });
-};
-
-const applyAdjacentBackgroundPadding = (htmlLines: string[], rawLines: string[]): string[] => {
-  if (htmlLines.length === 0) return htmlLines;
-  const baseColors = htmlLines.map(extractBackgroundColor);
-  const plainLines = rawLines.map((line) => stripAnsi(line ?? ""));
-  const lineHasContent = plainLines.map((line) => line.trim().length > 0);
-  const promptStartPattern = /^\s*\u203A(?:\s|$)/;
-  const isPromptStart = plainLines.map((line) => promptStartPattern.test(line));
-  const hasPromptMarkers = isPromptStart.some(Boolean);
-  const backgroundActive = buildBackgroundActivityMask(rawLines);
-  const lineHasBackground = backgroundActive.map(
-    (active, index) => active || Boolean(baseColors[index]),
-  );
-
-  const nextColorIndex = new Array<number>(baseColors.length).fill(-1);
-  let nextColor = -1;
-  for (let i = baseColors.length - 1; i >= 0; i -= 1) {
-    nextColorIndex[i] = nextColor;
-    if (baseColors[i]) {
-      nextColor = i;
-    }
-  }
-
-  if (hasPromptMarkers) {
-    const highlightMask = new Array<boolean>(rawLines.length).fill(false);
-    const lineStartsWithWhitespace = plainLines.map((line) => line.length > 0 && /^\s/.test(line));
-    const applyPromptBlock = (start: number, endExclusive: number) => {
-      let lastContent = -1;
-      for (let i = start; i < endExclusive; i += 1) {
-        if (isPromptStart[i] || lineHasContent[i]) {
-          lastContent = i;
-        }
-      }
-      if (lastContent === -1) return;
-      for (let i = start; i <= lastContent; i += 1) {
-        highlightMask[i] = true;
-      }
-      const trailing = lastContent + 1;
-      if (trailing < endExclusive && !lineHasContent[trailing]) {
-        highlightMask[trailing] = true;
-      }
-    };
-
-    for (let i = 0; i < rawLines.length; i += 1) {
-      if (!isPromptStart[i]) {
-        continue;
-      }
-      let endExclusive = rawLines.length;
-      for (let j = i + 1; j < rawLines.length; j += 1) {
-        if (isPromptStart[j]) {
-          endExclusive = j;
-          break;
-        }
-        if (lineHasContent[j] && !lineStartsWithWhitespace[j]) {
-          endExclusive = j;
-          break;
-        }
-      }
-      applyPromptBlock(i, endExclusive);
-      i = endExclusive - 1;
-    }
-
-    const paddedColors: Array<string | null> = [...baseColors];
-    let inBlock = false;
-    let blockColor: string | null = null;
-    for (let i = 0; i < highlightMask.length; i += 1) {
-      if (!highlightMask[i]) {
-        inBlock = false;
-        blockColor = null;
-        continue;
-      }
-      const baseColor = baseColors[i] ?? null;
-      if (!inBlock) {
-        inBlock = true;
-        const nextIndex = nextColorIndex[i];
-        const nextColor =
-          typeof nextIndex === "number" && nextIndex >= 0 ? (baseColors[nextIndex] ?? null) : null;
-        blockColor = baseColor ?? nextColor;
-      } else if (baseColor) {
-        blockColor = baseColor;
-      }
-      if (blockColor && !paddedColors[i]) {
-        paddedColors[i] = blockColor;
-      }
-    }
-
-    return htmlLines.map((html, index) => {
-      const color = paddedColors[index];
-      if (!color) return html;
-      return wrapLineBackground(html, color);
-    });
-  }
-
-  const segmentBreakers = lineHasContent.map(
-    (hasText, index) => hasText && !lineHasBackground[index],
-  );
-  const nextBackgroundInSegment = new Array<number>(lineHasBackground.length).fill(-1);
-  let nextBackground = -1;
-  for (let i = lineHasBackground.length - 1; i >= 0; i -= 1) {
-    if (segmentBreakers[i]) {
-      nextBackground = -1;
-      nextBackgroundInSegment[i] = -1;
-      continue;
-    }
-    nextBackgroundInSegment[i] = nextBackground;
-    if (lineHasBackground[i]) {
-      nextBackground = i;
-    }
-  }
-
-  const paddedColors: Array<string | null> = [...baseColors];
-  let inBlock = false;
-  let blockColor: string | null = null;
-  let trailingPadUsed = false;
-
-  for (let i = 0; i < lineHasBackground.length; i += 1) {
-    if (segmentBreakers[i]) {
-      inBlock = false;
-      blockColor = null;
-      trailingPadUsed = false;
-      continue;
-    }
-
-    if (lineHasBackground[i]) {
-      inBlock = true;
-      trailingPadUsed = false;
-      const baseColor = baseColors[i] ?? null;
-      if (baseColor) {
-        blockColor = baseColor;
-      } else if (!blockColor) {
-        const nextIndex = nextColorIndex[i];
-        if (typeof nextIndex === "number" && nextIndex >= 0) {
-          blockColor = baseColors[nextIndex] ?? null;
-        }
-      }
-      if (blockColor && !paddedColors[i]) {
-        paddedColors[i] = blockColor;
-      }
-      continue;
-    }
-
-    if (!inBlock) {
-      continue;
-    }
-
-    if (!lineHasContent[i]) {
-      if (nextBackgroundInSegment[i] !== -1) {
-        if (blockColor && !paddedColors[i]) {
-          paddedColors[i] = blockColor;
-        }
-        continue;
-      }
-      if (!trailingPadUsed) {
-        if (blockColor && !paddedColors[i]) {
-          paddedColors[i] = blockColor;
-        }
-        trailingPadUsed = true;
-        continue;
-      }
-    }
-
-    inBlock = false;
-    blockColor = null;
-    trailingPadUsed = false;
-  }
-
-  return htmlLines.map((html, index) => {
-    const color = paddedColors[index];
-    if (!color) return html;
-    return wrapLineBackground(html, color);
   });
 };
 
