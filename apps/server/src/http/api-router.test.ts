@@ -61,9 +61,24 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     alternateOn: false,
     truncated: null,
   }));
+  const getStateTimeline = vi.fn(() => ({
+    paneId: detail.paneId,
+    now: new Date(0).toISOString(),
+    range: "1h",
+    items: [],
+    totalsMs: {
+      RUNNING: 0,
+      WAITING_INPUT: 0,
+      WAITING_PERMISSION: 0,
+      SHELL: 0,
+      UNKNOWN: 0,
+    },
+    current: null,
+  }));
   const monitor = {
     registry,
     getScreenCapture: () => ({ captureText }),
+    getStateTimeline,
     setCustomTitle: vi.fn((paneId: string, title: string | null) => {
       const existing = registry.getDetail(paneId);
       if (!existing) return;
@@ -77,7 +92,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     sendRaw: vi.fn(async () => ({ ok: true })),
   } as unknown as TmuxActions;
   const api = createApiRouter({ config, monitor, tmuxActions });
-  return { api, config, monitor, tmuxActions, detail };
+  return { api, config, monitor, tmuxActions, detail, getStateTimeline };
 };
 
 const authHeaders = {
@@ -122,6 +137,18 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(404);
     const data = await res.json();
     expect(data.error.code).toBe("INVALID_PANE");
+  });
+
+  it("returns timeline for a pane", async () => {
+    const { api, getStateTimeline } = createTestContext();
+    const res = await api.request("/sessions/pane-1/timeline?range=15m&limit=50", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "15m", 50);
+    const data = await res.json();
+    expect(data.timeline.paneId).toBe("pane-1");
   });
 
   it("returns rate limit error on repeated screen requests", async () => {

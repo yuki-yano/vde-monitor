@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { type AgentMonitorConfig, resolveServerKey } from "@vde-monitor/shared";
+import {
+  type AgentMonitorConfig,
+  resolveServerKey,
+  type SessionStateTimelineRange,
+  type SessionStateTimelineSource,
+} from "@vde-monitor/shared";
 import {
   createInspector,
   createPipeManager,
@@ -22,14 +27,26 @@ import { cleanupRegistry } from "./monitor/registry-cleanup.js";
 import { resolveRepoRootCached } from "./monitor/repo-root.js";
 import { createSessionRegistry } from "./session-registry.js";
 import { restoreSessions, saveState } from "./state-store.js";
+import { createSessionTimelineStore } from "./state-timeline/store.js";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
+
+const resolveTimelineSource = (reason: string): SessionStateTimelineSource => {
+  if (reason === "restored") {
+    return "restore";
+  }
+  if (reason.startsWith("hook:")) {
+    return "hook";
+  }
+  return "poll";
+};
 
 export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorConfig) => {
   const inspector = createInspector(adapter);
   const pipeManager = createPipeManager(adapter);
   const screenCapture = createScreenCapture(adapter);
   const registry = createSessionRegistry();
+  const stateTimeline = createSessionTimelineStore();
   const capturePaneFingerprint = createFingerprintCapture(adapter);
   const paneStates = createPaneStateStore();
   const customTitles = new Map<string, string>();
@@ -56,6 +73,13 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     if (session.customTitle) {
       customTitles.set(paneId, session.customTitle);
     }
+    stateTimeline.record({
+      paneId,
+      state: session.state,
+      reason: session.stateReason || "restored",
+      at: session.lastEventAt ?? session.lastOutputAt ?? session.lastInputAt ?? undefined,
+      source: "restore",
+    });
   });
 
   const applyRestored = (paneId: string) => {
@@ -90,16 +114,33 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
         continue;
       }
 
+      const existing = registry.getDetail(preparedPane.paneId);
       activePaneIds.add(preparedPane.paneId);
+      if (
+        !existing ||
+        existing.state !== detail.state ||
+        existing.stateReason !== detail.stateReason
+      ) {
+        stateTimeline.record({
+          paneId: detail.paneId,
+          state: detail.state,
+          reason: detail.stateReason,
+          at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
+          source: resolveTimelineSource(detail.stateReason),
+        });
+      }
       registry.update(detail);
     }
 
-    cleanupRegistry({
+    const removedPaneIds = cleanupRegistry({
       registry,
       paneStates,
       customTitles,
       activePaneIds,
       saveState,
+    });
+    removedPaneIds.forEach((paneId) => {
+      stateTimeline.closePane({ paneId });
     });
   };
 
@@ -176,6 +217,13 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
   };
 
   const getScreenCapture = () => screenCapture;
+  const getStateTimeline = (
+    paneId: string,
+    range: SessionStateTimelineRange = "1h",
+    limit = 200,
+  ) => {
+    return stateTimeline.getTimeline({ paneId, range, limit });
+  };
 
   return {
     registry,
@@ -183,6 +231,7 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     stop,
     handleHookEvent,
     getScreenCapture,
+    getStateTimeline,
     setCustomTitle,
     recordInput,
   };

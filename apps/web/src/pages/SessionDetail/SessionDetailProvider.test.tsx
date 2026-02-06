@@ -28,6 +28,7 @@ const mockSessionsContext = {
   requestCommitLog: vi.fn(),
   requestCommitDetail: vi.fn(),
   requestCommitFile: vi.fn(),
+  requestStateTimeline: vi.fn(),
   requestScreen: vi.fn(),
   sendText: vi.fn(),
   sendKeys: vi.fn(),

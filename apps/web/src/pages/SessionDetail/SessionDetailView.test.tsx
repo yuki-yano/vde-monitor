@@ -45,6 +45,7 @@ type SessionDetailViewOverrides = {
   meta?: Partial<SessionDetailViewProps["meta"]>;
   sidebar?: Partial<SessionDetailViewProps["sidebar"]>;
   layout?: Partial<SessionDetailViewProps["layout"]>;
+  timeline?: Partial<SessionDetailViewProps["timeline"]>;
   screen?: Partial<SessionDetailViewProps["screen"]>;
   controls?: Partial<SessionDetailViewProps["controls"]>;
   diffs?: Partial<SessionDetailViewProps["diffs"]>;
@@ -74,6 +75,17 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       detailSplitRatio: 0.5,
       detailSplitRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
       handleDetailSplitPointerDown: vi.fn(),
+    },
+    timeline: {
+      timeline: null,
+      timelineRange: "1h",
+      timelineError: null,
+      timelineLoading: false,
+      timelineExpanded: true,
+      isMobile: false,
+      setTimelineRange: vi.fn(),
+      toggleTimelineExpanded: vi.fn(),
+      refreshTimeline: vi.fn(),
     },
     screen: {
       mode: "text",
@@ -179,6 +191,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     meta: { ...base.meta, ...overrides.meta },
     sidebar: { ...base.sidebar, ...overrides.sidebar },
     layout: { ...base.layout, ...overrides.layout },
+    timeline: { ...base.timeline, ...overrides.timeline },
     screen: { ...base.screen, ...overrides.screen },
     controls: { ...base.controls, ...overrides.controls },
     diffs: { ...base.diffs, ...overrides.diffs },

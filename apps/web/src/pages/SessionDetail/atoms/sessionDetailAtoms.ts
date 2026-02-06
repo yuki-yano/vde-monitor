@@ -9,6 +9,8 @@ import type {
   HighlightCorrectionConfig,
   RawItem,
   ScreenResponse,
+  SessionStateTimeline,
+  SessionStateTimelineRange,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { atom } from "jotai";
@@ -39,6 +41,10 @@ export type SessionApi = {
     path: string,
     options?: { force?: boolean },
   ) => Promise<CommitFileDiff>;
+  requestStateTimeline: (
+    paneId: string,
+    options?: { range?: SessionStateTimelineRange; limit?: number },
+  ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },

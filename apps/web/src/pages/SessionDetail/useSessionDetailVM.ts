@@ -24,6 +24,7 @@ import { useSessionControls } from "./hooks/useSessionControls";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionLogs } from "./hooks/useSessionLogs";
 import { useSessionScreen } from "./hooks/useSessionScreen";
+import { useSessionTimeline } from "./hooks/useSessionTimeline";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 
 export const useSessionDetailVM = (paneId: string) => {
@@ -45,6 +46,7 @@ export const useSessionDetailVM = (paneId: string) => {
     requestCommitLog,
     requestDiffFile,
     requestDiffSummary,
+    requestStateTimeline,
     requestScreen,
     sendText,
     sendKeys,
@@ -193,6 +195,24 @@ export const useSessionDetailVM = (paneId: string) => {
 
   const sessionGroups = useMemo(() => buildSessionGroups(sessions), [sessions]);
   const is2xlUp = useMediaQuery("(min-width: 1536px)");
+  const isMobile = useMediaQuery("(max-width: 767px)");
+
+  const {
+    timeline,
+    timelineRange,
+    timelineError,
+    timelineLoading,
+    timelineExpanded,
+    setTimelineRange,
+    toggleTimelineExpanded,
+    refreshTimeline,
+  } = useSessionTimeline({
+    paneId,
+    connected,
+    requestStateTimeline,
+    mobileDefaultCollapsed: true,
+  });
+
   const { sidebarWidth, handlePointerDown: handleSidebarPointerDown } = useSidebarWidth();
   const {
     ratio: detailSplitRatio,
@@ -245,6 +265,17 @@ export const useSessionDetailVM = (paneId: string) => {
       detailSplitRatio,
       detailSplitRef,
       handleDetailSplitPointerDown,
+    },
+    timeline: {
+      timeline,
+      timelineRange,
+      timelineError,
+      timelineLoading,
+      timelineExpanded,
+      isMobile,
+      setTimelineRange,
+      toggleTimelineExpanded,
+      refreshTimeline,
     },
     screen: {
       mode,

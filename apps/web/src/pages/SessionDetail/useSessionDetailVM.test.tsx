@@ -159,6 +159,19 @@ vi.mock("./hooks/useSessionTitleEditor", () => ({
   }),
 }));
 
+vi.mock("./hooks/useSessionTimeline", () => ({
+  useSessionTimeline: () => ({
+    timeline: null,
+    timelineRange: "1h",
+    timelineError: null,
+    timelineLoading: false,
+    timelineExpanded: true,
+    setTimelineRange: vi.fn(),
+    toggleTimelineExpanded: vi.fn(),
+    refreshTimeline: vi.fn(),
+  }),
+}));
+
 describe("useSessionDetailVM", () => {
   it("reads base state from atoms", () => {
     const sessionApi = {
@@ -168,6 +181,7 @@ describe("useSessionDetailVM", () => {
       requestCommitLog: vi.fn(),
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
+      requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
       sendText: vi.fn(),
       sendKeys: vi.fn(),

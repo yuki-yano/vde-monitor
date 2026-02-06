@@ -17,6 +17,7 @@ export const API_ERROR_MESSAGES = {
   commitLog: "Failed to load commit log",
   commitDetail: "Failed to load commit detail",
   commitFile: "Failed to load commit file",
+  timeline: "Failed to load state timeline",
   updateTitle: "Failed to update title",
   updateActivity: "Failed to update session activity",
 } as const;

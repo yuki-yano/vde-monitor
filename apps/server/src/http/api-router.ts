@@ -4,6 +4,7 @@ import {
   allowedKeySchema,
   type RawItem,
   type SessionDetail,
+  type SessionStateTimelineRange,
 } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -62,6 +63,10 @@ const screenRequestSchema = z.object({
   lines: z.number().int().min(1).optional(),
   cursor: z.string().optional(),
 });
+const timelineQuerySchema = z.object({
+  range: z.enum(["15m", "1h", "24h"]).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
 const sendTextSchema = z.object({
   text: z.string(),
   enter: z.boolean().optional(),
@@ -83,6 +88,13 @@ const isForceRequested = (force?: string) => force === "1";
 const parseQueryInteger = (value: string | undefined, fallback: number) => {
   const parsed = Number.parseInt(value ?? String(fallback), 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const resolveTimelineRange = (range: string | undefined): SessionStateTimelineRange => {
+  if (range === "15m" || range === "1h" || range === "24h") {
+    return range;
+  }
+  return "1h";
 };
 
 export const createApiRouter = ({ config, monitor, tmuxActions }: ApiContext) => {
@@ -223,6 +235,20 @@ export const createApiRouter = ({ config, monitor, tmuxActions }: ApiContext) =>
         return pane;
       }
       return c.json({ session: pane.detail });
+    });
+
+    api.get("/sessions/:paneId/timeline", zValidator("query", timelineQuerySchema), (c) => {
+      const pane = resolvePane(c);
+      if (pane instanceof Response) {
+        return pane;
+      }
+      const query = c.req.valid("query");
+      const timeline = monitor.getStateTimeline(
+        pane.paneId,
+        resolveTimelineRange(query.range),
+        query.limit ?? 200,
+      );
+      return c.json({ timeline });
     });
 
     api.put("/sessions/:paneId/title", zValidator("json", titleSchema), async (c) => {

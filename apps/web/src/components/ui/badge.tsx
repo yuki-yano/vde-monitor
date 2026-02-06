@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   tone?: "running" | "waiting" | "permission" | "shell" | "done" | "unknown" | "codex" | "claude";
   size?: "sm" | "md";
+  animateIcon?: boolean;
 };
 
 const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
@@ -22,10 +23,17 @@ const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
   claude: "bg-latte-lavender/15 text-latte-lavender border-latte-lavender/40",
 };
 
-const toneIcon: Record<NonNullable<BadgeProps["tone"]>, (className: string) => ReactNode> = {
-  running: (className) => <Loader2 className={cn("animate-spin", className)} />,
+const toneIcon: Record<
+  NonNullable<BadgeProps["tone"]>,
+  (className: string, animate: boolean) => ReactNode
+> = {
+  running: (className, animate) => (
+    <Loader2 className={cn(animate ? "animate-spin" : null, className)} />
+  ),
   waiting: (className) => <Clock className={className} />,
-  permission: (className) => <AlertTriangle className={cn("animate-bounce-subtle", className)} />,
+  permission: (className, animate) => (
+    <AlertTriangle className={cn(animate ? "animate-bounce-subtle" : null, className)} />
+  ),
   shell: (className) => <Circle className={className} />,
   done: (className) => <CheckCircle className={className} />,
   unknown: (className) => <Circle className={className} />,
@@ -43,7 +51,14 @@ const iconSizeClass = {
   sm: "h-2.5 w-2.5",
 };
 
-const Badge = ({ className, tone = "unknown", size = "md", children, ...props }: BadgeProps) => {
+const Badge = ({
+  className,
+  tone = "unknown",
+  size = "md",
+  children,
+  animateIcon = true,
+  ...props
+}: BadgeProps) => {
   return (
     <span
       className={cn(
@@ -54,7 +69,7 @@ const Badge = ({ className, tone = "unknown", size = "md", children, ...props }:
       )}
       {...props}
     >
-      {toneIcon[tone](iconSizeClass[size])}
+      {toneIcon[tone](iconSizeClass[size], animateIcon)}
       {children}
     </span>
   );

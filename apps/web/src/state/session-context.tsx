@@ -10,6 +10,8 @@ import type {
   RawItem,
   ScreenResponse,
   SessionDetail,
+  SessionStateTimeline,
+  SessionStateTimelineRange,
   SessionSummary,
 } from "@vde-monitor/shared";
 import {
@@ -61,6 +63,10 @@ type SessionContextValue = {
     path: string,
     options?: { force?: boolean },
   ) => Promise<CommitFileDiff>;
+  requestStateTimeline: (
+    paneId: string,
+    options?: { range?: SessionStateTimelineRange; limit?: number },
+  ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
@@ -136,6 +142,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
+    requestStateTimeline,
     requestScreen,
     sendText,
     sendKeys,
@@ -239,6 +246,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         requestCommitLog,
         requestCommitDetail,
         requestCommitFile,
+        requestStateTimeline,
         requestScreen,
         sendText,
         sendKeys,

@@ -32,4 +32,5 @@ export const cleanupRegistry = ({
   });
   paneStates.pruneMissing(activePaneIds);
   saveState(registry.values());
+  return removed;
 };

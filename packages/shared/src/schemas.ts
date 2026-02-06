@@ -91,6 +91,30 @@ export const sessionDetailSchema = sessionSummarySchema.extend({
   panePid: z.number().nullable(),
 });
 
+export const sessionStateTimelineRangeSchema = z.enum(["15m", "1h", "24h"]);
+
+export const sessionStateTimelineSourceSchema = z.enum(["poll", "hook", "restore"]);
+
+export const sessionStateTimelineItemSchema = z.object({
+  id: z.string(),
+  paneId: z.string(),
+  state: sessionStateSchema,
+  reason: z.string(),
+  startedAt: z.string(),
+  endedAt: z.string().nullable(),
+  durationMs: z.number(),
+  source: sessionStateTimelineSourceSchema,
+});
+
+export const sessionStateTimelineSchema = z.object({
+  paneId: z.string(),
+  now: z.string(),
+  range: sessionStateTimelineRangeSchema,
+  items: z.array(sessionStateTimelineItemSchema),
+  totalsMs: z.record(sessionStateSchema, z.number()),
+  current: sessionStateTimelineItemSchema.nullable(),
+});
+
 const highlightCorrectionSchema = z.object({
   codex: z.boolean().default(true),
   claude: z.boolean().default(true),

@@ -1,4 +1,4 @@
-import type { AllowedKey, RawItem } from "@vde-monitor/shared";
+import type { AllowedKey, RawItem, SessionStateTimelineRange } from "@vde-monitor/shared";
 
 export type PaneParam = { paneId: string };
 export type PaneHashParam = { paneId: string; hash: string };
@@ -6,6 +6,7 @@ export type ForceQuery = { force?: string };
 export type DiffFileQuery = { path: string; rev?: string; force?: string };
 export type CommitLogQuery = { limit?: string; skip?: string; force?: string };
 export type CommitFileQuery = { path: string; force?: string };
+export type TimelineQuery = { range?: SessionStateTimelineRange; limit?: string };
 export type ScreenRequestJson = { mode?: "text" | "image"; lines?: number; cursor?: string };
 export type SendTextJson = { text: string; enter: boolean };
 export type SendKeysJson = { keys: AllowedKey[] };
@@ -30,6 +31,9 @@ export type ApiClientContract = {
             $get: (args: { param: PaneHashParam; query: CommitFileQuery }) => Promise<Response>;
           };
         };
+      };
+      timeline: {
+        $get: (args: { param: PaneParam; query: TimelineQuery }) => Promise<Response>;
       };
       screen: {
         $post: (args: { param: PaneParam; json: ScreenRequestJson }) => Promise<Response>;

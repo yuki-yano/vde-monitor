@@ -220,6 +220,30 @@ export type ScreenDelta = {
   insertLines: string[];
 };
 
+export type SessionStateTimelineRange = "15m" | "1h" | "24h";
+
+export type SessionStateTimelineSource = "poll" | "hook" | "restore";
+
+export type SessionStateTimelineItem = {
+  id: string;
+  paneId: string;
+  state: SessionStateValue;
+  reason: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number;
+  source: SessionStateTimelineSource;
+};
+
+export type SessionStateTimeline = {
+  paneId: string;
+  now: string;
+  range: SessionStateTimelineRange;
+  items: SessionStateTimelineItem[];
+  totalsMs: Record<SessionStateValue, number>;
+  current: SessionStateTimelineItem | null;
+};
+
 export type CommandResponse = {
   ok: boolean;
   error?: ApiError;

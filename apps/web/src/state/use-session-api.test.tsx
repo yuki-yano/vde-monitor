@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { renderHook } from "@testing-library/react";
-import type { CommitLog, DiffSummary } from "@vde-monitor/shared";
+import type { CommitLog, DiffSummary, SessionStateTimeline } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -26,6 +26,7 @@ const mockApiClient = {
         $get: mockGet,
         ":hash": { $get: mockGet, file: { $get: mockGet } },
       },
+      timeline: { $get: mockGet },
     },
   },
 };
@@ -124,6 +125,46 @@ describe("useSessionApi", () => {
     expect(onConnectionIssue).toHaveBeenCalledWith("boom");
 
     await expect(result.current.requestDiffSummary("pane-1")).resolves.toEqual(summary);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("loads state timeline and clears connection issue", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const onConnectionIssue = vi.fn();
+    const timeline: SessionStateTimeline = {
+      paneId: "pane-1",
+      now: new Date(0).toISOString(),
+      range: "15m",
+      items: [],
+      totalsMs: {
+        RUNNING: 1000,
+        WAITING_INPUT: 0,
+        WAITING_PERMISSION: 0,
+        SHELL: 0,
+        UNKNOWN: 0,
+      },
+      current: null,
+    };
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: { timeline },
+    });
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onReadOnly: vi.fn(),
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+      }),
+    );
+
+    await expect(
+      result.current.requestStateTimeline("pane-1", { range: "15m", limit: 50 }),
+    ).resolves.toEqual(timeline);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 

@@ -13,6 +13,7 @@ import { QuickPanel } from "./components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionSidebar } from "./components/SessionSidebar";
+import { StateTimelineSection } from "./components/StateTimelineSection";
 import { useSessionDetailViewSectionProps } from "./hooks/useSessionDetailViewSectionProps";
 import { backLinkClass } from "./sessionDetailUtils";
 import type { SessionDetailVM } from "./useSessionDetailVM";
@@ -23,6 +24,7 @@ export const SessionDetailView = ({
   meta,
   sidebar,
   layout,
+  timeline,
   screen,
   controls,
   diffs,
@@ -45,6 +47,7 @@ export const SessionDetailView = ({
     diffSectionProps,
     commitSectionProps,
     screenPanelProps,
+    stateTimelineSectionProps,
     quickPanelProps,
     logModalProps,
     sessionHeaderProps,
@@ -54,6 +57,7 @@ export const SessionDetailView = ({
     meta,
     sidebar,
     layout,
+    timeline,
     screen,
     controls,
     diffs,
@@ -99,6 +103,7 @@ export const SessionDetailView = ({
       >
         <div className="flex min-w-0 flex-col gap-4">
           <SessionHeader {...sessionHeaderProps} />
+          <StateTimelineSection {...stateTimelineSectionProps} />
 
           <div
             ref={detailSplitRef}

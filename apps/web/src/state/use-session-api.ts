@@ -12,6 +12,8 @@ import {
   type HighlightCorrectionConfig,
   type RawItem,
   type ScreenResponse,
+  type SessionStateTimeline,
+  type SessionStateTimelineRange,
   type SessionSummary,
 } from "@vde-monitor/shared";
 import { hc } from "hono/client";
@@ -281,6 +283,30 @@ export const useSessionApi = ({
     [apiClient, requestSessionField],
   );
 
+  const requestStateTimeline = useCallback(
+    async (
+      paneId: string,
+      options?: { range?: SessionStateTimelineRange; limit?: number },
+    ): Promise<SessionStateTimeline> => {
+      const param = { paneId: encodePaneId(paneId) };
+      const query: { range?: SessionStateTimelineRange; limit?: string } = {};
+      if (options?.range) {
+        query.range = options.range;
+      }
+      if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+        query.limit = String(Math.max(1, Math.floor(options.limit)));
+      }
+      return requestSessionField<{ timeline?: SessionStateTimeline }, "timeline">({
+        paneId,
+        request: apiClient.sessions[":paneId"].timeline.$get({ param, query }),
+        field: "timeline",
+        fallbackMessage: API_ERROR_MESSAGES.timeline,
+        includeStatus: true,
+      });
+    },
+    [apiClient, requestSessionField],
+  );
+
   const requestScreen = useCallback(
     async (
       paneId: string,
@@ -493,6 +519,7 @@ export const useSessionApi = ({
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
+    requestStateTimeline,
     requestScreen,
     sendText,
     sendKeys,

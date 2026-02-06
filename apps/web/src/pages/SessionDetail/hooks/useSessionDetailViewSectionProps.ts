@@ -5,6 +5,7 @@ import type { SessionDetailViewProps } from "../SessionDetailView";
 export const useSessionDetailViewSectionProps = ({
   meta,
   sidebar,
+  timeline,
   screen,
   controls,
   diffs,
@@ -15,6 +16,17 @@ export const useSessionDetailViewSectionProps = ({
 }: SessionDetailViewProps) => {
   const { paneId, session, nowMs, connectionIssue, readOnly } = meta;
   const { sessionGroups } = sidebar;
+  const {
+    timeline: stateTimeline,
+    timelineRange,
+    timelineError,
+    timelineLoading,
+    timelineExpanded,
+    isMobile,
+    setTimelineRange,
+    toggleTimelineExpanded,
+    refreshTimeline,
+  } = timeline;
   const {
     mode,
     screenLines,
@@ -134,6 +146,35 @@ export const useSessionDetailViewSectionProps = ({
       diffLoadingFiles,
       refreshDiff,
       toggleDiff,
+    ],
+  );
+
+  const stateTimelineSectionProps = useMemo(
+    () => ({
+      state: {
+        timeline: stateTimeline,
+        timelineRange,
+        timelineError,
+        timelineLoading,
+        timelineExpanded,
+        isMobile,
+      },
+      actions: {
+        onTimelineRangeChange: setTimelineRange,
+        onTimelineRefresh: refreshTimeline,
+        onToggleTimelineExpanded: toggleTimelineExpanded,
+      },
+    }),
+    [
+      stateTimeline,
+      timelineRange,
+      timelineError,
+      timelineLoading,
+      timelineExpanded,
+      isMobile,
+      setTimelineRange,
+      refreshTimeline,
+      toggleTimelineExpanded,
     ],
   );
 
@@ -387,6 +428,7 @@ export const useSessionDetailViewSectionProps = ({
     diffSectionProps,
     commitSectionProps,
     screenPanelProps,
+    stateTimelineSectionProps,
     quickPanelProps,
     logModalProps,
     sessionHeaderProps,
