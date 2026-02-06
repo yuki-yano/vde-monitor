@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ScreenMode } from "@/lib/screen-loading";
 
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
+import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import { useScreenFetch } from "./useScreenFetch";
 
 describe("useScreenFetch", () => {
@@ -175,5 +176,41 @@ describe("useScreenFetch", () => {
     });
 
     expect(requestScreen).toHaveBeenCalledTimes(2);
+  });
+
+  it("resets loading and sets disconnected error when disconnected without issue", async () => {
+    const { result, params, requestScreen } = setup({
+      connected: false,
+      connectionIssue: null,
+    });
+
+    await waitFor(() => {
+      expect(params.dispatchScreenLoading).toHaveBeenCalledWith({ type: "reset" });
+      expect(result.current.error).toBe(DISCONNECTED_MESSAGE);
+    });
+
+    expect(requestScreen).not.toHaveBeenCalled();
+  });
+
+  it("defers text render while user is scrolling away from bottom", async () => {
+    const pendingScreenRef = { current: null as string | null };
+    const setScreen = vi.fn();
+    const setImageBase64 = vi.fn();
+
+    const { params } = setup({
+      isAtBottom: false,
+      isUserScrollingRef: { current: true },
+      pendingScreenRef,
+      setScreen,
+      setImageBase64,
+    });
+
+    await waitFor(() => {
+      expect(params.onModeLoaded).toHaveBeenCalledWith("text");
+    });
+
+    expect(pendingScreenRef.current).toBe("hello");
+    expect(setScreen).not.toHaveBeenCalledWith("hello");
+    expect(setImageBase64).not.toHaveBeenCalledWith(null);
   });
 });

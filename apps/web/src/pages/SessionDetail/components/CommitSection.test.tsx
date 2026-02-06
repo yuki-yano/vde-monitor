@@ -83,4 +83,25 @@ describe("CommitSection", () => {
     fireEvent.click(screen.getByText("Load more"));
     expect(onLoadMore).toHaveBeenCalled();
   });
+
+  it("renders repository reason callout", () => {
+    const commitLog = createCommitLog({ reason: "not_git" });
+    const state = buildState({ commitLog });
+    const actions = buildActions();
+    render(<CommitSection state={state} actions={actions} />);
+
+    expect(screen.getByText("Current directory is not a git repository.")).toBeTruthy();
+  });
+
+  it("shows missing detail message when expanded commit has no details", () => {
+    const commitLog = createCommitLog();
+    const state = buildState({
+      commitLog,
+      commitOpen: { abc123: true },
+    });
+    const actions = buildActions();
+    render(<CommitSection state={state} actions={actions} />);
+
+    expect(screen.getByText("No commit details.")).toBeTruthy();
+  });
 });

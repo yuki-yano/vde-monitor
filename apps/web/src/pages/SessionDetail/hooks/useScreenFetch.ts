@@ -31,6 +31,18 @@ const buildScreenOptions = (mode: ScreenMode, cursor: string | null) => {
   return options;
 };
 
+const shouldSuppressTextRender = (
+  mode: ScreenMode,
+  isAtBottom: boolean,
+  isUserScrolling: boolean,
+) => mode === "text" && !isAtBottom && isUserScrolling;
+
+type RefreshAttempt = {
+  requestId: number;
+  isModeSwitch: boolean;
+  shouldShowLoading: boolean;
+};
+
 type UseScreenFetchParams = {
   paneId: string;
   connected: boolean;
@@ -146,22 +158,24 @@ export const useScreenFetch = ({
     [cursorRef, screenLinesRef, updateTextScreen],
   );
 
-  const refreshScreen = useCallback(async () => {
-    if (!paneId) return;
-    if (!connected) {
+  const resetDisconnectedState = useCallback(
+    (skipWhenErrorPresent: boolean) => {
       refreshInFlightRef.current = null;
       modeSwitchRef.current = null;
       dispatchScreenLoading({ type: "reset" });
-      if (!connectionIssue) {
+      const shouldSetDisconnectedError = !connectionIssue && (!skipWhenErrorPresent || !error);
+      if (shouldSetDisconnectedError) {
         setError(DISCONNECTED_MESSAGE);
       }
-      return;
-    }
+    },
+    [connectionIssue, dispatchScreenLoading, error, modeSwitchRef, setError],
+  );
+
+  const beginRefreshAttempt = useCallback((): RefreshAttempt | null => {
     const requestId = (refreshRequestIdRef.current += 1);
     const inflight = refreshInFlightRef.current;
-    const isModeOverride = inflight && inflight.mode !== mode;
-    if (inflight && !isModeOverride) {
-      return;
+    if (inflight && inflight.mode === mode) {
+      return null;
     }
     const isModeSwitch = modeSwitchRef.current === mode;
     const shouldShowLoading = isModeSwitch || !modeLoadedRef.current[mode];
@@ -170,53 +184,77 @@ export const useScreenFetch = ({
       dispatchScreenLoading({ type: "start", mode });
     }
     refreshInFlightRef.current = { id: requestId, mode };
-    try {
-      const response = await requestScreen(paneId, buildScreenOptions(mode, cursorRef.current));
-      if (refreshInFlightRef.current?.id !== requestId) {
-        return;
-      }
+    return { requestId, isModeSwitch, shouldShowLoading };
+  }, [dispatchScreenLoading, mode, modeLoadedRef, modeSwitchRef, setError]);
+
+  const applyRefreshResponse = useCallback(
+    (response: ScreenResponse, suppressRender: boolean) => {
       if (!response.ok) {
         setError(response.error?.message ?? API_ERROR_MESSAGES.screenCapture);
         return;
       }
       setFallbackReason(response.fallbackReason ?? null);
-      const suppressRender = mode === "text" && !isAtBottom && isUserScrollingRef.current;
       if (response.mode === "image") {
         updateImageScreen(response.imageBase64 ?? null);
       } else {
         applyTextResponse(response, suppressRender);
       }
       onModeLoaded(mode);
+    },
+    [applyTextResponse, mode, onModeLoaded, setError, setFallbackReason, updateImageScreen],
+  );
+
+  const finishRefreshAttempt = useCallback(
+    (attempt: RefreshAttempt) => {
+      if (refreshInFlightRef.current?.id !== attempt.requestId) {
+        return;
+      }
+      refreshInFlightRef.current = null;
+      if (attempt.shouldShowLoading) {
+        dispatchScreenLoading({ type: "finish", mode });
+      }
+      if (attempt.isModeSwitch && modeSwitchRef.current === mode) {
+        modeSwitchRef.current = null;
+      }
+    },
+    [dispatchScreenLoading, mode, modeSwitchRef],
+  );
+
+  const refreshScreen = useCallback(async () => {
+    if (!paneId) return;
+    if (!connected) {
+      resetDisconnectedState(false);
+      return;
+    }
+    const attempt = beginRefreshAttempt();
+    if (!attempt) {
+      return;
+    }
+    try {
+      const response = await requestScreen(paneId, buildScreenOptions(mode, cursorRef.current));
+      if (refreshInFlightRef.current?.id !== attempt.requestId) {
+        return;
+      }
+      const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
+      applyRefreshResponse(response, suppressRender);
     } catch (err) {
       setError(err instanceof Error ? err.message : API_ERROR_MESSAGES.screenRequestFailed);
     } finally {
-      if (refreshInFlightRef.current?.id === requestId) {
-        refreshInFlightRef.current = null;
-        if (shouldShowLoading) {
-          dispatchScreenLoading({ type: "finish", mode });
-        }
-        if (isModeSwitch && modeSwitchRef.current === mode) {
-          modeSwitchRef.current = null;
-        }
-      }
+      finishRefreshAttempt(attempt);
     }
   }, [
-    applyTextResponse,
+    applyRefreshResponse,
+    beginRefreshAttempt,
     connected,
-    connectionIssue,
     cursorRef,
-    dispatchScreenLoading,
+    finishRefreshAttempt,
     isAtBottom,
     isUserScrollingRef,
     mode,
-    modeLoadedRef,
-    modeSwitchRef,
-    onModeLoaded,
     paneId,
     requestScreen,
+    resetDisconnectedState,
     setError,
-    setFallbackReason,
-    updateImageScreen,
   ]);
   const pollScreen = useCallback(() => {
     void refreshScreen();
@@ -228,18 +266,13 @@ export const useScreenFetch = ({
 
   useEffect(() => {
     if (!connected) {
-      refreshInFlightRef.current = null;
-      modeSwitchRef.current = null;
-      dispatchScreenLoading({ type: "reset" });
-      if (!connectionIssue && !error) {
-        setError(DISCONNECTED_MESSAGE);
-      }
+      resetDisconnectedState(true);
       return;
     }
     if (error === DISCONNECTED_MESSAGE) {
       setError(null);
     }
-  }, [connected, connectionIssue, dispatchScreenLoading, error, modeSwitchRef, setError]);
+  }, [connected, error, resetDisconnectedState, setError]);
 
   useVisibilityPolling({
     enabled: Boolean(paneId) && connected,
