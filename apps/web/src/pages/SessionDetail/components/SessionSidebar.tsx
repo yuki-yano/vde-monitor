@@ -224,14 +224,32 @@ const SessionPreviewBody = ({
   lines: string[];
   loading: boolean;
   error: string | null;
-}) => (
-  <div className="border-latte-surface2/70 bg-latte-crust/70 mt-3 min-h-0 flex-1 overflow-hidden rounded-xl border px-3 py-3 font-mono text-[12px] leading-[16px]">
-    {loading && <p className="text-latte-subtext0 text-xs">Loading preview...</p>}
-    {!loading && error && <p className="text-latte-red text-xs">{error}</p>}
-    {!loading && !error && lines.length === 0 && (
-      <p className="text-latte-subtext0 text-xs">Preview unavailable.</p>
-    )}
-    {!loading && !error && lines.length > 0 && (
+}) => {
+  const previewBodyClassName =
+    "border-latte-surface2/70 bg-latte-crust/70 mt-3 min-h-0 flex-1 overflow-hidden rounded-xl border px-3 py-3 font-mono text-[12px] leading-[16px]";
+  if (loading) {
+    return (
+      <div className={previewBodyClassName}>
+        <p className="text-latte-subtext0 text-xs">Loading preview...</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className={previewBodyClassName}>
+        <p className="text-latte-red text-xs">{error}</p>
+      </div>
+    );
+  }
+  if (lines.length === 0) {
+    return (
+      <div className={previewBodyClassName}>
+        <p className="text-latte-subtext0 text-xs">Preview unavailable.</p>
+      </div>
+    );
+  }
+  return (
+    <div className={previewBodyClassName}>
       <div className="flex min-h-full flex-col justify-end">
         {lines.map((line, index) => (
           <div
@@ -241,9 +259,9 @@ const SessionPreviewBody = ({
           />
         ))}
       </div>
-    )}
-  </div>
-);
+    </div>
+  );
+};
 
 const SessionPreviewPopover = memo(
   ({

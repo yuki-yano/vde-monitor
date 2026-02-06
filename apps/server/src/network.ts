@@ -6,33 +6,33 @@ const isValidOctets = (parts: number[]) => {
   return parts.every((value) => !Number.isNaN(value) && value >= 0 && value <= 255);
 };
 
-const isPrivateIP = (address: string) => {
+type IPv4Octets = [number, number, number, number];
+
+const parseIPv4Octets = (address: string): IPv4Octets | null => {
   const parts = address.split(".").map(Number);
   if (parts.length !== 4 || !isValidOctets(parts)) {
+    return null;
+  }
+  return parts as IPv4Octets;
+};
+
+const isPrivateIP = (address: string) => {
+  const octets = parseIPv4Octets(address);
+  if (!octets) {
     return false;
   }
-  const [first, second] = parts;
-  if (first === undefined || second === undefined) {
-    return false;
-  }
-  if (first === 10) {
-    return true;
-  }
-  if (first === 172 && second >= 16 && second <= 31) {
-    return true;
-  }
+  const [first, second] = octets;
+  if (first === 10) return true;
+  if (first === 172 && second >= 16 && second <= 31) return true;
   return first === 192 && second === 168;
 };
 
 export const isTailscaleIP = (address: string) => {
-  const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || !isValidOctets(parts)) {
+  const octets = parseIPv4Octets(address);
+  if (!octets) {
     return false;
   }
-  const [first, second] = parts;
-  if (first === undefined || second === undefined) {
-    return false;
-  }
+  const [first, second] = octets;
   return first === 100 && second >= 64 && second <= 127;
 };
 

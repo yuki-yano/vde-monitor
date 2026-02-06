@@ -148,6 +148,46 @@ const buildRenderedPatches = (
   return rendered;
 };
 
+const resolveDiffPatchMessage = ({
+  loadingFile,
+  fileData,
+}: {
+  loadingFile: boolean;
+  fileData?: DiffFile;
+}) => {
+  if (loadingFile) {
+    return "Loading diff…";
+  }
+  if (fileData?.binary) {
+    return "Binary file (no diff).";
+  }
+  if (!fileData?.patch) {
+    return "No diff available.";
+  }
+  return null;
+};
+
+const updateExpandedDiffs = (prev: Record<string, boolean>, path: string) =>
+  prev[path] ? prev : { ...prev, [path]: true };
+
+const buildDiffBodyClassName = (diffLoading: boolean) =>
+  `relative ${diffLoading ? "min-h-[120px]" : ""}`;
+
+const renderDiffLoadingOverlay = (diffLoading: boolean) =>
+  diffLoading ? <LoadingOverlay label="Loading changes..." blocking={false} /> : null;
+
+const renderCleanState = (showCleanState: boolean) =>
+  showCleanState ? (
+    <EmptyState
+      icon={<FileCheck className="text-latte-green h-6 w-6" />}
+      message="Working directory is clean"
+      iconWrapperClassName="bg-latte-green/10"
+    />
+  ) : null;
+
+const renderRepoRoot = (repoRoot: string | null | undefined) =>
+  repoRoot ? <p className="text-latte-subtext0 text-xs">Repo: {formatPath(repoRoot)}</p> : null;
+
 const DiffSummaryReasonCallout = memo(
   ({ reason }: { reason: DiffSummary["reason"] | undefined }) => {
     if (reason === "cwd_unknown") {
@@ -216,22 +256,19 @@ DiffSummaryDescription.displayName = "DiffSummaryDescription";
 
 const DiffFilePatchContent = memo(
   ({ filePath, loadingFile, fileData, renderedPatch, onExpandDiff }: DiffFilePatchContentProps) => {
-    if (loadingFile) {
-      return <p className="text-latte-subtext0 text-xs">Loading diff…</p>;
+    const message = resolveDiffPatchMessage({ loadingFile, fileData });
+    if (message) {
+      return <p className="text-latte-subtext0 text-xs">{message}</p>;
     }
-    if (fileData?.binary) {
-      return <p className="text-latte-subtext0 text-xs">Binary file (no diff).</p>;
-    }
-    if (!fileData?.patch) {
-      return <p className="text-latte-subtext0 text-xs">No diff available.</p>;
-    }
+    const truncatedPreview = renderedPatch?.truncated ? renderedPatch : null;
+    const showServerTruncated = Boolean(fileData?.truncated);
     return (
       <div className="custom-scrollbar max-h-[360px] overflow-auto">
         {renderedPatch ? <DiffPatch lines={renderedPatch.lines} /> : null}
-        {renderedPatch?.truncated ? (
+        {truncatedPreview ? (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="text-latte-subtext0">
-              Showing first {renderedPatch.previewLines} of {renderedPatch.totalLines} lines.
+              Showing first {truncatedPreview.previewLines} of {truncatedPreview.totalLines} lines.
             </span>
             <Button
               variant="ghost"
@@ -243,7 +280,7 @@ const DiffFilePatchContent = memo(
             </Button>
           </div>
         ) : null}
-        {fileData.truncated ? (
+        {showServerTruncated ? (
           <p className="text-latte-subtext0 mt-2 text-xs">Diff truncated.</p>
         ) : null}
       </div>
@@ -348,7 +385,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
 
   const handleExpandDiff = useCallback(
     (path: string) => {
-      setExpandedDiffs((prev) => (prev[path] ? prev : { ...prev, [path]: true }));
+      setExpandedDiffs((prev) => updateExpandedDiffs(prev, path));
     },
     [setExpandedDiffs],
   );
@@ -382,20 +419,12 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
           </Button>
         }
       />
-      {diffSummary?.repoRoot ? (
-        <p className="text-latte-subtext0 text-xs">Repo: {formatPath(diffSummary.repoRoot)}</p>
-      ) : null}
+      {renderRepoRoot(diffSummary?.repoRoot)}
       <DiffSummaryReasonCallout reason={diffSummary?.reason} />
       <DiffErrorCallout diffError={diffError} />
-      <div className={`relative ${diffLoading ? "min-h-[120px]" : ""}`}>
-        {diffLoading ? <LoadingOverlay label="Loading changes..." blocking={false} /> : null}
-        {showCleanState ? (
-          <EmptyState
-            icon={<FileCheck className="text-latte-green h-6 w-6" />}
-            message="Working directory is clean"
-            iconWrapperClassName="bg-latte-green/10"
-          />
-        ) : null}
+      <div className={buildDiffBodyClassName(diffLoading)}>
+        {renderDiffLoadingOverlay(diffLoading)}
+        {renderCleanState(showCleanState)}
         <DiffFileList
           files={files}
           diffOpen={diffOpen}

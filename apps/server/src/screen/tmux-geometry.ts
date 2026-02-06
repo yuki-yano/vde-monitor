@@ -18,26 +18,36 @@ export type PaneGeometry = {
 const runCommand = (command: string, args: string[], timeout?: number) =>
   execa(command, args, timeout ? { timeout } : undefined);
 
-const parsePaneGeometry = (input: string): PaneGeometry | null => {
-  const parts = input
+type PaneGeometryTuple = [number, number, number, number, number, number];
+
+const parsePaneGeometryTuple = (input: string): PaneGeometryTuple | null => {
+  const values = input
     .trim()
     .split("\t")
     .map((value) => Number.parseInt(value.trim(), 10));
-  if (parts.length !== 6 || parts.some((value) => Number.isNaN(value))) {
+  if (values.length !== 6 || values.some((value) => Number.isNaN(value))) {
     return null;
   }
-  const [left, top, width, height, windowWidth, windowHeight] = parts;
-  if (
-    left === undefined ||
-    top === undefined ||
-    width === undefined ||
-    height === undefined ||
-    windowWidth === undefined ||
-    windowHeight === undefined
-  ) {
-    return null;
-  }
+  return values as PaneGeometryTuple;
+};
+
+const toPaneGeometry = ([
+  left,
+  top,
+  width,
+  height,
+  windowWidth,
+  windowHeight,
+]: PaneGeometryTuple) => {
   return { left, top, width, height, windowWidth, windowHeight };
+};
+
+const parsePaneGeometry = (input: string): PaneGeometry | null => {
+  const tuple = parsePaneGeometryTuple(input);
+  if (!tuple) {
+    return null;
+  }
+  return toPaneGeometry(tuple);
 };
 
 const buildTmuxArgs = (args: string[], options?: TmuxOptions) => {

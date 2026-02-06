@@ -63,17 +63,15 @@ const shouldSuppressCorrection = ({
   isInternalUserScrolling,
   isExternalUserScrolling,
   recentlyScrolled,
-  allowCorrectionOnce,
 }: {
   isInternalUserScrolling: boolean;
   isExternalUserScrolling: boolean;
   recentlyScrolled: boolean;
-  allowCorrectionOnce: boolean;
 }) => {
   if (isInternalUserScrolling || isExternalUserScrolling) {
     return true;
   }
-  return recentlyScrolled && !allowCorrectionOnce;
+  return recentlyScrolled;
 };
 
 export const useStableVirtuosoScroll = ({
@@ -93,10 +91,9 @@ export const useStableVirtuosoScroll = ({
   const prevScrollTopRef = useRef<number | null>(null);
   const prevItemsRef = useRef(items);
   const isUserScrollingRef = useRef(false);
-  const lastUserScrollAtRef = useRef(0);
+  const lastUserScrollAtRef = useRef(Number.NEGATIVE_INFINITY);
   const scrollEndTimerRef = useRef<number | null>(null);
   const isAdjustingRef = useRef(false);
-  const allowCorrectionOnceRef = useRef(false);
   const scrollSuppressMs = 300;
   const onUserScrollStateChangeRef = useRef(onUserScrollStateChange);
 
@@ -137,7 +134,6 @@ export const useStableVirtuosoScroll = ({
       isUserScrollingRef.current = value;
       if (!value) {
         updateBaseline(anchorIndexRef.current);
-        allowCorrectionOnceRef.current = true;
       }
       onUserScrollStateChangeRef.current?.(value);
     },
@@ -166,7 +162,6 @@ export const useStableVirtuosoScroll = ({
       if (event.type === "scroll" && !event.isTrusted) {
         if (!isAdjustingRef.current) {
           lastUserScrollAtRef.current = performance.now();
-          allowCorrectionOnceRef.current = false;
         }
         updateBaseline(anchorIndexRef.current);
         return;
@@ -217,7 +212,6 @@ export const useStableVirtuosoScroll = ({
       isInternalUserScrolling: isUserScrollingRef.current,
       isExternalUserScrolling: Boolean(isUserScrolling),
       recentlyScrolled,
-      allowCorrectionOnce: allowCorrectionOnceRef.current,
     });
   }, [isUserScrolling]);
 
@@ -226,7 +220,6 @@ export const useStableVirtuosoScroll = ({
     prevAnchorHeightRef.current = null;
     prevScrollTopRef.current = null;
     prevAnchorIndexRef.current = 0;
-    allowCorrectionOnceRef.current = false;
   }, []);
 
   useLayoutEffect(() => {
@@ -266,10 +259,6 @@ export const useStableVirtuosoScroll = ({
     const canCorrect = itemsChanged && scroller && !isAtBottom && !isScrollCorrectionSuppressed();
     if (canCorrect) {
       applyAnchorCorrection(scroller, prevItems);
-    }
-
-    if (itemsChanged) {
-      allowCorrectionOnceRef.current = false;
     }
 
     if (scroller) {

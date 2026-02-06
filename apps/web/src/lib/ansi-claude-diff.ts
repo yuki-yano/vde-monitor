@@ -35,24 +35,62 @@ const isDiffCandidateLine = (line: string) => {
   return trimmed === "" || trimmed === "...";
 };
 
+const hasDiffMarkerInRange = (lines: string[], start: number, end: number) => {
+  for (let i = start; i <= end; i += 1) {
+    if (hasDiffMarker(lines[i] ?? "")) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const fillMaskRange = (mask: boolean[], start: number, end: number) => {
+  for (let i = start; i <= end; i += 1) {
+    mask[i] = true;
+  }
+};
+
+const closeDiffSegment = ({
+  lines,
+  mask,
+  segmentStart,
+  end,
+}: {
+  lines: string[];
+  mask: boolean[];
+  segmentStart: number;
+  end: number;
+}) => {
+  if (segmentStart < 0 || end < segmentStart) {
+    return;
+  }
+  if (!hasDiffMarkerInRange(lines, segmentStart, end)) {
+    return;
+  }
+  fillMaskRange(mask, segmentStart, end);
+};
+
+const isSegmentContinuation = ({
+  segmentStart,
+  segmentIndent,
+  line,
+}: {
+  segmentStart: number;
+  segmentIndent: number | null;
+  line: string;
+}) => {
+  if (segmentStart === -1 || segmentIndent === null) {
+    return false;
+  }
+  return leadingWhitespaceLength(line) >= segmentIndent;
+};
+
 export const buildClaudeDiffMask = (lines: string[]) => {
   const mask = new Array(lines.length).fill(false);
   let segmentStart = -1;
   let segmentIndent: number | null = null;
   const closeSegment = (end: number) => {
-    if (segmentStart < 0) return;
-    let include = false;
-    for (let i = segmentStart; i <= end; i += 1) {
-      if (hasDiffMarker(lines[i] ?? "")) {
-        include = true;
-        break;
-      }
-    }
-    if (include) {
-      for (let i = segmentStart; i <= end; i += 1) {
-        mask[i] = true;
-      }
-    }
+    closeDiffSegment({ lines, mask, segmentStart, end });
     segmentStart = -1;
     segmentIndent = null;
   };
@@ -72,11 +110,7 @@ export const buildClaudeDiffMask = (lines: string[]) => {
       }
       continue;
     }
-    const isContinuation =
-      segmentStart !== -1 &&
-      segmentIndent !== null &&
-      leadingWhitespaceLength(line) >= segmentIndent;
-    if (isContinuation) {
+    if (isSegmentContinuation({ segmentStart, segmentIndent, line })) {
       continue;
     }
     closeSegment(i - 1);

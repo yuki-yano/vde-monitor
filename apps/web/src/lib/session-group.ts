@@ -12,15 +12,12 @@ const parseTime = (value: string | null) => {
   return Number.isNaN(ts) ? null : ts;
 };
 
+const resolveComparableTime = (value: string | null) =>
+  parseTime(value) ?? Number.NEGATIVE_INFINITY;
+
 const compareTimeDesc = (a: string | null, b: string | null) => {
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  const aTs = parseTime(a);
-  const bTs = parseTime(b);
-  if (aTs === null && bTs === null) return 0;
-  if (aTs === null) return 1;
-  if (bTs === null) return -1;
+  const aTs = resolveComparableTime(a);
+  const bTs = resolveComparableTime(b);
   if (aTs === bTs) return 0;
   return bTs - aTs;
 };

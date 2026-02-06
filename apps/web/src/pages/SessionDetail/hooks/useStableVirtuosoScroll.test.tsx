@@ -262,9 +262,71 @@ describe("useStableVirtuosoScroll", () => {
         isInternalUserScrolling: true,
         isExternalUserScrolling: false,
         recentlyScrolled: false,
-        allowCorrectionOnce: true,
       }),
     ).toBe(true);
+  });
+
+  it("keeps correction suppressed during recent-scroll cooldown after internal scroll end", () => {
+    vi.useFakeTimers();
+    const rectSpy = mockRects();
+    const nowSpy = vi.spyOn(performance, "now");
+    let now = 1_000;
+    nowSpy.mockImplementation(() => now);
+    let control: Control | null = null;
+    const getControl = () => {
+      if (!control) throw new Error("control not ready");
+      return control;
+    };
+
+    const { rerender } = render(
+      <TestHarness
+        items={["A", "B", "C", "D"]}
+        isAtBottom={false}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    getControl().scroller.scrollTop = 0;
+    getControl().handleRangeChanged({ startIndex: 1, endIndex: 3 });
+
+    act(() => {
+      getControl().scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: 20 }));
+    });
+
+    now += 121;
+    act(() => {
+      vi.advanceTimersByTime(121);
+    });
+
+    now += 5;
+    rerender(
+      <TestHarness
+        items={["X", "A", "B", "C", "D"]}
+        isAtBottom={false}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+    expect(getControl().scroller.scrollTop).toBe(0);
+
+    now += 200;
+    rerender(
+      <TestHarness
+        items={["Y", "X", "A", "B", "C", "D"]}
+        isAtBottom={false}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+    expect(getControl().scroller.scrollTop).toBe(10);
+
+    nowSpy.mockRestore();
+    rectSpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it("falls back to previous scrollTop when data-index is unavailable", () => {

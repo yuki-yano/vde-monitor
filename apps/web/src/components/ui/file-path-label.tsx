@@ -165,6 +165,54 @@ const HintRow = ({
   </div>
 );
 
+type HintClasses = ReturnType<typeof buildHintClasses>;
+
+const buildFullLabel = (path: string, renamedFrom?: string | null) =>
+  renamedFrom ? `${renamedFrom} → ${path}` : path;
+
+const buildFromFallback = (renamedFrom: string | null | undefined, tailSegments: number) =>
+  renamedFrom ? buildFallbackHintLabel(renamedFrom, tailSegments) : "";
+
+const renderPathHintRow = ({
+  renamedFrom,
+  fromHint,
+  dirHint,
+  classes,
+  isSegmentTruncate,
+}: {
+  renamedFrom?: string | null;
+  fromHint: HintModel;
+  dirHint: HintModel;
+  classes: HintClasses;
+  isSegmentTruncate: boolean;
+}) => {
+  if (renamedFrom) {
+    return (
+      <HintRow
+        displayText={`from ${fromHint.label}`}
+        hint={fromHint}
+        hintClass={classes.hintClass}
+        measureClass={classes.measureClass}
+        measureWrapperClass={classes.measureWrapperClass}
+        isSegmentTruncate={isSegmentTruncate}
+      />
+    );
+  }
+  if (!dirHint.label) {
+    return null;
+  }
+  return (
+    <HintRow
+      displayText={dirHint.label}
+      hint={dirHint}
+      hintClass={classes.hintClass}
+      measureClass={classes.measureClass}
+      measureWrapperClass={classes.measureWrapperClass}
+      isSegmentTruncate={isSegmentTruncate}
+    />
+  );
+};
+
 const FilePathLabel = ({
   path,
   renamedFrom,
@@ -179,13 +227,13 @@ const FilePathLabel = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const baseInfo = buildPathInfo(path, tailSegments);
   const fullDir = buildFullDir(path);
-  const fullLabel = renamedFrom ? `${renamedFrom} → ${path}` : path;
+  const fullLabel = buildFullLabel(path, renamedFrom);
   const fromFullLabel = normalizePath(renamedFrom ?? "");
 
   const dirSegments = useMemo(() => fullDir.split("/").filter(Boolean), [fullDir]);
   const fromSegments = useMemo(() => fromFullLabel.split("/").filter(Boolean), [fromFullLabel]);
   const fromFallback = useMemo(
-    () => (renamedFrom ? buildFallbackHintLabel(renamedFrom, tailSegments) : ""),
+    () => buildFromFallback(renamedFrom, tailSegments),
     [renamedFrom, tailSegments],
   );
 
@@ -211,6 +259,7 @@ const FilePathLabel = ({
   });
 
   const classes = buildHintClasses(dirTruncate, size);
+  const segmentTruncate = isSegmentTruncateMode(dirTruncate);
 
   return (
     <div ref={containerRef} className={cn("min-w-0", className)} {...props}>
@@ -222,25 +271,13 @@ const FilePathLabel = ({
       >
         {baseInfo.base}
       </span>
-      {renamedFrom ? (
-        <HintRow
-          displayText={`from ${fromHint.label}`}
-          hint={fromHint}
-          hintClass={classes.hintClass}
-          measureClass={classes.measureClass}
-          measureWrapperClass={classes.measureWrapperClass}
-          isSegmentTruncate={isSegmentTruncateMode(dirTruncate)}
-        />
-      ) : dirHint.label ? (
-        <HintRow
-          displayText={dirHint.label}
-          hint={dirHint}
-          hintClass={classes.hintClass}
-          measureClass={classes.measureClass}
-          measureWrapperClass={classes.measureWrapperClass}
-          isSegmentTruncate={isSegmentTruncateMode(dirTruncate)}
-        />
-      ) : null}
+      {renderPathHintRow({
+        renamedFrom,
+        fromHint,
+        dirHint,
+        classes,
+        isSegmentTruncate: segmentTruncate,
+      })}
       <span className="sr-only">{fullLabel}</span>
     </div>
   );

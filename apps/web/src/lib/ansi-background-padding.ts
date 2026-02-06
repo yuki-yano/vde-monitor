@@ -188,29 +188,71 @@ const buildPromptHighlightMask = (
   return highlightMask;
 };
 
+type PromptPaddingState = {
+  inBlock: boolean;
+  blockColor: NullableColor;
+};
+
+const updatePromptPaddingState = ({
+  highlight,
+  baseColor,
+  baseColors,
+  nextColorIndex,
+  index,
+  state,
+}: {
+  highlight: boolean;
+  baseColor: NullableColor;
+  baseColors: NullableColor[];
+  nextColorIndex: number[];
+  index: number;
+  state: PromptPaddingState;
+}) => {
+  if (!highlight) {
+    state.inBlock = false;
+    state.blockColor = null;
+    return;
+  }
+  if (!state.inBlock) {
+    state.inBlock = true;
+    state.blockColor = baseColor ?? resolveNextColor(baseColors, nextColorIndex, index);
+    return;
+  }
+  if (baseColor) {
+    state.blockColor = baseColor;
+  }
+};
+
+const applyPromptPaddingColor = (
+  paddedColors: NullableColor[],
+  index: number,
+  state: PromptPaddingState,
+) => {
+  if (state.blockColor && !paddedColors[index]) {
+    paddedColors[index] = state.blockColor;
+  }
+};
+
 const buildPromptPaddedColors = (
   baseColors: NullableColor[],
   highlightMask: boolean[],
   nextColorIndex: number[],
 ): NullableColor[] => {
   const paddedColors: NullableColor[] = [...baseColors];
-  let inBlock = false;
-  let blockColor: NullableColor = null;
+  const state: PromptPaddingState = { inBlock: false, blockColor: null };
   for (let index = 0; index < highlightMask.length; index += 1) {
-    if (!highlightMask[index]) {
-      inBlock = false;
-      blockColor = null;
-      continue;
-    }
+    const highlight = Boolean(highlightMask[index]);
     const baseColor = baseColors[index] ?? null;
-    if (!inBlock) {
-      inBlock = true;
-      blockColor = baseColor ?? resolveNextColor(baseColors, nextColorIndex, index);
-    } else if (baseColor) {
-      blockColor = baseColor;
-    }
-    if (blockColor && !paddedColors[index]) {
-      paddedColors[index] = blockColor;
+    updatePromptPaddingState({
+      highlight,
+      baseColor,
+      baseColors,
+      nextColorIndex,
+      index,
+      state,
+    });
+    if (highlight) {
+      applyPromptPaddingColor(paddedColors, index, state);
     }
   }
   return paddedColors;

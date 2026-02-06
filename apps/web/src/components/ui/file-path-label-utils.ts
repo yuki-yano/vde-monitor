@@ -35,12 +35,19 @@ const SEGMENT_RETRY_DELAY_MS = 60;
 const measureElementWidth = (element: HTMLElement) =>
   element.getBoundingClientRect().width || element.scrollWidth || element.clientWidth;
 
+const readContainerWidth = (element: HTMLElement | null | undefined) => {
+  if (!element) {
+    return 0;
+  }
+  return element.getBoundingClientRect().width || element.clientWidth || 0;
+};
+
 const getContainerWidth = (
   primary: HTMLElement | null | undefined,
   fallback: HTMLElement | null | undefined,
 ) => {
-  const primaryWidth = primary?.getBoundingClientRect().width || primary?.clientWidth || 0;
-  const fallbackWidth = fallback?.getBoundingClientRect().width || fallback?.clientWidth || 0;
+  const primaryWidth = readContainerWidth(primary);
+  const fallbackWidth = readContainerWidth(fallback);
   return Math.max(primaryWidth, fallbackWidth);
 };
 

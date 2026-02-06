@@ -89,28 +89,50 @@ export const saveConfig = (config: AgentMonitorConfigFile) => {
   writeFileSafe(getConfigPath(), `${JSON.stringify(config, null, 2)}\n`);
 };
 
+const migrateLegacyPort = (config: AgentMonitorConfigFile) => {
+  if (config.port !== 10080 || defaultConfig.port !== 11080) {
+    return { config, migrated: false };
+  }
+  return {
+    config: { ...config, port: defaultConfig.port },
+    migrated: true,
+  };
+};
+
+const migrateImageCaptureDefault = (config: AgentMonitorConfigFile) => {
+  if (config.screen?.image?.enabled !== false || defaultConfig.screen.image.enabled !== true) {
+    return { config, migrated: false };
+  }
+  return {
+    config: {
+      ...config,
+      screen: {
+        ...config.screen,
+        image: {
+          ...config.screen.image,
+          enabled: true,
+        },
+      },
+    },
+    migrated: true,
+  };
+};
+
+const applyConfigMigrations = (config: AgentMonitorConfigFile) => {
+  const portMigration = migrateLegacyPort(config);
+  const imageMigration = migrateImageCaptureDefault(portMigration.config);
+  return {
+    config: imageMigration.config,
+    migrated: portMigration.migrated || imageMigration.migrated,
+  };
+};
+
 export const ensureConfig = (overrides?: Partial<AgentMonitorConfigFile>) => {
   const existing = loadConfig();
   if (existing) {
-    let next = existing;
-    let migrated = false;
-    if (existing.port === 10080 && defaultConfig.port === 11080) {
-      next = { ...existing, port: defaultConfig.port };
-      migrated = true;
-    }
-    if (existing.screen?.image?.enabled === false && defaultConfig.screen.image.enabled === true) {
-      next = {
-        ...next,
-        screen: {
-          ...next.screen,
-          image: {
-            ...next.screen.image,
-            enabled: true,
-          },
-        },
-      };
-      migrated = true;
-    }
+    const migration = applyConfigMigrations(existing);
+    const next = migration.config;
+    const migrated = migration.migrated;
     if (migrated) {
       saveConfig(next);
     }

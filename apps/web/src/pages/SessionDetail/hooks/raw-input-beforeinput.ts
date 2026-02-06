@@ -33,6 +33,27 @@ type ResolveRawBeforeInputResult =
   | { kind: "consumeSuppressFlag" }
   | { kind: "handle"; inputType: string; data: string | null };
 
+const isDisabledRawInput = ({ rawMode, readOnly }: { rawMode: boolean; readOnly: boolean }) =>
+  !rawMode || readOnly;
+
+const shouldIgnoreCompositionInput = ({
+  isComposing,
+  inputType,
+}: {
+  isComposing: boolean;
+  inputType: string;
+}) => isComposing && inputType === INPUT_TYPE_INSERT_COMPOSITION;
+
+const canHandleBeforeInput = ({ inputType, data }: { inputType: string; data: string | null }) => {
+  if (handleWithoutDataTypes.has(inputType)) {
+    return true;
+  }
+  if (!textInputTypes.has(inputType)) {
+    return false;
+  }
+  return Boolean(data);
+};
+
 export const resolveRawBeforeInput = ({
   rawMode,
   readOnly,
@@ -41,18 +62,16 @@ export const resolveRawBeforeInput = ({
   inputType,
   data,
 }: ResolveRawBeforeInputArgs): ResolveRawBeforeInputResult => {
-  if (!rawMode || readOnly || !inputType) {
+  if (!inputType || isDisabledRawInput({ rawMode, readOnly })) {
     return { kind: "ignored" };
   }
   if (suppressNextBeforeInput) {
     return { kind: "consumeSuppressFlag" };
   }
-  if (isComposing && inputType === INPUT_TYPE_INSERT_COMPOSITION) {
+  if (shouldIgnoreCompositionInput({ isComposing, inputType })) {
     return { kind: "ignored" };
   }
-  const canHandleWithoutData = handleWithoutDataTypes.has(inputType);
-  const isTextInputType = textInputTypes.has(inputType);
-  if (!canHandleWithoutData && (!isTextInputType || !data)) {
+  if (!canHandleBeforeInput({ inputType, data })) {
     return { kind: "ignored" };
   }
   return { kind: "handle", inputType, data };

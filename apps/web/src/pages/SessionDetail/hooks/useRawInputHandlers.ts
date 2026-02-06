@@ -35,6 +35,66 @@ type UseRawInputHandlersParams = {
   setScreenError: (error: string | null) => void;
 };
 
+type RawInputAction =
+  | { kind: "ignore" }
+  | { kind: "text"; value: string | null }
+  | { kind: "key"; value: AllowedKey };
+
+const rawTextInputTypes = new Set<string>([
+  INPUT_TYPE_INSERT_TEXT,
+  INPUT_TYPE_INSERT_REPLACEMENT,
+  INPUT_TYPE_INSERT_FROM_PASTE,
+]);
+
+const rawInputTypeToKey: Record<string, AllowedKey> = {
+  [INPUT_TYPE_INSERT_LINE_BREAK]: "Enter",
+  [INPUT_TYPE_INSERT_PARAGRAPH]: "Enter",
+  [INPUT_TYPE_DELETE_BACKWARD]: "BSpace",
+};
+
+const resolveRawInputAction = ({
+  inputType,
+  data,
+  isComposing,
+}: {
+  inputType: string | null;
+  data: string | null;
+  isComposing: boolean;
+}): RawInputAction => {
+  if (!inputType) {
+    return { kind: "ignore" };
+  }
+  if (inputType === INPUT_TYPE_INSERT_COMPOSITION) {
+    return isComposing ? { kind: "ignore" } : { kind: "text", value: data };
+  }
+  if (rawTextInputTypes.has(inputType)) {
+    return { kind: "text", value: data };
+  }
+  const key = rawInputTypeToKey[inputType];
+  if (key) {
+    return { kind: "key", value: key };
+  }
+  return { kind: "ignore" };
+};
+
+const shouldSkipRawInput = (rawMode: boolean, readOnly: boolean) => !rawMode || readOnly;
+
+type RawInputPayload = {
+  inputType: string | null;
+  fallbackText: string | null;
+};
+
+const resolveRawInputPayload = (event: FormEvent<HTMLTextAreaElement>): RawInputPayload => {
+  const inputEvent = event.nativeEvent as InputEvent | undefined;
+  return {
+    inputType: inputEvent?.inputType ?? null,
+    fallbackText: inputEvent?.data ?? event.currentTarget.value,
+  };
+};
+
+const shouldHandleFallbackText = (payload: RawInputPayload) =>
+  !payload.inputType && Boolean(payload.fallbackText);
+
 export const useRawInputHandlers = ({
   paneId,
   readOnly,
@@ -162,30 +222,19 @@ export const useRawInputHandlers = ({
 
   const handleRawInputType = useCallback(
     (inputType: string | null, data: string | null) => {
-      if (!inputType) return;
-      switch (inputType) {
-        case INPUT_TYPE_INSERT_TEXT:
-        case INPUT_TYPE_INSERT_REPLACEMENT:
-        case INPUT_TYPE_INSERT_FROM_PASTE: {
-          enqueueRawText(data);
+      const action = resolveRawInputAction({
+        inputType,
+        data,
+        isComposing: isComposingRef.current,
+      });
+      switch (action.kind) {
+        case "ignore":
           return;
-        }
-        case INPUT_TYPE_INSERT_LINE_BREAK:
-        case INPUT_TYPE_INSERT_PARAGRAPH: {
-          enqueueRawKey("Enter");
+        case "text":
+          enqueueRawText(action.value);
           return;
-        }
-        case INPUT_TYPE_DELETE_BACKWARD: {
-          enqueueRawKey("BSpace");
-          return;
-        }
-        case INPUT_TYPE_INSERT_COMPOSITION: {
-          if (!isComposingRef.current) {
-            enqueueRawText(data);
-          }
-          return;
-        }
-        default:
+        case "key":
+          enqueueRawKey(action.value);
           return;
       }
     },
@@ -221,21 +270,19 @@ export const useRawInputHandlers = ({
 
   const handleRawInput = useCallback(
     (event: FormEvent<HTMLTextAreaElement>) => {
-      if (!rawMode || readOnly) return;
+      if (shouldSkipRawInput(rawMode, readOnly)) return;
       if (suppressNextInputRef.current) {
         suppressNextInputRef.current = false;
         resetRawInputValue(event.currentTarget);
         return;
       }
-      const inputEvent = event.nativeEvent as InputEvent | undefined;
-      const inputType = inputEvent?.inputType ?? null;
-      const fallbackText = inputEvent?.data ?? event.currentTarget.value;
-      if (!inputType && fallbackText) {
-        enqueueRawText(fallbackText);
+      const payload = resolveRawInputPayload(event);
+      if (shouldHandleFallbackText(payload)) {
+        enqueueRawText(payload.fallbackText);
         resetRawInputValue(event.currentTarget);
         return;
       }
-      handleRawInputType(inputType, fallbackText);
+      handleRawInputType(payload.inputType, payload.fallbackText);
       resetRawInputValue(event.currentTarget);
     },
     [enqueueRawText, handleRawInputType, rawMode, readOnly, resetRawInputValue],

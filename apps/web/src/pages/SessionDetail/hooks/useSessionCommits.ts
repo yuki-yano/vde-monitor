@@ -184,6 +184,18 @@ const dispatchCommitLogError = (dispatch: CommitDispatch, append: boolean, err: 
   dispatch({ type: "setCommitError", error: resolveCommitLogError(err) });
 };
 
+const resolveCommitLogLoadOptions = (options?: { append?: boolean; force?: boolean }) => ({
+  append: options?.append ?? false,
+  force: options?.force,
+});
+
+const resolveCommitLogSkip = (append: boolean, commitLog: CommitLog | null) => {
+  if (!append) {
+    return 0;
+  }
+  return commitLog?.commits.length ?? 0;
+};
+
 export const useSessionCommits = ({
   paneId,
   connected,
@@ -231,15 +243,15 @@ export const useSessionCommits = ({
   const loadCommitLog = useCallback(
     async (options?: { append?: boolean; force?: boolean }) => {
       if (!paneId) return;
-      const append = options?.append ?? false;
+      const { append, force } = resolveCommitLogLoadOptions(options);
       dispatch({ type: "startLogLoad", append });
       dispatch({ type: "setCommitError", error: null });
       try {
-        const skip = append ? (commitLogRef.current?.commits.length ?? 0) : 0;
+        const skip = resolveCommitLogSkip(append, commitLogRef.current);
         const log = await requestCommitLog(paneId, {
           limit: commitPageSize,
           skip,
-          force: options?.force,
+          force,
         });
         applyCommitLog(log, { append, updateSignature: !append });
       } catch (err) {
