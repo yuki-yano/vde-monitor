@@ -33,6 +33,22 @@ describe("buildScreenDeltas", () => {
     expect(applyDeltas(before, deltas)).toEqual(after);
     expect(deltas.length).toBeGreaterThan(1);
   });
+
+  it("handles insertion from empty input", () => {
+    const before: string[] = [];
+    const after = ["a", "b"];
+    const deltas = buildScreenDeltas(before, after);
+    expect(deltas).toEqual([{ start: 0, deleteCount: 0, insertLines: ["a", "b"] }]);
+    expect(applyDeltas(before, deltas)).toEqual(after);
+  });
+
+  it("handles full deletion to empty output", () => {
+    const before = ["a", "b", "c"];
+    const after: string[] = [];
+    const deltas = buildScreenDeltas(before, after);
+    expect(deltas).toEqual([{ start: 0, deleteCount: 3, insertLines: [] }]);
+    expect(applyDeltas(before, deltas)).toEqual(after);
+  });
 });
 
 describe("shouldSendFull", () => {
@@ -58,5 +74,14 @@ describe("shouldSendFull", () => {
     }
     const deltas = buildScreenDeltas(before, after);
     expect(shouldSendFull(before.length, after.length, deltas)).toBe(true);
+  });
+
+  it("keeps delta mode for small changes", () => {
+    const before = Array.from({ length: 20 }, (_, i) => `line-${i}`);
+    const after = [...before];
+    after[3] = "line-3-updated";
+    after[10] = "line-10-updated";
+    const deltas = buildScreenDeltas(before, after);
+    expect(shouldSendFull(before.length, after.length, deltas)).toBe(false);
   });
 });

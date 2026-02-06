@@ -7,47 +7,97 @@ const buildError = (code: ApiError["code"], message: string): ApiError => ({
   message,
 });
 
+type ActionResult = { ok: true; error?: undefined } | { ok: false; error: ApiError };
+
 export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConfig) => {
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const dangerKeys = new Set(config.dangerKeys);
+  const allowedKeySet = new Set(allowedKeys);
   const pendingCommands = new Map<string, string>();
   const enterKey = config.input.enterKey || "C-m";
   const enterDelayMs = config.input.enterDelayMs ?? 0;
   const bracketedPaste = (value: string) => `\u001b[200~${value}\u001b[201~`;
 
-  const sendRawText = async (paneId: string, value: string) => {
-    if (!value) return { ok: true as const };
+  const okResult = (): ActionResult => ({ ok: true });
+  const invalidPayload = (message: string): ActionResult => ({
+    ok: false,
+    error: buildError("INVALID_PAYLOAD", message),
+  });
+  const internalError = (message: string): ActionResult => ({
+    ok: false,
+    error: buildError("INTERNAL", message),
+  });
+  const dangerousCommand = (): ActionResult => ({
+    ok: false,
+    error: buildError("DANGEROUS_COMMAND", "dangerous command blocked"),
+  });
+  const dangerousKey = (): ActionResult => ({
+    ok: false,
+    error: buildError("DANGEROUS_COMMAND", "dangerous key blocked"),
+  });
+  const normalizeText = (value: string) => value.replace(/\r\n/g, "\n");
+
+  const ensureTextLength = (value: string): ActionResult | null => {
     if (value.length > config.input.maxTextLength) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "text too long") };
+      return invalidPayload("text too long");
     }
-    const normalized = value.replace(/\r\n/g, "\n");
-    const payload = normalized.includes("\n") ? bracketedPaste(normalized) : normalized;
-    const result = await adapter.run(["send-keys", "-l", "-t", paneId, payload]);
-    if (result.exitCode !== 0) {
-      return { ok: false, error: buildError("INTERNAL", result.stderr || "send-keys failed") };
-    }
-    return { ok: true as const };
+    return null;
   };
 
-  const sendText = async (paneId: string, text: string, enter = true) => {
-    if (!text || text.trim().length === 0) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "text is required") };
-    }
-    if (text.length > config.input.maxTextLength) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "text too long") };
-    }
-    const normalized = text.replace(/\r\n/g, "\n");
+  const hasInvalidKey = (keys: string[]) => keys.some((key) => !allowedKeySet.has(key as never));
+
+  const hasDangerKey = (keys: string[]) => keys.some((key) => dangerKeys.has(key));
+
+  const prepareSendText = (paneId: string, text: string) => {
+    const normalized = normalizeText(text);
     const pending = pendingCommands.get(paneId) ?? "";
-    const combined = `${pending}${normalized}`;
+    return { normalized, combined: `${pending}${normalized}` };
+  };
+
+  const validateSendTextInput = (text: string): ActionResult | null => {
+    if (!text || text.trim().length === 0) {
+      return invalidPayload("text is required");
+    }
+    return ensureTextLength(text);
+  };
+
+  const validateCombinedText = (paneId: string, combined: string): ActionResult | null => {
     if (combined.length > config.input.maxTextLength) {
       pendingCommands.delete(paneId);
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "text too long") };
+      return invalidPayload("text too long");
     }
     if (isDangerousCommand(combined, dangerPatterns)) {
       pendingCommands.delete(paneId);
-      return { ok: false, error: buildError("DANGEROUS_COMMAND", "dangerous command blocked") };
+      return dangerousCommand();
     }
+    return null;
+  };
 
+  const validateSendKeysInput = (keys: string[]): ActionResult | null => {
+    if (keys.length === 0 || hasInvalidKey(keys)) {
+      return invalidPayload("invalid keys");
+    }
+    if (hasDangerKey(keys)) {
+      return dangerousKey();
+    }
+    return null;
+  };
+
+  const validateRawItems = (items: RawItem[], unsafe: boolean): ActionResult | null => {
+    if (!items || items.length === 0) {
+      return invalidPayload("items are required");
+    }
+    const keys = items.filter((item) => item.kind === "key").map((item) => item.value);
+    if (hasInvalidKey(keys)) {
+      return invalidPayload("invalid keys");
+    }
+    if (!unsafe && hasDangerKey(keys)) {
+      return dangerousKey();
+    }
+    return null;
+  };
+
+  const exitCopyModeIfNeeded = async (paneId: string) => {
     await adapter.run([
       "if-shell",
       "-t",
@@ -55,105 +105,118 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       '[ "#{pane_in_mode}" = "1" ]',
       `copy-mode -q -t ${paneId}`,
     ]);
+  };
 
-    if (normalized.includes("\n")) {
-      const result = await adapter.run([
-        "send-keys",
-        "-l",
-        "-t",
-        paneId,
-        bracketedPaste(normalized),
-      ]);
-      if (result.exitCode !== 0) {
-        return { ok: false, error: buildError("INTERNAL", result.stderr || "send-keys failed") };
-      }
-      if (enter) {
-        if (enterDelayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, enterDelayMs));
-        }
-        const enterResult = await adapter.run(["send-keys", "-t", paneId, enterKey]);
-        if (enterResult.exitCode !== 0) {
-          return {
-            ok: false,
-            error: buildError("INTERNAL", enterResult.stderr || "send-keys Enter failed"),
-          };
-        }
-      }
-      pendingCommands.delete(paneId);
-      return { ok: true as const };
-    }
-
-    const result = await adapter.run(["send-keys", "-l", "-t", paneId, normalized]);
+  const sendLiteralKeys = async (paneId: string, payload: string): Promise<ActionResult> => {
+    const result = await adapter.run(["send-keys", "-l", "-t", paneId, payload]);
     if (result.exitCode !== 0) {
-      return { ok: false, error: buildError("INTERNAL", result.stderr || "send-keys failed") };
+      return internalError(result.stderr || "send-keys failed");
     }
+    return okResult();
+  };
+
+  const sendEnterKey = async (paneId: string): Promise<ActionResult> => {
+    if (enterDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, enterDelayMs));
+    }
+    const result = await adapter.run(["send-keys", "-t", paneId, enterKey]);
+    if (result.exitCode !== 0) {
+      return internalError(result.stderr || "send-keys Enter failed");
+    }
+    return okResult();
+  };
+
+  const sendRawText = async (paneId: string, value: string) => {
+    if (!value) {
+      return okResult();
+    }
+    const lengthError = ensureTextLength(value);
+    if (lengthError) {
+      return lengthError;
+    }
+    const normalized = normalizeText(value);
+    const payload = normalized.includes("\n") ? bracketedPaste(normalized) : normalized;
+    return sendLiteralKeys(paneId, payload);
+  };
+
+  const sendRawItem = async (paneId: string, item: RawItem): Promise<ActionResult> => {
+    if (item.kind === "text") {
+      return sendRawText(paneId, item.value);
+    }
+    const result = await adapter.run(["send-keys", "-t", paneId, item.value]);
+    if (result.exitCode !== 0) {
+      return internalError(result.stderr || "send-keys failed");
+    }
+    return okResult();
+  };
+
+  const sendText = async (paneId: string, text: string, enter = true) => {
+    const inputError = validateSendTextInput(text);
+    if (inputError) {
+      return inputError;
+    }
+
+    const prepared = prepareSendText(paneId, text);
+    const combinedError = validateCombinedText(paneId, prepared.combined);
+    if (combinedError) {
+      return combinedError;
+    }
+
+    await exitCopyModeIfNeeded(paneId);
+    const payload = prepared.normalized.includes("\n")
+      ? bracketedPaste(prepared.normalized)
+      : prepared.normalized;
+    const sendResult = await sendLiteralKeys(paneId, payload);
+    if (!sendResult.ok) {
+      return sendResult;
+    }
+
     if (enter) {
-      if (enterDelayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, enterDelayMs));
-      }
-      const enterResult = await adapter.run(["send-keys", "-t", paneId, enterKey]);
-      if (enterResult.exitCode !== 0) {
-        return {
-          ok: false,
-          error: buildError("INTERNAL", enterResult.stderr || "send-keys Enter failed"),
-        };
+      const enterResult = await sendEnterKey(paneId);
+      if (!enterResult.ok) {
+        return enterResult;
       }
       pendingCommands.delete(paneId);
-      return { ok: true as const };
+      return okResult();
     }
-    pendingCommands.set(paneId, combined);
-    return { ok: true as const };
+
+    if (prepared.normalized.includes("\n")) {
+      pendingCommands.delete(paneId);
+      return okResult();
+    }
+
+    pendingCommands.set(paneId, prepared.combined);
+    return okResult();
   };
 
   const sendKeys = async (paneId: string, keys: string[]) => {
-    const allowed = new Set(allowedKeys);
-    if (keys.length === 0 || keys.some((key) => !allowed.has(key as never))) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "invalid keys") };
-    }
-    if (keys.some((key) => dangerKeys.has(key))) {
-      return { ok: false, error: buildError("DANGEROUS_COMMAND", "dangerous key blocked") };
+    const validationError = validateSendKeysInput(keys);
+    if (validationError) {
+      return validationError;
     }
     for (const key of keys) {
       const result = await adapter.run(["send-keys", "-t", paneId, key]);
       if (result.exitCode !== 0) {
-        return { ok: false, error: buildError("INTERNAL", result.stderr || "send-keys failed") };
+        return internalError(result.stderr || "send-keys failed");
       }
     }
-    return { ok: true as const };
+    return okResult();
   };
 
   const sendRaw = async (paneId: string, items: RawItem[], unsafe = false) => {
-    if (!items || items.length === 0) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "items are required") };
-    }
-    const allowed = new Set(allowedKeys);
-    if (items.some((item) => item.kind === "key" && !allowed.has(item.value as never))) {
-      return { ok: false, error: buildError("INVALID_PAYLOAD", "invalid keys") };
-    }
-    if (!unsafe && items.some((item) => item.kind === "key" && dangerKeys.has(item.value))) {
-      return { ok: false, error: buildError("DANGEROUS_COMMAND", "dangerous key blocked") };
+    const validationError = validateRawItems(items, unsafe);
+    if (validationError) {
+      return validationError;
     }
 
-    await adapter.run([
-      "if-shell",
-      "-t",
-      paneId,
-      '[ "#{pane_in_mode}" = "1" ]',
-      `copy-mode -q -t ${paneId}`,
-    ]);
-
+    await exitCopyModeIfNeeded(paneId);
     for (const item of items) {
-      if (item.kind === "text") {
-        const result = await sendRawText(paneId, item.value);
-        if (!result.ok) return result;
-        continue;
-      }
-      const result = await adapter.run(["send-keys", "-t", paneId, item.value]);
-      if (result.exitCode !== 0) {
-        return { ok: false, error: buildError("INTERNAL", result.stderr || "send-keys failed") };
+      const result = await sendRawItem(paneId, item);
+      if (!result.ok) {
+        return result;
       }
     }
-    return { ok: true as const };
+    return okResult();
   };
 
   return { sendText, sendKeys, sendRaw };

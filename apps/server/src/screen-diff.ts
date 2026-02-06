@@ -9,36 +9,45 @@ type EditOp = {
   line: string;
 };
 
-const buildEditScript = (before: string[], after: string[]): EditOp[] => {
+const readInt = (arr: Int32Array, index: number) => arr[index] ?? 0;
+
+const chooseForwardX = (d: number, k: number, v: Int32Array, index: number) => {
+  if (k === -d) {
+    return readInt(v, index + 1);
+  }
+  if (k === d) {
+    return readInt(v, index - 1) + 1;
+  }
+  const left = readInt(v, index - 1);
+  const right = readInt(v, index + 1);
+  return left < right ? right : left + 1;
+};
+
+const walkDiagonal = (before: string[], after: string[], x: number, y: number) => {
+  let nextX = x;
+  let nextY = y;
+  while (nextX < before.length && nextY < after.length && before[nextX] === after[nextY]) {
+    nextX += 1;
+    nextY += 1;
+  }
+  return { x: nextX, y: nextY };
+};
+
+const buildTrace = (before: string[], after: string[]) => {
   const n = before.length;
   const m = after.length;
-  if (n === 0 && m === 0) {
-    return [];
-  }
-
   const max = n + m;
   const offset = max;
   const v = new Int32Array(2 * max + 1);
   const trace: Int32Array[] = [];
-  const readInt = (arr: Int32Array, index: number) => arr[index] ?? 0;
-
   for (let d = 0; d <= max; d += 1) {
     let done = false;
     for (let k = -d; k <= d; k += 2) {
       const index = k + offset;
-      let x = 0;
-      if (k === -d || (k !== d && readInt(v, index - 1) < readInt(v, index + 1))) {
-        x = readInt(v, index + 1);
-      } else {
-        x = readInt(v, index - 1) + 1;
-      }
-      let y = x - k;
-      while (x < n && y < m && before[x] === after[y]) {
-        x += 1;
-        y += 1;
-      }
-      v[index] = x;
-      if (x >= n && y >= m) {
+      const x = chooseForwardX(d, k, v, index);
+      const diagonal = walkDiagonal(before, after, x, x - k);
+      v[index] = diagonal.x;
+      if (diagonal.x >= n && diagonal.y >= m) {
         done = true;
         break;
       }
@@ -48,57 +57,108 @@ const buildEditScript = (before: string[], after: string[]): EditOp[] => {
       break;
     }
   }
+  return { trace, offset };
+};
 
+const choosePrevK = (d: number, k: number, vSnapshot: Int32Array, offset: number) => {
+  const index = k + offset;
+  if (k === -d) {
+    return k + 1;
+  }
+  if (k === d) {
+    return k - 1;
+  }
+  return readInt(vSnapshot, index - 1) < readInt(vSnapshot, index + 1) ? k + 1 : k - 1;
+};
+
+const pushEqualOps = (
+  edits: EditOp[],
+  before: string[],
+  x: number,
+  y: number,
+  targetX: number,
+  targetY: number,
+) => {
+  let nextX = x;
+  let nextY = y;
+  while (nextX > targetX && nextY > targetY) {
+    edits.push({ type: "equal", line: before[nextX - 1] ?? "" });
+    nextX -= 1;
+    nextY -= 1;
+  }
+  return { x: nextX, y: nextY };
+};
+
+const applyBacktrackStep = (
+  edits: EditOp[],
+  before: string[],
+  after: string[],
+  trace: Int32Array[],
+  offset: number,
+  d: number,
+  x: number,
+  y: number,
+) => {
+  const vSnapshot = trace[d];
+  if (!vSnapshot) {
+    return { done: true, x, y };
+  }
+  const k = x - y;
+  const prevK = choosePrevK(d, k, vSnapshot, offset);
+  const prevX = readInt(vSnapshot, prevK + offset);
+  const prevY = prevX - prevK;
+  const diagonal = pushEqualOps(edits, before, x, y, prevX, prevY);
+  if (diagonal.x === prevX) {
+    edits.push({ type: "insert", line: after[prevY] ?? "" });
+    return { done: false, x: diagonal.x, y: diagonal.y - 1 };
+  }
+  edits.push({ type: "delete", line: before[prevX] ?? "" });
+  return { done: false, x: diagonal.x - 1, y: diagonal.y };
+};
+
+const pushRemainingOps = (
+  edits: EditOp[],
+  before: string[],
+  after: string[],
+  x: number,
+  y: number,
+) => {
+  let nextX = x;
+  let nextY = y;
+  while (nextX > 0 && nextY > 0) {
+    edits.push({ type: "equal", line: before[nextX - 1] ?? "" });
+    nextX -= 1;
+    nextY -= 1;
+  }
+  while (nextX > 0) {
+    edits.push({ type: "delete", line: before[nextX - 1] ?? "" });
+    nextX -= 1;
+  }
+  while (nextY > 0) {
+    edits.push({ type: "insert", line: after[nextY - 1] ?? "" });
+    nextY -= 1;
+  }
+};
+
+const buildEditScript = (before: string[], after: string[]): EditOp[] => {
+  if (before.length === 0 && after.length === 0) {
+    return [];
+  }
+
+  const { trace, offset } = buildTrace(before, after);
   const edits: EditOp[] = [];
-  let x = n;
-  let y = m;
-
+  let x = before.length;
+  let y = after.length;
   for (let d = trace.length - 1; d > 0; d -= 1) {
-    const vSnapshot = trace[d];
-    if (!vSnapshot) {
+    const step = applyBacktrackStep(edits, before, after, trace, offset, d, x, y);
+    if (step.done) {
       break;
     }
-    const k = x - y;
-    const index = k + offset;
-    let prevK = 0;
-    if (k === -d || (k !== d && readInt(vSnapshot, index - 1) < readInt(vSnapshot, index + 1))) {
-      prevK = k + 1;
-    } else {
-      prevK = k - 1;
-    }
-    const prevIndex = prevK + offset;
-    const prevX = readInt(vSnapshot, prevIndex);
-    const prevY = prevX - prevK;
-
-    while (x > prevX && y > prevY) {
-      edits.push({ type: "equal", line: before[x - 1] ?? "" });
-      x -= 1;
-      y -= 1;
-    }
-
-    if (x === prevX) {
-      edits.push({ type: "insert", line: after[prevY] ?? "" });
-      y -= 1;
-    } else {
-      edits.push({ type: "delete", line: before[prevX] ?? "" });
-      x -= 1;
-    }
+    x = step.x;
+    y = step.y;
   }
 
-  while (x > 0 && y > 0) {
-    edits.push({ type: "equal", line: before[x - 1] ?? "" });
-    x -= 1;
-    y -= 1;
-  }
-  while (x > 0) {
-    edits.push({ type: "delete", line: before[x - 1] ?? "" });
-    x -= 1;
-  }
-  while (y > 0) {
-    edits.push({ type: "insert", line: after[y - 1] ?? "" });
-    y -= 1;
-  }
-
+  pushRemainingOps(edits, before, after, x, y);
   edits.reverse();
   return edits;
 };
