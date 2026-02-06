@@ -11,32 +11,53 @@ export const isBinaryPatch = (patch: string) => {
   return binaryPattern.test(patch);
 };
 
+type NumstatCounts = { additions: number | null; deletions: number | null };
+
+const parseNumstatValue = (raw: string) => {
+  if (raw === "-") {
+    return null;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildNumstatCounts = (addRaw: string, delRaw: string): NumstatCounts => ({
+  additions: parseNumstatValue(addRaw),
+  deletions: parseNumstatValue(delRaw),
+});
+
+const parseNumstatParts = (parts: string[]) => {
+  if (parts.length < 3) {
+    return null;
+  }
+  const pathValue = parts[parts.length - 1] ?? "";
+  return {
+    pathValue,
+    counts: buildNumstatCounts(parts[0] ?? "", parts[1] ?? ""),
+  };
+};
+
+const findFirstContentLine = (output: string) =>
+  output
+    .split("\n")
+    .map((value) => value.trim())
+    .find((value) => value.length > 0) ?? null;
+
 export const parseNumstat = (output: string) => {
   const stats = new Map<string, { additions: number | null; deletions: number | null }>();
   const lines = output.split("\n").filter((line) => line.trim().length > 0);
   for (const line of lines) {
-    const parts = line.split("\t");
-    if (parts.length < 3) {
+    const parsed = parseNumstatParts(line.split("\t"));
+    if (!parsed) {
       continue;
     }
-    const addRaw = parts[0] ?? "";
-    const delRaw = parts[1] ?? "";
-    const pathValue = parts[parts.length - 1] ?? "";
-    const additions = addRaw === "-" ? null : Number.parseInt(addRaw, 10);
-    const deletions = delRaw === "-" ? null : Number.parseInt(delRaw, 10);
-    stats.set(pathValue, {
-      additions: Number.isFinite(additions) ? additions : null,
-      deletions: Number.isFinite(deletions) ? deletions : null,
-    });
+    stats.set(parsed.pathValue, parsed.counts);
   }
   return stats;
 };
 
 export const parseNumstatLine = (output: string) => {
-  const line = output
-    .split("\n")
-    .map((value) => value.trim())
-    .find((value) => value.length > 0);
+  const line = findFirstContentLine(output);
   if (!line) {
     return null;
   }
@@ -44,12 +65,5 @@ export const parseNumstatLine = (output: string) => {
   if (parts.length < 2) {
     return null;
   }
-  const addRaw = parts[0] ?? "";
-  const delRaw = parts[1] ?? "";
-  const additions = addRaw === "-" ? null : Number.parseInt(addRaw, 10);
-  const deletions = delRaw === "-" ? null : Number.parseInt(delRaw, 10);
-  return {
-    additions: Number.isFinite(additions) ? additions : null,
-    deletions: Number.isFinite(deletions) ? deletions : null,
-  };
+  return buildNumstatCounts(parts[0] ?? "", parts[1] ?? "");
 };

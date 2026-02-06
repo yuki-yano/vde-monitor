@@ -150,6 +150,28 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     return okResult();
   };
 
+  const resolveTextPayload = (normalized: string) =>
+    normalized.includes("\n") ? bracketedPaste(normalized) : normalized;
+
+  const finalizePendingText = ({
+    paneId,
+    enter,
+    normalized,
+    combined,
+  }: {
+    paneId: string;
+    enter: boolean;
+    normalized: string;
+    combined: string;
+  }) => {
+    if (enter || normalized.includes("\n")) {
+      pendingCommands.delete(paneId);
+      return okResult();
+    }
+    pendingCommands.set(paneId, combined);
+    return okResult();
+  };
+
   const sendText = async (paneId: string, text: string, enter = true) => {
     const inputError = validateSendTextInput(text);
     if (inputError) {
@@ -163,9 +185,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     }
 
     await exitCopyModeIfNeeded(paneId);
-    const payload = prepared.normalized.includes("\n")
-      ? bracketedPaste(prepared.normalized)
-      : prepared.normalized;
+    const payload = resolveTextPayload(prepared.normalized);
     const sendResult = await sendLiteralKeys(paneId, payload);
     if (!sendResult.ok) {
       return sendResult;
@@ -176,17 +196,13 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       if (!enterResult.ok) {
         return enterResult;
       }
-      pendingCommands.delete(paneId);
-      return okResult();
     }
-
-    if (prepared.normalized.includes("\n")) {
-      pendingCommands.delete(paneId);
-      return okResult();
-    }
-
-    pendingCommands.set(paneId, prepared.combined);
-    return okResult();
+    return finalizePendingText({
+      paneId,
+      enter,
+      normalized: prepared.normalized,
+      combined: prepared.combined,
+    });
   };
 
   const sendKeys = async (paneId: string, keys: string[]) => {

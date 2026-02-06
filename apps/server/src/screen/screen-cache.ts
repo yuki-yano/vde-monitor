@@ -44,6 +44,18 @@ export const createScreenCache = (limit = 10): ScreenCache => {
     screenCache.set(cacheKey, bucket);
   };
 
+  const setFullScreenResponse = (response: ScreenResponse, screen: string) => {
+    response.full = true;
+    response.screen = screen;
+    return response;
+  };
+
+  const hasSnapshotModeMismatch = (
+    previous: ScreenSnapshot,
+    alternateOn: boolean,
+    truncated: boolean | null,
+  ) => previous.alternateOn !== alternateOn || previous.truncated !== truncated;
+
   const buildTextResponse = ({
     paneId,
     lineCount,
@@ -81,22 +93,16 @@ export const createScreenCache = (limit = 10): ScreenCache => {
     }
 
     if (!cursor || !previous) {
-      response.full = true;
-      response.screen = screen;
-      return response;
+      return setFullScreenResponse(response, screen);
     }
 
-    if (previous.alternateOn !== alternateOn || previous.truncated !== truncated) {
-      response.full = true;
-      response.screen = screen;
-      return response;
+    if (hasSnapshotModeMismatch(previous, alternateOn, truncated)) {
+      return setFullScreenResponse(response, screen);
     }
 
     const deltas = buildScreenDeltas(previous.lines, nextLines);
     if (shouldSendFull(previous.lines.length, nextLines.length, deltas)) {
-      response.full = true;
-      response.screen = screen;
-      return response;
+      return setFullScreenResponse(response, screen);
     }
 
     response.full = false;

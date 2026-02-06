@@ -50,20 +50,20 @@ const resolveCommitCount = async (repoRoot: string) => {
 
 const toOptionalText = (value: string) => (value.trim().length > 0 ? value : null);
 
+const readCommitLogField = (fields: string[], index: number) => fields[index] ?? "";
+
 const parseCommitLogRecord = (record: string): CommitSummary | null => {
   const fields = record.split(FIELD_SEPARATOR);
-  const [
-    hash = "",
-    shortHash = "",
-    authorName = "",
-    authorEmailRaw = "",
-    authoredAt = "",
-    subject = "",
-    bodyRaw = "",
-  ] = fields;
+  const hash = readCommitLogField(fields, 0);
   if (!hash) {
     return null;
   }
+  const shortHash = readCommitLogField(fields, 1);
+  const authorName = readCommitLogField(fields, 2);
+  const authorEmailRaw = readCommitLogField(fields, 3);
+  const authoredAt = readCommitLogField(fields, 4);
+  const subject = readCommitLogField(fields, 5);
+  const bodyRaw = readCommitLogField(fields, 6);
   return {
     hash,
     shortHash,
@@ -83,31 +83,45 @@ export const parseCommitLogOutput = (output: string): CommitSummary[] => {
     .filter((commit): commit is CommitSummary => Boolean(commit));
 };
 
+const isRenameOrCopyStatus = (status: ReturnType<typeof pickStatus>) =>
+  status === "R" || status === "C";
+
+const buildRenamedCommitFile = (
+  status: ReturnType<typeof pickStatus>,
+  parts: string[],
+): CommitFile | null => {
+  if (parts.length < 3) {
+    return null;
+  }
+  return {
+    status,
+    renamedFrom: parts[1] ?? undefined,
+    path: parts[2] ?? parts[1] ?? "",
+    additions: null,
+    deletions: null,
+  };
+};
+
+const buildSimpleCommitFile = (
+  status: ReturnType<typeof pickStatus>,
+  pathValue: string,
+): CommitFile => ({
+  status,
+  path: pathValue,
+  additions: null,
+  deletions: null,
+});
+
 const parseNameStatusLine = (line: string): CommitFile | null => {
   const parts = line.split("\t");
   if (parts.length < 2) {
     return null;
   }
-  const statusRaw = parts[0] ?? "";
-  const status = pickStatus(statusRaw);
-  if (status === "R" || status === "C") {
-    if (parts.length < 3) {
-      return null;
-    }
-    return {
-      status,
-      renamedFrom: parts[1] ?? undefined,
-      path: parts[2] ?? parts[1] ?? "",
-      additions: null,
-      deletions: null,
-    };
+  const status = pickStatus(parts[0] ?? "");
+  if (isRenameOrCopyStatus(status)) {
+    return buildRenamedCommitFile(status, parts);
   }
-  return {
-    status,
-    path: parts[1] ?? "",
-    additions: null,
-    deletions: null,
-  };
+  return buildSimpleCommitFile(status, parts[1] ?? "");
 };
 
 export const parseNameStatusOutput = (output: string): CommitFile[] => {
@@ -125,19 +139,18 @@ const findStatForFile = (
   if (direct) {
     return direct;
   }
-  if (file.renamedFrom) {
-    const renameDirect = stats.get(file.renamedFrom);
-    if (renameDirect) {
-      return renameDirect;
-    }
+  const renameDirect = file.renamedFrom ? stats.get(file.renamedFrom) : null;
+  if (renameDirect) {
+    return renameDirect;
   }
-  for (const [key, value] of stats.entries()) {
+  const fuzzyMatch = Array.from(stats.entries()).find(([key]) => {
     if (file.renamedFrom && key.includes(file.renamedFrom) && key.includes(file.path)) {
-      return value;
+      return true;
     }
-    if (key.includes(file.path)) {
-      return value;
-    }
+    return key.includes(file.path);
+  });
+  if (fuzzyMatch) {
+    return fuzzyMatch[1];
   }
   return null;
 };

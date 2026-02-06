@@ -65,6 +65,21 @@ export const deriveHookState = (hookEventName: string, notificationType?: string
   return null;
 };
 
+const findSinglePaneId = (
+  panes: Array<{ paneId: string; paneTty: string | null; currentPath: string | null }>,
+  predicate: (pane: {
+    paneId: string;
+    paneTty: string | null;
+    currentPath: string | null;
+  }) => boolean,
+) => {
+  const matches = panes.filter(predicate);
+  if (matches.length !== 1) {
+    return null;
+  }
+  return matches[0]?.paneId ?? null;
+};
+
 export const mapHookToPane = (
   panes: Array<{ paneId: string; paneTty: string | null; currentPath: string | null }>,
   hook: { tmux_pane?: string | null; tty?: string; cwd?: string },
@@ -73,17 +88,10 @@ export const mapHookToPane = (
     return hook.tmux_pane;
   }
   if (hook.tty) {
-    const matches = panes.filter((pane) => pane.paneTty === hook.tty);
-    if (matches.length === 1) {
-      return matches[0]?.paneId ?? null;
-    }
-    return null;
+    return findSinglePaneId(panes, (pane) => pane.paneTty === hook.tty);
   }
   if (hook.cwd) {
-    const matches = panes.filter((pane) => pane.currentPath === hook.cwd);
-    if (matches.length === 1) {
-      return matches[0]?.paneId ?? null;
-    }
+    return findSinglePaneId(panes, (pane) => pane.currentPath === hook.cwd);
   }
   return null;
 };

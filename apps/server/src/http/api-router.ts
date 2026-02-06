@@ -111,6 +111,24 @@ export const createApiRouter = ({ config, monitor, tmuxActions }: ApiContext) =>
     return c.json({ error: buildError("READ_ONLY", "read-only mode") }, 403);
   };
 
+  const resolveWritablePane = (
+    c: RouteContext,
+  ): { paneId: string; detail: SessionDetail } | Response => {
+    const readOnlyError = ensureWritable(c);
+    if (readOnlyError) {
+      return readOnlyError;
+    }
+    return resolvePane(c);
+  };
+
+  const resolveTitleUpdate = (c: RouteContext, title: string | null) => {
+    const trimmed = title ? title.trim() : null;
+    if (trimmed && trimmed.length > 80) {
+      return c.json({ error: buildError("INVALID_PAYLOAD", "title too long") }, 400);
+    }
+    return { nextTitle: trimmed && trimmed.length > 0 ? trimmed : null };
+  };
+
   const resolveHash = (c: RouteContext): string | Response => {
     const hash = c.req.param("hash");
     if (!hash) {
@@ -184,21 +202,16 @@ export const createApiRouter = ({ config, monitor, tmuxActions }: ApiContext) =>
       return c.json({ session: pane.detail });
     })
     .put("/sessions/:paneId/title", zValidator("json", titleSchema), async (c) => {
-      const readOnlyError = ensureWritable(c);
-      if (readOnlyError) {
-        return readOnlyError;
-      }
-      const pane = resolvePane(c);
+      const pane = resolveWritablePane(c);
       if (pane instanceof Response) {
         return pane;
       }
       const { title } = c.req.valid("json");
-      const trimmed = title ? title.trim() : null;
-      if (trimmed && trimmed.length > 80) {
-        return c.json({ error: buildError("INVALID_PAYLOAD", "title too long") }, 400);
+      const titleUpdate = resolveTitleUpdate(c, title);
+      if (titleUpdate instanceof Response) {
+        return titleUpdate;
       }
-      const nextTitle = trimmed && trimmed.length > 0 ? trimmed : null;
-      monitor.setCustomTitle(pane.paneId, nextTitle);
+      monitor.setCustomTitle(pane.paneId, titleUpdate.nextTitle);
       const updated = monitor.registry.getDetail(pane.paneId) ?? pane.detail;
       return c.json({ session: updated });
     })

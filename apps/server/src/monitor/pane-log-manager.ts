@@ -36,6 +36,35 @@ type PreparePaneLoggingArgs = {
   pipeTagValue: string | null;
 };
 
+const defaultOpenLogFile = async (filePath: string) => {
+  await fs.open(filePath, "a").then((handle) => handle.close());
+};
+
+const resolvePaneLogDeps = (deps?: PaneLogManagerDeps) => {
+  const resolved = {
+    resolvePaths: resolveLogPaths,
+    ensureDirFn: ensureDir,
+    rotateFn: rotateLogIfNeeded,
+    openLogFile: defaultOpenLogFile,
+  };
+  if (!deps) {
+    return resolved;
+  }
+  if (deps.resolveLogPaths) {
+    resolved.resolvePaths = deps.resolveLogPaths;
+  }
+  if (deps.ensureDir) {
+    resolved.ensureDirFn = deps.ensureDir;
+  }
+  if (deps.rotateLogIfNeeded) {
+    resolved.rotateFn = deps.rotateLogIfNeeded;
+  }
+  if (deps.openLogFile) {
+    resolved.openLogFile = deps.openLogFile;
+  }
+  return resolved;
+};
+
 export const createPaneLogManager = ({
   baseDir,
   serverKey,
@@ -44,14 +73,7 @@ export const createPaneLogManager = ({
   logActivity,
   deps,
 }: PaneLogManagerArgs) => {
-  const resolvePaths = deps?.resolveLogPaths ?? resolveLogPaths;
-  const ensureDirFn = deps?.ensureDir ?? ensureDir;
-  const rotateFn = deps?.rotateLogIfNeeded ?? rotateLogIfNeeded;
-  const openLogFile =
-    deps?.openLogFile ??
-    (async (filePath: string) => {
-      await fs.open(filePath, "a").then((handle) => handle.close());
-    });
+  const { resolvePaths, ensureDirFn, rotateFn, openLogFile } = resolvePaneLogDeps(deps);
 
   const getPaneLogPath = (paneId: string) => {
     return resolvePaths(baseDir, serverKey, paneId).paneLogPath;
@@ -63,6 +85,30 @@ export const createPaneLogManager = ({
     await openLogFile(paneLogPath);
   };
 
+  const attachPipeIfNeeded = async ({
+    paneId,
+    logPath,
+    pipeState,
+    pipeAttached,
+    pipeConflict,
+  }: {
+    paneId: string;
+    logPath: string;
+    pipeState: { panePipe: boolean; pipeTagValue: string | null };
+    pipeAttached: boolean;
+    pipeConflict: boolean;
+  }) => {
+    if (!config.attachOnServe || pipeConflict) {
+      return { pipeAttached, pipeConflict };
+    }
+    await ensureLogFiles(paneId);
+    const attachResult = await pipeManager.attachPipe(paneId, logPath, pipeState);
+    return {
+      pipeAttached: pipeAttached || attachResult.attached,
+      pipeConflict: attachResult.conflict,
+    };
+  };
+
   const preparePaneLogging = async ({ paneId, panePipe, pipeTagValue }: PreparePaneLoggingArgs) => {
     const logPath = getPaneLogPath(paneId);
     const pipeState = { panePipe, pipeTagValue };
@@ -70,12 +116,15 @@ export const createPaneLogManager = ({
     let pipeAttached = pipeTagValue === "1";
     let pipeConflict = pipeManager.hasConflict(pipeState);
 
-    if (config.attachOnServe && !pipeConflict) {
-      await ensureLogFiles(paneId);
-      const attachResult = await pipeManager.attachPipe(paneId, logPath, pipeState);
-      pipeAttached = pipeAttached || attachResult.attached;
-      pipeConflict = attachResult.conflict;
-    }
+    const attachResult = await attachPipeIfNeeded({
+      paneId,
+      logPath,
+      pipeState,
+      pipeAttached,
+      pipeConflict,
+    });
+    pipeAttached = attachResult.pipeAttached;
+    pipeConflict = attachResult.pipeConflict;
 
     if (config.attachOnServe) {
       logActivity.register(paneId, logPath);
