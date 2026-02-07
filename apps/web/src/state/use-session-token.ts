@@ -3,12 +3,17 @@ import { useEffect, useState } from "react";
 const TOKEN_KEY = "vde-monitor-token";
 
 const readTokenFromUrl = () => {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
+  const rawHash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const hashParams = new URLSearchParams(rawHash);
+  const token = hashParams.get("token");
   if (token) {
     localStorage.setItem(TOKEN_KEY, token);
-    params.delete("token");
-    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+    hashParams.delete("token");
+    const nextSearch = window.location.search;
+    const nextHash = hashParams.toString();
+    const next = `${window.location.pathname}${nextSearch}${nextHash ? `#${nextHash}` : ""}`;
     window.history.replaceState({}, "", next);
   }
   return token;

@@ -81,7 +81,6 @@ export const defaultConfig: AgentMonitorConfigFile = {
   bind: "127.0.0.1",
   port: 11080,
   attachOnServe: true,
-  staticAuth: false,
   allowedOrigins: [],
   rateLimit: {
     send: { windowMs: 1000, max: 10 },

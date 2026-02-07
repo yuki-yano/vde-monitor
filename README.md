@@ -47,7 +47,7 @@ Built for Codex CLI and Claude Code workflows running inside tmux panes.
 - State Timeline view (`15m` / `1h` / `6h`) with persisted history across restarts
 - Per-session Git context: diff summary/file view and commit log/detail view
 - Desktop sidebar pane focus action on macOS (bring terminal app to foreground and target pane)
-- Token-based API auth, optional static web auth, origin allowlist, and request rate limits
+- Token-based API auth, origin allowlist, and request rate limits
 - Claude hooks helper CLI for event logging
 - QR code URL output on startup when terminal height permits
 
@@ -73,7 +73,7 @@ vde-monitor
 Startup prints a URL like:
 
 ```text
-vde-monitor: http://localhost:11080/?token=...
+vde-monitor: http://localhost:11080/#token=...
 ```
 
 Open it in a browser to access the UI.
@@ -142,7 +142,6 @@ Minimal example:
 {
   "bind": "127.0.0.1",
   "port": 11080,
-  "staticAuth": false,
   "allowedOrigins": [],
   "rateLimit": {
     "send": { "windowMs": 1000, "max": 10 },
@@ -187,7 +186,6 @@ Supported image backends:
 
 - Bearer token auth is required for API access
 - Default bind is `127.0.0.1` (`--public` is opt-in)
-- Optional static web auth is available via `staticAuth`
 - Optional origin restriction is available via `allowedOrigins`
 
 ## Development

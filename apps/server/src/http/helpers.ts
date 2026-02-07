@@ -19,17 +19,6 @@ export const requireAuth = (
   return token === config.token;
 };
 
-export const requireStaticAuth = (
-  config: AgentMonitorConfig,
-  c: { req: { query: (name: string) => string | undefined } },
-) => {
-  const token = c.req.query("token");
-  if (!token) {
-    return false;
-  }
-  return token === config.token;
-};
-
 export const isOriginAllowed = (
   config: AgentMonitorConfig,
   origin?: string | null,

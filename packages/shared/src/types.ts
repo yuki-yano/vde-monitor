@@ -316,7 +316,6 @@ export type AgentMonitorConfigBase = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
   attachOnServe: boolean;
-  staticAuth: boolean;
   allowedOrigins: string[];
   rateLimit: {
     send: { windowMs: number; max: number };

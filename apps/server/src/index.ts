@@ -97,7 +97,7 @@ const runServe = async (flags: Map<string, string | boolean>) => {
   });
 
   const displayPort = parsePort(webPortFlag) ?? port;
-  const url = `http://${displayHost}:${displayPort}/?token=${config.token}`;
+  const url = `http://${displayHost}:${displayPort}/#token=${config.token}`;
   console.log(`vde-monitor: ${url}`);
 
   qrcode.generate(url, { small: true });

@@ -8,7 +8,7 @@ import { Hono } from "hono";
 
 import { rotateToken } from "./config.js";
 import { createApiRouter } from "./http/api-router.js";
-import { buildError, isOriginAllowed, requireAuth, requireStaticAuth } from "./http/helpers.js";
+import { buildError, isOriginAllowed, requireAuth } from "./http/helpers.js";
 import type { createSessionMonitor } from "./monitor.js";
 import type { createTmuxActions } from "./tmux-actions.js";
 
@@ -52,16 +52,6 @@ export const createApp = ({ config, monitor, tmuxActions }: AppContext) => {
   const distDir = fs.existsSync(bundledDistDir) ? bundledDistDir : workspaceDistDir;
 
   if (fs.existsSync(distDir)) {
-    app.use("/*", async (c, next) => {
-      if (!config.staticAuth) {
-        return next();
-      }
-      if (!requireStaticAuth(config, c)) {
-        return c.text("Unauthorized", 401);
-      }
-      return next();
-    });
-
     app.use("/*", serveStatic({ root: distDir }));
     app.get("/*", serveStatic({ root: distDir, path: "index.html" }));
   }

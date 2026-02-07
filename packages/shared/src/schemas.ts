@@ -218,7 +218,6 @@ export const configSchema = z.object({
   bind: z.enum(["127.0.0.1", "0.0.0.0"]),
   port: z.number(),
   attachOnServe: z.boolean(),
-  staticAuth: z.boolean(),
   allowedOrigins: z.array(z.string()),
   rateLimit: z.object({
     send: z.object({ windowMs: z.number(), max: z.number() }),
