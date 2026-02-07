@@ -110,4 +110,38 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.RUNNING).toBe(10 * 60 * 1000);
     expect(timeline.totalsMs.WAITING_INPUT).toBe(5 * 60 * 1000);
   });
+
+  it("serializes and restores timeline events", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T03:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%4",
+      state: "RUNNING",
+      reason: "poll",
+      at: "2026-02-06T01:00:00.000Z",
+      source: "poll",
+    });
+    store.record({
+      paneId: "%4",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-06T02:00:00.000Z",
+      source: "hook",
+    });
+
+    const persisted = store.serialize();
+
+    const restoredStore = createSessionTimelineStore({ now: clock.now });
+    restoredStore.restore(persisted);
+    const timeline = restoredStore.getTimeline({ paneId: "%4", range: "6h" });
+
+    expect(timeline.items).toHaveLength(2);
+    expect(timeline.items[0]?.state).toBe("WAITING_INPUT");
+    expect(timeline.items[0]?.endedAt).toBeNull();
+    expect(timeline.items[0]?.durationMs).toBe(60 * 60 * 1000);
+    expect(timeline.items[1]?.state).toBe("RUNNING");
+    expect(timeline.items[1]?.durationMs).toBe(60 * 60 * 1000);
+  });
 });

@@ -25,6 +25,8 @@ const DEFAULT_LIMIT = 200;
 const DEFAULT_MAX_ITEMS_PER_PANE = 1000;
 
 type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs">;
+export type SessionTimelinePersistedEvent = TimelineEvent;
+export type SessionTimelinePersistedEvents = Record<string, SessionTimelinePersistedEvent[]>;
 
 type StoreOptions = {
   now?: () => Date;
@@ -68,6 +70,18 @@ const createEmptyTotals = (): Record<SessionStateValue, number> => ({
   SHELL: 0,
   UNKNOWN: 0,
 });
+
+const parseSequenceFromId = (id: string) => {
+  const candidate = id.split(":").at(-1);
+  if (!candidate) {
+    return 0;
+  }
+  const parsed = Number.parseInt(candidate, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
+};
 
 export const createSessionTimelineStore = (options: StoreOptions = {}) => {
   const now = options.now ?? (() => new Date());
@@ -232,7 +246,114 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     eventsByPane.clear();
   };
 
-  return { record, closePane, getTimeline, reset };
+  const serialize = (): SessionTimelinePersistedEvents => {
+    const nowMs = now().getTime();
+    eventsByPane.forEach((_events, paneId) => {
+      prunePane(paneId, nowMs);
+    });
+    const output: SessionTimelinePersistedEvents = {};
+    eventsByPane.forEach((events, paneId) => {
+      if (events.length === 0) {
+        return;
+      }
+      output[paneId] = events.map((event) => ({ ...event }));
+    });
+    return output;
+  };
+
+  const restore = (
+    persisted:
+      | SessionTimelinePersistedEvents
+      | Map<string, SessionTimelinePersistedEvent[]>
+      | null
+      | undefined,
+  ) => {
+    eventsByPane.clear();
+    sequence = 0;
+    if (!persisted) {
+      return;
+    }
+
+    const entries =
+      persisted instanceof Map ? Array.from(persisted.entries()) : Object.entries(persisted);
+    entries.forEach(([paneId, events]) => {
+      if (!paneId || !Array.isArray(events)) {
+        return;
+      }
+      const sorted = events
+        .map((event) => {
+          const startedAtMs = parseIso(event.startedAt);
+          if (startedAtMs === null) {
+            return null;
+          }
+          return {
+            id:
+              typeof event.id === "string" && event.id.length > 0
+                ? event.id
+                : `${paneId}:${startedAtMs}:0`,
+            paneId,
+            state: event.state,
+            reason: event.reason,
+            source: event.source,
+            startedAtMs,
+            endedAtMs: parseIso(event.endedAt),
+          };
+        })
+        .filter(
+          (
+            event,
+          ): event is {
+            id: string;
+            paneId: string;
+            state: SessionStateValue;
+            reason: string;
+            source: SessionStateTimelineSource;
+            startedAtMs: number;
+            endedAtMs: number | null;
+          } => event !== null,
+        )
+        .sort((a, b) => a.startedAtMs - b.startedAtMs);
+
+      const restored: TimelineEvent[] = [];
+      let lastBoundaryMs = Number.NEGATIVE_INFINITY;
+      sorted.forEach((event, index) => {
+        const next = sorted[index + 1];
+        const nextStartMs = next?.startedAtMs ?? null;
+        const startedAtMs = Math.max(event.startedAtMs, lastBoundaryMs);
+        let endedAtMs = event.endedAtMs;
+        if (endedAtMs === null && nextStartMs !== null) {
+          endedAtMs = nextStartMs;
+        }
+        if (endedAtMs !== null) {
+          endedAtMs = Math.max(endedAtMs, startedAtMs);
+        }
+        if (endedAtMs !== null && endedAtMs === startedAtMs) {
+          return;
+        }
+        restored.push({
+          id: event.id,
+          paneId,
+          state: event.state,
+          reason: event.reason,
+          startedAt: toIso(startedAtMs),
+          endedAt: endedAtMs === null ? null : toIso(endedAtMs),
+          source: event.source,
+        });
+        sequence = Math.max(sequence, parseSequenceFromId(event.id));
+        lastBoundaryMs = endedAtMs ?? startedAtMs;
+      });
+      if (restored.length > 0) {
+        eventsByPane.set(paneId, restored);
+      }
+    });
+
+    const nowMs = now().getTime();
+    eventsByPane.forEach((_events, paneId) => {
+      prunePane(paneId, nowMs);
+    });
+  };
+
+  return { record, closePane, getTimeline, reset, serialize, restore };
 };
 
 export const timelineRangeMs = RANGE_MS;

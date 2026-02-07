@@ -26,7 +26,7 @@ import { createPaneStateStore } from "./monitor/pane-state.js";
 import { cleanupRegistry } from "./monitor/registry-cleanup.js";
 import { resolveRepoRootCached } from "./monitor/repo-root.js";
 import { createSessionRegistry } from "./session-registry.js";
-import { restoreSessions, saveState } from "./state-store.js";
+import { restoreSessions, restoreTimeline, saveState } from "./state-store.js";
 import { createSessionTimelineStore } from "./state-timeline/store.js";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
@@ -51,6 +51,7 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
   const paneStates = createPaneStateStore();
   const customTitles = new Map<string, string>();
   const restored = restoreSessions();
+  const restoredTimeline = restoreTimeline();
   const restoredReason = new Set<string>();
   const serverKey = resolveServerKey(config.tmux.socketName, config.tmux.socketPath);
   const eventsDir = path.join(baseDir, "events", serverKey);
@@ -64,6 +65,12 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     logActivity,
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
+  stateTimeline.restore(restoredTimeline);
+
+  const savePersistedState = () => {
+    saveState(registry.values(), { timeline: stateTimeline.serialize() });
+  };
+
   restored.forEach((session, paneId) => {
     const state = paneStates.get(paneId);
     state.lastOutputAt = session.lastOutputAt ?? null;
@@ -73,13 +80,15 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     if (session.customTitle) {
       customTitles.set(paneId, session.customTitle);
     }
-    stateTimeline.record({
-      paneId,
-      state: session.state,
-      reason: session.stateReason || "restored",
-      at: session.lastEventAt ?? session.lastOutputAt ?? session.lastInputAt ?? undefined,
-      source: "restore",
-    });
+    if (!restoredTimeline.has(paneId)) {
+      stateTimeline.record({
+        paneId,
+        state: session.state,
+        reason: session.stateReason || "restored",
+        at: session.lastEventAt ?? session.lastOutputAt ?? session.lastInputAt ?? undefined,
+        source: "restore",
+      });
+    }
   });
 
   const applyRestored = (paneId: string) => {
@@ -137,11 +146,12 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
       paneStates,
       customTitles,
       activePaneIds,
-      saveState,
+      saveState: () => undefined,
     });
     removedPaneIds.forEach((paneId) => {
       stateTimeline.closePane({ paneId });
     });
+    savePersistedState();
   };
 
   const setCustomTitle = (paneId: string, title: string | null) => {
@@ -156,7 +166,7 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     }
     const next = { ...existing, customTitle: title };
     registry.update(next);
-    saveState(registry.values());
+    savePersistedState();
   };
 
   const handleHookEvent = (context: HookEventContext) => {
@@ -177,7 +187,7 @@ export const createSessionMonitor = (adapter: TmuxAdapter, config: AgentMonitorC
     }
     const next = { ...existing, lastInputAt: at };
     registry.update(next);
-    saveState(registry.values());
+    savePersistedState();
   };
 
   const startHookTailer = async () => {
