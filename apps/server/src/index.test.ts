@@ -23,7 +23,7 @@ vi.mock("@vde-monitor/wezterm", () => ({
   }),
 }));
 
-import { ensureBackendAvailable } from "./index.js";
+import { ensureBackendAvailable } from "./index";
 
 describe("ensureBackendAvailable", () => {
   beforeEach(() => {

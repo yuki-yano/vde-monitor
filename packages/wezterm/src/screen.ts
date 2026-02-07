@@ -1,4 +1,4 @@
-import type { WeztermAdapter } from "./adapter.js";
+import type { WeztermAdapter } from "./adapter";
 
 export type TextCaptureOptions = {
   paneId: string;

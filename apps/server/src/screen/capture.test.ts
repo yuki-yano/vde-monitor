@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("./capture-macos.js", () => ({
+vi.mock("./capture-macos", () => ({
   captureTerminalScreenMacos: vi.fn(async () => ({ imageBase64: "x", cropped: false })),
 }));
 
-import { captureTerminalScreen } from "./capture.js";
-import { captureTerminalScreenMacos } from "./capture-macos.js";
+import { captureTerminalScreen } from "./capture";
+import { captureTerminalScreenMacos } from "./capture-macos";
 
 describe("captureTerminalScreen", () => {
   it("returns null on non-mac platforms", async () => {

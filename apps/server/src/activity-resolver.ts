@@ -1,4 +1,4 @@
-import { shouldSuppressActivity } from "./activity-suppressor.js";
+import { shouldSuppressActivity } from "./activity-suppressor";
 
 type ActivityResolverInput = {
   paneId: string;

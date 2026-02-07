@@ -1,6 +1,6 @@
 import type { PaneMeta } from "@vde-monitor/shared";
 
-import type { TmuxAdapter } from "./adapter.js";
+import type { TmuxAdapter } from "./adapter";
 
 const format = [
   "#{pane_id}",

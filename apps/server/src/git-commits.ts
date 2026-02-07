@@ -6,9 +6,9 @@ import type {
   CommitSummary,
 } from "@vde-monitor/shared";
 
-import { setMapEntryWithLimit } from "./cache.js";
-import { isBinaryPatch, parseNumstat, pickStatus } from "./git-parsers.js";
-import { resolveRepoRoot, runGit } from "./git-utils.js";
+import { setMapEntryWithLimit } from "./cache";
+import { isBinaryPatch, parseNumstat, pickStatus } from "./git-parsers";
+import { resolveRepoRoot, runGit } from "./git-utils";
 
 const LOG_TTL_MS = 3000;
 const DETAIL_TTL_MS = 3000;

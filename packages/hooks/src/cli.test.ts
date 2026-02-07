@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { buildHookEvent, extractPayloadFields, resolveTranscriptPath } from "./cli.js";
+import { buildHookEvent, extractPayloadFields, resolveTranscriptPath } from "./cli";
 
 describe("hooks cli helpers", () => {
   it("resolves transcript path from cwd and session id", () => {

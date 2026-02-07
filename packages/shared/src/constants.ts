@@ -1,4 +1,4 @@
-import type { AgentMonitorConfigFile } from "./types.js";
+import type { AgentMonitorConfigFile } from "./types";
 
 export const allowedKeys = [
   "Enter",

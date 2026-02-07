@@ -4,13 +4,13 @@ import { createTmuxAdapter } from "@vde-monitor/tmux";
 import { createWeztermAdapter, normalizeWeztermTarget } from "@vde-monitor/wezterm";
 import qrcode from "qrcode-terminal";
 
-import { createApp } from "./app.js";
-import { parseArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "./cli.js";
-import { ensureConfig, rotateToken } from "./config.js";
-import { createSessionMonitor } from "./monitor.js";
-import { createMultiplexerRuntime } from "./multiplexer/runtime.js";
-import { getLocalIP, getTailscaleIP } from "./network.js";
-import { findAvailablePort } from "./ports.js";
+import { createApp } from "./app";
+import { parseArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "./cli";
+import { ensureConfig, rotateToken } from "./config";
+import { createSessionMonitor } from "./monitor";
+import { createMultiplexerRuntime } from "./multiplexer/runtime";
+import { getLocalIP, getTailscaleIP } from "./network";
+import { findAvailablePort } from "./ports";
 
 const printHooksSnippet = () => {
   const snippet = {

@@ -9,20 +9,20 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { createCommandResponse } from "../command/command-response.js";
-import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits.js";
-import { fetchDiffFile, fetchDiffSummary } from "../git-diff.js";
-import { createRateLimiter } from "../limits/rate-limit.js";
-import type { createSessionMonitor } from "../monitor.js";
-import type { MultiplexerInputActions } from "../multiplexer/types.js";
-import { createScreenCache } from "../screen/screen-cache.js";
-import { createScreenResponse } from "../screen/screen-response.js";
-import { buildError, isOriginAllowed, nowIso, requireAuth } from "./helpers.js";
+import { createCommandResponse } from "../command/command-response";
+import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits";
+import { fetchDiffFile, fetchDiffSummary } from "../git-diff";
+import { createRateLimiter } from "../limits/rate-limit";
+import type { createSessionMonitor } from "../monitor";
+import type { MultiplexerInputActions } from "../multiplexer/types";
+import { createScreenCache } from "../screen/screen-cache";
+import { createScreenResponse } from "../screen/screen-response";
+import { buildError, isOriginAllowed, nowIso, requireAuth } from "./helpers";
 import {
   IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES,
   ImageAttachmentError,
   saveImageAttachment,
-} from "./image-attachment.js";
+} from "./image-attachment";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createRateLimiter } from "./rate-limit.js";
+import { createRateLimiter } from "./rate-limit";
 
 describe("createRateLimiter", () => {
   it("enforces max per window and resets after window", () => {

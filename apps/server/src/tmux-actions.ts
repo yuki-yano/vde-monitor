@@ -2,11 +2,11 @@ import type { AgentMonitorConfig, ApiError, RawItem } from "@vde-monitor/shared"
 import { allowedKeys, compileDangerPatterns, isDangerousCommand } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 
-import { markPaneFocus } from "./activity-suppressor.js";
-import { setMapEntryWithLimit } from "./cache.js";
-import { resolveBackendApp } from "./screen/macos-app.js";
-import { focusTerminalApp, isAppRunning } from "./screen/macos-applescript.js";
-import { focusTmuxPane } from "./screen/tmux-geometry.js";
+import { markPaneFocus } from "./activity-suppressor";
+import { setMapEntryWithLimit } from "./cache";
+import { resolveBackendApp } from "./screen/macos-app";
+import { focusTerminalApp, isAppRunning } from "./screen/macos-applescript";
+import { focusTmuxPane } from "./screen/tmux-geometry";
 
 const buildError = (code: ApiError["code"], message: string): ApiError => ({
   code,

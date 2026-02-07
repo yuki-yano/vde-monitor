@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { resolveLogPaths } from "@vde-monitor/shared";
 
-import { ensureDir, rotateLogIfNeeded } from "../logs.js";
+import { ensureDir, rotateLogIfNeeded } from "../logs";
 
 export type PaneLogManager = ReturnType<typeof createPaneLogManager>;
 

@@ -8,8 +8,8 @@ import {
   normalizeWeztermTarget,
 } from "@vde-monitor/wezterm";
 
-import { normalizeFingerprint } from "../monitor/monitor-utils.js";
-import type { MultiplexerRuntime } from "./types.js";
+import { normalizeFingerprint } from "../monitor/monitor-utils";
+import type { MultiplexerRuntime } from "./types";
 
 export const createWeztermServerKey = (target: string | null | undefined) => {
   return sanitizeServerKey(`wezterm:${normalizeWeztermTarget(target)}`);

@@ -1,7 +1,7 @@
 import type { PaneMeta } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { ensurePipeTagValue } from "./pane-prep.js";
+import { ensurePipeTagValue } from "./pane-prep";
 
 describe("ensurePipeTagValue", () => {
   it("returns same pane when pipeTagValue is already set", async () => {

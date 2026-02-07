@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isValidTty, normalizeTty } from "./tty.js";
+import { isValidTty, normalizeTty } from "./tty";
 
 describe("tty utils", () => {
   it("normalizes tty paths", () => {

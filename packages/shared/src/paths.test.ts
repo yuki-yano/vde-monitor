@@ -6,7 +6,7 @@ import {
   resolveLogPaths,
   resolveServerKey,
   sanitizeServerKey,
-} from "./paths.js";
+} from "./paths";
 
 describe("encode/decode paneId", () => {
   it("encodes and decodes pane IDs safely", () => {

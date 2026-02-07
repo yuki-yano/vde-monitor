@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSessionDetail, type PaneSnapshot } from "./session-detail.js";
+import { buildSessionDetail, type PaneSnapshot } from "./session-detail";
 
 const buildPane = (overrides: Partial<PaneSnapshot> = {}): PaneSnapshot => ({
   paneId: "1",

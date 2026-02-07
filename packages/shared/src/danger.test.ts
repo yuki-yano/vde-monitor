@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compileDangerPatterns, isDangerousCommand, normalizeCommandLines } from "./danger.js";
+import { compileDangerPatterns, isDangerousCommand, normalizeCommandLines } from "./danger";
 
 describe("normalizeCommandLines", () => {
   it("normalizes CRLF, lowercases, and compresses whitespace", () => {

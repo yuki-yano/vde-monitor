@@ -1,9 +1,9 @@
 import type { AgentMonitorConfig, PaneMeta, SessionDetail } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import type { PaneLogManager } from "./pane-log-manager.js";
-import { processPane } from "./pane-processor.js";
-import type { PaneRuntimeState } from "./pane-state.js";
+import type { PaneLogManager } from "./pane-log-manager";
+import { processPane } from "./pane-processor";
+import type { PaneRuntimeState } from "./pane-state";
 
 const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
   hookState: null,

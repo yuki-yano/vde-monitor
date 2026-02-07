@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createScreenCapture } from "./screen.js";
+import { createScreenCapture } from "./screen";
 
 describe("createScreenCapture", () => {
   it("captures text with joinLines and alt screen and trims output", async () => {

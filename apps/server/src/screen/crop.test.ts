@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cropPaneBounds } from "./crop.js";
+import { cropPaneBounds } from "./crop";
 
 describe("cropPaneBounds", () => {
   it("returns cropped bounds based on pane geometry", () => {

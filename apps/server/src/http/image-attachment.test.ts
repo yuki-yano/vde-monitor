@@ -17,7 +17,7 @@ import path from "node:path";
 import { encodePaneId } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { IMAGE_ATTACHMENT_MAX_BYTES, saveImageAttachment } from "./image-attachment.js";
+import { IMAGE_ATTACHMENT_MAX_BYTES, saveImageAttachment } from "./image-attachment";
 
 const createImageFile = ({
   mimeType = "image/png",

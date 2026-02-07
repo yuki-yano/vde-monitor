@@ -4,13 +4,13 @@ import { PassThrough } from "node:stream";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { sendProxyKeyDown, toProxyKeyEvent } from "./proxy.js";
+import { sendProxyKeyDown, toProxyKeyEvent } from "./proxy";
 import {
   decodeNextPduFrame,
   encodeErrorResponseReason,
   encodeLeb128Unsigned,
   encodePduFrame,
-} from "./proxy-codec.js";
+} from "./proxy-codec";
 
 type FakeChild = ChildProcessWithoutNullStreams & EventEmitter;
 

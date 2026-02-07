@@ -1,7 +1,7 @@
-import type { CaptureOptions } from "./capture-macos.js";
-import { captureTerminalScreenMacos } from "./capture-macos.js";
+import type { CaptureOptions } from "./capture-macos";
+import { captureTerminalScreenMacos } from "./capture-macos";
 
-export type { CaptureOptions } from "./capture-macos.js";
+export type { CaptureOptions } from "./capture-macos";
 
 const isMacOSPlatform = (platform: NodeJS.Platform) => platform === "darwin";
 

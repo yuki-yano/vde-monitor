@@ -1,9 +1,9 @@
 import type { AgentMonitorConfig, ScreenResponse, SessionDetail } from "@vde-monitor/shared";
 
-import { buildError, nowIso } from "../http/helpers.js";
-import type { createSessionMonitor } from "../monitor.js";
-import { captureTerminalScreen } from "../screen-service.js";
-import type { ScreenCache } from "./screen-cache.js";
+import { buildError, nowIso } from "../http/helpers";
+import type { createSessionMonitor } from "../monitor";
+import { captureTerminalScreen } from "../screen-service";
+import type { ScreenCache } from "./screen-cache";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 type ScreenLimiter = (key: string) => boolean;

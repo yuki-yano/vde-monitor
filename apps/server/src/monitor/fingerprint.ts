@@ -1,6 +1,6 @@
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 
-import { normalizeFingerprint } from "./monitor-utils.js";
+import { normalizeFingerprint } from "./monitor-utils";
 
 export const createFingerprintCapture = (adapter: TmuxAdapter) => {
   return async (paneId: string, useAlt: boolean) => {

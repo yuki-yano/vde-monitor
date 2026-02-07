@@ -32,7 +32,7 @@ vi.mock("node:fs/promises", () => ({
   open: mocks.open,
 }));
 
-import { createJsonlTailer, createLogActivityPoller } from "./logs.js";
+import { createJsonlTailer, createLogActivityPoller } from "./logs";
 
 const deferred = <T>() => {
   let resolve: (value: T) => void = () => undefined;

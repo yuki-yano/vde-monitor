@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildWeztermTargetArgs, normalizeWeztermTarget } from "./target.js";
+import { buildWeztermTargetArgs, normalizeWeztermTarget } from "./target";
 
 describe("normalizeWeztermTarget", () => {
   it("normalizes null/blank/auto to auto", () => {

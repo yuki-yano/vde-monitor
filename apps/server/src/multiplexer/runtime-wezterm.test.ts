@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createWeztermServerKey } from "./runtime-wezterm.js";
+import { createWeztermServerKey } from "./runtime-wezterm";
 
 describe("createWeztermServerKey", () => {
   it("uses same serverKey for null/blank/auto", () => {

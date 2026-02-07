@@ -1,7 +1,7 @@
 import type { SessionDetail } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { cleanupRegistry } from "./registry-cleanup.js";
+import { cleanupRegistry } from "./registry-cleanup";
 
 describe("cleanupRegistry", () => {
   it("removes missing panes and saves state", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createPaneStateStore, updateOutputAt } from "./pane-state.js";
+import { createPaneStateStore, updateOutputAt } from "./pane-state";
 
 describe("pane-state", () => {
   it("initializes default state", () => {

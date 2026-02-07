@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTmuxAdapter } from "./adapter.js";
+import { createTmuxAdapter } from "./adapter";
 
 vi.mock("execa", () => {
   return {

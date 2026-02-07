@@ -6,11 +6,11 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
-import { rotateToken } from "./config.js";
-import { createApiRouter } from "./http/api-router.js";
-import { buildError, isOriginAllowed, requireAuth } from "./http/helpers.js";
-import type { createSessionMonitor } from "./monitor.js";
-import type { MultiplexerInputActions } from "./multiplexer/types.js";
+import { rotateToken } from "./config";
+import { createApiRouter } from "./http/api-router";
+import { buildError, isOriginAllowed, requireAuth } from "./http/helpers";
+import type { createSessionMonitor } from "./monitor";
+import type { MultiplexerInputActions } from "./multiplexer/types";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 

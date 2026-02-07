@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleHookLine } from "./hook-tailer.js";
+import { handleHookLine } from "./hook-tailer";
 
 describe("handleHookLine", () => {
   const panes = [

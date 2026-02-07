@@ -3,9 +3,9 @@ import path from "node:path";
 
 import type { DiffFile, DiffFileStatus, DiffSummary, DiffSummaryFile } from "@vde-monitor/shared";
 
-import { setMapEntryWithLimit } from "./cache.js";
-import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers.js";
-import { resolveRepoRoot, runGit } from "./git-utils.js";
+import { setMapEntryWithLimit } from "./cache";
+import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
+import { resolveRepoRoot, runGit } from "./git-utils";
 
 const SUMMARY_TTL_MS = 3000;
 const FILE_TTL_MS = 3000;

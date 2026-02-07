@@ -1,9 +1,9 @@
 import type { RawItem } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import type { createSessionMonitor } from "../monitor.js";
-import type { MultiplexerInputActions } from "../multiplexer/types.js";
-import { createCommandResponse } from "./command-response.js";
+import type { createSessionMonitor } from "../monitor";
+import type { MultiplexerInputActions } from "../multiplexer/types";
+import { createCommandResponse } from "./command-response";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { allowedKeys } from "./constants.js";
+import { allowedKeys } from "./constants";
 
 export const sessionStateSchema = z.enum([
   "RUNNING",

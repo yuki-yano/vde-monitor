@@ -2,14 +2,14 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
 import type { AllowedKey, ApiErrorCode } from "@vde-monitor/shared";
 
-import type { WeztermAdapter } from "./adapter.js";
+import type { WeztermAdapter } from "./adapter";
 import {
   decodeErrorResponseReason,
   decodeNextPduFrame,
   encodePduFrame,
   encodeSendKeyDownPayload,
   type ProxyKeyEvent,
-} from "./proxy-codec.js";
+} from "./proxy-codec";
 
 const SHIFT = 1 << 1;
 const CTRL = 1 << 3;

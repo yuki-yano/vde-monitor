@@ -2,7 +2,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 
 import { execa } from "execa";
 
-import { buildWeztermTargetArgs } from "./target.js";
+import { buildWeztermTargetArgs } from "./target";
 
 export type WeztermRunResult = {
   stdout: string;

@@ -1,16 +1,16 @@
-import { markPaneFocus } from "../activity-suppressor.js";
-import { cropPaneBounds } from "./crop.js";
-import { resolveBackendApp, type TerminalBackend } from "./macos-app.js";
-import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript.js";
+import { markPaneFocus } from "../activity-suppressor";
+import { cropPaneBounds } from "./crop";
+import { resolveBackendApp, type TerminalBackend } from "./macos-app";
+import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript";
 import {
   type Bounds,
   type BoundsSet,
   buildTerminalBoundsScript,
   parseBoundsSet,
-} from "./macos-bounds.js";
-import { captureRegion } from "./macos-screencapture.js";
-import { focusTmuxPane, getPaneGeometry, type TmuxOptions } from "./tmux-geometry.js";
-import { isValidTty } from "./tty.js";
+} from "./macos-bounds";
+import { captureRegion } from "./macos-screencapture";
+import { focusTmuxPane, getPaneGeometry, type TmuxOptions } from "./tmux-geometry";
+import { isValidTty } from "./tty";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveActivityTimestamp } from "./activity-resolver.js";
+import { resolveActivityTimestamp } from "./activity-resolver";
 
 const toIso = (value: number) => new Date(value * 1000).toISOString();
 

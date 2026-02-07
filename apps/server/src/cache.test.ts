@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { setMapEntryWithLimit } from "./cache.js";
+import { setMapEntryWithLimit } from "./cache";
 
 describe("setMapEntryWithLimit", () => {
   it("keeps map size within limit by evicting oldest entries", () => {

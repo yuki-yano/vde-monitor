@@ -1,6 +1,6 @@
 import { claudeHookEventSchema, type HookStateSignal } from "@vde-monitor/shared";
 
-import { deriveHookState, mapHookToPane } from "./monitor-utils.js";
+import { deriveHookState, mapHookToPane } from "./monitor-utils";
 
 export type HookEventContext = {
   paneId: string;

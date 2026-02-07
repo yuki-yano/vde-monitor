@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { estimateState } from "./state-estimator.js";
+import { estimateState } from "./state-estimator";
 
 describe("estimateState", () => {
   it("returns UNKNOWN when pane is dead", () => {

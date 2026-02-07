@@ -19,7 +19,7 @@ const loadModule = async () => {
   await vi.resetModules();
   const execa = await getExeca();
   execa.mockClear();
-  return import("./agent-resolver.js");
+  return import("./agent-resolver");
 };
 
 const buildPane = (

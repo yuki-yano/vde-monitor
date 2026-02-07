@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createInspector } from "./inspector.js";
+import { createInspector } from "./inspector";
 
 describe("createInspector", () => {
   it("parses list/list-clients into PaneMeta", async () => {

@@ -1,4 +1,4 @@
-import type { TmuxAdapter } from "./adapter.js";
+import type { TmuxAdapter } from "./adapter";
 
 export type TextCaptureOptions = {
   paneId: string;

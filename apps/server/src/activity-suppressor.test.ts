@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { markPaneFocus, shouldSuppressActivity } from "./activity-suppressor.js";
+import { markPaneFocus, shouldSuppressActivity } from "./activity-suppressor";
 
 describe("activity suppressor", () => {
   it("suppresses window activity right after focus", () => {

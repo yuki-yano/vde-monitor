@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createScreenCapture } from "./screen.js";
+import { createScreenCapture } from "./screen";
 
 describe("createScreenCapture", () => {
   it("calls get-text with line range and escapes", async () => {

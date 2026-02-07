@@ -7,7 +7,7 @@ import {
   encodeLeb128Unsigned,
   encodePduFrame,
   encodeSendKeyDownPayload,
-} from "./proxy-codec.js";
+} from "./proxy-codec";
 
 describe("proxy-codec", () => {
   it("encodes and decodes pdu frame", () => {

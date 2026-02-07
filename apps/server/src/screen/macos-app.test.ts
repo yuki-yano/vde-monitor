@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveBackendApp } from "./macos-app.js";
+import { resolveBackendApp } from "./macos-app";
 
 describe("resolveBackendApp", () => {
   it("resolves terminal backend", () => {

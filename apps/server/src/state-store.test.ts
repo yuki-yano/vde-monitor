@@ -24,7 +24,7 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { restoreSessions, restoreTimeline, saveState } from "./state-store.js";
+import { restoreSessions, restoreTimeline, saveState } from "./state-store";
 
 const statePath = "/mock/home/.vde-monitor/state.json";
 

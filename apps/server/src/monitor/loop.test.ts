@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createMonitorLoop } from "./loop.js";
+import { createMonitorLoop } from "./loop";
 
 describe("createMonitorLoop", () => {
   it("invokes update and rotate on tick", async () => {

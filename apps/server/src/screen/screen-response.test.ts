@@ -1,16 +1,16 @@
 import { type AgentMonitorConfig, defaultConfig, type SessionDetail } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import type { createSessionMonitor } from "../monitor.js";
-import { captureTerminalScreen } from "../screen-service.js";
-import { createScreenCache } from "./screen-cache.js";
-import { createScreenResponse } from "./screen-response.js";
+import type { createSessionMonitor } from "../monitor";
+import { captureTerminalScreen } from "../screen-service";
+import { createScreenCache } from "./screen-cache";
+import { createScreenResponse } from "./screen-response";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 
 const baseConfig: AgentMonitorConfig = { ...defaultConfig, token: "test-token" };
 
-vi.mock("../screen-service.js", () => ({
+vi.mock("../screen-service", () => ({
   captureTerminalScreen: vi.fn(),
 }));
 

@@ -1,4 +1,4 @@
-import type { PaneGeometry } from "./tmux-geometry.js";
+import type { PaneGeometry } from "./tmux-geometry";
 
 export const cropPaneBounds = (
   base: { x: number; y: number; width: number; height: number },

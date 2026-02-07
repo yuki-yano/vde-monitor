@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 const resolveRepoRootMock = vi.fn();
 
-vi.mock("../git-utils.js", () => ({
+vi.mock("../git-utils", () => ({
   resolveRepoRoot: resolveRepoRootMock,
 }));
 
 const loadModule = async () => {
   await vi.resetModules();
   resolveRepoRootMock.mockReset();
-  return import("./repo-root.js");
+  return import("./repo-root");
 };
 
 describe("resolveRepoRootCached", () => {

@@ -1,8 +1,8 @@
 import type { AgentMonitorConfig, AllowedKey, ApiError, RawItem } from "@vde-monitor/shared";
 import { allowedKeys, compileDangerPatterns, isDangerousCommand } from "@vde-monitor/shared";
 
-import type { WeztermAdapter } from "./adapter.js";
-import { sendProxyKeyDown, toProxyKeyEvent } from "./proxy.js";
+import type { WeztermAdapter } from "./adapter";
+import { sendProxyKeyDown, toProxyKeyEvent } from "./proxy";
 
 type ActionResult = { ok: true; error?: undefined } | { ok: false; error: ApiError };
 const PROXY_TIMEOUT_MS = 1500;

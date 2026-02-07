@@ -20,7 +20,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   };
 });
 
-import { captureRegion } from "./macos-screencapture.js";
+import { captureRegion } from "./macos-screencapture";
 
 describe("macos-screencapture", () => {
   it("captures region and returns base64", async () => {

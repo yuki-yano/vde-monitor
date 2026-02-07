@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWeztermAdapter } from "./adapter.js";
+import { createWeztermAdapter } from "./adapter";
 
 vi.mock("execa", () => {
   return {

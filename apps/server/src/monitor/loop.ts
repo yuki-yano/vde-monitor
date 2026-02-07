@@ -1,4 +1,4 @@
-import { rotateLogIfNeeded } from "../logs.js";
+import { rotateLogIfNeeded } from "../logs";
 
 type LoopDeps = {
   rotateLogIfNeeded?: typeof rotateLogIfNeeded;

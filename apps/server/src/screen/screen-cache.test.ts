@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createScreenCache } from "./screen-cache.js";
+import { createScreenCache } from "./screen-cache";
 
 describe("createScreenCache", () => {
   it("returns full response on first capture and deltas for small changes", () => {

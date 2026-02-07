@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCommitLogOutput, parseNameStatusOutput } from "./git-commits.js";
+import { parseCommitLogOutput, parseNameStatusOutput } from "./git-commits";
 
 const RS = "\u001e";
 const FS = "\u001f";

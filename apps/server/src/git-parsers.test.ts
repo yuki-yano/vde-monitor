@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers.js";
+import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
 
 describe("parseNumstatLine", () => {
   it("parses numeric additions/deletions", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveHosts, resolveMultiplexerOverrides } from "./cli.js";
+import { resolveHosts, resolveMultiplexerOverrides } from "./cli";
 
 const makeFlags = (entries: Array<[string, string | boolean]>) => new Map(entries);
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGitStatus } from "./git-diff.js";
+import { parseGitStatus } from "./git-diff";
 
 describe("parseGitStatus", () => {
   it("parses basic status entries", () => {

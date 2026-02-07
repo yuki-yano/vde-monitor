@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { ScreenResponse } from "@vde-monitor/shared";
 
-import { nowIso } from "../http/helpers.js";
-import { buildScreenDeltas, shouldSendFull } from "../screen-diff.js";
+import { nowIso } from "../http/helpers";
+import { buildScreenDeltas, shouldSendFull } from "../screen-diff";
 
 type ScreenSnapshot = {
   cursor: string;

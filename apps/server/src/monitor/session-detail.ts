@@ -1,7 +1,7 @@
 import type { SessionDetail } from "@vde-monitor/shared";
 
-import type { AgentType } from "./agent-resolver-utils.js";
-import { buildDefaultTitle, hostCandidates, normalizeTitle } from "./monitor-utils.js";
+import type { AgentType } from "./agent-resolver-utils";
+import { buildDefaultTitle, hostCandidates, normalizeTitle } from "./monitor-utils";
 
 export type PaneSnapshot = {
   paneId: string;

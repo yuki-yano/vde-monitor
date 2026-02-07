@@ -7,7 +7,7 @@ import {
   mapHookToPane,
   normalizeFingerprint,
   normalizeTitle,
-} from "./monitor-utils.js";
+} from "./monitor-utils";
 
 describe("monitor-utils", () => {
   it("normalizes fingerprints and limits lines", () => {

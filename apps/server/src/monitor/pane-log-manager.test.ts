@@ -1,7 +1,7 @@
 import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { createPaneLogManager } from "./pane-log-manager.js";
+import { createPaneLogManager } from "./pane-log-manager";
 
 describe("pane-log-manager", () => {
   it("attaches pipe when allowed and updates logging", async () => {

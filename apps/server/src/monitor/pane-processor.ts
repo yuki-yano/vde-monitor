@@ -5,13 +5,13 @@ import type {
   SessionDetail,
 } from "@vde-monitor/shared";
 
-import { resolvePaneAgent } from "./agent-resolver.js";
-import { isShellCommand } from "./agent-resolver-utils.js";
-import type { PaneLogManager } from "./pane-log-manager.js";
-import { updatePaneOutputState } from "./pane-output.js";
-import type { PaneRuntimeState } from "./pane-state.js";
-import { buildSessionDetail } from "./session-detail.js";
-import { estimateSessionState } from "./session-state.js";
+import { resolvePaneAgent } from "./agent-resolver";
+import { isShellCommand } from "./agent-resolver-utils";
+import type { PaneLogManager } from "./pane-log-manager";
+import { updatePaneOutputState } from "./pane-output";
+import type { PaneRuntimeState } from "./pane-state";
+import { buildSessionDetail } from "./session-detail";
+import { estimateSessionState } from "./session-state";
 
 type PaneStateStore = {
   get: (paneId: string) => PaneRuntimeState;

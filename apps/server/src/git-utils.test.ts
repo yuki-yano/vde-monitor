@@ -6,7 +6,7 @@ vi.mock("execa", () => ({
 
 import { execa } from "execa";
 
-import { resolveRepoRoot, runGit } from "./git-utils.js";
+import { resolveRepoRoot, runGit } from "./git-utils";
 
 describe("runGit", () => {
   it("returns stdout on success", async () => {

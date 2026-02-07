@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { updatePaneOutputState } from "./pane-output.js";
-import type { PaneRuntimeState } from "./pane-state.js";
+import { updatePaneOutputState } from "./pane-output";
+import type { PaneRuntimeState } from "./pane-state";
 
 describe("updatePaneOutputState", () => {
   const basePane = {

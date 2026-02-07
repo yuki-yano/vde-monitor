@@ -1,7 +1,7 @@
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 import { describe, expect, it } from "vitest";
 
-import { createFingerprintCapture } from "./fingerprint.js";
+import { createFingerprintCapture } from "./fingerprint";
 
 describe("createFingerprintCapture", () => {
   it("captures and normalizes fingerprint", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultConfig } from "./constants.js";
+import { defaultConfig } from "./constants";
 import {
   apiErrorSchema,
   claudeHookEventSchema,
@@ -10,7 +10,7 @@ import {
   sessionStateSchema,
   wsClientMessageSchema,
   wsServerMessageSchema,
-} from "./schemas.js";
+} from "./schemas";
 
 describe("sessionStateSchema", () => {
   it("rejects DONE state", () => {

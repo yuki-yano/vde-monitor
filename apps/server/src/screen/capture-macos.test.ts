@@ -1,50 +1,50 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../activity-suppressor.js", () => ({
+vi.mock("../activity-suppressor", () => ({
   markPaneFocus: vi.fn(),
 }));
 
-vi.mock("./crop.js", () => ({
+vi.mock("./crop", () => ({
   cropPaneBounds: vi.fn(),
 }));
 
-vi.mock("./macos-app.js", () => ({
+vi.mock("./macos-app", () => ({
   resolveBackendApp: vi.fn(),
 }));
 
-vi.mock("./macos-applescript.js", () => ({
+vi.mock("./macos-applescript", () => ({
   focusTerminalApp: vi.fn(),
   isAppRunning: vi.fn(),
   runAppleScript: vi.fn(),
 }));
 
-vi.mock("./macos-bounds.js", () => ({
+vi.mock("./macos-bounds", () => ({
   buildTerminalBoundsScript: vi.fn(),
   parseBoundsSet: vi.fn(),
 }));
 
-vi.mock("./macos-screencapture.js", () => ({
+vi.mock("./macos-screencapture", () => ({
   captureRegion: vi.fn(),
 }));
 
-vi.mock("./tmux-geometry.js", () => ({
+vi.mock("./tmux-geometry", () => ({
   focusTmuxPane: vi.fn(),
   getPaneGeometry: vi.fn(),
 }));
 
-vi.mock("./tty.js", () => ({
+vi.mock("./tty", () => ({
   isValidTty: vi.fn(),
 }));
 
-import { markPaneFocus } from "../activity-suppressor.js";
-import { captureTerminalScreenMacos } from "./capture-macos.js";
-import { cropPaneBounds } from "./crop.js";
-import { resolveBackendApp } from "./macos-app.js";
-import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript.js";
-import { buildTerminalBoundsScript, parseBoundsSet } from "./macos-bounds.js";
-import { captureRegion } from "./macos-screencapture.js";
-import { focusTmuxPane, getPaneGeometry } from "./tmux-geometry.js";
-import { isValidTty } from "./tty.js";
+import { markPaneFocus } from "../activity-suppressor";
+import { captureTerminalScreenMacos } from "./capture-macos";
+import { cropPaneBounds } from "./crop";
+import { resolveBackendApp } from "./macos-app";
+import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript";
+import { buildTerminalBoundsScript, parseBoundsSet } from "./macos-bounds";
+import { captureRegion } from "./macos-screencapture";
+import { focusTmuxPane, getPaneGeometry } from "./tmux-geometry";
+import { isValidTty } from "./tty";
 
 const baseBounds = { x: 0, y: 0, width: 200, height: 100 };
 const croppedBounds = { x: 12, y: 8, width: 100, height: 50 };

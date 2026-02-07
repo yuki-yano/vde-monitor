@@ -8,7 +8,7 @@ vi.mock("execa", () => ({
   execa: mocks.execa,
 }));
 
-import { focusTmuxPane, getPaneGeometry } from "./tmux-geometry.js";
+import { focusTmuxPane, getPaneGeometry } from "./tmux-geometry";
 
 beforeEach(() => {
   vi.clearAllMocks();

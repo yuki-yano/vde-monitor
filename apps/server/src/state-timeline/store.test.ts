@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSessionTimelineStore } from "./store.js";
+import { createSessionTimelineStore } from "./store";
 
 const nowAt = (() => {
   let current = Date.parse("2026-02-06T00:00:00.000Z");

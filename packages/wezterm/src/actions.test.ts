@@ -5,8 +5,8 @@ import { PassThrough } from "node:stream";
 import { defaultConfig, type RawItem } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createWeztermActions } from "./actions.js";
-import { decodeNextPduFrame, encodeErrorResponseReason, encodePduFrame } from "./proxy-codec.js";
+import { createWeztermActions } from "./actions";
+import { decodeNextPduFrame, encodeErrorResponseReason, encodePduFrame } from "./proxy-codec";
 
 type FakeChild = ChildProcessWithoutNullStreams & EventEmitter;
 

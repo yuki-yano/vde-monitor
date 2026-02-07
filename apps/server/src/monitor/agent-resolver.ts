@@ -1,18 +1,14 @@
-import {
-  findAgentFromPidTree,
-  getAgentFromTty,
-  getProcessCommand,
-} from "./agent-resolver-process.js";
-import type { AgentType } from "./agent-resolver-utils.js";
+import { findAgentFromPidTree, getAgentFromTty, getProcessCommand } from "./agent-resolver-process";
+import type { AgentType } from "./agent-resolver-utils";
 import {
   buildAgent,
   editorCommandHasAgentArg,
   hasAgentHint,
   isEditorCommand,
   mergeHints,
-} from "./agent-resolver-utils.js";
+} from "./agent-resolver-utils";
 
-export type { AgentType } from "./agent-resolver-utils.js";
+export type { AgentType } from "./agent-resolver-utils";
 
 export type PaneAgentHints = {
   currentCommand: string | null;

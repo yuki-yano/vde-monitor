@@ -1,8 +1,8 @@
 import type { AllowedKey, CommandResponse, RawItem } from "@vde-monitor/shared";
 
-import { buildError } from "../http/helpers.js";
-import type { createSessionMonitor } from "../monitor.js";
-import type { MultiplexerInputActions } from "../multiplexer/types.js";
+import { buildError } from "../http/helpers";
+import type { createSessionMonitor } from "../monitor";
+import type { MultiplexerInputActions } from "../multiplexer/types";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 type CommandLimiter = (key: string) => boolean;

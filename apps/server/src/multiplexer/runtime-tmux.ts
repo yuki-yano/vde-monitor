@@ -7,9 +7,9 @@ import {
   createTmuxAdapter,
 } from "@vde-monitor/tmux";
 
-import { createFingerprintCapture } from "../monitor/fingerprint.js";
-import { createTmuxActions } from "../tmux-actions.js";
-import type { MultiplexerRuntime } from "./types.js";
+import { createFingerprintCapture } from "../monitor/fingerprint";
+import { createTmuxActions } from "../tmux-actions";
+import type { MultiplexerRuntime } from "./types";
 
 export const createTmuxRuntime = (config: AgentMonitorConfig): MultiplexerRuntime => {
   const adapter = createTmuxAdapter({

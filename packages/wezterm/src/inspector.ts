@@ -1,6 +1,6 @@
 import type { PaneMeta } from "@vde-monitor/shared";
 
-import type { WeztermAdapter } from "./adapter.js";
+import type { WeztermAdapter } from "./adapter";
 
 type WeztermPaneRaw = {
   pane_id?: unknown;

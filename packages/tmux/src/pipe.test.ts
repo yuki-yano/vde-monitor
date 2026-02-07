@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPipeManager } from "./pipe.js";
+import { createPipeManager } from "./pipe";
 
 describe("createPipeManager", () => {
   it("detects conflict when pane has pipe but tag missing", async () => {

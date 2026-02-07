@@ -1,7 +1,7 @@
 import { execa } from "execa";
 
-import { setMapEntryWithLimit } from "../cache.js";
-import { type AgentType, buildAgent, normalizeTty } from "./agent-resolver-utils.js";
+import { setMapEntryWithLimit } from "../cache";
+import { type AgentType, buildAgent, normalizeTty } from "./agent-resolver-utils";
 
 const runPs = async (args: string[], timeout: number) =>
   execa("ps", args, { reject: false, timeout });

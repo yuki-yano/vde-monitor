@@ -1,7 +1,7 @@
 import { estimateState } from "@vde-monitor/agents";
 import { describe, expect, it } from "vitest";
 
-import { estimateSessionState } from "./session-state.js";
+import { estimateSessionState } from "./session-state";
 
 describe("estimateSessionState", () => {
   it("caps codex running threshold at 10 seconds", () => {

@@ -41,7 +41,7 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { ensureConfig, rotateToken } from "./config.js";
+import { ensureConfig, rotateToken } from "./config";
 
 const configPath = "/mock/config/config.json";
 const tokenPath = "/mock/home/.vde-monitor/token.json";

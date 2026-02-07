@@ -6,7 +6,7 @@ vi.mock("execa", () => ({
 
 import { execa } from "execa";
 
-import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript.js";
+import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript";
 
 describe("macos-applescript", () => {
   it("runs AppleScript and trims output", async () => {

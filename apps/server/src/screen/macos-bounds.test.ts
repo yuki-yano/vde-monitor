@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseBoundsSet } from "./macos-bounds.js";
+import { parseBoundsSet } from "./macos-bounds";
 
 describe("parseBoundsSet", () => {
   it("parses content and window bounds", () => {

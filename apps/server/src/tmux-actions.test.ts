@@ -1,26 +1,26 @@
 import { defaultConfig } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { markPaneFocus } from "./activity-suppressor.js";
-import { resolveBackendApp } from "./screen/macos-app.js";
-import { focusTerminalApp, isAppRunning } from "./screen/macos-applescript.js";
-import { focusTmuxPane } from "./screen/tmux-geometry.js";
-import { createTmuxActions } from "./tmux-actions.js";
+import { markPaneFocus } from "./activity-suppressor";
+import { resolveBackendApp } from "./screen/macos-app";
+import { focusTerminalApp, isAppRunning } from "./screen/macos-applescript";
+import { focusTmuxPane } from "./screen/tmux-geometry";
+import { createTmuxActions } from "./tmux-actions";
 
-vi.mock("./screen/macos-app.js", () => ({
+vi.mock("./screen/macos-app", () => ({
   resolveBackendApp: vi.fn(),
 }));
 
-vi.mock("./screen/macos-applescript.js", () => ({
+vi.mock("./screen/macos-applescript", () => ({
   isAppRunning: vi.fn(),
   focusTerminalApp: vi.fn(),
 }));
 
-vi.mock("./screen/tmux-geometry.js", () => ({
+vi.mock("./screen/tmux-geometry", () => ({
   focusTmuxPane: vi.fn(),
 }));
 
-vi.mock("./activity-suppressor.js", () => ({
+vi.mock("./activity-suppressor", () => ({
   markPaneFocus: vi.fn(),
 }));
 

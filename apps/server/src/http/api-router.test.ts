@@ -5,23 +5,23 @@ import path from "node:path";
 import { type AgentMonitorConfig, defaultConfig, type SessionDetail } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits.js";
-import { fetchDiffSummary } from "../git-diff.js";
-import type { createSessionMonitor } from "../monitor.js";
-import type { MultiplexerInputActions } from "../multiplexer/types.js";
-import { createSessionRegistry } from "../session-registry.js";
-import { createApiRouter } from "./api-router.js";
+import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits";
+import { fetchDiffSummary } from "../git-diff";
+import type { createSessionMonitor } from "../monitor";
+import type { MultiplexerInputActions } from "../multiplexer/types";
+import { createSessionRegistry } from "../session-registry";
+import { createApiRouter } from "./api-router";
 import {
   IMAGE_ATTACHMENT_MAX_BYTES,
   IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES,
-} from "./image-attachment.js";
+} from "./image-attachment";
 
-vi.mock("../git-diff.js", () => ({
+vi.mock("../git-diff", () => ({
   fetchDiffSummary: vi.fn(),
   fetchDiffFile: vi.fn(),
 }));
 
-vi.mock("../git-commits.js", () => ({
+vi.mock("../git-commits", () => ({
   fetchCommitLog: vi.fn(),
   fetchCommitDetail: vi.fn(),
   fetchCommitFile: vi.fn(),

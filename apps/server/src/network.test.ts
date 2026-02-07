@@ -14,7 +14,7 @@ vi.mock("node:os", () => ({
   networkInterfaces: mocks.networkInterfaces,
 }));
 
-import { getLocalIP, getTailscaleIP, isTailscaleIP } from "./network.js";
+import { getLocalIP, getTailscaleIP, isTailscaleIP } from "./network";
 
 type InterfaceInfo = {
   address: string;

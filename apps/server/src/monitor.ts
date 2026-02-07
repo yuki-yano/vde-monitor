@@ -8,19 +8,19 @@ import {
   type SessionStateTimelineSource,
 } from "@vde-monitor/shared";
 
-import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs.js";
-import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer.js";
-import { createMonitorLoop } from "./monitor/loop.js";
-import { createPaneLogManager } from "./monitor/pane-log-manager.js";
-import { ensurePipeTagValue } from "./monitor/pane-prep.js";
-import { processPane } from "./monitor/pane-processor.js";
-import { createPaneStateStore } from "./monitor/pane-state.js";
-import { cleanupRegistry } from "./monitor/registry-cleanup.js";
-import { resolveRepoRootCached } from "./monitor/repo-root.js";
-import type { MultiplexerRuntime } from "./multiplexer/types.js";
-import { createSessionRegistry } from "./session-registry.js";
-import { restoreSessions, restoreTimeline, saveState } from "./state-store.js";
-import { createSessionTimelineStore } from "./state-timeline/store.js";
+import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
+import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
+import { createMonitorLoop } from "./monitor/loop";
+import { createPaneLogManager } from "./monitor/pane-log-manager";
+import { ensurePipeTagValue } from "./monitor/pane-prep";
+import { processPane } from "./monitor/pane-processor";
+import { createPaneStateStore } from "./monitor/pane-state";
+import { cleanupRegistry } from "./monitor/registry-cleanup";
+import { resolveRepoRootCached } from "./monitor/repo-root";
+import type { MultiplexerRuntime } from "./multiplexer/types";
+import { createSessionRegistry } from "./session-registry";
+import { restoreSessions, restoreTimeline, saveState } from "./state-store";
+import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
 const PANE_PROCESS_CONCURRENCY = 8;

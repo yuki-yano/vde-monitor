@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 
-import { resolveActivityTimestamp } from "../activity-resolver.js";
-import { type PaneRuntimeState, updateOutputAt } from "./pane-state.js";
+import { resolveActivityTimestamp } from "../activity-resolver";
+import { type PaneRuntimeState, updateOutputAt } from "./pane-state";
 
 export type PaneOutputSnapshot = {
   paneId: string;

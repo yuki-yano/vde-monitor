@@ -1,7 +1,7 @@
 import {
   type CaptureOptions,
   captureTerminalScreen as captureTerminalScreenImpl,
-} from "./screen/capture.js";
+} from "./screen/capture";
 
 export const captureTerminalScreen = async (
   tty: string | null | undefined,
