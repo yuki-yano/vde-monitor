@@ -36,16 +36,16 @@ export const isDangerousText = (text: string) => {
 
 export const diffLineClass = (line: string) => {
   if (line.startsWith("+++ ") || line.startsWith("--- ")) {
-    return "text-latte-subtext0 bg-latte-surface0/30";
+    return "text-latte-subtext0";
   }
   if (line.startsWith("@@")) {
-    return "text-latte-lavender bg-latte-lavender/10 font-semibold";
+    return "text-latte-lavender font-semibold";
   }
   if (line.startsWith("+")) {
-    return "text-latte-green bg-latte-green/15";
+    return "text-latte-green";
   }
   if (line.startsWith("-")) {
-    return "text-latte-red bg-latte-red/15";
+    return "text-latte-red";
   }
   return "text-latte-text";
 };
