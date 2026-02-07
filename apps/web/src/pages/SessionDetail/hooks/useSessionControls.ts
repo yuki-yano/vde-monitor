@@ -86,6 +86,18 @@ export const insertIntoTextarea = (textarea: HTMLTextAreaElement, insertText: st
   textarea.selectionEnd = nextCaret;
 };
 
+const isWhitespace = (char: string) => /\s/u.test(char);
+
+export const buildImagePathInsertText = (
+  textarea: HTMLTextAreaElement,
+  imagePath: string,
+): string => {
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const previousChar = start > 0 ? (textarea.value[start - 1] ?? "") : "";
+  const prefix = start > 0 && !isWhitespace(previousChar) ? "\n" : "";
+  return `${prefix}${imagePath}\n`;
+};
+
 export const useSessionControls = ({
   paneId,
   mode,
@@ -175,7 +187,7 @@ export const useSessionControls = ({
       }
       try {
         const attachment = await uploadImageAttachment(paneId, file);
-        insertIntoTextarea(textarea, attachment.insertText);
+        insertIntoTextarea(textarea, buildImagePathInsertText(textarea, attachment.path));
         setScreenError(null);
       } catch (error) {
         setScreenError(error instanceof Error ? error.message : API_ERROR_MESSAGES.uploadImage);

@@ -10,6 +10,7 @@ import {
   Send,
 } from "lucide-react";
 import {
+  type ClipboardEvent,
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent,
@@ -79,6 +80,7 @@ const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
 const COMPOSER_PILL_CLASS = "h-8 px-1.5 text-[10px] tracking-[0.18em]";
 const MODIFIER_TOGGLE_CLASS = "h-8 px-2.5 py-0.5 text-[10px] tracking-[0.16em]";
 const KEY_BUTTON_CLASS = "h-8 min-w-[44px] px-2 text-[10px] tracking-[0.12em]";
+const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const resolveRawModeInputClass = (rawMode: boolean, allowDangerKeys: boolean) => {
   if (!rawMode) return RAW_MODE_INPUT_CLASS_DEFAULT;
@@ -98,6 +100,32 @@ const resolveModifierDotClass = (active: boolean) =>
 
 const isSendShortcut = (event: KeyboardEvent<HTMLTextAreaElement>) =>
   event.key === "Enter" && (event.ctrlKey || event.metaKey);
+
+const isAllowedImageMimeType = (file: File) => ALLOWED_IMAGE_MIME_TYPES.has(file.type);
+
+const extractAllowedImageFileFromClipboard = (data: DataTransfer | null): File | null => {
+  if (!data) {
+    return null;
+  }
+
+  const itemFiles = Array.from(data.items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+  for (const file of itemFiles) {
+    if (isAllowedImageMimeType(file)) {
+      return file;
+    }
+  }
+
+  const directFiles = Array.from(data.files ?? []);
+  for (const file of directFiles) {
+    if (isAllowedImageMimeType(file)) {
+      return file;
+    }
+  }
+  return null;
+};
 
 const handlePromptInput = ({
   event,
@@ -464,6 +492,23 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
   const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) =>
     handlePromptKeyDown({ event, rawMode, onRawKeyDown, onSend: handleSendText });
 
+  const handleTextareaPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (rawMode) {
+      return;
+    }
+    const file = extractAllowedImageFileFromClipboard(event.clipboardData);
+    if (!file) {
+      return;
+    }
+    event.preventDefault();
+    const result = onPickImage(file);
+    void Promise.resolve(result).finally(() => {
+      if (textInputRef.current) {
+        syncPromptHeight(textInputRef.current);
+      }
+    });
+  };
+
   const handlePickImage = () => {
     if (!interactive) {
       return;
@@ -509,6 +554,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
               onCompositionEnd={onRawCompositionEnd}
               onInput={handleTextareaInput}
               onKeyDown={handleTextareaKeyDown}
+              onPaste={handleTextareaPaste}
               style={{
                 transform: `scale(${PROMPT_SCALE})`,
                 transformOrigin: "top left",

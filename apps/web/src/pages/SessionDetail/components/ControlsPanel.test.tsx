@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ControlsPanel } from "./ControlsPanel";
@@ -37,6 +37,16 @@ describe("ControlsPanel", () => {
     onRawCompositionEnd: vi.fn(),
     ...overrides,
   });
+
+  const firePaste = (target: HTMLElement, clipboardData: Partial<DataTransfer>) => {
+    const event = createEvent.paste(target, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: clipboardData,
+      configurable: true,
+    });
+    fireEvent(target, event);
+    return event;
+  };
 
   it("invokes send and toggle handlers", () => {
     const onSendText = vi.fn();
@@ -116,5 +126,108 @@ describe("ControlsPanel", () => {
 
     const button = screen.getByLabelText("Attach image") as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+  });
+
+  it("uploads pasted image from clipboard items and prevents default paste", () => {
+    const onPickImage = vi.fn();
+    const state = buildState();
+    const actions = buildActions({ onPickImage });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByRole("textbox");
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
+    const event = firePaste(textarea, {
+      items: [
+        {
+          kind: "file",
+          getAsFile: () => file,
+        } as DataTransferItem,
+      ] as unknown as DataTransferItemList,
+      files: [] as unknown as FileList,
+    });
+
+    expect(onPickImage).toHaveBeenCalledWith(file);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("uploads pasted image from clipboard files fallback", () => {
+    const onPickImage = vi.fn();
+    const state = buildState();
+    const actions = buildActions({ onPickImage });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByRole("textbox");
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.jpeg", { type: "image/jpeg" });
+    firePaste(textarea, {
+      items: [] as unknown as DataTransferItemList,
+      files: [file] as unknown as FileList,
+    });
+
+    expect(onPickImage).toHaveBeenCalledWith(file);
+  });
+
+  it("does not handle pasted image when mime type is not allowed", () => {
+    const onPickImage = vi.fn();
+    const state = buildState();
+    const actions = buildActions({ onPickImage });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByRole("textbox");
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.gif", { type: "image/gif" });
+    const event = firePaste(textarea, {
+      items: [
+        {
+          kind: "file",
+          getAsFile: () => file,
+        } as DataTransferItem,
+      ] as unknown as DataTransferItemList,
+      files: [] as unknown as FileList,
+    });
+
+    expect(onPickImage).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("does not handle non-image paste", () => {
+    const onPickImage = vi.fn();
+    const state = buildState();
+    const actions = buildActions({ onPickImage });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByRole("textbox");
+    const event = firePaste(textarea, {
+      items: [
+        {
+          kind: "string",
+          getAsFile: () => null,
+        } as DataTransferItem,
+      ] as unknown as DataTransferItemList,
+      files: [] as unknown as FileList,
+    });
+
+    expect(onPickImage).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("does not handle image paste in raw mode", () => {
+    const onPickImage = vi.fn();
+    const state = buildState({ rawMode: true });
+    const actions = buildActions({ onPickImage });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByRole("textbox");
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.webp", { type: "image/webp" });
+    const event = firePaste(textarea, {
+      items: [
+        {
+          kind: "file",
+          getAsFile: () => file,
+        } as DataTransferItem,
+      ] as unknown as DataTransferItemList,
+      files: [] as unknown as FileList,
+    });
+
+    expect(onPickImage).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
   });
 });

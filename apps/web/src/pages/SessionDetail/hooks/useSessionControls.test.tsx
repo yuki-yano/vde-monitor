@@ -90,7 +90,7 @@ describe("useSessionControls", () => {
       mimeType: "image/png",
       size: 3,
       createdAt: "2026-02-06T00:00:00.000Z",
-      insertText: "/tmp/vde-monitor/attachments/%251/mobile-20260206-000000-abcd1234.png ",
+      insertText: "/tmp/ignored-by-client.png ",
     });
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
@@ -124,14 +124,11 @@ describe("useSessionControls", () => {
       await result.current.handleUploadImage(file);
     });
 
+    const expectedPath = "/tmp/vde-monitor/attachments/%251/mobile-20260206-000000-abcd1234.png";
     expect(uploadImageAttachment).toHaveBeenCalledWith("pane-1", file);
-    expect(textarea.value).toBe(
-      "hello/tmp/vde-monitor/attachments/%251/mobile-20260206-000000-abcd1234.png  world",
-    );
+    expect(textarea.value).toBe(`hello\n${expectedPath}\n world`);
     expect(textarea.selectionStart).toBe(textarea.selectionEnd);
-    expect(textarea.selectionStart).toBe(
-      "hello/tmp/vde-monitor/attachments/%251/mobile-20260206-000000-abcd1234.png ".length,
-    );
+    expect(textarea.selectionStart).toBe(`hello\n${expectedPath}\n`.length);
   });
 
   it("replaces selected prompt text with uploaded image path", async () => {
@@ -143,7 +140,7 @@ describe("useSessionControls", () => {
       mimeType: "image/png",
       size: 3,
       createdAt: "2026-02-06T00:00:00.000Z",
-      insertText: "/tmp/image.png ",
+      insertText: "/tmp/ignored-by-client.png ",
     });
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
@@ -176,8 +173,53 @@ describe("useSessionControls", () => {
       await result.current.handleUploadImage(createImageFile());
     });
 
-    expect(textarea.value).toBe("prefix /tmp/image.png  suffix");
+    expect(textarea.value).toBe("prefix /tmp/image.png\n suffix");
     expect(setScreenError).toHaveBeenCalledWith(null);
+  });
+
+  it("does not prepend newline when previous character is full-width space", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const uploadImageAttachment = vi.fn().mockResolvedValue({
+      path: "/tmp/image.png",
+      mimeType: "image/png",
+      size: 3,
+      createdAt: "2026-02-06T00:00:00.000Z",
+      insertText: "/tmp/ignored-by-client.png ",
+    });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          uploadImageAttachment,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "hello　world";
+    textarea.selectionStart = 6;
+    textarea.selectionEnd = 6;
+
+    act(() => {
+      result.current.textInputRef.current = textarea;
+    });
+
+    await act(async () => {
+      await result.current.handleUploadImage(createImageFile());
+    });
+
+    expect(textarea.value).toBe("hello　/tmp/image.png\nworld");
   });
 
   it("shows upload errors and keeps existing prompt text", async () => {
