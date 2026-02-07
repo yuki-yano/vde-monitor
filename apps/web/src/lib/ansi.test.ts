@@ -80,6 +80,51 @@ describe("renderAnsiLines", () => {
     expect(lines[3]).toContain('class="text-latte-text"');
   });
 
+  it("normalizes Claude prompt block background colors", () => {
+    const text = [
+      "\u001b[44m❯ hello\u001b[0m",
+      "\u001b[47m    \u001b[0m",
+      "\u001b[47m  claude\u001b[0m",
+      "output",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    const readBg = (line: string) =>
+      line
+        .match(/background-color:\s*([^;"']+)/i)?.[1]
+        ?.trim()
+        .toLowerCase() ?? null;
+    const blockColor = readBg(lines[0] ?? "");
+    expect(blockColor).not.toBeNull();
+    expect(readBg(lines[1] ?? "")).toBe(blockColor);
+    expect(readBg(lines[2] ?? "")).toBe(blockColor);
+  });
+
+  it("normalizes single-line Claude prompt background and pads full width", () => {
+    const text = ["\u001b[48;2;55;55;55m❯ hello\u001b[49m", "response"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    const readBg = (line: string) =>
+      line
+        .match(/background-color:\s*([^;"']+)/i)?.[1]
+        ?.trim()
+        .toLowerCase() ?? null;
+    expect(lines[0]).toContain("display:block; width:100%");
+    expect(readBg(lines[0] ?? "")).not.toBeNull();
+    expect(lines[1]).not.toContain("display:block; width:100%");
+  });
+
+  it("does not add Claude prompt highlight to neighboring non-highlight lines", () => {
+    const text = [
+      "\u001b[48;2;55;55;55m❯ hello\u001b[49m",
+      "  continuation without background",
+      "response",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    expect(lines[0]).toContain("display:block; width:100%");
+    expect(lines[1]).not.toContain("display:block; width:100%");
+    expect(lines[1]).not.toContain("background-color:");
+    expect(lines[2]).not.toContain("display:block; width:100%");
+  });
+
   it("does not format line-number blocks without diff markers", () => {
     const text = ["  1 foo", "  2 bar"].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });

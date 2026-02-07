@@ -8,12 +8,14 @@ import { applyClaudeDiffMask, buildClaudeDiffMask, renderClaudeDiffLine } from "
 import { blendRgb, contrastRatio, luminance, parseColor } from "./ansi-colors";
 import {
   ensureLineContent,
+  extractBackgroundColor,
   isUnicodeTableHtmlLine,
   normalizeUnicodeTableLines,
   replaceBackgroundColors,
   splitLines,
   stripAnsi,
   unwrapUnicodeTableHtmlLine,
+  wrapLineBackground,
 } from "./ansi-text-utils";
 
 const catppuccinLatteAnsi: Record<number, string> = {
@@ -256,7 +258,7 @@ const renderClaudeLines = (
   const plainLines = lines.map((line) => (isUnicodeTableHtmlLine(line) ? "" : stripAnsi(line)));
   const diffMask = buildClaudeDiffMask(plainLines);
   const maskedHtml = applyClaudeDiffMask(plainLines, diffMask);
-  return lines.map((line, index) => {
+  const rendered = lines.map((line, index) => {
     if (isUnicodeTableHtmlLine(line)) {
       return ensureLineContent(unwrapUnicodeTableHtmlLine(line));
     }
@@ -268,6 +270,89 @@ const renderClaudeLines = (
     const masked = maskedHtml[index] ?? renderClaudeDiffLine(plainLine);
     return ensureLineContent(masked);
   });
+  return normalizeClaudePromptBackgrounds(rendered, plainLines);
+};
+
+const claudePromptStartPattern = /^\s*\u276f(?:\s|$)/;
+const startsWithWhitespacePattern = /^\s/;
+
+const resolvePromptBlockEnd = (plainLines: string[], start: number) => {
+  for (let index = start + 1; index < plainLines.length; index += 1) {
+    const line = plainLines[index] ?? "";
+    if (claudePromptStartPattern.test(line)) {
+      return index;
+    }
+    if (line.trim().length > 0 && !startsWithWhitespacePattern.test(line)) {
+      return index;
+    }
+  }
+  return plainLines.length;
+};
+
+const pickPromptBlockColor = (renderedLines: string[], start: number, endExclusive: number) => {
+  const entries = new Map<string, { count: number; first: number }>();
+  for (let index = start; index < endExclusive; index += 1) {
+    const color = extractBackgroundColor(renderedLines[index] ?? "");
+    const normalized = color?.trim().toLowerCase();
+    if (!normalized || normalized === "transparent") {
+      continue;
+    }
+    const entry = entries.get(normalized);
+    if (entry) {
+      entry.count += 1;
+      continue;
+    }
+    entries.set(normalized, { count: 1, first: index });
+  }
+  let bestColor: string | null = null;
+  let bestCount = -1;
+  let bestFirst = Number.POSITIVE_INFINITY;
+  entries.forEach((value, color) => {
+    if (value.count > bestCount || (value.count === bestCount && value.first < bestFirst)) {
+      bestColor = color;
+      bestCount = value.count;
+      bestFirst = value.first;
+    }
+  });
+  return bestColor;
+};
+
+const normalizePromptLineBackground = (html: string, color: string) =>
+  wrapLineBackground(
+    replaceBackgroundColors(html, (match, rawValue) => {
+      const normalized = rawValue.trim().toLowerCase();
+      if (normalized === "transparent") {
+        return match;
+      }
+      return `background-color:${color}`;
+    }),
+    color,
+  );
+
+const normalizeClaudePromptBackgrounds = (renderedLines: string[], plainLines: string[]) => {
+  const normalized = [...renderedLines];
+  let index = 0;
+  while (index < plainLines.length) {
+    const line = plainLines[index] ?? "";
+    if (!claudePromptStartPattern.test(line)) {
+      index += 1;
+      continue;
+    }
+    const endExclusive = resolvePromptBlockEnd(plainLines, index);
+    const color = pickPromptBlockColor(normalized, index, endExclusive);
+    if (color) {
+      for (let cursor = index; cursor < endExclusive; cursor += 1) {
+        const html = normalized[cursor] ?? "";
+        const currentBg = extractBackgroundColor(html)?.trim().toLowerCase();
+        if (!currentBg || currentBg === "transparent") {
+          continue;
+        }
+        normalized[cursor] = normalizePromptLineBackground(html, color);
+      }
+    }
+    index = endExclusive;
+  }
+  return normalized;
 };
 
 export const renderAnsi = (text: string, theme: Theme = "latte"): string => {

@@ -15,6 +15,50 @@ vi.mock("../screen-service.js", () => ({
 }));
 
 describe("createScreenResponse", () => {
+  it("enables joinLines for claude sessions even when config is disabled", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: null,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "%1",
+      paneTty: "tty1",
+      alternateOn: false,
+      agent: "claude",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+
+    const response = await createScreenResponse({
+      config: {
+        ...baseConfig,
+        screen: {
+          ...baseConfig.screen,
+          joinLines: false,
+        },
+      },
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(captureText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paneId: "%1",
+        lines: 5,
+        joinLines: true,
+      }),
+    );
+  });
+
   it("returns rate limit error when limiter blocks", async () => {
     const monitor = { getScreenCapture: () => ({ captureText: vi.fn() }) } as unknown as Monitor;
     const target = { paneId: "%1", paneTty: "tty1", alternateOn: false } as SessionDetail;

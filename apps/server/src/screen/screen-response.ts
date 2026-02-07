@@ -20,6 +20,9 @@ type ScreenResponseParams = {
   buildTextResponse: ScreenCache["buildTextResponse"];
 };
 
+const resolveJoinLines = (config: AgentMonitorConfig, target: SessionDetail) =>
+  config.screen.joinLines || target.agent === "claude";
+
 export const createScreenResponse = async ({
   config,
   monitor,
@@ -41,7 +44,7 @@ export const createScreenResponse = async ({
       const text = await monitor.getScreenCapture().captureText({
         paneId: target.paneId,
         lines: lineCount,
-        joinLines: config.screen.joinLines,
+        joinLines: resolveJoinLines(config, target),
         includeAnsi: config.screen.ansi,
         altScreen: config.screen.altScreen,
         alternateOn: target.alternateOn,
