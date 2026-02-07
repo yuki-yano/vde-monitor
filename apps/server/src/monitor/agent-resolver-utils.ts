@@ -1,9 +1,10 @@
 import path from "node:path";
 
+import { isEditorCommand as isSharedEditorCommand } from "@vde-monitor/shared";
+
 export type AgentType = "codex" | "claude" | "unknown";
 
 const agentHintPattern = /codex|claude/i;
-const editorCommandNames = new Set(["vim", "nvim", "vi", "gvim", "nvim-qt", "neovim"]);
 const shellCommandNames = new Set(["bash", "zsh", "fish"]);
 
 export const buildAgent = (hint: string): AgentType => {
@@ -17,12 +18,7 @@ export const mergeHints = (...parts: Array<string | null | undefined>) =>
   parts.filter((part) => Boolean(part && part.trim().length > 0)).join(" ");
 
 export const isEditorCommand = (command: string | null | undefined) => {
-  if (!command) return false;
-  const trimmed = command.trim();
-  if (!trimmed) return false;
-  const binary = trimmed.split(/\s+/)[0] ?? "";
-  if (!binary) return false;
-  return editorCommandNames.has(path.basename(binary));
+  return isSharedEditorCommand(command);
 };
 
 export const editorCommandHasAgentArg = (command: string | null | undefined) => {
@@ -31,7 +27,7 @@ export const editorCommandHasAgentArg = (command: string | null | undefined) => 
   if (!trimmed) return false;
   const tokens = trimmed.split(/\s+/);
   const binary = tokens.shift() ?? "";
-  if (!editorCommandNames.has(path.basename(binary))) {
+  if (!isEditorCommand(binary)) {
     return false;
   }
   const rest = tokens.join(" ");

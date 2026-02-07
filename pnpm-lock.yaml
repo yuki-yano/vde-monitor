@@ -214,6 +214,9 @@ importers:
 
   packages/tmux:
     dependencies:
+      '@vde-monitor/shared':
+        specifier: workspace:*
+        version: link:../shared
       execa:
         specifier: ^9.6.0
         version: 9.6.1

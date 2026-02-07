@@ -92,4 +92,18 @@ describe("SessionCard", () => {
     expect(title.className).toContain("truncate");
     expect(title.className).toContain("max-w-full");
   });
+
+  it("shows EDITOR badge for unknown state with nvim command", () => {
+    const session = buildSession({
+      state: "UNKNOWN",
+      currentCommand: "nvim",
+      agent: "unknown",
+    });
+    renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
+
+    const link = screen.getByRole("link");
+    expect(link.firstElementChild?.className).toContain("border-latte-maroon/55");
+    expect(screen.getByText("EDITOR")).toBeTruthy();
+    expect(screen.queryByText("UNKNOWN")).toBeNull();
+  });
 });

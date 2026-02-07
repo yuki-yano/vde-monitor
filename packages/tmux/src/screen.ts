@@ -1,3 +1,5 @@
+import { isEditorCommand } from "@vde-monitor/shared";
+
 import type { TmuxAdapter } from "./adapter";
 
 export type TextCaptureOptions = {
@@ -7,6 +9,7 @@ export type TextCaptureOptions = {
   includeAnsi: boolean;
   altScreen: "auto" | "on" | "off";
   alternateOn: boolean;
+  currentCommand?: string | null;
 };
 
 export type TextCaptureResult = {
@@ -24,6 +27,10 @@ const normalizeScreen = (text: string, lineLimit: number): string => {
     return lines.slice(-lineLimit).join("\n");
   }
   return lines.join("\n");
+};
+
+const shouldUsePrimaryBuffer = (command?: string | null): boolean => {
+  return isEditorCommand(command);
 };
 
 const resolveAltFlag = (altScreen: "auto" | "on" | "off", alternateOn: boolean): boolean => {
@@ -60,7 +67,10 @@ const getPaneSize = async (
 };
 
 export const createScreenCapture = (adapter: TmuxAdapter) => {
-  const captureText = async (options: TextCaptureOptions): Promise<TextCaptureResult> => {
+  const runCapture = async (
+    options: TextCaptureOptions,
+    useAlt: boolean,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
     const args = ["capture-pane", "-p", "-t", options.paneId];
     if (options.joinLines) {
       args.push("-J");
@@ -68,13 +78,19 @@ export const createScreenCapture = (adapter: TmuxAdapter) => {
     if (options.includeAnsi) {
       args.push("-e");
     }
-    const useAlt = resolveAltFlag(options.altScreen, options.alternateOn);
     if (useAlt) {
       args.push("-a");
     }
     args.push("-S", `-${options.lines}`, "-E", "-");
+    return adapter.run(args);
+  };
 
-    const result = await adapter.run(args);
+  const captureText = async (options: TextCaptureOptions): Promise<TextCaptureResult> => {
+    const useAlt = resolveAltFlag(options.altScreen, options.alternateOn);
+    const result = await runCapture(
+      options,
+      useAlt && !shouldUsePrimaryBuffer(options.currentCommand),
+    );
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || "capture-pane failed");
     }

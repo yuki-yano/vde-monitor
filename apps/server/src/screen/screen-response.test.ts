@@ -59,6 +59,96 @@ describe("createScreenResponse", () => {
     );
   });
 
+  it("forces altScreen on for editor sessions", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: null,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "%1",
+      paneTty: "tty1",
+      alternateOn: false,
+      agent: "unknown",
+      currentCommand: "nvim",
+      startCommand: "zsh",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+
+    const response = await createScreenResponse({
+      config: {
+        ...baseConfig,
+        screen: {
+          ...baseConfig.screen,
+          altScreen: "off",
+        },
+      },
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(captureText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        altScreen: "on",
+        currentCommand: "nvim",
+      }),
+    );
+  });
+
+  it("keeps altScreen auto for non-editor sessions", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: null,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "%1",
+      paneTty: "tty1",
+      alternateOn: false,
+      agent: "unknown",
+      currentCommand: "zsh",
+      startCommand: "zsh",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+
+    const response = await createScreenResponse({
+      config: {
+        ...baseConfig,
+        screen: {
+          ...baseConfig.screen,
+          altScreen: "auto",
+        },
+      },
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(captureText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        altScreen: "auto",
+        currentCommand: "zsh",
+      }),
+    );
+  });
+
   it("returns rate limit error when limiter blocks", async () => {
     const monitor = { getScreenCapture: () => ({ captureText: vi.fn() }) } as unknown as Monitor;
     const target = { paneId: "%1", paneTty: "tty1", alternateOn: false } as SessionDetail;

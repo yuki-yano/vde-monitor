@@ -108,7 +108,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   ...overrides,
 });
 
-const filterValues = ["ALL", "AGENT", "SHELL", "UNKNOWN"] as const;
+const filterValues = ["ALL", "AGENT", "EDITOR", "SHELL", "UNKNOWN"] as const;
 
 const filterOptions = filterValues.map((value) => ({
   value,

@@ -7,6 +7,7 @@ export type TextCaptureOptions = {
   includeAnsi: boolean;
   altScreen: "auto" | "on" | "off";
   alternateOn: boolean;
+  currentCommand?: string | null;
 };
 
 export type TextCaptureResult = {

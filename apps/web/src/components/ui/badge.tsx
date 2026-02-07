@@ -4,7 +4,16 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  tone?: "running" | "waiting" | "permission" | "shell" | "done" | "unknown" | "codex" | "claude";
+  tone?:
+    | "running"
+    | "waiting"
+    | "permission"
+    | "shell"
+    | "editor"
+    | "done"
+    | "unknown"
+    | "codex"
+    | "claude";
   size?: "sm" | "md";
   animateIcon?: boolean;
 };
@@ -17,6 +26,8 @@ const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
   permission:
     "bg-latte-red/25 text-latte-red border-latte-red/60 shadow-[0_0_20px_rgb(var(--ctp-red)/0.5)] animate-pulse-attention",
   shell: "bg-latte-blue/15 text-latte-blue border-latte-blue/40",
+  editor:
+    "bg-latte-maroon/18 text-latte-maroon border-latte-maroon/45 shadow-[0_0_10px_rgb(var(--ctp-maroon)/0.28)]",
   done: "bg-latte-blue/15 text-latte-blue border-latte-blue/40",
   unknown: "bg-latte-surface1 text-latte-overlay1 border-latte-overlay0/60",
   codex: "bg-latte-mauve/15 text-latte-mauve border-latte-mauve/40",
@@ -35,6 +46,7 @@ const toneIcon: Record<
     <AlertTriangle className={cn(animate ? "animate-bounce-subtle" : null, className)} />
   ),
   shell: (className) => <Circle className={className} />,
+  editor: (className) => <Circle className={className} />,
   done: (className) => <CheckCircle className={className} />,
   unknown: (className) => <Circle className={className} />,
   codex: (className) => <Sparkles className={className} />,

@@ -131,4 +131,23 @@ describe("SessionHeader", () => {
     expect(screen.getByText("Connection lost")).toBeTruthy();
     expect(screen.getByText("Title error")).toBeTruthy();
   });
+
+  it("shows EDITOR badge for unknown state with vim command", () => {
+    const session = createSessionDetail({
+      state: "UNKNOWN",
+      currentCommand: "vim",
+      agent: "unknown",
+    });
+    const state = buildState({
+      session,
+      titleDraft: "Session Title",
+    });
+    const actions = buildActions();
+
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    const editorBadge = screen.getByText("EDITOR");
+    expect(editorBadge.className).toContain("text-latte-maroon");
+    expect(screen.queryByText("UNKNOWN")).toBeNull();
+  });
 });

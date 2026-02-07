@@ -2,6 +2,7 @@ import type { AgentMonitorConfig, ScreenResponse, SessionDetail } from "@vde-mon
 
 import { buildError, nowIso } from "../http/helpers";
 import type { createSessionMonitor } from "../monitor";
+import { isEditorCommand } from "../monitor/agent-resolver-utils";
 import { captureTerminalScreen } from "../screen-service";
 import type { ScreenCache } from "./screen-cache";
 
@@ -22,6 +23,13 @@ type ScreenResponseParams = {
 
 const resolveJoinLines = (config: AgentMonitorConfig, target: SessionDetail) =>
   config.screen.joinLines || target.agent === "claude";
+
+const resolveAltScreenMode = (config: AgentMonitorConfig, target: SessionDetail) => {
+  if (isEditorCommand(target.currentCommand) || isEditorCommand(target.startCommand)) {
+    return "on" as const;
+  }
+  return config.screen.altScreen;
+};
 
 export const createScreenResponse = async ({
   config,
@@ -46,8 +54,9 @@ export const createScreenResponse = async ({
         lines: lineCount,
         joinLines: resolveJoinLines(config, target),
         includeAnsi: config.screen.ansi,
-        altScreen: config.screen.altScreen,
+        altScreen: resolveAltScreenMode(config, target),
         alternateOn: target.alternateOn,
+        currentCommand: target.currentCommand ?? target.startCommand,
       });
       return buildTextResponse({
         paneId: target.paneId,

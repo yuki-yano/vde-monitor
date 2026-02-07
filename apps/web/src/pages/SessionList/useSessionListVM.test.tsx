@@ -82,6 +82,9 @@ const TestComponent = () => {
       <button type="button" onClick={() => vm.onFilterChange("UNKNOWN")}>
         set-unknown
       </button>
+      <button type="button" onClick={() => vm.onFilterChange("EDITOR")}>
+        set-editor
+      </button>
       <button type="button" onClick={() => vm.onFilterChange("invalid")}>
         set-invalid
       </button>
@@ -134,6 +137,14 @@ describe("useSessionListVM", () => {
     fireEvent.click(screen.getByRole("button", { name: "set-unknown" }));
     await waitFor(() => {
       expect(screen.getByTestId("filter").textContent).toBe("UNKNOWN");
+    });
+  });
+
+  it("accepts EDITOR filter value", async () => {
+    await renderWithRouter(["/?filter=AGENT"]);
+    fireEvent.click(screen.getByRole("button", { name: "set-editor" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("filter").textContent).toBe("EDITOR");
     });
   });
 

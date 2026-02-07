@@ -12,6 +12,7 @@ export {
   formatRelativeTime,
   formatStateLabel,
   getLastInputTone,
+  isEditorCommand,
   isKnownAgent,
   stateTone,
 } from "@/lib/session-format";

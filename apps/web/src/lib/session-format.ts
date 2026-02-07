@@ -1,3 +1,5 @@
+import { isEditorCommand as isSharedEditorCommand } from "@vde-monitor/shared";
+
 export const stateTone = (state: string) => {
   switch (state) {
     case "RUNNING":
@@ -11,6 +13,10 @@ export const stateTone = (state: string) => {
     default:
       return "unknown";
   }
+};
+
+export const isEditorCommand = (command: string | null | undefined) => {
+  return isSharedEditorCommand(command);
 };
 
 export const formatStateLabel = (state: string) => {

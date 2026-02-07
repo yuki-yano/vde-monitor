@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
-import type { SessionGroup } from "@/lib/session-group";
+import { buildSessionGroups, type SessionGroup } from "@/lib/session-group";
 import {
   buildSessionWindowGroups,
   type SessionWindowGroup,
@@ -35,6 +35,7 @@ import {
   formatRelativeTime,
   formatStateLabel,
   getLastInputTone,
+  isEditorCommand,
   isKnownAgent,
 } from "../sessionDetailUtils";
 import { buildTimelineDisplay } from "./state-timeline-display";
@@ -129,7 +130,15 @@ const SessionSidebarItem = memo(
   }: SessionSidebarItemProps) => {
     const displayTitle = item.customTitle ?? item.title ?? item.sessionName;
     const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
-    const statusMeta = statusIconMeta(item.state);
+    const showEditorState = item.state === "UNKNOWN" && isEditorCommand(item.currentCommand);
+    const statusMeta = showEditorState
+      ? {
+          ...statusIconMeta("UNKNOWN"),
+          className: "text-latte-maroon",
+          wrap: "border-latte-maroon/45 bg-latte-maroon/14",
+          label: "EDITOR",
+        }
+      : statusIconMeta(item.state);
     const StatusIcon = statusMeta.icon;
 
     const handleRef = useCallback(
@@ -447,22 +456,17 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const [filter, setFilter] = useState<SessionListFilter>(DEFAULT_SESSION_LIST_FILTER);
   const [focusPendingPaneIds, setFocusPendingPaneIds] = useState<Set<string>>(() => new Set());
 
+  const filteredSessions = useMemo(
+    () =>
+      sessionGroups
+        .flatMap((group) => group.sessions)
+        .filter((session) => matchesSessionListFilter(session, filter)),
+    [filter, sessionGroups],
+  );
+
   const filteredSessionGroups = useMemo(() => {
-    return sessionGroups
-      .map((group) => {
-        const filteredSessions = group.sessions.filter((session) =>
-          matchesSessionListFilter(session, filter),
-        );
-        if (filteredSessions.length === 0) {
-          return null;
-        }
-        return {
-          ...group,
-          sessions: filteredSessions,
-        };
-      })
-      .filter((group): group is SessionGroup => Boolean(group));
-  }, [filter, sessionGroups]);
+    return buildSessionGroups(filteredSessions);
+  }, [filteredSessions]);
 
   const sidebarGroups = useMemo(() => {
     return filteredSessionGroups

@@ -11,6 +11,7 @@ import {
   formatRelativeTime,
   formatStateLabel,
   getLastInputTone,
+  isEditorCommand,
   isKnownAgent,
   stateTone,
 } from "@/lib/session-format";
@@ -49,6 +50,11 @@ const sessionStateStyles: Record<
   },
 };
 
+const editorSessionStyle = {
+  card: "border-latte-maroon/55 shadow-[0_14px_30px_-20px_rgb(var(--ctp-maroon)/0.55)]",
+  overlay: "from-latte-maroon/8",
+} as const;
+
 const resolveSessionTitle = (session: SessionSummary) => {
   if (session.customTitle) return session.customTitle;
   if (session.title) return session.title;
@@ -57,9 +63,12 @@ const resolveSessionTitle = (session: SessionSummary) => {
 
 export const SessionCard = ({ session, nowMs }: SessionCardProps) => {
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
-  const stateStyle = sessionStateStyles[session.state];
   const sessionTitle = resolveSessionTitle(session);
   const showAgentBadge = isKnownAgent(session.agent);
+  const showEditorState = session.state === "UNKNOWN" && isEditorCommand(session.currentCommand);
+  const stateStyle = showEditorState ? editorSessionStyle : sessionStateStyles[session.state];
+  const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
+  const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
 
   return (
     <Link
@@ -83,8 +92,8 @@ export const SessionCard = ({ session, nowMs }: SessionCardProps) => {
 
         <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-            <Badge tone={stateTone(session.state)} size="sm">
-              {formatStateLabel(session.state)}
+            <Badge tone={stateBadgeTone} size="sm">
+              {stateBadgeLabel}
             </Badge>
             {showAgentBadge && (
               <Badge tone={agentToneFor(session.agent)} size="sm">

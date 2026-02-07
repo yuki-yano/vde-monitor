@@ -160,11 +160,20 @@ describe("SessionSidebar", () => {
       windowIndex: 1,
       sessionName: "alpha",
     });
+    const editorSession = createSessionDetail({
+      paneId: "pane-3",
+      title: "Neovim Session",
+      currentCommand: "nvim",
+      agent: "unknown",
+      state: "UNKNOWN",
+      windowIndex: 1,
+      sessionName: "alpha",
+    });
     const state = buildState({
       sessionGroups: [
         {
           repoRoot: "/Users/test/repo",
-          sessions: [agentSession, shellSession],
+          sessions: [agentSession, shellSession, editorSession],
           lastInputAt: agentSession.lastInputAt,
         },
       ],
@@ -179,6 +188,66 @@ describe("SessionSidebar", () => {
 
     expect(screen.getByText("Shell Session")).toBeTruthy();
     expect(screen.queryByText("Codex Session")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "EDITOR" }));
+
+    expect(screen.getByText("Neovim Session")).toBeTruthy();
+    const editorIcon = screen.getByLabelText("EDITOR");
+    expect(editorIcon.className).toContain("border-latte-maroon/45");
+    expect(screen.queryByText("Codex Session")).toBeNull();
+    expect(screen.queryByText("Shell Session")).toBeNull();
+  });
+
+  it("reorders repo groups by filtered sessions like session list", () => {
+    const repoAAgent = createSessionDetail({
+      paneId: "pane-a-agent",
+      title: "Repo A Agent",
+      repoRoot: "/Users/test/repo-a",
+      sessionName: "alpha",
+      windowIndex: 1,
+      state: "RUNNING",
+      lastInputAt: "2026-02-07T10:00:00.000Z",
+    });
+    const repoAShell = createSessionDetail({
+      paneId: "pane-a-shell",
+      title: "Repo A Shell",
+      repoRoot: "/Users/test/repo-a",
+      sessionName: "alpha",
+      windowIndex: 1,
+      state: "SHELL",
+      agent: "unknown",
+      lastInputAt: "2026-02-07T12:00:00.000Z",
+    });
+    const repoBAgent = createSessionDetail({
+      paneId: "pane-b-agent",
+      title: "Repo B Agent",
+      repoRoot: "/Users/test/repo-b",
+      sessionName: "beta",
+      windowIndex: 1,
+      state: "RUNNING",
+      lastInputAt: "2026-02-07T11:00:00.000Z",
+    });
+
+    const state = buildState({
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo-a",
+          sessions: [repoAAgent, repoAShell],
+          lastInputAt: repoAShell.lastInputAt,
+        },
+        {
+          repoRoot: "/Users/test/repo-b",
+          sessions: [repoBAgent],
+          lastInputAt: repoBAgent.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
+
+    const links = screen.getAllByRole("link");
+    expect(links[0]?.textContent).toContain("Repo B Agent");
+    expect(links[1]?.textContent).toContain("Repo A Agent");
   });
 
   it("calls onFocusPane without triggering session selection", () => {

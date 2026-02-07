@@ -16,6 +16,7 @@ import {
   formatRelativeTime,
   formatStateLabel,
   getLastInputTone,
+  isEditorCommand,
   isKnownAgent,
   stateTone,
 } from "../sessionDetailUtils";
@@ -243,6 +244,9 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
   const lastInputTone = getLastInputTone(session.lastInputAt ?? null, nowMs);
+  const showEditorState = session.state === "UNKNOWN" && isEditorCommand(session.currentCommand);
+  const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
+  const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
   const backToListSearch = { filter: readStoredSessionListFilter() };
 
   return (
@@ -272,8 +276,8 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
             onCloseTitleEditor={onCloseTitleEditor}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={stateTone(session.state)} size="sm">
-              {formatStateLabel(session.state)}
+            <Badge tone={stateBadgeTone} size="sm">
+              {stateBadgeLabel}
             </Badge>
             <SessionAgentBadge agent={session.agent} />
             <LastInputPill

@@ -1,6 +1,8 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 
-export const SESSION_LIST_FILTER_VALUES = ["ALL", "AGENT", "SHELL", "UNKNOWN"] as const;
+import { isEditorCommand } from "@/lib/session-format";
+
+export const SESSION_LIST_FILTER_VALUES = ["ALL", "AGENT", "EDITOR", "SHELL", "UNKNOWN"] as const;
 
 export type SessionListFilter = (typeof SESSION_LIST_FILTER_VALUES)[number];
 
@@ -26,11 +28,14 @@ export const storeSessionListFilter = (filter: SessionListFilter) => {
 };
 
 export const matchesSessionListFilter = (
-  session: Pick<SessionSummary, "state">,
+  session: Pick<SessionSummary, "state" | "currentCommand">,
   filter: SessionListFilter,
 ) => {
   if (filter === "ALL") {
     return true;
+  }
+  if (filter === "EDITOR") {
+    return isEditorCommand(session.currentCommand);
   }
   if (filter === "AGENT") {
     return session.state !== "SHELL" && session.state !== "UNKNOWN";

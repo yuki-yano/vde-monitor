@@ -93,6 +93,108 @@ describe("createScreenCapture", () => {
     expect(calls[0]).toContain("-a");
   });
 
+  it("uses primary buffer for editor process even when alt screen is requested", async () => {
+    const calls: string[][] = [];
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        if (args[0] === "capture-pane") {
+          return {
+            stdout: args.includes("-a") ? "alt-buffer\n" : "primary-buffer\n",
+            stderr: "",
+            exitCode: 0,
+          };
+        }
+        if (args[0] === "display-message") {
+          return { stdout: "1\t1", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "unknown", exitCode: 1 };
+      }),
+    };
+
+    const capture = createScreenCapture(adapter);
+    const result = await capture.captureText({
+      paneId: "%1",
+      lines: 10,
+      joinLines: false,
+      includeAnsi: true,
+      altScreen: "on",
+      alternateOn: true,
+      currentCommand: "nvim",
+    });
+
+    expect(calls[0]).not.toContain("-a");
+    expect(result.screen).toBe("primary-buffer");
+  });
+
+  it("uses primary buffer when command includes neovim executable path", async () => {
+    const calls: string[][] = [];
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        if (args[0] === "capture-pane") {
+          return {
+            stdout: args.includes("-a") ? "alt-buffer\n" : "primary-buffer\nline-2\n",
+            stderr: "",
+            exitCode: 0,
+          };
+        }
+        if (args[0] === "display-message") {
+          return { stdout: "1\t1", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "unknown", exitCode: 1 };
+      }),
+    };
+
+    const capture = createScreenCapture(adapter);
+    const result = await capture.captureText({
+      paneId: "%1",
+      lines: 10,
+      joinLines: false,
+      includeAnsi: true,
+      altScreen: "on",
+      alternateOn: true,
+      currentCommand: "/opt/homebrew/bin/neovim -u ~/.config/nvim/init.lua",
+    });
+
+    expect(calls[0]).not.toContain("-a");
+    expect(result.screen).toBe("primary-buffer\nline-2");
+  });
+
+  it("uses primary buffer for nvim-qt command", async () => {
+    const calls: string[][] = [];
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        if (args[0] === "capture-pane") {
+          return {
+            stdout: args.includes("-a") ? "alt-buffer\n" : "primary-buffer\n",
+            stderr: "",
+            exitCode: 0,
+          };
+        }
+        if (args[0] === "display-message") {
+          return { stdout: "1\t1", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "unknown", exitCode: 1 };
+      }),
+    };
+
+    const capture = createScreenCapture(adapter);
+    const result = await capture.captureText({
+      paneId: "%1",
+      lines: 10,
+      joinLines: false,
+      includeAnsi: true,
+      altScreen: "on",
+      alternateOn: true,
+      currentCommand: 'nvim-qt -- --cmd "echo hi"',
+    });
+
+    expect(calls[0]).not.toContain("-a");
+    expect(result.screen).toBe("primary-buffer");
+  });
+
   it("marks truncated false when history size fits in lines", async () => {
     const adapter = {
       run: vi.fn(async (args: string[]) => {
