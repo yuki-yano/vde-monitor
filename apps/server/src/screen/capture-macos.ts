@@ -73,10 +73,12 @@ const captureWithBounds = async (
       const croppedBounds = cropPaneBounds(contentBounds, paneGeometry);
       if (croppedBounds) {
         const imageBase64 = await captureRegion(croppedBounds);
-        if (!imageBase64) {
+        if (!imageBase64 && !allowWindowFallbackForCrop) {
           return null;
         }
-        return { imageBase64, cropped: true };
+        if (imageBase64) {
+          return { imageBase64, cropped: true };
+        }
       }
     } else if (!allowWindowFallbackForCrop) {
       return null;
@@ -112,6 +114,9 @@ export const captureTerminalScreenMacos = async (
 
   const maxAttempts = 3;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempt > 0) {
+      await focusCaptureTarget(app.appName, options);
+    }
     const allowWindowFallbackForCrop = attempt === maxAttempts - 1;
     const captureResult = await captureAttempt(app.appName, options, allowWindowFallbackForCrop);
     if (captureResult) {

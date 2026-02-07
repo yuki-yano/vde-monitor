@@ -142,4 +142,24 @@ describe("captureTerminalScreenMacos", () => {
     expect(captureRegion).toHaveBeenCalledTimes(2);
     expect(getPaneGeometry).not.toHaveBeenCalled();
   });
+
+  it("falls back to uncropped capture on final attempt when cropped region capture fails", async () => {
+    vi.mocked(captureRegion)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce("window-image");
+
+    const capturePromise = captureTerminalScreenMacos("/dev/ttys001", {
+      paneId: "%1",
+    });
+    const result = await settleCapture(capturePromise);
+
+    expect(result).toEqual({ imageBase64: "window-image", cropped: false });
+    expect(captureRegion).toHaveBeenCalledTimes(4);
+    expect(captureRegion).toHaveBeenNthCalledWith(1, croppedBounds);
+    expect(captureRegion).toHaveBeenNthCalledWith(2, croppedBounds);
+    expect(captureRegion).toHaveBeenNthCalledWith(3, croppedBounds);
+    expect(captureRegion).toHaveBeenNthCalledWith(4, baseBounds);
+  });
 });

@@ -114,4 +114,38 @@ describe("useScreenMode", () => {
 
     expect(result.current.modeLoaded).toEqual({ text: false, image: false });
   });
+
+  it("resets mode to text when pane changes", () => {
+    const dispatchScreenLoading = vi.fn();
+    const modeSwitchRef = { current: null as "text" | "image" | null };
+    const cursorRef = { current: null as string | null };
+    const screenLinesRef = { current: [] as string[] };
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      ({ paneId }: { paneId: string }) =>
+        useScreenMode({
+          connected: true,
+          paneId,
+          dispatchScreenLoading,
+          modeSwitchRef,
+          cursorRef,
+          screenLinesRef,
+        }),
+      {
+        wrapper,
+        initialProps: { paneId: "pane-1" },
+      },
+    );
+
+    act(() => {
+      result.current.handleModeChange("image");
+    });
+    expect(result.current.mode).toBe("image");
+
+    act(() => {
+      rerender({ paneId: "pane-2" });
+    });
+    expect(result.current.mode).toBe("text");
+  });
 });

@@ -33,8 +33,9 @@ export const useScreenMode = ({
   }, [modeLoaded]);
 
   useEffect(() => {
+    setMode("text");
     setModeLoaded(initialModeLoaded);
-  }, [paneId, setModeLoaded]);
+  }, [paneId, setMode, setModeLoaded]);
 
   const markModeLoaded = useCallback(
     (value: ScreenMode) => {
