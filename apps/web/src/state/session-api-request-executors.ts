@@ -1,8 +1,10 @@
-import type {
+import {
   ApiEnvelope,
   ApiError,
   CommandResponse,
   HighlightCorrectionConfig,
+  ImageAttachment,
+  imageAttachmentSchema,
   ScreenResponse,
   SessionSummary,
 } from "@vde-monitor/shared";
@@ -223,6 +225,40 @@ export const requestScreenResponse = async ({
       buildApiError,
     });
   }
+};
+
+type RequestImageAttachmentParams = {
+  paneId: string;
+  request: Promise<Response>;
+  ensureToken: EnsureToken;
+  onConnectionIssue: OnConnectionIssue;
+  handleSessionMissing: HandleSessionMissing;
+};
+
+export const requestImageAttachment = async ({
+  paneId,
+  request,
+  ensureToken,
+  onConnectionIssue,
+  handleSessionMissing,
+}: RequestImageAttachmentParams): Promise<ImageAttachment> => {
+  const attachment = await requestSessionField<{ attachment?: unknown }, "attachment">({
+    paneId,
+    request,
+    field: "attachment",
+    fallbackMessage: API_ERROR_MESSAGES.uploadImage,
+    includeStatus: true,
+    ensureToken,
+    onConnectionIssue,
+    handleSessionMissing,
+  });
+  const parsed = imageAttachmentSchema.safeParse(attachment);
+  if (!parsed.success) {
+    const message = API_ERROR_MESSAGES.invalidResponse;
+    onConnectionIssue(message);
+    throw new Error(message);
+  }
+  return parsed.data;
 };
 
 type RefreshSessionsParams = {

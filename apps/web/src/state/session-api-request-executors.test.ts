@@ -8,6 +8,7 @@ import {
   mutateSession,
   refreshSessions,
   requestCommand,
+  requestImageAttachment,
   requestScreenResponse,
   requestSessionField,
 } from "./session-api-request-executors";
@@ -347,6 +348,70 @@ describe("session-api-request-executors", () => {
     expect(onConnectionIssue).toHaveBeenCalledWith("network down");
     expect(handleSessionMissing).not.toHaveBeenCalled();
     expect(onSessionRemoved).not.toHaveBeenCalled();
+  });
+
+  it("requestImageAttachment returns parsed attachment payload", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: {
+        attachment: {
+          path: "/tmp/vde-monitor/attachments/%251/mobile-20260208-000000-abcd1234.png",
+          mimeType: "image/png",
+          size: 3,
+          createdAt: "2026-02-08T00:00:00.000Z",
+          insertText: "/tmp/vde-monitor/attachments/%251/mobile-20260208-000000-abcd1234.png ",
+        },
+      },
+    });
+
+    const attachment = await requestImageAttachment({
+      paneId: "pane-1",
+      request: Promise.resolve(new Response()),
+      ensureToken,
+      onConnectionIssue,
+      handleSessionMissing,
+    });
+
+    expect(attachment).toMatchObject({ mimeType: "image/png", size: 3 });
+    expect(ensureToken).toHaveBeenCalledTimes(1);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+    expect(handleSessionMissing).not.toHaveBeenCalled();
+  });
+
+  it("requestImageAttachment throws invalid response when schema validation fails", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: {
+        attachment: {
+          path: "/tmp/vde-monitor/attachments/%251/mobile-20260208-000000-abcd1234.png",
+          mimeType: "image/png",
+          size: 0,
+          createdAt: "2026-02-08T00:00:00.000Z",
+          insertText: "/tmp/vde-monitor/attachments/%251/mobile-20260208-000000-abcd1234.png ",
+        },
+      },
+    });
+
+    await expect(
+      requestImageAttachment({
+        paneId: "pane-1",
+        request: Promise.resolve(new Response()),
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
+      }),
+    ).rejects.toThrow(API_ERROR_MESSAGES.invalidResponse);
+
+    expect(onConnectionIssue).toHaveBeenCalledWith(API_ERROR_MESSAGES.invalidResponse);
+    expect(handleSessionMissing).not.toHaveBeenCalled();
   });
 
   it("refreshSessions returns auth error without request when token is missing", async () => {

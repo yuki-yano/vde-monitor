@@ -10,7 +10,6 @@ import {
   type DiffSummary,
   type HighlightCorrectionConfig,
   type ImageAttachment,
-  imageAttachmentSchema,
   type RawItem,
   type ScreenResponse,
   type SessionStateTimeline,
@@ -26,6 +25,7 @@ import {
   mutateSession as executeMutateSession,
   refreshSessions as executeRefreshSessions,
   requestCommand as executeRequestCommand,
+  requestImageAttachment as executeRequestImageAttachment,
   requestScreenResponse as executeRequestScreenResponse,
   requestSessionField as executeRequestSessionField,
 } from "./session-api-request-executors";
@@ -427,26 +427,18 @@ export const useSessionApi = ({
 
   const uploadImageAttachment = useCallback(
     async (paneId: string, file: File): Promise<ImageAttachment> => {
-      const param = buildPaneParam(paneId);
-      const attachment = await requestSessionField<{ attachment?: unknown }, "attachment">({
+      return executeRequestImageAttachment({
         paneId,
         request: apiClient.sessions[":paneId"].attachments.image.$post({
-          param,
+          param: buildPaneParam(paneId),
           form: { image: file },
         }),
-        field: "attachment",
-        fallbackMessage: API_ERROR_MESSAGES.uploadImage,
-        includeStatus: true,
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
       });
-      const parsed = imageAttachmentSchema.safeParse(attachment);
-      if (!parsed.success) {
-        const message = API_ERROR_MESSAGES.invalidResponse;
-        onConnectionIssue(message);
-        throw new Error(message);
-      }
-      return parsed.data;
     },
-    [apiClient, onConnectionIssue, requestSessionField],
+    [apiClient, ensureToken, handleSessionMissing, onConnectionIssue],
   );
 
   const sendKeys = useCallback(
