@@ -7,6 +7,7 @@ export type MultiplexerTextCaptureOptions = {
   lines: number;
   joinLines: boolean;
   includeAnsi: boolean;
+  includeTruncated?: boolean;
   altScreen: "auto" | "on" | "off";
   alternateOn: boolean;
   currentCommand?: string | null;

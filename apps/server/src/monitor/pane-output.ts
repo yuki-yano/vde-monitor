@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import { resolveActivityTimestamp } from "../activity-resolver";
 import { type PaneRuntimeState, updateOutputAt } from "./pane-state";
 
+const DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
+
 export type PaneOutputSnapshot = {
   paneId: string;
   paneActivity: number | null;
@@ -16,6 +18,8 @@ type PaneOutputDeps = {
   statLogMtime?: (logPath: string) => Promise<string | null>;
   resolveActivityAt?: typeof resolveActivityTimestamp;
   captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
+  fingerprintIntervalMs?: number;
+  allowFingerprintCapture?: boolean;
   now?: () => Date;
 };
 
@@ -54,12 +58,13 @@ const updateOutputAtFromLog = async ({
   setOutputAt: (next: string | null) => void;
 }) => {
   if (!logPath) {
-    return;
+    return null;
   }
   const logMtime = await statLogMtime(logPath);
   if (logMtime) {
     setOutputAt(logMtime);
   }
+  return logMtime;
 };
 
 const updateOutputAtFromActivity = ({
@@ -80,6 +85,7 @@ const updateOutputAtFromActivity = ({
   if (activityAt) {
     setOutputAt(activityAt);
   }
+  return activityAt;
 };
 
 const updateOutputAtFromFingerprint = async ({
@@ -88,22 +94,27 @@ const updateOutputAtFromFingerprint = async ({
   captureFingerprint,
   now,
   setOutputAt,
+  allowCapture,
 }: {
   pane: PaneOutputSnapshot;
   paneState: PaneRuntimeState;
   captureFingerprint: PaneOutputDeps["captureFingerprint"];
   now: () => Date;
   setOutputAt: (next: string | null) => void;
+  allowCapture: boolean;
 }) => {
-  if (pane.paneDead) {
+  if (pane.paneDead || !allowCapture) {
     return;
   }
+
+  const capturedAtMs = now().getTime();
+  paneState.lastFingerprintCaptureAtMs = capturedAtMs;
   const fingerprint = await captureFingerprint(pane.paneId, pane.alternateOn);
   if (!fingerprint || paneState.lastFingerprint === fingerprint) {
     return;
   }
   paneState.lastFingerprint = fingerprint;
-  setOutputAt(now().toISOString());
+  setOutputAt(new Date(capturedAtMs).toISOString());
 };
 
 const ensureFallbackOutputAt = ({
@@ -152,25 +163,37 @@ export const updatePaneOutputState = async ({
 }: UpdatePaneOutputArgs) => {
   const statLogMtime = deps.statLogMtime ?? defaultStatLogMtime;
   const resolveActivityAt = deps.resolveActivityAt ?? resolveActivityTimestamp;
+  const fingerprintIntervalMs = Math.max(
+    0,
+    deps.fingerprintIntervalMs ?? DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS,
+  );
+  const allowFingerprintCapture = deps.allowFingerprintCapture ?? true;
   const now = deps.now ?? (() => new Date());
 
   const outputAtTracker = createOutputAtTracker(paneState);
-  await updateOutputAtFromLog({
+  const logMtime = await updateOutputAtFromLog({
     logPath,
     statLogMtime,
     setOutputAt: outputAtTracker.setOutputAt,
   });
-  updateOutputAtFromActivity({
+  const activityAt = updateOutputAtFromActivity({
     pane,
     resolveActivityAt,
     setOutputAt: outputAtTracker.setOutputAt,
   });
+  const lastFingerprintCaptureAtMs = paneState.lastFingerprintCaptureAtMs ?? 0;
+  const shouldCaptureFingerprint =
+    allowFingerprintCapture &&
+    !logMtime &&
+    !activityAt &&
+    now().getTime() - lastFingerprintCaptureAtMs >= fingerprintIntervalMs;
   await updateOutputAtFromFingerprint({
     pane,
     paneState,
     captureFingerprint: deps.captureFingerprint,
     now,
     setOutputAt: outputAtTracker.setOutputAt,
+    allowCapture: shouldCaptureFingerprint,
   });
 
   const outputAt = ensureFallbackOutputAt({

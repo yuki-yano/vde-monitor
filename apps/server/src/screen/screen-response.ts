@@ -54,6 +54,7 @@ export const createScreenResponse = async ({
         lines: lineCount,
         joinLines: resolveJoinLines(config, target),
         includeAnsi: config.screen.ansi,
+        includeTruncated: config.screen.includeTruncated,
         altScreen: resolveAltScreenMode(config, target),
         alternateOn: target.alternateOn,
         currentCommand: target.currentCommand ?? target.startCommand,

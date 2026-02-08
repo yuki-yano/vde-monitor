@@ -339,6 +339,7 @@ export type AgentMonitorConfigBase = {
     mode: "text" | "image";
     defaultLines: number;
     maxLines: number;
+    includeTruncated: boolean;
     joinLines: boolean;
     ansi: boolean;
     altScreen: "auto" | "on" | "off";

@@ -20,6 +20,7 @@ describe("updatePaneOutputState", () => {
     lastMessage: null,
     lastInputAt: null,
     lastFingerprint: null,
+    lastFingerprintCaptureAtMs: null,
     ...overrides,
   });
 
@@ -137,6 +138,92 @@ describe("updatePaneOutputState", () => {
 
     expect(state.lastFingerprint).toBe("new");
     expect(result.outputAt).toBe(now.toISOString());
+  });
+
+  it("does not capture fingerprint when log timestamp is available", async () => {
+    const state = createState({ lastFingerprint: "old" });
+    const captureFingerprint = vi.fn(async () => "new");
+
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      logPath: "/tmp/log",
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => "2024-01-02T00:00:00.000Z",
+        resolveActivityAt: () => null,
+        captureFingerprint,
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+
+    expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
+    expect(captureFingerprint).not.toHaveBeenCalled();
+  });
+
+  it("throttles fingerprint capture when no log and activity timestamps are available", async () => {
+    const state = createState({ lastFingerprint: "same" });
+    const captureFingerprint = vi.fn(async () => "same");
+    let nowMs = Date.parse("2024-01-03T00:00:00.000Z");
+    const run = async () =>
+      updatePaneOutputState({
+        pane: basePane,
+        paneState: state,
+        logPath: null,
+        inactiveThresholdMs: 1000,
+        deps: {
+          statLogMtime: async () => null,
+          resolveActivityAt: () => null,
+          captureFingerprint,
+          now: () => new Date(nowMs),
+        },
+      });
+
+    await run();
+    nowMs += 1000;
+    await run();
+    nowMs += 1000;
+    await run();
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(1);
+
+    nowMs += 5000;
+    await run();
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses custom fingerprint capture interval", async () => {
+    const state = createState({ lastFingerprint: "same" });
+    const captureFingerprint = vi.fn(async () => "same");
+    let nowMs = Date.parse("2024-01-03T00:00:00.000Z");
+    const run = async () =>
+      updatePaneOutputState({
+        pane: basePane,
+        paneState: state,
+        logPath: null,
+        inactiveThresholdMs: 1000,
+        deps: {
+          statLogMtime: async () => null,
+          resolveActivityAt: () => null,
+          captureFingerprint,
+          fingerprintIntervalMs: 20000,
+          now: () => new Date(nowMs),
+        },
+      });
+
+    await run();
+    nowMs += 5000;
+    await run();
+    nowMs += 14000;
+    await run();
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(1);
+
+    nowMs += 1000;
+    await run();
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(2);
   });
 
   it("skips log mtime lookup when logPath is null", async () => {

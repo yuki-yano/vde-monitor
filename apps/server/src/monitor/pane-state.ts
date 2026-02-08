@@ -7,6 +7,7 @@ export type PaneRuntimeState = {
   lastMessage: string | null;
   lastInputAt: string | null;
   lastFingerprint: string | null;
+  lastFingerprintCaptureAtMs: number | null;
 };
 
 const createDefaultState = (): PaneRuntimeState => ({
@@ -16,6 +17,7 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastMessage: null,
   lastInputAt: null,
   lastFingerprint: null,
+  lastFingerprintCaptureAtMs: null,
 });
 
 export const createPaneStateStore = () => {

@@ -92,6 +92,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
       registry.update({ ...existing, customTitle: title });
     }),
     recordInput: vi.fn(),
+    markPaneViewed: vi.fn(),
   } as unknown as Monitor;
   const actions = {
     sendText: vi.fn(async () => ({ ok: true })),
@@ -213,6 +214,18 @@ describe("createApiRouter", () => {
     expect(firstData.screen.ok).toBe(true);
     expect(secondData.screen.ok).toBe(false);
     expect(secondData.screen.error.code).toBe("RATE_LIMIT");
+  });
+
+  it("marks pane as viewed on screen request", async () => {
+    const { api, monitor } = createTestContext();
+    const res = await api.request("/sessions/pane-1/screen", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ mode: "text", lines: 5 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(monitor.markPaneViewed).toHaveBeenCalledWith("pane-1");
   });
 
   it("sends text command", async () => {

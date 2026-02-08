@@ -32,12 +32,17 @@ type ProcessPaneArgs = {
   applyRestored: (paneId: string) => SessionDetail | null;
   getCustomTitle: (paneId: string) => string | null;
   resolveRepoRoot: (currentPath: string | null) => Promise<string | null>;
+  isPaneViewedRecently?: (paneId: string) => boolean;
+  resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
+  cachePanePipeTagValue?: (paneId: string, pipeTagValue: string | null) => void;
 };
 
 type EstimatedPaneState = {
   state: SessionDetail["state"];
   reason: string;
 };
+
+const FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
 
 const resolvePaneKind = (agent: SessionDetail["agent"], pane: PaneMeta) => {
   const isShellCommandPane =
@@ -70,6 +75,22 @@ const resolvePipeStatus = async ({
     panePipe: pane.panePipe,
     pipeTagValue: pane.pipeTagValue,
   });
+};
+
+const resolvePaneWithPipeTag = async ({
+  pane,
+  isAgent,
+  resolvePanePipeTagValue,
+}: {
+  pane: PaneMeta;
+  isAgent: boolean;
+  resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
+}) => {
+  if (!isAgent || pane.pipeTagValue != null || !resolvePanePipeTagValue) {
+    return pane;
+  }
+  const resolvedPipeTagValue = await resolvePanePipeTagValue(pane);
+  return { ...pane, pipeTagValue: resolvedPipeTagValue };
 };
 
 const resolveEstimatedState = ({
@@ -129,6 +150,9 @@ export const processPane = async (
     applyRestored,
     getCustomTitle,
     resolveRepoRoot,
+    isPaneViewedRecently,
+    resolvePanePipeTagValue,
+    cachePanePipeTagValue,
   }: ProcessPaneArgs,
   deps: PaneProcessorDeps = {},
 ): Promise<SessionDetail | null> => {
@@ -148,13 +172,22 @@ export const processPane = async (
   }
 
   const { isAgent, isShell } = resolvePaneKind(agent, pane);
+  const paneWithPipeTag = await resolvePaneWithPipeTag({
+    pane,
+    isAgent,
+    resolvePanePipeTagValue,
+  });
   const { pipeAttached, pipeConflict, logPath } = await resolvePipeStatus({
     isAgent,
-    pane,
+    pane: paneWithPipeTag,
     paneLogManager,
   });
+  if (isAgent && pipeAttached && !pipeConflict && paneWithPipeTag.pipeTagValue !== "1") {
+    cachePanePipeTagValue?.(pane.paneId, "1");
+  }
 
   const paneState = paneStates.get(pane.paneId);
+  const allowFingerprintCapture = isAgent || Boolean(isPaneViewedRecently?.(pane.paneId));
   const { outputAt, hookState } = await updateOutput({
     pane: {
       paneId: pane.paneId,
@@ -169,6 +202,8 @@ export const processPane = async (
     inactiveThresholdMs: config.activity.inactiveThresholdMs,
     deps: {
       captureFingerprint: capturePaneFingerprint,
+      fingerprintIntervalMs: FINGERPRINT_CAPTURE_INTERVAL_MS,
+      allowFingerprintCapture,
     },
   });
 

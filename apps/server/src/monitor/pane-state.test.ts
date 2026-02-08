@@ -11,6 +11,7 @@ describe("pane-state", () => {
     expect(state.lastMessage).toBeNull();
     expect(state.lastInputAt).toBeNull();
     expect(state.lastFingerprint).toBeNull();
+    expect(state.lastFingerprintCaptureAtMs).toBeNull();
     expect(state.hookState).toBeNull();
   });
 

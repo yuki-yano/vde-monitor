@@ -80,4 +80,28 @@ describe("createScreenCapture", () => {
       }),
     ).rejects.toThrow("failed");
   });
+
+  it("returns truncated null when includeTruncated is false", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({
+        stdout: "1\n2\n3\n4\n",
+        stderr: "",
+        exitCode: 0,
+      })),
+    };
+    const capture = createScreenCapture(adapter);
+
+    const result = await capture.captureText({
+      paneId: "1",
+      lines: 2,
+      joinLines: false,
+      includeAnsi: false,
+      includeTruncated: false,
+      altScreen: "auto",
+      alternateOn: false,
+    });
+
+    expect(result.screen).toBe("3\n4");
+    expect(result.truncated).toBeNull();
+  });
 });

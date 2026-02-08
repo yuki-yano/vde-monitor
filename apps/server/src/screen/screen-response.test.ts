@@ -55,6 +55,7 @@ describe("createScreenResponse", () => {
         paneId: "%1",
         lines: 5,
         joinLines: true,
+        includeTruncated: false,
       }),
     );
   });

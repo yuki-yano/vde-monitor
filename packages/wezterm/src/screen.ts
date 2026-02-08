@@ -5,6 +5,7 @@ export type TextCaptureOptions = {
   lines: number;
   joinLines: boolean;
   includeAnsi: boolean;
+  includeTruncated?: boolean;
   altScreen: "auto" | "on" | "off";
   alternateOn: boolean;
   currentCommand?: string | null;
@@ -35,8 +36,9 @@ export const createScreenCapture = (adapter: WeztermAdapter) => {
       throw new Error(result.stderr || "wezterm get-text failed");
     }
     const allLines = normalizeLines(result.stdout);
-    const truncated = allLines.length > options.lines;
-    const visible = truncated ? allLines.slice(-options.lines) : allLines;
+    const truncatedFlag = allLines.length > options.lines;
+    const visible = truncatedFlag ? allLines.slice(-options.lines) : allLines;
+    const truncated = (options.includeTruncated ?? true) ? truncatedFlag : null;
     return {
       screen: visible.join("\n"),
       truncated,

@@ -50,6 +50,48 @@ describe("pane-log-manager", () => {
     expect(result.pipeConflict).toBe(false);
   });
 
+  it("does not re-attach when pipe is already marked as attached", async () => {
+    const pipeManager = {
+      hasConflict: vi.fn(() => false),
+      attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
+    };
+    const logActivity = { register: vi.fn() };
+    const config = {
+      attachOnServe: true,
+      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
+    } as AgentMonitorConfig;
+    const manager = createPaneLogManager({
+      baseDir: "/base",
+      serverKey: "key",
+      config,
+      pipeSupport: "tmux-pipe",
+      pipeManager,
+      logActivity,
+      deps: {
+        resolveLogPaths: (_base, _key, paneId) => ({
+          paneIdEncoded: paneId,
+          panesDir: "/logs",
+          eventsDir: "/logs",
+          paneLogPath: `/logs/${paneId}.log`,
+          eventLogPath: "/logs/events.log",
+        }),
+        ensureDir: vi.fn(async () => {}),
+        rotateLogIfNeeded: vi.fn(async () => {}),
+        openLogFile: vi.fn(async () => {}),
+      },
+    });
+
+    const result = await manager.preparePaneLogging({
+      paneId: "1",
+      panePipe: false,
+      pipeTagValue: "1",
+    });
+
+    expect(pipeManager.attachPipe).not.toHaveBeenCalled();
+    expect(result.pipeAttached).toBe(true);
+    expect(result.pipeConflict).toBe(false);
+  });
+
   it("skips attach when conflict is detected", async () => {
     const pipeManager = {
       hasConflict: vi.fn(() => true),

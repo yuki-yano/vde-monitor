@@ -326,4 +326,32 @@ describe("createScreenCapture", () => {
 
     expect(result.truncated).toBeNull();
   });
+
+  it("skips pane size lookup when includeTruncated is false", async () => {
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "capture-pane") {
+          return { stdout: "line\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "display-message") {
+          return { stdout: "1\t1", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "unknown", exitCode: 1 };
+      }),
+    };
+
+    const capture = createScreenCapture(adapter);
+    const result = await capture.captureText({
+      paneId: "%1",
+      lines: 1,
+      joinLines: false,
+      includeAnsi: true,
+      includeTruncated: false,
+      altScreen: "off",
+      alternateOn: false,
+    });
+
+    expect(result.truncated).toBeNull();
+    expect(adapter.run).toHaveBeenCalledTimes(1);
+  });
 });

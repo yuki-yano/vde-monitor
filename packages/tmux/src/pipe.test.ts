@@ -72,6 +72,27 @@ describe("createPipeManager", () => {
     expect(adapter.run).toHaveBeenCalledTimes(1);
   });
 
+  it("skips setting pane tag when already tagged", async () => {
+    const adapter = {
+      run: vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 }),
+    };
+    const pipeManager = createPipeManager(adapter);
+    const result = await pipeManager.attachPipe("%3", "/tmp/test.log", {
+      panePipe: false,
+      pipeTagValue: "1",
+    });
+
+    expect(result).toEqual({ attached: true, conflict: false });
+    expect(adapter.run).toHaveBeenCalledWith([
+      "pipe-pane",
+      "-o",
+      "-t",
+      "%3",
+      'cat >> "/tmp/test.log"',
+    ]);
+    expect(adapter.run).toHaveBeenCalledTimes(1);
+  });
+
   it("exposes hasConflict helper", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 }),

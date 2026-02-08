@@ -100,7 +100,7 @@ export const createPaneLogManager = ({
     pipeAttached: boolean;
     pipeConflict: boolean;
   }) => {
-    if (!config.attachOnServe || pipeConflict) {
+    if (!config.attachOnServe || pipeConflict || pipeAttached) {
       return { pipeAttached, pipeConflict };
     }
     await ensureLogFiles(paneId);

@@ -245,6 +245,7 @@ export const configSchema = z.object({
     mode: z.enum(["text", "image"]),
     defaultLines: z.number(),
     maxLines: z.number(),
+    includeTruncated: z.boolean().default(false),
     joinLines: z.boolean(),
     ansi: z.boolean().default(true),
     altScreen: z.enum(["auto", "on", "off"]),

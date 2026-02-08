@@ -163,6 +163,7 @@ export const createSessionRoutes = ({
       if (pane instanceof Response) {
         return pane;
       }
+      monitor.markPaneViewed(pane.paneId);
       const body = c.req.valid("json");
       const screen = await createScreenResponse({
         config,

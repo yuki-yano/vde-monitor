@@ -7,6 +7,7 @@ export type TextCaptureOptions = {
   lines: number;
   joinLines: boolean;
   includeAnsi: boolean;
+  includeTruncated?: boolean;
   altScreen: "auto" | "on" | "off";
   alternateOn: boolean;
   currentCommand?: string | null;
@@ -95,8 +96,11 @@ export const createScreenCapture = (adapter: TmuxAdapter) => {
       throw new Error(result.stderr || "capture-pane failed");
     }
 
-    const size = await getPaneSize(adapter, options.paneId);
-    const truncated = size == null ? null : size.historySize + size.paneHeight > options.lines;
+    let truncated: boolean | null = null;
+    if (options.includeTruncated ?? true) {
+      const size = await getPaneSize(adapter, options.paneId);
+      truncated = size == null ? null : size.historySize + size.paneHeight > options.lines;
+    }
 
     return {
       screen: normalizeScreen(result.stdout, options.lines),

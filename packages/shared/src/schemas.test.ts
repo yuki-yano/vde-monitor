@@ -416,6 +416,16 @@ describe("claudeHookEventSchema", () => {
 });
 
 describe("configSchema", () => {
+  it("fills default includeTruncated when missing", () => {
+    const screen = { ...defaultConfig.screen };
+    delete (screen as { includeTruncated?: boolean }).includeTruncated;
+    const result = configSchema.safeParse({ ...defaultConfig, screen });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.screen.includeTruncated).toBe(false);
+    }
+  });
+
   it("fills default raw rate limit when missing", () => {
     const rateLimit: Partial<typeof defaultConfig.rateLimit> = { ...defaultConfig.rateLimit };
     delete rateLimit.raw;

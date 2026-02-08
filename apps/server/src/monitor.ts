@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   type AgentMonitorConfig,
+  type PaneMeta,
   type SessionStateTimelineRange,
   type SessionStateTimelineSource,
 } from "@vde-monitor/shared";
@@ -12,7 +13,6 @@ import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
 import { createPaneLogManager } from "./monitor/pane-log-manager";
-import { ensurePipeTagValue } from "./monitor/pane-prep";
 import { processPane } from "./monitor/pane-processor";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { cleanupRegistry } from "./monitor/registry-cleanup";
@@ -24,6 +24,7 @@ import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
 const PANE_PROCESS_CONCURRENCY = 8;
+const VIEWED_PANE_TTL_MS = 20_000;
 
 export const mapWithConcurrencyLimit = async <T, R>(
   items: T[],
@@ -74,6 +75,8 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const restored = restoreSessions();
   const restoredTimeline = restoreTimeline();
   const restoredReason = new Set<string>();
+  const viewedPaneAtMs = new Map<string, number>();
+  const panePipeTagCache = new Map<string, string | null>();
   const serverKey = runtime.serverKey;
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
@@ -121,7 +124,56 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     return null;
   };
 
+  const markPaneViewed = (paneId: string, atMs = Date.now()) => {
+    viewedPaneAtMs.set(paneId, atMs);
+  };
+
+  const isPaneViewedRecently = (paneId: string, nowMs = Date.now()) => {
+    const lastViewedAtMs = viewedPaneAtMs.get(paneId);
+    if (lastViewedAtMs == null) {
+      return false;
+    }
+    if (nowMs - lastViewedAtMs > VIEWED_PANE_TTL_MS) {
+      viewedPaneAtMs.delete(paneId);
+      return false;
+    }
+    return true;
+  };
+
+  const pruneStaleViewedPanes = (nowMs = Date.now()) => {
+    viewedPaneAtMs.forEach((lastViewedAtMs, paneId) => {
+      if (nowMs - lastViewedAtMs > VIEWED_PANE_TTL_MS) {
+        viewedPaneAtMs.delete(paneId);
+      }
+    });
+  };
+
+  const cachePanePipeTagValue = (paneId: string, pipeTagValue: string | null) => {
+    panePipeTagCache.set(paneId, pipeTagValue);
+  };
+
+  const resolvePanePipeTagValue = async (pane: PaneMeta) => {
+    if (pane.pipeTagValue != null) {
+      cachePanePipeTagValue(pane.paneId, pane.pipeTagValue);
+      return pane.pipeTagValue;
+    }
+
+    if (panePipeTagCache.has(pane.paneId)) {
+      return panePipeTagCache.get(pane.paneId) ?? null;
+    }
+
+    if (!pane.panePipe) {
+      cachePanePipeTagValue(pane.paneId, null);
+      return null;
+    }
+
+    const fallback = await inspector.readUserOption(pane.paneId, "@vde-monitor_pipe");
+    cachePanePipeTagValue(pane.paneId, fallback);
+    return fallback;
+  };
+
   const updateFromPanes = async () => {
+    pruneStaleViewedPanes();
     const panes = await inspector.listPanes();
     const activePaneIds = new Set<string>();
 
@@ -129,12 +181,8 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
       panes,
       PANE_PROCESS_CONCURRENCY,
       async (pane) => {
-        const preparedPane = await ensurePipeTagValue(pane, {
-          readUserOption: inspector.readUserOption,
-        });
-
         const detail = await processPane({
-          pane: preparedPane,
+          pane,
           config,
           paneStates,
           paneLogManager,
@@ -142,18 +190,21 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
           applyRestored,
           getCustomTitle: (paneId) => customTitles.get(paneId) ?? null,
           resolveRepoRoot: resolveRepoRootCached,
+          isPaneViewedRecently,
+          resolvePanePipeTagValue,
+          cachePanePipeTagValue,
         });
-        return { preparedPane, detail };
+        return { pane, detail };
       },
     );
 
-    for (const { preparedPane, detail } of paneResults) {
+    for (const { pane, detail } of paneResults) {
       if (!detail) {
         continue;
       }
 
-      const existing = registry.getDetail(preparedPane.paneId);
-      activePaneIds.add(preparedPane.paneId);
+      const existing = registry.getDetail(pane.paneId);
+      activePaneIds.add(pane.paneId);
       if (
         !existing ||
         existing.state !== detail.state ||
@@ -178,6 +229,8 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
       saveState: () => undefined,
       onRemovedPaneId: (paneId) => {
         logActivity.unregister(paneId);
+        viewedPaneAtMs.delete(paneId);
+        panePipeTagCache.delete(paneId);
       },
     });
     removedPaneIds.forEach((paneId) => {
@@ -276,5 +329,6 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     getStateTimeline,
     setCustomTitle,
     recordInput,
+    markPaneViewed,
   };
 };
