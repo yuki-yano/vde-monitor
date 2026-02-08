@@ -21,9 +21,13 @@ import {
 import { useCallback, useMemo, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { expectField, extractErrorMessage, requestJson } from "@/lib/api-utils";
+import { extractErrorMessage, requestJson } from "@/lib/api-utils";
 
 import { createApiClient } from "./session-api-contract";
+import {
+  mutateSession as executeMutateSession,
+  requestSessionField as executeRequestSessionField,
+} from "./session-api-request-executors";
 import {
   applyRefreshSessionsFailure,
   applyRefreshSessionsSuccess,
@@ -144,50 +148,32 @@ export const useSessionApi = ({
       field: K;
       fallbackMessage: string;
       includeStatus?: boolean;
-    }): Promise<NonNullable<T[K]>> => {
-      ensureToken();
-      try {
-        const { res, data } = await requestJson<ApiEnvelope<T>>(request);
-        if (!res.ok) {
-          handleSessionMissing(paneId, res, data);
-          const message = extractErrorMessage(res, data, fallbackMessage, { includeStatus });
-          throw new Error(message);
-        }
-        const value = expectField(res, data, field, fallbackMessage);
-        onConnectionIssue(null);
-        return value;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : fallbackMessage;
-        onConnectionIssue(message);
-        throw err instanceof Error ? err : new Error(message);
-      }
-    },
+    }): Promise<NonNullable<T[K]>> =>
+      executeRequestSessionField({
+        paneId,
+        request,
+        field,
+        fallbackMessage,
+        includeStatus,
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
+      }),
     [ensureToken, handleSessionMissing, onConnectionIssue],
   );
 
   const mutateSession = useCallback(
-    async (paneId: string, request: Promise<Response>, fallbackMessage: string) => {
-      ensureToken();
-      const { res, data } = await requestJson<ApiEnvelope<{ session?: SessionSummary }>>(request);
-      if (!res.ok) {
-        const message = extractErrorMessage(res, data, fallbackMessage);
-        onConnectionIssue(message);
-        handleSessionMissing(paneId, res, data);
-        throw new Error(message);
-      }
-      if (!data) {
-        const message = fallbackMessage;
-        onConnectionIssue(message);
-        throw new Error(message);
-      }
-      if (data.session) {
-        onSessionUpdated(data.session);
-        onConnectionIssue(null);
-        return data.session;
-      }
-      await refreshSessions();
-      return null;
-    },
+    async (paneId: string, request: Promise<Response>, fallbackMessage: string) =>
+      executeMutateSession({
+        paneId,
+        request,
+        fallbackMessage,
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
+        onSessionUpdated,
+        refreshSessions,
+      }),
     [ensureToken, handleSessionMissing, onConnectionIssue, onSessionUpdated, refreshSessions],
   );
 

@@ -1,0 +1,161 @@
+import type { SessionSummary } from "@vde-monitor/shared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { requestJson } from "@/lib/api-utils";
+
+import { mutateSession, requestSessionField } from "./session-api-request-executors";
+
+vi.mock("@/lib/api-utils", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api-utils")>("@/lib/api-utils");
+  return {
+    ...actual,
+    requestJson: vi.fn(),
+  };
+});
+
+const createSession = (
+  paneId: string,
+  overrides: Partial<SessionSummary> = {},
+): SessionSummary => ({
+  paneId,
+  sessionName: "session",
+  windowIndex: 0,
+  paneIndex: 0,
+  windowActivity: null,
+  paneActive: true,
+  currentCommand: null,
+  currentPath: null,
+  paneTty: null,
+  title: null,
+  customTitle: null,
+  repoRoot: null,
+  agent: "codex",
+  state: "RUNNING",
+  stateReason: "reason",
+  lastMessage: null,
+  lastOutputAt: null,
+  lastEventAt: null,
+  lastInputAt: null,
+  paneDead: false,
+  alternateOn: false,
+  pipeAttached: false,
+  pipeConflict: false,
+  ...overrides,
+});
+
+describe("session-api-request-executors", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("requestSessionField returns requested field on success", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: { summary: { rev: "main" } },
+    });
+
+    const summary = await requestSessionField<{ summary?: { rev: string } }, "summary">({
+      paneId: "pane-1",
+      request: Promise.resolve(new Response()),
+      field: "summary",
+      fallbackMessage: "failed",
+      ensureToken,
+      onConnectionIssue,
+      handleSessionMissing,
+    });
+
+    expect(summary).toEqual({ rev: "main" });
+    expect(ensureToken).toHaveBeenCalledTimes(1);
+    expect(handleSessionMissing).not.toHaveBeenCalled();
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("requestSessionField propagates API errors and marks missing panes", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 404 }),
+      data: { error: { code: "INVALID_PANE", message: "pane not found" } },
+    });
+
+    await expect(
+      requestSessionField<{ summary?: { rev: string } }, "summary">({
+        paneId: "pane-1",
+        request: Promise.resolve(new Response()),
+        field: "summary",
+        fallbackMessage: "failed",
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
+        includeStatus: true,
+      }),
+    ).rejects.toThrow("pane not found");
+
+    expect(handleSessionMissing).toHaveBeenCalledTimes(1);
+    expect(onConnectionIssue).toHaveBeenCalledWith("pane not found");
+  });
+
+  it("mutateSession updates session when payload contains session", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    const onSessionUpdated = vi.fn();
+    const refreshSessions = vi.fn(async () => ({ ok: true }));
+    const session = createSession("pane-1", { title: "updated" });
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: { session },
+    });
+
+    const updated = await mutateSession({
+      paneId: "pane-1",
+      request: Promise.resolve(new Response()),
+      fallbackMessage: "failed",
+      ensureToken,
+      onConnectionIssue,
+      handleSessionMissing,
+      onSessionUpdated,
+      refreshSessions,
+    });
+
+    expect(updated).toEqual(session);
+    expect(onSessionUpdated).toHaveBeenCalledWith(session);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+    expect(refreshSessions).not.toHaveBeenCalled();
+  });
+
+  it("mutateSession refreshes sessions when payload omits session", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const ensureToken = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    const onSessionUpdated = vi.fn();
+    const refreshSessions = vi.fn(async () => ({ ok: true }));
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: {},
+    });
+
+    const updated = await mutateSession({
+      paneId: "pane-1",
+      request: Promise.resolve(new Response()),
+      fallbackMessage: "failed",
+      ensureToken,
+      onConnectionIssue,
+      handleSessionMissing,
+      onSessionUpdated,
+      refreshSessions,
+    });
+
+    expect(updated).toBeNull();
+    expect(onSessionUpdated).not.toHaveBeenCalled();
+    expect(refreshSessions).toHaveBeenCalledTimes(1);
+  });
+});
