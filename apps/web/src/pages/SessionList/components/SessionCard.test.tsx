@@ -111,19 +111,12 @@ describe("SessionCard", () => {
     expect(screen.queryByText("UNKNOWN")).toBeNull();
   });
 
-  it("calls onTogglePin when pane pin button is pressed", () => {
+  it("calls onTouchPin when pane pin button is pressed", () => {
     const session = buildSession();
-    const onTogglePin = vi.fn();
-    renderWithRouter(
-      <SessionCard
-        session={session}
-        nowMs={Date.now()}
-        isPinned={false}
-        onTogglePin={onTogglePin}
-      />,
-    );
+    const onTouchPin = vi.fn();
+    renderWithRouter(<SessionCard session={session} nowMs={Date.now()} onTouchPin={onTouchPin} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Pin pane to top" }));
-    expect(onTogglePin).toHaveBeenCalledWith("pane-1");
+    expect(onTouchPin).toHaveBeenCalledWith("pane-1");
   });
 });

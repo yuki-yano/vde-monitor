@@ -7,10 +7,13 @@ import {
   RouterContextProvider,
 } from "@tanstack/react-router";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { SessionSummary } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SESSION_LIST_FILTER, isSessionListFilter } from "./sessionListFilters";
 import { useSessionListVM } from "./useSessionListVM";
+
+const STORAGE_KEY = "vde-monitor-session-list-pins";
 
 const mockUseSessions = vi.hoisted(() => vi.fn());
 const mockUseSessionLogs = vi.hoisted(() => ({
@@ -50,6 +53,33 @@ vi.mock("../SessionDetail/hooks/useSessionLogs", () => ({
   useSessionLogs: () => mockUseSessionLogs,
 }));
 
+const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
+  paneId: "pane-1",
+  sessionName: "session-1",
+  windowIndex: 1,
+  paneIndex: 0,
+  windowActivity: null,
+  paneActive: true,
+  currentCommand: null,
+  currentPath: "/Users/test/repo",
+  paneTty: null,
+  title: "Session Title",
+  customTitle: null,
+  repoRoot: "/Users/test/repo",
+  agent: "codex",
+  state: "RUNNING",
+  stateReason: "ok",
+  lastMessage: "Hello",
+  lastOutputAt: null,
+  lastEventAt: null,
+  lastInputAt: new Date(0).toISOString(),
+  paneDead: false,
+  alternateOn: false,
+  pipeAttached: false,
+  pipeConflict: false,
+  ...overrides,
+});
+
 const createTestRouter = (initialEntries: string[]) => {
   const rootRoute = createRootRoute({
     component: () => null,
@@ -88,6 +118,9 @@ const TestComponent = () => {
       <button type="button" onClick={() => vm.onFilterChange("invalid")}>
         set-invalid
       </button>
+      <button type="button" onClick={() => vm.onTogglePanePin("pane-test")}>
+        touch-pane
+      </button>
     </div>
   );
 };
@@ -111,6 +144,7 @@ describe("useSessionListVM", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mockUseSessions.mockReturnValue({
       sessions: [],
       connected: true,
@@ -118,6 +152,7 @@ describe("useSessionListVM", () => {
       connectionIssue: null,
       refreshSessions: vi.fn(),
       requestScreen: vi.fn(),
+      touchSession: vi.fn(),
       highlightCorrections: false,
     });
   });
@@ -153,6 +188,38 @@ describe("useSessionListVM", () => {
     fireEvent.click(screen.getByRole("button", { name: "set-invalid" }));
     await waitFor(() => {
       expect(screen.getByTestId("filter").textContent).toBe("AGENT");
+    });
+  });
+
+  it("uses touchSession for pane pin action", async () => {
+    const touchSession = vi.fn().mockResolvedValue(undefined);
+    const pinnedSession = buildSession({
+      paneId: "pane-test",
+      repoRoot: "/Users/test/repo-pin-target",
+    });
+    mockUseSessions.mockReturnValue({
+      sessions: [pinnedSession],
+      connected: true,
+      connectionStatus: "healthy",
+      connectionIssue: null,
+      refreshSessions: vi.fn(),
+      requestScreen: vi.fn(),
+      touchSession,
+      highlightCorrections: false,
+    });
+
+    await renderWithRouter(["/"]);
+    fireEvent.click(screen.getByRole("button", { name: "touch-pane" }));
+
+    await waitFor(() => {
+      expect(touchSession).toHaveBeenCalledWith("pane-test");
+    });
+
+    await waitFor(() => {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored ?? "{}") as { repos?: Record<string, number> };
+      expect(parsed.repos?.["repo:/Users/test/repo-pin-target"]).toBeTypeOf("number");
     });
   });
 });

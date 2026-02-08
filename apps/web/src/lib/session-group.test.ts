@@ -88,7 +88,7 @@ describe("buildSessionGroups", () => {
     expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%2", "%1", "%3"]);
   });
 
-  it("prioritizes pinned repos before time-based sorting", () => {
+  it("prioritizes repo pin update time before time-based sorting", () => {
     const sessions = [
       buildSession({
         paneId: "%1",
@@ -103,7 +103,7 @@ describe("buildSessionGroups", () => {
     ];
 
     const groups = buildSessionGroups(sessions, {
-      isRepoPinned: (repoRoot) => repoRoot === "/repo/a",
+      getRepoPinnedAt: (repoRoot) => (repoRoot === "/repo/a" ? 2000 : null),
     });
 
     expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/a", "/repo/b"]);

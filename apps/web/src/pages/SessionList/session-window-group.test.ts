@@ -58,47 +58,43 @@ describe("buildSessionWindowGroups", () => {
     ).toEqual([2, 1]);
   });
 
-  it("prioritizes pinned session, window, and pane in that order", () => {
-    const groups = buildSessionWindowGroups(
-      [
-        buildSession({
-          paneId: "%a1",
-          sessionName: "alpha",
-          windowIndex: 1,
-          paneIndex: 0,
-          lastInputAt: "2026-02-07T10:00:00.000Z",
-        }),
-        buildSession({
-          paneId: "%a2",
-          sessionName: "alpha",
-          windowIndex: 1,
-          paneIndex: 1,
-          lastInputAt: "2026-02-07T09:00:00.000Z",
-        }),
-        buildSession({
-          paneId: "%a3",
-          sessionName: "alpha",
-          windowIndex: 2,
-          paneIndex: 0,
-          lastInputAt: "2026-02-07T12:00:00.000Z",
-        }),
-        buildSession({
-          paneId: "%b1",
-          sessionName: "beta",
-          windowIndex: 1,
-          paneIndex: 0,
-          lastInputAt: "2026-02-07T08:00:00.000Z",
-        }),
-      ],
-      {
-        isSessionPinned: (sessionName) => sessionName === "beta",
-        isWindowPinned: (sessionName, windowIndex) => sessionName === "alpha" && windowIndex === 1,
-        isPanePinned: (session) => session.paneId === "%a2",
-      },
-    );
+  it("moves tmux sessions with newer input to the top", () => {
+    const groups = buildSessionWindowGroups([
+      buildSession({
+        paneId: "%a1",
+        sessionName: "alpha",
+        windowIndex: 1,
+        lastInputAt: "2026-02-07T10:00:00.000Z",
+      }),
+      buildSession({
+        paneId: "%b1",
+        sessionName: "beta",
+        windowIndex: 1,
+        lastInputAt: "2026-02-07T12:00:00.000Z",
+      }),
+    ]);
 
     expect(groups[0]?.sessionName).toBe("beta");
-    expect(groups.find((group) => group.sessionName === "alpha")?.windowIndex).toBe(1);
-    expect(groups.find((group) => group.sessionName === "alpha")?.sessions[0]?.paneId).toBe("%a2");
+  });
+
+  it("sorts panes by latest lastInputAt within a window", () => {
+    const groups = buildSessionWindowGroups([
+      buildSession({
+        paneId: "%a1",
+        sessionName: "alpha",
+        windowIndex: 1,
+        paneIndex: 0,
+        lastInputAt: "2026-02-07T10:00:00.000Z",
+      }),
+      buildSession({
+        paneId: "%a2",
+        sessionName: "alpha",
+        windowIndex: 1,
+        paneIndex: 1,
+        lastInputAt: "2026-02-07T11:00:00.000Z",
+      }),
+    ]);
+
+    expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%a2", "%a1"]);
   });
 });

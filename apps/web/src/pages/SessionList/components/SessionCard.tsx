@@ -20,8 +20,7 @@ import {
 type SessionCardProps = {
   session: SessionSummary;
   nowMs: number;
-  isPinned?: boolean;
-  onTogglePin?: (paneId: string) => void;
+  onTouchPin?: (paneId: string) => void;
 };
 
 const sessionStateStyles: Record<
@@ -64,12 +63,7 @@ const resolveSessionTitle = (session: SessionSummary) => {
   return session.sessionName;
 };
 
-export const SessionCard = ({
-  session,
-  nowMs,
-  isPinned = false,
-  onTogglePin,
-}: SessionCardProps) => {
+export const SessionCard = ({ session, nowMs, onTouchPin }: SessionCardProps) => {
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
   const sessionTitle = resolveSessionTitle(session);
   const showAgentBadge = isKnownAgent(session.agent);
@@ -80,7 +74,7 @@ export const SessionCard = ({
   const handlePinClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    onTogglePin?.(session.paneId);
+    onTouchPin?.(session.paneId);
   };
 
   return (
@@ -150,18 +144,17 @@ export const SessionCard = ({
 
         <div className="relative mt-3 flex flex-wrap items-center gap-1.5 pt-2.5">
           <TagPill tone="meta">Pane {session.paneId}</TagPill>
-          {onTogglePin ? (
+          {onTouchPin ? (
             <IconButton
               type="button"
               size="xs"
-              variant={isPinned ? "lavenderStrong" : "base"}
+              variant="base"
               className="ml-auto"
               aria-label="Pin pane to top"
-              aria-pressed={isPinned}
               title="Pin pane to top"
               onClick={handlePinClick}
             >
-              <Pin className={cn("h-3.5 w-3.5", isPinned ? "fill-current" : null)} />
+              <Pin className="h-3.5 w-3.5" />
             </IconButton>
           ) : null}
         </div>

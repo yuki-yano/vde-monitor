@@ -149,11 +149,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     onOpenPaneHere: vi.fn(),
     onOpenHere: vi.fn(),
     onOpenNewTab: vi.fn(),
-    isRepoPinned: vi.fn(() => false),
-    isWindowPinned: vi.fn(() => false),
-    isPanePinned: vi.fn(() => false),
     onToggleRepoPin: vi.fn(),
-    onToggleWindowPin: vi.fn(),
     onTogglePanePin: vi.fn(),
     ...overrides,
   };
@@ -278,6 +274,34 @@ describe("SessionListView", () => {
     expect(screen.queryAllByText("1 / 2 panes").length).toBe(0);
   });
 
+  it("orders tmux sessions by latest pane activity within a repo", () => {
+    const alpha = buildSession({
+      paneId: "pane-alpha",
+      sessionName: "alpha",
+      windowIndex: 1,
+      lastInputAt: "2026-02-07T10:00:00.000Z",
+    });
+    const beta = buildSession({
+      paneId: "pane-beta",
+      sessionName: "beta",
+      windowIndex: 1,
+      lastInputAt: "2026-02-07T12:00:00.000Z",
+    });
+    const sessions = [alpha, beta];
+    const props = createViewProps({
+      sessions,
+      groups: buildSessionGroups(sessions),
+    });
+
+    renderWithRouter(<SessionListView {...props} />);
+
+    const sessionLabels = screen
+      .getAllByText(/^Session (alpha|beta)$/)
+      .map((element) => element.textContent);
+    expect(sessionLabels[0]).toContain("Session beta");
+    expect(sessionLabels[1]).toContain("Session alpha");
+  });
+
   it("passes sidebar groups independently from visible groups", () => {
     const agentSession = buildSession({
       paneId: "pane-agent",
@@ -306,7 +330,7 @@ describe("SessionListView", () => {
     expect(screen.getByTestId("session-sidebar").getAttribute("data-count")).toBe("2");
   });
 
-  it("wires repo, window, and pane pin handlers", () => {
+  it("wires repo and pane pin handlers", () => {
     const session = buildSession({
       paneId: "pane-pin-target",
       sessionName: "session-pin-target",
@@ -314,23 +338,19 @@ describe("SessionListView", () => {
       repoRoot: "/Users/test/repo-pin-target",
     });
     const onToggleRepoPin = vi.fn();
-    const onToggleWindowPin = vi.fn();
     const onTogglePanePin = vi.fn();
     const props = createViewProps({
       sessions: [session],
       onToggleRepoPin,
-      onToggleWindowPin,
       onTogglePanePin,
     });
 
     renderWithRouter(<SessionListView {...props} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Pin repo to top" }));
-    fireEvent.click(screen.getByRole("button", { name: "Pin window to top" }));
     fireEvent.click(screen.getByRole("button", { name: "Pin pane to top" }));
 
     expect(onToggleRepoPin).toHaveBeenCalledWith("/Users/test/repo-pin-target");
-    expect(onToggleWindowPin).toHaveBeenCalledWith("session-pin-target", 7);
     expect(onTogglePanePin).toHaveBeenCalledWith("pane-pin-target");
   });
 

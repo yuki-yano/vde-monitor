@@ -14,11 +14,7 @@ type SessionGroupSectionProps = {
   group: SessionGroup;
   nowMs: number;
   allSessions: SessionSummary[];
-  isRepoPinned: (repoRoot: string | null) => boolean;
-  isWindowPinned: (sessionName: string, windowIndex: number) => boolean;
-  isPanePinned: (paneId: string) => boolean;
   onToggleRepoPin: (repoRoot: string | null) => void;
-  onToggleWindowPin: (sessionName: string, windowIndex: number) => void;
   onTogglePanePin: (paneId: string) => void;
 };
 
@@ -26,11 +22,7 @@ export const SessionGroupSection = ({
   group,
   nowMs,
   allSessions,
-  isRepoPinned,
-  isWindowPinned,
-  isPanePinned,
   onToggleRepoPin,
-  onToggleWindowPin,
   onTogglePanePin,
 }: SessionGroupSectionProps) => {
   const groupTone = getLastInputTone(group.lastInputAt, nowMs);
@@ -39,20 +31,14 @@ export const SessionGroupSection = ({
   const repoSessions = allSessions.filter(
     (session) => (session.repoRoot ?? null) === group.repoRoot,
   );
-  const totalWindowGroups = buildSessionWindowGroups(repoSessions, {
-    isWindowPinned,
-    isPanePinned: (session) => isPanePinned(session.paneId),
-  });
+  const totalWindowGroups = buildSessionWindowGroups(repoSessions);
   const totalPaneMap = new Map(
     totalWindowGroups.map((windowGroup) => [
       `${windowGroup.sessionName}:${windowGroup.windowIndex}`,
       windowGroup.sessions.length,
     ]),
   );
-  const windowGroups = buildSessionWindowGroups(group.sessions, {
-    isWindowPinned,
-    isPanePinned: (session) => isPanePinned(session.paneId),
-  });
+  const windowGroups = buildSessionWindowGroups(group.sessions);
   const sessionSections: { sessionName: string; windowGroups: SessionWindowGroup[] }[] = [];
   const bySession = new Map<string, SessionWindowGroup[]>();
   windowGroups.forEach((windowGroup) => {
@@ -63,7 +49,6 @@ export const SessionGroupSection = ({
   bySession.forEach((sessionWindowGroups, sessionName) => {
     sessionSections.push({ sessionName, windowGroups: sessionWindowGroups });
   });
-  const repoPinned = isRepoPinned(group.repoRoot);
 
   return (
     <GlowCard contentClassName="gap-2 sm:gap-3">
@@ -98,13 +83,12 @@ export const SessionGroupSection = ({
             <IconButton
               type="button"
               size="xs"
-              variant={repoPinned ? "lavenderStrong" : "base"}
+              variant="base"
               aria-label="Pin repo to top"
-              aria-pressed={repoPinned}
               title="Pin repo to top"
               onClick={() => onToggleRepoPin(group.repoRoot)}
             >
-              <Pin className={cn("h-3.5 w-3.5", repoPinned ? "fill-current" : null)} />
+              <Pin className="h-3.5 w-3.5" />
             </IconButton>
             <LastInputPill
               tone={groupTone}
@@ -135,12 +119,6 @@ export const SessionGroupSection = ({
                       windowGroup.sessions.length
                     }
                     nowMs={nowMs}
-                    isWindowPinned={isWindowPinned(
-                      windowGroup.sessionName,
-                      windowGroup.windowIndex,
-                    )}
-                    onToggleWindowPin={onToggleWindowPin}
-                    isPanePinned={isPanePinned}
                     onTogglePanePin={onTogglePanePin}
                   />
                 ))}

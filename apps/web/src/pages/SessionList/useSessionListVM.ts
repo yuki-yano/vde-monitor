@@ -17,10 +17,9 @@ import {
 } from "./sessionListFilters";
 import {
   createRepoPinKey,
-  createSessionWindowPinKey,
   readStoredSessionListPins,
   storeSessionListPins,
-  toggleSessionListPin,
+  touchSessionListPin,
 } from "./sessionListPins";
 
 const FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
@@ -36,6 +35,7 @@ export const useSessionListVM = () => {
     connectionIssue,
     refreshSessions,
     requestScreen,
+    touchSession,
     highlightCorrections,
   } = useSessions();
   const nowMs = useNowMs();
@@ -45,9 +45,7 @@ export const useSessionListVM = () => {
   const { resolvedTheme } = useTheme();
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const [pins, setPins] = useState(() => readStoredSessionListPins());
-  const pinnedRepoKeys = useMemo(() => new Set(pins.repos), [pins.repos]);
-  const pinnedWindowKeys = useMemo(() => new Set(pins.windows), [pins.windows]);
-  const pinnedPaneIds = useMemo(() => new Set(pins.panes), [pins.panes]);
+  const repoPinValues = pins.repos;
 
   useEffect(() => {
     storeSessionListFilter(filter);
@@ -57,26 +55,30 @@ export const useSessionListVM = () => {
     storeSessionListPins(pins);
   }, [pins]);
 
-  const isRepoPinned = useCallback(
-    (repoRoot: string | null) => pinnedRepoKeys.has(createRepoPinKey(repoRoot)),
-    [pinnedRepoKeys],
+  const getRepoPinnedAt = useCallback(
+    (repoRoot: string | null) => repoPinValues[createRepoPinKey(repoRoot)] ?? null,
+    [repoPinValues],
   );
 
   const visibleSessions = useMemo(() => {
     return sessions.filter((session) => matchesSessionListFilter(session, filter));
   }, [filter, sessions]);
+  const paneRepoRootMap = useMemo(
+    () => new Map(sessions.map((session) => [session.paneId, session.repoRoot ?? null] as const)),
+    [sessions],
+  );
 
   const groups = useMemo(
-    () => buildSessionGroups(visibleSessions, { isRepoPinned }),
-    [isRepoPinned, visibleSessions],
+    () => buildSessionGroups(visibleSessions, { getRepoPinnedAt }),
+    [getRepoPinnedAt, visibleSessions],
   );
   const sidebarSessionGroups = useMemo(
-    () => buildSessionGroups(sessions, { isRepoPinned }),
-    [isRepoPinned, sessions],
+    () => buildSessionGroups(sessions, { getRepoPinnedAt }),
+    [getRepoPinnedAt, sessions],
   );
   const quickPanelGroups = useMemo(
-    () => buildSessionGroups(visibleSessions, { isRepoPinned }),
-    [isRepoPinned, visibleSessions],
+    () => buildSessionGroups(visibleSessions, { getRepoPinnedAt }),
+    [getRepoPinnedAt, visibleSessions],
   );
 
   const {
@@ -138,25 +140,19 @@ export const useSessionListVM = () => {
 
   const handleToggleRepoPin = useCallback((repoRoot: string | null) => {
     const key = createRepoPinKey(repoRoot);
-    setPins((prev) => toggleSessionListPin(prev, "repos", key));
+    setPins((prev) => touchSessionListPin(prev, "repos", key));
   }, []);
 
-  const handleToggleWindowPin = useCallback((sessionName: string, windowIndex: number) => {
-    const key = createSessionWindowPinKey(sessionName, windowIndex);
-    setPins((prev) => toggleSessionListPin(prev, "windows", key));
-  }, []);
-
-  const handleTogglePanePin = useCallback((paneId: string) => {
-    setPins((prev) => toggleSessionListPin(prev, "panes", paneId));
-  }, []);
-
-  const isWindowPinned = useCallback(
-    (sessionName: string, windowIndex: number) =>
-      pinnedWindowKeys.has(createSessionWindowPinKey(sessionName, windowIndex)),
-    [pinnedWindowKeys],
+  const handleTogglePanePin = useCallback(
+    (paneId: string) => {
+      if (paneRepoRootMap.has(paneId)) {
+        const repoRoot = paneRepoRootMap.get(paneId) ?? null;
+        setPins((prev) => touchSessionListPin(prev, "repos", createRepoPinKey(repoRoot)));
+      }
+      void touchSession(paneId).catch(() => null);
+    },
+    [paneRepoRootMap, touchSession],
   );
-
-  const isPanePinned = useCallback((paneId: string) => pinnedPaneIds.has(paneId), [pinnedPaneIds]);
 
   return {
     sessions,
@@ -186,11 +182,7 @@ export const useSessionListVM = () => {
     onOpenPaneHere: handleOpenPaneHere,
     onOpenHere: handleOpenHere,
     onOpenNewTab: handleOpenInNewTab,
-    isRepoPinned,
-    isWindowPinned,
-    isPanePinned,
     onToggleRepoPin: handleToggleRepoPin,
-    onToggleWindowPin: handleToggleWindowPin,
     onTogglePanePin: handleTogglePanePin,
   };
 };

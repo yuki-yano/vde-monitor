@@ -1,53 +1,65 @@
-export type SessionListPinScope = "repos" | "sessions" | "windows" | "panes";
+export type SessionListPinScope = "repos";
 
-export type SessionListPins = Record<SessionListPinScope, string[]>;
+export type SessionListPinValues = Record<string, number>;
+
+export type SessionListPins = Record<SessionListPinScope, SessionListPinValues>;
 
 const SESSION_LIST_PINS_STORAGE_KEY = "vde-monitor-session-list-pins";
 
 const EMPTY_PINS: SessionListPins = {
-  repos: [],
-  sessions: [],
-  windows: [],
-  panes: [],
+  repos: {},
 };
 
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
 
-const normalizePinList = (value: unknown): string[] => {
-  if (!isStringArray(value)) {
-    return [];
+const normalizeLegacyPinList = (value: unknown): SessionListPinValues => {
+  if (!Array.isArray(value)) {
+    return {};
   }
-  return Array.from(new Set(value.filter((item) => item.length > 0)));
+
+  return value.reduce<SessionListPinValues>((acc, item, index) => {
+    if (typeof item !== "string" || item.length === 0) {
+      return acc;
+    }
+    // Legacy format was a string array. Keep deterministic relative order.
+    acc[item] = index + 1;
+    return acc;
+  }, {});
+};
+
+const normalizePinValues = (value: unknown): SessionListPinValues => {
+  if (Array.isArray(value)) {
+    return normalizeLegacyPinList(value);
+  }
+  if (value == null || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<SessionListPinValues>(
+    (acc, [key, rawUpdatedAt]) => {
+      if (key.length === 0) {
+        return acc;
+      }
+      if (!isFiniteNumber(rawUpdatedAt) || rawUpdatedAt <= 0) {
+        return acc;
+      }
+      acc[key] = Math.floor(rawUpdatedAt);
+      return acc;
+    },
+    {},
+  );
 };
 
 const normalizePins = (value: unknown): SessionListPins => {
   if (value == null || typeof value !== "object") {
-    return EMPTY_PINS;
+    return { ...EMPTY_PINS };
   }
   const raw = value as Record<string, unknown>;
   return {
-    repos: normalizePinList(raw.repos),
-    sessions: normalizePinList(raw.sessions),
-    windows: normalizePinList(raw.windows),
-    panes: normalizePinList(raw.panes),
+    repos: normalizePinValues(raw.repos),
   };
 };
-
-const togglePinValue = (values: string[], target: string): string[] => {
-  if (target.length === 0) {
-    return values;
-  }
-  if (values.includes(target)) {
-    return values.filter((value) => value !== target);
-  }
-  return [...values, target];
-};
-
-export const createSessionWindowSessionPinKey = (sessionName: string) => `session:${sessionName}`;
-
-export const createSessionWindowPinKey = (sessionName: string, windowIndex: number) =>
-  `window:${sessionName}:${windowIndex}`;
 
 export const createRepoPinKey = (repoRoot: string | null) => `repo:${repoRoot ?? "__NO_REPO__"}`;
 
@@ -74,13 +86,22 @@ export const storeSessionListPins = (pins: SessionListPins) => {
   window.localStorage.setItem(SESSION_LIST_PINS_STORAGE_KEY, JSON.stringify(normalizePins(pins)));
 };
 
-export const toggleSessionListPin = (
+export const touchSessionListPin = (
   pins: SessionListPins,
   scope: SessionListPinScope,
   key: string,
+  updatedAt = Date.now(),
 ): SessionListPins => {
+  if (key.length === 0) {
+    return pins;
+  }
+  const safeUpdatedAt =
+    isFiniteNumber(updatedAt) && updatedAt > 0 ? Math.floor(updatedAt) : Date.now();
   return {
     ...pins,
-    [scope]: togglePinValue(pins[scope], key),
+    [scope]: {
+      ...pins[scope],
+      [key]: safeUpdatedAt,
+    },
   };
 };

@@ -4,11 +4,9 @@ import { describe, expect, it } from "vitest";
 import type { SessionListPins } from "./sessionListPins";
 import {
   createRepoPinKey,
-  createSessionWindowPinKey,
-  createSessionWindowSessionPinKey,
   readStoredSessionListPins,
   storeSessionListPins,
-  toggleSessionListPin,
+  touchSessionListPin,
 } from "./sessionListPins";
 
 const STORAGE_KEY = "vde-monitor-session-list-pins";
@@ -17,54 +15,52 @@ describe("sessionListPins", () => {
   it("returns defaults when storage is empty or invalid", () => {
     window.localStorage.removeItem(STORAGE_KEY);
     expect(readStoredSessionListPins()).toEqual({
-      repos: [],
-      sessions: [],
-      windows: [],
-      panes: [],
+      repos: {},
     } satisfies SessionListPins);
 
     window.localStorage.setItem(STORAGE_KEY, "invalid-json");
     expect(readStoredSessionListPins()).toEqual({
-      repos: [],
-      sessions: [],
-      windows: [],
-      panes: [],
+      repos: {},
     } satisfies SessionListPins);
   });
 
   it("stores and restores pin values", () => {
     const pins: SessionListPins = {
-      repos: ["repo:/Users/test/repo"],
-      sessions: ["session:alpha"],
-      windows: ["window:alpha:1"],
-      panes: ["%1"],
+      repos: { "repo:/Users/test/repo": 1234 },
     };
     storeSessionListPins(pins);
 
     expect(readStoredSessionListPins()).toEqual(pins);
   });
 
-  it("toggles pin values idempotently", () => {
-    const next = toggleSessionListPin(
+  it("touches pin updatedAt and does not toggle", () => {
+    const next = touchSessionListPin(
       {
-        repos: [],
-        sessions: [],
-        windows: [],
-        panes: [],
+        repos: {},
       },
-      "sessions",
-      "session:alpha",
+      "repos",
+      "repo:/Users/test/repo",
+      1000,
     );
-    expect(next.sessions).toEqual(["session:alpha"]);
+    expect(next.repos).toEqual({ "repo:/Users/test/repo": 1000 });
 
-    const reverted = toggleSessionListPin(next, "sessions", "session:alpha");
-    expect(reverted.sessions).toEqual([]);
+    const updated = touchSessionListPin(next, "repos", "repo:/Users/test/repo", 2000);
+    expect(updated.repos).toEqual({ "repo:/Users/test/repo": 2000 });
   });
 
-  it("creates stable keys for session and window units", () => {
+  it("creates stable keys and migrates legacy array format", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        repos: ["repo:/Users/test/repo"],
+      }),
+    );
+
+    expect(readStoredSessionListPins()).toEqual({
+      repos: { "repo:/Users/test/repo": 1 },
+    } satisfies SessionListPins);
+
     expect(createRepoPinKey("/Users/test/repo")).toBe("repo:/Users/test/repo");
     expect(createRepoPinKey(null)).toBe("repo:__NO_REPO__");
-    expect(createSessionWindowSessionPinKey("alpha")).toBe("session:alpha");
-    expect(createSessionWindowPinKey("alpha", 1)).toBe("window:alpha:1");
   });
 });
