@@ -139,4 +139,21 @@ describe("LogModal", () => {
 
     expect(screen.getByText("line2")).toBeTruthy();
   });
+
+  it("keeps modal height constrained to the viewport", () => {
+    const state = buildState({ logLines: ["line1"] });
+    const actions = buildActions();
+    const wrapper = createWrapper();
+    const { container } = render(<LogModal state={state} actions={actions} />, { wrapper });
+
+    const root = container.firstElementChild;
+    expect(root).toBeTruthy();
+    expect(root?.className).toContain("top-4");
+    expect(root?.className).toContain("bottom-[76px]");
+
+    const card = root?.firstElementChild;
+    expect(card).toBeTruthy();
+    expect(card?.className).toContain("h-full");
+    expect(card?.className).toContain("min-h-0");
+  });
 });
