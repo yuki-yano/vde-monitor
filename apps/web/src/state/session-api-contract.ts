@@ -70,7 +70,7 @@ export type ApiClientContract = {
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === "object";
+  (typeof value === "object" && value != null) || typeof value === "function";
 
 const hasFunction = (value: unknown, key: string): boolean =>
   isRecord(value) && typeof value[key] === "function";
