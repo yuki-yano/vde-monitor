@@ -2,7 +2,6 @@ import type {
   ApiEnvelope,
   ApiError,
   ClientConfig,
-  CommandResponse,
   HighlightCorrectionConfig,
   ScreenResponse,
   SessionSummary,
@@ -73,22 +72,6 @@ export const buildScreenRequestJson = (
     json.cursor = options.cursor;
   }
   return json;
-};
-
-export const runCommandResponseSideEffects = ({
-  response,
-  isPaneMissingError,
-  onSessionRemoved,
-  paneId,
-}: {
-  response: CommandResponse;
-  isPaneMissingError: (error?: ApiError | null) => boolean;
-  onSessionRemoved: (paneId: string) => void;
-  paneId: string;
-}) => {
-  if (isPaneMissingError(response.error)) {
-    onSessionRemoved(paneId);
-  }
 };
 
 export const applyRefreshSessionsSuccess = ({
