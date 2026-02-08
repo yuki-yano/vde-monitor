@@ -15,6 +15,7 @@ import {
   buildSendTextJson,
   buildSessionTitleJson,
   buildTimelineQuery,
+  buildUploadImageForm,
   executeInflightRequest,
   resolveInflightScreenRequest,
 } from "./session-api-utils";
@@ -132,6 +133,8 @@ describe("session-api-utils", () => {
       unsafe: false,
     });
     expect(buildSessionTitleJson("next title")).toEqual({ title: "next title" });
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
+    expect(buildUploadImageForm(file)).toEqual({ image: file });
 
     expect(buildForceQuery()).toEqual({});
     expect(buildForceQuery({ force: true })).toEqual({ force: "1" });

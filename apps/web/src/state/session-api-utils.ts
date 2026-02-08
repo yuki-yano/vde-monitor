@@ -24,6 +24,7 @@ import type {
   SendTextJson,
   SessionTitleJson,
   TimelineQuery,
+  UploadImageForm,
 } from "./session-api-contract";
 
 export type RefreshSessionsResult = {
@@ -98,6 +99,10 @@ export const buildSendRawJson = (items: SendRawJson["items"], unsafe: boolean): 
 
 export const buildSessionTitleJson = (title: string | null): SessionTitleJson => ({
   title,
+});
+
+export const buildUploadImageForm = (file: File): UploadImageForm => ({
+  image: file,
 });
 
 export const applyRefreshSessionsSuccess = ({

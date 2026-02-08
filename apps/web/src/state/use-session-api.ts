@@ -43,6 +43,7 @@ import {
   buildSendTextJson,
   buildSessionTitleJson,
   buildTimelineQuery,
+  buildUploadImageForm,
   executeInflightRequest,
   type RefreshSessionsResult,
   resolveScreenMode,
@@ -438,7 +439,7 @@ export const useSessionApi = ({
         paneId,
         request: apiClient.sessions[":paneId"].attachments.image.$post({
           param: buildPaneParam(paneId),
-          form: { image: file },
+          form: buildUploadImageForm(file),
         }),
         ensureToken,
         onConnectionIssue,
