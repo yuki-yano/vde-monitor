@@ -359,6 +359,28 @@ describe("SessionListView", () => {
     expect(onTogglePanePin).toHaveBeenCalledWith("pane-pin-target");
   });
 
+  it("opens GitHub repository from repo header button", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const session = buildSession({
+      repoRoot: "/Users/test/repos/github.com/acme/project",
+      currentPath: "/Users/test/repos/github.com/acme/project",
+    });
+    const props = createViewProps({
+      sessions: [session],
+      groups: buildSessionGroups([session]),
+    });
+    renderWithRouter(<SessionListView {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open repository on GitHub" }));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/acme/project",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
+
   it("wires LogModal actions", () => {
     const onOpenHere = vi.fn();
     const onOpenNewTab = vi.fn();

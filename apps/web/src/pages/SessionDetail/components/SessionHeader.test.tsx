@@ -6,9 +6,9 @@ import {
   createRouter,
   RouterContextProvider,
 } from "@tanstack/react-router";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ThemeProvider } from "@/state/theme-context";
 
@@ -16,6 +16,10 @@ import { createSessionDetail } from "../test-helpers";
 import { SessionHeader } from "./SessionHeader";
 
 describe("SessionHeader", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   const renderWithRouter = (ui: ReactNode) => {
     const rootRoute = createRootRoute({
       component: () => null,
@@ -114,6 +118,32 @@ describe("SessionHeader", () => {
 
     fireEvent.click(screen.getByLabelText("Pin session to top"));
     expect(onTouchSession).toHaveBeenCalled();
+  });
+
+  it("shows GitHub button when repo URL is resolvable", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const session = createSessionDetail({ repoRoot: "/Users/test/repos/github.com/acme/project" });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    fireEvent.click(screen.getByLabelText("Open repository on GitHub"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/acme/project",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
+
+  it("hides GitHub button when repo URL cannot be resolved", () => {
+    const session = createSessionDetail({ repoRoot: "/Users/test/local-repo" });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.queryByLabelText("Open repository on GitHub")).toBeNull();
   });
 
   it("renders alerts when pipe conflict or connection issue exists", () => {

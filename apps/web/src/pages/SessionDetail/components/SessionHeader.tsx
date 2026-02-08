@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { ArrowLeft, Clock, Pin, X } from "lucide-react";
+import { ArrowLeft, Clock, Github, Pin, X } from "lucide-react";
 import type { KeyboardEvent } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge, Callout, IconButton, LastInputPill, TagPill, TextButton } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
 import { readStoredSessionListFilter } from "@/pages/SessionList/sessionListFilters";
 
 import {
@@ -248,6 +249,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
   const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
   const backToListSearch = { filter: readStoredSessionListFilter() };
+  const repoGitHubUrl = buildGitHubRepoUrl(session.repoRoot ?? session.currentPath);
 
   return (
     <>
@@ -293,11 +295,25 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
             <TagPill tone="meta">Session {session.sessionName}</TagPill>
             <TagPill tone="meta">Window {session.windowIndex}</TagPill>
             <TagPill tone="meta">Pane {session.paneId}</TagPill>
+            {repoGitHubUrl ? (
+              <IconButton
+                type="button"
+                size="xs"
+                onClick={() => {
+                  window.open(repoGitHubUrl, "_blank", "noopener,noreferrer");
+                }}
+                className="ml-auto"
+                aria-label="Open repository on GitHub"
+                title="Open repository on GitHub"
+              >
+                <Github className="h-3.5 w-3.5" />
+              </IconButton>
+            ) : null}
             <IconButton
               type="button"
               size="xs"
               onClick={onTouchSession}
-              className="ml-auto"
+              className={repoGitHubUrl ? undefined : "ml-auto"}
               aria-label="Pin session to top"
               title="Pin session to top"
             >

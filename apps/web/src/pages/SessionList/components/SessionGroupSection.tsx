@@ -1,8 +1,9 @@
 import type { SessionSummary } from "@vde-monitor/shared";
-import { Clock, FolderGit2, Pin } from "lucide-react";
+import { Clock, FolderGit2, Github, Pin } from "lucide-react";
 
 import { GlassPanel, GlowCard, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
 import { formatRelativeTime, getLastInputTone } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
 
@@ -28,6 +29,7 @@ export const SessionGroupSection = ({
   const groupTone = getLastInputTone(group.lastInputAt, nowMs);
   const repoName = formatRepoName(group.repoRoot);
   const repoPath = formatRepoPath(group.repoRoot);
+  const repoGitHubUrl = buildGitHubRepoUrl(group.repoRoot);
   const repoSessions = allSessions.filter(
     (session) => (session.repoRoot ?? null) === group.repoRoot,
   );
@@ -62,9 +64,25 @@ export const SessionGroupSection = ({
             <FolderGit2 className="text-latte-lavender h-5 w-5" />
           </div>
           <div className="min-w-0 space-y-1">
-            <p className="font-display text-latte-text truncate text-lg font-semibold leading-snug">
-              {repoName}
-            </p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="font-display text-latte-text truncate text-lg font-semibold leading-snug">
+                {repoName}
+              </p>
+              {repoGitHubUrl ? (
+                <IconButton
+                  type="button"
+                  size="xs"
+                  variant="base"
+                  aria-label="Open repository on GitHub"
+                  title="Open repository on GitHub"
+                  onClick={() => {
+                    window.open(repoGitHubUrl, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <Github className="h-3.5 w-3.5" />
+                </IconButton>
+              ) : null}
+            </div>
             {repoPath && (
               <p className="text-latte-subtext0 truncate font-mono text-[11px] leading-normal">
                 {repoPath}
