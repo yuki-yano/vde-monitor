@@ -161,7 +161,30 @@ describe("updatePaneOutputState", () => {
     expect(captureFingerprint).not.toHaveBeenCalled();
   });
 
-  it("throttles fingerprint capture when no log and activity timestamps are available", async () => {
+  it("captures fingerprint when activity timestamp is available but log timestamp is missing", async () => {
+    const state = createState({ lastFingerprint: "old" });
+    const captureFingerprint = vi.fn(async () => "new");
+    const now = new Date("2024-01-03T00:00:00.000Z");
+
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      logPath: null,
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => null,
+        resolveActivityAt: () => "2024-01-02T23:59:59.000Z",
+        captureFingerprint,
+        now: () => now,
+      },
+    });
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(1);
+    expect(state.lastFingerprint).toBe("new");
+    expect(result.outputAt).toBe(now.toISOString());
+  });
+
+  it("throttles fingerprint capture when log timestamp is unavailable", async () => {
     const state = createState({ lastFingerprint: "same" });
     const captureFingerprint = vi.fn(async () => "same");
     let nowMs = Date.parse("2024-01-03T00:00:00.000Z");

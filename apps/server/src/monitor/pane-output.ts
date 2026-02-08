@@ -176,7 +176,7 @@ export const updatePaneOutputState = async ({
     statLogMtime,
     setOutputAt: outputAtTracker.setOutputAt,
   });
-  const activityAt = updateOutputAtFromActivity({
+  updateOutputAtFromActivity({
     pane,
     resolveActivityAt,
     setOutputAt: outputAtTracker.setOutputAt,
@@ -185,7 +185,6 @@ export const updatePaneOutputState = async ({
   const shouldCaptureFingerprint =
     allowFingerprintCapture &&
     !logMtime &&
-    !activityAt &&
     now().getTime() - lastFingerprintCaptureAtMs >= fingerprintIntervalMs;
   await updateOutputAtFromFingerprint({
     pane,

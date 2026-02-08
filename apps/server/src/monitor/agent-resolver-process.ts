@@ -11,11 +11,14 @@ const PROCESS_COMMAND_CACHE_MAX_ENTRIES = 1000;
 const TTY_AGENT_CACHE_MAX_ENTRIES = 500;
 const processCommandCache = new Map<number, { command: string; at: number }>();
 const ttyAgentCache = new Map<string, { agent: AgentType; at: number }>();
+const processCommandInFlight = new Map<number, Promise<string | null>>();
+const ttyAgentInFlight = new Map<string, Promise<AgentType>>();
 const processSnapshotCache = {
   at: 0,
   byPid: new Map<number, { pid: number; ppid: number; command: string }>(),
   children: new Map<number, number[]>(),
 };
+let processSnapshotInFlight: Promise<typeof processSnapshotCache> | null = null;
 
 type ProcessSnapshotEntry = {
   pid: number;
@@ -72,22 +75,33 @@ export const getProcessCommand = async (pid: number | null) => {
   if (cached && nowMs - cached.at < processCacheTtlMs) {
     return cached.command;
   }
-  try {
-    const result = await runPs(["-p", String(pid), "-o", "command="], 1000);
-    const command = (result.stdout ?? "").trim();
-    if (command.length === 0) {
-      return null;
-    }
-    setMapEntryWithLimit(
-      processCommandCache,
-      pid,
-      { command, at: nowMs },
-      PROCESS_COMMAND_CACHE_MAX_ENTRIES,
-    );
-    return command;
-  } catch {
-    return null;
+  const inFlight = processCommandInFlight.get(pid);
+  if (inFlight) {
+    return inFlight;
   }
+
+  const request = (async () => {
+    try {
+      const result = await runPs(["-p", String(pid), "-o", "command="], 1000);
+      const command = (result.stdout ?? "").trim();
+      if (command.length === 0) {
+        return null;
+      }
+      setMapEntryWithLimit(
+        processCommandCache,
+        pid,
+        { command, at: Date.now() },
+        PROCESS_COMMAND_CACHE_MAX_ENTRIES,
+      );
+      return command;
+    } catch {
+      return null;
+    } finally {
+      processCommandInFlight.delete(pid);
+    }
+  })();
+  processCommandInFlight.set(pid, request);
+  return request;
 };
 
 const loadProcessSnapshot = async () => {
@@ -95,16 +109,26 @@ const loadProcessSnapshot = async () => {
   if (nowMs - processSnapshotCache.at < processCacheTtlMs) {
     return processSnapshotCache;
   }
-  try {
-    const result = await runPs(["-ax", "-o", "pid=,ppid=,command="], 2000);
-    const { byPid, children } = buildProcessSnapshotMaps(result.stdout ?? "");
-    processSnapshotCache.at = nowMs;
-    processSnapshotCache.byPid = byPid;
-    processSnapshotCache.children = children;
-  } catch {
-    // ignore snapshot failures
+  if (processSnapshotInFlight) {
+    return processSnapshotInFlight;
   }
-  return processSnapshotCache;
+
+  processSnapshotInFlight = (async () => {
+    try {
+      const result = await runPs(["-ax", "-o", "pid=,ppid=,command="], 2000);
+      const { byPid, children } = buildProcessSnapshotMaps(result.stdout ?? "");
+      processSnapshotCache.at = Date.now();
+      processSnapshotCache.byPid = byPid;
+      processSnapshotCache.children = children;
+    } catch {
+      // ignore snapshot failures
+    } finally {
+      processSnapshotInFlight = null;
+    }
+    return processSnapshotCache;
+  })();
+
+  return processSnapshotInFlight;
 };
 
 export const findAgentFromPidTree = async (pid: number | null) => {
@@ -147,21 +171,32 @@ export const getAgentFromTty = async (tty: string | null) => {
   if (cached && nowMs - cached.at < processCacheTtlMs) {
     return cached.agent;
   }
-  try {
-    const result = await runPs(["-o", "command=", "-t", normalized], 1000);
-    const lines = (result.stdout ?? "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const agent = buildAgent(lines.join(" "));
-    setMapEntryWithLimit(
-      ttyAgentCache,
-      normalized,
-      { agent, at: nowMs },
-      TTY_AGENT_CACHE_MAX_ENTRIES,
-    );
-    return agent;
-  } catch {
-    return "unknown" as const;
+  const inFlight = ttyAgentInFlight.get(normalized);
+  if (inFlight) {
+    return inFlight;
   }
+
+  const request: Promise<AgentType> = (async () => {
+    try {
+      const result = await runPs(["-o", "command=", "-t", normalized], 1000);
+      const lines = (result.stdout ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      const agent = buildAgent(lines.join(" "));
+      setMapEntryWithLimit(
+        ttyAgentCache,
+        normalized,
+        { agent, at: Date.now() },
+        TTY_AGENT_CACHE_MAX_ENTRIES,
+      );
+      return agent;
+    } catch {
+      return "unknown" as const;
+    } finally {
+      ttyAgentInFlight.delete(normalized);
+    }
+  })();
+  ttyAgentInFlight.set(normalized, request);
+  return request;
 };

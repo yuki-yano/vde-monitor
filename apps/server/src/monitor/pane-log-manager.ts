@@ -119,7 +119,7 @@ export const createPaneLogManager = ({
     const logPath = getPaneLogPath(paneId);
     const pipeState = { panePipe, pipeTagValue };
 
-    let pipeAttached = pipeTagValue === "1";
+    let pipeAttached = panePipe && pipeTagValue === "1";
     let pipeConflict = pipeManager.hasConflict(pipeState);
 
     const attachResult = await attachPipeIfNeeded({
