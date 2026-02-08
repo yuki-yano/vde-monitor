@@ -17,17 +17,13 @@ import {
   mutateSession as executeMutateSession,
   refreshSessions as executeRefreshSessions,
   requestCommand as executeRequestCommand,
-  requestScreenResponse as executeRequestScreenResponse,
   requestSessionField as executeRequestSessionField,
 } from "./session-api-request-executors";
+import { createSessionScreenRequest } from "./session-api-screen-request";
 import {
   buildPaneHashParam,
   buildPaneParam,
-  buildScreenRequestJson,
-  buildScreenRequestKeys,
-  executeInflightRequest,
   type RefreshSessionsResult,
-  resolveScreenMode,
 } from "./session-api-utils";
 
 type UseSessionApiParams = {
@@ -229,40 +225,18 @@ export const useSessionApi = ({
     [apiClient, requestPaneHashField, requestPaneQueryField],
   );
 
-  const requestScreen = useCallback(
-    async (
-      paneId: string,
-      options: { lines?: number; mode?: "text" | "image"; cursor?: string },
-    ): Promise<ScreenResponse> => {
-      ensureToken();
-      const normalizedMode = resolveScreenMode(options);
-      const { requestKey, fallbackKey } = buildScreenRequestKeys({
-        paneId,
-        normalizedMode,
-        lines: options.lines,
-        cursor: options.cursor,
-      });
-      return executeInflightRequest({
-        inFlightMap: screenInFlightRef.current,
-        requestKey,
-        fallbackKey,
-        execute: () => {
-          const param = buildPaneParam(paneId);
-          const json = buildScreenRequestJson(options, normalizedMode);
-          return executeRequestScreenResponse({
-            paneId,
-            mode: normalizedMode,
-            request: apiClient.sessions[":paneId"].screen.$post({ param, json }),
-            fallbackMessage: API_ERROR_MESSAGES.screenRequestFailed,
-            onConnectionIssue,
-            handleSessionMissing,
-            isPaneMissingError,
-            onSessionRemoved,
-            buildApiError,
-          });
-        },
-      });
-    },
+  const requestScreen = useMemo(
+    () =>
+      createSessionScreenRequest({
+        apiClient,
+        screenInFlightMap: screenInFlightRef.current,
+        ensureToken,
+        onConnectionIssue,
+        handleSessionMissing,
+        isPaneMissingError,
+        onSessionRemoved,
+        buildApiError,
+      }),
     [
       apiClient,
       buildApiError,
