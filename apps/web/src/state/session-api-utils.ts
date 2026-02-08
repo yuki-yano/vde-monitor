@@ -167,8 +167,25 @@ export const resolveInflightScreenRequest = <T>({
   return inFlightMap.get(fallbackKey) ?? null;
 };
 
+const applyForceQuery = <T extends { force?: string }>(query: T, force?: boolean): T => {
+  if (force) {
+    query.force = "1";
+  }
+  return query;
+};
+
+const assignNumberAsStringIfTruthy = <T extends object, K extends keyof T>(
+  query: T,
+  key: K,
+  value?: number,
+) => {
+  if (value) {
+    query[key] = String(value) as T[K];
+  }
+};
+
 export const buildForceQuery = (options?: { force?: boolean }): ForceQuery =>
-  options?.force ? { force: "1" } : {};
+  applyForceQuery({}, options?.force);
 
 export const buildDiffFileQuery = (
   path: string,
@@ -179,10 +196,7 @@ export const buildDiffFileQuery = (
   if (rev) {
     query.rev = rev;
   }
-  if (options?.force) {
-    query.force = "1";
-  }
-  return query;
+  return applyForceQuery(query, options?.force);
 };
 
 export const buildCommitLogQuery = (options?: {
@@ -191,16 +205,9 @@ export const buildCommitLogQuery = (options?: {
   force?: boolean;
 }): CommitLogQuery => {
   const query: CommitLogQuery = {};
-  if (options?.limit) {
-    query.limit = String(options.limit);
-  }
-  if (options?.skip) {
-    query.skip = String(options.skip);
-  }
-  if (options?.force) {
-    query.force = "1";
-  }
-  return query;
+  assignNumberAsStringIfTruthy(query, "limit", options?.limit);
+  assignNumberAsStringIfTruthy(query, "skip", options?.skip);
+  return applyForceQuery(query, options?.force);
 };
 
 export const buildCommitFileQuery = (
@@ -208,8 +215,5 @@ export const buildCommitFileQuery = (
   options?: { force?: boolean },
 ): CommitFileQuery => {
   const query: CommitFileQuery = { path };
-  if (options?.force) {
-    query.force = "1";
-  }
-  return query;
+  return applyForceQuery(query, options?.force);
 };
