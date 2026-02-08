@@ -33,18 +33,28 @@ const FilterToggleGroup = ({
 }: FilterToggleGroupProps) => {
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
-      {options.map((option) => (
-        <Button
-          key={option.value}
-          variant={value === option.value ? activeVariant : inactiveVariant}
-          size={size}
-          onClick={() => onChange(option.value)}
-          disabled={option.disabled}
-          className={buttonClassName}
-        >
-          {option.label}
-        </Button>
-      ))}
+      {options.map((option) => {
+        const isActive = value === option.value;
+        const shouldFixBorderWidth =
+          isActive && (activeVariant === "primary" || activeVariant === "danger");
+
+        return (
+          <Button
+            key={option.value}
+            variant={isActive ? activeVariant : inactiveVariant}
+            size={size}
+            onClick={() => onChange(option.value)}
+            disabled={option.disabled}
+            className={cn(
+              "hover:translate-y-0 active:translate-y-0",
+              shouldFixBorderWidth ? "border border-transparent" : null,
+              buttonClassName,
+            )}
+          >
+            {option.label}
+          </Button>
+        );
+      })}
     </div>
   );
 };
