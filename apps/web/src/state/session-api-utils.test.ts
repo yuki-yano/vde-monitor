@@ -11,6 +11,7 @@ import {
   buildScreenRequestJson,
   buildScreenRequestKeys,
   buildTimelineQuery,
+  executeInflightRequest,
   resolveInflightScreenRequest,
 } from "./session-api-utils";
 
@@ -86,6 +87,35 @@ describe("session-api-utils", () => {
         fallbackKey: null,
       }),
     ).toBeNull();
+  });
+
+  it("executes inflight request once and clears map after completion", async () => {
+    const map = new Map<string, Promise<number>>();
+    let runCount = 0;
+    const execute = async () => {
+      runCount += 1;
+      return 42;
+    };
+
+    const [first, second] = await Promise.all([
+      executeInflightRequest({
+        inFlightMap: map,
+        requestKey: "pane-1:text:50:cursor",
+        fallbackKey: "pane-1:text:50:",
+        execute,
+      }),
+      executeInflightRequest({
+        inFlightMap: map,
+        requestKey: "pane-1:text:50:cursor",
+        fallbackKey: "pane-1:text:50:",
+        execute,
+      }),
+    ]);
+
+    expect(first).toBe(42);
+    expect(second).toBe(42);
+    expect(runCount).toBe(1);
+    expect(map.size).toBe(0);
   });
 
   it("builds query helpers", () => {

@@ -154,6 +154,35 @@ export const resolveInflightScreenRequest = <T>({
   return inFlightMap.get(fallbackKey) ?? null;
 };
 
+export const executeInflightRequest = async <T>({
+  inFlightMap,
+  requestKey,
+  fallbackKey,
+  execute,
+}: {
+  inFlightMap: Map<string, Promise<T>>;
+  requestKey: string;
+  fallbackKey: string | null;
+  execute: () => Promise<T>;
+}): Promise<T> => {
+  const inflight = resolveInflightScreenRequest({
+    inFlightMap,
+    requestKey,
+    fallbackKey,
+  });
+  if (inflight) {
+    return inflight;
+  }
+
+  const promise = execute();
+  inFlightMap.set(requestKey, promise);
+  try {
+    return await promise;
+  } finally {
+    inFlightMap.delete(requestKey);
+  }
+};
+
 export const buildPaneParam = (paneId: string): PaneParam => ({
   paneId: encodePaneId(paneId),
 });

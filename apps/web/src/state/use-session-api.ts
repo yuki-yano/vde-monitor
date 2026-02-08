@@ -39,8 +39,8 @@ import {
   buildScreenRequestJson,
   buildScreenRequestKeys,
   buildTimelineQuery,
+  executeInflightRequest,
   type RefreshSessionsResult,
-  resolveInflightScreenRequest,
   resolveScreenMode,
 } from "./session-api-utils";
 
@@ -328,38 +328,26 @@ export const useSessionApi = ({
         lines: options.lines,
         cursor: options.cursor,
       });
-      const inflight = resolveInflightScreenRequest({
+      return executeInflightRequest({
         inFlightMap: screenInFlightRef.current,
         requestKey,
         fallbackKey,
+        execute: () => {
+          const param = buildPaneParam(paneId);
+          const json = buildScreenRequestJson(options, normalizedMode);
+          return executeRequestScreenResponse({
+            paneId,
+            mode: normalizedMode,
+            request: apiClient.sessions[":paneId"].screen.$post({ param, json }),
+            fallbackMessage: API_ERROR_MESSAGES.screenRequestFailed,
+            onConnectionIssue,
+            handleSessionMissing,
+            isPaneMissingError,
+            onSessionRemoved,
+            buildApiError,
+          });
+        },
       });
-      if (inflight) {
-        return inflight;
-      }
-
-      const executeRequest = async (): Promise<ScreenResponse> => {
-        const param = buildPaneParam(paneId);
-        const json = buildScreenRequestJson(options, normalizedMode);
-        return executeRequestScreenResponse({
-          paneId,
-          mode: normalizedMode,
-          request: apiClient.sessions[":paneId"].screen.$post({ param, json }),
-          fallbackMessage: API_ERROR_MESSAGES.screenRequestFailed,
-          onConnectionIssue,
-          handleSessionMissing,
-          isPaneMissingError,
-          onSessionRemoved,
-          buildApiError,
-        });
-      };
-
-      const promise = executeRequest();
-      screenInFlightRef.current.set(requestKey, promise);
-      try {
-        return await promise;
-      } finally {
-        screenInFlightRef.current.delete(requestKey);
-      }
     },
     [
       apiClient,
