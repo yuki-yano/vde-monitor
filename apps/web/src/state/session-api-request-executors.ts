@@ -2,6 +2,7 @@ import type {
   ApiEnvelope,
   ApiError,
   CommandResponse,
+  HighlightCorrectionConfig,
   ScreenResponse,
   SessionSummary,
 } from "@vde-monitor/shared";
@@ -9,7 +10,14 @@ import type {
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { expectField, extractErrorMessage, requestJson } from "@/lib/api-utils";
 
-import { buildScreenErrorResponse, resolveUnknownErrorMessage } from "./session-api-utils";
+import {
+  applyRefreshSessionsFailure,
+  applyRefreshSessionsSuccess,
+  buildScreenErrorResponse,
+  type RefreshSessionsResult,
+  resolveUnknownErrorMessage,
+  type SessionsResponseEnvelope,
+} from "./session-api-utils";
 
 type EnsureToken = () => void;
 type OnConnectionIssue = (message: string | null) => void;
@@ -214,5 +222,41 @@ export const requestScreenResponse = async ({
       message,
       buildApiError,
     });
+  }
+};
+
+type RefreshSessionsParams = {
+  token: string | null;
+  request: Promise<Response>;
+  onSessions: (sessions: SessionSummary[]) => void;
+  onConnectionIssue: OnConnectionIssue;
+  onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
+};
+
+export const refreshSessions = async ({
+  token,
+  request,
+  onSessions,
+  onConnectionIssue,
+  onHighlightCorrections,
+}: RefreshSessionsParams): Promise<RefreshSessionsResult> => {
+  if (!token) {
+    return { ok: false, authError: true };
+  }
+  try {
+    const { res, data } = await requestJson<SessionsResponseEnvelope>(request);
+    if (!res.ok || !data?.sessions) {
+      return applyRefreshSessionsFailure({ res, data, onConnectionIssue });
+    }
+    return applyRefreshSessionsSuccess({
+      res,
+      data,
+      onSessions,
+      onHighlightCorrections,
+      onConnectionIssue,
+    });
+  } catch (error) {
+    onConnectionIssue(resolveUnknownErrorMessage(error, "Network error. Reconnecting..."));
+    return { ok: false };
   }
 };

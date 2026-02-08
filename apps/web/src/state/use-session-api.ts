@@ -21,18 +21,16 @@ import {
 import { useCallback, useMemo, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { requestJson } from "@/lib/api-utils";
 
 import { createApiClient } from "./session-api-contract";
 import {
   mutateSession as executeMutateSession,
+  refreshSessions as executeRefreshSessions,
   requestCommand as executeRequestCommand,
   requestScreenResponse as executeRequestScreenResponse,
   requestSessionField as executeRequestSessionField,
 } from "./session-api-request-executors";
 import {
-  applyRefreshSessionsFailure,
-  applyRefreshSessionsSuccess,
   buildCommitFileQuery,
   buildCommitLogQuery,
   buildDiffFileQuery,
@@ -42,8 +40,6 @@ import {
   type RefreshSessionsResult,
   resolveInflightScreenRequest,
   resolveScreenMode,
-  resolveUnknownErrorMessage,
-  type SessionsResponseEnvelope,
 } from "./session-api-utils";
 
 type UseSessionApiParams = {
@@ -114,25 +110,13 @@ export const useSessionApi = ({
   const screenInFlightRef = useRef(new Map<string, Promise<ScreenResponse>>());
 
   const refreshSessions = useCallback(async (): Promise<RefreshSessionsResult> => {
-    if (!token) {
-      return { ok: false, authError: true };
-    }
-    try {
-      const { res, data } = await requestJson<SessionsResponseEnvelope>(apiClient.sessions.$get());
-      if (!res.ok || !data?.sessions) {
-        return applyRefreshSessionsFailure({ res, data, onConnectionIssue });
-      }
-      return applyRefreshSessionsSuccess({
-        res,
-        data,
-        onSessions,
-        onHighlightCorrections,
-        onConnectionIssue,
-      });
-    } catch (err) {
-      onConnectionIssue(resolveUnknownErrorMessage(err, "Network error. Reconnecting..."));
-      return { ok: false };
-    }
+    return executeRefreshSessions({
+      token,
+      request: apiClient.sessions.$get(),
+      onSessions,
+      onConnectionIssue,
+      onHighlightCorrections,
+    });
   }, [apiClient, onConnectionIssue, onHighlightCorrections, onSessions, token]);
 
   const requestSessionField = useCallback(

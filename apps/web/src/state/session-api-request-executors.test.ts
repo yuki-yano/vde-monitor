@@ -1,10 +1,12 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { requestJson } from "@/lib/api-utils";
 
 import {
   mutateSession,
+  refreshSessions,
   requestCommand,
   requestScreenResponse,
   requestSessionField,
@@ -345,5 +347,98 @@ describe("session-api-request-executors", () => {
     expect(onConnectionIssue).toHaveBeenCalledWith("network down");
     expect(handleSessionMissing).not.toHaveBeenCalled();
     expect(onSessionRemoved).not.toHaveBeenCalled();
+  });
+
+  it("refreshSessions returns auth error without request when token is missing", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const onSessions = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const onHighlightCorrections = vi.fn();
+
+    const result = await refreshSessions({
+      token: null,
+      request: Promise.resolve(new Response()),
+      onSessions,
+      onConnectionIssue,
+      onHighlightCorrections,
+    });
+
+    expect(result).toEqual({ ok: false, authError: true });
+    expect(requestJsonMock).not.toHaveBeenCalled();
+    expect(onSessions).not.toHaveBeenCalled();
+    expect(onConnectionIssue).not.toHaveBeenCalled();
+    expect(onHighlightCorrections).not.toHaveBeenCalled();
+  });
+
+  it("refreshSessions applies sessions snapshot on success", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const onSessions = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const onHighlightCorrections = vi.fn();
+    const sessions = [createSession("pane-1")];
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 200 }),
+      data: { sessions },
+    });
+
+    const result = await refreshSessions({
+      token: "token",
+      request: Promise.resolve(new Response()),
+      onSessions,
+      onConnectionIssue,
+      onHighlightCorrections,
+    });
+
+    expect(result).toEqual({ ok: true, status: 200 });
+    expect(onSessions).toHaveBeenCalledWith(sessions);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("refreshSessions marks auth failures from response status", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const onSessions = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const onHighlightCorrections = vi.fn();
+    requestJsonMock.mockResolvedValueOnce({
+      res: new Response(null, { status: 401 }),
+      data: { error: { code: "INVALID_PAYLOAD", message: "unauthorized" } },
+    });
+
+    const result = await refreshSessions({
+      token: "token",
+      request: Promise.resolve(new Response()),
+      onSessions,
+      onConnectionIssue,
+      onHighlightCorrections,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 401,
+      authError: true,
+      rateLimited: false,
+    });
+    expect(onSessions).not.toHaveBeenCalled();
+    expect(onConnectionIssue).toHaveBeenCalledWith(API_ERROR_MESSAGES.unauthorized);
+  });
+
+  it("refreshSessions reports network fallback error", async () => {
+    const requestJsonMock = vi.mocked(requestJson);
+    const onSessions = vi.fn();
+    const onConnectionIssue = vi.fn();
+    const onHighlightCorrections = vi.fn();
+    requestJsonMock.mockRejectedValueOnce(new Error("offline"));
+
+    const result = await refreshSessions({
+      token: "token",
+      request: Promise.resolve(new Response()),
+      onSessions,
+      onConnectionIssue,
+      onHighlightCorrections,
+    });
+
+    expect(result).toEqual({ ok: false });
+    expect(onSessions).not.toHaveBeenCalled();
+    expect(onConnectionIssue).toHaveBeenCalledWith("offline");
   });
 });
