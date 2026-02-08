@@ -20,7 +20,7 @@ type AppContext = {
   actions: MultiplexerInputActions;
 };
 
-export type ApiAppType = ReturnType<typeof createApiRouter>;
+export type { ApiAppType } from "./http/api-router";
 
 export const createApp = ({ config, monitor, actions }: AppContext) => {
   const app = new Hono();
