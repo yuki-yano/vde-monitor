@@ -73,6 +73,8 @@ const shouldShowErrorMessage = (error: string | null, connectionIssue: string | 
   Boolean(error) &&
   (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
 
+const MAX_LOG_REFERENCE_CANDIDATES = 160;
+
 const resolveModeValue = (value: string): ScreenMode | null => {
   if (value === "text" || value === "image") {
     return value;
@@ -254,23 +256,35 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const [linkableTokens, setLinkableTokens] = useState<Set<string>>(new Set());
   const activeResolveCandidatesRequestIdRef = useRef(0);
   const referenceCandidateTokens = useMemo(() => {
-    const pathTokens = new Set<string>();
-    const filenameTokens = new Set<string>();
+    const seen = new Set<string>();
+    const ordered: string[] = [];
     for (let index = screenLines.length - 1; index >= 0; index -= 1) {
       const line = screenLines[index];
       if (!line) {
         continue;
       }
       const tokens = extractLogReferenceTokensFromLine(line);
+      const pathTokens: string[] = [];
+      const filenameTokens: string[] = [];
       for (const token of tokens) {
-        if (token.includes("/") || token.includes("\\")) {
-          pathTokens.add(token);
+        if (seen.has(token)) {
           continue;
         }
-        filenameTokens.add(token);
+        if (token.includes("/") || token.includes("\\")) {
+          pathTokens.push(token);
+          continue;
+        }
+        filenameTokens.push(token);
+      }
+      for (const token of [...pathTokens, ...filenameTokens]) {
+        seen.add(token);
+        ordered.push(token);
+        if (ordered.length >= MAX_LOG_REFERENCE_CANDIDATES) {
+          return ordered;
+        }
       }
     }
-    return [...pathTokens, ...filenameTokens];
+    return ordered;
   }, [screenLines]);
   const linkifiedScreenLines = useMemo(
     () =>

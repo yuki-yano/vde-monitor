@@ -252,6 +252,28 @@ describe("ScreenPanel", () => {
     );
   });
 
+  it("keeps latest filename tokens within resolver window even with older path backlog", async () => {
+    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
+    const oldPathTokens = Array.from(
+      { length: 300 },
+      (_, index) => `src/old/path-${index}.ts`,
+    ).join(" ");
+    const state = buildState({
+      screenLines: [oldPathTokens, "Read useSessionFiles.test.tsx"],
+    });
+    const actions = buildActions({ onResolveFileReferenceCandidates });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    await waitFor(() => {
+      expect(onResolveFileReferenceCandidates).toHaveBeenCalled();
+    });
+    const firstCallArgs = onResolveFileReferenceCandidates.mock.calls[0]?.[0] as
+      | string[]
+      | undefined;
+    expect(firstCallArgs).toContain("useSessionFiles.test.tsx");
+    expect(firstCallArgs?.indexOf("useSessionFiles.test.tsx") ?? 999).toBeLessThan(80);
+  });
+
   it("invokes file resolver only for verified links", async () => {
     const onResolveFileReference = vi.fn(async () => undefined);
     const onResolveFileReferenceCandidates = vi.fn(async () => ["src/exists.ts:2"]);
