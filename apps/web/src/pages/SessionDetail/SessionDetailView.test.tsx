@@ -67,6 +67,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     },
     sidebar: {
       sessionGroups: buildSessionGroups([]),
+      getRepoPinnedAt: () => null,
       connected: false,
       connectionIssue: null,
       requestStateTimeline: vi.fn(),
@@ -227,6 +228,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     actions: {
       handleFocusPane: vi.fn(),
       handleTouchPane: vi.fn(),
+      handleToggleRepoPin: vi.fn(),
       handleOpenPaneHere: vi.fn(),
       handleOpenHere: vi.fn(),
       handleOpenInNewTab: vi.fn(),

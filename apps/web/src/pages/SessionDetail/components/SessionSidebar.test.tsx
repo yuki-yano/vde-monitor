@@ -192,7 +192,8 @@ describe("SessionSidebar", () => {
     expect(screen.queryByText("Shell Session")).toBeNull();
   });
 
-  it("reorders repo groups by filtered sessions like session list", () => {
+  it("applies repo pin timestamps to filtered group sorting like session list", () => {
+    const repoPinUpdatedAt = Date.parse("2026-02-07T13:00:00.000Z");
     const repoAAgent = createSessionDetail({
       paneId: "pane-a-agent",
       title: "Repo A Agent",
@@ -223,6 +224,7 @@ describe("SessionSidebar", () => {
     });
 
     const state = buildState({
+      getRepoPinnedAt: (repoRoot) => (repoRoot === "/Users/test/repo-a" ? repoPinUpdatedAt : null),
       sessionGroups: [
         {
           repoRoot: "/Users/test/repo-a",
@@ -239,16 +241,51 @@ describe("SessionSidebar", () => {
 
     renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
 
-    const beforePinLinks = screen.getAllByRole("link");
-    expect(beforePinLinks[0]?.textContent).toContain("Repo B Agent");
-    expect(beforePinLinks[1]?.textContent).toContain("Repo A Agent");
+    const links = screen.getAllByRole("link");
+    expect(links[0]?.textContent).toContain("Repo A Agent");
+    expect(links[1]?.textContent).toContain("Repo B Agent");
+  });
+
+  it("calls onToggleRepoPin when repo pin button is pressed", () => {
+    const repoAAgent = createSessionDetail({
+      paneId: "pane-a-agent",
+      title: "Repo A Agent",
+      repoRoot: "/Users/test/repo-a",
+      sessionName: "alpha",
+      windowIndex: 1,
+      state: "RUNNING",
+      lastInputAt: "2026-02-07T10:00:00.000Z",
+    });
+    const repoBAgent = createSessionDetail({
+      paneId: "pane-b-agent",
+      title: "Repo B Agent",
+      repoRoot: "/Users/test/repo-b",
+      sessionName: "beta",
+      windowIndex: 1,
+      state: "RUNNING",
+      lastInputAt: "2026-02-07T11:00:00.000Z",
+    });
+    const onToggleRepoPin = vi.fn();
+    const state = buildState({
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo-a",
+          sessions: [repoAAgent],
+          lastInputAt: repoAAgent.lastInputAt,
+        },
+        {
+          repoRoot: "/Users/test/repo-b",
+          sessions: [repoBAgent],
+          lastInputAt: repoBAgent.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={{ onToggleRepoPin }} />);
 
     const repoPinButtons = screen.getAllByRole("button", { name: "Pin repo to top" });
     fireEvent.click(repoPinButtons[1]!);
-
-    const afterPinLinks = screen.getAllByRole("link");
-    expect(afterPinLinks[0]?.textContent).toContain("Repo A Agent");
-    expect(afterPinLinks[1]?.textContent).toContain("Repo B Agent");
+    expect(onToggleRepoPin).toHaveBeenCalledWith("/Users/test/repo-a");
   });
 
   it("calls onFocusPane without triggering session selection", () => {
@@ -311,55 +348,5 @@ describe("SessionSidebar", () => {
 
     expect(onTouchSession).toHaveBeenCalledWith("pane-1");
     expect(onSelectSession).not.toHaveBeenCalled();
-  });
-
-  it("reorders repo groups when pane pin is pressed like session list", () => {
-    const repoASession = createSessionDetail({
-      paneId: "pane-a",
-      title: "Repo A Session",
-      repoRoot: "/Users/test/repo-a",
-      sessionName: "alpha",
-      windowIndex: 1,
-      state: "RUNNING",
-      lastInputAt: "2026-02-07T10:00:00.000Z",
-    });
-    const repoBSession = createSessionDetail({
-      paneId: "pane-b",
-      title: "Repo B Session",
-      repoRoot: "/Users/test/repo-b",
-      sessionName: "beta",
-      windowIndex: 1,
-      state: "RUNNING",
-      lastInputAt: "2026-02-07T11:00:00.000Z",
-    });
-    const onTouchSession = vi.fn();
-    const state = buildState({
-      sessionGroups: [
-        {
-          repoRoot: "/Users/test/repo-a",
-          sessions: [repoASession],
-          lastInputAt: repoASession.lastInputAt,
-        },
-        {
-          repoRoot: "/Users/test/repo-b",
-          sessions: [repoBSession],
-          lastInputAt: repoBSession.lastInputAt,
-        },
-      ],
-    });
-
-    renderWithRouter(<SessionSidebar state={state} actions={{ onTouchSession }} />);
-
-    const beforePinLinks = screen.getAllByRole("link");
-    expect(beforePinLinks[0]?.textContent).toContain("Repo B Session");
-    expect(beforePinLinks[1]?.textContent).toContain("Repo A Session");
-
-    const panePinButtons = screen.getAllByRole("button", { name: "Pin pane to top" });
-    fireEvent.click(panePinButtons[1]!);
-
-    const afterPinLinks = screen.getAllByRole("link");
-    expect(afterPinLinks[0]?.textContent).toContain("Repo A Session");
-    expect(afterPinLinks[1]?.textContent).toContain("Repo B Session");
-    expect(onTouchSession).toHaveBeenCalledWith("pane-a");
   });
 });

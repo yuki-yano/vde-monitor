@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 
+import { getPromptStartPatterns, stripPromptStartMarker } from "@vde-monitor/shared";
+
 const DEFAULT_MAX_READ_BYTES = 128 * 1024;
 const DEFAULT_MAX_PROMPT_LINES = 24;
 const CLAMP_OVERLAP_BYTES = 4;
-const DEFAULT_PROMPT_START_PATTERNS = [/^\s*\u203A(?:\s|$)/, /^\s*>\s/];
+const DEFAULT_PROMPT_START_PATTERNS = getPromptStartPatterns("any");
 const DEFAULT_CONTINUATION_LINE_PATTERN = /^\s+/;
 const replacementCharPattern = /^\uFFFD+/;
 
@@ -34,7 +36,7 @@ export type ExternalInputDetectArgs = {
   now?: () => Date;
   previousCursorBytes: number | null;
   previousSignature: string | null;
-  promptStartPatterns?: RegExp[];
+  promptStartPatterns?: readonly RegExp[];
   continuationLinePattern?: RegExp;
   deps?: ExternalInputDetectorDeps;
 };
@@ -82,10 +84,10 @@ const stripAnsi = (value: string) =>
 const normalizeDeltaText = (value: string) =>
   stripAnsi(value.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));
 
-const matchesPromptStart = (line: string, patterns: RegExp[]) =>
+const matchesPromptStart = (line: string, patterns: readonly RegExp[]) =>
   patterns.some((pattern) => pattern.test(line));
 
-const normalizeClampedLeadingLine = (text: string, promptStartPatterns: RegExp[]) => {
+const normalizeClampedLeadingLine = (text: string, promptStartPatterns: readonly RegExp[]) => {
   const lines = text.split("\n");
   if (lines.length === 0) {
     return text;
@@ -120,7 +122,7 @@ const hasPromptContent = (lines: string[]) => {
     return false;
   }
   const [firstLine, ...rest] = lines;
-  const firstPayload = (firstLine ?? "").replace(/^\s*(?:\u203A|>)\s?/, "").trim();
+  const firstPayload = stripPromptStartMarker(firstLine ?? "", "any").trim();
   if (firstPayload.length > 0) {
     return true;
   }
@@ -134,7 +136,7 @@ const pickLatestPromptBlock = ({
   maxPromptLines,
 }: {
   normalizedText: string;
-  promptStartPatterns: RegExp[];
+  promptStartPatterns: readonly RegExp[];
   continuationLinePattern: RegExp;
   maxPromptLines: number;
 }) => {
@@ -261,7 +263,7 @@ const detectPromptFromSegment = async ({
   fileSize: number;
   maxPromptLines: number;
   prevSignature: string | null;
-  promptStartPatterns: RegExp[];
+  promptStartPatterns: readonly RegExp[];
   continuationLinePattern: RegExp;
   readLogSlice: (logPath: string, offsetBytes: number, lengthBytes: number) => Promise<string>;
 }) => {

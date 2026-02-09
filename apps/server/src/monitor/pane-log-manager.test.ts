@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPaneLogManager } from "./pane-log-manager";
 
+const resolveMockLogPaths = (paneId: string, paneLogPath = `/logs/${paneId}.log`) => ({
+  paneIdEncoded: paneId,
+  panesDir: "/logs",
+  eventsDir: "/logs",
+  paneLogPath,
+  eventLogPath: "/logs/events.log",
+});
+
 describe("pane-log-manager", () => {
   it("attaches pipe when allowed and updates logging", async () => {
     const pipeManager = {
@@ -22,13 +30,7 @@ describe("pane-log-manager", () => {
       pipeManager,
       logActivity,
       deps: {
-        resolveLogPaths: (_base, _key, paneId) => ({
-          paneIdEncoded: paneId,
-          panesDir: "/logs",
-          eventsDir: "/logs",
-          paneLogPath: `/logs/${paneId}.log`,
-          eventLogPath: "/logs/events.log",
-        }),
+        resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
         ensureDir: vi.fn(async () => {}),
         rotateLogIfNeeded: vi.fn(async () => {}),
         openLogFile: vi.fn(async () => {}),
@@ -68,13 +70,7 @@ describe("pane-log-manager", () => {
       pipeManager,
       logActivity,
       deps: {
-        resolveLogPaths: (_base, _key, paneId) => ({
-          paneIdEncoded: paneId,
-          panesDir: "/logs",
-          eventsDir: "/logs",
-          paneLogPath: `/logs/${paneId}.log`,
-          eventLogPath: "/logs/events.log",
-        }),
+        resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
         ensureDir: vi.fn(async () => {}),
         rotateLogIfNeeded: vi.fn(async () => {}),
         openLogFile: vi.fn(async () => {}),
@@ -86,7 +82,6 @@ describe("pane-log-manager", () => {
       panePipe: true,
       pipeTagValue: "1",
     });
-
     expect(pipeManager.attachPipe).not.toHaveBeenCalled();
     expect(result.pipeAttached).toBe(true);
     expect(result.pipeConflict).toBe(false);
@@ -110,13 +105,7 @@ describe("pane-log-manager", () => {
       pipeManager,
       logActivity,
       deps: {
-        resolveLogPaths: (_base, _key, paneId) => ({
-          paneIdEncoded: paneId,
-          panesDir: "/logs",
-          eventsDir: "/logs",
-          paneLogPath: `/logs/${paneId}.log`,
-          eventLogPath: "/logs/events.log",
-        }),
+        resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
         ensureDir: vi.fn(async () => {}),
         rotateLogIfNeeded: vi.fn(async () => {}),
         openLogFile: vi.fn(async () => {}),
@@ -155,13 +144,7 @@ describe("pane-log-manager", () => {
       pipeManager,
       logActivity,
       deps: {
-        resolveLogPaths: (_base, _key, paneId) => ({
-          paneIdEncoded: paneId,
-          panesDir: "/logs",
-          eventsDir: "/logs",
-          paneLogPath: `/logs/${paneId}.log`,
-          eventLogPath: "/logs/events.log",
-        }),
+        resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
         ensureDir: vi.fn(async () => {}),
         rotateLogIfNeeded: vi.fn(async () => {}),
         openLogFile: vi.fn(async () => {}),
@@ -196,13 +179,7 @@ describe("pane-log-manager", () => {
       pipeManager,
       logActivity,
       deps: {
-        resolveLogPaths: (_base, _key, paneId) => ({
-          paneIdEncoded: paneId,
-          panesDir: "/logs",
-          eventsDir: "/logs",
-          paneLogPath: `/logs/${paneId}.log`,
-          eventLogPath: "/logs/events.log",
-        }),
+        resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
         ensureDir: vi.fn(async () => {}),
         rotateLogIfNeeded: vi.fn(async () => {}),
         openLogFile: vi.fn(async () => {}),

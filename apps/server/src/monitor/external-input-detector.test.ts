@@ -69,6 +69,26 @@ describe("detectExternalInputFromLogDelta", () => {
     expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 120, 80);
   });
 
+  it("detects Claude prompt symbol with non-breaking space", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 160 }));
+    const readLogSlice = vi.fn(async () => "\u001b[2m\u276F\u00A0hello from claude\u001b[0m");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%104",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 120,
+      previousSignature: null,
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("detected");
+    expect(result.detectedAt).toBe(FIXED_NOW_ISO);
+    expect(result.nextCursorBytes).toBe(160);
+    expect(result.signature).toMatch(/^[a-f0-9]{40}$/);
+  });
+
   it("returns no-pattern for output-only appended text", async () => {
     const statLogSize = vi.fn(async () => ({ size: 160 }));
     const readLogSlice = vi.fn(async () => "Agent response line\nNext output");

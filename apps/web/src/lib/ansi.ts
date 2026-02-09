@@ -1,4 +1,5 @@
 import type { HighlightCorrectionConfig } from "@vde-monitor/shared";
+import { isPromptStartLine } from "@vde-monitor/shared";
 import AnsiToHtml from "ansi-to-html";
 
 import type { Theme } from "@/lib/theme";
@@ -274,13 +275,12 @@ const renderClaudeLines = (
   return normalizeClaudePromptBackgrounds(rendered, plainLines);
 };
 
-const claudePromptStartPattern = /^\s*\u276f(?:\s|$)/;
 const startsWithWhitespacePattern = /^\s/;
 
 const resolvePromptBlockEnd = (plainLines: string[], start: number) => {
   for (let index = start + 1; index < plainLines.length; index += 1) {
     const line = plainLines[index] ?? "";
-    if (claudePromptStartPattern.test(line)) {
+    if (isPromptStartLine(line, "claude")) {
       return index;
     }
     if (line.trim().length > 0 && !startsWithWhitespacePattern.test(line)) {
@@ -335,7 +335,7 @@ const normalizeClaudePromptBackgrounds = (renderedLines: string[], plainLines: s
   let index = 0;
   while (index < plainLines.length) {
     const line = plainLines[index] ?? "";
-    if (!claudePromptStartPattern.test(line)) {
+    if (!isPromptStartLine(line, "claude")) {
       index += 1;
       continue;
     }

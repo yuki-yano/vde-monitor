@@ -88,7 +88,29 @@ describe("buildSessionGroups", () => {
     expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%2", "%1", "%3"]);
   });
 
-  it("prioritizes repo pin update time before time-based sorting", () => {
+  it("uses the latest timestamp between repo pin and input for group sorting", () => {
+    const sessions = [
+      buildSession({
+        paneId: "%1",
+        repoRoot: "/repo/a",
+        lastInputAt: "2026-02-01T01:00:00Z",
+      }),
+      buildSession({
+        paneId: "%2",
+        repoRoot: "/repo/b",
+        lastInputAt: "2026-02-01T02:00:00Z",
+      }),
+    ];
+
+    const groups = buildSessionGroups(sessions, {
+      getRepoPinnedAt: (repoRoot) =>
+        repoRoot === "/repo/a" ? Date.parse("2026-02-01T03:00:00Z") : null,
+    });
+
+    expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/a", "/repo/b"]);
+  });
+
+  it("does not keep repo pin above fresher input when pin timestamp is stale", () => {
     const sessions = [
       buildSession({
         paneId: "%1",
@@ -106,6 +128,6 @@ describe("buildSessionGroups", () => {
       getRepoPinnedAt: (repoRoot) => (repoRoot === "/repo/a" ? 2000 : null),
     });
 
-    expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/a", "/repo/b"]);
+    expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/b", "/repo/a"]);
   });
 });
