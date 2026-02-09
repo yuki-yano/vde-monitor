@@ -49,6 +49,7 @@ type SessionDetailViewOverrides = {
   screen?: Partial<SessionDetailViewProps["screen"]>;
   controls?: Partial<SessionDetailViewProps["controls"]>;
   diffs?: Partial<SessionDetailViewProps["diffs"]>;
+  files?: Partial<SessionDetailViewProps["files"]>;
   commits?: Partial<SessionDetailViewProps["commits"]>;
   logs?: Partial<SessionDetailViewProps["logs"]>;
   title?: Partial<SessionDetailViewProps["title"]>;
@@ -145,6 +146,42 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       refreshDiff: vi.fn(),
       toggleDiff: vi.fn(),
     },
+    files: {
+      unavailable: false,
+      selectedFilePath: null,
+      searchQuery: "",
+      searchActiveIndex: 0,
+      searchResult: null,
+      searchLoading: false,
+      searchError: null,
+      searchMode: "all-matches",
+      treeLoading: false,
+      treeError: null,
+      treeNodes: [],
+      rootTreeHasMore: false,
+      searchHasMore: false,
+      fileModalOpen: false,
+      fileModalPath: null,
+      fileModalLoading: false,
+      fileModalError: null,
+      fileModalFile: null,
+      fileModalMarkdownViewMode: "code",
+      fileModalShowLineNumbers: false,
+      fileModalCopiedPath: false,
+      fileModalCopyError: null,
+      onSearchQueryChange: vi.fn(),
+      onSearchMove: vi.fn(),
+      onSearchConfirm: vi.fn(),
+      onToggleDirectory: vi.fn(),
+      onSelectFile: vi.fn(),
+      onOpenFileModal: vi.fn(),
+      onCloseFileModal: vi.fn(),
+      onSetFileModalMarkdownViewMode: vi.fn(),
+      onToggleFileModalLineNumbers: vi.fn(),
+      onCopyFileModalPath: vi.fn(),
+      onLoadMoreTreeRoot: vi.fn(),
+      onLoadMoreSearch: vi.fn(),
+    },
     commits: {
       commitLog: null,
       commitError: null,
@@ -205,6 +242,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     screen: { ...base.screen, ...overrides.screen },
     controls: { ...base.controls, ...overrides.controls },
     diffs: { ...base.diffs, ...overrides.diffs },
+    files: { ...base.files, ...overrides.files },
     commits: { ...base.commits, ...overrides.commits },
     logs: { ...base.logs, ...overrides.logs },
     title: { ...base.title, ...overrides.title },
@@ -230,6 +268,7 @@ describe("SessionDetailView", () => {
     expect(screen.getByRole("button", { name: "Edit session title" })).toBeTruthy();
     expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeTruthy();
     expect(screen.getByRole("separator", { name: "Resize panels" })).toBeTruthy();
+    expect(screen.getByText("File Navigator")).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Text" })).toBeTruthy();
     expect(screen.getByLabelText("Toggle session quick panel")).toBeTruthy();
   });

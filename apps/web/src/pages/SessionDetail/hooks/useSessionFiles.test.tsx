@@ -1,0 +1,744 @@
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
+import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { useSessionFiles } from "./useSessionFiles";
+
+const createTreePage = (overrides: Partial<RepoFileTreePage>): RepoFileTreePage => ({
+  basePath: ".",
+  entries: [],
+  ...overrides,
+});
+
+const createSearchPage = (overrides: Partial<RepoFileSearchPage>): RepoFileSearchPage => ({
+  query: "index",
+  items: [],
+  truncated: false,
+  totalMatchedCount: 0,
+  ...overrides,
+});
+
+const requestRepoFileContent = vi.fn(
+  async (_paneId: string, targetPath: string): Promise<RepoFileContent> => ({
+    path: targetPath,
+    sizeBytes: 12,
+    isBinary: false,
+    truncated: false,
+    languageHint: "typescript",
+    content: "export {};",
+  }),
+);
+
+const createDeferred = <T,>() => {
+  let resolve: ((value: T | PromiseLike<T>) => void) | null = null;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return {
+    promise,
+    resolve: (value: T) => {
+      if (resolve) {
+        resolve(value);
+      }
+    },
+  };
+};
+
+describe("useSessionFiles", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    requestRepoFileContent.mockClear();
+  });
+
+  it("loads root tree and expands directories", async () => {
+    const requestRepoFileTree = vi.fn(async (_paneId: string, options?: { path?: string }) => {
+      if (!options?.path) {
+        return createTreePage({
+          basePath: ".",
+          entries: [
+            { path: "src", name: "src", kind: "directory", hasChildren: true },
+            { path: "README.md", name: "README.md", kind: "file" },
+          ],
+        });
+      }
+      if (options.path === "src") {
+        return createTreePage({
+          basePath: "src",
+          entries: [{ path: "src/index.ts", name: "index.ts", kind: "file" }],
+        });
+      }
+      return createTreePage({ basePath: options.path });
+    });
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src")).toBe(true);
+    });
+
+    act(() => {
+      result.current.onToggleDirectory("src");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/index.ts")).toBe(true);
+    });
+  });
+
+  it("applies search results to tree nodes and confirms active selection", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "index",
+        items: [
+          { path: "src/app/index.ts", name: "index.ts", score: 0.8, highlights: [0, 1] },
+          { path: "src/lib/index.test.ts", name: "index.test.ts", score: 0.6, highlights: [0, 1] },
+        ],
+        totalMatchedCount: 2,
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onSearchQueryChange("index");
+    });
+
+    await waitFor(() => {
+      expect(result.current.searchResult?.items.length).toBe(2);
+    });
+    expect(result.current.treeNodes.some((node) => node.path === "src/app/index.ts")).toBe(true);
+
+    act(() => {
+      result.current.onSearchMove(1);
+    });
+    await waitFor(() => {
+      expect(result.current.searchActiveIndex).toBe(1);
+    });
+    act(() => {
+      result.current.onSearchConfirm();
+    });
+
+    expect(result.current.selectedFilePath).toBe("src/lib/index.test.ts");
+  });
+
+  it("resets local state when paneId changes", async () => {
+    const requestRepoFileTree = vi.fn(async () =>
+      createTreePage({
+        basePath: ".",
+        entries: [{ path: "src/file.ts", name: "file.ts", kind: "file" }],
+      }),
+    );
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "file",
+        items: [{ path: "src/file.ts", name: "file.ts", score: 1, highlights: [0] }],
+        totalMatchedCount: 1,
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ paneId }) =>
+        useSessionFiles({
+          paneId,
+          repoRoot: "/repo",
+          autoExpandMatchLimit: 100,
+          requestRepoFileTree,
+          requestRepoFileSearch,
+          requestRepoFileContent,
+        }),
+      { initialProps: { paneId: "pane-1" } },
+    );
+
+    act(() => {
+      result.current.onSelectFile("src/file.ts");
+      result.current.onSearchQueryChange("file");
+    });
+
+    await waitFor(() => {
+      expect(result.current.searchResult?.query).toBe("file");
+    });
+    expect(result.current.selectedFilePath).toBe("src/file.ts");
+
+    rerender({ paneId: "pane-2" });
+
+    await waitFor(() => {
+      expect(result.current.searchQuery).toBe("");
+    });
+    expect(result.current.selectedFilePath).toBeNull();
+  });
+
+  it("loads non-root directory incrementally via load more action", async () => {
+    const requestRepoFileTree = vi.fn(
+      async (
+        _paneId: string,
+        options?: {
+          path?: string;
+          cursor?: string;
+        },
+      ) => {
+        if (!options?.path) {
+          return createTreePage({
+            basePath: ".",
+            entries: [{ path: "src", name: "src", kind: "directory", hasChildren: true }],
+          });
+        }
+        if (options.path === "src" && !options.cursor) {
+          return createTreePage({
+            basePath: "src",
+            entries: [{ path: "src/a.ts", name: "a.ts", kind: "file" }],
+            nextCursor: "cursor-1",
+          });
+        }
+        if (options.path === "src" && options.cursor === "cursor-1") {
+          return createTreePage({
+            basePath: "src",
+            entries: [{ path: "src/b.ts", name: "b.ts", kind: "file" }],
+          });
+        }
+        return createTreePage({ basePath: options?.path ?? "." });
+      },
+    );
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src")).toBe(true);
+    });
+
+    act(() => {
+      result.current.onToggleDirectory("src");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/a.ts")).toBe(true);
+    });
+    expect(result.current.treeNodes.some((node) => node.path === "src/b.ts")).toBe(false);
+    expect(result.current.rootTreeHasMore).toBe(true);
+
+    act(() => {
+      result.current.onLoadMoreTreeRoot();
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/b.ts")).toBe(true);
+    });
+
+    expect(requestRepoFileTree).toHaveBeenCalledWith("pane-1", {
+      path: "src",
+      cursor: undefined,
+      limit: 200,
+    });
+    expect(requestRepoFileTree).toHaveBeenCalledWith("pane-1", {
+      path: "src",
+      cursor: "cursor-1",
+      limit: 200,
+    });
+  });
+
+  it("loads remaining ancestor pages when selecting a file under partially loaded directory", async () => {
+    const requestRepoFileTree = vi.fn(
+      async (
+        _paneId: string,
+        options?: {
+          path?: string;
+          cursor?: string;
+        },
+      ) => {
+        if (!options?.path) {
+          return createTreePage({
+            basePath: ".",
+            entries: [{ path: "src", name: "src", kind: "directory", hasChildren: true }],
+          });
+        }
+        if (options.path === "src" && !options.cursor) {
+          return createTreePage({
+            basePath: "src",
+            entries: [{ path: "src/a.ts", name: "a.ts", kind: "file" }],
+            nextCursor: "cursor-1",
+          });
+        }
+        if (options.path === "src" && options.cursor === "cursor-1") {
+          return createTreePage({
+            basePath: "src",
+            entries: [{ path: "src/b.ts", name: "b.ts", kind: "file" }],
+          });
+        }
+        return createTreePage({ basePath: options?.path ?? "." });
+      },
+    );
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src")).toBe(true);
+    });
+
+    act(() => {
+      result.current.onToggleDirectory("src");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/a.ts")).toBe(true);
+    });
+    expect(result.current.treeNodes.some((node) => node.path === "src/b.ts")).toBe(false);
+
+    act(() => {
+      result.current.onSelectFile("src/b.ts");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/b.ts")).toBe(true);
+    });
+  });
+
+  it("ignores stale tree responses after paneId changes", async () => {
+    const pane1Root = createDeferred<RepoFileTreePage>();
+    const pane2Root = createDeferred<RepoFileTreePage>();
+
+    const requestRepoFileTree = vi.fn((paneId: string, options?: { path?: string }) => {
+      if (options?.path) {
+        return Promise.resolve(createTreePage({ basePath: options.path, entries: [] }));
+      }
+      if (paneId === "pane-1") {
+        return pane1Root.promise;
+      }
+      return pane2Root.promise;
+    });
+    const requestRepoFileSearch = vi.fn();
+
+    const { result, rerender } = renderHook(
+      ({ paneId }) =>
+        useSessionFiles({
+          paneId,
+          repoRoot: "/repo",
+          autoExpandMatchLimit: 100,
+          requestRepoFileTree,
+          requestRepoFileSearch,
+          requestRepoFileContent,
+        }),
+      { initialProps: { paneId: "pane-1" } },
+    );
+
+    await waitFor(() => {
+      expect(requestRepoFileTree).toHaveBeenCalledWith("pane-1", {
+        path: undefined,
+        cursor: undefined,
+        limit: 200,
+      });
+    });
+
+    rerender({ paneId: "pane-2" });
+
+    await waitFor(() => {
+      expect(requestRepoFileTree).toHaveBeenCalledWith("pane-2", {
+        path: undefined,
+        cursor: undefined,
+        limit: 200,
+      });
+    });
+
+    await act(async () => {
+      pane1Root.resolve(
+        createTreePage({
+          basePath: ".",
+          entries: [{ path: "stale.ts", name: "stale.ts", kind: "file" }],
+        }),
+      );
+      pane2Root.resolve(
+        createTreePage({
+          basePath: ".",
+          entries: [{ path: "fresh.ts", name: "fresh.ts", kind: "file" }],
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "fresh.ts")).toBe(true);
+    });
+    expect(result.current.treeNodes.some((node) => node.path === "stale.ts")).toBe(false);
+  });
+
+  it("applies manual collapse/expand on directories in search mode", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "index",
+        items: [{ path: "src/app/index.ts", name: "index.ts", score: 0.9, highlights: [0, 1] }],
+        totalMatchedCount: 1,
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onSearchQueryChange("index");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/app/index.ts")).toBe(true);
+    });
+
+    act(() => {
+      result.current.onToggleDirectory("src/app");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/app/index.ts")).toBe(false);
+    });
+
+    act(() => {
+      result.current.onToggleDirectory("src/app");
+    });
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "src/app/index.ts")).toBe(true);
+    });
+  });
+
+  it("ignores stale search response while waiting for next debounce", async () => {
+    vi.useFakeTimers();
+
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const aDeferred = createDeferred<RepoFileSearchPage>();
+    const abDeferred = createDeferred<RepoFileSearchPage>();
+    const requestRepoFileSearch = vi.fn((_: string, query: string) => {
+      if (query === "a") {
+        return aDeferred.promise;
+      }
+      return abDeferred.promise;
+    });
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onSearchQueryChange("a");
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.onSearchQueryChange("ab");
+    });
+
+    await act(async () => {
+      aDeferred.resolve(
+        createSearchPage({
+          query: "a",
+          items: [{ path: "a.ts", name: "a.ts", score: 0.5, highlights: [0] }],
+          totalMatchedCount: 1,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(result.current.searchResult).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      abDeferred.resolve(
+        createSearchPage({
+          query: "ab",
+          items: [{ path: "ab.ts", name: "ab.ts", score: 0.9, highlights: [0, 1] }],
+          totalMatchedCount: 1,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.searchResult?.query).toBe("ab");
+    expect(result.current.treeNodes.some((node) => node.path === "ab.ts")).toBe(true);
+    expect(result.current.treeNodes.some((node) => node.path === "a.ts")).toBe(false);
+  });
+
+  it("does not duplicate items when load more search is triggered multiple times", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const secondPage = createDeferred<RepoFileSearchPage>();
+    const requestRepoFileSearch = vi.fn(
+      async (
+        _paneId: string,
+        query: string,
+        options?: {
+          cursor?: string;
+          limit?: number;
+        },
+      ) => {
+        if (query === "index" && !options?.cursor) {
+          return createSearchPage({
+            query: "index",
+            items: [{ path: "src/index.ts", name: "index.ts", score: 1, highlights: [0, 1] }],
+            totalMatchedCount: 2,
+            truncated: true,
+            nextCursor: "cursor-1",
+          });
+        }
+        return secondPage.promise;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onSearchQueryChange("index");
+    });
+
+    await waitFor(() => {
+      expect(result.current.searchResult?.items.length).toBe(1);
+      expect(result.current.searchHasMore).toBe(true);
+    });
+
+    act(() => {
+      result.current.onLoadMoreSearch();
+      result.current.onLoadMoreSearch();
+    });
+
+    await act(async () => {
+      secondPage.resolve(
+        createSearchPage({
+          query: "index",
+          items: [
+            { path: "src/index.test.ts", name: "index.test.ts", score: 0.8, highlights: [0] },
+          ],
+          totalMatchedCount: 2,
+          truncated: false,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.searchResult?.items.length).toBe(2);
+    });
+    expect(
+      result.current.searchResult?.items.filter((item) => item.path === "src/index.test.ts").length,
+    ).toBe(1);
+  });
+
+  it("opens file modal and loads file content", async () => {
+    const requestRepoFileTree = vi.fn(async () =>
+      createTreePage({
+        basePath: ".",
+        entries: [{ path: "README.md", name: "README.md", kind: "file" }],
+      }),
+    );
+    const requestRepoFileSearch = vi.fn();
+    const requestRepoFileContentLocal = vi.fn(async () => ({
+      path: "README.md",
+      sizeBytes: 42,
+      isBinary: false,
+      truncated: false,
+      languageHint: "markdown" as const,
+      content: "# hello\n",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.treeNodes.some((node) => node.path === "README.md")).toBe(true);
+    });
+
+    act(() => {
+      result.current.onSelectFile("README.md");
+      result.current.onOpenFileModal("README.md");
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalOpen).toBe(true);
+      expect(result.current.fileModalLoading).toBe(false);
+      expect(result.current.fileModalFile?.path).toBe("README.md");
+    });
+    expect(result.current.fileModalMarkdownViewMode).toBe("preview");
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-1", "README.md", {
+      maxBytes: 256 * 1024,
+    });
+  });
+
+  it("ignores stale file content response after modal close", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+    const deferred = createDeferred<RepoFileContent>();
+    const requestRepoFileContentLocal = vi.fn(async () => deferred.promise);
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    act(() => {
+      result.current.onOpenFileModal("src/stale.ts");
+    });
+    expect(result.current.fileModalOpen).toBe(true);
+
+    act(() => {
+      result.current.onCloseFileModal();
+    });
+    expect(result.current.fileModalOpen).toBe(false);
+
+    await act(async () => {
+      deferred.resolve({
+        path: "src/stale.ts",
+        sizeBytes: 10,
+        isBinary: false,
+        truncated: false,
+        languageHint: "typescript",
+        content: "const a = 1",
+      });
+      await Promise.resolve();
+    });
+
+    expect(result.current.fileModalOpen).toBe(false);
+    expect(result.current.fileModalFile).toBeNull();
+    expect(result.current.fileModalLoading).toBe(false);
+  });
+
+  it("toggles line-number visibility in file modal", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
+    act(() => {
+      result.current.onToggleFileModalLineNumbers();
+    });
+    expect(result.current.fileModalShowLineNumbers).toBe(true);
+    act(() => {
+      result.current.onToggleFileModalLineNumbers();
+    });
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
+  });
+
+  it("resets line-number visibility when opening or closing file modal", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onToggleFileModalLineNumbers();
+    });
+    expect(result.current.fileModalShowLineNumbers).toBe(true);
+
+    act(() => {
+      result.current.onOpenFileModal("src/reset.ts");
+    });
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
+
+    act(() => {
+      result.current.onToggleFileModalLineNumbers();
+      result.current.onCloseFileModal();
+    });
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
+  });
+});

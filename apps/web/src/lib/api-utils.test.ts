@@ -5,10 +5,27 @@ import { API_ERROR_MESSAGES } from "./api-messages";
 import { expectField, extractErrorMessage } from "./api-utils";
 
 describe("api-utils", () => {
-  it("returns unauthorized message for 401/403", () => {
+  it("returns unauthorized message for 401", () => {
     const res = { status: 401, ok: false } as Response;
     const message = extractErrorMessage(res, null, "fallback");
     expect(message).toBe(API_ERROR_MESSAGES.unauthorized);
+  });
+
+  it("returns file navigator messages for known API error codes", () => {
+    const forbiddenRes = { status: 403, ok: false } as Response;
+    const forbidden = extractErrorMessage(
+      forbiddenRes,
+      { error: { code: "FORBIDDEN_PATH", message: "path is forbidden" } },
+      "fallback",
+    );
+    expect(forbidden).toBe(API_ERROR_MESSAGES.forbiddenPath);
+
+    const permission = extractErrorMessage(
+      forbiddenRes,
+      { error: { code: "PERMISSION_DENIED", message: "permission denied" } },
+      "fallback",
+    );
+    expect(permission).toBe(API_ERROR_MESSAGES.permissionDenied);
   });
 
   it("prefers API error message when present", () => {

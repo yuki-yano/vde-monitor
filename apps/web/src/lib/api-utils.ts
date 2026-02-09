@@ -20,7 +20,23 @@ export const requestJson = async <T>(request: Promise<Response>) => {
   return { res, data };
 };
 
-const isUnauthorizedStatus = (status: number) => status === 401 || status === 403;
+const isUnauthorizedStatus = (status: number) => status === 401;
+
+const resolveKnownApiErrorMessage = (error: ApiEnvelope<unknown>["error"] | null | undefined) => {
+  if (!error) {
+    return null;
+  }
+  if (error.code === "REPO_UNAVAILABLE") {
+    return API_ERROR_MESSAGES.repoUnavailable;
+  }
+  if (error.code === "FORBIDDEN_PATH") {
+    return API_ERROR_MESSAGES.forbiddenPath;
+  }
+  if (error.code === "PERMISSION_DENIED") {
+    return API_ERROR_MESSAGES.permissionDenied;
+  }
+  return null;
+};
 
 export const extractErrorMessage = (
   res: Response,
@@ -30,6 +46,10 @@ export const extractErrorMessage = (
 ) => {
   if (isUnauthorizedStatus(res.status)) {
     return API_ERROR_MESSAGES.unauthorized;
+  }
+  const knownMessage = resolveKnownApiErrorMessage(data?.error);
+  if (knownMessage) {
+    return knownMessage;
   }
   if (data?.error?.message) {
     return data.error.message;

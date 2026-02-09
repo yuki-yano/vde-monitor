@@ -8,6 +8,8 @@ import { readStoredSessionListFilter } from "@/pages/SessionList/sessionListFilt
 import { CommitSection } from "./components/CommitSection";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { DiffSection } from "./components/DiffSection";
+import { FileContentModal } from "./components/FileContentModal";
+import { FileNavigatorSection } from "./components/FileNavigatorSection";
 import { LogModal } from "./components/LogModal";
 import { QuickPanel } from "./components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
@@ -28,6 +30,7 @@ export const SessionDetailView = ({
   screen,
   controls,
   diffs,
+  files,
   commits,
   logs,
   title,
@@ -45,6 +48,8 @@ export const SessionDetailView = ({
   } = layout;
   const {
     diffSectionProps,
+    fileNavigatorSectionProps,
+    fileContentModalProps,
     commitSectionProps,
     screenPanelProps,
     stateTimelineSectionProps,
@@ -61,6 +66,7 @@ export const SessionDetailView = ({
     screen,
     controls,
     diffs,
+    files,
     commits,
     logs,
     title,
@@ -142,6 +148,8 @@ export const SessionDetailView = ({
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <DiffSection {...diffSectionProps} />
 
+              <FileNavigatorSection {...fileNavigatorSectionProps} />
+
               <CommitSection {...commitSectionProps} />
             </div>
           </div>
@@ -153,6 +161,7 @@ export const SessionDetailView = ({
       </div>
 
       <LogModal {...logModalProps} />
+      <FileContentModal {...fileContentModalProps} />
     </>
   );
 };

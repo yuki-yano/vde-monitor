@@ -53,6 +53,14 @@ const loadToken = (): string | null => {
   }
 };
 
+const isMissingFileError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeCode = (error as { code?: unknown }).code;
+  return maybeCode === "ENOENT" || error.message.includes("ENOENT");
+};
+
 const saveToken = (token: string) => {
   const dir = getTokenDir();
   ensureDir(dir);
@@ -71,16 +79,31 @@ const ensureToken = () => {
 
 export const loadConfig = (): AgentMonitorConfigFile | null => {
   const configPath = getConfigPath();
+  let raw: string;
   try {
-    const raw = fs.readFileSync(configPath, "utf8");
-    const parsed = configSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) {
+    raw = fs.readFileSync(configPath, "utf8");
+  } catch (error) {
+    if (isMissingFileError(error)) {
       return null;
     }
-    return parsed.data;
-  } catch {
-    return null;
+    throw new Error(`failed to read config: ${configPath}`);
   }
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    throw new Error(`invalid config JSON: ${configPath}`);
+  }
+
+  const parsed = configSchema.safeParse(json);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const pathLabel = issue?.path?.join(".") ?? "unknown";
+    const detail = issue?.message ?? "validation failed";
+    throw new Error(`invalid config: ${pathLabel} ${detail}`);
+  }
+  return parsed.data;
 };
 
 export const saveConfig = (config: AgentMonitorConfigFile) => {

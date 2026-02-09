@@ -1,6 +1,7 @@
 import {
   ApiEnvelope,
   ApiError,
+  ClientFileNavigatorConfig,
   CommandResponse,
   HighlightCorrectionConfig,
   ImageAttachment,
@@ -267,6 +268,7 @@ type RefreshSessionsParams = {
   onSessions: (sessions: SessionSummary[]) => void;
   onConnectionIssue: OnConnectionIssue;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
+  onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
 };
 
 export const refreshSessions = async ({
@@ -275,6 +277,7 @@ export const refreshSessions = async ({
   onSessions,
   onConnectionIssue,
   onHighlightCorrections,
+  onFileNavigatorConfig,
 }: RefreshSessionsParams): Promise<RefreshSessionsResult> => {
   if (!token) {
     return { ok: false, authError: true };
@@ -289,6 +292,7 @@ export const refreshSessions = async ({
       data,
       onSessions,
       onHighlightCorrections,
+      onFileNavigatorConfig,
       onConnectionIssue,
     });
   } catch (error) {

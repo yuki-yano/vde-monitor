@@ -1,6 +1,7 @@
 import {
   type ApiEnvelope,
   type ApiError,
+  type ClientFileNavigatorConfig,
   type CommandResponse,
   type HighlightCorrectionConfig,
   type ScreenResponse,
@@ -34,6 +35,7 @@ type UseSessionApiParams = {
   onSessionUpdated: (session: SessionSummary) => void;
   onSessionRemoved: (paneId: string) => void;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
+  onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
 };
 
 type PaneParam = ReturnType<typeof buildPaneParam>;
@@ -49,6 +51,7 @@ export const useSessionApi = ({
   onSessionUpdated,
   onSessionRemoved,
   onHighlightCorrections,
+  onFileNavigatorConfig,
 }: UseSessionApiParams) => {
   const ensureToken = useCallback(() => {
     if (!token) {
@@ -97,8 +100,16 @@ export const useSessionApi = ({
       onSessions,
       onConnectionIssue,
       onHighlightCorrections,
+      onFileNavigatorConfig,
     });
-  }, [apiClient, onConnectionIssue, onHighlightCorrections, onSessions, token]);
+  }, [
+    apiClient,
+    onConnectionIssue,
+    onFileNavigatorConfig,
+    onHighlightCorrections,
+    onSessions,
+    token,
+  ]);
 
   const requestSessionField = useCallback(
     async <T, K extends keyof T>({
@@ -215,6 +226,9 @@ export const useSessionApi = ({
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
   } = useMemo(
     () =>
       createSessionQueryRequests({
@@ -331,6 +345,9 @@ export const useSessionApi = ({
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
     requestScreen,
     sendText,
     focusPane,

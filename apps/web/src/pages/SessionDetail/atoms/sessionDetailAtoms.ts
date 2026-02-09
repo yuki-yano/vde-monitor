@@ -1,5 +1,6 @@
 import type {
   AllowedKey,
+  ClientFileNavigatorConfig,
   CommandResponse,
   CommitDetail,
   CommitFileDiff,
@@ -9,6 +10,9 @@ import type {
   HighlightCorrectionConfig,
   ImageAttachment,
   RawItem,
+  RepoFileContent,
+  RepoFileSearchPage,
+  RepoFileTreePage,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
@@ -46,6 +50,20 @@ export type SessionApi = {
     paneId: string,
     options?: { range?: SessionStateTimelineRange; limit?: number },
   ) => Promise<SessionStateTimeline>;
+  requestRepoFileTree: (
+    paneId: string,
+    options?: { path?: string; cursor?: string; limit?: number },
+  ) => Promise<RepoFileTreePage>;
+  requestRepoFileSearch: (
+    paneId: string,
+    query: string,
+    options?: { cursor?: string; limit?: number },
+  ) => Promise<RepoFileSearchPage>;
+  requestRepoFileContent: (
+    paneId: string,
+    path: string,
+    options?: { maxBytes?: number },
+  ) => Promise<RepoFileContent>;
   requestScreen: (
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
@@ -69,6 +87,9 @@ export const connectionIssueAtom = atom<string | null>(null);
 export const highlightCorrectionsAtom = atom<HighlightCorrectionConfig>({
   codex: true,
   claude: true,
+});
+export const fileNavigatorConfigAtom = atom<ClientFileNavigatorConfig>({
+  autoExpandMatchLimit: 100,
 });
 export const resolvedThemeAtom = atom<Theme>("latte");
 export const sessionApiAtom = atom<SessionApi | null>(null);

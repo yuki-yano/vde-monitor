@@ -1,5 +1,6 @@
 import type {
   AllowedKey,
+  ClientFileNavigatorConfig,
   CommandResponse,
   CommitDetail,
   CommitFileDiff,
@@ -9,6 +10,9 @@ import type {
   HighlightCorrectionConfig,
   ImageAttachment,
   RawItem,
+  RepoFileContent,
+  RepoFileSearchPage,
+  RepoFileTreePage,
   ScreenResponse,
   SessionDetail,
   SessionStateTimeline,
@@ -39,6 +43,7 @@ type SessionContextValue = {
   connectionStatus: "healthy" | "degraded" | "disconnected";
   connectionIssue: string | null;
   highlightCorrections: HighlightCorrectionConfig;
+  fileNavigatorConfig: ClientFileNavigatorConfig;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
   requestDiffSummary: (paneId: string, options?: { force?: boolean }) => Promise<DiffSummary>;
@@ -67,6 +72,20 @@ type SessionContextValue = {
     paneId: string,
     options?: { range?: SessionStateTimelineRange; limit?: number },
   ) => Promise<SessionStateTimeline>;
+  requestRepoFileTree: (
+    paneId: string,
+    options?: { path?: string; cursor?: string; limit?: number },
+  ) => Promise<RepoFileTreePage>;
+  requestRepoFileSearch: (
+    paneId: string,
+    query: string,
+    options?: { cursor?: string; limit?: number },
+  ) => Promise<RepoFileSearchPage>;
+  requestRepoFileContent: (
+    paneId: string,
+    path: string,
+    options?: { maxBytes?: number },
+  ) => Promise<RepoFileContent>;
   requestScreen: (
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
@@ -95,6 +114,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [highlightCorrections, setHighlightCorrections] = useState<HighlightCorrectionConfig>({
     codex: true,
     claude: true,
+  });
+  const [fileNavigatorConfig, setFileNavigatorConfig] = useState<ClientFileNavigatorConfig>({
+    autoExpandMatchLimit: 100,
   });
   const [connected, setConnected] = useState(false);
   const [authBlocked, setAuthBlocked] = useState(false);
@@ -140,6 +162,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
     requestScreen,
     focusPane,
     uploadImageAttachment,
@@ -156,6 +181,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     onSessionUpdated: updateSession,
     onSessionRemoved: removeSession,
     onHighlightCorrections: applyHighlightCorrections,
+    onFileNavigatorConfig: setFileNavigatorConfig,
   });
 
   const handleRefreshResult = useCallback(
@@ -226,6 +252,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     resetRateLimitBackoff();
     setConnectionIssue(null);
     setConnected(false);
+    setFileNavigatorConfig({ autoExpandMatchLimit: 100 });
   }, [resetRateLimitBackoff, token]);
 
   return (
@@ -237,6 +264,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         connectionStatus,
         connectionIssue,
         highlightCorrections,
+        fileNavigatorConfig,
         reconnect,
         refreshSessions,
         requestDiffSummary,
@@ -245,6 +273,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         requestCommitDetail,
         requestCommitFile,
         requestStateTimeline,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
         requestScreen,
         focusPane,
         uploadImageAttachment,

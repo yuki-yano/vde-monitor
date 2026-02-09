@@ -20,6 +20,12 @@ export const API_ERROR_MESSAGES = {
   commitDetail: "Failed to load commit detail",
   commitFile: "Failed to load commit file",
   timeline: "Failed to load state timeline",
+  fileTree: "Failed to load file tree",
+  fileSearch: "Failed to search files",
+  fileContent: "Failed to load file content",
+  repoUnavailable: "This session does not have a repository root.",
+  forbiddenPath: "Access to this path is forbidden.",
+  permissionDenied: "Permission denied while loading files.",
   updateTitle: "Failed to update title",
   updateActivity: "Failed to update session activity",
 } as const;

@@ -419,6 +419,7 @@ describe("session-api-request-executors", () => {
     const onSessions = vi.fn();
     const onConnectionIssue = vi.fn();
     const onHighlightCorrections = vi.fn();
+    const onFileNavigatorConfig = vi.fn();
 
     const result = await refreshSessions({
       token: null,
@@ -426,6 +427,7 @@ describe("session-api-request-executors", () => {
       onSessions,
       onConnectionIssue,
       onHighlightCorrections,
+      onFileNavigatorConfig,
     });
 
     expect(result).toEqual({ ok: false, authError: true });
@@ -433,6 +435,7 @@ describe("session-api-request-executors", () => {
     expect(onSessions).not.toHaveBeenCalled();
     expect(onConnectionIssue).not.toHaveBeenCalled();
     expect(onHighlightCorrections).not.toHaveBeenCalled();
+    expect(onFileNavigatorConfig).not.toHaveBeenCalled();
   });
 
   it("refreshSessions applies sessions snapshot on success", async () => {
@@ -440,6 +443,7 @@ describe("session-api-request-executors", () => {
     const onSessions = vi.fn();
     const onConnectionIssue = vi.fn();
     const onHighlightCorrections = vi.fn();
+    const onFileNavigatorConfig = vi.fn();
     const sessions = [createSession("pane-1")];
     requestJsonMock.mockResolvedValueOnce({
       res: new Response(null, { status: 200 }),
@@ -452,11 +456,13 @@ describe("session-api-request-executors", () => {
       onSessions,
       onConnectionIssue,
       onHighlightCorrections,
+      onFileNavigatorConfig,
     });
 
     expect(result).toEqual({ ok: true, status: 200 });
     expect(onSessions).toHaveBeenCalledWith(sessions);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
+    expect(onFileNavigatorConfig).not.toHaveBeenCalled();
   });
 
   it("refreshSessions marks auth failures from response status", async () => {
@@ -464,6 +470,7 @@ describe("session-api-request-executors", () => {
     const onSessions = vi.fn();
     const onConnectionIssue = vi.fn();
     const onHighlightCorrections = vi.fn();
+    const onFileNavigatorConfig = vi.fn();
     requestJsonMock.mockResolvedValueOnce({
       res: new Response(null, { status: 401 }),
       data: { error: { code: "INVALID_PAYLOAD", message: "unauthorized" } },
@@ -475,6 +482,7 @@ describe("session-api-request-executors", () => {
       onSessions,
       onConnectionIssue,
       onHighlightCorrections,
+      onFileNavigatorConfig,
     });
 
     expect(result).toEqual({
@@ -485,6 +493,7 @@ describe("session-api-request-executors", () => {
     });
     expect(onSessions).not.toHaveBeenCalled();
     expect(onConnectionIssue).toHaveBeenCalledWith(API_ERROR_MESSAGES.unauthorized);
+    expect(onFileNavigatorConfig).not.toHaveBeenCalled();
   });
 
   it("refreshSessions reports network fallback error", async () => {
@@ -492,6 +501,7 @@ describe("session-api-request-executors", () => {
     const onSessions = vi.fn();
     const onConnectionIssue = vi.fn();
     const onHighlightCorrections = vi.fn();
+    const onFileNavigatorConfig = vi.fn();
     requestJsonMock.mockRejectedValueOnce(new Error("offline"));
 
     const result = await refreshSessions({
@@ -500,10 +510,12 @@ describe("session-api-request-executors", () => {
       onSessions,
       onConnectionIssue,
       onHighlightCorrections,
+      onFileNavigatorConfig,
     });
 
     expect(result).toEqual({ ok: false });
     expect(onSessions).not.toHaveBeenCalled();
     expect(onConnectionIssue).toHaveBeenCalledWith("offline");
+    expect(onFileNavigatorConfig).not.toHaveBeenCalled();
   });
 });

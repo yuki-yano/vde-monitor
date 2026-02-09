@@ -177,11 +177,71 @@ export type DiffFile = {
   rev: string | null;
 };
 
+export type RepoFileNodeKind = "file" | "directory";
+
+export type RepoFileTreeNode = {
+  path: string;
+  name: string;
+  kind: RepoFileNodeKind;
+  hasChildren?: boolean;
+};
+
+export type RepoFileTreePage = {
+  basePath: string;
+  entries: RepoFileTreeNode[];
+  nextCursor?: string;
+};
+
+export type RepoFileSearchItem = {
+  path: string;
+  name: string;
+  score: number;
+  highlights: number[];
+};
+
+export type RepoFileSearchPage = {
+  query: string;
+  items: RepoFileSearchItem[];
+  nextCursor?: string;
+  truncated: boolean;
+  totalMatchedCount: number;
+};
+
+export type RepoFileLanguageHint =
+  | "typescript"
+  | "tsx"
+  | "javascript"
+  | "jsx"
+  | "json"
+  | "yaml"
+  | "bash"
+  | "markdown"
+  | "diff"
+  | "dockerfile"
+  | "text";
+
+export type RepoFileContent = {
+  path: string;
+  sizeBytes: number;
+  isBinary: boolean;
+  truncated: boolean;
+  languageHint: RepoFileLanguageHint | null;
+  content: string | null;
+};
+
+export type FileNavigatorConfig = {
+  includeIgnoredPaths: string[];
+  autoExpandMatchLimit: number;
+};
+
 export type ApiErrorCode =
   | "INVALID_PANE"
   | "INVALID_PAYLOAD"
   | "DANGEROUS_COMMAND"
   | "NOT_FOUND"
+  | "REPO_UNAVAILABLE"
+  | "FORBIDDEN_PATH"
+  | "PERMISSION_DENIED"
   | "TMUX_UNAVAILABLE"
   | "WEZTERM_UNAVAILABLE"
   | "RATE_LIMIT"
@@ -304,8 +364,13 @@ export type ClientScreenConfig = {
   highlightCorrection: HighlightCorrectionConfig;
 };
 
+export type ClientFileNavigatorConfig = {
+  autoExpandMatchLimit: number;
+};
+
 export type ClientConfig = {
   screen: ClientScreenConfig;
+  fileNavigator: ClientFileNavigatorConfig;
 };
 
 export type ServerHealth = {
@@ -360,6 +425,7 @@ export type AgentMonitorConfigBase = {
       target: string | null;
     };
   };
+  fileNavigator: FileNavigatorConfig;
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
 };
 

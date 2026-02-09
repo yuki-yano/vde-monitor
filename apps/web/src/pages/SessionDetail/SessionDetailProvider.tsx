@@ -10,6 +10,7 @@ import {
   connectedAtom,
   connectionIssueAtom,
   connectionStatusAtom,
+  fileNavigatorConfigAtom,
   highlightCorrectionsAtom,
   paneIdAtom,
   resolvedThemeAtom,
@@ -30,6 +31,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
     connectionStatus,
     connectionIssue,
     highlightCorrections,
+    fileNavigatorConfig,
     reconnect,
     requestDiffSummary,
     requestDiffFile,
@@ -37,6 +39,9 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
     requestScreen,
     focusPane,
     uploadImageAttachment,
@@ -54,6 +59,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
   const setConnectionStatus = useSetAtom(connectionStatusAtom);
   const setConnectionIssue = useSetAtom(connectionIssueAtom);
   const setHighlightCorrections = useSetAtom(highlightCorrectionsAtom);
+  const setFileNavigatorConfig = useSetAtom(fileNavigatorConfigAtom);
   const setResolvedTheme = useSetAtom(resolvedThemeAtom);
   const setSessionApi = useSetAtom(sessionApiAtom);
 
@@ -66,6 +72,9 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
       requestCommitDetail,
       requestCommitFile,
       requestStateTimeline,
+      requestRepoFileTree,
+      requestRepoFileSearch,
+      requestRepoFileContent,
       requestScreen,
       focusPane,
       uploadImageAttachment,
@@ -83,6 +92,9 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
       requestCommitDetail,
       requestCommitFile,
       requestStateTimeline,
+      requestRepoFileTree,
+      requestRepoFileSearch,
+      requestRepoFileContent,
       requestScreen,
       focusPane,
       uploadImageAttachment,
@@ -101,6 +113,7 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
     [connectionStatusAtom, connectionStatus],
     [connectionIssueAtom, connectionIssue],
     [highlightCorrectionsAtom, highlightCorrections],
+    [fileNavigatorConfigAtom, fileNavigatorConfig],
     [resolvedThemeAtom, resolvedTheme],
     [sessionApiAtom, sessionApi],
   ]);
@@ -128,6 +141,10 @@ const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
   useEffect(() => {
     setHighlightCorrections(highlightCorrections);
   }, [highlightCorrections, setHighlightCorrections]);
+
+  useEffect(() => {
+    setFileNavigatorConfig(fileNavigatorConfig);
+  }, [fileNavigatorConfig, setFileNavigatorConfig]);
 
   useEffect(() => {
     setResolvedTheme(resolvedTheme);

@@ -4,6 +4,9 @@ import type {
   CommitLog,
   DiffFile,
   DiffSummary,
+  RepoFileContent,
+  RepoFileSearchPage,
+  RepoFileTreePage,
   SessionStateTimeline,
   SessionStateTimelineRange,
 } from "@vde-monitor/shared";
@@ -16,6 +19,9 @@ import {
   buildCommitLogQuery,
   buildDiffFileQuery,
   buildForceQuery,
+  buildRepoFileContentQuery,
+  buildRepoFileSearchQuery,
+  buildRepoFileTreeQuery,
   buildTimelineQuery,
 } from "./session-api-utils";
 
@@ -128,6 +134,47 @@ export const createSessionQueryRequests = ({
     });
   };
 
+  const requestRepoFileTree = async (
+    paneId: string,
+    options?: { path?: string; cursor?: string; limit?: number },
+  ): Promise<RepoFileTreePage> => {
+    const query = buildRepoFileTreeQuery(options);
+    return requestPaneQueryField<{ tree?: RepoFileTreePage }, "tree">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].files.tree.$get({ param, query }),
+      field: "tree",
+      fallbackMessage: API_ERROR_MESSAGES.fileTree,
+    });
+  };
+
+  const requestRepoFileSearch = async (
+    paneId: string,
+    queryValue: string,
+    options?: { cursor?: string; limit?: number },
+  ): Promise<RepoFileSearchPage> => {
+    const query = buildRepoFileSearchQuery(queryValue, options);
+    return requestPaneQueryField<{ result?: RepoFileSearchPage }, "result">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].files.search.$get({ param, query }),
+      field: "result",
+      fallbackMessage: API_ERROR_MESSAGES.fileSearch,
+    });
+  };
+
+  const requestRepoFileContent = async (
+    paneId: string,
+    path: string,
+    options?: { maxBytes?: number },
+  ): Promise<RepoFileContent> => {
+    const query = buildRepoFileContentQuery(path, options);
+    return requestPaneQueryField<{ file?: RepoFileContent }, "file">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].files.content.$get({ param, query }),
+      field: "file",
+      fallbackMessage: API_ERROR_MESSAGES.fileContent,
+    });
+  };
+
   return {
     requestDiffSummary,
     requestDiffFile,
@@ -135,5 +182,8 @@ export const createSessionQueryRequests = ({
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
   };
 };

@@ -7,6 +7,7 @@ import type { MultiplexerInputActions } from "../multiplexer/types";
 import { createScreenCache } from "../screen/screen-cache";
 import { buildError, isOriginAllowed, requireAuth } from "./helpers";
 import { IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES } from "./image-attachment";
+import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
 import { createSessionRoutes } from "./routes/session-routes";
 import type { CommandPayload, HeaderContext, Monitor, RouteContext } from "./routes/types";
@@ -165,8 +166,15 @@ export const createApiRouter = ({ config, monitor, actions }: ApiContext) => {
       resolvePane,
     }),
   );
+  const withFileRoutes = withGitRoutes.route(
+    "/",
+    createFileRoutes({
+      resolvePane,
+      config,
+    }),
+  );
 
-  return withGitRoutes;
+  return withFileRoutes;
 };
 
 export type ApiAppType = ReturnType<typeof createApiRouter>;

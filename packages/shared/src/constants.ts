@@ -131,6 +131,10 @@ export const defaultConfig: AgentMonitorConfigFile = {
       target: "auto",
     },
   },
+  fileNavigator: {
+    includeIgnoredPaths: [],
+    autoExpandMatchLimit: 100,
+  },
   tmux: {
     socketName: null,
     socketPath: null,

@@ -330,7 +330,10 @@ describe("wsServerMessageSchema", () => {
       ts: "2025-01-01T00:00:00Z",
       data: {
         version: "0.0.1",
-        clientConfig: { screen: { highlightCorrection: { codex: false, claude: true } } },
+        clientConfig: {
+          screen: { highlightCorrection: { codex: false, claude: true } },
+          fileNavigator: { autoExpandMatchLimit: 100 },
+        },
       },
     });
     expect(result.success).toBe(true);
@@ -551,6 +554,67 @@ describe("configSchema", () => {
       screen: {
         ...defaultConfig.screen,
         image: { ...defaultConfig.screen.image, backend: "auto" },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("fills default fileNavigator config when missing", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      fileNavigator: undefined,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.fileNavigator).toEqual(defaultConfig.fileNavigator);
+    }
+  });
+
+  it("accepts includeIgnoredPaths gitignore-like patterns", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      fileNavigator: {
+        includeIgnoredPaths: [
+          "build/**",
+          "dist/**/*.map",
+          ".claude/**",
+          "logs/*-debug.log",
+          "**/*.snap",
+        ],
+        autoExpandMatchLimit: 120,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects includeIgnoredPaths negation pattern", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      fileNavigator: {
+        includeIgnoredPaths: ["!dist/**"],
+        autoExpandMatchLimit: 100,
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects includeIgnoredPaths absolute path pattern", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      fileNavigator: {
+        includeIgnoredPaths: ["/dist/**"],
+        autoExpandMatchLimit: 100,
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects includeIgnoredPaths parent traversal pattern", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      fileNavigator: {
+        includeIgnoredPaths: ["../dist/**"],
+        autoExpandMatchLimit: 100,
       },
     });
     expect(result.success).toBe(false);

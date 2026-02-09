@@ -13,6 +13,7 @@ import {
   connectionIssueAtom,
   connectionStatusAtom,
   currentSessionAtom,
+  fileNavigatorConfigAtom,
   highlightCorrectionsAtom,
   resolvedThemeAtom,
   sessionApiAtom,
@@ -22,6 +23,7 @@ import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionControls } from "./hooks/useSessionControls";
 import { useSessionDetailActions } from "./hooks/useSessionDetailActions";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
+import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionLogs } from "./hooks/useSessionLogs";
 import { useSessionScreen } from "./hooks/useSessionScreen";
 import { useSessionTimeline } from "./hooks/useSessionTimeline";
@@ -34,6 +36,7 @@ export const useSessionDetailVM = (paneId: string) => {
   const connectionStatus = useAtomValue(connectionStatusAtom);
   const connectionIssue = useAtomValue(connectionIssueAtom);
   const highlightCorrections = useAtomValue(highlightCorrectionsAtom);
+  const fileNavigatorConfig = useAtomValue(fileNavigatorConfigAtom);
   const resolvedTheme = useAtomValue(resolvedThemeAtom);
   const session = useAtomValue(currentSessionAtom);
   const screenText = useAtomValue(screenTextAtom);
@@ -47,6 +50,9 @@ export const useSessionDetailVM = (paneId: string) => {
     requestCommitLog,
     requestDiffFile,
     requestDiffSummary,
+    requestRepoFileContent,
+    requestRepoFileSearch,
+    requestRepoFileTree,
     requestStateTimeline,
     requestScreen,
     focusPane,
@@ -130,6 +136,50 @@ export const useSessionDetailVM = (paneId: string) => {
     connected,
     requestDiffSummary,
     requestDiffFile,
+  });
+
+  const {
+    unavailable: filesUnavailable,
+    selectedFilePath,
+    searchQuery,
+    searchActiveIndex,
+    searchResult,
+    searchLoading,
+    searchError,
+    searchMode,
+    treeLoading,
+    treeError,
+    treeNodes,
+    rootTreeHasMore,
+    searchHasMore,
+    fileModalOpen,
+    fileModalPath,
+    fileModalLoading,
+    fileModalError,
+    fileModalFile,
+    fileModalMarkdownViewMode,
+    fileModalShowLineNumbers,
+    fileModalCopiedPath,
+    fileModalCopyError,
+    onSearchQueryChange,
+    onSearchMove,
+    onSearchConfirm,
+    onToggleDirectory,
+    onSelectFile,
+    onOpenFileModal,
+    onCloseFileModal,
+    onSetFileModalMarkdownViewMode,
+    onToggleFileModalLineNumbers,
+    onCopyFileModalPath,
+    onLoadMoreTreeRoot,
+    onLoadMoreSearch,
+  } = useSessionFiles({
+    paneId,
+    repoRoot: session?.repoRoot ?? null,
+    autoExpandMatchLimit: fileNavigatorConfig.autoExpandMatchLimit,
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
   });
 
   const {
@@ -340,6 +390,42 @@ export const useSessionDetailVM = (paneId: string) => {
       diffLoadingFiles,
       refreshDiff,
       toggleDiff,
+    },
+    files: {
+      unavailable: filesUnavailable,
+      selectedFilePath,
+      searchQuery,
+      searchActiveIndex,
+      searchResult,
+      searchLoading,
+      searchError,
+      searchMode,
+      treeLoading,
+      treeError,
+      treeNodes,
+      rootTreeHasMore,
+      searchHasMore,
+      fileModalOpen,
+      fileModalPath,
+      fileModalLoading,
+      fileModalError,
+      fileModalFile,
+      fileModalMarkdownViewMode,
+      fileModalShowLineNumbers,
+      fileModalCopiedPath,
+      fileModalCopyError,
+      onSearchQueryChange,
+      onSearchMove,
+      onSearchConfirm,
+      onToggleDirectory,
+      onSelectFile,
+      onOpenFileModal,
+      onCloseFileModal,
+      onSetFileModalMarkdownViewMode,
+      onToggleFileModalLineNumbers,
+      onCopyFileModalPath,
+      onLoadMoreTreeRoot,
+      onLoadMoreSearch,
     },
     commits: {
       commitLog,

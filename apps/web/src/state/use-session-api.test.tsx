@@ -35,6 +35,11 @@ const mockApiClient = {
         ":hash": { $get: mockGet, file: { $get: mockGet } },
       },
       timeline: { $get: mockGet },
+      files: {
+        tree: { $get: mockGet },
+        search: { $get: mockGet },
+        content: { $get: mockGet },
+      },
     },
   },
 };
@@ -70,6 +75,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -97,6 +103,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -149,6 +156,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -189,6 +197,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -225,6 +234,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -251,6 +261,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved,
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -276,6 +287,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved,
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -301,6 +313,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved,
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -332,6 +345,7 @@ describe("useSessionApi", () => {
         onSessionUpdated,
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -363,6 +377,7 @@ describe("useSessionApi", () => {
         onSessionUpdated,
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -396,6 +411,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -429,6 +445,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -463,6 +480,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -489,6 +507,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 
@@ -518,6 +537,7 @@ describe("useSessionApi", () => {
         onSessionUpdated: vi.fn(),
         onSessionRemoved: vi.fn(),
         onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
       }),
     );
 

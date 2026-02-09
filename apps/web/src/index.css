@@ -238,6 +238,131 @@ body::before {
   background: transparent;
 }
 
+.vde-shiki-with-line-numbers code {
+  counter-reset: vde-line-number;
+  display: block;
+}
+
+.vde-shiki-with-line-numbers .line {
+  box-sizing: border-box;
+  display: block;
+  line-height: inherit;
+  min-width: max-content;
+  padding-left: 2.5rem;
+  position: relative;
+}
+
+.vde-shiki-with-line-numbers .line::before {
+  counter-increment: vde-line-number;
+  color: rgb(var(--ctp-overlay1) / 0.95);
+  content: counter(vde-line-number);
+  font-variant-numeric: tabular-nums;
+  left: 0;
+  position: absolute;
+  padding-right: 0.35rem;
+  text-align: right;
+  user-select: none;
+  width: 2.15rem;
+}
+
+.vde-markdown {
+  font-family:
+    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-feature-settings:
+    "liga" 1,
+    "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+
+.vde-markdown h1,
+.vde-markdown h2,
+.vde-markdown h3,
+.vde-markdown h4 {
+  font-family: "Fraunces", "IBM Plex Sans", serif;
+  font-variation-settings:
+    "SOFT" 45,
+    "WONK" 0;
+  letter-spacing: 0.01em;
+}
+
+.vde-markdown h1 {
+  color: rgb(var(--ctp-lavender));
+  text-shadow: 0 6px 20px rgb(var(--ctp-lavender) / 0.22);
+}
+
+.vde-markdown h2 {
+  color: rgb(var(--ctp-blue));
+}
+
+.vde-markdown h3,
+.vde-markdown h4 {
+  color: rgb(var(--ctp-mauve));
+}
+
+.vde-markdown p,
+.vde-markdown li,
+.vde-markdown blockquote,
+.vde-markdown td,
+.vde-markdown th {
+  font-family:
+    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+}
+
+.vde-markdown strong {
+  color: rgb(var(--ctp-lavender));
+  font-weight: 700;
+}
+
+.vde-markdown em {
+  color: rgb(var(--ctp-peach));
+}
+
+.vde-markdown a {
+  color: rgb(var(--ctp-blue));
+}
+
+.vde-markdown a:hover {
+  color: rgb(var(--ctp-lavender));
+}
+
+.vde-markdown p > code,
+.vde-markdown li > code,
+.vde-markdown td > code,
+.vde-markdown th > code {
+  background: rgb(var(--ctp-surface0) / 0.75);
+  border: 1px solid rgb(var(--ctp-surface2) / 0.6);
+  border-radius: 0.4rem;
+  color: rgb(var(--ctp-text));
+  padding: 0.1rem 0.35rem;
+  font-family:
+    "IBM Plex Mono", "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8rem;
+}
+
+.vde-markdown ul,
+.vde-markdown ol {
+  margin-left: 0.25rem;
+}
+
+.vde-markdown li + li {
+  margin-top: 0.35rem;
+}
+
+.vde-markdown img {
+  border: 1px solid rgb(var(--ctp-surface2) / 0.5);
+  border-radius: 0.9rem;
+  max-width: 100%;
+}
+
+.vde-markdown tbody tr:nth-child(odd) {
+  background: rgb(var(--ctp-surface0) / 0.18);
+}
+
+.vde-markdown tbody tr:nth-child(even) {
+  background: rgb(var(--ctp-crust) / 0.16);
+}
+
 /* Skeleton loading animations */
 @keyframes skeleton-pulse {
   0%,

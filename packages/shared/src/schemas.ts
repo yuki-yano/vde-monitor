@@ -18,6 +18,9 @@ export const apiErrorSchema = z.object({
     "INVALID_PAYLOAD",
     "DANGEROUS_COMMAND",
     "NOT_FOUND",
+    "REPO_UNAVAILABLE",
+    "FORBIDDEN_PATH",
+    "PERMISSION_DENIED",
     "TMUX_UNAVAILABLE",
     "WEZTERM_UNAVAILABLE",
     "RATE_LIMIT",
@@ -132,9 +135,82 @@ const highlightCorrectionSchema = z.object({
   claude: z.boolean().default(true),
 });
 
+const windowsDrivePrefixPattern = /^[a-zA-Z]:[\\/]/;
+
+const hasParentTraversalSegment = (value: string) =>
+  value.split("/").some((segment) => segment === "..");
+
+const hasUnbalancedCharacterClass = (value: string) => {
+  let inClass = false;
+  for (const char of value) {
+    if (char === "[") {
+      if (inClass) {
+        return true;
+      }
+      inClass = true;
+      continue;
+    }
+    if (char === "]") {
+      if (!inClass) {
+        return true;
+      }
+      inClass = false;
+    }
+  }
+  return inClass;
+};
+
+const includeIgnoredPatternSchema = z.string().superRefine((value, ctx) => {
+  const pattern = value.trim();
+  if (pattern.length === 0) {
+    ctx.addIssue({ code: "custom", message: "includeIgnoredPaths pattern must not be empty" });
+    return;
+  }
+  if (pattern !== value) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths pattern must not have leading/trailing spaces",
+    });
+    return;
+  }
+  if (pattern.startsWith("!")) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths does not support negation patterns",
+    });
+  }
+  if (pattern.startsWith("/") || windowsDrivePrefixPattern.test(pattern)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths must be a repoRoot-relative path",
+    });
+  }
+  if (pattern.includes("\\")) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths must use POSIX separators ('/')",
+    });
+  }
+  if (hasParentTraversalSegment(pattern)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths must not include parent traversal ('..')",
+    });
+  }
+  if (hasUnbalancedCharacterClass(pattern)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "includeIgnoredPaths has invalid character class syntax",
+    });
+  }
+});
+
 const clientConfigSchema = z.object({
   screen: z.object({
     highlightCorrection: highlightCorrectionSchema,
+  }),
+  fileNavigator: z.object({
+    autoExpandMatchLimit: z.number().int().min(1).max(500),
   }),
 });
 
@@ -282,6 +358,15 @@ export const configSchema = z.object({
         cliPath: "wezterm",
         target: "auto",
       },
+    }),
+  fileNavigator: z
+    .object({
+      includeIgnoredPaths: z.array(includeIgnoredPatternSchema).default([]),
+      autoExpandMatchLimit: z.number().int().min(1).max(500).default(100),
+    })
+    .default({
+      includeIgnoredPaths: [],
+      autoExpandMatchLimit: 100,
     }),
   tmux: z.object({
     socketName: z.string().nullable(),

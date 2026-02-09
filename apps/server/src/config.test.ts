@@ -133,6 +133,18 @@ describe("ensureConfig", () => {
     const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => args[0]);
     expect(writtenPaths).toEqual([tokenPath]);
   });
+
+  it("throws when config contains invalid includeIgnoredPaths pattern", () => {
+    setConfigFile({
+      ...defaultConfig,
+      fileNavigator: {
+        ...defaultConfig.fileNavigator,
+        includeIgnoredPaths: ["!dist/**"],
+      },
+    });
+
+    expect(() => ensureConfig()).toThrow(/invalid config/);
+  });
 });
 
 describe("rotateToken", () => {

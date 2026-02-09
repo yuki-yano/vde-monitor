@@ -2,6 +2,7 @@ import type {
   ApiEnvelope,
   ApiError,
   ClientConfig,
+  ClientFileNavigatorConfig,
   HighlightCorrectionConfig,
   ScreenResponse,
   SessionSummary,
@@ -18,6 +19,9 @@ import type {
   ForceQuery,
   PaneHashParam,
   PaneParam,
+  RepoFileContentQuery,
+  RepoFileSearchQuery,
+  RepoFileTreeQuery,
   ScreenRequestJson,
   SendKeysJson,
   SendRawJson,
@@ -110,18 +114,24 @@ export const applyRefreshSessionsSuccess = ({
   data,
   onSessions,
   onHighlightCorrections,
+  onFileNavigatorConfig,
   onConnectionIssue,
 }: {
   res: Response;
   data: SessionsResponseEnvelope;
   onSessions: (sessions: SessionSummary[]) => void;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
+  onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
   onConnectionIssue: (message: string | null) => void;
 }): RefreshSessionsResult => {
   onSessions(data.sessions ?? []);
   const nextHighlight = data.clientConfig?.screen?.highlightCorrection;
   if (nextHighlight) {
     onHighlightCorrections(nextHighlight);
+  }
+  const nextFileNavigator = data.clientConfig?.fileNavigator;
+  if (nextFileNavigator) {
+    onFileNavigatorConfig(nextFileNavigator);
   }
   onConnectionIssue(null);
   return { ok: true, status: res.status };
@@ -280,6 +290,58 @@ export const buildTimelineQuery = (options?: {
   }
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     query.limit = String(Math.max(1, Math.floor(options.limit)));
+  }
+  return query;
+};
+
+export const buildRepoFileTreeQuery = (options?: {
+  path?: string;
+  cursor?: string;
+  limit?: number;
+}): RepoFileTreeQuery => {
+  const query: RepoFileTreeQuery = {};
+  if (options?.path) {
+    query.path = options.path;
+  }
+  if (options?.cursor) {
+    query.cursor = options.cursor;
+  }
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    query.limit = String(Math.max(1, Math.floor(options.limit)));
+  }
+  return query;
+};
+
+export const buildRepoFileSearchQuery = (
+  queryValue: string,
+  options?: {
+    cursor?: string;
+    limit?: number;
+  },
+): RepoFileSearchQuery => {
+  const query: RepoFileSearchQuery = {
+    q: queryValue,
+  };
+  if (options?.cursor) {
+    query.cursor = options.cursor;
+  }
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    query.limit = String(Math.max(1, Math.floor(options.limit)));
+  }
+  return query;
+};
+
+export const buildRepoFileContentQuery = (
+  path: string,
+  options?: {
+    maxBytes?: number;
+  },
+): RepoFileContentQuery => {
+  const query: RepoFileContentQuery = {
+    path,
+  };
+  if (typeof options?.maxBytes === "number" && Number.isFinite(options.maxBytes)) {
+    query.maxBytes = String(Math.max(1, Math.floor(options.maxBytes)));
   }
   return query;
 };

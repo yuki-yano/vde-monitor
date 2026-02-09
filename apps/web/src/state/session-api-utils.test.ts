@@ -8,6 +8,9 @@ import {
   buildPaneHashParam,
   buildPaneParam,
   buildRefreshFailureResult,
+  buildRepoFileContentQuery,
+  buildRepoFileSearchQuery,
+  buildRepoFileTreeQuery,
   buildScreenRequestJson,
   buildScreenRequestKeys,
   buildSendKeysJson,
@@ -163,5 +166,25 @@ describe("session-api-utils", () => {
     expect(buildTimelineQuery({ range: "1h" })).toEqual({ range: "1h" });
     expect(buildTimelineQuery({ limit: 9.8 })).toEqual({ limit: "9" });
     expect(buildTimelineQuery({ limit: 0 })).toEqual({ limit: "1" });
+
+    expect(buildRepoFileTreeQuery()).toEqual({});
+    expect(buildRepoFileTreeQuery({ path: "src", cursor: "abc", limit: 99.9 })).toEqual({
+      path: "src",
+      cursor: "abc",
+      limit: "99",
+    });
+
+    expect(buildRepoFileSearchQuery("diff")).toEqual({ q: "diff" });
+    expect(buildRepoFileSearchQuery("main", { cursor: "abc", limit: 0 })).toEqual({
+      q: "main",
+      cursor: "abc",
+      limit: "1",
+    });
+
+    expect(buildRepoFileContentQuery("README.md")).toEqual({ path: "README.md" });
+    expect(buildRepoFileContentQuery("src/index.ts", { maxBytes: 10.8 })).toEqual({
+      path: "src/index.ts",
+      maxBytes: "10",
+    });
   });
 });

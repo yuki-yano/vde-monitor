@@ -46,5 +46,14 @@ export type UploadImageForm = NonNullable<
 export type TimelineQuery = NonNullable<
   InferRequestType<SessionClient["timeline"]["$get"]>["query"]
 >;
+export type RepoFileTreeQuery = NonNullable<
+  InferRequestType<SessionClient["files"]["tree"]["$get"]>["query"]
+>;
+export type RepoFileSearchQuery = NonNullable<
+  InferRequestType<SessionClient["files"]["search"]["$get"]>["query"]
+>;
+export type RepoFileContentQuery = NonNullable<
+  InferRequestType<SessionClient["files"]["content"]["$get"]>["query"]
+>;
 
 export type { ApiClientContract };

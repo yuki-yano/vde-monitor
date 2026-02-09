@@ -57,3 +57,8 @@ export type SessionRouteDeps = {
 export type GitRouteDeps = {
   resolvePane: ResolvePane;
 };
+
+export type FileRouteDeps = {
+  resolvePane: ResolvePane;
+  config: AgentMonitorConfig;
+};

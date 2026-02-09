@@ -74,6 +74,9 @@ export const createSessionRoutes = ({
         serverTime: nowIso(),
         clientConfig: {
           screen: { highlightCorrection: config.screen.highlightCorrection },
+          fileNavigator: {
+            autoExpandMatchLimit: config.fileNavigator.autoExpandMatchLimit,
+          },
         },
       });
     })
