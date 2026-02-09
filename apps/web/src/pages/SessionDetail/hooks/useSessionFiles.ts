@@ -20,6 +20,7 @@ const LOG_FILE_RESOLVE_MATCH_LIMIT = 20;
 const LOG_FILE_RESOLVE_PAGE_LIMIT = 100;
 const LOG_FILE_RESOLVE_MAX_PAGES = 5;
 const LOG_FILE_LINKIFY_TOKEN_LIMIT = 80;
+const LOG_REFERENCE_LINKABLE_CACHE_MAX = 1000;
 
 type LogFileCandidateItem = Pick<
   RepoFileSearchPage["items"][number],
@@ -136,6 +137,16 @@ const copyTextToClipboard = async (value: string) => {
       document.body.removeChild(textarea);
     }
   }
+};
+
+const setMapEntryWithMaxSize = <K, V>(map: Map<K, V>, key: K, value: V, maxSize: number) => {
+  if (!map.has(key) && map.size >= maxSize) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey != null) {
+      map.delete(oldestKey);
+    }
+  }
+  map.set(key, value);
 };
 
 const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
@@ -960,10 +971,6 @@ export const useSessionFiles = ({
     setLogFileCandidateItems([]);
   }, []);
 
-  const onClearFileResolveError = useCallback(() => {
-    setFileResolveError(null);
-  }, []);
-
   const findExactNameMatches = useCallback(
     async ({
       paneId: targetPaneId,
@@ -1032,7 +1039,15 @@ export const useSessionFiles = ({
       if (sourcePaneId.trim().length === 0) {
         return false;
       }
-      const cacheKey = `${sourcePaneId}:${sourceRepoRoot ?? ""}:${rawToken}`;
+      const reference = normalizeLogReference(rawToken, {
+        sourceRepoRoot,
+      });
+      if (reference.kind === "unknown") {
+        return false;
+      }
+      const normalizedCacheSubject =
+        reference.normalizedPath ?? reference.filename ?? reference.display;
+      const cacheKey = `${sourcePaneId}:${sourceRepoRoot ?? ""}:${reference.kind}:${normalizedCacheSubject}`;
       const cached = logReferenceLinkableCacheRef.current.get(cacheKey);
       if (cached != null) {
         return cached;
@@ -1043,13 +1058,6 @@ export const useSessionFiles = ({
       }
 
       const request = (async () => {
-        const reference = normalizeLogReference(rawToken, {
-          sourceRepoRoot,
-        });
-        if (reference.kind === "unknown") {
-          return false;
-        }
-
         if (reference.normalizedPath) {
           try {
             await requestRepoFileContent(sourcePaneId, reference.normalizedPath, {
@@ -1083,7 +1091,12 @@ export const useSessionFiles = ({
       logReferenceLinkableRequestMapRef.current.set(cacheKey, request);
       try {
         const resolved = await request;
-        logReferenceLinkableCacheRef.current.set(cacheKey, resolved);
+        setMapEntryWithMaxSize(
+          logReferenceLinkableCacheRef.current,
+          cacheKey,
+          resolved,
+          LOG_REFERENCE_LINKABLE_CACHE_MAX,
+        );
         return resolved;
       } finally {
         logReferenceLinkableRequestMapRef.current.delete(cacheKey);
@@ -1111,12 +1124,16 @@ export const useSessionFiles = ({
 
       const results = await Promise.all(
         uniqueTokens.map(async (rawToken) => {
-          const linkable = await isLogFileReferenceLinkable({
-            rawToken,
-            sourcePaneId,
-            sourceRepoRoot,
-          });
-          return linkable ? rawToken : null;
+          try {
+            const linkable = await isLogFileReferenceLinkable({
+              rawToken,
+              sourcePaneId,
+              sourceRepoRoot,
+            });
+            return linkable ? rawToken : null;
+          } catch {
+            return null;
+          }
         }),
       );
       return results.filter((value): value is string => value != null);
@@ -1352,7 +1369,6 @@ export const useSessionFiles = ({
     onCopyFileModalPath,
     onResolveLogFileReference,
     onResolveLogFileReferenceCandidates,
-    onClearFileResolveError,
     onSelectLogFileCandidate,
     onCloseLogFileCandidateModal,
     onLoadMoreTreeRoot,

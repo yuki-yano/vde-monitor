@@ -151,7 +151,6 @@ vi.mock("./hooks/useSessionFiles", () => ({
     onCopyFileModalPath: vi.fn(),
     onResolveLogFileReference: vi.fn(async () => undefined),
     onResolveLogFileReferenceCandidates: vi.fn(async () => []),
-    onClearFileResolveError: vi.fn(),
     onSelectLogFileCandidate: vi.fn(),
     onCloseLogFileCandidateModal: vi.fn(),
     onLoadMoreTreeRoot: vi.fn(),

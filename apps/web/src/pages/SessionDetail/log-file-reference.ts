@@ -24,6 +24,7 @@ const SYMBOL_ONLY_PATTERN = /^[^A-Za-z0-9]+$/;
 
 const LEADING_WRAPPERS = new Set(['"', "'", "`", "(", "[", "{", "<"]);
 const TRAILING_WRAPPERS = new Set(['"', "'", "`", ")", "]", "}", ">"]);
+const sharedParser = typeof DOMParser === "undefined" ? null : new DOMParser();
 
 const normalizeSlash = (value: string) => value.replace(/\\/g, "/");
 
@@ -70,11 +71,12 @@ const normalizeRepoRelativePath = (value: string, sourceRepoRoot: string | null)
 
 const normalizeTokenText = (rawToken: string, sourceRepoRoot: string | null) => {
   let normalized = rawToken.trim();
-  normalized = stripKnownSuffixes(normalized);
-  normalized = trimWrappingCharacters(normalized);
-  normalized = stripKnownSuffixes(normalized);
-  normalized = trimWrappingCharacters(normalized);
-  normalized = stripKnownSuffixes(normalized);
+  let previous = "";
+  while (previous !== normalized) {
+    previous = normalized;
+    normalized = stripKnownSuffixes(normalized);
+    normalized = trimWrappingCharacters(normalized);
+  }
   normalized = normalizeSlash(normalized);
   normalized = normalizeRepoRelativePath(normalized, sourceRepoRoot);
   normalized = normalized.replace(/^\.\/+/, "");
@@ -245,7 +247,11 @@ const buildLinkifiedTextFragment = (
       const element = document.createElement("span");
       element.textContent = rawToken;
       element.dataset.vdeFileRef = rawToken;
-      element.className = "cursor-pointer transition-colors hover:text-latte-lavender";
+      element.setAttribute("role", "button");
+      element.tabIndex = 0;
+      element.setAttribute("aria-label", `Open file ${rawToken}`);
+      element.className =
+        "cursor-pointer transition-colors hover:text-latte-lavender focus-visible:text-latte-lavender";
       fragment.append(element);
       hasReplacements = true;
     }
@@ -264,11 +270,10 @@ const buildLinkifiedTextFragment = (
 };
 
 export const extractLogReferenceTokensFromLine = (lineHtml: string) => {
-  if (typeof DOMParser === "undefined") {
+  if (!sharedParser) {
     return [];
   }
-  const parser = new DOMParser();
-  const document = parser.parseFromString(`<div>${lineHtml}</div>`, "text/html");
+  const document = sharedParser.parseFromString(`<div>${lineHtml}</div>`, "text/html");
   const container = document.body.firstElementChild;
   if (!container) {
     return [];
@@ -290,11 +295,10 @@ export const linkifyLogLineFileReferences = (
   lineHtml: string,
   options?: { isLinkableToken?: (rawToken: string) => boolean },
 ) => {
-  if (typeof DOMParser === "undefined") {
+  if (!sharedParser) {
     return lineHtml;
   }
-  const parser = new DOMParser();
-  const document = parser.parseFromString(`<div>${lineHtml}</div>`, "text/html");
+  const document = sharedParser.parseFromString(`<div>${lineHtml}</div>`, "text/html");
   const container = document.body.firstElementChild;
   if (!container) {
     return lineHtml;

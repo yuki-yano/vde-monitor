@@ -183,6 +183,33 @@ describe("ScreenPanel", () => {
     });
   });
 
+  it("resolves file reference when pressing Enter on linkified token", async () => {
+    const onResolveFileReference = vi.fn(async () => undefined);
+    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
+    const state = buildState({
+      screenLines: ["failed at src/main.ts:3"],
+    });
+    const actions = buildActions({ onResolveFileReference, onResolveFileReferenceCandidates });
+    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    await waitFor(() => {
+      expect(onResolveFileReferenceCandidates).toHaveBeenCalled();
+    });
+    let ref: HTMLElement | null = null;
+    await waitFor(() => {
+      ref = container.querySelector<HTMLElement>("[data-vde-file-ref='src/main.ts:3']");
+      expect(ref).toBeTruthy();
+    });
+    if (!ref) {
+      throw new Error("expected linkified file reference");
+    }
+    fireEvent.keyDown(ref, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(onResolveFileReference).toHaveBeenCalledWith("src/main.ts:3");
+    });
+  });
+
   it("does not linkify non-existing file references", async () => {
     const onResolveFileReferenceCandidates = vi.fn(async () => []);
     const state = buildState({

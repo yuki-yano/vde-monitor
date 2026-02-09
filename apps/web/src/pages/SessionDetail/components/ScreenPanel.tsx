@@ -3,6 +3,7 @@ import {
   type ClipboardEvent,
   forwardRef,
   type HTMLAttributes,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type RefObject,
@@ -74,6 +75,14 @@ const shouldShowErrorMessage = (error: string | null, connectionIssue: string | 
   (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
 
 const MAX_LOG_REFERENCE_CANDIDATES = 160;
+
+const resolveRawTokenFromEventTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+  const trigger = target.closest<HTMLElement>("[data-vde-file-ref]");
+  return trigger?.dataset.vdeFileRef ?? null;
+};
 
 const resolveModeValue = (value: string): ScreenMode | null => {
   if (value === "text" || value === "image") {
@@ -147,6 +156,7 @@ const ScreenContent = ({
   VirtuosoScroller,
   onScrollToBottom,
   onResolveFileReference,
+  onResolveFileReferenceKeyDown,
 }: {
   mode: ScreenMode;
   imageBase64: string | null;
@@ -161,6 +171,7 @@ const ScreenContent = ({
   ) => ReactNode;
   onScrollToBottom: (behavior: "auto" | "smooth") => void;
   onResolveFileReference: (event: MouseEvent<HTMLDivElement>) => void;
+  onResolveFileReferenceKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }) => {
   const showImage = mode === "image" && Boolean(imageBase64);
 
@@ -191,6 +202,7 @@ const ScreenContent = ({
               <div
                 className="min-h-4 whitespace-pre leading-4"
                 onClick={onResolveFileReference}
+                onKeyDown={onResolveFileReferenceKeyDown}
                 dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }}
               />
             )}
@@ -286,15 +298,16 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     }
     return ordered;
   }, [screenLines]);
-  const linkifiedScreenLines = useMemo(
-    () =>
-      screenLines.map((line) =>
-        linkifyLogLineFileReferences(line, {
-          isLinkableToken: (rawToken) => linkableTokens.has(rawToken),
-        }),
-      ),
-    [linkableTokens, screenLines],
-  );
+  const linkifiedScreenLines = useMemo(() => {
+    if (mode !== "text" || linkableTokens.size === 0) {
+      return screenLines;
+    }
+    return screenLines.map((line) =>
+      linkifyLogLineFileReferences(line, {
+        isLinkableToken: (rawToken) => linkableTokens.has(rawToken),
+      }),
+    );
+  }, [linkableTokens, mode, screenLines]);
 
   useEffect(() => {
     const requestId = activeResolveCandidatesRequestIdRef.current + 1;
@@ -361,15 +374,23 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
 
   const handleResolveFileReference = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
+      const rawToken = resolveRawTokenFromEventTarget(event.target);
+      if (!rawToken) {
         return;
       }
-      const trigger = target.closest<HTMLElement>("[data-vde-file-ref]");
-      if (!trigger) {
+      event.preventDefault();
+      event.stopPropagation();
+      void onResolveFileReference(rawToken);
+    },
+    [onResolveFileReference],
+  );
+
+  const handleResolveFileReferenceKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") {
         return;
       }
-      const rawToken = trigger.dataset.vdeFileRef;
+      const rawToken = resolveRawTokenFromEventTarget(event.target);
       if (!rawToken) {
         return;
       }
@@ -420,6 +441,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           VirtuosoScroller={VirtuosoScroller}
           onScrollToBottom={onScrollToBottom}
           onResolveFileReference={handleResolveFileReference}
+          onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
         />
       </div>
       {contextLeftLabel ? (

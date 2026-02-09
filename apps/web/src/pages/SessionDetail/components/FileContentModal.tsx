@@ -220,12 +220,12 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
             language={match[1] ?? null}
             theme={theme}
             showLineNumbers={showLineNumbers}
-            highlightLine={highlightLine}
+            highlightLine={null}
           />
         );
       },
     }),
-    [highlightLine, showLineNumbers, theme],
+    [showLineNumbers, theme],
   );
 
   if (!open) {

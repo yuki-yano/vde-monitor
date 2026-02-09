@@ -122,6 +122,8 @@ describe("linkifyLogLineFileReferences", () => {
     const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
     const refs = Array.from(doc.querySelectorAll<HTMLElement>("[data-vde-file-ref]"));
     expect(refs.map((node) => node.dataset.vdeFileRef)).toEqual(["src/a.ts:3", "index.test.tsx"]);
+    expect(refs.every((node) => node.getAttribute("role") === "button")).toBe(true);
+    expect(refs.every((node) => node.getAttribute("tabindex") === "0")).toBe(true);
   });
 
   it("does not linkify url tokens", () => {
