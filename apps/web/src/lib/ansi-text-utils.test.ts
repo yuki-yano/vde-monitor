@@ -26,6 +26,21 @@ describe("ansi-text-utils", () => {
     expect(sanitizeAnsiForHtml(value)).toBe("\u001b[38;2;215;119;87mcolor\u001b[0m");
   });
 
+  it("normalizes dim-only sgr into gray foreground", () => {
+    const value = "\u001b[2;3mdim\u001b[0m";
+    expect(sanitizeAnsiForHtml(value)).toBe("\u001b[90;3mdim\u001b[0m");
+  });
+
+  it("keeps dim with explicit foreground colors", () => {
+    const value = "\u001b[2;31mred\u001b[0m";
+    expect(sanitizeAnsiForHtml(value)).toBe("\u001b[2;31mred\u001b[0m");
+  });
+
+  it("does not rewrite truecolor mode parameters that include 2", () => {
+    const value = "\u001b[48;2;55;55;55mblock\u001b[49m";
+    expect(sanitizeAnsiForHtml(value)).toBe("\u001b[48;2;55;55;55mblock\u001b[49m");
+  });
+
   it("ensures line content when html is empty", () => {
     expect(ensureLineContent("")).toContain("&#x200B;");
   });

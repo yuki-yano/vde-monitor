@@ -298,6 +298,14 @@ describe("renderAnsiLines", () => {
     expect(lines[0]).not.toContain("background-color:#4c4f69");
   });
 
+  it("renders codex dim thought lines with muted gray foreground", () => {
+    const text = "\u001b[2m• \u001b[3m- 自動モードで実行完了しました（ユーザー選択: a）\u001b[0m";
+    const latteLines = renderAnsiLines(text, "latte", { agent: "codex" });
+    const mochaLines = renderAnsiLines(text, "mocha", { agent: "codex" });
+    expect(latteLines[0]).toMatch(/color:\s*(#7c7f93|rgb\(124,\s*127,\s*147\))/);
+    expect(mochaLines[0]).toMatch(/color:\s*(#7f849c|rgb\(127,\s*132,\s*156\))/);
+  });
+
   it("skips Claude highlight corrections when disabled", () => {
     const text = ["Update(file)", "  10 +foo", "  11 -bar"].join("\n");
     const lines = renderAnsiLines(text, "latte", {

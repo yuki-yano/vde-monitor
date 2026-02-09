@@ -7,6 +7,7 @@ const ansiControlPattern = new RegExp(
   String.raw`[\u0000-\u0008\u000B-\u001A\u001C-\u001F\u007F]`,
   "g",
 );
+const foregroundSgrTokenPattern = /^(3[0-7]|9[0-7]|38)$/;
 const backgroundColorPattern = /background-color:\s*([^;"']+)/i;
 const backgroundColorPatternGlobal = /background-color:\s*([^;"']+)/gi;
 const unicodeTableBorderPattern = /^(\s*)([┌├└]).*([┐┤┘])\s*$/;
@@ -26,10 +27,64 @@ const normalizeSgrParams = (params: string) => {
   return params.replace(/:/g, ";").replace(/;{2,}/g, ";").replace(/^;|;$/g, "");
 };
 
+const collectExtendedColorTokenIndexes = (tokens: string[]) => {
+  const indexes = new Set<number>();
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token !== "38" && token !== "48" && token !== "58") {
+      continue;
+    }
+    indexes.add(index);
+    const mode = tokens[index + 1];
+    if (mode === "5") {
+      indexes.add(index + 1);
+      indexes.add(index + 2);
+      index += 2;
+      continue;
+    }
+    if (mode === "2") {
+      indexes.add(index + 1);
+      indexes.add(index + 2);
+      indexes.add(index + 3);
+      indexes.add(index + 4);
+      index += 4;
+    }
+  }
+  return indexes;
+};
+
+const normalizeDimSgrParams = (params: string) => {
+  if (!params.includes("2")) {
+    return params;
+  }
+  const tokens = params.split(";").filter((token) => token.length > 0);
+  const colorTokenIndexes = collectExtendedColorTokenIndexes(tokens);
+  const hasDim = tokens.some((token, index) => token === "2" && !colorTokenIndexes.has(index));
+  if (!hasDim) {
+    return params;
+  }
+  const hasExplicitForeground = tokens.some((token, index) => {
+    if (token === "38" && colorTokenIndexes.has(index)) {
+      return true;
+    }
+    if (colorTokenIndexes.has(index)) {
+      return false;
+    }
+    return foregroundSgrTokenPattern.test(token);
+  });
+  if (hasExplicitForeground) {
+    return params;
+  }
+  return tokens
+    .map((token, index) => (token === "2" && !colorTokenIndexes.has(index) ? "90" : token))
+    .join(";");
+};
+
 export const sanitizeAnsiForHtml = (value: string) =>
   value
     .replace(ansiSgrPattern, (_match, prefix: string, params: string, suffix: string) => {
-      return `${prefix}${normalizeSgrParams(params)}${suffix}`;
+      const normalizedParams = normalizeDimSgrParams(normalizeSgrParams(params));
+      return `${prefix}${normalizedParams}${suffix}`;
     })
     .replace(ansiOscPattern, "")
     .replace(ansiCharsetDesignatePattern, "")
