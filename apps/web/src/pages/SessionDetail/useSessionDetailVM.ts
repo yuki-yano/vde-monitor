@@ -83,7 +83,9 @@ export const useSessionDetailVM = (paneId: string) => {
   );
   const paneRepoRootMap = useMemo(
     () =>
-      new Map(sessions.map((sessionItem) => [sessionItem.paneId, sessionItem.repoRoot] as const)),
+      new Map(
+        sessions.map((sessionItem) => [sessionItem.paneId, sessionItem.repoRoot ?? null] as const),
+      ),
     [sessions],
   );
   const touchRepoSortAnchor = useCallback((repoRoot: string | null) => {
