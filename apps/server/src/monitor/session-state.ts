@@ -17,14 +17,12 @@ type EstimateSessionStateArgs = {
 };
 
 export const estimateSessionState = ({
-  agent,
   paneDead,
   lastOutputAt,
   hookState,
   activity,
 }: EstimateSessionStateArgs) => {
-  const runningThresholdMs =
-    agent === "codex" ? Math.min(activity.runningThresholdMs, 10000) : activity.runningThresholdMs;
+  const runningThresholdMs = Math.min(activity.runningThresholdMs, 10000);
 
   return estimateState({
     paneDead,
