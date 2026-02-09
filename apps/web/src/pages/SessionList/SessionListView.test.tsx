@@ -21,8 +21,28 @@ vi.mock("@/components/theme-toggle", () => ({
 }));
 
 vi.mock("@/pages/SessionDetail/components/SessionSidebar", () => ({
-  SessionSidebar: ({ state }: { state: { sessionGroups: unknown[] } }) => (
-    <div data-testid="session-sidebar" data-count={state.sessionGroups.length} />
+  SessionSidebar: ({
+    state,
+    actions,
+  }: {
+    state: { sessionGroups: unknown[] };
+    actions: {
+      onFocusPane?: (paneId: string) => Promise<void> | void;
+      onTouchSession?: (paneId: string) => void;
+      onTouchRepoPin?: (repoRoot: string | null) => void;
+    };
+  }) => (
+    <div data-testid="session-sidebar" data-count={state.sessionGroups.length}>
+      <button type="button" onClick={() => actions.onFocusPane?.("pane-sidebar-open")}>
+        sidebar-open
+      </button>
+      <button type="button" onClick={() => actions.onTouchSession?.("pane-sidebar-pin")}>
+        sidebar-pin-pane
+      </button>
+      <button type="button" onClick={() => actions.onTouchRepoPin?.("/Users/test/sidebar-repo")}>
+        sidebar-pin-repo
+      </button>
+    </div>
   ),
 }));
 
@@ -333,6 +353,27 @@ describe("SessionListView", () => {
     renderWithRouter(<SessionListView {...props} />);
 
     expect(screen.getByTestId("session-sidebar").getAttribute("data-count")).toBe("2");
+  });
+
+  it("wires sidebar open and pin handlers", () => {
+    const onOpenPaneHere = vi.fn();
+    const onTouchRepoPin = vi.fn();
+    const onTouchPanePin = vi.fn();
+    const props = createViewProps({
+      onOpenPaneHere,
+      onTouchRepoPin,
+      onTouchPanePin,
+    });
+
+    renderWithRouter(<SessionListView {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "sidebar-open" }));
+    fireEvent.click(screen.getByRole("button", { name: "sidebar-pin-pane" }));
+    fireEvent.click(screen.getByRole("button", { name: "sidebar-pin-repo" }));
+
+    expect(onOpenPaneHere).toHaveBeenCalledWith("pane-sidebar-open");
+    expect(onTouchPanePin).toHaveBeenCalledWith("pane-sidebar-pin");
+    expect(onTouchRepoPin).toHaveBeenCalledWith("/Users/test/sidebar-repo");
   });
 
   it("wires repo and pane pin handlers", () => {

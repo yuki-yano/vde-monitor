@@ -129,7 +129,12 @@ export const SessionListView = ({
             currentPaneId: null,
             className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
           }}
-          actions={{}}
+          actions={{
+            onSelectSession: onOpenPaneHere,
+            onFocusPane: onOpenPaneHere,
+            onTouchSession: handleTouchPanePinWithScroll,
+            onTouchRepoPin: handleTouchRepoPinWithScroll,
+          }}
         />
         <div
           role="separator"
