@@ -13,6 +13,7 @@ import {
   agentLabelFor,
   agentToneFor,
   backLinkClass,
+  buildDefaultSessionTitle,
   formatPath,
   formatRelativeTime,
   formatStateLabel,
@@ -66,12 +67,12 @@ type SessionHeaderAlertsProps = {
 };
 
 type SessionTitleAreaProps = {
+  canResetTitle: boolean;
   titleEditing: boolean;
   titleDraft: string;
   titleSaving: boolean;
   sessionAutoTitle: string;
   sessionDisplayTitle: string;
-  sessionCustomTitle: string | null;
   currentPath: string | null;
   titleError: string | null;
   onTitleDraftChange: (value: string) => void;
@@ -174,12 +175,12 @@ const SessionAgentBadge = ({ agent }: SessionAgentBadgeProps) => {
 };
 
 const SessionTitleArea = ({
+  canResetTitle,
   titleEditing,
   titleDraft,
   titleSaving,
   sessionAutoTitle,
   sessionDisplayTitle,
-  sessionCustomTitle,
   currentPath,
   titleError,
   onTitleDraftChange,
@@ -188,7 +189,7 @@ const SessionTitleArea = ({
   onOpenTitleEditor,
   onCloseTitleEditor,
 }: SessionTitleAreaProps) => {
-  const showClearTitle = Boolean(sessionCustomTitle && !titleEditing);
+  const showClearTitle = canResetTitle && !titleEditing;
   return (
     <>
       <div className="flex flex-wrap items-center gap-1">
@@ -214,8 +215,8 @@ const SessionTitleArea = ({
             disabled={titleSaving}
             variant="dangerOutline"
             size="xs"
-            aria-label="Clear custom title"
-            title="Clear custom title"
+            aria-label="Reset session title"
+            title="Reset session title"
           >
             <X className="h-3.5 w-3.5" />
           </IconButton>
@@ -242,6 +243,10 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   } = actions;
 
   const sessionCustomTitle = session.customTitle ?? null;
+  const sessionDefaultTitle = buildDefaultSessionTitle(session);
+  const canResetAutoTitle =
+    sessionCustomTitle == null && session.title != null && session.title !== sessionDefaultTitle;
+  const canResetTitle = Boolean(sessionCustomTitle || canResetAutoTitle);
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
   const lastInputTone = getLastInputTone(session.lastInputAt ?? null, nowMs);
@@ -263,12 +268,12 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
       <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-4 backdrop-blur">
         <div className="flex flex-col gap-2">
           <SessionTitleArea
+            canResetTitle={canResetTitle}
             titleEditing={titleEditing}
             titleDraft={titleDraft}
             titleSaving={titleSaving}
             sessionAutoTitle={sessionAutoTitle}
             sessionDisplayTitle={sessionDisplayTitle}
-            sessionCustomTitle={sessionCustomTitle}
             currentPath={session.currentPath}
             titleError={titleError}
             onTitleDraftChange={onTitleDraftChange}

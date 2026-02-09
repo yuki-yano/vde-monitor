@@ -95,8 +95,8 @@ describe("useSessionTitleEditor", () => {
     expect(result.current.titleError).toBe("Title must be 80 characters or less.");
   });
 
-  it("clears title", async () => {
-    const session = createSessionDetail();
+  it("clears custom title", async () => {
+    const session = createSessionDetail({ customTitle: "Custom Title" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
     const { result } = renderHook(
@@ -114,5 +114,26 @@ describe("useSessionTitleEditor", () => {
     });
 
     expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, null);
+  });
+
+  it("resets auto title to default when custom title is not set", async () => {
+    const session = createSessionDetail({ customTitle: null, title: "✳ Initial Greeting" });
+    const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionTitleEditor({
+          session,
+          paneId: session.paneId,
+          updateSessionTitle,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.clearTitle();
+    });
+
+    expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, "repo:w1:pane-1");
   });
 });

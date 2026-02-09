@@ -180,4 +180,39 @@ describe("SessionHeader", () => {
     expect(editorBadge.className).toContain("text-latte-maroon");
     expect(screen.queryByText("UNKNOWN")).toBeNull();
   });
+
+  it("shows reset button when custom title is set", () => {
+    const session = createSessionDetail({ customTitle: "Custom" });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.getByLabelText("Reset session title")).toBeTruthy();
+  });
+
+  it("shows reset button when auto title differs from default", () => {
+    const session = createSessionDetail({
+      customTitle: null,
+      title: "✳ Initial Greeting",
+      currentPath: "/Users/test/repo",
+    });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.getByLabelText("Reset session title")).toBeTruthy();
+  });
+
+  it("hides reset button when auto title matches default and custom title is not set", () => {
+    const session = createSessionDetail({
+      customTitle: null,
+      title: "repo:w1:pane-1",
+      currentPath: "/Users/test/repo",
+    });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.queryByLabelText("Reset session title")).toBeNull();
+  });
 });

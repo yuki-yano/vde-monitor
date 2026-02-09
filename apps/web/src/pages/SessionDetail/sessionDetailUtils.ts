@@ -2,6 +2,7 @@ import {
   type CommitLog,
   defaultDangerCommandPatterns,
   type DiffSummary,
+  type SessionSummary,
 } from "@vde-monitor/shared";
 
 import { stripAnsi } from "@/lib/ansi-text-utils";
@@ -168,3 +169,14 @@ export const buildCommitLogSignature = (log: CommitLog) =>
     totalCount: log.totalCount ?? null,
     commits: log.commits.map((commit) => commit.hash),
   });
+
+export const buildDefaultSessionTitle = (
+  session: Pick<SessionSummary, "currentPath" | "paneId" | "sessionName" | "windowIndex">,
+) => {
+  if (!session.currentPath) {
+    return `${session.sessionName}:w${session.windowIndex}:${session.paneId}`;
+  }
+  const normalized = session.currentPath.replace(/\/+$/, "");
+  const name = normalized.split("/").pop() || "unknown";
+  return `${name}:w${session.windowIndex}:${session.paneId}`;
+};

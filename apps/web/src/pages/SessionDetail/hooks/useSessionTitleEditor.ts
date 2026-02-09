@@ -10,6 +10,7 @@ import {
   titleErrorAtom,
   titleSavingAtom,
 } from "../atoms/titleAtoms";
+import { buildDefaultSessionTitle } from "../sessionDetailUtils";
 type UseSessionTitleEditorParams = {
   session: SessionSummary | null;
   paneId: string;
@@ -89,11 +90,12 @@ export const useSessionTitleEditor = ({
 
   const clearTitle = useCallback(async () => {
     if (!session || titleSaving) return;
+    const nextTitle = session.customTitle ? null : buildDefaultSessionTitle(session);
     setTitleSaving(true);
     try {
-      await updateSessionTitle(session.paneId, null);
+      await updateSessionTitle(session.paneId, nextTitle);
       setTitleEditing(false);
-      setTitleDraft("");
+      setTitleDraft(nextTitle ?? "");
       setTitleError(null);
     } catch (err) {
       setTitleError(err instanceof Error ? err.message : API_ERROR_MESSAGES.updateTitle);
