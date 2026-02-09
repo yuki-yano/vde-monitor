@@ -11,4 +11,5 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   shims: false,
+  inlineOnly: false,
 });
