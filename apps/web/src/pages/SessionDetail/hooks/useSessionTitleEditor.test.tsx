@@ -95,7 +95,7 @@ describe("useSessionTitleEditor", () => {
     expect(result.current.titleError).toBe("Title must be 80 characters or less.");
   });
 
-  it("clears custom title", async () => {
+  it("resets custom title", async () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
@@ -110,7 +110,7 @@ describe("useSessionTitleEditor", () => {
     );
 
     await act(async () => {
-      await result.current.clearTitle();
+      await result.current.resetTitle();
     });
 
     expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, null);
@@ -131,7 +131,7 @@ describe("useSessionTitleEditor", () => {
     );
 
     await act(async () => {
-      await result.current.clearTitle();
+      await result.current.resetTitle();
     });
 
     expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, "repo:w1:pane-1");

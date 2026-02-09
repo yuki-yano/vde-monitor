@@ -57,7 +57,7 @@ describe("SessionHeader", () => {
   const buildActions = (overrides: Partial<SessionHeaderActions> = {}): SessionHeaderActions => ({
     onTitleDraftChange: vi.fn(),
     onTitleSave: vi.fn(),
-    onTitleClear: vi.fn(),
+    onTitleReset: vi.fn(),
     onOpenTitleEditor: vi.fn(),
     onCloseTitleEditor: vi.fn(),
     onTouchSession: vi.fn(),

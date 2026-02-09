@@ -223,7 +223,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       closeTitleEditor: vi.fn(),
       updateTitleDraft: vi.fn(),
       saveTitle: vi.fn(),
-      clearTitle: vi.fn(),
+      resetTitle: vi.fn(),
     },
     actions: {
       handleFocusPane: vi.fn(),

@@ -300,7 +300,7 @@ export const useSessionDetailVM = (paneId: string) => {
     closeTitleEditor,
     updateTitleDraft,
     saveTitle,
-    clearTitle,
+    resetTitle,
   } = useSessionTitleEditor({
     session,
     paneId,
@@ -516,7 +516,7 @@ export const useSessionDetailVM = (paneId: string) => {
       closeTitleEditor,
       updateTitleDraft,
       saveTitle,
-      clearTitle,
+      resetTitle,
     },
     actions: {
       handleFocusPane,

@@ -36,7 +36,7 @@ type SessionHeaderState = {
 type SessionHeaderActions = {
   onTitleDraftChange: (value: string) => void;
   onTitleSave: () => void;
-  onTitleClear: () => void;
+  onTitleReset: () => void;
   onOpenTitleEditor: () => void;
   onCloseTitleEditor: () => void;
   onTouchSession: () => void;
@@ -77,7 +77,7 @@ type SessionTitleAreaProps = {
   titleError: string | null;
   onTitleDraftChange: (value: string) => void;
   onTitleSave: () => void;
-  onTitleClear: () => void;
+  onTitleReset: () => void;
   onOpenTitleEditor: () => void;
   onCloseTitleEditor: () => void;
 };
@@ -185,11 +185,11 @@ const SessionTitleArea = ({
   titleError,
   onTitleDraftChange,
   onTitleSave,
-  onTitleClear,
+  onTitleReset,
   onOpenTitleEditor,
   onCloseTitleEditor,
 }: SessionTitleAreaProps) => {
-  const showClearTitle = canResetTitle && !titleEditing;
+  const showResetTitle = canResetTitle && !titleEditing;
   return (
     <>
       <div className="flex flex-wrap items-center gap-1">
@@ -208,10 +208,10 @@ const SessionTitleArea = ({
             onOpenTitleEditor={onOpenTitleEditor}
           />
         )}
-        {showClearTitle ? (
+        {showResetTitle ? (
           <IconButton
             type="button"
-            onClick={() => void onTitleClear()}
+            onClick={() => void onTitleReset()}
             disabled={titleSaving}
             variant="dangerOutline"
             size="xs"
@@ -236,7 +236,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   const {
     onTitleDraftChange,
     onTitleSave,
-    onTitleClear,
+    onTitleReset,
     onOpenTitleEditor,
     onCloseTitleEditor,
     onTouchSession,
@@ -278,7 +278,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
             titleError={titleError}
             onTitleDraftChange={onTitleDraftChange}
             onTitleSave={onTitleSave}
-            onTitleClear={onTitleClear}
+            onTitleReset={onTitleReset}
             onOpenTitleEditor={onOpenTitleEditor}
             onCloseTitleEditor={onCloseTitleEditor}
           />

@@ -88,8 +88,11 @@ export const useSessionTitleEditor = ({
     setTitleSaving,
   ]);
 
-  const clearTitle = useCallback(async () => {
+  const resetTitle = useCallback(async () => {
     if (!session || titleSaving) return;
+    // Keep "reset" behavior in one action:
+    // - custom title: clear it
+    // - auto title: pin the computed default title as custom title
     const nextTitle = session.customTitle ? null : buildDefaultSessionTitle(session);
     setTitleSaving(true);
     try {
@@ -121,6 +124,6 @@ export const useSessionTitleEditor = ({
     closeTitleEditor,
     updateTitleDraft,
     saveTitle,
-    clearTitle,
+    resetTitle,
   };
 };

@@ -166,7 +166,7 @@ export const useSessionDetailViewSectionProps = ({
     closeTitleEditor,
     updateTitleDraft,
     saveTitle,
-    clearTitle,
+    resetTitle,
   } = title;
   const {
     handleFocusPane,
@@ -491,7 +491,7 @@ export const useSessionDetailViewSectionProps = ({
       actions: {
         onTitleDraftChange: updateTitleDraft,
         onTitleSave: saveTitle,
-        onTitleClear: clearTitle,
+        onTitleReset: resetTitle,
         onOpenTitleEditor: openTitleEditor,
         onCloseTitleEditor: closeTitleEditor,
         onTouchSession: handleTouchSession,
@@ -507,7 +507,7 @@ export const useSessionDetailViewSectionProps = ({
     titleError,
     updateTitleDraft,
     saveTitle,
-    clearTitle,
+    resetTitle,
     openTitleEditor,
     closeTitleEditor,
     handleTouchSession,
