@@ -95,6 +95,7 @@ export const useSessionScreen = ({
     virtuosoRef,
     scrollerRef,
   } = useScreenScroll({
+    paneId,
     mode,
     screenLinesLength: screenLines.length,
     isUserScrollingRef,

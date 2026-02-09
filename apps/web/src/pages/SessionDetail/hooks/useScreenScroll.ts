@@ -7,6 +7,7 @@ import type { ScreenMode } from "@/lib/screen-loading";
 import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
 
 type UseScreenScrollParams = {
+  paneId: string;
   mode: ScreenMode;
   screenLinesLength: number;
   isUserScrollingRef: MutableRefObject<boolean>;
@@ -15,6 +16,7 @@ type UseScreenScrollParams = {
 };
 
 export const useScreenScroll = ({
+  paneId,
   mode,
   screenLinesLength,
   isUserScrollingRef,
@@ -28,11 +30,12 @@ export const useScreenScroll = ({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const forceFollowTimerRef = useRef<number | null>(null);
   const prevModeRef = useRef<ScreenMode>(mode);
+  const prevPaneIdRef = useRef<string>(paneId);
   const snapToBottomRef = useRef(false);
 
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "auto") => {
-      if (!virtuosoRef.current || screenLinesLength === 0) return;
+      if (!virtuosoRef.current || screenLinesLength === 0) return false;
       const index = screenLinesLength - 1;
       virtuosoRef.current.scrollToIndex({ index, align: "end", behavior });
       setForceFollow(true);
@@ -49,6 +52,7 @@ export const useScreenScroll = ({
           scroller.scrollTo({ top: scroller.scrollHeight, left: 0, behavior });
         }
       });
+      return true;
     },
     [screenLinesLength, setForceFollow],
   );
@@ -86,12 +90,21 @@ export const useScreenScroll = ({
     prevModeRef.current = mode;
   }, [mode]);
 
+  useEffect(() => {
+    if (prevPaneIdRef.current !== paneId) {
+      snapToBottomRef.current = true;
+      prevPaneIdRef.current = paneId;
+    }
+  }, [paneId]);
+
   useLayoutEffect(() => {
-    if (!snapToBottomRef.current || mode !== "text") {
+    if (!snapToBottomRef.current || mode !== "text" || screenLinesLength === 0) {
       return;
     }
-    scrollToBottom("auto");
-    snapToBottomRef.current = false;
+    const didSnap = scrollToBottom("auto");
+    if (didSnap) {
+      snapToBottomRef.current = false;
+    }
   }, [mode, screenLinesLength, scrollToBottom]);
 
   useEffect(() => {

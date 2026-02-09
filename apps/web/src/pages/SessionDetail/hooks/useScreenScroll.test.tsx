@@ -33,6 +33,7 @@ describe("useScreenScroll", () => {
     const { result } = renderHook(
       () =>
         useScreenScroll({
+          paneId: "pane-1",
           mode: "text",
           screenLinesLength: 1,
           isUserScrollingRef,
@@ -65,6 +66,7 @@ describe("useScreenScroll", () => {
     const { result } = renderHook(
       () =>
         useScreenScroll({
+          paneId: "pane-1",
           mode: "text",
           screenLinesLength: 2,
           isUserScrollingRef,
@@ -120,6 +122,7 @@ describe("useScreenScroll", () => {
     const { result, rerender } = renderHook(
       ({ mode, screenLinesLength }: { mode: ScreenMode; screenLinesLength: number }) =>
         useScreenScroll({
+          paneId: "pane-1",
           mode,
           screenLinesLength,
           isUserScrollingRef,
@@ -151,5 +154,53 @@ describe("useScreenScroll", () => {
     rerender({ mode: "text" as ScreenMode, screenLinesLength: 3 });
 
     expect(scrollToIndex).toHaveBeenCalled();
+  });
+
+  it("snaps to bottom after pane change when text lines arrive", () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+
+    const isUserScrollingRef = { current: false };
+    const onFlushPending = vi.fn();
+    const onClearPending = vi.fn();
+    const scrollToIndex = vi.fn();
+    const scrollTo = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      ({ paneId, screenLinesLength }: { paneId: string; screenLinesLength: number }) =>
+        useScreenScroll({
+          paneId,
+          mode: "text",
+          screenLinesLength,
+          isUserScrollingRef,
+          onFlushPending,
+          onClearPending,
+        }),
+      { initialProps: { paneId: "pane-1", screenLinesLength: 0 }, wrapper },
+    );
+
+    act(() => {
+      result.current.virtuosoRef.current = {
+        scrollToIndex,
+      } as unknown as typeof result.current.virtuosoRef.current;
+      result.current.scrollerRef.current = {
+        scrollTo,
+        scrollHeight: 120,
+      } as unknown as HTMLDivElement;
+    });
+
+    rerender({ paneId: "pane-2", screenLinesLength: 0 });
+    expect(scrollToIndex).not.toHaveBeenCalled();
+
+    rerender({ paneId: "pane-2", screenLinesLength: 3 });
+    expect(scrollToIndex).toHaveBeenCalledWith({
+      index: 2,
+      align: "end",
+      behavior: "auto",
+    });
   });
 });
