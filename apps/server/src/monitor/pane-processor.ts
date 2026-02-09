@@ -198,6 +198,7 @@ export const processPane = async (
       alternateOn: pane.alternateOn,
     },
     paneState,
+    isAgentPane: isAgent,
     logPath,
     inactiveThresholdMs: config.activity.inactiveThresholdMs,
     deps: {

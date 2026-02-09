@@ -6,6 +6,9 @@ export type PaneRuntimeState = {
   lastEventAt: string | null;
   lastMessage: string | null;
   lastInputAt: string | null;
+  externalInputCursorBytes: number | null;
+  externalInputSignature: string | null;
+  externalInputLastDetectedAt: string | null;
   lastFingerprint: string | null;
   lastFingerprintCaptureAtMs: number | null;
 };
@@ -16,6 +19,9 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastEventAt: null,
   lastMessage: null,
   lastInputAt: null,
+  externalInputCursorBytes: null,
+  externalInputSignature: null,
+  externalInputLastDetectedAt: null,
   lastFingerprint: null,
   lastFingerprintCaptureAtMs: null,
 });
@@ -60,4 +66,19 @@ export const updateOutputAt = (state: PaneRuntimeState, next: string | null) => 
     state.lastOutputAt = new Date(nextTs).toISOString();
   }
   return state.lastOutputAt;
+};
+
+export const updateInputAt = (state: PaneRuntimeState, next: string | null) => {
+  if (!next) {
+    return state.lastInputAt;
+  }
+  const nextTs = Date.parse(next);
+  if (Number.isNaN(nextTs)) {
+    return state.lastInputAt;
+  }
+  const prevTs = state.lastInputAt ? Date.parse(state.lastInputAt) : null;
+  if (!prevTs || Number.isNaN(prevTs) || nextTs > prevTs) {
+    state.lastInputAt = new Date(nextTs).toISOString();
+  }
+  return state.lastInputAt;
 };

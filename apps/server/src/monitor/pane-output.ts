@@ -1,7 +1,11 @@
 import fs from "node:fs/promises";
 
 import { resolveActivityTimestamp } from "../activity-resolver";
-import { type PaneRuntimeState, updateOutputAt } from "./pane-state";
+import {
+  detectExternalInputFromLogDelta,
+  type ExternalInputDetectResult,
+} from "./external-input-detector";
+import { type PaneRuntimeState, updateInputAt, updateOutputAt } from "./pane-state";
 
 const DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
 
@@ -17,6 +21,7 @@ export type PaneOutputSnapshot = {
 type PaneOutputDeps = {
   statLogMtime?: (logPath: string) => Promise<string | null>;
   resolveActivityAt?: typeof resolveActivityTimestamp;
+  detectExternalInputFromLogDelta?: typeof detectExternalInputFromLogDelta;
   captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
   fingerprintIntervalMs?: number;
   allowFingerprintCapture?: boolean;
@@ -26,6 +31,7 @@ type PaneOutputDeps = {
 type UpdatePaneOutputArgs = {
   pane: PaneOutputSnapshot;
   paneState: PaneRuntimeState;
+  isAgentPane?: boolean;
   logPath: string | null;
   inactiveThresholdMs: number;
   deps: PaneOutputDeps;
@@ -154,15 +160,65 @@ const resolveHookState = (paneState: PaneRuntimeState, outputAt: string | null) 
   return null;
 };
 
+const applyExternalInputDetection = ({
+  pane,
+  paneState,
+  isAgentPane,
+  logPath,
+  now,
+  detectExternalInput,
+}: {
+  pane: PaneOutputSnapshot;
+  paneState: PaneRuntimeState;
+  isAgentPane: boolean;
+  logPath: string | null;
+  now: () => Date;
+  detectExternalInput: typeof detectExternalInputFromLogDelta;
+}): Promise<ExternalInputDetectResult> => {
+  return detectExternalInput({
+    paneId: pane.paneId,
+    isAgentPane,
+    logPath,
+    now,
+    previousCursorBytes: paneState.externalInputCursorBytes,
+    previousSignature: paneState.externalInputSignature,
+  });
+};
+
+const updateInputAtFromExternalDetection = ({
+  paneState,
+  result,
+}: {
+  paneState: PaneRuntimeState;
+  result: ExternalInputDetectResult;
+}) => {
+  paneState.externalInputCursorBytes = result.nextCursorBytes;
+  paneState.externalInputSignature = result.signature;
+  if (result.reason !== "detected" || !result.detectedAt) {
+    return null;
+  }
+
+  const previousInputAt = paneState.lastInputAt;
+  const nextInputAt = updateInputAt(paneState, result.detectedAt);
+  if (nextInputAt && nextInputAt !== previousInputAt) {
+    paneState.externalInputLastDetectedAt = nextInputAt;
+    return nextInputAt;
+  }
+  return null;
+};
+
 export const updatePaneOutputState = async ({
   pane,
   paneState,
+  isAgentPane = false,
   logPath,
   inactiveThresholdMs,
   deps,
 }: UpdatePaneOutputArgs) => {
   const statLogMtime = deps.statLogMtime ?? defaultStatLogMtime;
   const resolveActivityAt = deps.resolveActivityAt ?? resolveActivityTimestamp;
+  const detectExternalInput =
+    deps.detectExternalInputFromLogDelta ?? detectExternalInputFromLogDelta;
   const fingerprintIntervalMs = Math.max(
     0,
     deps.fingerprintIntervalMs ?? DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS,
@@ -202,6 +258,25 @@ export const updatePaneOutputState = async ({
     setOutputAt: outputAtTracker.setOutputAt,
   });
   const hookState = resolveHookState(paneState, outputAt);
+  let inputTouchedAt: string | null = null;
+  if (isAgentPane && logPath) {
+    try {
+      const detectResult = await applyExternalInputDetection({
+        pane,
+        paneState,
+        isAgentPane,
+        logPath,
+        now,
+        detectExternalInput,
+      });
+      inputTouchedAt = updateInputAtFromExternalDetection({
+        paneState,
+        result: detectResult,
+      });
+    } catch {
+      inputTouchedAt = null;
+    }
+  }
 
-  return { outputAt, hookState };
+  return { outputAt, hookState, inputTouchedAt };
 };

@@ -11,6 +11,9 @@ const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntime
   lastEventAt: null,
   lastMessage: null,
   lastInputAt: null,
+  externalInputCursorBytes: null,
+  externalInputSignature: null,
+  externalInputLastDetectedAt: null,
   lastFingerprint: null,
   lastFingerprintCaptureAtMs: null,
   ...overrides,
@@ -86,6 +89,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
     const result = await processPane(
       {
@@ -109,6 +113,7 @@ describe("processPane", () => {
     expect(preparePaneLogging).not.toHaveBeenCalled();
     expect(updatePaneOutputState).toHaveBeenCalledWith(
       expect.objectContaining({
+        isAgentPane: false,
         logPath: "/tmp/log",
         deps: expect.objectContaining({
           fingerprintIntervalMs: 5000,
@@ -123,6 +128,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
 
     await processPane(
@@ -150,6 +156,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
 
     await processPane(
@@ -177,6 +184,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
     const detail = await processPane(
       {
@@ -208,6 +216,7 @@ describe("processPane", () => {
     expect(detail?.customTitle).toBe("Custom");
     expect(updatePaneOutputState).toHaveBeenCalledWith(
       expect.objectContaining({
+        isAgentPane: true,
         deps: expect.objectContaining({
           fingerprintIntervalMs: 5000,
           allowFingerprintCapture: true,
@@ -222,6 +231,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
 
     await processPane(
@@ -257,6 +267,7 @@ describe("processPane", () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
+      inputTouchedAt: null,
     }));
 
     await processPane(
@@ -279,10 +290,44 @@ describe("processPane", () => {
 
     expect(updatePaneOutputState).toHaveBeenCalledWith(
       expect.objectContaining({
+        isAgentPane: false,
         deps: expect.objectContaining({
           allowFingerprintCapture: true,
         }),
       }),
     );
+  });
+
+  it("reflects lastInputAt updated inside output updater", async () => {
+    const paneState = createPaneState();
+    const updatePaneOutputState = vi.fn(
+      async ({ paneState: runtimeState }: { paneState: PaneRuntimeState }) => {
+        runtimeState.lastInputAt = "2024-01-05T00:00:00.000Z";
+        return {
+          outputAt: "2024-01-05T00:00:00.000Z",
+          hookState: null,
+          inputTouchedAt: "2024-01-05T00:00:00.000Z",
+        };
+      },
+    );
+
+    const detail = await processPane(
+      {
+        pane: basePane,
+        config: baseConfig,
+        paneStates: { get: () => paneState },
+        paneLogManager: createPaneLogManager(),
+        capturePaneFingerprint: vi.fn(async () => null),
+        applyRestored: vi.fn(() => null),
+        getCustomTitle: vi.fn(() => null),
+        resolveRepoRoot: vi.fn(async () => null),
+      },
+      {
+        resolvePaneAgent: vi.fn(async () => ({ agent: "codex" as const, ignore: false })),
+        updatePaneOutputState,
+      },
+    );
+
+    expect(detail?.lastInputAt).toBe("2024-01-05T00:00:00.000Z");
   });
 });
