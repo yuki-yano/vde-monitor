@@ -20,6 +20,11 @@ type ExternalInputDetectorDeps = {
   readLogSlice?: (logPath: string, offsetBytes: number, lengthBytes: number) => Promise<string>;
 };
 
+type DeltaSegment = {
+  startBytes: number;
+  lengthBytes: number;
+};
+
 export type ExternalInputDetectArgs = {
   paneId: string;
   isAgentPane: boolean;
@@ -208,6 +213,90 @@ const createResult = ({
   reason,
 });
 
+const resolveReadSegments = ({
+  previousCursor,
+  fileSize,
+  maxReadBytes,
+}: {
+  previousCursor: number;
+  fileSize: number;
+  maxReadBytes: number;
+}): DeltaSegment[] => {
+  const deltaBytes = fileSize - previousCursor;
+  if (deltaBytes <= maxReadBytes) {
+    return [{ startBytes: previousCursor, lengthBytes: deltaBytes }];
+  }
+
+  const headSegment: DeltaSegment = {
+    startBytes: previousCursor,
+    lengthBytes: maxReadBytes,
+  };
+  const tailStartBytes = Math.max(previousCursor, fileSize - maxReadBytes - CLAMP_OVERLAP_BYTES);
+  const tailSegment: DeltaSegment = {
+    startBytes: tailStartBytes,
+    lengthBytes: fileSize - tailStartBytes,
+  };
+
+  const headEndBytes = headSegment.startBytes + headSegment.lengthBytes;
+  if (tailSegment.startBytes <= headEndBytes) {
+    return [{ startBytes: previousCursor, lengthBytes: deltaBytes }];
+  }
+  return [headSegment, tailSegment];
+};
+
+const detectPromptFromSegment = async ({
+  paneId,
+  logPath,
+  segment,
+  fileSize,
+  maxPromptLines,
+  prevSignature,
+  promptStartPatterns,
+  continuationLinePattern,
+  readLogSlice,
+}: {
+  paneId: string;
+  logPath: string;
+  segment: DeltaSegment;
+  fileSize: number;
+  maxPromptLines: number;
+  prevSignature: string | null;
+  promptStartPatterns: RegExp[];
+  continuationLinePattern: RegExp;
+  readLogSlice: (logPath: string, offsetBytes: number, lengthBytes: number) => Promise<string>;
+}) => {
+  if (segment.lengthBytes <= 0) {
+    return { matched: false as const, duplicate: false as const, signature: prevSignature };
+  }
+
+  const rawDeltaText = await readLogSlice(logPath, segment.startBytes, segment.lengthBytes);
+  const normalizedDeltaText = normalizeDeltaText(rawDeltaText);
+  const scanText =
+    segment.startBytes > 0
+      ? normalizeClampedLeadingLine(normalizedDeltaText, promptStartPatterns)
+      : normalizedDeltaText;
+  const promptBlock = pickLatestPromptBlock({
+    normalizedText: scanText,
+    promptStartPatterns,
+    continuationLinePattern,
+    maxPromptLines,
+  });
+  if (!promptBlock) {
+    return { matched: false as const, duplicate: false as const, signature: prevSignature };
+  }
+
+  const signature = buildSignature({
+    paneId,
+    promptBlock,
+    readStartBytes: segment.startBytes,
+    nextCursorBytes: fileSize,
+  });
+  if (signature === prevSignature) {
+    return { matched: true as const, duplicate: true as const, signature };
+  }
+  return { matched: true as const, duplicate: false as const, signature };
+};
+
 export const detectExternalInputFromLogDelta = async ({
   paneId,
   isAgentPane,
@@ -278,15 +367,12 @@ export const detectExternalInputFromLogDelta = async ({
       });
     }
 
-    let readStartBytes = previousCursor;
-    let wasClamped = false;
-    if (fileSize - readStartBytes > safeMaxReadBytes) {
-      readStartBytes = Math.max(0, fileSize - safeMaxReadBytes - CLAMP_OVERLAP_BYTES);
-      wasClamped = true;
-    }
-
-    const readLengthBytes = fileSize - readStartBytes;
-    if (readLengthBytes <= 0) {
+    const segments = resolveReadSegments({
+      previousCursor,
+      fileSize,
+      maxReadBytes: safeMaxReadBytes,
+    });
+    if (segments.length === 0) {
       return createResult({
         reason: "no-growth",
         nextCursorBytes: fileSize,
@@ -294,45 +380,45 @@ export const detectExternalInputFromLogDelta = async ({
       });
     }
 
-    const rawDeltaText = await readLogSlice(logPath, readStartBytes, readLengthBytes);
-    const normalizedDeltaText = normalizeDeltaText(rawDeltaText);
-    const scanText = wasClamped
-      ? normalizeClampedLeadingLine(normalizedDeltaText, promptStartPatterns)
-      : normalizedDeltaText;
-    const promptBlock = pickLatestPromptBlock({
-      normalizedText: scanText,
-      promptStartPatterns,
-      continuationLinePattern,
-      maxPromptLines: safeMaxPromptLines,
-    });
-
-    if (!promptBlock) {
+    let duplicateSignature: string | null = null;
+    for (const segment of segments) {
+      const segmentResult = await detectPromptFromSegment({
+        paneId,
+        logPath,
+        segment,
+        fileSize,
+        maxPromptLines: safeMaxPromptLines,
+        prevSignature,
+        promptStartPatterns,
+        continuationLinePattern,
+        readLogSlice,
+      });
+      if (!segmentResult.matched) {
+        continue;
+      }
+      if (segmentResult.duplicate) {
+        duplicateSignature = segmentResult.signature;
+        continue;
+      }
       return createResult({
-        reason: "no-pattern",
+        reason: "detected",
+        detectedAt: now().toISOString(),
         nextCursorBytes: fileSize,
-        signature: prevSignature,
+        signature: segmentResult.signature,
       });
     }
 
-    const signature = buildSignature({
-      paneId,
-      promptBlock,
-      readStartBytes,
-      nextCursorBytes: fileSize,
-    });
-    if (signature === prevSignature) {
+    if (duplicateSignature) {
       return createResult({
         reason: "duplicate",
         nextCursorBytes: fileSize,
-        signature,
+        signature: duplicateSignature,
       });
     }
-
     return createResult({
-      reason: "detected",
-      detectedAt: now().toISOString(),
+      reason: "no-pattern",
       nextCursorBytes: fileSize,
-      signature,
+      signature: prevSignature,
     });
   } catch (error) {
     void error;

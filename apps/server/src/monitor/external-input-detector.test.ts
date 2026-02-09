@@ -157,12 +157,17 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
-    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 368_924, 131_076);
+    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 10, 131_072);
   });
 
-  it("keeps prompt detection when clamped slice starts with replacement char", async () => {
+  it("detects prompt from head segment when delta is larger than maxReadBytes", async () => {
     const statLogSize = vi.fn(async () => ({ size: 120 }));
-    const readLogSlice = vi.fn(async () => "\uFFFD\u203A prompt from boundary\n  continue");
+    const readLogSlice = vi.fn(async (_path: string, offsetBytes: number, lengthBytes: number) => {
+      if (offsetBytes === 0 && lengthBytes === 16) {
+        return "\u203A prompt near start";
+      }
+      return "no prompt";
+    });
 
     const result = await detectExternalInputFromLogDelta({
       paneId: "%1",
@@ -176,6 +181,32 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
-    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 100, 20);
+    expect(readLogSlice).toHaveBeenCalledTimes(1);
+    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 0, 16);
+  });
+
+  it("keeps prompt detection when tail segment starts with replacement char", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 120 }));
+    const readLogSlice = vi.fn(async (_path: string, offsetBytes: number) => {
+      if (offsetBytes === 0) {
+        return "no prompt in head";
+      }
+      return "\uFFFD\u203A prompt from boundary\n  continue";
+    });
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 0,
+      previousSignature: null,
+      maxReadBytes: 16,
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("detected");
+    expect(readLogSlice).toHaveBeenNthCalledWith(1, "/tmp/pane.log", 0, 16);
+    expect(readLogSlice).toHaveBeenNthCalledWith(2, "/tmp/pane.log", 100, 20);
   });
 });
