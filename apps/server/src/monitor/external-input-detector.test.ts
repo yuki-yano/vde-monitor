@@ -139,4 +139,43 @@ describe("detectExternalInputFromLogDelta", () => {
     expect(result.signature).toBe("prev");
     expect(readLogSlice).not.toHaveBeenCalled();
   });
+
+  it("uses safe defaults when maxReadBytes and maxPromptLines are NaN", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 500_000 }));
+    const readLogSlice = vi.fn(async () => "\u203A bounded read");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 10,
+      previousSignature: null,
+      maxReadBytes: Number.NaN,
+      maxPromptLines: Number.NaN,
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("detected");
+    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 368_924, 131_076);
+  });
+
+  it("keeps prompt detection when clamped slice starts with replacement char", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 120 }));
+    const readLogSlice = vi.fn(async () => "\uFFFD\u203A prompt from boundary\n  continue");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 0,
+      previousSignature: null,
+      maxReadBytes: 16,
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("detected");
+    expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 100, 20);
+  });
 });

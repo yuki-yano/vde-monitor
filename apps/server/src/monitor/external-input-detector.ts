@@ -3,8 +3,10 @@ import fs from "node:fs/promises";
 
 const DEFAULT_MAX_READ_BYTES = 128 * 1024;
 const DEFAULT_MAX_PROMPT_LINES = 24;
+const CLAMP_OVERLAP_BYTES = 4;
 const DEFAULT_PROMPT_START_PATTERNS = [/^\s*\u203A(?:\s|$)/, /^\s*>\s/];
 const DEFAULT_CONTINUATION_LINE_PATTERN = /^\s+/;
+const replacementCharPattern = /^\uFFFD+/;
 
 const ansiEscapePattern = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, "g");
 const ansiOscPattern = new RegExp(String.raw`\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)`, "g");
@@ -77,6 +79,25 @@ const normalizeDeltaText = (value: string) =>
 
 const matchesPromptStart = (line: string, patterns: RegExp[]) =>
   patterns.some((pattern) => pattern.test(line));
+
+const normalizeClampedLeadingLine = (text: string, promptStartPatterns: RegExp[]) => {
+  const lines = text.split("\n");
+  if (lines.length === 0) {
+    return text;
+  }
+
+  const firstLine = lines[0] ?? "";
+  const normalizedFirstLine = firstLine.replace(replacementCharPattern, "");
+  if (normalizedFirstLine !== firstLine) {
+    if (matchesPromptStart(normalizedFirstLine, promptStartPatterns)) {
+      lines[0] = normalizedFirstLine;
+      return lines.join("\n");
+    }
+    lines.shift();
+    return lines.join("\n");
+  }
+  return lines.join("\n");
+};
 
 const trimTrailingEmptyLines = (lines: string[]) => {
   while (lines.length > 0) {
@@ -213,8 +234,14 @@ export const detectExternalInputFromLogDelta = async ({
 
   const statLogSize = deps.statLogSize ?? defaultStatLogSize;
   const readLogSlice = deps.readLogSlice ?? defaultReadLogSlice;
-  const safeMaxReadBytes = Math.max(1, Math.floor(maxReadBytes));
-  const safeMaxPromptLines = Math.max(1, Math.floor(maxPromptLines));
+  const normalizedMaxReadBytes = Number.isFinite(maxReadBytes)
+    ? maxReadBytes
+    : DEFAULT_MAX_READ_BYTES;
+  const normalizedMaxPromptLines = Number.isFinite(maxPromptLines)
+    ? maxPromptLines
+    : DEFAULT_MAX_PROMPT_LINES;
+  const safeMaxReadBytes = Math.max(1, Math.floor(normalizedMaxReadBytes));
+  const safeMaxPromptLines = Math.max(1, Math.floor(normalizedMaxPromptLines));
 
   try {
     const stat = await statLogSize(logPath);
@@ -252,8 +279,10 @@ export const detectExternalInputFromLogDelta = async ({
     }
 
     let readStartBytes = previousCursor;
+    let wasClamped = false;
     if (fileSize - readStartBytes > safeMaxReadBytes) {
-      readStartBytes = fileSize - safeMaxReadBytes;
+      readStartBytes = Math.max(0, fileSize - safeMaxReadBytes - CLAMP_OVERLAP_BYTES);
+      wasClamped = true;
     }
 
     const readLengthBytes = fileSize - readStartBytes;
@@ -267,8 +296,11 @@ export const detectExternalInputFromLogDelta = async ({
 
     const rawDeltaText = await readLogSlice(logPath, readStartBytes, readLengthBytes);
     const normalizedDeltaText = normalizeDeltaText(rawDeltaText);
+    const scanText = wasClamped
+      ? normalizeClampedLeadingLine(normalizedDeltaText, promptStartPatterns)
+      : normalizedDeltaText;
     const promptBlock = pickLatestPromptBlock({
-      normalizedText: normalizedDeltaText,
+      normalizedText: scanText,
       promptStartPatterns,
       continuationLinePattern,
       maxPromptLines: safeMaxPromptLines,
