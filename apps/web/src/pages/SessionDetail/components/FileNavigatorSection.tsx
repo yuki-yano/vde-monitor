@@ -120,8 +120,8 @@ export const FileNavigatorSection = ({ state, actions }: FileNavigatorSectionPro
             value={state.searchQuery}
             onChange={(event) => actions.onSearchQueryChange(event.target.value)}
             onKeyDown={onSearchKeyDown}
-            placeholder="Search file name"
-            aria-label="Search file name"
+            placeholder="Search file path"
+            aria-label="Search file path"
             className={showClearSearchButton ? "pr-10" : undefined}
           />
           {showClearSearchButton ? (
@@ -189,7 +189,12 @@ export const FileNavigatorSection = ({ state, actions }: FileNavigatorSectionPro
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <FileTreeIcon node={node} />
-                      <span className="text-latte-text truncate font-mono text-xs font-semibold">
+                      <span
+                        className={cn(
+                          "truncate font-mono text-xs font-semibold",
+                          node.isIgnored ? "text-latte-overlay1" : "text-latte-text",
+                        )}
+                      >
                         {node.name}
                       </span>
                     </div>

@@ -26,6 +26,7 @@ const createProps = () => ({
         hasChildren: true,
         searchMatched: false,
         activeMatch: false,
+        isIgnored: false,
       },
       {
         path: "src/index.ts",
@@ -37,6 +38,7 @@ const createProps = () => ({
         hasChildren: false,
         searchMatched: false,
         activeMatch: false,
+        isIgnored: false,
       },
     ],
     rootTreeHasMore: false,
@@ -74,7 +76,7 @@ describe("FileNavigatorSection", () => {
     expect(props.actions.onSelectFile).toHaveBeenCalledWith("src/index.ts");
     expect(props.actions.onOpenFileModal).toHaveBeenCalledWith("src/index.ts");
 
-    const input = screen.getByLabelText("Search file name");
+    const input = screen.getByLabelText("Search file path");
     fireEvent.change(input, { target: { value: "ind" } });
     expect(props.actions.onSearchQueryChange).toHaveBeenCalledWith("ind");
     fireEvent.keyDown(input, { key: "ArrowDown" });
@@ -96,5 +98,29 @@ describe("FileNavigatorSection", () => {
     const clearButton = screen.getByRole("button", { name: "Clear search query" });
     fireEvent.click(clearButton);
     expect(nextProps.actions.onSearchQueryChange).toHaveBeenCalledWith("");
+  });
+
+  it("uses ignored color for ignored file and directory entries", () => {
+    const props = createProps();
+    const directoryNode = props.state.treeNodes[0];
+    if (!directoryNode) {
+      throw new Error("tree node is required");
+    }
+    props.state.treeNodes[0] = {
+      ...directoryNode,
+      isIgnored: true,
+    };
+    const targetNode = props.state.treeNodes[1];
+    if (!targetNode) {
+      throw new Error("tree node is required");
+    }
+    props.state.treeNodes[1] = {
+      ...targetNode,
+      isIgnored: true,
+    };
+    render(<FileNavigatorSection {...props} />);
+
+    expect(screen.getByText("src").className).toContain("text-latte-overlay1");
+    expect(screen.getByText("index.ts").className).toContain("text-latte-overlay1");
   });
 });

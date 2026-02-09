@@ -184,6 +184,7 @@ export type RepoFileTreeNode = {
   name: string;
   kind: RepoFileNodeKind;
   hasChildren?: boolean;
+  isIgnored?: boolean;
 };
 
 export type RepoFileTreePage = {
@@ -195,8 +196,10 @@ export type RepoFileTreePage = {
 export type RepoFileSearchItem = {
   path: string;
   name: string;
+  kind: RepoFileNodeKind;
   score: number;
   highlights: number[];
+  isIgnored?: boolean;
 };
 
 export type RepoFileSearchPage = {

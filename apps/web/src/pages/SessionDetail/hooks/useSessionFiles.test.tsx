@@ -102,8 +102,8 @@ describe("useSessionFiles", () => {
       createSearchPage({
         query: "index",
         items: [
-          { path: "src/app/index.ts", name: "index.ts", score: 0.8, highlights: [0, 1] },
-          { path: "src/lib/index.test.ts", name: "index.test.ts", score: 0.6, highlights: [0, 1] },
+          { path: "src/app/index.ts", name: "index.ts", kind: "file", score: 0.8, highlights: [0, 1] },
+          { path: "src/lib/index.test.ts", name: "index.test.ts", kind: "file", score: 0.6, highlights: [0, 1] },
         ],
         totalMatchedCount: 2,
       }),
@@ -142,6 +142,43 @@ describe("useSessionFiles", () => {
     expect(result.current.selectedFilePath).toBe("src/lib/index.test.ts");
   });
 
+  it("on search confirm does not open file modal for directory matches", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "src",
+        items: [{ path: "src", name: "src", kind: "directory", score: 1, highlights: [0, 1, 2] }],
+        totalMatchedCount: 1,
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    act(() => {
+      result.current.onSearchQueryChange("src");
+    });
+
+    await waitFor(() => {
+      expect(result.current.searchResult?.items.length).toBe(1);
+    });
+
+    act(() => {
+      result.current.onSearchConfirm();
+    });
+
+    expect(result.current.selectedFilePath).toBeNull();
+    expect(result.current.fileModalOpen).toBe(false);
+  });
+
   it("resets local state when paneId changes", async () => {
     const requestRepoFileTree = vi.fn(async () =>
       createTreePage({
@@ -152,7 +189,7 @@ describe("useSessionFiles", () => {
     const requestRepoFileSearch = vi.fn(async () =>
       createSearchPage({
         query: "file",
-        items: [{ path: "src/file.ts", name: "file.ts", score: 1, highlights: [0] }],
+        items: [{ path: "src/file.ts", name: "file.ts", kind: "file", score: 1, highlights: [0] }],
         totalMatchedCount: 1,
       }),
     );
@@ -405,7 +442,7 @@ describe("useSessionFiles", () => {
     const requestRepoFileSearch = vi.fn(async () =>
       createSearchPage({
         query: "index",
-        items: [{ path: "src/app/index.ts", name: "index.ts", score: 0.9, highlights: [0, 1] }],
+        items: [{ path: "src/app/index.ts", name: "index.ts", kind: "file", score: 0.9, highlights: [0, 1] }],
         totalMatchedCount: 1,
       }),
     );
@@ -487,7 +524,7 @@ describe("useSessionFiles", () => {
       aDeferred.resolve(
         createSearchPage({
           query: "a",
-          items: [{ path: "a.ts", name: "a.ts", score: 0.5, highlights: [0] }],
+          items: [{ path: "a.ts", name: "a.ts", kind: "file", score: 0.5, highlights: [0] }],
           totalMatchedCount: 1,
         }),
       );
@@ -505,7 +542,7 @@ describe("useSessionFiles", () => {
       abDeferred.resolve(
         createSearchPage({
           query: "ab",
-          items: [{ path: "ab.ts", name: "ab.ts", score: 0.9, highlights: [0, 1] }],
+          items: [{ path: "ab.ts", name: "ab.ts", kind: "file", score: 0.9, highlights: [0, 1] }],
           totalMatchedCount: 1,
         }),
       );
@@ -535,7 +572,7 @@ describe("useSessionFiles", () => {
         if (query === "index" && !options?.cursor) {
           return createSearchPage({
             query: "index",
-            items: [{ path: "src/index.ts", name: "index.ts", score: 1, highlights: [0, 1] }],
+            items: [{ path: "src/index.ts", name: "index.ts", kind: "file", score: 1, highlights: [0, 1] }],
             totalMatchedCount: 2,
             truncated: true,
             nextCursor: "cursor-1",
@@ -575,7 +612,7 @@ describe("useSessionFiles", () => {
         createSearchPage({
           query: "index",
           items: [
-            { path: "src/index.test.ts", name: "index.test.ts", score: 0.8, highlights: [0] },
+            { path: "src/index.test.ts", name: "index.test.ts", kind: "file", score: 0.8, highlights: [0] },
           ],
           totalMatchedCount: 2,
           truncated: false,

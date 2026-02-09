@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import type {
   FileNavigatorConfig,
@@ -17,9 +19,14 @@ import { isPathGuardError, normalizeRepoRelativePath, resolveRepoAbsolutePath } 
 const DEFAULT_CURSOR_OFFSET = 0;
 const INDEX_CACHE_TTL_MS = 5_000;
 const VISIBILITY_CACHE_TTL_MS = 5_000;
+const KNOWN_PATH_CACHE_TTL_MS = 5_000;
+const GIT_LS_FILES_TIMEOUT_MS = 1_500;
 const DEFAULT_SEARCH_TIMEOUT_MS = 2_000;
 const DEFAULT_CONTENT_TIMEOUT_MS = 2_000;
 const BINARY_SAMPLE_BYTES = 8_192;
+const GIT_LS_FILES_MAX_BUFFER = 10_000_000;
+
+const execFileAsync = promisify(execFile);
 
 type ListTreeInput = {
   repoRoot: string;
@@ -46,6 +53,8 @@ type GetFileContentInput = {
 type SearchIndexItem = {
   path: string;
   name: string;
+  kind: "file" | "directory";
+  isIgnored: boolean;
 };
 
 type RepoFileServiceError = {
@@ -78,6 +87,12 @@ type VisibilityCacheEntry = {
 
 type SearchIndexCacheEntry = {
   items: SearchIndexItem[];
+  expiresAt: number;
+};
+
+type KnownPathCacheEntry = {
+  knownFiles: Set<string> | null;
+  knownDirectories: Set<string> | null;
   expiresAt: number;
 };
 
@@ -126,6 +141,36 @@ const decodeCursor = (cursor: string | undefined) => {
     throw createServiceError("INVALID_PAYLOAD", 400, "invalid cursor");
   }
   return parsed;
+};
+
+const splitNullSeparated = (value: string) => value.split("\0").filter((token) => token.length > 0);
+
+const buildKnownDirectorySet = (knownFiles: Set<string>) => {
+  const knownDirectories = new Set<string>();
+  knownFiles.forEach((relativePath) => {
+    const segments = relativePath.split("/").filter((segment) => segment.length > 0);
+    if (segments.length <= 1) {
+      return;
+    }
+    let current = "";
+    for (let index = 0; index < segments.length - 1; index += 1) {
+      const segment = segments[index];
+      if (!segment) {
+        continue;
+      }
+      current = current.length > 0 ? `${current}/${segment}` : segment;
+      knownDirectories.add(current);
+    }
+  });
+  return knownDirectories;
+};
+
+const extractStdoutFromExecError = (error: unknown) => {
+  if (typeof error !== "object" || error == null) {
+    return "";
+  }
+  const stdout = (error as { stdout?: unknown }).stdout;
+  return typeof stdout === "string" ? stdout : "";
 };
 
 const normalizeAndSortNodes = (nodes: RepoFileTreeNode[]) => {
@@ -305,19 +350,26 @@ const tokenizeQuery = (query: string) => {
 
 const buildWordSearchMatch = (item: SearchIndexItem, tokens: string[]) => {
   const lowerName = item.name.toLowerCase();
+  const lowerPath = item.path.toLowerCase();
   const highlightSet = new Set<number>();
   let score = 0;
 
   for (const token of tokens) {
-    const matchStart = lowerName.indexOf(token);
-    if (matchStart < 0) {
+    const nameMatchStart = lowerName.indexOf(token);
+    const pathMatchStart = lowerPath.indexOf(token);
+    if (nameMatchStart < 0 && pathMatchStart < 0) {
       return null;
     }
-    for (let offset = 0; offset < token.length; offset += 1) {
-      highlightSet.add(matchStart + offset);
+    if (nameMatchStart >= 0) {
+      for (let offset = 0; offset < token.length; offset += 1) {
+        highlightSet.add(nameMatchStart + offset);
+      }
+      const positionScore = Math.max(0, 220 - nameMatchStart);
+      score += positionScore + token.length * 12;
+      continue;
     }
-    const positionScore = Math.max(0, 200 - matchStart);
-    score += positionScore + token.length * 10;
+    const positionScore = Math.max(0, 120 - pathMatchStart);
+    score += positionScore + token.length * 8;
   }
 
   score += Math.max(0, 100 - item.name.length);
@@ -325,8 +377,10 @@ const buildWordSearchMatch = (item: SearchIndexItem, tokens: string[]) => {
   return {
     path: item.path,
     name: item.name,
+    kind: item.kind,
     score,
     highlights: Array.from(highlightSet).sort((left, right) => left - right),
+    isIgnored: item.isIgnored,
   };
 };
 
@@ -452,6 +506,7 @@ export const createRepoFileService = ({
 }: RepoFileServiceDeps): RepoFileService => {
   const visibilityCache = new Map<string, VisibilityCacheEntry>();
   const searchIndexCache = new Map<string, SearchIndexCacheEntry>();
+  const knownPathCache = new Map<string, KnownPathCacheEntry>();
 
   const resolveVisibilityPolicy = async (repoRoot: string) => {
     const cached = visibilityCache.get(repoRoot);
@@ -468,6 +523,102 @@ export const createRepoFileService = ({
       expiresAt: now() + VISIBILITY_CACHE_TTL_MS,
     });
     return policy;
+  };
+
+  const runLsFiles = async (repoRoot: string, args: string[]) => {
+    const output = await execFileAsync("git", ["-C", repoRoot, ...args], {
+      timeout: GIT_LS_FILES_TIMEOUT_MS,
+      maxBuffer: GIT_LS_FILES_MAX_BUFFER,
+      encoding: "utf8",
+    })
+      .then((result) => result.stdout)
+      .catch((error: unknown) => {
+        const stdout = extractStdoutFromExecError(error);
+        if (stdout.length > 0) {
+          return stdout;
+        }
+        throw error;
+      });
+    return splitNullSeparated(output);
+  };
+
+  const normalizeDirectoryPath = (relativePath: string) => {
+    if (!relativePath.endsWith("/")) {
+      return relativePath;
+    }
+    return relativePath.slice(0, -1);
+  };
+
+  const resolveKnownPaths = async (repoRoot: string) => {
+    const cached = knownPathCache.get(repoRoot);
+    if (cached && cached.expiresAt > now()) {
+      return cached;
+    }
+    try {
+      const [trackedFiles, untrackedFiles, untrackedPathHints] = await Promise.all([
+        runLsFiles(repoRoot, ["ls-files", "-z"]),
+        runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+        runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "--directory", "-z"]),
+      ]);
+      const knownFiles = new Set([...trackedFiles, ...untrackedFiles]);
+      const untrackedDirectories = new Set<string>();
+      untrackedPathHints.forEach((entry) => {
+        if (entry.endsWith("/")) {
+          const normalized = normalizeDirectoryPath(entry);
+          if (normalized.length > 0) {
+            untrackedDirectories.add(normalized);
+          }
+          return;
+        }
+        knownFiles.add(entry);
+      });
+      const knownDirectories = buildKnownDirectorySet(knownFiles);
+      untrackedDirectories.forEach((directoryPath) => {
+        knownDirectories.add(directoryPath);
+      });
+      const next = {
+        knownFiles,
+        knownDirectories,
+        expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
+      } satisfies KnownPathCacheEntry;
+      knownPathCache.set(repoRoot, next);
+      return next;
+    } catch {
+      const next = {
+        knownFiles: null,
+        knownDirectories: null,
+        expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
+      } satisfies KnownPathCacheEntry;
+      knownPathCache.set(repoRoot, next);
+      return next;
+    }
+  };
+
+  const resolveIsIgnored = ({
+    path: relativePath,
+    kind,
+    knownPathEntry,
+  }: {
+    path: string;
+    kind: "file" | "directory";
+    knownPathEntry: KnownPathCacheEntry;
+  }) => {
+    if (kind === "file") {
+      if (!knownPathEntry.knownFiles) {
+        return false;
+      }
+      return !knownPathEntry.knownFiles.has(relativePath);
+    }
+    if (!knownPathEntry.knownDirectories) {
+      return false;
+    }
+    if (knownPathEntry.knownDirectories.has(relativePath)) {
+      return false;
+    }
+    if (knownPathEntry.knownFiles?.has(relativePath)) {
+      return false;
+    }
+    return true;
   };
 
   const buildSearchIndex = async (
@@ -497,6 +648,15 @@ export const createRepoFileService = ({
       }
       const relativePath = toDirectoryRelativePath(currentRelativePath, entry.name);
       if (entry.isDirectory()) {
+        const includeDirectory = policy.shouldIncludePath({ relativePath, isDirectory: true });
+        if (includeDirectory) {
+          output.push({
+            path: relativePath,
+            name: entry.name,
+            kind: "directory",
+            isIgnored: false,
+          });
+        }
         if (!policy.shouldTraverseDirectory(relativePath)) {
           continue;
         }
@@ -509,7 +669,12 @@ export const createRepoFileService = ({
       if (!policy.shouldIncludePath({ relativePath, isDirectory: false })) {
         continue;
       }
-      output.push({ path: relativePath, name: entry.name });
+      output.push({
+        path: relativePath,
+        name: entry.name,
+        kind: "file",
+        isIgnored: false,
+      });
     }
     return output;
   };
@@ -520,11 +685,16 @@ export const createRepoFileService = ({
       return cached.items;
     }
     const items = await buildSearchIndex(repoRoot, policy);
+    const knownPathEntry = await resolveKnownPaths(repoRoot);
+    const itemsWithIgnored = items.map((item) => ({
+      ...item,
+      isIgnored: resolveIsIgnored({ path: item.path, kind: item.kind, knownPathEntry }),
+    }));
     searchIndexCache.set(repoRoot, {
-      items,
+      items: itemsWithIgnored,
       expiresAt: now() + INDEX_CACHE_TTL_MS,
     });
-    return items;
+    return itemsWithIgnored;
   };
 
   const listTree = async ({ repoRoot, path: rawPath, cursor, limit }: ListTreeInput) => {
@@ -533,6 +703,7 @@ export const createRepoFileService = ({
       const basePath = normalizeRepoRelativePath(rawPath);
       const absoluteBasePath = resolveRepoAbsolutePath(repoRoot, basePath);
       const policy = await resolveVisibilityPolicy(repoRoot);
+      const knownPathEntry = await resolveKnownPaths(repoRoot);
       let entries: Dirent[];
       try {
         const stats = await fs.stat(absoluteBasePath);
@@ -588,7 +759,16 @@ export const createRepoFileService = ({
         });
       }
 
-      const normalizedNodes = normalizeAndSortNodes(visibleNodes);
+      const nodesWithIgnored = visibleNodes.map((entry) => ({
+        ...entry,
+        isIgnored: resolveIsIgnored({
+          path: entry.path,
+          kind: entry.kind,
+          knownPathEntry,
+        }),
+      }));
+
+      const normalizedNodes = normalizeAndSortNodes(nodesWithIgnored);
       const paged = paginateItems({
         allItems: normalizedNodes,
         cursor,

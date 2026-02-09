@@ -26,6 +26,7 @@ export type FileTreeRenderNode = {
   hasChildren: boolean;
   searchMatched: boolean;
   activeMatch: boolean;
+  isIgnored: boolean;
 };
 
 type UseSessionFilesParams = {
@@ -130,13 +131,27 @@ const copyTextToClipboard = async (value: string) => {
 const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
   const nodeMap = new Map<
     string,
-    { path: string; name: string; kind: RepoFileNodeKind; children: Set<string> }
+    {
+      path: string;
+      name: string;
+      kind: RepoFileNodeKind;
+      children: Set<string>;
+      isIgnored: boolean;
+    }
   >();
   const rootChildren = new Set<string>();
 
-  const ensureNode = (nodePath: string, name: string, kind: RepoFileNodeKind) => {
+  const ensureNode = (
+    nodePath: string,
+    name: string,
+    kind: RepoFileNodeKind,
+    isIgnored: boolean,
+  ) => {
     const existing = nodeMap.get(nodePath);
     if (existing) {
+      if (kind === "file") {
+        existing.isIgnored = isIgnored;
+      }
       return existing;
     }
     const created = {
@@ -144,6 +159,7 @@ const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
       name,
       kind,
       children: new Set<string>(),
+      isIgnored,
     };
     nodeMap.set(nodePath, created);
     return created;
@@ -154,8 +170,9 @@ const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
     let parentPath: string | null = null;
     segments.forEach((segment, index) => {
       const currentPath = segments.slice(0, index + 1).join("/");
-      const kind: RepoFileNodeKind = index === segments.length - 1 ? "file" : "directory";
-      const current = ensureNode(currentPath, segment, kind);
+      const kind: RepoFileNodeKind =
+        index === segments.length - 1 ? item.kind : "directory";
+      const current = ensureNode(currentPath, segment, kind, kind === "file" && item.isIgnored === true);
       if (!parentPath) {
         rootChildren.add(current.path);
       } else {
@@ -188,6 +205,35 @@ const buildSearchRenderNodes = ({
 
   const { nodeMap, rootChildren } = normalizeSearchTree(searchItems);
   const matchedPathSet = new Set(searchItems.map((item) => item.path));
+  const ignoredMemo = new Map<string, boolean>();
+
+  const resolveNodeIgnored = (nodePath: string): boolean => {
+    const cached = ignoredMemo.get(nodePath);
+    if (cached != null) {
+      return cached;
+    }
+    const node = nodeMap.get(nodePath);
+    if (!node) {
+      ignoredMemo.set(nodePath, false);
+      return false;
+    }
+    if (node.kind === "file") {
+      ignoredMemo.set(nodePath, node.isIgnored);
+      return node.isIgnored;
+    }
+    const childPaths = Array.from(node.children);
+    if (childPaths.length === 0) {
+      ignoredMemo.set(nodePath, false);
+      return false;
+    }
+    const allChildrenIgnored = childPaths.every((childPath) => resolveNodeIgnored(childPath));
+    ignoredMemo.set(nodePath, allChildrenIgnored);
+    return allChildrenIgnored;
+  };
+
+  Array.from(rootChildren).forEach((rootPath) => {
+    resolveNodeIgnored(rootPath);
+  });
 
   const renderNodes: FileTreeRenderNode[] = [];
   const visit = (nodePath: string, depth: number) => {
@@ -215,6 +261,7 @@ const buildSearchRenderNodes = ({
       hasChildren: childPaths.length > 0,
       searchMatched: matchedPathSet.has(node.path),
       activeMatch: node.path === activeMatchPath,
+      isIgnored: ignoredMemo.get(node.path) ?? node.isIgnored,
     });
     if (!expanded) {
       return;
@@ -264,6 +311,7 @@ const buildNormalRenderNodes = ({
         hasChildren: entry.kind === "directory" ? Boolean(entry.hasChildren) : false,
         searchMatched: false,
         activeMatch: false,
+        isIgnored: entry.isIgnored === true,
       });
       if (entry.kind === "directory" && expanded) {
         appendEntries(entry.path, depth + 1);
@@ -785,9 +833,13 @@ export const useSessionFiles = ({
     if (!item) {
       return;
     }
+    if (item.kind === "directory") {
+      onToggleDirectory(item.path);
+      return;
+    }
     onSelectFile(item.path);
     onOpenFileModal(item.path);
-  }, [onOpenFileModal, onSelectFile, searchActiveIndex, searchResult?.items]);
+  }, [onOpenFileModal, onSelectFile, onToggleDirectory, searchActiveIndex, searchResult?.items]);
 
   const onLoadMoreTreeRoot = useCallback(() => {
     const target = resolveTreeLoadMoreTarget({

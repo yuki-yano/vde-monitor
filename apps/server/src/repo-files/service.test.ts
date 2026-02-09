@@ -1,15 +1,24 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
 import { createRepoFileService } from "./service";
 
+const execFileAsync = promisify(execFile);
+
+const runGitCommand = async (repoRoot: string, args: string[]) => {
+  await execFileAsync("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
+};
+
 describe("createRepoFileService", () => {
   it("lists tree nodes with pagination and includeIgnoredPaths override", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-"));
     try {
+      await runGitCommand(repoRoot, ["init"]);
       await mkdir(path.join(repoRoot, "src"), { recursive: true });
       await mkdir(path.join(repoRoot, "build"), { recursive: true });
       await writeFile(path.join(repoRoot, ".gitignore"), "build/\n");
@@ -36,13 +45,80 @@ describe("createRepoFileService", () => {
         path: "build",
         limit: 100,
       });
-      expect(buildPage.entries.some((entry) => entry.path === "build/artifact.txt")).toBe(true);
+      const artifactEntry = buildPage.entries.find((entry) => entry.path === "build/artifact.txt");
+      expect(artifactEntry).toBeDefined();
+      expect(artifactEntry?.isIgnored).toBe(true);
+
+      const rootFullPage = await service.listTree({
+        repoRoot,
+        path: ".",
+        limit: 100,
+      });
+      expect(rootFullPage.entries.find((entry) => entry.path === "build")?.isIgnored).toBe(true);
+      expect(rootFullPage.entries.find((entry) => entry.path === "src")?.isIgnored).toBe(false);
+
+      const buildSearch = await service.searchFiles({
+        repoRoot,
+        query: "build",
+        limit: 20,
+      });
+      expect(buildSearch.items.find((item) => item.path === "build")?.kind).toBe("directory");
+      expect(buildSearch.items.find((item) => item.path === "build")?.isIgnored).toBe(true);
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
 
-  it("searches file names with space-separated words and truncation metadata", async () => {
+  it("marks ignored files from .git/info/exclude and global ignore", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-ignore-meta-"));
+    try {
+      await runGitCommand(repoRoot, ["init"]);
+      await writeFile(path.join(repoRoot, ".gitignore"), "");
+      await writeFile(path.join(repoRoot, "ignored-by-info.log"), "info\n");
+      await writeFile(path.join(repoRoot, "ignored-by-global.tmp"), "global\n");
+      await writeFile(path.join(repoRoot, "visible.ts"), "visible\n");
+      await writeFile(path.join(repoRoot, ".git", "info", "exclude"), "ignored-by-info.log\n");
+      const globalIgnorePath = path.join(repoRoot, ".global-ignore");
+      await writeFile(globalIgnorePath, "ignored-by-global.tmp\n");
+      await runGitCommand(repoRoot, ["config", "core.excludesFile", globalIgnorePath]);
+
+      const service = createRepoFileService({
+        fileNavigatorConfig: {
+          includeIgnoredPaths: [],
+          autoExpandMatchLimit: 100,
+        },
+      });
+
+      const tree = await service.listTree({
+        repoRoot,
+        path: ".",
+        limit: 100,
+      });
+      expect(tree.entries.find((entry) => entry.path === "ignored-by-info.log")?.isIgnored).toBe(
+        true,
+      );
+      expect(tree.entries.find((entry) => entry.path === "ignored-by-global.tmp")?.isIgnored).toBe(
+        true,
+      );
+      expect(tree.entries.find((entry) => entry.path === "visible.ts")?.isIgnored).toBe(false);
+
+      const search = await service.searchFiles({
+        repoRoot,
+        query: "ignored-by",
+        limit: 10,
+      });
+      expect(search.items.find((item) => item.path === "ignored-by-info.log")?.isIgnored).toBe(
+        true,
+      );
+      expect(search.items.find((item) => item.path === "ignored-by-global.tmp")?.isIgnored).toBe(
+        true,
+      );
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("searches file paths with space-separated words and truncation metadata", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-search-"));
     try {
       await mkdir(path.join(repoRoot, "src"), { recursive: true });
@@ -69,6 +145,35 @@ describe("createRepoFileService", () => {
       expect(typeof page.nextCursor).toBe("string");
       expect(typeof page.items[0]?.score).toBe("number");
       expect(Array.isArray(page.items[0]?.highlights)).toBe(true);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("matches query tokens across path segments and file names", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-search-path-"));
+    try {
+      await mkdir(path.join(repoRoot, "apps", "server"), { recursive: true });
+      await mkdir(path.join(repoRoot, "lib"), { recursive: true });
+      await writeFile(path.join(repoRoot, ".gitignore"), "");
+      await writeFile(path.join(repoRoot, "apps", "server", "git-helper.ts"), "export {};\n");
+      await writeFile(path.join(repoRoot, "lib", "git-helper.ts"), "export {};\n");
+
+      const service = createRepoFileService({
+        fileNavigatorConfig: {
+          includeIgnoredPaths: [],
+          autoExpandMatchLimit: 100,
+        },
+      });
+
+      const page = await service.searchFiles({
+        repoRoot,
+        query: "app git",
+        limit: 10,
+      });
+
+      expect(page.items.map((item) => item.path)).toContain("apps/server/git-helper.ts");
+      expect(page.items.map((item) => item.path)).not.toContain("lib/git-helper.ts");
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
