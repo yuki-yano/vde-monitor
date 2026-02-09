@@ -59,6 +59,14 @@ const normalizeLanguage = (lang: string | null) => {
   return languageAliasMap[normalized] ?? "txt";
 };
 
+const buildCacheKey = ({ code, lang, theme }: HighlightInput) => {
+  const normalizedLanguage = normalizeLanguage(lang);
+  return {
+    cacheKey: `${theme}:${normalizedLanguage}:${code}`,
+    normalizedLanguage,
+  };
+};
+
 const getHighlighter = async () => {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
@@ -100,13 +108,17 @@ export const resetShikiHighlighter = () => {
   highlightCache.clear();
 };
 
+export const peekHighlightedCode = (input: HighlightInput): HighlightResult | null => {
+  const { cacheKey } = buildCacheKey(input);
+  return highlightCache.get(cacheKey) ?? null;
+};
+
 export const highlightCode = async ({
   code,
   lang,
   theme,
 }: HighlightInput): Promise<HighlightResult> => {
-  const normalizedLanguage = normalizeLanguage(lang);
-  const cacheKey = `${theme}:${normalizedLanguage}:${code}`;
+  const { cacheKey, normalizedLanguage } = buildCacheKey({ code, lang, theme });
   const cached = highlightCache.get(cacheKey);
   if (cached) {
     setCache(cacheKey, cached);

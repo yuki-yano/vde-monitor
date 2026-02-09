@@ -23,6 +23,8 @@ const contentQuerySchema = z.object({
   maxBytes: z.string().optional(),
 });
 
+const SEARCH_QUERY_MAX_LENGTH = 4096;
+
 const parseLimit = ({
   rawLimit,
   fallback,
@@ -134,7 +136,7 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
         return c.json({ error: buildError("INVALID_PAYLOAD", "invalid limit") }, 400);
       }
       const normalizedQuery = query.q.trim();
-      if (normalizedQuery.length < 1 || normalizedQuery.length > 200) {
+      if (normalizedQuery.length < 1 || normalizedQuery.length > SEARCH_QUERY_MAX_LENGTH) {
         return c.json({ error: buildError("INVALID_PAYLOAD", "invalid query") }, 400);
       }
 

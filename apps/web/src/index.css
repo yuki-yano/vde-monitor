@@ -265,6 +265,11 @@ body::before {
   width: 2.15rem;
 }
 
+.vde-shiki-target-line {
+  background: rgb(var(--ctp-yellow) / 0.18);
+  box-shadow: inset 2px 0 0 rgb(var(--ctp-yellow) / 0.9);
+}
+
 .vde-markdown {
   font-family:
     "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;

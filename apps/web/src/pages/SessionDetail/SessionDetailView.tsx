@@ -10,6 +10,7 @@ import { ControlsPanel } from "./components/ControlsPanel";
 import { DiffSection } from "./components/DiffSection";
 import { FileContentModal } from "./components/FileContentModal";
 import { FileNavigatorSection } from "./components/FileNavigatorSection";
+import { LogFileCandidateModal } from "./components/LogFileCandidateModal";
 import { LogModal } from "./components/LogModal";
 import { QuickPanel } from "./components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
@@ -55,6 +56,7 @@ export const SessionDetailView = ({
     stateTimelineSectionProps,
     quickPanelProps,
     logModalProps,
+    logFileCandidateModalProps,
     sessionHeaderProps,
     sessionSidebarProps,
     controlsPanelProps,
@@ -161,6 +163,7 @@ export const SessionDetailView = ({
       </div>
 
       <LogModal {...logModalProps} />
+      <LogFileCandidateModal {...logFileCandidateModalProps} />
       <FileContentModal {...fileContentModalProps} />
     </>
   );

@@ -5,7 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { FileContentModal } from "./FileContentModal";
 
 vi.mock("./ShikiCodeBlock", () => ({
-  ShikiCodeBlock: ({ code }: { code: string }) => <pre data-testid="shiki-code">{code}</pre>,
+  ShikiCodeBlock: ({ code, highlightLine }: { code: string; highlightLine?: number | null }) => (
+    <pre data-testid="shiki-code" data-highlight-line={highlightLine == null ? "" : highlightLine}>
+      {code}
+    </pre>
+  ),
 }));
 
 type FileContentModalState = Parameters<typeof FileContentModal>[0]["state"];
@@ -28,6 +32,7 @@ const createState = (overrides: Partial<FileContentModalState> = {}): FileConten
   showLineNumbers: false,
   copiedPath: false,
   copyError: null,
+  highlightLine: null,
   theme: "latte",
   ...overrides,
 });
@@ -87,6 +92,29 @@ describe("FileContentModal", () => {
     expect(screen.getByText("Hello")).toBeTruthy();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Code" }));
     expect(onMarkdownViewModeChange).toHaveBeenCalledWith("code");
+  });
+
+  it("does not pass file highlight line into markdown fenced code blocks", () => {
+    render(
+      <FileContentModal
+        state={createState({
+          path: "README.md",
+          file: {
+            path: "README.md",
+            sizeBytes: 50,
+            isBinary: false,
+            truncated: false,
+            languageHint: "markdown",
+            content: "```ts\nconst value = 1;\n```",
+          },
+          markdownViewMode: "preview",
+          highlightLine: 42,
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    expect(screen.getByTestId("shiki-code").getAttribute("data-highlight-line")).toBe("");
   });
 
   it("shows binary message for binary files", () => {

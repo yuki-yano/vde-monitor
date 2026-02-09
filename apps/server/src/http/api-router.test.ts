@@ -599,6 +599,36 @@ describe("createApiRouter", () => {
     }
   });
 
+  it("accepts file search queries longer than 200 characters", async () => {
+    const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-search-long-query-"));
+    try {
+      await mkdir(path.join(tmpRoot, "src"), { recursive: true });
+      await writeFile(path.join(tmpRoot, ".gitignore"), "");
+      const longFilename = `${"a".repeat(210)}.ts`;
+      await writeFile(path.join(tmpRoot, "src", longFilename), "export const long = 1;\n");
+
+      const { api, monitor, detail } = createTestContext();
+      monitor.registry.update({
+        ...detail,
+        repoRoot: tmpRoot,
+        currentPath: tmpRoot,
+      });
+
+      const query = encodeURIComponent(longFilename);
+      const res = await api.request(`/sessions/pane-1/files/search?q=${query}&limit=10`, {
+        headers: authHeaders,
+      });
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.result.query).toBe(longFilename);
+      expect(data.result.items.map((item: { path: string }) => item.path)).toContain(
+        `src/${longFilename}`,
+      );
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
   it("returns file content with truncation metadata", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-"));
     try {

@@ -9,6 +9,7 @@ const { highlightCodeMock, resetShikiHighlighterMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/shiki/highlighter", () => ({
   highlightCode: highlightCodeMock,
+  peekHighlightedCode: vi.fn(() => null),
   resetShikiHighlighter: resetShikiHighlighterMock,
 }));
 
@@ -39,5 +40,24 @@ describe("ShikiCodeBlock", () => {
     });
     const lines = container.querySelectorAll(".line");
     expect(lines[1]?.textContent).toBe("\u200B");
+  });
+
+  it("highlights the requested line", async () => {
+    highlightCodeMock.mockResolvedValue({
+      html:
+        '<pre class="shiki"><code><span class="line">a</span>\n' +
+        '<span class="line">b</span>\n' +
+        '<span class="line">c</span>\n' +
+        "</code></pre>",
+      language: "txt",
+    });
+
+    const { container } = render(
+      <ShikiCodeBlock code={"a\nb\nc"} language="txt" theme="latte" highlightLine={2} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector(".vde-shiki-target-line")?.textContent).toBe("b");
+    });
   });
 });

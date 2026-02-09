@@ -10,11 +10,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
+import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
 
 const TREE_PAGE_LIMIT = 200;
 const SEARCH_PAGE_LIMIT = 100;
 const SEARCH_DEBOUNCE_MS = 120;
 const FILE_CONTENT_MAX_BYTES = 256 * 1024;
+const LOG_FILE_RESOLVE_MATCH_LIMIT = 20;
+const LOG_FILE_RESOLVE_PAGE_LIMIT = 100;
+const LOG_FILE_RESOLVE_MAX_SEARCH_PAGES = 20;
+const LOG_REFERENCE_LINKABLE_CACHE_MAX = 1000;
+
+type LogFileCandidateItem = Pick<
+  RepoFileSearchPage["items"][number],
+  "path" | "name" | "isIgnored"
+>;
 
 export type FileTreeRenderNode = {
   path: string;
@@ -126,6 +136,16 @@ const copyTextToClipboard = async (value: string) => {
       document.body.removeChild(textarea);
     }
   }
+};
+
+const setMapEntryWithMaxSize = <K, V>(map: Map<K, V>, key: K, value: V, maxSize: number) => {
+  if (!map.has(key) && map.size >= maxSize) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey != null) {
+      map.delete(oldestKey);
+    }
+  }
+  map.set(key, value);
 };
 
 const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
@@ -384,12 +404,22 @@ export const useSessionFiles = ({
   const [fileModalShowLineNumbers, setFileModalShowLineNumbers] = useState(true);
   const [fileModalCopiedPath, setFileModalCopiedPath] = useState(false);
   const [fileModalCopyError, setFileModalCopyError] = useState<string | null>(null);
+  const [fileModalHighlightLine, setFileModalHighlightLine] = useState<number | null>(null);
+  const [fileResolveError, setFileResolveError] = useState<string | null>(null);
+  const [logFileCandidateModalOpen, setLogFileCandidateModalOpen] = useState(false);
+  const [logFileCandidateReference, setLogFileCandidateReference] = useState<string | null>(null);
+  const [logFileCandidatePaneId, setLogFileCandidatePaneId] = useState<string | null>(null);
+  const [logFileCandidateLine, setLogFileCandidateLine] = useState<number | null>(null);
+  const [logFileCandidateItems, setLogFileCandidateItems] = useState<LogFileCandidateItem[]>([]);
 
   const treePageRequestMapRef = useRef(new Map<string, Promise<RepoFileTreePage>>());
   const searchRequestMapRef = useRef(new Map<string, Promise<RepoFileSearchPage>>());
   const fileContentRequestMapRef = useRef(new Map<string, Promise<RepoFileContent>>());
   const activeSearchRequestIdRef = useRef(0);
   const activeFileContentRequestIdRef = useRef(0);
+  const activeLogResolveRequestIdRef = useRef(0);
+  const logReferenceLinkableCacheRef = useRef(new Map<string, boolean>());
+  const logReferenceLinkableRequestMapRef = useRef(new Map<string, Promise<boolean>>());
   const contextVersionRef = useRef(0);
   const treePagesRef = useRef<Record<string, RepoFileTreePage>>({});
   const fileModalCopyTimeoutRef = useRef<number | null>(null);
@@ -482,13 +512,13 @@ export const useSessionFiles = ({
   );
 
   const fetchFileContent = useCallback(
-    async (targetPath: string) => {
-      const requestKey = `${paneId}:${targetPath}:${FILE_CONTENT_MAX_BYTES}`;
+    async (targetPaneId: string, targetPath: string) => {
+      const requestKey = `${targetPaneId}:${targetPath}:${FILE_CONTENT_MAX_BYTES}`;
       const inFlight = fileContentRequestMapRef.current.get(requestKey);
       if (inFlight) {
         return inFlight;
       }
-      const request = requestRepoFileContent(paneId, targetPath, {
+      const request = requestRepoFileContent(targetPaneId, targetPath, {
         maxBytes: FILE_CONTENT_MAX_BYTES,
       });
       fileContentRequestMapRef.current.set(requestKey, request);
@@ -498,7 +528,7 @@ export const useSessionFiles = ({
         fileContentRequestMapRef.current.delete(requestKey);
       }
     },
-    [paneId, requestRepoFileContent],
+    [requestRepoFileContent],
   );
 
   useEffect(() => {
@@ -506,8 +536,11 @@ export const useSessionFiles = ({
     treePageRequestMapRef.current.clear();
     searchRequestMapRef.current.clear();
     fileContentRequestMapRef.current.clear();
+    logReferenceLinkableCacheRef.current.clear();
+    logReferenceLinkableRequestMapRef.current.clear();
     activeSearchRequestIdRef.current += 1;
     activeFileContentRequestIdRef.current += 1;
+    activeLogResolveRequestIdRef.current += 1;
     treePagesRef.current = {};
     if (fileModalCopyTimeoutRef.current != null) {
       window.clearTimeout(fileModalCopyTimeoutRef.current);
@@ -535,6 +568,13 @@ export const useSessionFiles = ({
     setFileModalShowLineNumbers(true);
     setFileModalCopiedPath(false);
     setFileModalCopyError(null);
+    setFileModalHighlightLine(null);
+    setFileResolveError(null);
+    setLogFileCandidateModalOpen(false);
+    setLogFileCandidateReference(null);
+    setLogFileCandidatePaneId(null);
+    setLogFileCandidateLine(null);
+    setLogFileCandidateItems([]);
 
     if (!repoRoot) {
       return;
@@ -727,11 +767,24 @@ export const useSessionFiles = ({
     [revealFilePath],
   );
 
-  const onOpenFileModal = useCallback(
-    (targetPath: string) => {
+  const openFileModalByPath = useCallback(
+    (
+      targetPath: string,
+      options: {
+        paneId: string;
+        origin: "navigator" | "log";
+        highlightLine?: number | null;
+      },
+    ) => {
       const contextVersion = contextVersionRef.current;
       const requestId = activeFileContentRequestIdRef.current + 1;
       activeFileContentRequestIdRef.current = requestId;
+
+      if (options.origin === "navigator") {
+        setSelectedFilePath(targetPath);
+        revealFilePath(targetPath);
+      }
+
       setFileModalOpen(true);
       setFileModalPath(targetPath);
       setFileModalLoading(true);
@@ -740,8 +793,9 @@ export const useSessionFiles = ({
       setFileModalCopyError(null);
       setFileModalCopiedPath(false);
       setFileModalFile(null);
+      setFileModalHighlightLine(options.highlightLine ?? null);
 
-      void fetchFileContent(targetPath)
+      void fetchFileContent(options.paneId, targetPath)
         .then((file) => {
           if (
             contextVersion !== contextVersionRef.current ||
@@ -752,7 +806,13 @@ export const useSessionFiles = ({
           setFileModalFile(file);
           setFileModalLoading(false);
           setFileModalError(null);
-          setFileModalMarkdownViewMode(isMarkdownFileContent(file) ? "preview" : "code");
+          setFileModalMarkdownViewMode(
+            options.highlightLine != null && options.highlightLine > 0
+              ? "code"
+              : isMarkdownFileContent(file)
+                ? "preview"
+                : "code",
+          );
         })
         .catch((error) => {
           if (
@@ -766,7 +826,14 @@ export const useSessionFiles = ({
           setFileModalError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileContent));
         });
     },
-    [fetchFileContent],
+    [fetchFileContent, revealFilePath],
+  );
+
+  const onOpenFileModal = useCallback(
+    (targetPath: string) => {
+      openFileModalByPath(targetPath, { paneId, origin: "navigator" });
+    },
+    [openFileModalByPath, paneId],
   );
 
   const onCloseFileModal = useCallback(() => {
@@ -777,6 +844,7 @@ export const useSessionFiles = ({
     setFileModalShowLineNumbers(true);
     setFileModalCopyError(null);
     setFileModalCopiedPath(false);
+    setFileModalHighlightLine(null);
     if (fileModalCopyTimeoutRef.current != null) {
       window.clearTimeout(fileModalCopyTimeoutRef.current);
       fileModalCopyTimeoutRef.current = null;
@@ -894,6 +962,451 @@ export const useSessionFiles = ({
       });
   }, [fetchSearchPage, searchLoading, searchResult]);
 
+  const resetLogFileCandidateState = useCallback(() => {
+    setLogFileCandidateModalOpen(false);
+    setLogFileCandidateReference(null);
+    setLogFileCandidatePaneId(null);
+    setLogFileCandidateLine(null);
+    setLogFileCandidateItems([]);
+  }, []);
+
+  const findExactNameMatches = useCallback(
+    async ({
+      paneId: targetPaneId,
+      filename,
+      maxMatches,
+      limitPerPage,
+      requestId,
+    }: {
+      paneId: string;
+      filename: string;
+      maxMatches: number;
+      limitPerPage: number;
+      requestId?: number;
+    }): Promise<LogFileCandidateItem[] | null> => {
+      const matches: LogFileCandidateItem[] = [];
+      const knownPaths = new Set<string>();
+      let cursor: string | undefined = undefined;
+
+      while (matches.length < maxMatches) {
+        if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
+          return null;
+        }
+        const page = await requestRepoFileSearch(targetPaneId, filename, {
+          cursor,
+          limit: limitPerPage,
+        });
+        if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
+          return null;
+        }
+        page.items.forEach((item) => {
+          if (item.kind !== "file" || item.name !== filename || knownPaths.has(item.path)) {
+            return;
+          }
+          knownPaths.add(item.path);
+          matches.push({
+            path: item.path,
+            name: item.name,
+            isIgnored: item.isIgnored,
+          });
+        });
+        if (!page.nextCursor) {
+          break;
+        }
+        cursor = page.nextCursor;
+      }
+
+      return matches.slice(0, maxMatches);
+    },
+    [requestRepoFileSearch],
+  );
+
+  const hasExactPathMatch = useCallback(
+    async ({
+      paneId: targetPaneId,
+      path,
+      limitPerPage,
+      requestId,
+    }: {
+      paneId: string;
+      path: string;
+      limitPerPage: number;
+      requestId?: number;
+    }): Promise<boolean | null> => {
+      let cursor: string | undefined = undefined;
+      let pageCount = 0;
+      const visitedCursors = new Set<string>();
+
+      while (pageCount < LOG_FILE_RESOLVE_MAX_SEARCH_PAGES) {
+        if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
+          return null;
+        }
+        const page = await requestRepoFileSearch(targetPaneId, path, {
+          cursor,
+          limit: limitPerPage,
+        });
+        pageCount += 1;
+        if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
+          return null;
+        }
+
+        const hasMatch = page.items.some((item) => item.kind === "file" && item.path === path);
+        if (hasMatch) {
+          return true;
+        }
+
+        if (!page.nextCursor) {
+          return false;
+        }
+        if (visitedCursors.has(page.nextCursor)) {
+          return false;
+        }
+        visitedCursors.add(page.nextCursor);
+        cursor = page.nextCursor;
+      }
+
+      return false;
+    },
+    [requestRepoFileSearch],
+  );
+
+  const buildLogReferenceLinkableCacheKey = useCallback(
+    ({
+      sourcePaneId,
+      sourceRepoRoot,
+      kind,
+      normalizedPath,
+      filename,
+      display,
+    }: {
+      sourcePaneId: string;
+      sourceRepoRoot: string | null;
+      kind: "path" | "filename" | "unknown";
+      normalizedPath: string | null;
+      filename: string | null;
+      display: string;
+    }) => {
+      const normalizedCacheSubject = normalizedPath ?? filename ?? display;
+      return `${sourcePaneId}:${sourceRepoRoot ?? ""}:${kind}:${normalizedCacheSubject}`;
+    },
+    [],
+  );
+
+  const isLogFileReferenceLinkable = useCallback(
+    async ({
+      rawToken,
+      sourcePaneId,
+      sourceRepoRoot,
+    }: {
+      rawToken: string;
+      sourcePaneId: string;
+      sourceRepoRoot: string | null;
+    }): Promise<boolean> => {
+      if (sourcePaneId.trim().length === 0) {
+        return false;
+      }
+      const reference = normalizeLogReference(rawToken, {
+        sourceRepoRoot,
+      });
+      if (reference.kind === "unknown") {
+        return false;
+      }
+      const cacheKey = buildLogReferenceLinkableCacheKey({
+        sourcePaneId,
+        sourceRepoRoot,
+        kind: reference.kind,
+        normalizedPath: reference.normalizedPath,
+        filename: reference.filename,
+        display: reference.display,
+      });
+      const cached = logReferenceLinkableCacheRef.current.get(cacheKey);
+      if (cached != null) {
+        return cached;
+      }
+      const inFlight = logReferenceLinkableRequestMapRef.current.get(cacheKey);
+      if (inFlight) {
+        return inFlight;
+      }
+
+      const request = (async () => {
+        if (reference.normalizedPath) {
+          try {
+            const pathMatched = await hasExactPathMatch({
+              paneId: sourcePaneId,
+              path: reference.normalizedPath,
+              limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
+            });
+            if (pathMatched === true) {
+              return true;
+            }
+          } catch {
+            // path resolve failed; continue to filename fallback
+          }
+        }
+
+        if (!reference.filename) {
+          return false;
+        }
+
+        try {
+          const matches = await findExactNameMatches({
+            paneId: sourcePaneId,
+            filename: reference.filename,
+            maxMatches: 1,
+            limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
+          });
+          return (matches?.length ?? 0) > 0;
+        } catch {
+          return false;
+        }
+      })();
+
+      logReferenceLinkableRequestMapRef.current.set(cacheKey, request);
+      try {
+        const resolved = await request;
+        setMapEntryWithMaxSize(
+          logReferenceLinkableCacheRef.current,
+          cacheKey,
+          resolved,
+          LOG_REFERENCE_LINKABLE_CACHE_MAX,
+        );
+        return resolved;
+      } finally {
+        logReferenceLinkableRequestMapRef.current.delete(cacheKey);
+      }
+    },
+    [buildLogReferenceLinkableCacheKey, findExactNameMatches, hasExactPathMatch],
+  );
+
+  const onResolveLogFileReferenceCandidates = useCallback(
+    async ({
+      rawTokens,
+      sourcePaneId,
+      sourceRepoRoot,
+    }: {
+      rawTokens: string[];
+      sourcePaneId: string;
+      sourceRepoRoot: string | null;
+    }) => {
+      const uniqueTokens = Array.from(
+        new Set(rawTokens.filter((token) => token.trim().length > 0)),
+      );
+      if (uniqueTokens.length === 0 || sourcePaneId.trim().length === 0) {
+        return [] as string[];
+      }
+
+      const linkableRawTokenSet = new Set<string>();
+      const pendingRawTokens: string[] = [];
+
+      uniqueTokens.forEach((rawToken) => {
+        const reference = normalizeLogReference(rawToken, {
+          sourceRepoRoot,
+        });
+        if (reference.kind === "unknown") {
+          return;
+        }
+        const cacheKey = buildLogReferenceLinkableCacheKey({
+          sourcePaneId,
+          sourceRepoRoot,
+          kind: reference.kind,
+          normalizedPath: reference.normalizedPath,
+          filename: reference.filename,
+          display: reference.display,
+        });
+        const cached = logReferenceLinkableCacheRef.current.get(cacheKey);
+        if (cached != null) {
+          if (cached) {
+            linkableRawTokenSet.add(rawToken);
+          }
+          return;
+        }
+        pendingRawTokens.push(rawToken);
+      });
+
+      if (pendingRawTokens.length > 0) {
+        const resolvedTokens = await Promise.all(
+          pendingRawTokens.map(async (rawToken) => {
+            try {
+              const linkable = await isLogFileReferenceLinkable({
+                rawToken,
+                sourcePaneId,
+                sourceRepoRoot,
+              });
+              return linkable ? rawToken : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        resolvedTokens.forEach((rawToken) => {
+          if (rawToken) {
+            linkableRawTokenSet.add(rawToken);
+          }
+        });
+      }
+
+      return uniqueTokens.filter((token) => linkableRawTokenSet.has(token));
+    },
+    [buildLogReferenceLinkableCacheKey, isLogFileReferenceLinkable],
+  );
+
+  const tryOpenExistingPath = useCallback(
+    async ({
+      paneId: targetPaneId,
+      path,
+      requestId,
+      highlightLine,
+    }: {
+      paneId: string;
+      path: string;
+      requestId: number;
+      highlightLine?: number | null;
+    }) => {
+      try {
+        const exists = await hasExactPathMatch({
+          paneId: targetPaneId,
+          path,
+          requestId,
+          limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
+        });
+        if (!exists) {
+          return false;
+        }
+      } catch {
+        return false;
+      }
+      if (activeLogResolveRequestIdRef.current !== requestId) {
+        return false;
+      }
+      openFileModalByPath(path, {
+        paneId: targetPaneId,
+        origin: "log",
+        highlightLine,
+      });
+      return true;
+    },
+    [hasExactPathMatch, openFileModalByPath],
+  );
+
+  const onResolveLogFileReference = useCallback(
+    async ({
+      rawToken,
+      sourcePaneId,
+      sourceRepoRoot,
+    }: {
+      rawToken: string;
+      sourcePaneId: string;
+      sourceRepoRoot: string | null;
+    }) => {
+      const requestId = activeLogResolveRequestIdRef.current + 1;
+      activeLogResolveRequestIdRef.current = requestId;
+      setFileResolveError(null);
+      resetLogFileCandidateState();
+
+      if (sourcePaneId.trim().length === 0) {
+        if (activeLogResolveRequestIdRef.current === requestId) {
+          setFileResolveError("Session context is unavailable.");
+        }
+        return;
+      }
+
+      const location = extractLogReferenceLocation(rawToken);
+      const reference = normalizeLogReference(rawToken, { sourceRepoRoot });
+      if (reference.kind === "unknown") {
+        if (activeLogResolveRequestIdRef.current === requestId) {
+          setFileResolveError("No file reference found in token.");
+        }
+        return;
+      }
+
+      if (reference.normalizedPath) {
+        const opened = await tryOpenExistingPath({
+          paneId: sourcePaneId,
+          path: reference.normalizedPath,
+          requestId,
+          highlightLine: location.line,
+        });
+        if (activeLogResolveRequestIdRef.current !== requestId) {
+          return;
+        }
+        if (opened) {
+          return;
+        }
+      }
+
+      if (!reference.filename) {
+        if (activeLogResolveRequestIdRef.current === requestId) {
+          setFileResolveError("File not found.");
+        }
+        return;
+      }
+
+      let matches: LogFileCandidateItem[] | null = null;
+      try {
+        matches = await findExactNameMatches({
+          paneId: sourcePaneId,
+          filename: reference.filename,
+          maxMatches: LOG_FILE_RESOLVE_MATCH_LIMIT,
+          limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
+          requestId,
+        });
+      } catch {
+        if (activeLogResolveRequestIdRef.current === requestId) {
+          setFileResolveError("Failed to resolve file reference.");
+        }
+        return;
+      }
+
+      if (activeLogResolveRequestIdRef.current !== requestId || matches == null) {
+        return;
+      }
+
+      if (matches.length === 0) {
+        setFileResolveError(`No file matched: ${reference.filename}`);
+        return;
+      }
+      if (matches.length === 1 && matches[0]) {
+        openFileModalByPath(matches[0].path, {
+          paneId: sourcePaneId,
+          origin: "log",
+          highlightLine: location.line,
+        });
+        return;
+      }
+
+      setLogFileCandidateReference(reference.display);
+      setLogFileCandidatePaneId(sourcePaneId);
+      setLogFileCandidateLine(location.line);
+      setLogFileCandidateItems(matches);
+      setLogFileCandidateModalOpen(true);
+    },
+    [findExactNameMatches, openFileModalByPath, resetLogFileCandidateState, tryOpenExistingPath],
+  );
+
+  const onSelectLogFileCandidate = useCallback(
+    (path: string) => {
+      const targetPaneId = logFileCandidatePaneId ?? paneId;
+      const targetLine = logFileCandidateLine;
+      resetLogFileCandidateState();
+      openFileModalByPath(path, {
+        paneId: targetPaneId,
+        origin: "log",
+        highlightLine: targetLine,
+      });
+    },
+    [
+      logFileCandidateLine,
+      logFileCandidatePaneId,
+      openFileModalByPath,
+      paneId,
+      resetLogFileCandidateState,
+    ],
+  );
+
+  const onCloseLogFileCandidateModal = useCallback(() => {
+    resetLogFileCandidateState();
+  }, [resetLogFileCandidateState]);
+
   useEffect(() => {
     return () => {
       if (fileModalCopyTimeoutRef.current != null) {
@@ -951,6 +1464,12 @@ export const useSessionFiles = ({
     fileModalShowLineNumbers,
     fileModalCopiedPath,
     fileModalCopyError,
+    fileModalHighlightLine,
+    fileResolveError,
+    logFileCandidateModalOpen,
+    logFileCandidateReference,
+    logFileCandidatePaneId,
+    logFileCandidateItems,
     onSearchQueryChange: setSearchQuery,
     onSearchMove,
     onSearchConfirm,
@@ -961,6 +1480,10 @@ export const useSessionFiles = ({
     onSetFileModalMarkdownViewMode,
     onToggleFileModalLineNumbers,
     onCopyFileModalPath,
+    onResolveLogFileReference,
+    onResolveLogFileReferenceCandidates,
+    onSelectLogFileCandidate,
+    onCloseLogFileCandidateModal,
     onLoadMoreTreeRoot,
     onLoadMoreSearch,
   };

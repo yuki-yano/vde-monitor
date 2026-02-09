@@ -113,6 +113,11 @@ export const useSessionDetailViewSectionProps = ({
     fileModalShowLineNumbers,
     fileModalCopiedPath,
     fileModalCopyError,
+    fileModalHighlightLine,
+    fileResolveError,
+    logFileCandidateModalOpen,
+    logFileCandidateReference,
+    logFileCandidateItems,
     onSearchQueryChange,
     onSearchMove,
     onSearchConfirm,
@@ -123,6 +128,10 @@ export const useSessionDetailViewSectionProps = ({
     onSetFileModalMarkdownViewMode,
     onToggleFileModalLineNumbers,
     onCopyFileModalPath,
+    onResolveLogFileReference,
+    onResolveLogFileReferenceCandidates,
+    onSelectLogFileCandidate,
+    onCloseLogFileCandidateModal,
     onLoadMoreTreeRoot,
     onLoadMoreSearch,
   } = files;
@@ -343,6 +352,7 @@ export const useSessionDetailViewSectionProps = ({
         showLineNumbers: fileModalShowLineNumbers,
         copiedPath: fileModalCopiedPath,
         copyError: fileModalCopyError,
+        highlightLine: fileModalHighlightLine,
         theme: resolvedTheme,
       },
       actions: {
@@ -362,6 +372,7 @@ export const useSessionDetailViewSectionProps = ({
       fileModalShowLineNumbers,
       fileModalCopiedPath,
       fileModalCopyError,
+      fileModalHighlightLine,
       resolvedTheme,
       onCloseFileModal,
       onToggleFileModalLineNumbers,
@@ -387,6 +398,7 @@ export const useSessionDetailViewSectionProps = ({
         forceFollow,
         rawMode,
         allowDangerKeys,
+        fileResolveError,
       },
       actions: {
         onModeChange: handleModeChange,
@@ -394,6 +406,18 @@ export const useSessionDetailViewSectionProps = ({
         onAtBottomChange: handleAtBottomChange,
         onScrollToBottom: scrollToBottom,
         onUserScrollStateChange: handleUserScrollStateChange,
+        onResolveFileReference: (rawToken: string) =>
+          onResolveLogFileReference({
+            rawToken,
+            sourcePaneId: paneId,
+            sourceRepoRoot: session?.repoRoot ?? null,
+          }),
+        onResolveFileReferenceCandidates: (rawTokens: string[]) =>
+          onResolveLogFileReferenceCandidates({
+            rawTokens,
+            sourcePaneId: paneId,
+            sourceRepoRoot: session?.repoRoot ?? null,
+          }),
       },
     }),
     [
@@ -411,11 +435,16 @@ export const useSessionDetailViewSectionProps = ({
       forceFollow,
       rawMode,
       allowDangerKeys,
+      fileResolveError,
       handleModeChange,
       handleRefreshScreen,
       handleAtBottomChange,
       scrollToBottom,
       handleUserScrollStateChange,
+      onResolveLogFileReference,
+      onResolveLogFileReferenceCandidates,
+      paneId,
+      session?.repoRoot,
     ],
   );
 
@@ -471,6 +500,27 @@ export const useSessionDetailViewSectionProps = ({
       closeLogModal,
       handleOpenHere,
       handleOpenInNewTab,
+    ],
+  );
+
+  const logFileCandidateModalProps = useMemo(
+    () => ({
+      state: {
+        open: logFileCandidateModalOpen,
+        reference: logFileCandidateReference,
+        items: logFileCandidateItems,
+      },
+      actions: {
+        onClose: onCloseLogFileCandidateModal,
+        onSelect: onSelectLogFileCandidate,
+      },
+    }),
+    [
+      logFileCandidateModalOpen,
+      logFileCandidateReference,
+      logFileCandidateItems,
+      onCloseLogFileCandidateModal,
+      onSelectLogFileCandidate,
     ],
   );
 
@@ -615,6 +665,7 @@ export const useSessionDetailViewSectionProps = ({
     stateTimelineSectionProps,
     quickPanelProps,
     logModalProps,
+    logFileCandidateModalProps,
     sessionHeaderProps,
     sessionSidebarProps,
     controlsPanelProps,

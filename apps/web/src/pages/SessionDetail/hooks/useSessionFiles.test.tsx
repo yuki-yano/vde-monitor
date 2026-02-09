@@ -812,4 +812,506 @@ describe("useSessionFiles", () => {
     });
     expect(result.current.fileModalShowLineNumbers).toBe(true);
   });
+
+  it("opens file modal directly when log path exists", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "apps/web/src/index.ts") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "apps/web/src/index.ts",
+              name: "index.ts",
+              kind: "file",
+              score: 1,
+              highlights: [0],
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+    });
+    const requestRepoFileContentLocal = vi.fn(async (paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 100,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: `// ${paneId}:${targetPath}`,
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "apps/web/src/index.ts:12",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalOpen).toBe(true);
+      expect(result.current.fileModalPath).toBe("apps/web/src/index.ts");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalHighlightLine).toBe(12);
+    expect(result.current.selectedFilePath).toBeNull();
+    expect(result.current.logFileCandidateModalOpen).toBe(false);
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "apps/web/src/index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "apps/web/src/index.ts", {
+      maxBytes: 256 * 1024,
+    });
+  });
+
+  it("falls back to exact filename search when path lookup fails and opens the single match", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "index.ts",
+        items: [
+          {
+            path: "apps/server/src/index.ts",
+            name: "index.ts",
+            kind: "file",
+            score: 1,
+            highlights: [0],
+          },
+        ],
+        totalMatchedCount: 1,
+      }),
+    );
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 123,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: "export const value = 1;",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/index.ts:4",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalPath).toBe("apps/server/src/index.ts");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalHighlightLine).toBe(4);
+    expect(result.current.fileResolveError).toBeNull();
+    expect(result.current.logFileCandidateModalOpen).toBe(false);
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+  });
+
+  it("falls back to filename search when path lookup cursor repeats", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(
+      async (_paneId: string, query: string, options?: { cursor?: string; limit?: number }) => {
+        if (query === "src/index.ts") {
+          return createSearchPage({
+            query,
+            items: [],
+            totalMatchedCount: 0,
+            nextCursor: options?.cursor ?? "cursor-1",
+          });
+        }
+        if (query === "index.ts") {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "apps/server/src/index.ts",
+                name: "index.ts",
+                kind: "file",
+                score: 1,
+                highlights: [0],
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+        return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+      },
+    );
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 123,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: "export const value = 1;",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/index.ts:9",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalPath).toBe("apps/server/src/index.ts");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalHighlightLine).toBe(9);
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "src/index.ts", {
+      cursor: "cursor-1",
+      limit: 100,
+    });
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(3, "pane-log", "index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+  });
+
+  it("opens candidate modal when multiple exact filename matches are found", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "index.ts",
+        items: [
+          {
+            path: "apps/server/src/index.ts",
+            name: "index.ts",
+            kind: "file",
+            score: 0.9,
+            highlights: [0],
+          },
+          {
+            path: "apps/web/src/index.ts",
+            name: "index.ts",
+            kind: "file",
+            score: 0.8,
+            highlights: [0],
+          },
+        ],
+        totalMatchedCount: 2,
+      }),
+    );
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 12,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: "export {};",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/index.ts:4",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    expect(result.current.logFileCandidateModalOpen).toBe(true);
+    expect(result.current.logFileCandidatePaneId).toBe("pane-log");
+    expect(result.current.logFileCandidateItems.map((item) => item.path)).toEqual([
+      "apps/server/src/index.ts",
+      "apps/web/src/index.ts",
+    ]);
+
+    act(() => {
+      result.current.onSelectLogFileCandidate("apps/web/src/index.ts");
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalPath).toBe("apps/web/src/index.ts");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalHighlightLine).toBe(4);
+    expect(result.current.logFileCandidateModalOpen).toBe(false);
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+    expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "index.ts", {
+      cursor: undefined,
+      limit: 100,
+    });
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "apps/web/src/index.ts", {
+      maxBytes: 256 * 1024,
+    });
+  });
+
+  it("sets an error when filename search returns no match", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async () =>
+      createSearchPage({
+        query: "index.ts",
+        items: [],
+        totalMatchedCount: 0,
+      }),
+    );
+    const requestRepoFileContentLocal = vi.fn(async () => ({
+      path: "unused.ts",
+      sizeBytes: 0,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: "",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/index.ts",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    expect(result.current.fileResolveError).toBe("No file matched: index.ts");
+    expect(result.current.fileModalOpen).toBe(false);
+  });
+
+  it("ignores stale log-reference resolution results and keeps latest result", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const slowSearch = createDeferred<RepoFileSearchPage>();
+    const requestRepoFileSearch = vi.fn((_: string, query: string) => {
+      if (query === "a.ts") {
+        return slowSearch.promise;
+      }
+      return Promise.resolve(
+        createSearchPage({
+          query: "b.ts",
+          items: [{ path: "src/b.ts", name: "b.ts", kind: "file", score: 1, highlights: [0] }],
+          totalMatchedCount: 1,
+        }),
+      );
+    });
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 10,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: `// ${targetPath}`,
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    let firstPromise: Promise<void> | null = null;
+    await act(async () => {
+      firstPromise = result.current.onResolveLogFileReference({
+        rawToken: "src/a.ts",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/b.ts",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalPath).toBe("src/b.ts");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+
+    await act(async () => {
+      slowSearch.resolve(
+        createSearchPage({
+          query: "a.ts",
+          items: [
+            { path: "src/a.ts", name: "a.ts", kind: "file", score: 1, highlights: [0] },
+            { path: "src/nested/a.ts", name: "a.ts", kind: "file", score: 0.7, highlights: [0] },
+          ],
+          totalMatchedCount: 2,
+        }),
+      );
+      await firstPromise;
+    });
+
+    expect(result.current.fileModalPath).toBe("src/b.ts");
+    expect(result.current.logFileCandidateModalOpen).toBe(false);
+  });
+
+  it("returns context-unavailable error when source pane id is blank", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "src/index.ts",
+        sourcePaneId: "  ",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    expect(result.current.fileResolveError).toBe("Session context is unavailable.");
+    expect(requestRepoFileSearch).not.toHaveBeenCalled();
+  });
+
+  it("returns only existing tokens for log-linkify candidate resolution", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "src/exists.ts") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "src/exists.ts",
+              name: "exists.ts",
+              kind: "file",
+              score: 1,
+              highlights: [0],
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      if (query === "src/missing.ts" || query === "missing.ts") {
+        return createSearchPage({
+          query,
+          items: [],
+          totalMatchedCount: 0,
+        });
+      }
+      if (query === "index.ts") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "apps/web/src/index.ts",
+              name: "index.ts",
+              kind: "file",
+              score: 1,
+              highlights: [0],
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+    });
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 12,
+      isBinary: false,
+      truncated: false,
+      languageHint: "typescript" as const,
+      content: "export {};",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    const linkable = await result.current.onResolveLogFileReferenceCandidates({
+      rawTokens: ["src/exists.ts:2", "src/missing.ts:1", "index.ts", "https://example.com"],
+      sourcePaneId: "pane-log",
+      sourceRepoRoot: "/repo",
+    });
+
+    expect(linkable).toEqual(["src/exists.ts:2", "index.ts"]);
+    expect(requestRepoFileContentLocal).not.toHaveBeenCalled();
+  });
 });
