@@ -90,6 +90,32 @@ describe("createPipeManager", () => {
     expect(adapter.run).toHaveBeenCalledTimes(2);
   });
 
+  it("force re-attaches a tagged pipe to update command destination", async () => {
+    const adapter = {
+      run: vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 }),
+    };
+    const pipeManager = createPipeManager(adapter);
+    const result = await pipeManager.attachPipe(
+      "%9",
+      "/tmp/next.log",
+      {
+        panePipe: true,
+        pipeTagValue: "1",
+      },
+      { forceReattach: true },
+    );
+
+    expect(result).toEqual({ attached: true, conflict: false });
+    expect(adapter.run).toHaveBeenNthCalledWith(1, ["pipe-pane", "-t", "%9"]);
+    expect(adapter.run).toHaveBeenNthCalledWith(2, [
+      "pipe-pane",
+      "-t",
+      "%9",
+      'cat >> "/tmp/next.log"',
+    ]);
+    expect(adapter.run).toHaveBeenCalledTimes(2);
+  });
+
   it("exposes hasConflict helper", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 }),

@@ -51,6 +51,7 @@ export type MultiplexerRuntime = {
       paneId: string,
       logPath: string,
       state: { panePipe: boolean; pipeTagValue: string | null },
+      options?: { forceReattach?: boolean },
     ) => Promise<{ attached: boolean; conflict: boolean }>;
   };
   captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;

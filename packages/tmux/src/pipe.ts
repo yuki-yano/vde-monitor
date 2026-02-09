@@ -5,6 +5,10 @@ export type PipeAttachResult = {
   conflict: boolean;
 };
 
+export type PipeAttachOptions = {
+  forceReattach?: boolean;
+};
+
 export type PipeState = {
   panePipe: boolean;
   pipeTagValue: string | null;
@@ -24,15 +28,20 @@ export const createPipeManager = (adapter: TmuxAdapter) => {
     paneId: string,
     logPath: string,
     state: PipeState,
+    options: PipeAttachOptions = {},
   ): Promise<PipeAttachResult> => {
     if (hasConflict(state)) {
       return { attached: false, conflict: true };
     }
 
     const command = buildPipeCommand(logPath);
+    const forceReattach = options.forceReattach === true;
     let result;
-    if (!state.panePipe && state.pipeTagValue === "1") {
-      // Repair an inconsistent state where our tag remains but tmux reports pane_pipe=0.
+    if (
+      (forceReattach && state.panePipe && state.pipeTagValue === "1") ||
+      (!state.panePipe && state.pipeTagValue === "1")
+    ) {
+      // Re-attach explicitly when requested, or repair detached pipe while tag remains.
       await adapter.run(["pipe-pane", "-t", paneId]);
       result = await adapter.run(["pipe-pane", "-t", paneId, command]);
     } else {

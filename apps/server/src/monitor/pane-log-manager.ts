@@ -25,6 +25,7 @@ type PaneLogManagerArgs = {
       paneId: string,
       logPath: string,
       state: { panePipe: boolean; pipeTagValue: string | null },
+      options?: { forceReattach?: boolean },
     ) => Promise<{ attached: boolean; conflict: boolean }>;
   };
   logActivity: { register: (paneId: string, filePath: string) => void };
@@ -76,6 +77,7 @@ export const createPaneLogManager = ({
   deps,
 }: PaneLogManagerArgs) => {
   const { resolvePaths, ensureDirFn, rotateFn, openLogFile } = resolvePaneLogDeps(deps);
+  const normalizedPipeDestinations = new Set<string>();
 
   const getPaneLogPath = (paneId: string) => {
     return resolvePaths(baseDir, serverKey, paneId).paneLogPath;
@@ -93,18 +95,22 @@ export const createPaneLogManager = ({
     pipeState,
     pipeAttached,
     pipeConflict,
+    forceReattach,
   }: {
     paneId: string;
     logPath: string;
     pipeState: { panePipe: boolean; pipeTagValue: string | null };
     pipeAttached: boolean;
     pipeConflict: boolean;
+    forceReattach: boolean;
   }) => {
-    if (!config.attachOnServe || pipeConflict || pipeAttached) {
+    if (!config.attachOnServe || pipeConflict || (pipeAttached && !forceReattach)) {
       return { pipeAttached, pipeConflict };
     }
     await ensureLogFiles(paneId);
-    const attachResult = await pipeManager.attachPipe(paneId, logPath, pipeState);
+    const attachResult = await pipeManager.attachPipe(paneId, logPath, pipeState, {
+      forceReattach,
+    });
     return {
       pipeAttached: pipeAttached || attachResult.attached,
       pipeConflict: attachResult.conflict,
@@ -118,8 +124,10 @@ export const createPaneLogManager = ({
 
     const logPath = getPaneLogPath(paneId);
     const pipeState = { panePipe, pipeTagValue };
+    const isTaggedPipe = panePipe && pipeTagValue === "1";
+    const forceReattach = isTaggedPipe && !normalizedPipeDestinations.has(paneId);
 
-    let pipeAttached = panePipe && pipeTagValue === "1";
+    let pipeAttached = isTaggedPipe;
     let pipeConflict = pipeManager.hasConflict(pipeState);
 
     const attachResult = await attachPipeIfNeeded({
@@ -128,9 +136,16 @@ export const createPaneLogManager = ({
       pipeState,
       pipeAttached,
       pipeConflict,
+      forceReattach,
     });
     pipeAttached = attachResult.pipeAttached;
     pipeConflict = attachResult.pipeConflict;
+    if (pipeAttached && !pipeConflict && (forceReattach || !isTaggedPipe)) {
+      normalizedPipeDestinations.add(paneId);
+    }
+    if (!pipeAttached || pipeConflict) {
+      normalizedPipeDestinations.delete(paneId);
+    }
 
     if (config.attachOnServe) {
       logActivity.register(paneId, logPath);
