@@ -196,7 +196,7 @@ vi.mock("./hooks/useSessionTitleEditor", () => ({
     closeTitleEditor: vi.fn(),
     updateTitleDraft: vi.fn(),
     saveTitle: vi.fn(),
-    clearTitle: vi.fn(),
+    resetTitle: vi.fn(),
   }),
 }));
 
