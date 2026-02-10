@@ -108,9 +108,9 @@ importers:
       '@vde-monitor/wezterm':
         specifier: workspace:*
         version: link:../../packages/wezterm
-      cac:
-        specifier: ^6.7.14
-        version: 6.7.14
+      citty:
+        specifier: ^0.2.0
+        version: 0.2.0
       execa:
         specifier: ^9.6.0
         version: 9.6.1
@@ -1686,6 +1686,9 @@ packages:
   chokidar@3.6.0:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
+
+  citty@0.2.0:
+    resolution: {integrity: sha512-8csy5IBFI2ex2hTVpaHN2j+LNE199AgiI7y4dMintrr8i0lQiFn+0AWMZrWdHKIgMOer65f8IThysYhoReqjWA==}
 
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
@@ -5057,6 +5060,8 @@ snapshots:
       readdirp: 3.6.0
     optionalDependencies:
       fsevents: 2.3.3
+
+  citty@0.2.0: {}
 
   class-variance-authority@0.7.1:
     dependencies:

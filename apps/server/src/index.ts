@@ -5,7 +5,13 @@ import { createWeztermAdapter, normalizeWeztermTarget } from "@vde-monitor/wezte
 import qrcode from "qrcode-terminal";
 
 import { createApp } from "./app";
-import { parseArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "./cli";
+import {
+  parseArgs,
+  type ParsedArgs,
+  parsePort,
+  resolveHosts,
+  resolveMultiplexerOverrides,
+} from "./cli";
 import { ensureConfig, rotateToken } from "./config";
 import { createSessionMonitor } from "./monitor";
 import { createMultiplexerRuntime } from "./multiplexer/runtime";
@@ -93,32 +99,28 @@ export const buildAccessUrl = ({
   return `http://${displayHost}:${displayPort}/#${hashParams.toString()}`;
 };
 
-export const runServe = async (flags: Map<string, string | boolean>) => {
+export const runServe = async (args: ParsedArgs) => {
   const config = ensureConfig();
-  const noAttach = flags.has("--no-attach");
-  const portFlag = flags.get("--port");
-  const webPortFlag = flags.get("--web-port");
-  const socketName = flags.get("--socket-name");
-  const socketPath = flags.get("--socket-path");
-  const multiplexerOverrides = resolveMultiplexerOverrides(flags);
+  const noAttach = args.attach === false;
+  const multiplexerOverrides = resolveMultiplexerOverrides(args);
 
   const { bindHost, displayHost } = resolveHosts({
-    flags,
+    args,
     configBind: config.bind,
     getLocalIP,
     getTailscaleIP,
   });
 
   config.attachOnServe = !noAttach;
-  const parsedPort = parsePort(portFlag);
+  const parsedPort = parsePort(args.port);
   if (parsedPort) {
     config.port = parsedPort;
   }
-  if (typeof socketName === "string") {
-    config.tmux.socketName = socketName;
+  if (typeof args.socketName === "string") {
+    config.tmux.socketName = args.socketName;
   }
-  if (typeof socketPath === "string") {
-    config.tmux.socketPath = socketPath;
+  if (typeof args.socketPath === "string") {
+    config.tmux.socketPath = args.socketPath;
   }
   if (multiplexerOverrides.multiplexerBackend) {
     config.multiplexer.backend = multiplexerOverrides.multiplexerBackend;
@@ -151,7 +153,7 @@ export const runServe = async (flags: Map<string, string | boolean>) => {
     hostname: host,
   });
 
-  const parsedWebPort = parsePort(webPortFlag);
+  const parsedWebPort = parsePort(args.webPort);
   const displayPort = parsedWebPort ?? port;
   const apiBaseUrl =
     parsedWebPort != null && parsedWebPort !== port ? `http://${displayHost}:${port}/api` : null;
@@ -172,18 +174,18 @@ export const runServe = async (flags: Map<string, string | boolean>) => {
 };
 
 export const main = async () => {
-  const { command, positional, flags } = parseArgs();
-  if (command === "token" && positional[0] === "rotate") {
+  const args = parseArgs();
+  if (args.command === "token" && args.subcommand === "rotate") {
     const next = rotateToken();
     console.log(next.token);
     return;
   }
-  if (command === "claude" && positional[0] === "hooks" && positional[1] === "print") {
+  if (args.command === "claude" && args.subcommand === "hooks" && args.subcommand2 === "print") {
     printHooksSnippet();
     return;
   }
 
-  await runServe(flags);
+  await runServe(args);
 };
 
 if (process.env.NODE_ENV !== "test") {

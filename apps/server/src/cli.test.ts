@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parseArgs, resolveHosts, resolveMultiplexerOverrides } from "./cli";
 
-const makeFlags = (entries: Array<[string, string | boolean]>) => new Map(entries);
-
 const baseOptions = {
   configBind: "127.0.0.1" as const,
   getLocalIP: () => "192.168.0.2",
@@ -28,64 +26,64 @@ describe("parseArgs", () => {
     ]);
 
     expect(result.command).toBe("token");
-    expect(result.positional).toEqual(["rotate"]);
-    expect(result.flags.get("--public")).toBe(true);
-    expect(result.flags.get("--bind")).toBe("192.168.0.10");
-    expect(result.flags.get("--port")).toBe("3000");
-    expect(result.flags.get("--multiplexer")).toBe("wezterm");
-    expect(result.flags.get("--backend")).toBe("wezterm");
-    expect(result.flags.get("--no-attach")).toBe(true);
+    expect(result.subcommand).toBe("rotate");
+    expect(result.public).toBe(true);
+    expect(result.bind).toBe("192.168.0.10");
+    expect(result.port).toBe("3000");
+    expect(result.multiplexer).toBe("wezterm");
+    expect(result.backend).toBe("wezterm");
+    expect(result.attach).toBe(false);
   });
 
-  it("keeps unknown flags and command-less calls", () => {
+  it("keeps unknown flags on raw parsed output", () => {
     const result = parseArgs(["--foo", "bar", "--no-cache"]);
 
-    expect(result.command).toBeNull();
-    expect(result.positional).toEqual([]);
-    expect(result.flags.get("--foo")).toBe("bar");
-    expect(result.flags.get("--no-cache")).toBe(true);
+    expect(result.command).toBe("bar");
+    expect(result.foo).toBe(true);
+    expect(result.cache).toBe(false);
   });
 
-  it("ignores leading separators passed through tsx/pnpm", () => {
+  it("ignores separators passed through tsx/pnpm", () => {
     const result = parseArgs(["--", "--", "--public", "--tailscale"]);
 
-    expect(result.command).toBeNull();
-    expect(result.positional).toEqual([]);
-    expect(result.flags.get("--public")).toBe(true);
-    expect(result.flags.get("--tailscale")).toBe(true);
+    expect(result.command).toBeUndefined();
+    expect(result.public).toBe(true);
+    expect(result.tailscale).toBe(true);
   });
 
   it("keeps raw string values without numeric coercion", () => {
     const result = parseArgs(["--socket-name", "01", "--port", "-1"]);
 
-    expect(result.flags.get("--socket-name")).toBe("01");
-    expect(result.flags.get("--port")).toBe("-1");
+    expect(result.socketName).toBe("01");
+    expect(result.port).toBe("-1");
+  });
+
+  it("rejects invalid enum values", () => {
+    expect(() => parseArgs(["--multiplexer", "foo"])).toThrow(/Invalid value for argument/);
+    expect(() => parseArgs(["--backend", "foo"])).toThrow(/Invalid value for argument/);
   });
 });
 
 describe("resolveHosts", () => {
   it("uses default bind and localhost display when no flags", () => {
-    const result = resolveHosts({ ...baseOptions, flags: makeFlags([]) });
+    const result = resolveHosts({ ...baseOptions, args: parseArgs([]) });
     expect(result).toEqual({ bindHost: "127.0.0.1", displayHost: "localhost" });
   });
 
   it("uses local IP display when public", () => {
-    const result = resolveHosts({ ...baseOptions, flags: makeFlags([["--public", true]]) });
+    const result = resolveHosts({ ...baseOptions, args: parseArgs(["--public"]) });
     expect(result).toEqual({ bindHost: "0.0.0.0", displayHost: "192.168.0.2" });
   });
 
   it("binds to tailscale when requested", () => {
-    const result = resolveHosts({ ...baseOptions, flags: makeFlags([["--tailscale", true]]) });
+    const result = resolveHosts({ ...baseOptions, args: parseArgs(["--tailscale"]) });
     expect(result).toEqual({ bindHost: "100.64.0.1", displayHost: "100.64.0.1" });
   });
 
   it("prints tailscale URL while binding to 0.0.0.0 when public + tailscale", () => {
     const result = resolveHosts({
       ...baseOptions,
-      flags: makeFlags([
-        ["--public", true],
-        ["--tailscale", true],
-      ]),
+      args: parseArgs(["--public", "--tailscale"]),
     });
     expect(result).toEqual({ bindHost: "0.0.0.0", displayHost: "100.64.0.1" });
   });
@@ -93,7 +91,7 @@ describe("resolveHosts", () => {
   it("uses bind value when provided", () => {
     const result = resolveHosts({
       ...baseOptions,
-      flags: makeFlags([["--bind", "192.168.0.10"]]),
+      args: parseArgs(["--bind", "192.168.0.10"]),
     });
     expect(result).toEqual({ bindHost: "192.168.0.10", displayHost: "192.168.0.10" });
   });
@@ -102,10 +100,7 @@ describe("resolveHosts", () => {
     expect(() =>
       resolveHosts({
         ...baseOptions,
-        flags: makeFlags([
-          ["--bind", "192.168.0.10"],
-          ["--tailscale", true],
-        ]),
+        args: parseArgs(["--bind", "192.168.0.10", "--tailscale"]),
       }),
     ).toThrow(/--bind and --tailscale/);
   });
@@ -115,22 +110,35 @@ describe("resolveHosts", () => {
       resolveHosts({
         ...baseOptions,
         getTailscaleIP: () => null,
-        flags: makeFlags([["--tailscale", true]]),
+        args: parseArgs(["--tailscale"]),
       }),
     ).toThrow(/Tailscale IP not found/);
+  });
+
+  it("rejects bind without value", () => {
+    expect(() =>
+      resolveHosts({
+        ...baseOptions,
+        args: parseArgs(["--bind"]),
+      }),
+    ).toThrow(/--bind requires a value/);
   });
 });
 
 describe("resolveMultiplexerOverrides", () => {
   it("resolves multiplexer/backend and wezterm flags", () => {
-    const flags = makeFlags([
-      ["--multiplexer", "wezterm"],
-      ["--backend", "ghostty"],
-      ["--wezterm-cli", "/opt/homebrew/bin/wezterm"],
-      ["--wezterm-target", " dev "],
-    ]);
-
-    const result = resolveMultiplexerOverrides(flags);
+    const result = resolveMultiplexerOverrides(
+      parseArgs([
+        "--multiplexer",
+        "wezterm",
+        "--backend",
+        "ghostty",
+        "--wezterm-cli",
+        "/opt/homebrew/bin/wezterm",
+        "--wezterm-target",
+        " dev ",
+      ]),
+    );
 
     expect(result).toEqual({
       multiplexerBackend: "wezterm",
@@ -141,31 +149,15 @@ describe("resolveMultiplexerOverrides", () => {
   });
 
   it("resolves backend as screen image backend", () => {
-    const flags = makeFlags([["--backend", "terminal"]]);
-    const result = resolveMultiplexerOverrides(flags);
+    const result = resolveMultiplexerOverrides(parseArgs(["--backend", "terminal"]));
     expect(result).toEqual({ screenImageBackend: "terminal" });
   });
 
-  it("rejects invalid multiplexer/backend values", () => {
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--multiplexer", "foo"]]))).toThrow(
-      /--multiplexer must be one of/,
-    );
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--backend", "foo"]]))).toThrow(
-      /--backend must be one of/,
-    );
-  });
-
-  it("rejects missing values for required multiplexer flags", () => {
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--multiplexer", true]]))).toThrow(
-      /--multiplexer requires a value/,
-    );
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--backend", true]]))).toThrow(
-      /--backend requires a value/,
-    );
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--wezterm-cli", true]]))).toThrow(
+  it("rejects missing values for wezterm flags", () => {
+    expect(() => resolveMultiplexerOverrides(parseArgs(["--wezterm-cli"]))).toThrow(
       /--wezterm-cli requires a value/,
     );
-    expect(() => resolveMultiplexerOverrides(makeFlags([["--wezterm-target", true]]))).toThrow(
+    expect(() => resolveMultiplexerOverrides(parseArgs(["--wezterm-target"]))).toThrow(
       /--wezterm-target requires a value/,
     );
   });

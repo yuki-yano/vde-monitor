@@ -1,12 +1,29 @@
 import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { ArgsDef, ParsedArgs as CittyParsedArgs } from "citty";
+import { parseArgs as parseCittyArgs } from "citty";
 
-type FlagValue = string | boolean | undefined;
+const multiplexerBackends = ["tmux", "wezterm"] as const;
+const imageBackends = ["alacritty", "terminal", "iterm", "wezterm", "ghostty"] as const;
 
-export type ParsedArgs = {
-  command: string | null;
-  flags: Map<string, string | boolean>;
-  positional: string[];
-};
+const cliArgDefinitions = {
+  command: { type: "positional", required: false },
+  subcommand: { type: "positional", required: false },
+  subcommand2: { type: "positional", required: false },
+  bind: { type: "string" },
+  public: { type: "boolean" },
+  tailscale: { type: "boolean" },
+  attach: { type: "boolean", default: true },
+  port: { type: "string" },
+  webPort: { type: "string" },
+  socketName: { type: "string" },
+  socketPath: { type: "string" },
+  multiplexer: { type: "enum", options: [...multiplexerBackends] },
+  backend: { type: "enum", options: [...imageBackends] },
+  weztermCli: { type: "string" },
+  weztermTarget: { type: "string" },
+} satisfies ArgsDef;
+
+export type ParsedArgs = CittyParsedArgs<typeof cliArgDefinitions>;
 
 export type ResolvedHosts = {
   bindHost: string;
@@ -21,73 +38,18 @@ export type MultiplexerOverrides = {
 };
 
 type ResolveHostsOptions = {
-  flags: Map<string, string | boolean>;
+  args: ParsedArgs;
   configBind: AgentMonitorConfig["bind"];
   getLocalIP: () => string;
   getTailscaleIP: () => string | null;
 };
 
-const multiplexerBackends = ["tmux", "wezterm"] as const;
-const imageBackends = ["alacritty", "terminal", "iterm", "wezterm", "ghostty"] as const;
+const normalizeRawArgv = (argv: string[]) => argv.filter((token) => token !== "--");
 
-const isMultiplexerBackend = (
-  value: string,
-): value is AgentMonitorConfig["multiplexer"]["backend"] =>
-  (multiplexerBackends as readonly string[]).includes(value);
+export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs =>
+  parseCittyArgs<typeof cliArgDefinitions>(normalizeRawArgv(argv), cliArgDefinitions);
 
-const isImageBackend = (value: string): value is AgentMonitorConfig["screen"]["image"]["backend"] =>
-  (imageBackends as readonly string[]).includes(value);
-
-export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs => {
-  const normalizedArgv = [...argv];
-  while (normalizedArgv[0] === "--") {
-    normalizedArgv.shift();
-  }
-
-  const flags = new Map<string, string | boolean>();
-  let command: string | null = null;
-  const positional: string[] = [];
-
-  for (let i = 0; i < normalizedArgv.length; i += 1) {
-    const token = normalizedArgv[i];
-    if (!token || token === "--") {
-      continue;
-    }
-
-    if (token.startsWith("--")) {
-      const equalIndex = token.indexOf("=");
-      if (equalIndex > 2) {
-        const key = token.slice(0, equalIndex);
-        const value = token.slice(equalIndex + 1);
-        flags.set(key, value);
-        continue;
-      }
-
-      const next = normalizedArgv[i + 1];
-      if (next && next !== "--" && !next.startsWith("--")) {
-        flags.set(token, next);
-        i += 1;
-      } else {
-        flags.set(token, true);
-      }
-      continue;
-    }
-
-    if (!command) {
-      command = token;
-      continue;
-    }
-    positional.push(token);
-  }
-
-  return {
-    command,
-    flags,
-    positional,
-  };
-};
-
-export const parsePort = (value: FlagValue) => {
+export const parsePort = (value: unknown) => {
   if (typeof value !== "string") {
     return null;
   }
@@ -96,6 +58,19 @@ export const parsePort = (value: FlagValue) => {
     return null;
   }
   return parsed;
+};
+
+const readOptionalString = (value: unknown, flag: string): string | null => {
+  if (value == null) {
+    return null;
+  }
+  if (value === true) {
+    throw new Error(`${flag} requires a value.`);
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value;
 };
 
 const isIPv4 = (value: string) => {
@@ -112,20 +87,15 @@ const isIPv4 = (value: string) => {
   });
 };
 
-const parseBind = (value: FlagValue) => {
-  if (value == null) {
+const parseBind = (value: unknown) => {
+  const bind = readOptionalString(value, "--bind");
+  if (bind == null) {
     return null;
   }
-  if (value === true) {
-    throw new Error("--bind requires an IPv4 address.");
+  if (!isIPv4(bind)) {
+    throw new Error(`--bind must be a valid IPv4 address. (received: ${bind})`);
   }
-  if (typeof value !== "string") {
-    return null;
-  }
-  if (!isIPv4(value)) {
-    throw new Error(`--bind must be a valid IPv4 address. (received: ${value})`);
-  }
-  return value;
+  return bind;
 };
 
 const resolveTailscaleIP = (enabled: boolean, getTailscaleIP: () => string | null) => {
@@ -186,14 +156,14 @@ const resolveDisplayHost = ({
 };
 
 export const resolveHosts = ({
-  flags,
+  args,
   configBind,
   getLocalIP,
   getTailscaleIP,
 }: ResolveHostsOptions): ResolvedHosts => {
-  const bindFlag = parseBind(flags.get("--bind"));
-  const publicBind = flags.has("--public");
-  const tailscale = flags.has("--tailscale");
+  const bindFlag = parseBind(args.bind);
+  const publicBind = args.public === true;
+  const tailscale = args.tailscale === true;
 
   if (bindFlag && tailscale) {
     throw new Error("--bind and --tailscale cannot be used together.");
@@ -216,54 +186,23 @@ export const resolveHosts = ({
   return { bindHost, displayHost };
 };
 
-const resolveRequiredStringFlag = (
-  flags: Map<string, string | boolean>,
-  flag: string,
-): string | null => {
-  if (!flags.has(flag)) {
-    return null;
-  }
-  const value = flags.get(flag);
-  if (value === true || value == null) {
-    throw new Error(`${flag} requires a value.`);
-  }
-  if (typeof value !== "string") {
-    throw new Error(`${flag} requires a value.`);
-  }
-  return value;
-};
-
-export const resolveMultiplexerOverrides = (
-  flags: Map<string, string | boolean>,
-): MultiplexerOverrides => {
+export const resolveMultiplexerOverrides = (args: ParsedArgs): MultiplexerOverrides => {
   const overrides: MultiplexerOverrides = {};
 
-  const multiplexerBackend = resolveRequiredStringFlag(flags, "--multiplexer");
-  if (multiplexerBackend && !isMultiplexerBackend(multiplexerBackend)) {
-    throw new Error(
-      `--multiplexer must be one of: tmux, wezterm. (received: ${multiplexerBackend})`,
-    );
-  }
-  if (multiplexerBackend && isMultiplexerBackend(multiplexerBackend)) {
-    overrides.multiplexerBackend = multiplexerBackend;
+  if (args.multiplexer) {
+    overrides.multiplexerBackend = args.multiplexer;
   }
 
-  const screenImageBackend = resolveRequiredStringFlag(flags, "--backend");
-  if (screenImageBackend && !isImageBackend(screenImageBackend)) {
-    throw new Error(
-      `--backend must be one of: alacritty, terminal, iterm, wezterm, ghostty. (received: ${screenImageBackend})`,
-    );
-  }
-  if (screenImageBackend && isImageBackend(screenImageBackend)) {
-    overrides.screenImageBackend = screenImageBackend;
+  if (args.backend) {
+    overrides.screenImageBackend = args.backend;
   }
 
-  const weztermCliPath = resolveRequiredStringFlag(flags, "--wezterm-cli");
+  const weztermCliPath = readOptionalString(args.weztermCli, "--wezterm-cli");
   if (weztermCliPath) {
     overrides.weztermCliPath = weztermCliPath;
   }
 
-  const weztermTarget = resolveRequiredStringFlag(flags, "--wezterm-target");
+  const weztermTarget = readOptionalString(args.weztermTarget, "--wezterm-target");
   if (weztermTarget) {
     overrides.weztermTarget = weztermTarget;
   }

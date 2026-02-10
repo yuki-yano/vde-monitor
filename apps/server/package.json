@@ -17,7 +17,7 @@
     "@vde-monitor/shared": "workspace:*",
     "@vde-monitor/tmux": "workspace:*",
     "@vde-monitor/wezterm": "workspace:*",
-    "cac": "^6.7.14",
+    "citty": "^0.2.0",
     "execa": "^9.6.0",
     "hono": "^4.11.4",
     "ignore": "^7.0.5",
