@@ -238,7 +238,7 @@ describe("ScreenPanel", () => {
     });
   });
 
-  it("keeps hovered link highlight across rerender", async () => {
+  it("does not persist hovered highlight class across rerender", async () => {
     const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
     const actions = buildActions({ onResolveFileReferenceCandidates });
     const { container, rerender } = render(
@@ -265,7 +265,8 @@ describe("ScreenPanel", () => {
       const hoveredRef = container.querySelector<HTMLElement>(
         "[data-vde-file-ref='src/main.ts:1']",
       );
-      expect(hoveredRef?.className.includes("text-latte-lavender")).toBe(true);
+      const classList = new Set((hoveredRef?.className ?? "").split(/\s+/).filter(Boolean));
+      expect(classList.has("text-latte-lavender")).toBe(false);
     });
 
     rerender(
@@ -283,7 +284,8 @@ describe("ScreenPanel", () => {
         "[data-vde-file-ref='src/main.ts:1']",
       );
       expect(rerenderedRef).toBeTruthy();
-      expect(rerenderedRef?.className.includes("text-latte-lavender")).toBe(true);
+      const classList = new Set((rerenderedRef?.className ?? "").split(/\s+/).filter(Boolean));
+      expect(classList.has("text-latte-lavender")).toBe(false);
     });
   });
 
