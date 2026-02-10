@@ -70,6 +70,20 @@ export const formatBranchLabel = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : "No branch";
 };
 
+export const formatWorktreeFlag = (value: boolean | null | undefined) => {
+  if (value == null) return "?";
+  return value ? "Y" : "N";
+};
+
+const vwWorktreeSegmentPattern = /(^|[\\/])\.worktree([\\/]|$)/;
+
+export const isVwManagedWorktreePath = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+  return vwWorktreeSegmentPattern.test(value.trim());
+};
+
 export const formatRelativeTime = (value: string | null, nowMs: number) => {
   if (!value) return "-";
   const ts = Date.parse(value);

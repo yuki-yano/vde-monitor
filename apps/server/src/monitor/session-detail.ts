@@ -46,6 +46,13 @@ type BuildSessionDetailArgs = {
   customTitle: string | null;
   repoRoot: string | null;
   branch?: string | null;
+  worktreePath?: string | null;
+  worktreeDirty?: boolean | null;
+  worktreeLocked?: boolean | null;
+  worktreeLockOwner?: string | null;
+  worktreeLockReason?: string | null;
+  worktreeMerged?: boolean | null;
+  worktreePrCreated?: boolean | null;
 };
 
 export const buildSessionDetail = ({
@@ -62,6 +69,13 @@ export const buildSessionDetail = ({
   customTitle,
   repoRoot,
   branch,
+  worktreePath,
+  worktreeDirty,
+  worktreeLocked,
+  worktreeLockOwner,
+  worktreeLockReason,
+  worktreeMerged,
+  worktreePrCreated,
 }: BuildSessionDetailArgs): SessionDetail => ({
   paneId: pane.paneId,
   sessionName: pane.sessionName,
@@ -81,6 +95,13 @@ export const buildSessionDetail = ({
   ),
   customTitle,
   branch: branch ?? null,
+  worktreePath: worktreePath ?? null,
+  worktreeDirty: worktreeDirty ?? null,
+  worktreeLocked: worktreeLocked ?? null,
+  worktreeLockOwner: worktreeLockOwner ?? null,
+  worktreeLockReason: worktreeLockReason ?? null,
+  worktreeMerged: worktreeMerged ?? null,
+  worktreePrCreated: worktreePrCreated ?? null,
   repoRoot,
   agent,
   state,

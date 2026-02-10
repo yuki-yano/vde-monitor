@@ -41,9 +41,11 @@ import {
   formatBranchLabel,
   formatRelativeTime,
   formatStateLabel,
+  formatWorktreeFlag,
   getLastInputTone,
   isEditorCommand,
   isKnownAgent,
+  isVwManagedWorktreePath,
 } from "../sessionDetailUtils";
 import { buildTimelineDisplay } from "./state-timeline-display";
 
@@ -176,6 +178,7 @@ const SessionSidebarItem = memo(
     const sessionBorderClass = showEditorState
       ? sidebarEditorSessionBorderClass
       : sidebarSessionBorderClassByState[item.state];
+    const showWorktreeFlags = isVwManagedWorktreePath(item.worktreePath);
     const StatusIcon = statusMeta.icon;
 
     const handleRef = useCallback(
@@ -279,6 +282,34 @@ const SessionSidebarItem = memo(
                 <GitBranch className="h-2.5 w-2.5 shrink-0" />
                 <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
               </TagPill>
+              {showWorktreeFlags ? (
+                <>
+                  <TagPill
+                    tone="meta"
+                    className={worktreeFlagClass("dirty", item.worktreeDirty ?? null)}
+                  >
+                    D:{formatWorktreeFlag(item.worktreeDirty)}
+                  </TagPill>
+                  <TagPill
+                    tone="meta"
+                    className={worktreeFlagClass("locked", item.worktreeLocked ?? null)}
+                  >
+                    L:{formatWorktreeFlag(item.worktreeLocked)}
+                  </TagPill>
+                  <TagPill
+                    tone="meta"
+                    className={worktreeFlagClass("pr", item.worktreePrCreated ?? null)}
+                  >
+                    PR:{formatWorktreeFlag(item.worktreePrCreated)}
+                  </TagPill>
+                  <TagPill
+                    tone="meta"
+                    className={worktreeFlagClass("merged", item.worktreeMerged ?? null)}
+                  >
+                    M:{formatWorktreeFlag(item.worktreeMerged)}
+                  </TagPill>
+                </>
+              ) : null}
             </div>
           </div>
         </Link>
@@ -319,6 +350,24 @@ const SessionSidebarItem = memo(
 );
 
 SessionSidebarItem.displayName = "SessionSidebarItem";
+
+const worktreeFlagClass = (kind: "dirty" | "locked" | "pr" | "merged", value: boolean | null) => {
+  if (value !== true) {
+    return "font-mono";
+  }
+  switch (kind) {
+    case "dirty":
+      return "border-latte-red/45 bg-latte-red/10 text-latte-red font-mono";
+    case "locked":
+      return "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow font-mono";
+    case "pr":
+      return "border-latte-green/45 bg-latte-green/10 text-latte-green font-mono";
+    case "merged":
+      return "border-latte-blue/45 bg-latte-blue/10 text-latte-blue font-mono";
+    default:
+      return "font-mono";
+  }
+};
 
 type SessionPreviewPopoverProps = {
   frame: PreviewFrame;

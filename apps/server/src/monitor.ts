@@ -15,9 +15,14 @@ import { createMonitorLoop } from "./monitor/loop";
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { processPane } from "./monitor/pane-processor";
 import { createPaneStateStore } from "./monitor/pane-state";
+import { resolvePrCreatedCached } from "./monitor/pr-created";
 import { cleanupRegistry } from "./monitor/registry-cleanup";
 import { resolveRepoBranchCached } from "./monitor/repo-branch";
 import { resolveRepoRootCached } from "./monitor/repo-root";
+import {
+  resolveVwWorktreeSnapshotCached,
+  resolveWorktreeStatusFromSnapshot,
+} from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
 import { createSessionRegistry } from "./session-registry";
 import { restoreSessions, restoreTimeline, saveState } from "./state-store";
@@ -176,6 +181,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const updateFromPanes = async () => {
     pruneStaleViewedPanes();
     const panes = await inspector.listPanes();
+    const vwSnapshot = await resolveVwWorktreeSnapshotCached(process.cwd());
     const activePaneIds = new Set<string>();
 
     const paneResults = await mapWithConcurrencyLimit(
@@ -191,7 +197,10 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
           applyRestored,
           getCustomTitle: (paneId) => customTitles.get(paneId) ?? null,
           resolveRepoRoot: resolveRepoRootCached,
+          resolveWorktreeStatus: (currentPath) =>
+            resolveWorktreeStatusFromSnapshot(vwSnapshot, currentPath),
           resolveBranch: resolveRepoBranchCached,
+          resolvePrCreated: resolvePrCreatedCached,
           isPaneViewedRecently,
           resolvePanePipeTagValue,
           cachePanePipeTagValue,

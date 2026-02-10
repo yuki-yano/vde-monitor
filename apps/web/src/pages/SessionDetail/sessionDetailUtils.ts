@@ -15,9 +15,11 @@ export {
   formatPath,
   formatRelativeTime,
   formatStateLabel,
+  formatWorktreeFlag,
   getLastInputTone,
   isEditorCommand,
   isKnownAgent,
+  isVwManagedWorktreePath,
   stateTone,
 } from "@/lib/session-format";
 

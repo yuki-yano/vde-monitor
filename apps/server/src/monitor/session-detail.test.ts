@@ -36,10 +36,18 @@ describe("buildSessionDetail", () => {
       pipeConflict: false,
       customTitle: null,
       branch: "main",
+      worktreePath: "/Users/test/project",
+      worktreeDirty: false,
+      worktreeLocked: false,
+      worktreeLockOwner: null,
+      worktreeLockReason: null,
+      worktreeMerged: false,
+      worktreePrCreated: true,
       repoRoot: "/Users/test/project",
     });
     expect(detail.title).toBe("MyPane");
     expect(detail.branch).toBe("main");
+    expect(detail.worktreePrCreated).toBe(true);
   });
 
   it("falls back to default title when pane title is absent", () => {

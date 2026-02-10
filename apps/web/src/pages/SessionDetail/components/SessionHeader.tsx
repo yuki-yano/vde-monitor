@@ -18,9 +18,11 @@ import {
   formatPath,
   formatRelativeTime,
   formatStateLabel,
+  formatWorktreeFlag,
   getLastInputTone,
   isEditorCommand,
   isKnownAgent,
+  isVwManagedWorktreePath,
   stateTone,
 } from "../sessionDetailUtils";
 
@@ -175,6 +177,24 @@ const SessionAgentBadge = ({ agent }: SessionAgentBadgeProps) => {
   );
 };
 
+const worktreeFlagClass = (kind: "dirty" | "locked" | "pr" | "merged", value: boolean | null) => {
+  if (value !== true) {
+    return "font-mono";
+  }
+  switch (kind) {
+    case "dirty":
+      return "border-latte-red/45 bg-latte-red/10 text-latte-red font-mono";
+    case "locked":
+      return "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow font-mono";
+    case "pr":
+      return "border-latte-green/45 bg-latte-green/10 text-latte-green font-mono";
+    case "merged":
+      return "border-latte-blue/45 bg-latte-blue/10 text-latte-blue font-mono";
+    default:
+      return "font-mono";
+  }
+};
+
 const SessionTitleArea = ({
   canResetTitle,
   titleEditing,
@@ -254,6 +274,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   const showEditorState = session.state === "UNKNOWN" && isEditorCommand(session.currentCommand);
   const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
   const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
+  const showWorktreeFlags = isVwManagedWorktreePath(session.worktreePath);
   const backToListSearch = { filter: readStoredSessionListFilter() };
   const repoGitHubUrl = buildGitHubRepoUrl(session.repoRoot ?? session.currentPath);
 
@@ -304,6 +325,39 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
                 {formatBranchLabel(session.branch)}
               </span>
             </TagPill>
+            {showWorktreeFlags ? (
+              <>
+                <TagPill
+                  tone="meta"
+                  className={worktreeFlagClass("dirty", session.worktreeDirty ?? null)}
+                >
+                  Dirty:{formatWorktreeFlag(session.worktreeDirty)}
+                </TagPill>
+                <TagPill
+                  tone="meta"
+                  className={worktreeFlagClass("locked", session.worktreeLocked ?? null)}
+                  title={
+                    session.worktreeLockOwner || session.worktreeLockReason
+                      ? `owner:${session.worktreeLockOwner ?? "-"} reason:${session.worktreeLockReason ?? "-"}`
+                      : undefined
+                  }
+                >
+                  Lock:{formatWorktreeFlag(session.worktreeLocked)}
+                </TagPill>
+                <TagPill
+                  tone="meta"
+                  className={worktreeFlagClass("pr", session.worktreePrCreated ?? null)}
+                >
+                  PR:{formatWorktreeFlag(session.worktreePrCreated)}
+                </TagPill>
+                <TagPill
+                  tone="meta"
+                  className={worktreeFlagClass("merged", session.worktreeMerged ?? null)}
+                >
+                  Merged:{formatWorktreeFlag(session.worktreeMerged)}
+                </TagPill>
+              </>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <TagPill tone="meta">Session {session.sessionName}</TagPill>

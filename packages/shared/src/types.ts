@@ -83,6 +83,13 @@ export type SessionSummary = {
   title: string | null;
   customTitle: string | null;
   branch?: string | null;
+  worktreePath?: string | null;
+  worktreeDirty?: boolean | null;
+  worktreeLocked?: boolean | null;
+  worktreeLockOwner?: string | null;
+  worktreeLockReason?: string | null;
+  worktreeMerged?: boolean | null;
+  worktreePrCreated?: boolean | null;
   repoRoot: string | null;
   agent: "codex" | "claude" | "unknown";
   state: SessionStateValue;

@@ -72,6 +72,11 @@ describe("SessionSidebar", () => {
       title: "Codex Session",
       agent: "codex",
       branch: "feature/codex",
+      worktreePath: "/Users/test/repo/.worktree/feature/codex",
+      worktreeDirty: true,
+      worktreeLocked: false,
+      worktreePrCreated: true,
+      worktreeMerged: false,
       windowIndex: 1,
       sessionName: "alpha",
     });
@@ -80,6 +85,7 @@ describe("SessionSidebar", () => {
       title: "Claude Session",
       agent: "claude",
       branch: "feature/claude",
+      worktreePath: "/Users/test/repo",
       windowIndex: 2,
       sessionName: "alpha",
     });
@@ -111,6 +117,11 @@ describe("SessionSidebar", () => {
     expect(screen.getByText("Window 2")).toBeTruthy();
     expect(screen.getByText("feature/codex")).toBeTruthy();
     expect(screen.getByText("feature/claude")).toBeTruthy();
+    expect(screen.getByText("D:Y")).toBeTruthy();
+    expect(screen.getByText("L:N")).toBeTruthy();
+    expect(screen.getByText("PR:Y")).toBeTruthy();
+    expect(screen.getByText("M:N")).toBeTruthy();
+    expect(screen.queryByText("D:?")).toBeNull();
     expect(screen.getByText("2 windows")).toBeTruthy();
     expect(screen.getAllByText("1 / 2 panes")).toHaveLength(2);
   });

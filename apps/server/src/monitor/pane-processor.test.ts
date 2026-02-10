@@ -181,6 +181,19 @@ describe("processPane", () => {
 
   it("returns detail with restored state when available", async () => {
     const paneState = createPaneState({ lastMessage: "msg" });
+    const resolveRepoRoot = vi.fn(async () => "/tmp/project-fallback");
+    const resolveBranch = vi.fn(async () => "feature/fallback");
+    const resolvePrCreated = vi.fn(async () => true);
+    const resolveWorktreeStatus = vi.fn(() => ({
+      repoRoot: "/tmp/project",
+      worktreePath: "/tmp/project",
+      branch: "feature/worktree",
+      worktreeDirty: true,
+      worktreeLocked: true,
+      worktreeLockOwner: "codex",
+      worktreeLockReason: "in progress",
+      worktreeMerged: false,
+    }));
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
@@ -201,8 +214,10 @@ describe("processPane", () => {
         capturePaneFingerprint: vi.fn(async () => null),
         applyRestored: vi.fn(() => ({ state: "WAITING_INPUT" }) as SessionDetail),
         getCustomTitle: vi.fn(() => "Custom"),
-        resolveRepoRoot: vi.fn(async () => "/tmp/project"),
-        resolveBranch: vi.fn(async () => "feature/worktree"),
+        resolveRepoRoot,
+        resolveWorktreeStatus,
+        resolveBranch,
+        resolvePrCreated,
       },
       {
         resolvePaneAgent: vi.fn(async () => ({ agent: "codex" as const, ignore: false })),
@@ -216,6 +231,13 @@ describe("processPane", () => {
     expect(detail?.stateReason).toBe("restored");
     expect(detail?.customTitle).toBe("Custom");
     expect(detail?.branch).toBe("feature/worktree");
+    expect(detail?.worktreePath).toBe("/tmp/project");
+    expect(detail?.worktreeDirty).toBe(true);
+    expect(detail?.worktreeLocked).toBe(true);
+    expect(detail?.worktreePrCreated).toBe(true);
+    expect(resolveRepoRoot).not.toHaveBeenCalled();
+    expect(resolveBranch).not.toHaveBeenCalled();
+    expect(resolvePrCreated).toHaveBeenCalledWith("/tmp/project", "feature/worktree");
     expect(updatePaneOutputState).toHaveBeenCalledWith(
       expect.objectContaining({
         isAgentPane: true,

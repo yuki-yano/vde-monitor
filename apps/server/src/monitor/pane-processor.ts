@@ -12,6 +12,7 @@ import { updatePaneOutputState } from "./pane-output";
 import type { PaneRuntimeState } from "./pane-state";
 import { buildSessionDetail } from "./session-detail";
 import { estimateSessionState } from "./session-state";
+import type { ResolvedWorktreeStatus } from "./vw-worktree";
 
 type PaneStateStore = {
   get: (paneId: string) => PaneRuntimeState;
@@ -32,7 +33,11 @@ type ProcessPaneArgs = {
   applyRestored: (paneId: string) => SessionDetail | null;
   getCustomTitle: (paneId: string) => string | null;
   resolveRepoRoot: (currentPath: string | null) => Promise<string | null>;
+  resolveWorktreeStatus?: (
+    currentPath: string | null,
+  ) => ResolvedWorktreeStatus | Promise<ResolvedWorktreeStatus | null> | null;
   resolveBranch?: (currentPath: string | null) => Promise<string | null>;
+  resolvePrCreated?: (repoRoot: string | null, branch: string | null) => Promise<boolean | null>;
   isPaneViewedRecently?: (paneId: string) => boolean;
   resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
   cachePanePipeTagValue?: (paneId: string, pipeTagValue: string | null) => void;
@@ -151,7 +156,9 @@ export const processPane = async (
     applyRestored,
     getCustomTitle,
     resolveRepoRoot,
+    resolveWorktreeStatus,
     resolveBranch,
+    resolvePrCreated,
     isPaneViewedRecently,
     resolvePanePipeTagValue,
     cachePanePipeTagValue,
@@ -224,10 +231,14 @@ export const processPane = async (
   const finalState = resolveFinalPaneState(restoredSession, estimatedState);
 
   const customTitle = getCustomTitle(pane.paneId);
+  const worktreeStatus = resolveWorktreeStatus
+    ? await resolveWorktreeStatus(pane.currentPath)
+    : null;
   const [repoRoot, branch] = await Promise.all([
-    resolveRepoRoot(pane.currentPath),
-    resolveBranch?.(pane.currentPath) ?? Promise.resolve(null),
+    worktreeStatus?.repoRoot ?? resolveRepoRoot(pane.currentPath),
+    worktreeStatus?.branch ?? resolveBranch?.(pane.currentPath) ?? Promise.resolve(null),
   ]);
+  const worktreePrCreated = resolvePrCreated ? await resolvePrCreated(repoRoot, branch) : null;
   const inputAt = paneState.lastInputAt;
 
   return buildSessionDetail({
@@ -244,5 +255,12 @@ export const processPane = async (
     customTitle,
     repoRoot,
     branch,
+    worktreePath: worktreeStatus?.worktreePath ?? null,
+    worktreeDirty: worktreeStatus?.worktreeDirty ?? null,
+    worktreeLocked: worktreeStatus?.worktreeLocked ?? null,
+    worktreeLockOwner: worktreeStatus?.worktreeLockOwner ?? null,
+    worktreeLockReason: worktreeStatus?.worktreeLockReason ?? null,
+    worktreeMerged: worktreeStatus?.worktreeMerged ?? null,
+    worktreePrCreated,
   });
 };

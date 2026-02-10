@@ -85,6 +85,42 @@ describe("SessionHeader", () => {
     expect(screen.getByText("RUNNING")).toBeTruthy();
   });
 
+  it("hides worktree flags when path is outside vw worktree", () => {
+    const session = createSessionDetail({
+      worktreePath: "/Users/test/repo",
+      worktreeDirty: true,
+      worktreeLocked: true,
+      worktreePrCreated: true,
+      worktreeMerged: true,
+    });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.queryByText("Dirty:Y")).toBeNull();
+    expect(screen.queryByText("Lock:Y")).toBeNull();
+    expect(screen.queryByText("PR:Y")).toBeNull();
+    expect(screen.queryByText("Merged:Y")).toBeNull();
+  });
+
+  it("shows worktree flags when path is under vw worktree", () => {
+    const session = createSessionDetail({
+      worktreePath: "/Users/test/repo/.worktree/feature/awesome",
+      worktreeDirty: true,
+      worktreeLocked: false,
+      worktreePrCreated: true,
+      worktreeMerged: false,
+    });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    expect(screen.getByText("Dirty:Y")).toBeTruthy();
+    expect(screen.getByText("Lock:N")).toBeTruthy();
+    expect(screen.getByText("PR:Y")).toBeTruthy();
+    expect(screen.getByText("Merged:N")).toBeTruthy();
+  });
+
   it("handles title editing interactions", () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
     const onTitleDraftChange = vi.fn();

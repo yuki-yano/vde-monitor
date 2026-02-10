@@ -9,7 +9,13 @@ import {
   type SessionWindowGroup,
 } from "@/pages/SessionList/session-window-group";
 
-import { formatBranchLabel, formatRelativeTime, getLastInputTone } from "../sessionDetailUtils";
+import {
+  formatBranchLabel,
+  formatRelativeTime,
+  formatWorktreeFlag,
+  getLastInputTone,
+  isVwManagedWorktreePath,
+} from "../sessionDetailUtils";
 
 type QuickPanelState = {
   open: boolean;
@@ -113,6 +119,24 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
     };
   }, []);
 
+  const worktreeFlagClass = (kind: "dirty" | "locked" | "pr" | "merged", value: boolean | null) => {
+    if (value !== true) {
+      return "font-mono";
+    }
+    switch (kind) {
+      case "dirty":
+        return "border-latte-red/45 bg-latte-red/10 text-latte-red font-mono";
+      case "locked":
+        return "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow font-mono";
+      case "pr":
+        return "border-latte-green/45 bg-latte-green/10 text-latte-green font-mono";
+      case "merged":
+        return "border-latte-blue/45 bg-latte-blue/10 text-latte-blue font-mono";
+      default:
+        return "font-mono";
+    }
+  };
+
   return (
     <div className="fixed bottom-4 left-6 z-40 flex flex-col items-start gap-3">
       {open && (
@@ -194,6 +218,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                               const agentMeta = agentIconMeta(item.agent);
                               const StatusIcon = statusMeta.icon;
                               const AgentIcon = agentMeta.icon;
+                              const showWorktreeFlags = isVwManagedWorktreePath(item.worktreePath);
                               const isCurrent = currentPaneId === item.paneId;
                               return (
                                 <div key={item.paneId} className="relative pr-10">
@@ -236,6 +261,46 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                                           {formatBranchLabel(item.branch)}
                                         </span>
                                       </TagPill>
+                                      {showWorktreeFlags ? (
+                                        <>
+                                          <TagPill
+                                            tone="meta"
+                                            className={worktreeFlagClass(
+                                              "dirty",
+                                              item.worktreeDirty ?? null,
+                                            )}
+                                          >
+                                            D:{formatWorktreeFlag(item.worktreeDirty)}
+                                          </TagPill>
+                                          <TagPill
+                                            tone="meta"
+                                            className={worktreeFlagClass(
+                                              "locked",
+                                              item.worktreeLocked ?? null,
+                                            )}
+                                          >
+                                            L:{formatWorktreeFlag(item.worktreeLocked)}
+                                          </TagPill>
+                                          <TagPill
+                                            tone="meta"
+                                            className={worktreeFlagClass(
+                                              "pr",
+                                              item.worktreePrCreated ?? null,
+                                            )}
+                                          >
+                                            PR:{formatWorktreeFlag(item.worktreePrCreated)}
+                                          </TagPill>
+                                          <TagPill
+                                            tone="meta"
+                                            className={worktreeFlagClass(
+                                              "merged",
+                                              item.worktreeMerged ?? null,
+                                            )}
+                                          >
+                                            M:{formatWorktreeFlag(item.worktreeMerged)}
+                                          </TagPill>
+                                        </>
+                                      ) : null}
                                       <LastInputPill
                                         tone={lastInputTone}
                                         label={<Clock className="h-3 w-3" />}

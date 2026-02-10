@@ -111,6 +111,66 @@ describe("QuickPanel", () => {
     expect(screen.queryByText("CODEX")).toBeNull();
   });
 
+  it("hides worktree flags for non-vw paths", () => {
+    const session = createSessionDetail({
+      agent: "codex",
+      branch: "feature/non-worktree",
+      worktreePath: "/Users/test/repo",
+      worktreeDirty: true,
+      worktreeLocked: true,
+      worktreePrCreated: true,
+      worktreeMerged: true,
+    });
+    const state = buildState({
+      open: true,
+      sessionGroups: [
+        {
+          repoRoot: session.repoRoot,
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+      allSessions: [session],
+    });
+    const actions = buildActions();
+    render(<QuickPanel state={state} actions={actions} />);
+
+    expect(screen.queryByText("D:Y")).toBeNull();
+    expect(screen.queryByText("L:Y")).toBeNull();
+    expect(screen.queryByText("PR:Y")).toBeNull();
+    expect(screen.queryByText("M:Y")).toBeNull();
+  });
+
+  it("shows worktree flags for vw worktree paths", () => {
+    const session = createSessionDetail({
+      agent: "codex",
+      branch: "feature/worktree",
+      worktreePath: "/Users/test/repo/.worktree/feature/worktree",
+      worktreeDirty: true,
+      worktreeLocked: false,
+      worktreePrCreated: true,
+      worktreeMerged: false,
+    });
+    const state = buildState({
+      open: true,
+      sessionGroups: [
+        {
+          repoRoot: session.repoRoot,
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+      allSessions: [session],
+    });
+    const actions = buildActions();
+    render(<QuickPanel state={state} actions={actions} />);
+
+    expect(screen.getByText("D:Y")).toBeTruthy();
+    expect(screen.getByText("L:N")).toBeTruthy();
+    expect(screen.getByText("PR:Y")).toBeTruthy();
+    expect(screen.getByText("M:N")).toBeTruthy();
+  });
+
   it("keeps close button above row action buttons", () => {
     const session = createSessionDetail();
     const state = buildState({
