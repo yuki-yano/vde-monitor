@@ -69,6 +69,44 @@ describe("createRepoFileService", () => {
     }
   });
 
+  it("excludes gitignored files from search when include override is not set", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-search-ignore-"));
+    try {
+      await runGitCommand(repoRoot, ["init"]);
+      await mkdir(path.join(repoRoot, "build"), { recursive: true });
+      await writeFile(path.join(repoRoot, ".gitignore"), "build/\n");
+      await writeFile(path.join(repoRoot, "build", "output.txt"), "hidden\n");
+
+      const hiddenService = createRepoFileService({
+        fileNavigatorConfig: {
+          includeIgnoredPaths: [],
+          autoExpandMatchLimit: 100,
+        },
+      });
+      const hiddenSearch = await hiddenService.searchFiles({
+        repoRoot,
+        query: "output",
+        limit: 20,
+      });
+      expect(hiddenSearch.items.map((item) => item.path)).not.toContain("build/output.txt");
+
+      const visibleService = createRepoFileService({
+        fileNavigatorConfig: {
+          includeIgnoredPaths: ["build/**"],
+          autoExpandMatchLimit: 100,
+        },
+      });
+      const visibleSearch = await visibleService.searchFiles({
+        repoRoot,
+        query: "output",
+        limit: 20,
+      });
+      expect(visibleSearch.items.map((item) => item.path)).toContain("build/output.txt");
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("marks ignored files from .git/info/exclude and global ignore", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-ignore-meta-"));
     try {

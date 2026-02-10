@@ -1,5 +1,7 @@
+import path from "node:path";
+
 import { defaultConfig } from "@vde-monitor/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   randomBytes: vi.fn((size: number) => Buffer.alloc(size, 0xab)),
@@ -7,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
   chmodSync: vi.fn(),
+  statSync: vi.fn(),
   homedir: vi.fn(() => "/mock/home"),
 }));
 
@@ -29,11 +32,13 @@ vi.mock("node:fs", () => ({
     writeFileSync: mocks.writeFileSync,
     mkdirSync: mocks.mkdirSync,
     chmodSync: mocks.chmodSync,
+    statSync: mocks.statSync,
   },
   readFileSync: mocks.readFileSync,
   writeFileSync: mocks.writeFileSync,
   mkdirSync: mocks.mkdirSync,
   chmodSync: mocks.chmodSync,
+  statSync: mocks.statSync,
 }));
 
 vi.mock("node:os", () => ({
@@ -41,48 +46,194 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { ensureConfig, rotateToken } from "./config";
+import {
+  ensureConfig,
+  mergeConfigLayers,
+  resolveProjectConfigPath,
+  resolveProjectConfigSearchBoundary,
+  rotateToken,
+} from "./config";
 
-const configPath = "/mock/config/config.json";
-const tokenPath = "/mock/home/.vde-monitor/token.json";
+const configPath = path.resolve("/mock/config/config.json");
+const tokenPath = path.resolve("/mock/home/.vde-monitor/token.json");
 
 const fileContents = new Map<string, string>();
 const writtenContents = new Map<string, string>();
+const directoryPaths = new Set<string>();
+let cwdSpy: ReturnType<typeof vi.spyOn> | null = null;
+
+const createFsError = (code: string, targetPath: string) => {
+  const error = new Error(`${code}: ${targetPath}`) as NodeJS.ErrnoException;
+  error.code = code;
+  return error;
+};
+
+const setDirectory = (targetPath: string) => {
+  const resolved = path.resolve(targetPath);
+  let current = resolved;
+  while (true) {
+    directoryPaths.add(current);
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+};
+
+const setFile = (targetPath: string, content: string) => {
+  const resolved = path.resolve(targetPath);
+  fileContents.set(resolved, content);
+  setDirectory(path.dirname(resolved));
+};
 
 const setConfigFile = (config: unknown) => {
-  fileContents.set(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  setFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
 };
 
 const setTokenFile = (token: string) => {
-  fileContents.set(tokenPath, `${JSON.stringify({ token }, null, 2)}\n`);
+  setFile(tokenPath, `${JSON.stringify({ token }, null, 2)}\n`);
+};
+
+const setProjectConfigFile = (targetPath: string, config: unknown) => {
+  setFile(path.resolve(targetPath), `${JSON.stringify(config, null, 2)}\n`);
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   fileContents.clear();
   writtenContents.clear();
+  directoryPaths.clear();
+  setDirectory("/");
+
+  cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(path.resolve("/mock/cwd"));
 
   mocks.readFileSync.mockImplementation((targetPath: unknown) => {
     if (typeof targetPath !== "string") {
       throw new Error("unexpected path type");
     }
-    const raw = fileContents.get(targetPath);
-    if (raw == null) {
-      throw new Error(`ENOENT: ${targetPath}`);
+    const resolved = path.resolve(targetPath);
+    const raw = fileContents.get(resolved);
+    if (raw != null) {
+      return raw;
     }
-    return raw;
+    if (directoryPaths.has(resolved)) {
+      throw createFsError("EISDIR", resolved);
+    }
+    throw createFsError("ENOENT", resolved);
   });
 
   mocks.writeFileSync.mockImplementation((targetPath: unknown, data: unknown) => {
     if (typeof targetPath !== "string" || typeof data !== "string") {
       throw new Error("unexpected write args");
     }
-    writtenContents.set(targetPath, data);
-    fileContents.set(targetPath, data);
+    const resolved = path.resolve(targetPath);
+    writtenContents.set(resolved, data);
+    setFile(resolved, data);
   });
 
-  mocks.mkdirSync.mockImplementation(() => undefined);
+  mocks.mkdirSync.mockImplementation((targetPath: unknown) => {
+    if (typeof targetPath !== "string") {
+      throw new Error("unexpected mkdir args");
+    }
+    setDirectory(targetPath);
+    return undefined;
+  });
+
+  mocks.statSync.mockImplementation((targetPath: unknown) => {
+    if (typeof targetPath !== "string") {
+      throw new Error("unexpected stat args");
+    }
+    const resolved = path.resolve(targetPath);
+    if (fileContents.has(resolved)) {
+      return {
+        isFile: () => true,
+        isDirectory: () => false,
+      };
+    }
+    if (directoryPaths.has(resolved)) {
+      return {
+        isFile: () => false,
+        isDirectory: () => true,
+      };
+    }
+    throw createFsError("ENOENT", resolved);
+  });
+
   mocks.chmodSync.mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  cwdSpy?.mockRestore();
+  cwdSpy = null;
+});
+
+describe("resolveProjectConfigSearchBoundary", () => {
+  it("detects repository root when .git is a directory", () => {
+    setDirectory("/mock/repo/.git");
+    const boundary = resolveProjectConfigSearchBoundary({
+      cwd: "/mock/repo/apps/server/src",
+    });
+    expect(boundary).toBe(path.resolve("/mock/repo"));
+  });
+
+  it("detects repository root when .git is a file", () => {
+    setFile("/mock/worktree/.git", "gitdir: /tmp/worktrees/a\n");
+    const boundary = resolveProjectConfigSearchBoundary({
+      cwd: "/mock/worktree/packages/app",
+    });
+    expect(boundary).toBe(path.resolve("/mock/worktree"));
+  });
+
+  it("uses cwd as boundary when not inside a repository", () => {
+    const boundary = resolveProjectConfigSearchBoundary({
+      cwd: "/mock/no-repo/project/subdir",
+    });
+    expect(boundary).toBe(path.resolve("/mock/no-repo/project/subdir"));
+  });
+});
+
+describe("resolveProjectConfigPath", () => {
+  it("stops searching at repository root boundary", () => {
+    setProjectConfigFile("/mock/.vde/monitor/config.json", { port: 19000 });
+    const resolved = resolveProjectConfigPath({
+      cwd: "/mock/repo/apps/server",
+      boundaryDir: "/mock/repo",
+    });
+    expect(resolved).toBeNull();
+  });
+});
+
+describe("mergeConfigLayers", () => {
+  it("recursively merges objects and replaces arrays by higher-priority value", () => {
+    const merged = mergeConfigLayers({
+      base: defaultConfig,
+      globalConfig: {
+        ...defaultConfig,
+        allowedOrigins: ["https://global.example"],
+        rateLimit: {
+          ...defaultConfig.rateLimit,
+          send: {
+            ...defaultConfig.rateLimit.send,
+            windowMs: 2000,
+          },
+        },
+      },
+      projectOverride: {
+        allowedOrigins: ["https://project.example"],
+        rateLimit: {
+          send: {
+            max: 99,
+          },
+        },
+      },
+      fileOverrides: undefined,
+    });
+
+    expect(merged.allowedOrigins).toEqual(["https://project.example"]);
+    expect(merged.rateLimit.send.windowMs).toBe(2000);
+    expect(merged.rateLimit.send.max).toBe(99);
+  });
 });
 
 describe("ensureConfig", () => {
@@ -130,8 +281,109 @@ describe("ensureConfig", () => {
     expect(result.bind).toBe("0.0.0.0");
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
-    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => args[0]);
+    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
     expect(writtenPaths).toEqual([tokenPath]);
+  });
+
+  it("applies CLI > project > global > default precedence", () => {
+    setConfigFile({
+      ...defaultConfig,
+      port: 10080,
+      rateLimit: {
+        ...defaultConfig.rateLimit,
+        send: {
+          ...defaultConfig.rateLimit.send,
+          windowMs: 2500,
+          max: 15,
+        },
+      },
+      fileNavigator: {
+        ...defaultConfig.fileNavigator,
+        autoExpandMatchLimit: 60,
+      },
+    });
+    setTokenFile("existing-token");
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web/src"));
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", {
+      port: 12000,
+      rateLimit: {
+        send: {
+          max: 99,
+        },
+      },
+      fileNavigator: {
+        includeIgnoredPaths: ["tmp/ai/**"],
+        autoExpandMatchLimit: 150,
+      },
+    });
+
+    const result = ensureConfig({ port: 13000 });
+
+    expect(result.port).toBe(13000);
+    expect(result.rateLimit.send.windowMs).toBe(2500);
+    expect(result.rateLimit.send.max).toBe(99);
+    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["tmp/ai/**"]);
+    expect(result.fileNavigator.autoExpandMatchLimit).toBe(150);
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("does not load project config above repository root boundary", () => {
+    setConfigFile({
+      ...defaultConfig,
+      port: 10080,
+    });
+    setTokenFile("existing-token");
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web"));
+    setProjectConfigFile("/mock/.vde/monitor/config.json", {
+      port: 19000,
+    });
+
+    const result = ensureConfig();
+    expect(result.port).toBe(10080);
+  });
+
+  it("does not search parent directories when cwd is outside repository", () => {
+    setConfigFile({
+      ...defaultConfig,
+      port: 10080,
+    });
+    setTokenFile("existing-token");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/no-repo/work/subdir"));
+    setProjectConfigFile("/mock/no-repo/work/.vde/monitor/config.json", {
+      port: 19000,
+    });
+
+    const result = ensureConfig();
+    expect(result.port).toBe(10080);
+  });
+
+  it("throws when project config contains invalid JSON", () => {
+    setConfigFile(defaultConfig);
+    setTokenFile("existing-token");
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
+    setFile("/mock/repo/.vde/monitor/config.json", "{ invalid-json\n");
+
+    expect(() => ensureConfig()).toThrow(
+      `invalid project config JSON: ${path.resolve("/mock/repo/.vde/monitor/config.json")}`,
+    );
+  });
+
+  it("throws when project config contains invalid includeIgnoredPaths pattern", () => {
+    setConfigFile(defaultConfig);
+    setTokenFile("existing-token");
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
+    setProjectConfigFile("/mock/repo/.vde/monitor/config.json", {
+      fileNavigator: {
+        includeIgnoredPaths: ["!dist/**"],
+      },
+    });
+
+    expect(() => ensureConfig()).toThrow(/invalid project config: .*includeIgnoredPaths/);
   });
 
   it("throws when config contains invalid includeIgnoredPaths pattern", () => {
@@ -157,7 +409,7 @@ describe("rotateToken", () => {
     expect(result.token).not.toBe("old-token");
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.parse(writtenContents.get(tokenPath) ?? "{}")).toEqual({ token: result.token });
-    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => args[0]);
+    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
     expect(writtenPaths).toEqual([tokenPath]);
     expect(mocks.randomBytes).toHaveBeenCalled();
   });

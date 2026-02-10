@@ -171,6 +171,9 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.sessions.length).toBe(1);
     expect(data.clientConfig.screen.highlightCorrection).toEqual(config.screen.highlightCorrection);
+    expect(data.clientConfig.fileNavigator.autoExpandMatchLimit).toBe(
+      config.fileNavigator.autoExpandMatchLimit,
+    );
   });
 
   it("returns 404 when session is missing", async () => {

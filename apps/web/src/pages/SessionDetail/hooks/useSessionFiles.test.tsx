@@ -1314,4 +1314,49 @@ describe("useSessionFiles", () => {
     expect(linkable).toEqual(["src/exists.ts:2", "index.ts"]);
     expect(requestRepoFileContentLocal).not.toHaveBeenCalled();
   });
+
+  it("treats hidden path references as non-linkable when search does not return exact path", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "build/output.txt") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "build/output.txt",
+              name: "output.txt",
+              kind: "file",
+              score: 1,
+              highlights: [0],
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      return createSearchPage({
+        query,
+        items: [],
+        totalMatchedCount: 0,
+      });
+    });
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    const linkable = await result.current.onResolveLogFileReferenceCandidates({
+      rawTokens: ["build/output.txt:12", "build/hidden.txt:4"],
+      sourcePaneId: "pane-log",
+      sourceRepoRoot: "/repo",
+    });
+
+    expect(linkable).toEqual(["build/output.txt:12"]);
+  });
 });

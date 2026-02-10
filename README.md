@@ -147,16 +147,36 @@ vde-monitor-hook <HookEventName>
 
 ## Configuration
 
-Config file:
+Global config file:
 
 - `$XDG_CONFIG_HOME/vde/monitor/config.json`
 - fallback: `~/.config/vde/monitor/config.json`
+
+Project-local override config file:
+
+- `<repo-root>/.vde/monitor/config.json`
+
+Effective config priority:
+
+- `CLI args > project-local override > global config > defaults`
+
+Project config discovery:
+
+- Search starts from the current working directory
+- Search stops at the repository root (directory containing `.git`)
+- If current working directory is outside a repository, only the current directory is checked
+
+`fileNavigator.includeIgnoredPaths` policy:
+
+- Paths ignored by `.gitignore` (or Git ignore metadata) remain hidden by default
+- Ignored paths are visible only when they match `includeIgnoredPaths`
+- This applies to tree listing, search, file content, and log-file reference resolution
 
 Token file:
 
 - `~/.vde-monitor/token.json`
 
-Minimal example:
+Minimal global config example:
 
 ```json
 {
@@ -189,6 +209,17 @@ Minimal example:
     "socketName": null,
     "socketPath": null,
     "primaryClient": null
+  }
+}
+```
+
+Project-local override example (`<repo-root>/.vde/monitor/config.json`):
+
+```json
+{
+  "fileNavigator": {
+    "includeIgnoredPaths": ["tmp/ai/**"],
+    "autoExpandMatchLimit": 150
   }
 }
 ```
