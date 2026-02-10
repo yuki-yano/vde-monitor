@@ -53,7 +53,8 @@ type UseSidebarPreviewParams = {
 const PREVIEW_MIN_WIDTH = 640;
 const PREVIEW_MAX_WIDTH = 1200;
 const PREVIEW_MIN_HEIGHT = 420;
-const PREVIEW_MAX_HEIGHT = 760;
+const PREVIEW_HEIGHT_RATIO = 0.78;
+const PREVIEW_VERTICAL_GUTTER = 72;
 const PREVIEW_MARGIN = 16;
 const PREVIEW_HEADER_OFFSET = 176;
 const PREVIEW_LINE_HEIGHT = 16;
@@ -345,9 +346,13 @@ export const useSidebarPreview = ({
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const maxWidth = Math.min(PREVIEW_MAX_WIDTH, viewportWidth - 48);
-      const maxHeight = Math.min(PREVIEW_MAX_HEIGHT, viewportHeight - 120);
+      const maxHeight = Math.max(PREVIEW_MIN_HEIGHT, viewportHeight - PREVIEW_VERTICAL_GUTTER);
       const width = clamp(Math.round(viewportWidth * 0.56), PREVIEW_MIN_WIDTH, maxWidth);
-      const height = clamp(Math.round(viewportHeight * 0.68), PREVIEW_MIN_HEIGHT, maxHeight);
+      const height = clamp(
+        Math.round(viewportHeight * PREVIEW_HEIGHT_RATIO),
+        PREVIEW_MIN_HEIGHT,
+        maxHeight,
+      );
       const bodyHeight = Math.max(
         height - PREVIEW_HEADER_OFFSET,
         PREVIEW_MIN_HEIGHT - PREVIEW_HEADER_OFFSET,

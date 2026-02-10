@@ -108,9 +108,15 @@ describe("useSidebarPreview", () => {
     pipeConflict: false,
   });
 
-  const setup = () => {
-    Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
-    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+  const setup = (options?: { innerWidth?: number; innerHeight?: number }) => {
+    Object.defineProperty(window, "innerWidth", {
+      value: options?.innerWidth ?? 1200,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: options?.innerHeight ?? 800,
+      configurable: true,
+    });
     const session = createSession();
     const sessionIndex = new Map<string, SessionSummary>([[session.paneId, session]]);
     const resolvedTheme = "latte" as Theme;
@@ -252,5 +258,33 @@ describe("useSidebarPreview", () => {
     expect(result.current.preview?.lines).toEqual(["No log data"]);
     expect(result.current.preview?.timeline?.paneId).toBe("pane-2");
     expect(prefetchPreview).toHaveBeenCalledWith("pane-2");
+  });
+
+  it("expands preview height on large displays", async () => {
+    const { result } = setup({ innerHeight: 1400 });
+    const node = document.createElement("div");
+    node.getBoundingClientRect = () =>
+      ({
+        width: 200,
+        height: 40,
+        top: 100,
+        left: 20,
+        right: 220,
+        bottom: 140,
+        x: 20,
+        y: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    act(() => {
+      result.current.registerItemRef("pane-1", node);
+      result.current.handleFocus("pane-1");
+    });
+
+    await waitFor(() => {
+      expect(result.current.preview).not.toBeNull();
+    });
+
+    expect(result.current.preview?.frame.height).toBeGreaterThan(760);
   });
 });
