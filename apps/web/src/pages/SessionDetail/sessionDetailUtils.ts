@@ -21,6 +21,7 @@ export {
   isKnownAgent,
   isVwManagedWorktreePath,
   stateTone,
+  worktreeFlagClass,
 } from "@/lib/session-format";
 
 const compilePatterns = () =>

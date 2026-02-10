@@ -7,6 +7,7 @@ import { setMapEntryWithLimit } from "../cache";
 const vwSnapshotCacheTtlMs = 3000;
 const VW_SNAPSHOT_CACHE_MAX_ENTRIES = 50;
 const vwSnapshotCache = new Map<string, { snapshot: VwWorktreeSnapshot | null; at: number }>();
+const inflight = new Map<string, Promise<VwWorktreeSnapshot | null>>();
 
 type VwWorktreeEntry = {
   path: string;
@@ -67,7 +68,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
   if (payload.status !== "ok" || !Array.isArray(payload.worktrees)) {
     return null;
   }
-  const repoRoot = toNullableString(payload.repoRoot);
+  const repoRoot = normalizePath(toNullableString(payload.repoRoot));
   const entries = payload.worktrees
     .map((item): VwWorktreeEntry | null => {
       if (!item || typeof item !== "object") {
@@ -143,14 +144,22 @@ export const resolveVwWorktreeSnapshotCached = async (
   if (cached && nowMs - cached.at < vwSnapshotCacheTtlMs) {
     return cached.snapshot;
   }
-  const snapshot = await fetchSnapshot(normalizedCwd);
-  setMapEntryWithLimit(
-    vwSnapshotCache,
-    normalizedCwd,
-    { snapshot, at: nowMs },
-    VW_SNAPSHOT_CACHE_MAX_ENTRIES,
-  );
-  return snapshot;
+  const existing = inflight.get(normalizedCwd);
+  if (existing) {
+    return existing;
+  }
+  const request = fetchSnapshot(normalizedCwd).then((snapshot) => {
+    setMapEntryWithLimit(
+      vwSnapshotCache,
+      normalizedCwd,
+      { snapshot, at: Date.now() },
+      VW_SNAPSHOT_CACHE_MAX_ENTRIES,
+    );
+    inflight.delete(normalizedCwd);
+    return snapshot;
+  });
+  inflight.set(normalizedCwd, request);
+  return request;
 };
 
 export const resolveWorktreeStatusFromSnapshot = (

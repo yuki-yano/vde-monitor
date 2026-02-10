@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 const runGitMock = vi.fn();
 
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+};
+
+const createDeferred = <T>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve } as Deferred<T>;
+};
+
 vi.mock("../git-utils", () => ({
   runGit: runGitMock,
 }));
@@ -37,6 +50,36 @@ describe("resolveRepoBranchCached", () => {
         allowStdoutOnError: false,
       }),
     );
+  });
+
+  it("normalizes trailing backslashes in cache key", async () => {
+    const { resolveRepoBranchCached } = await loadModule();
+    runGitMock.mockResolvedValue("main\n");
+
+    const first = await resolveRepoBranchCached("C:\\repo\\");
+    const second = await resolveRepoBranchCached("C:\\repo");
+
+    expect(first).toBe("main");
+    expect(second).toBe("main");
+    expect(runGitMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent lookups with inflight cache", async () => {
+    const { resolveRepoBranchCached } = await loadModule();
+    const deferred = createDeferred<string>();
+    runGitMock.mockReturnValueOnce(deferred.promise);
+
+    const firstPromise = resolveRepoBranchCached("/repo");
+    const secondPromise = resolveRepoBranchCached("/repo/");
+    await Promise.resolve();
+
+    expect(runGitMock).toHaveBeenCalledTimes(1);
+
+    deferred.resolve("feature/inflight\n");
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    expect(first).toBe("feature/inflight");
+    expect(second).toBe("feature/inflight");
+    expect(runGitMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns null when git command fails", async () => {

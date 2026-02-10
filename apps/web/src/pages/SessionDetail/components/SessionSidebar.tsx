@@ -46,6 +46,7 @@ import {
   isEditorCommand,
   isKnownAgent,
   isVwManagedWorktreePath,
+  worktreeFlagClass,
 } from "../sessionDetailUtils";
 import { buildTimelineDisplay } from "./state-timeline-display";
 
@@ -350,24 +351,6 @@ const SessionSidebarItem = memo(
 );
 
 SessionSidebarItem.displayName = "SessionSidebarItem";
-
-const worktreeFlagClass = (kind: "dirty" | "locked" | "pr" | "merged", value: boolean | null) => {
-  if (value !== true) {
-    return "font-mono";
-  }
-  switch (kind) {
-    case "dirty":
-      return "border-latte-red/45 bg-latte-red/10 text-latte-red font-mono";
-    case "locked":
-      return "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow font-mono";
-    case "pr":
-      return "border-latte-green/45 bg-latte-green/10 text-latte-green font-mono";
-    case "merged":
-      return "border-latte-blue/45 bg-latte-blue/10 text-latte-blue font-mono";
-    default:
-      return "font-mono";
-  }
-};
 
 type SessionPreviewPopoverProps = {
   frame: PreviewFrame;

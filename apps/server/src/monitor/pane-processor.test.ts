@@ -181,12 +181,13 @@ describe("processPane", () => {
 
   it("returns detail with restored state when available", async () => {
     const paneState = createPaneState({ lastMessage: "msg" });
-    const resolveRepoRoot = vi.fn(async () => "/tmp/project-fallback");
+    const worktreePath = "/tmp/project/.worktree/feature/worktree";
+    const resolveRepoRoot = vi.fn(async () => worktreePath);
     const resolveBranch = vi.fn(async () => "feature/fallback");
     const resolvePrCreated = vi.fn(async () => true);
     const resolveWorktreeStatus = vi.fn(() => ({
       repoRoot: "/tmp/project",
-      worktreePath: "/tmp/project",
+      worktreePath,
       branch: "feature/worktree",
       worktreeDirty: true,
       worktreeLocked: true,
@@ -231,11 +232,11 @@ describe("processPane", () => {
     expect(detail?.stateReason).toBe("restored");
     expect(detail?.customTitle).toBe("Custom");
     expect(detail?.branch).toBe("feature/worktree");
-    expect(detail?.worktreePath).toBe("/tmp/project");
+    expect(detail?.worktreePath).toBe(worktreePath);
     expect(detail?.worktreeDirty).toBe(true);
     expect(detail?.worktreeLocked).toBe(true);
     expect(detail?.worktreePrCreated).toBe(true);
-    expect(resolveRepoRoot).not.toHaveBeenCalled();
+    expect(resolveRepoRoot).toHaveBeenCalledWith("/tmp/project");
     expect(resolveBranch).not.toHaveBeenCalled();
     expect(resolvePrCreated).toHaveBeenCalledWith("/tmp/project", "feature/worktree");
     expect(updatePaneOutputState).toHaveBeenCalledWith(
@@ -247,6 +248,98 @@ describe("processPane", () => {
         }),
       }),
     );
+  });
+
+  it("skips PR lookup for non-vw-managed worktree paths", async () => {
+    const resolveRepoRoot = vi.fn(async () => "/tmp/project");
+    const resolvePrCreated = vi.fn(async () => true);
+    const resolveWorktreeStatus = vi.fn(() => ({
+      repoRoot: "/tmp/project",
+      worktreePath: "/tmp/project",
+      branch: "main",
+      worktreeDirty: false,
+      worktreeLocked: false,
+      worktreeLockOwner: null,
+      worktreeLockReason: null,
+      worktreeMerged: false,
+    }));
+    const updatePaneOutputState = vi.fn(async () => ({
+      outputAt: "2024-01-01T00:00:00.000Z",
+      hookState: null,
+      inputTouchedAt: null,
+    }));
+
+    const detail = await processPane(
+      {
+        pane: basePane,
+        config: baseConfig,
+        paneStates: { get: () => createPaneState() },
+        paneLogManager: createPaneLogManager(),
+        capturePaneFingerprint: vi.fn(async () => null),
+        applyRestored: vi.fn(() => null),
+        getCustomTitle: vi.fn(() => null),
+        resolveRepoRoot,
+        resolveWorktreeStatus,
+        resolvePrCreated,
+      },
+      {
+        resolvePaneAgent: vi.fn(async () => ({ agent: "codex" as const, ignore: false })),
+        updatePaneOutputState,
+      },
+    );
+
+    expect(detail?.worktreePath).toBe("/tmp/project");
+    expect(detail?.worktreePrCreated).toBeNull();
+    expect(resolvePrCreated).not.toHaveBeenCalled();
+  });
+
+  it("ignores mismatched worktree snapshot and falls back to repo resolvers", async () => {
+    const resolveRepoRoot = vi.fn(async () => "/tmp/project/submodule");
+    const resolveBranch = vi.fn(async () => "feature/submodule");
+    const resolvePrCreated = vi.fn(async () => true);
+    const resolveWorktreeStatus = vi.fn(() => ({
+      repoRoot: "/tmp/project",
+      worktreePath: "/tmp/project",
+      branch: "main",
+      worktreeDirty: true,
+      worktreeLocked: true,
+      worktreeLockOwner: "codex",
+      worktreeLockReason: "mismatch",
+      worktreeMerged: false,
+    }));
+    const updatePaneOutputState = vi.fn(async () => ({
+      outputAt: "2024-01-01T00:00:00.000Z",
+      hookState: null,
+      inputTouchedAt: null,
+    }));
+
+    const detail = await processPane(
+      {
+        pane: { ...basePane, currentPath: "/tmp/project/submodule" },
+        config: baseConfig,
+        paneStates: { get: () => createPaneState() },
+        paneLogManager: createPaneLogManager(),
+        capturePaneFingerprint: vi.fn(async () => null),
+        applyRestored: vi.fn(() => null),
+        getCustomTitle: vi.fn(() => null),
+        resolveRepoRoot,
+        resolveWorktreeStatus,
+        resolveBranch,
+        resolvePrCreated,
+      },
+      {
+        resolvePaneAgent: vi.fn(async () => ({ agent: "codex" as const, ignore: false })),
+        updatePaneOutputState,
+      },
+    );
+
+    expect(detail?.repoRoot).toBe("/tmp/project/submodule");
+    expect(detail?.branch).toBe("feature/submodule");
+    expect(detail?.worktreePath).toBeNull();
+    expect(detail?.worktreeDirty).toBeNull();
+    expect(detail?.worktreePrCreated).toBeNull();
+    expect(resolveBranch).toHaveBeenCalledWith("/tmp/project/submodule");
+    expect(resolvePrCreated).not.toHaveBeenCalled();
   });
 
   it("caches pipe tag as attached when auto attach succeeds", async () => {

@@ -49,6 +49,29 @@ type EstimatedPaneState = {
 };
 
 const FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
+const vwWorktreeSegmentPattern = /(^|[\\/])\.worktree([\\/]|$)/;
+
+const normalizePathForCompare = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value.replace(/[\\/]+$/, "");
+  return normalized.length > 0 ? normalized : null;
+};
+
+const isSamePath = (left: string | null | undefined, right: string | null | undefined) => {
+  const normalizedLeft = normalizePathForCompare(left);
+  const normalizedRight = normalizePathForCompare(right);
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+  return normalizedLeft === normalizedRight;
+};
+
+const isVwManagedWorktreePath = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+  return vwWorktreeSegmentPattern.test(value.trim());
+};
 
 const resolvePaneKind = (agent: SessionDetail["agent"], pane: PaneMeta) => {
   const isShellCommandPane =
@@ -231,14 +254,20 @@ export const processPane = async (
   const finalState = resolveFinalPaneState(restoredSession, estimatedState);
 
   const customTitle = getCustomTitle(pane.paneId);
-  const worktreeStatus = resolveWorktreeStatus
-    ? await resolveWorktreeStatus(pane.currentPath)
-    : null;
-  const [repoRoot, branch] = await Promise.all([
-    worktreeStatus?.repoRoot ?? resolveRepoRoot(pane.currentPath),
-    worktreeStatus?.branch ?? resolveBranch?.(pane.currentPath) ?? Promise.resolve(null),
+  const [candidateWorktreeStatus, resolvedRepoRoot] = await Promise.all([
+    resolveWorktreeStatus ? resolveWorktreeStatus(pane.currentPath) : Promise.resolve(null),
+    resolveRepoRoot(pane.currentPath),
   ]);
-  const worktreePrCreated = resolvePrCreated ? await resolvePrCreated(repoRoot, branch) : null;
+  const worktreeStatus =
+    candidateWorktreeStatus &&
+    (resolvedRepoRoot == null || isSamePath(candidateWorktreeStatus.worktreePath, resolvedRepoRoot))
+      ? candidateWorktreeStatus
+      : null;
+  const repoRoot = worktreeStatus?.repoRoot ?? resolvedRepoRoot;
+  const branch = worktreeStatus?.branch ?? (await resolveBranch?.(pane.currentPath)) ?? null;
+  const shouldResolvePrCreated = isVwManagedWorktreePath(worktreeStatus?.worktreePath);
+  const worktreePrCreated =
+    resolvePrCreated && shouldResolvePrCreated ? await resolvePrCreated(repoRoot, branch) : null;
   const inputAt = paneState.lastInputAt;
 
   return buildSessionDetail({
