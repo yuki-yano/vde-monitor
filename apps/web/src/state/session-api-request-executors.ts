@@ -114,8 +114,9 @@ export const mutateSession = async ({
 
 type RequestCommandParams = {
   paneId: string;
-  request: Promise<Response>;
+  request: (signal?: AbortSignal) => Promise<Response>;
   fallbackMessage: string;
+  requestTimeoutMs?: number;
   ensureToken: EnsureToken;
   onConnectionIssue: OnConnectionIssue;
   handleSessionMissing: HandleSessionMissing;
@@ -128,6 +129,7 @@ export const requestCommand = async ({
   paneId,
   request,
   fallbackMessage,
+  requestTimeoutMs,
   ensureToken,
   onConnectionIssue,
   handleSessionMissing,
@@ -137,7 +139,10 @@ export const requestCommand = async ({
 }: RequestCommandParams): Promise<CommandResponse> => {
   ensureToken();
   try {
-    const { res, data } = await requestJson<ApiEnvelope<{ command?: CommandResponse }>>(request);
+    const { res, data } = await requestJson<ApiEnvelope<{ command?: CommandResponse }>>(request, {
+      timeoutMs: requestTimeoutMs,
+      timeoutMessage: API_ERROR_MESSAGES.requestTimeout,
+    });
     if (!res.ok) {
       const message = extractErrorMessage(res, data, fallbackMessage, { includeStatus: true });
       onConnectionIssue(message);

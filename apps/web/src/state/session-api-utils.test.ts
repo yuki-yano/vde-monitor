@@ -130,6 +130,11 @@ describe("session-api-utils", () => {
     expect(buildPaneParam("pane-1")).toEqual({ paneId: "pane-1" });
     expect(buildPaneHashParam("pane-1", "hash")).toEqual({ paneId: "pane-1", hash: "hash" });
     expect(buildSendTextJson("echo test", true)).toEqual({ text: "echo test", enter: true });
+    expect(buildSendTextJson("echo test", true, "req-1")).toEqual({
+      text: "echo test",
+      enter: true,
+      requestId: "req-1",
+    });
     expect(buildSendKeysJson(["Enter"])).toEqual({ keys: ["Enter"] });
     expect(buildSendRawJson([{ kind: "text", value: "abc" }], false)).toEqual({
       items: [{ kind: "text", value: "abc" }],

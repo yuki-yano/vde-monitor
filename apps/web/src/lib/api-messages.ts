@@ -1,6 +1,7 @@
 export const API_ERROR_MESSAGES = {
   unauthorized: "Unauthorized. Please refresh with a valid token.",
   requestFailed: "Request failed",
+  requestTimeout: "Request timed out. Please retry.",
   invalidResponse: "Invalid response",
   missingToken: "Missing token",
   previewLoad: "Failed to load preview",

@@ -6,6 +6,13 @@ type ErrorMessageOptions = {
   includeStatus?: boolean;
 };
 
+type JsonRequest = Promise<Response> | ((signal?: AbortSignal) => Promise<Response>);
+
+type RequestJsonOptions = {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+};
+
 export const readJsonSafe = async <T>(res: Response): Promise<T | null> => {
   try {
     return (await res.json()) as T;
@@ -14,8 +21,51 @@ export const readJsonSafe = async <T>(res: Response): Promise<T | null> => {
   }
 };
 
-export const requestJson = async <T>(request: Promise<Response>) => {
-  const res = await request;
+const executeRequest = (request: JsonRequest, signal?: AbortSignal) =>
+  typeof request === "function" ? request(signal) : request;
+
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException
+    ? error.name === "AbortError"
+    : typeof error === "object" &&
+      error != null &&
+      "name" in error &&
+      (error as { name?: string }).name === "AbortError";
+
+export const requestJson = async <T>(request: JsonRequest, options?: RequestJsonOptions) => {
+  const timeoutMs = options?.timeoutMs ?? 0;
+  let res: Response;
+
+  if (timeoutMs > 0 && typeof AbortController !== "undefined") {
+    const controller = new AbortController();
+    const timeoutMessage = options?.timeoutMessage ?? API_ERROR_MESSAGES.requestTimeout;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const requestPromise = executeRequest(request, controller.signal);
+    const timeoutPromise = new Promise<Response>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+    });
+    void requestPromise.catch(() => undefined);
+    void timeoutPromise.catch(() => undefined);
+
+    try {
+      res = await Promise.race([requestPromise, timeoutPromise]);
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new Error(timeoutMessage);
+      }
+      throw error;
+    } finally {
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+      }
+    }
+  } else {
+    res = await executeRequest(request);
+  }
+
   const data = await readJsonSafe<T>(res);
   return { res, data };
 };

@@ -1,10 +1,14 @@
 import type { ApiEnvelope } from "@vde-monitor/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { API_ERROR_MESSAGES } from "./api-messages";
-import { expectField, extractErrorMessage } from "./api-utils";
+import { expectField, extractErrorMessage, requestJson } from "./api-utils";
 
 describe("api-utils", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns unauthorized message for 401", () => {
     const res = { status: 401, ok: false } as Response;
     const message = extractErrorMessage(res, null, "fallback");
@@ -51,5 +55,42 @@ describe("api-utils", () => {
     expect(expectField(res, data, "value", "fallback")).toBe(42);
     const missing = { value: null } as ApiEnvelope<{ value: number | null }>;
     expect(() => expectField(res, missing, "value", "fallback")).toThrow("fallback");
+  });
+
+  it("supports timeout with AbortController and returns timeout message", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn((signal?: AbortSignal) => {
+      return new Promise<Response>((_, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          },
+          { once: true },
+        );
+      });
+    });
+
+    const promise = requestJson(request, {
+      timeoutMs: 1000,
+      timeoutMessage: "custom timeout",
+    });
+    const assertion = expect(promise).rejects.toThrow("custom timeout");
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await assertion;
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("times out even when request does not observe signal", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(async () => new Promise<Response>(() => {}));
+
+    const promise = requestJson(request, { timeoutMs: 1000 });
+    const assertion = expect(promise).rejects.toThrow(API_ERROR_MESSAGES.requestTimeout);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await assertion;
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

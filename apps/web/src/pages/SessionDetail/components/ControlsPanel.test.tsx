@@ -10,6 +10,7 @@ describe("ControlsPanel", () => {
 
   const buildState = (overrides: Partial<ControlsPanelState> = {}): ControlsPanelState => ({
     interactive: true,
+    isSendingText: false,
     textInputRef: { current: null },
     autoEnter: true,
     controlsOpen: false,
@@ -76,6 +77,19 @@ describe("ControlsPanel", () => {
     fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
 
     expect(onSendText).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not send prompt shortcut while sending", () => {
+    const onSendText = vi.fn();
+    const state = buildState({ isSendingText: true });
+    const actions = buildActions({ onSendText });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…");
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+
+    expect(onSendText).not.toHaveBeenCalled();
+    expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("sends keys when controls are open", () => {

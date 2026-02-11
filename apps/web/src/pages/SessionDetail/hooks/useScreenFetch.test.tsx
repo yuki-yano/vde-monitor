@@ -156,11 +156,12 @@ describe("useScreenFetch", () => {
     vi.useFakeTimers();
     Object.defineProperty(document, "hidden", { value: true, configurable: true });
 
-    const { requestScreen } = setup();
+    const { result, requestScreen } = setup();
 
     await act(async () => {});
 
     expect(requestScreen).toHaveBeenCalledTimes(1);
+    expect(result.current.pollingPauseReason).toBe("hidden");
 
     act(() => {
       vi.advanceTimersByTime(2000);
@@ -176,6 +177,7 @@ describe("useScreenFetch", () => {
     });
 
     expect(requestScreen).toHaveBeenCalledTimes(2);
+    expect(result.current.pollingPauseReason).toBeNull();
   });
 
   it("resets loading and sets disconnected error when disconnected without issue", async () => {
@@ -190,6 +192,7 @@ describe("useScreenFetch", () => {
     });
 
     expect(requestScreen).not.toHaveBeenCalled();
+    expect(result.current.pollingPauseReason).toBe("disconnected");
   });
 
   it("defers text render while user is scrolling away from bottom", async () => {

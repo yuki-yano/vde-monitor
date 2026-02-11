@@ -87,10 +87,20 @@ export const buildScreenRequestJson = (
   return json;
 };
 
-export const buildSendTextJson = (text: string, enter: boolean): SendTextJson => ({
-  text,
-  enter,
-});
+export const buildSendTextJson = (
+  text: string,
+  enter: boolean,
+  requestId?: string,
+): SendTextJson => {
+  const json: SendTextJson = {
+    text,
+    enter,
+  };
+  if (requestId) {
+    json.requestId = requestId;
+  }
+  return json;
+};
 
 export const buildSendKeysJson = (keys: SendKeysJson["keys"]): SendKeysJson => ({
   keys,

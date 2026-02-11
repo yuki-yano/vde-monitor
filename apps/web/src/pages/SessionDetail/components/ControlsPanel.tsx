@@ -26,6 +26,7 @@ import { cn } from "@/lib/cn";
 
 type ControlsPanelState = {
   interactive: boolean;
+  isSendingText: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
   autoEnter: boolean;
   controlsOpen: boolean;
@@ -147,16 +148,21 @@ const handlePromptInput = ({
 const handlePromptKeyDown = ({
   event,
   rawMode,
+  sendDisabled,
   onRawKeyDown,
   onSend,
 }: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   rawMode: boolean;
+  sendDisabled: boolean;
   onRawKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
 }) => {
   if (rawMode) {
     onRawKeyDown(event);
+    return;
+  }
+  if (sendDisabled) {
     return;
   }
   if (!isSendShortcut(event)) {
@@ -210,6 +216,7 @@ type ComposerActionsRowState = {
   rawMode: boolean;
   autoEnter: boolean;
   allowDangerKeys: boolean;
+  isSendingText: boolean;
   rawModeToggleClass: string | undefined;
   dangerToggleClass: string;
 };
@@ -234,6 +241,7 @@ const ComposerActionsRow = ({
     rawMode,
     autoEnter,
     allowDangerKeys,
+    isSendingText,
     rawModeToggleClass,
     dangerToggleClass,
   } = state;
@@ -296,10 +304,10 @@ const ComposerActionsRow = ({
           onClick={onSendText}
           aria-label="Send"
           className="h-8 gap-1 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-          disabled={rawMode || !interactive}
+          disabled={rawMode || !interactive || isSendingText}
         >
           <Send className="h-4 w-4" />
-          <span>Send</span>
+          <span>{isSendingText ? "Sending..." : "Send"}</span>
         </Button>
       </div>
     </div>
@@ -435,6 +443,7 @@ const KeysSection = ({
 export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
   const {
     interactive,
+    isSendingText,
     textInputRef,
     autoEnter,
     controlsOpen,
@@ -490,7 +499,13 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
   };
 
   const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) =>
-    handlePromptKeyDown({ event, rawMode, onRawKeyDown, onSend: handleSendText });
+    handlePromptKeyDown({
+      event,
+      rawMode,
+      sendDisabled: !interactive || isSendingText,
+      onRawKeyDown,
+      onSend: handleSendText,
+    });
 
   const handleTextareaPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     if (rawMode) {
@@ -569,6 +584,7 @@ export const ControlsPanel = ({ state, actions }: ControlsPanelProps) => {
               rawMode,
               autoEnter,
               allowDangerKeys,
+              isSendingText,
               rawModeToggleClass,
               dangerToggleClass,
             }}

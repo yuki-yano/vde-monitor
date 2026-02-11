@@ -180,7 +180,7 @@ describe("session-api-request-executors", () => {
 
     const response = await requestCommand({
       paneId: "pane-1",
-      request: Promise.resolve(new Response()),
+      request: vi.fn(async () => new Response()),
       fallbackMessage: "failed",
       ensureToken,
       onConnectionIssue,
@@ -209,7 +209,7 @@ describe("session-api-request-executors", () => {
 
     const response = await requestCommand({
       paneId: "pane-1",
-      request: Promise.resolve(new Response()),
+      request: vi.fn(async () => new Response()),
       fallbackMessage: "failed",
       ensureToken,
       onConnectionIssue,
@@ -238,7 +238,7 @@ describe("session-api-request-executors", () => {
 
     const response = await requestCommand({
       paneId: "pane-1",
-      request: Promise.resolve(new Response()),
+      request: vi.fn(async () => new Response()),
       fallbackMessage: "failed",
       ensureToken,
       onConnectionIssue,

@@ -30,6 +30,7 @@ describe("ScreenPanel", () => {
     connectionIssue: null,
     fallbackReason: null,
     error: null,
+    pollingPauseReason: null,
     contextLeftLabel: null,
     isScreenLoading: false,
     imageBase64: null,
@@ -90,6 +91,26 @@ describe("ScreenPanel", () => {
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.getByText("73% context left")).toBeTruthy();
+  });
+
+  it("shows polling pause indicator near context-left label", () => {
+    const state = buildState({
+      pollingPauseReason: "offline",
+      contextLeftLabel: "73% context left",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByText("PAUSED (offline)")).toBeTruthy();
+    expect(screen.getByText("73% context left")).toBeTruthy();
+  });
+
+  it("shows reconnecting indicator when disconnected", () => {
+    const state = buildState({ pollingPauseReason: "disconnected" });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByText("RECONNECTING...")).toBeTruthy();
   });
 
   it("renders image mode content", () => {

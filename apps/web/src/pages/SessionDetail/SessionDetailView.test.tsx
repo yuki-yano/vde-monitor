@@ -100,6 +100,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       imageBase64: null,
       fallbackReason: null,
       error: null,
+      pollingPauseReason: null,
       contextLeftLabel: null,
       isScreenLoading: false,
       isAtBottom: true,
@@ -114,6 +115,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     },
     controls: {
       interactive: true,
+      isSendingText: false,
       textInputRef: { current: null } as MutableRefObject<HTMLTextAreaElement | null>,
       autoEnter: false,
       shiftHeld: false,

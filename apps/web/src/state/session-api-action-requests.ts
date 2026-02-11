@@ -22,7 +22,7 @@ import {
 type RunPaneCommand = (
   paneId: string,
   fallbackMessage: string,
-  request: (param: PaneParam) => Promise<Response>,
+  request: (param: PaneParam, signal?: AbortSignal) => Promise<Response>,
 ) => Promise<CommandResponse>;
 
 type RunPaneMutation = (
@@ -48,18 +48,26 @@ export const createSessionActionRequests = ({
   onConnectionIssue,
   handleSessionMissing,
 }: CreateSessionActionRequestsParams) => {
-  const sendText = async (paneId: string, text: string, enter = true): Promise<CommandResponse> => {
-    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendText, (param) =>
-      apiClient.sessions[":paneId"].send.text.$post({
-        param,
-        json: buildSendTextJson(text, enter),
-      }),
+  const sendText = async (
+    paneId: string,
+    text: string,
+    enter = true,
+    requestId?: string,
+  ): Promise<CommandResponse> => {
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendText, (param, signal) =>
+      apiClient.sessions[":paneId"].send.text.$post(
+        {
+          param,
+          json: buildSendTextJson(text, enter, requestId),
+        },
+        { init: { signal } },
+      ),
     );
   };
 
   const focusPane = async (paneId: string): Promise<CommandResponse> => {
-    return runPaneCommand(paneId, API_ERROR_MESSAGES.focusPane, (param) =>
-      apiClient.sessions[":paneId"].focus.$post({ param }),
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.focusPane, (param, signal) =>
+      apiClient.sessions[":paneId"].focus.$post({ param }, { init: { signal } }),
     );
   };
 
@@ -77,11 +85,14 @@ export const createSessionActionRequests = ({
   };
 
   const sendKeys = async (paneId: string, keys: AllowedKey[]): Promise<CommandResponse> => {
-    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendKeys, (param) =>
-      apiClient.sessions[":paneId"].send.keys.$post({
-        param,
-        json: buildSendKeysJson(keys),
-      }),
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendKeys, (param, signal) =>
+      apiClient.sessions[":paneId"].send.keys.$post(
+        {
+          param,
+          json: buildSendKeysJson(keys),
+        },
+        { init: { signal } },
+      ),
     );
   };
 
@@ -90,11 +101,14 @@ export const createSessionActionRequests = ({
     items: RawItem[],
     unsafe = false,
   ): Promise<CommandResponse> => {
-    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendRaw, (param) =>
-      apiClient.sessions[":paneId"].send.raw.$post({
-        param,
-        json: buildSendRawJson(items, unsafe),
-      }),
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.sendRaw, (param, signal) =>
+      apiClient.sessions[":paneId"].send.raw.$post(
+        {
+          param,
+          json: buildSendRawJson(items, unsafe),
+        },
+        { init: { signal } },
+      ),
     );
   };
 

@@ -70,7 +70,12 @@ export type SessionApi = {
   ) => Promise<ScreenResponse>;
   focusPane: (paneId: string) => Promise<CommandResponse>;
   uploadImageAttachment: (paneId: string, file: File) => Promise<ImageAttachment>;
-  sendText: (paneId: string, text: string, enter?: boolean) => Promise<CommandResponse>;
+  sendText: (
+    paneId: string,
+    text: string,
+    enter?: boolean,
+    requestId?: string,
+  ) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;

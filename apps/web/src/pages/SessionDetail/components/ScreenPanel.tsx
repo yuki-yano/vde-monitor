@@ -41,6 +41,7 @@ type ScreenPanelState = {
   connectionIssue: string | null;
   fallbackReason: string | null;
   error: string | null;
+  pollingPauseReason: "disconnected" | "unauthorized" | "offline" | "hidden" | null;
   contextLeftLabel: string | null;
   isScreenLoading: boolean;
   imageBase64: string | null;
@@ -73,6 +74,28 @@ type ScreenPanelProps = {
 const shouldShowErrorMessage = (error: string | null, connectionIssue: string | null) =>
   Boolean(error) &&
   (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
+
+const pollingPauseLabelMap: Record<
+  NonNullable<ScreenPanelState["pollingPauseReason"]>,
+  { label: string; className: string }
+> = {
+  disconnected: {
+    label: "RECONNECTING...",
+    className: "border-latte-red/50 bg-latte-red/12 text-latte-red animate-pulse",
+  },
+  unauthorized: {
+    label: "PAUSED (auth required)",
+    className: "border-latte-red/45 bg-latte-red/10 text-latte-red",
+  },
+  offline: {
+    label: "PAUSED (offline)",
+    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow",
+  },
+  hidden: {
+    label: "PAUSED (tab hidden)",
+    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow",
+  },
+};
 
 const VISIBLE_REFERENCE_LINE_PADDING = 20;
 const FALLBACK_VISIBLE_REFERENCE_WINDOW = 120;
@@ -244,6 +267,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     connectionIssue,
     fallbackReason,
     error,
+    pollingPauseReason,
     contextLeftLabel,
     isScreenLoading,
     imageBase64,
@@ -266,6 +290,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     onResolveFileReferenceCandidates,
   } = actions;
   const showError = shouldShowErrorMessage(error, connectionIssue);
+  const pollingPauseMeta = pollingPauseReason ? pollingPauseLabelMap[pollingPauseReason] : null;
   const [linkableTokens, setLinkableTokens] = useState<Set<string>>(new Set());
   const [visibleRange, setVisibleRange] = useState<{ startIndex: number; endIndex: number } | null>(
     null,
@@ -490,11 +515,22 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
         />
       </div>
-      {contextLeftLabel ? (
-        <div className="-mt-1 flex justify-end">
-          <span className="text-latte-subtext0 px-1 text-[12px] font-medium tracking-[0.14em]">
-            {contextLeftLabel}
-          </span>
+      {pollingPauseMeta || contextLeftLabel ? (
+        <div className="-mt-1 flex items-center justify-between gap-2">
+          {pollingPauseMeta ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${pollingPauseMeta.className}`}
+            >
+              {pollingPauseMeta.label}
+            </span>
+          ) : (
+            <span />
+          )}
+          {contextLeftLabel ? (
+            <span className="text-latte-subtext0 px-1 text-[12px] font-medium tracking-[0.14em]">
+              {contextLeftLabel}
+            </span>
+          ) : null}
         </div>
       ) : null}
       <div>{controls}</div>

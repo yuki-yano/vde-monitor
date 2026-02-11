@@ -103,7 +103,7 @@ export const useSessionScreen = ({
     onClearPending: clearPendingScreen,
   });
 
-  const { refreshScreen, error, setError, fallbackReason } = useScreenFetch({
+  const { refreshScreen, error, setError, fallbackReason, pollingPauseReason } = useScreenFetch({
     paneId,
     connected,
     connectionIssue,
@@ -161,6 +161,7 @@ export const useSessionScreen = ({
     imageBase64,
     fallbackReason,
     error,
+    pollingPauseReason,
     setScreenError: setError,
     isScreenLoading,
     isAtBottom,

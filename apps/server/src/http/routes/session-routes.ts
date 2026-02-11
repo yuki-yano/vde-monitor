@@ -1,12 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import {
   allowedKeySchema,
+  type CommandResponse,
   type RawItem,
   type SessionStateTimelineRange,
 } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 
+import { setMapEntryWithLimit } from "../../cache";
 import { createScreenResponse } from "../../screen/screen-response";
 import { buildError, nowIso } from "../helpers";
 import {
@@ -31,6 +33,7 @@ const screenRequestSchema = z.object({
 const sendTextSchema = z.object({
   text: z.string(),
   enter: z.boolean().optional(),
+  requestId: z.string().trim().min(1).max(128).optional(),
 });
 const sendKeysSchema = z.object({
   keys: z.array(allowedKeySchema),
@@ -54,6 +57,17 @@ const resolveTimelineRange = (range: string | undefined): SessionStateTimelineRa
   return "1h";
 };
 
+const SEND_TEXT_IDEMPOTENCY_TTL_MS = 60_000;
+const SEND_TEXT_IDEMPOTENCY_MAX_ENTRIES = 1000;
+
+type SendTextCacheEntry = {
+  paneId: string;
+  text: string;
+  enter: boolean;
+  expiresAtMs: number;
+  promise: Promise<CommandResponse>;
+};
+
 export const createSessionRoutes = ({
   config,
   monitor,
@@ -66,8 +80,85 @@ export const createSessionRoutes = ({
   resolveTitleUpdate,
   validateAttachmentContentLength,
   executeCommand,
-}: SessionRouteDeps) =>
-  new Hono()
+}: SessionRouteDeps) => {
+  const sendTextCache = new Map<string, SendTextCacheEntry>();
+
+  const pruneSendTextCache = () => {
+    const nowMs = Date.now();
+    for (const [cacheKey, cached] of sendTextCache.entries()) {
+      if (cached.expiresAtMs <= nowMs) {
+        sendTextCache.delete(cacheKey);
+      }
+    }
+  };
+
+  const executeSendTextCommand = ({
+    c,
+    paneId,
+    text,
+    enter,
+    requestId,
+  }: {
+    c: {
+      req: { header: (name: string) => string | undefined };
+    };
+    paneId: string;
+    text: string;
+    enter?: boolean;
+    requestId?: string;
+  }): Promise<CommandResponse> => {
+    const normalizedEnter = enter ?? true;
+    if (!requestId) {
+      return executeCommand(c, {
+        type: "send.text",
+        paneId,
+        text,
+        enter: normalizedEnter,
+      });
+    }
+
+    pruneSendTextCache();
+    const cacheKey = `${paneId}:${requestId}`;
+    const nowMs = Date.now();
+    const cached = sendTextCache.get(cacheKey);
+    if (cached && cached.expiresAtMs > nowMs) {
+      if (cached.text !== text || cached.enter !== normalizedEnter) {
+        return Promise.resolve({
+          ok: false,
+          error: buildError("INVALID_PAYLOAD", "requestId payload mismatch"),
+        });
+      }
+      return cached.promise;
+    }
+    if (cached) {
+      sendTextCache.delete(cacheKey);
+    }
+
+    const promise = executeCommand(c, {
+      type: "send.text",
+      paneId,
+      text,
+      enter: normalizedEnter,
+    }).catch((error) => {
+      sendTextCache.delete(cacheKey);
+      throw error;
+    });
+    setMapEntryWithLimit(
+      sendTextCache,
+      cacheKey,
+      {
+        paneId,
+        text,
+        enter: normalizedEnter,
+        expiresAtMs: nowMs + SEND_TEXT_IDEMPOTENCY_TTL_MS,
+        promise,
+      },
+      SEND_TEXT_IDEMPOTENCY_MAX_ENTRIES,
+    );
+    return promise;
+  };
+
+  return new Hono()
     .get("/sessions", (c) => {
       return c.json({
         sessions: monitor.registry.snapshot(),
@@ -187,11 +278,12 @@ export const createSessionRoutes = ({
         return pane;
       }
       const body = c.req.valid("json");
-      const command = await executeCommand(c, {
-        type: "send.text",
+      const command = await executeSendTextCommand({
+        c,
         paneId: pane.paneId,
         text: body.text,
         enter: body.enter,
+        requestId: body.requestId,
       });
       return c.json({ command });
     })
@@ -238,3 +330,4 @@ export const createSessionRoutes = ({
       const command = await actions.focusPane(pane.paneId);
       return c.json({ command });
     });
+};

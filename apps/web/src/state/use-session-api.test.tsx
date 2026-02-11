@@ -512,7 +512,10 @@ describe("useSessionApi", () => {
     );
 
     await expect(result.current.focusPane("pane-1")).resolves.toEqual({ ok: true });
-    expect(mockPost).toHaveBeenCalledWith({ param: { paneId: "pane-1" } });
+    expect(requestJsonMock).toHaveBeenCalledWith(expect.any(Function), {
+      timeoutMs: 10000,
+      timeoutMessage: API_ERROR_MESSAGES.requestTimeout,
+    });
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 

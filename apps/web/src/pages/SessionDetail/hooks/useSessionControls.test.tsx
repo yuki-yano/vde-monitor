@@ -76,9 +76,105 @@ describe("useSessionControls", () => {
       await result.current.handleSendText();
     });
 
-    expect(sendText).toHaveBeenCalledWith("pane-1", "echo hello", false);
+    expect(sendText).toHaveBeenCalledWith("pane-1", "echo hello", false, expect.any(String));
+    expect(result.current.isSendingText).toBe(false);
     expect(textarea.value).toBe("");
     expect(scrollToBottom).toHaveBeenCalledWith("auto");
+  });
+
+  it("blocks duplicate send while a text send is in flight", async () => {
+    let resolveSend: ((value: { ok: boolean }) => void) | null = null;
+    const sendText = vi.fn(
+      () =>
+        new Promise<{ ok: boolean }>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "echo hello";
+    act(() => {
+      result.current.textInputRef.current = textarea;
+      void result.current.handleSendText();
+      void result.current.handleSendText();
+    });
+
+    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(result.current.isSendingText).toBe(true);
+
+    await act(async () => {
+      resolveSend?.({ ok: true });
+      await Promise.resolve();
+    });
+
+    expect(result.current.isSendingText).toBe(false);
+  });
+
+  it("retries failed text send with the same request id", async () => {
+    const sendText = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "INTERNAL", message: "Request timed out. Please retry." },
+      })
+      .mockResolvedValueOnce({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "echo retry";
+    act(() => {
+      result.current.textInputRef.current = textarea;
+    });
+
+    await act(async () => {
+      await result.current.handleSendText();
+    });
+    await act(async () => {
+      await result.current.handleSendText();
+    });
+
+    expect(sendText).toHaveBeenCalledTimes(2);
+    expect(sendText.mock.calls[0]?.[3]).toBeTruthy();
+    expect(sendText.mock.calls[1]?.[3]).toBe(sendText.mock.calls[0]?.[3]);
+    expect(setScreenError).toHaveBeenCalledWith("Request timed out. Please retry.");
+    expect(textarea.value).toBe("");
   });
 
   it("inserts uploaded image path at the current caret position", async () => {

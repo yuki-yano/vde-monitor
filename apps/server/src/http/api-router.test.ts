@@ -244,6 +244,54 @@ describe("createApiRouter", () => {
     expect(actions.sendText).toHaveBeenCalledWith("pane-1", "ls", true);
   });
 
+  it("deduplicates send text command by requestId", async () => {
+    const { api, actions } = createTestContext();
+    const headers = { ...authHeaders, "content-type": "application/json" };
+    const payload = JSON.stringify({ text: "ls", enter: true, requestId: "req-send-1" });
+
+    const first = await api.request("/sessions/pane-1/send/text", {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+    const second = await api.request("/sessions/pane-1/send/text", {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(true);
+    expect(actions.sendText).toHaveBeenCalledTimes(1);
+    expect(actions.sendText).toHaveBeenCalledWith("pane-1", "ls", true);
+  });
+
+  it("rejects requestId reuse with different send text payload", async () => {
+    const { api, actions } = createTestContext();
+    const headers = { ...authHeaders, "content-type": "application/json" };
+
+    const first = await api.request("/sessions/pane-1/send/text", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text: "ls", enter: true, requestId: "req-send-1" }),
+    });
+    const second = await api.request("/sessions/pane-1/send/text", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text: "pwd", enter: true, requestId: "req-send-1" }),
+    });
+
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(false);
+    expect(secondData.command.error.code).toBe("INVALID_PAYLOAD");
+    expect(secondData.command.error.message).toBe("requestId payload mismatch");
+    expect(actions.sendText).toHaveBeenCalledTimes(1);
+  });
+
   it("focuses pane via focus endpoint", async () => {
     const { api, actions } = createTestContext();
     const res = await api.request("/sessions/pane-1/focus", {
