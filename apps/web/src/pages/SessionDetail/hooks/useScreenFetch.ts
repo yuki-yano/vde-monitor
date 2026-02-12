@@ -21,6 +21,7 @@ import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import {
   initialScreenFetchLifecycleState,
   type ScreenFetchLifecycleAction,
+  type ScreenFetchLifecycleAttempt,
   screenFetchLifecycleReducer,
 } from "./screen-fetch-lifecycle";
 
@@ -42,12 +43,6 @@ const shouldSuppressTextRender = (
   isAtBottom: boolean,
   isUserScrolling: boolean,
 ) => mode === "text" && !isAtBottom && isUserScrolling;
-
-type RefreshAttempt = {
-  requestId: number;
-  isModeSwitch: boolean;
-  shouldShowLoading: boolean;
-};
 
 type PollingPauseReason = "disconnected" | "unauthorized" | "offline" | "hidden" | null;
 
@@ -123,7 +118,6 @@ export const useScreenFetch = ({
     resolvePollingPauseReason({ connected, connectionIssue }),
   );
   const refreshLifecycleRef = useRef(initialScreenFetchLifecycleState);
-  const refreshRequestIdRef = useRef(0);
   const applyRefreshLifecycleAction = useCallback((action: ScreenFetchLifecycleAction) => {
     refreshLifecycleRef.current = screenFetchLifecycleReducer(refreshLifecycleRef.current, action);
     return refreshLifecycleRef.current;
@@ -216,20 +210,22 @@ export const useScreenFetch = ({
     ],
   );
 
-  const beginRefreshAttempt = useCallback((): RefreshAttempt | null => {
-    const requestId = (refreshRequestIdRef.current += 1);
-    const inflight = refreshLifecycleRef.current.inFlight;
-    if (inflight && inflight.mode === mode) {
+  const beginRefreshAttempt = useCallback((): ScreenFetchLifecycleAttempt | null => {
+    const nextLifecycle = applyRefreshLifecycleAction({
+      type: "request",
+      mode,
+      modeSwitch: modeSwitchRef.current,
+      modeLoaded: modeLoadedRef.current,
+    });
+    const attempt = nextLifecycle.latestAttempt;
+    if (!attempt) {
       return null;
     }
-    const isModeSwitch = modeSwitchRef.current === mode;
-    const shouldShowLoading = isModeSwitch || !modeLoadedRef.current[mode];
     setError(null);
-    if (shouldShowLoading) {
+    if (attempt.shouldShowLoading) {
       dispatchScreenLoading({ type: "start", mode });
     }
-    applyRefreshLifecycleAction({ type: "start", requestId, mode });
-    return { requestId, isModeSwitch, shouldShowLoading };
+    return attempt;
   }, [
     applyRefreshLifecycleAction,
     dispatchScreenLoading,
@@ -257,7 +253,7 @@ export const useScreenFetch = ({
   );
 
   const finishRefreshAttempt = useCallback(
-    (attempt: RefreshAttempt) => {
+    (attempt: ScreenFetchLifecycleAttempt) => {
       if (refreshLifecycleRef.current.inFlight?.id !== attempt.requestId) {
         return;
       }
