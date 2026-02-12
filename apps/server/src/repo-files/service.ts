@@ -18,8 +18,8 @@ import {
   validateMaxBytes,
 } from "./service-context";
 import { createRunLsFiles } from "./service-git-ls-files";
-import { paginateItems } from "./service-pagination";
 import { buildSortedSearchMatches } from "./service-search-matcher";
+import { buildSearchPage } from "./service-search-page";
 import { withServiceTimeout } from "./service-timeout";
 import {
   buildListTreePage,
@@ -129,20 +129,12 @@ export const createRepoFileService = ({
         "search timed out",
       );
       const normalizedMatches = buildSortedSearchMatches(index, normalizedQuery);
-
-      const paged = paginateItems({
-        allItems: normalizedMatches,
+      return buildSearchPage({
+        query: normalizedQuery,
+        matches: normalizedMatches,
         cursor,
         limit,
       });
-
-      return {
-        query: normalizedQuery,
-        items: paged.items,
-        nextCursor: paged.nextCursor,
-        truncated: paged.nextCursor != null,
-        totalMatchedCount: paged.totalCount,
-      } satisfies RepoFileSearchPage;
     } catch (error) {
       throw toServiceError(error);
     }
