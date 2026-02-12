@@ -53,12 +53,13 @@ export const useSessionDetailViewDataSectionProps = ({
     toggleCommitFile,
     copyHash,
   } = commits;
-  const commitBranch = meta.session?.branch ?? null;
+  const sessionBranch = meta.session?.branch ?? null;
 
   const diffSectionProps = useMemo(
     () =>
       buildDiffSectionProps({
         diffSummary,
+        diffBranch: sessionBranch,
         diffError,
         diffLoading,
         diffFiles,
@@ -69,6 +70,7 @@ export const useSessionDetailViewDataSectionProps = ({
       }),
     [
       diffSummary,
+      sessionBranch,
       diffError,
       diffLoading,
       diffFiles,
@@ -109,7 +111,7 @@ export const useSessionDetailViewDataSectionProps = ({
     () =>
       buildCommitSectionProps({
         commitLog,
-        commitBranch,
+        commitBranch: sessionBranch,
         commitError,
         commitLoading,
         commitLoadingMore,
@@ -129,7 +131,7 @@ export const useSessionDetailViewDataSectionProps = ({
       }),
     [
       commitLog,
-      commitBranch,
+      sessionBranch,
       commitError,
       commitLoading,
       commitLoadingMore,

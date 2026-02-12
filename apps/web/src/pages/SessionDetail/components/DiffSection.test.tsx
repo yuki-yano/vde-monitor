@@ -22,6 +22,7 @@ describe("DiffSection", () => {
 
   const buildState = (overrides: Partial<DiffSectionState> = {}): DiffSectionState => ({
     diffSummary: null,
+    diffBranch: null,
     diffError: null,
     diffLoading: false,
     diffFiles: {},
@@ -51,6 +52,18 @@ describe("DiffSection", () => {
 
     fireEvent.click(screen.getByText("src/index.ts"));
     expect(onToggle).toHaveBeenCalledWith("src/index.ts");
+  });
+
+  it("shows branch name next to total changes", () => {
+    const state = buildState({
+      diffSummary: createDiffSummary(),
+      diffBranch: "feature/changes-tab",
+    });
+    const actions = buildActions();
+    const wrapper = createWrapper();
+    render(<DiffSection state={state} actions={actions} />, { wrapper });
+
+    expect(screen.getByText("feature/changes-tab")).toBeTruthy();
   });
 
   it("renders clean state and error message", () => {

@@ -28,7 +28,7 @@ const TabsTrigger = forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "text-latte-subtext0 rounded-full px-3 py-1 text-xs font-semibold transition",
+      "text-latte-subtext0 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold transition",
       "hover:bg-latte-surface1/70 hover:text-latte-text",
       "data-[state=active]:text-latte-text data-[state=active]:bg-latte-base/90 data-[state=active]:shadow-elev-1",
       className,

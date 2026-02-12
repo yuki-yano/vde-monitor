@@ -36,6 +36,7 @@ describe("section props builders", () => {
         generatedAt: new Date(0).toISOString(),
         files: [],
       },
+      diffBranch: "feature/diff-header",
       diffError: null,
       diffLoading: false,
       diffFiles,
@@ -46,6 +47,7 @@ describe("section props builders", () => {
     });
 
     expect(props.state.diffFiles).toBe(diffFiles);
+    expect(props.state.diffBranch).toBe("feature/diff-header");
     expect(props.actions.onRefresh).toBe(refreshDiff);
     expect(props.actions.onToggle).toBe(toggleDiff);
   });

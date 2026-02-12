@@ -21,6 +21,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { diffExpandedAtom } from "../atoms/diffAtoms";
 import {
   diffStatusClass,
+  formatBranchLabel,
   formatDiffCount,
   formatDiffStatusLabel,
   formatPath,
@@ -32,6 +33,7 @@ import { DiffPatch } from "./DiffPatch";
 
 type DiffSectionState = {
   diffSummary: DiffSummary | null;
+  diffBranch: string | null;
   diffError: string | null;
   diffLoading: boolean;
   diffFiles: Record<string, DiffFile>;
@@ -233,22 +235,30 @@ DiffErrorCallout.displayName = "DiffErrorCallout";
 const DiffSummaryDescription = memo(
   ({
     fileCount,
+    diffBranch,
     showTotals,
     totals,
   }: {
     fileCount: number;
+    diffBranch: string | null;
     showTotals: boolean;
     totals: ReturnType<typeof sumFileStats>;
   }) => (
-    <>
-      {toFileCountLabel(fileCount)}
+    <span className="inline-flex items-center gap-1.5">
+      <span>{toFileCountLabel(fileCount)}</span>
       {showTotals ? (
-        <span className="ml-2 inline-flex items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-2 text-xs">
           <span className="text-latte-green">+{totals?.additions ?? "—"}</span>
           <span className="text-latte-red">-{totals?.deletions ?? "—"}</span>
         </span>
       ) : null}
-    </>
+      {diffBranch ? (
+        <span className="text-latte-subtext0/80 inline-flex items-center gap-1 font-mono text-[11px]">
+          <span aria-hidden="true">·</span>
+          <span>{formatBranchLabel(diffBranch)}</span>
+        </span>
+      ) : null}
+    </span>
   ),
 );
 
@@ -371,7 +381,8 @@ const DiffFileList = memo(
 DiffFileList.displayName = "DiffFileList";
 
 export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
-  const { diffSummary, diffError, diffLoading, diffFiles, diffOpen, diffLoadingFiles } = state;
+  const { diffSummary, diffBranch, diffError, diffLoading, diffFiles, diffOpen, diffLoadingFiles } =
+    state;
   const { onRefresh, onToggle } = actions;
   const [expandedDiffs, setExpandedDiffs] = useAtom(diffExpandedAtom);
   const totals = useMemo(() => sumFileStats(diffSummary?.files), [diffSummary]);
@@ -402,6 +413,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
         description={
           <DiffSummaryDescription
             fileCount={fileCount}
+            diffBranch={diffBranch}
             showTotals={Boolean(diffSummary)}
             totals={totals}
           />

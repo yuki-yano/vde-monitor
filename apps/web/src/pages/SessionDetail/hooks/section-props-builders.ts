@@ -23,6 +23,7 @@ import type { FileTreeRenderNode } from "./useSessionFiles";
 
 type BuildDiffSectionPropsArgs = {
   diffSummary: DiffSummary | null;
+  diffBranch?: string | null;
   diffError: string | null;
   diffLoading: boolean;
   diffFiles: Record<string, DiffFile>;
@@ -245,6 +246,7 @@ type BuildControlsPanelPropsArgs = {
 
 export const buildDiffSectionProps = ({
   diffSummary,
+  diffBranch = null,
   diffError,
   diffLoading,
   diffFiles,
@@ -255,6 +257,7 @@ export const buildDiffSectionProps = ({
 }: BuildDiffSectionPropsArgs) => ({
   state: {
     diffSummary,
+    diffBranch,
     diffError,
     diffLoading,
     diffFiles,
