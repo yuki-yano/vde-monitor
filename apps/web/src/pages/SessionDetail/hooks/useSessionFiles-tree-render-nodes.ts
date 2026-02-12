@@ -1,7 +1,11 @@
 import type { RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
-import { buildNormalRenderNodes, buildSearchRenderNodes } from "./useSessionFiles-tree-utils";
+import {
+  buildNormalRenderNodes,
+  buildSearchRenderNodes,
+  resolveTreeLoadMoreTarget,
+} from "./useSessionFiles-tree-utils";
 
 type UseSessionFilesTreeRenderNodesArgs = {
   isSearchActive: boolean;
@@ -44,7 +48,14 @@ export const useSessionFilesTreeRenderNodes = ({
     [expandedDirSet, selectedFilePath, treePages],
   );
 
+  const rootTreeHasMore =
+    resolveTreeLoadMoreTarget({
+      treePages,
+      expandedDirSet,
+    }) != null;
+
   return {
     treeNodes: isSearchActive ? searchTreeNodes : normalTreeNodes,
+    rootTreeHasMore,
   };
 };

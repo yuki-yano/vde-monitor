@@ -20,7 +20,6 @@ import { useSessionFilesTreeActions } from "./useSessionFiles-tree-actions";
 import { useSessionFilesTreeLoader } from "./useSessionFiles-tree-loader";
 import { useSessionFilesTreeRenderNodes } from "./useSessionFiles-tree-render-nodes";
 import { useSessionFilesTreeReveal } from "./useSessionFiles-tree-reveal";
-import { resolveTreeLoadMoreTarget } from "./useSessionFiles-tree-utils";
 
 const TREE_PAGE_LIMIT = 200;
 const SEARCH_PAGE_LIMIT = 100;
@@ -341,7 +340,7 @@ export const useSessionFiles = ({
 
   useEffect(() => clearFileModalCopyTimeout, [clearFileModalCopyTimeout]);
 
-  const { treeNodes } = useSessionFilesTreeRenderNodes({
+  const { treeNodes, rootTreeHasMore } = useSessionFilesTreeRenderNodes({
     isSearchActive,
     searchResult,
     searchActiveIndex,
@@ -363,11 +362,7 @@ export const useSessionFiles = ({
     treeLoading: Boolean(treeLoadingByPath["."]),
     treeError,
     treeNodes,
-    rootTreeHasMore:
-      resolveTreeLoadMoreTarget({
-        treePages,
-        expandedDirSet,
-      }) != null,
+    rootTreeHasMore,
     searchHasMore: Boolean(searchResult?.nextCursor),
     fileModalOpen,
     fileModalPath,
