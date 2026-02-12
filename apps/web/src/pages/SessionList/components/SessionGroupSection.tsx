@@ -66,25 +66,9 @@ export const SessionGroupSection = ({
             <FolderGit2 className="text-latte-lavender h-5 w-5" />
           </div>
           <div className="min-w-0 space-y-1">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <p className="font-display text-latte-text truncate text-lg font-semibold leading-snug">
-                {repoName}
-              </p>
-              {repoGitHubUrl ? (
-                <IconButton
-                  type="button"
-                  size="xs"
-                  variant="base"
-                  aria-label="Open repository on GitHub"
-                  title="Open repository on GitHub"
-                  onClick={() => {
-                    window.open(repoGitHubUrl, "_blank", "noopener,noreferrer");
-                  }}
-                >
-                  <Github className="h-3.5 w-3.5" />
-                </IconButton>
-              ) : null}
-            </div>
+            <p className="font-display text-latte-text truncate text-lg font-semibold leading-snug">
+              {repoName}
+            </p>
             {repoPath && (
               <p className="text-latte-subtext0 truncate font-mono text-[11px] leading-normal">
                 {repoPath}
@@ -100,6 +84,20 @@ export const SessionGroupSection = ({
             {group.sessions.length} panes
           </TagPill>
           <div className="ml-auto flex items-center gap-2">
+            {repoGitHubUrl ? (
+              <IconButton
+                type="button"
+                size="xs"
+                variant="base"
+                aria-label="Open repository on GitHub"
+                title="Open repository on GitHub"
+                onClick={() => {
+                  window.open(repoGitHubUrl, "_blank", "noopener,noreferrer");
+                }}
+              >
+                <Github className="h-3.5 w-3.5" />
+              </IconButton>
+            ) : null}
             <IconButton
               type="button"
               size="xs"
