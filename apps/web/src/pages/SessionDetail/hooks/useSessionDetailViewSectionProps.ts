@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 
 import type { SessionDetailViewProps } from "../SessionDetailView";
+import {
+  buildCommitSectionProps,
+  buildDiffSectionProps,
+  buildStateTimelineSectionProps,
+} from "./section-props-builders";
 
 export const useSessionDetailViewSectionProps = ({
   meta,
@@ -189,20 +194,17 @@ export const useSessionDetailViewSectionProps = ({
   } = actions;
 
   const diffSectionProps = useMemo(
-    () => ({
-      state: {
+    () =>
+      buildDiffSectionProps({
         diffSummary,
         diffError,
         diffLoading,
         diffFiles,
         diffOpen,
         diffLoadingFiles,
-      },
-      actions: {
-        onRefresh: refreshDiff,
-        onToggle: toggleDiff,
-      },
-    }),
+        refreshDiff,
+        toggleDiff,
+      }),
     [
       diffSummary,
       diffError,
@@ -216,21 +218,18 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const stateTimelineSectionProps = useMemo(
-    () => ({
-      state: {
-        timeline: stateTimeline,
+    () =>
+      buildStateTimelineSectionProps({
+        stateTimeline,
         timelineRange,
         timelineError,
         timelineLoading,
         timelineExpanded,
         isMobile,
-      },
-      actions: {
-        onTimelineRangeChange: setTimelineRange,
-        onTimelineRefresh: refreshTimeline,
-        onToggleTimelineExpanded: toggleTimelineExpanded,
-      },
-    }),
+        setTimelineRange,
+        refreshTimeline,
+        toggleTimelineExpanded,
+      }),
     [
       stateTimeline,
       timelineRange,
@@ -245,8 +244,8 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const commitSectionProps = useMemo(
-    () => ({
-      state: {
+    () =>
+      buildCommitSectionProps({
         commitLog,
         commitError,
         commitLoading,
@@ -259,15 +258,12 @@ export const useSessionDetailViewSectionProps = ({
         commitOpen,
         commitLoadingDetails,
         copiedHash,
-      },
-      actions: {
-        onRefresh: refreshCommitLog,
-        onLoadMore: loadMoreCommits,
-        onToggleCommit: toggleCommit,
-        onToggleCommitFile: toggleCommitFile,
-        onCopyHash: copyHash,
-      },
-    }),
+        refreshCommitLog,
+        loadMoreCommits,
+        toggleCommit,
+        toggleCommitFile,
+        copyHash,
+      }),
     [
       commitLog,
       commitError,
