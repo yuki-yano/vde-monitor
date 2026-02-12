@@ -5,6 +5,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
 import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
+import { useSessionFilesFileModalActions } from "./useSessionFiles-file-modal-actions";
 import {
   buildLogReferenceLinkableCacheKey,
   resolveLogReferenceLinkableWithCache,
@@ -72,37 +73,6 @@ type UseSessionFilesParams = {
 
 const resolveUnknownErrorMessage = (error: unknown, fallbackMessage: string) =>
   error instanceof Error ? error.message : fallbackMessage;
-
-const markdownPathPattern = /\.(md|markdown)$/i;
-
-const isMarkdownFileContent = (file: RepoFileContent) => {
-  if (file.languageHint === "markdown") {
-    return true;
-  }
-  return markdownPathPattern.test(file.path);
-};
-
-const copyTextToClipboard = async (value: string) => {
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-      return document.execCommand("copy");
-    } catch {
-      return false;
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  }
-};
 
 export const useSessionFiles = ({
   paneId,
@@ -471,118 +441,34 @@ export const useSessionFiles = ({
     [revealFilePath],
   );
 
-  const openFileModalByPath = useCallback(
-    (
-      targetPath: string,
-      options: {
-        paneId: string;
-        origin: "navigator" | "log";
-        highlightLine?: number | null;
-      },
-    ) => {
-      const contextVersion = contextVersionRef.current;
-      const requestId = activeFileContentRequestIdRef.current + 1;
-      activeFileContentRequestIdRef.current = requestId;
-
-      if (options.origin === "navigator") {
-        setSelectedFilePath(targetPath);
-        revealFilePath(targetPath);
-      }
-
-      setFileModalOpen(true);
-      setFileModalPath(targetPath);
-      setFileModalLoading(true);
-      setFileModalError(null);
-      setFileModalShowLineNumbers(true);
-      setFileModalCopyError(null);
-      setFileModalCopiedPath(false);
-      setFileModalFile(null);
-      setFileModalHighlightLine(options.highlightLine ?? null);
-
-      void fetchFileContent(options.paneId, targetPath)
-        .then((file) => {
-          if (
-            contextVersion !== contextVersionRef.current ||
-            activeFileContentRequestIdRef.current !== requestId
-          ) {
-            return;
-          }
-          setFileModalFile(file);
-          setFileModalLoading(false);
-          setFileModalError(null);
-          setFileModalMarkdownViewMode(
-            options.highlightLine != null && options.highlightLine > 0
-              ? "code"
-              : isMarkdownFileContent(file)
-                ? "preview"
-                : "code",
-          );
-        })
-        .catch((error) => {
-          if (
-            contextVersion !== contextVersionRef.current ||
-            activeFileContentRequestIdRef.current !== requestId
-          ) {
-            return;
-          }
-          setFileModalFile(null);
-          setFileModalLoading(false);
-          setFileModalError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileContent));
-        });
-    },
-    [fetchFileContent, revealFilePath],
-  );
-
-  const onOpenFileModal = useCallback(
-    (targetPath: string) => {
-      openFileModalByPath(targetPath, { paneId, origin: "navigator" });
-    },
-    [openFileModalByPath, paneId],
-  );
-
-  const onCloseFileModal = useCallback(() => {
-    activeFileContentRequestIdRef.current += 1;
-    setFileModalOpen(false);
-    setFileModalLoading(false);
-    setFileModalError(null);
-    setFileModalShowLineNumbers(true);
-    setFileModalCopyError(null);
-    setFileModalCopiedPath(false);
-    setFileModalHighlightLine(null);
-    if (fileModalCopyTimeoutRef.current != null) {
-      window.clearTimeout(fileModalCopyTimeoutRef.current);
-      fileModalCopyTimeoutRef.current = null;
-    }
-  }, []);
-
-  const onSetFileModalMarkdownViewMode = useCallback((mode: "code" | "preview") => {
-    setFileModalMarkdownViewMode(mode);
-  }, []);
-
-  const onToggleFileModalLineNumbers = useCallback(() => {
-    setFileModalShowLineNumbers((prev) => !prev);
-  }, []);
-
-  const onCopyFileModalPath = useCallback(async () => {
-    if (!fileModalPath) {
-      return;
-    }
-    setFileModalCopyError(null);
-    const copied = await copyTextToClipboard(fileModalPath);
-    if (!copied) {
-      setFileModalCopiedPath(false);
-      setFileModalCopyError("Failed to copy the file path.");
-      return;
-    }
-    setFileModalCopiedPath(true);
-    if (fileModalCopyTimeoutRef.current != null) {
-      window.clearTimeout(fileModalCopyTimeoutRef.current);
-    }
-    fileModalCopyTimeoutRef.current = window.setTimeout(() => {
-      setFileModalCopiedPath(false);
-      fileModalCopyTimeoutRef.current = null;
-    }, 1200);
-  }, [fileModalPath]);
+  const {
+    openFileModalByPath,
+    onOpenFileModal,
+    onCloseFileModal,
+    onSetFileModalMarkdownViewMode,
+    onToggleFileModalLineNumbers,
+    onCopyFileModalPath,
+  } = useSessionFilesFileModalActions({
+    paneId,
+    fileModalPath,
+    fetchFileContent,
+    revealFilePath,
+    resolveUnknownErrorMessage,
+    contextVersionRef,
+    activeFileContentRequestIdRef,
+    fileModalCopyTimeoutRef,
+    setSelectedFilePath,
+    setFileModalOpen,
+    setFileModalPath,
+    setFileModalLoading,
+    setFileModalError,
+    setFileModalShowLineNumbers,
+    setFileModalCopyError,
+    setFileModalCopiedPath,
+    setFileModalFile,
+    setFileModalHighlightLine,
+    setFileModalMarkdownViewMode,
+  });
 
   const onSearchMove = useCallback(
     (delta: number) => {
@@ -1126,8 +1012,9 @@ export const useSessionFiles = ({
 
   useEffect(() => {
     return () => {
-      if (fileModalCopyTimeoutRef.current != null) {
-        window.clearTimeout(fileModalCopyTimeoutRef.current);
+      const copyTimeoutId = fileModalCopyTimeoutRef.current;
+      if (copyTimeoutId != null) {
+        window.clearTimeout(copyTimeoutId);
       }
     };
   }, []);
