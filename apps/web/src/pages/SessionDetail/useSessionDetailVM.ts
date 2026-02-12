@@ -1,20 +1,5 @@
-import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 
-import { useNowMs } from "@/lib/use-now-ms";
-
-import { screenTextAtom } from "./atoms/screenAtoms";
-import {
-  connectedAtom,
-  connectionIssueAtom,
-  connectionStatusAtom,
-  currentSessionAtom,
-  fileNavigatorConfigAtom,
-  highlightCorrectionsAtom,
-  resolvedThemeAtom,
-  sessionApiAtom,
-  sessionsAtom,
-} from "./atoms/sessionDetailAtoms";
 import {
   buildActionsSection,
   buildCommitsSection,
@@ -32,6 +17,7 @@ import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
 import { useSessionDetailTimelineLogsActions } from "./hooks/useSessionDetailTimelineLogsActions";
+import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
@@ -39,20 +25,17 @@ import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
 export const useSessionDetailVM = (paneId: string) => {
-  const sessions = useAtomValue(sessionsAtom);
-  const connected = useAtomValue(connectedAtom);
-  const connectionStatus = useAtomValue(connectionStatusAtom);
-  const connectionIssue = useAtomValue(connectionIssueAtom);
-  const highlightCorrections = useAtomValue(highlightCorrectionsAtom);
-  const fileNavigatorConfig = useAtomValue(fileNavigatorConfigAtom);
-  const resolvedTheme = useAtomValue(resolvedThemeAtom);
-  const session = useAtomValue(currentSessionAtom);
-  const screenText = useAtomValue(screenTextAtom);
-  const sessionApi = useAtomValue(sessionApiAtom);
-  if (!sessionApi) {
-    throw new Error("SessionDetailProvider is required");
-  }
   const {
+    sessions,
+    connected,
+    connectionStatus,
+    connectionIssue,
+    highlightCorrections,
+    fileNavigatorConfig,
+    resolvedTheme,
+    session,
+    screenText,
+    nowMs,
     requestCommitDetail,
     requestCommitFile,
     requestCommitLog,
@@ -70,8 +53,8 @@ export const useSessionDetailVM = (paneId: string) => {
     sendRaw,
     touchSession,
     updateSessionTitle,
-  } = sessionApi;
-  const nowMs = useNowMs();
+  } = useSessionDetailVMState();
+
   const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups } =
     useSessionRepoPins({
       sessions,
@@ -132,68 +115,14 @@ export const useSessionDetailVM = (paneId: string) => {
     uploadImageAttachment,
   });
 
-  const {
-    diffSummary,
-    diffError,
-    diffLoading,
-    diffFiles,
-    diffOpen,
-    diffLoadingFiles,
-    refreshDiff,
-    toggleDiff,
-  } = useSessionDiffs({
+  const diffs = useSessionDiffs({
     paneId,
     connected,
     requestDiffSummary,
     requestDiffFile,
   });
 
-  const {
-    unavailable: filesUnavailable,
-    selectedFilePath,
-    searchQuery,
-    searchActiveIndex,
-    searchResult,
-    searchLoading,
-    searchError,
-    searchMode,
-    treeLoading,
-    treeError,
-    treeNodes,
-    rootTreeHasMore,
-    searchHasMore,
-    fileModalOpen,
-    fileModalPath,
-    fileModalLoading,
-    fileModalError,
-    fileModalFile,
-    fileModalMarkdownViewMode,
-    fileModalShowLineNumbers,
-    fileModalCopiedPath,
-    fileModalCopyError,
-    fileModalHighlightLine,
-    fileResolveError,
-    logFileCandidateModalOpen,
-    logFileCandidateReference,
-    logFileCandidatePaneId,
-    logFileCandidateItems,
-    onSearchQueryChange,
-    onSearchMove,
-    onSearchConfirm,
-    onToggleDirectory,
-    onSelectFile,
-    onOpenFileModal,
-    onCloseFileModal,
-    onSetFileModalMarkdownViewMode,
-    onToggleFileModalLineNumbers,
-    onCopyFileModalPath,
-    onResolveLogFileReference,
-    onResolveLogFileReferenceCandidates,
-    onSelectLogFileCandidate,
-    onCloseLogFileCandidateModal,
-    onLoadMoreTreeRoot,
-    onLoadMoreSearch,
-  } = useSessionFiles({
+  const files = useSessionFiles({
     paneId,
     repoRoot: session?.repoRoot ?? null,
     autoExpandMatchLimit: fileNavigatorConfig.autoExpandMatchLimit,
@@ -202,25 +131,7 @@ export const useSessionDetailVM = (paneId: string) => {
     requestRepoFileContent,
   });
 
-  const {
-    commitLog,
-    commitError,
-    commitLoading,
-    commitLoadingMore,
-    commitHasMore,
-    commitDetails,
-    commitFileDetails,
-    commitFileOpen,
-    commitFileLoading,
-    commitOpen,
-    commitLoadingDetails,
-    copiedHash,
-    refreshCommitLog,
-    loadMoreCommits,
-    toggleCommit,
-    toggleCommitFile,
-    copyHash,
-  } = useSessionCommits({
+  const commits = useSessionCommits({
     paneId,
     connected,
     requestCommitLog,
@@ -390,81 +301,9 @@ export const useSessionDetailVM = (paneId: string) => {
       toggleAllowDangerKeys,
       handleTouchCurrentSession,
     }),
-    diffs: {
-      diffSummary,
-      diffError,
-      diffLoading,
-      diffFiles,
-      diffOpen,
-      diffLoadingFiles,
-      refreshDiff,
-      toggleDiff,
-    },
-    files: buildFilesSection({
-      unavailable: filesUnavailable,
-      selectedFilePath,
-      searchQuery,
-      searchActiveIndex,
-      searchResult,
-      searchLoading,
-      searchError,
-      searchMode,
-      treeLoading,
-      treeError,
-      treeNodes,
-      rootTreeHasMore,
-      searchHasMore,
-      fileModalOpen,
-      fileModalPath,
-      fileModalLoading,
-      fileModalError,
-      fileModalFile,
-      fileModalMarkdownViewMode,
-      fileModalShowLineNumbers,
-      fileModalCopiedPath,
-      fileModalCopyError,
-      fileModalHighlightLine,
-      fileResolveError,
-      logFileCandidateModalOpen,
-      logFileCandidateReference,
-      logFileCandidatePaneId,
-      logFileCandidateItems,
-      onSearchQueryChange,
-      onSearchMove,
-      onSearchConfirm,
-      onToggleDirectory,
-      onSelectFile,
-      onOpenFileModal,
-      onCloseFileModal,
-      onSetFileModalMarkdownViewMode,
-      onToggleFileModalLineNumbers,
-      onCopyFileModalPath,
-      onResolveLogFileReference,
-      onResolveLogFileReferenceCandidates,
-      onSelectLogFileCandidate,
-      onCloseLogFileCandidateModal,
-      onLoadMoreTreeRoot,
-      onLoadMoreSearch,
-    }),
-    commits: buildCommitsSection({
-      commitLog,
-      commitError,
-      commitLoading,
-      commitLoadingMore,
-      commitHasMore,
-      commitDetails,
-      commitFileDetails,
-      commitFileOpen,
-      commitFileLoading,
-      commitOpen,
-      commitLoadingDetails,
-      copiedHash,
-      refreshCommitLog,
-      loadMoreCommits,
-      toggleCommit,
-      toggleCommitFile,
-      copyHash,
-    }),
+    diffs,
+    files: buildFilesSection(files),
+    commits: buildCommitsSection(commits),
     logs: buildLogsSection({
       quickPanelOpen,
       logModalOpen,
