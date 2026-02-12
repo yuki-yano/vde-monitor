@@ -5,6 +5,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
 import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
+import { resetSessionFilesRefs, resetSessionFilesState } from "./useSessionFiles-reset";
 import {
   buildNormalRenderNodes,
   buildSearchRenderNodes,
@@ -254,49 +255,49 @@ export const useSessionFiles = ({
   );
 
   useEffect(() => {
-    contextVersionRef.current += 1;
-    treePageRequestMapRef.current.clear();
-    searchRequestMapRef.current.clear();
-    fileContentRequestMapRef.current.clear();
-    logReferenceLinkableCacheRef.current.clear();
-    logReferenceLinkableRequestMapRef.current.clear();
-    activeSearchRequestIdRef.current += 1;
-    activeFileContentRequestIdRef.current += 1;
-    activeLogResolveRequestIdRef.current += 1;
-    treePagesRef.current = {};
-    if (fileModalCopyTimeoutRef.current != null) {
-      window.clearTimeout(fileModalCopyTimeoutRef.current);
-      fileModalCopyTimeoutRef.current = null;
-    }
-
-    setSelectedFilePath(null);
-    setExpandedDirSet(new Set());
-    setSearchExpandedDirSet(new Set());
-    setSearchCollapsedDirSet(new Set());
-    setTreePages({});
-    setTreeLoadingByPath({});
-    setTreeError(null);
-    setSearchQuery("");
-    setSearchResult(null);
-    setSearchLoading(false);
-    setSearchError(null);
-    setSearchActiveIndex(0);
-    setFileModalOpen(false);
-    setFileModalPath(null);
-    setFileModalLoading(false);
-    setFileModalError(null);
-    setFileModalFile(null);
-    setFileModalMarkdownViewMode("code");
-    setFileModalShowLineNumbers(true);
-    setFileModalCopiedPath(false);
-    setFileModalCopyError(null);
-    setFileModalHighlightLine(null);
-    setFileResolveError(null);
-    setLogFileCandidateModalOpen(false);
-    setLogFileCandidateReference(null);
-    setLogFileCandidatePaneId(null);
-    setLogFileCandidateLine(null);
-    setLogFileCandidateItems([]);
+    resetSessionFilesRefs({
+      treePageRequestMapRef,
+      searchRequestMapRef,
+      fileContentRequestMapRef,
+      logReferenceLinkableCacheRef,
+      logReferenceLinkableRequestMapRef,
+      activeSearchRequestIdRef,
+      activeFileContentRequestIdRef,
+      activeLogResolveRequestIdRef,
+      contextVersionRef,
+      treePagesRef,
+      fileModalCopyTimeoutRef,
+    });
+    resetSessionFilesState({
+      setSelectedFilePath,
+      setExpandedDirSet,
+      setSearchExpandedDirSet,
+      setSearchCollapsedDirSet,
+      setTreePages,
+      setTreeLoadingByPath,
+      setTreeError,
+      setSearchQuery,
+      setSearchResult,
+      setSearchLoading,
+      setSearchError,
+      setSearchActiveIndex,
+      setFileModalOpen,
+      setFileModalPath,
+      setFileModalLoading,
+      setFileModalError,
+      setFileModalFile,
+      setFileModalMarkdownViewMode,
+      setFileModalShowLineNumbers,
+      setFileModalCopiedPath,
+      setFileModalCopyError,
+      setFileModalHighlightLine,
+      setFileResolveError,
+      setLogFileCandidateModalOpen,
+      setLogFileCandidateReference,
+      setLogFileCandidatePaneId,
+      setLogFileCandidateLine,
+      setLogFileCandidateItems,
+    });
 
     if (!repoRoot) {
       return;
