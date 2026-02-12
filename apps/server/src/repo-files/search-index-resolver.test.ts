@@ -154,6 +154,56 @@ describe("search index resolver", () => {
     }
   });
 
+  it("avoids re-scanning large trees when post-ttl known paths are unchanged", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-large-"));
+    try {
+      const trackedPaths: string[] = [];
+      for (let index = 0; index < 40; index += 1) {
+        const dirName = `pkg-${String(index).padStart(2, "0")}`;
+        await mkdir(path.join(repoRoot, dirName), { recursive: true });
+        const relativePath = `${dirName}/index.ts`;
+        trackedPaths.push(relativePath);
+        await writeFile(
+          path.join(repoRoot, relativePath),
+          `export const value${index} = ${index};\n`,
+        );
+      }
+
+      let nowMs = 0;
+      const runLsFiles = vi.fn(
+        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
+          if (args[0] === "ls-files" && args[1] === "-z") {
+            return trackedPaths;
+          }
+          return [];
+        },
+      );
+      const readdirSpy = vi.spyOn(fs, "readdir");
+      const resolver = createSearchIndexResolver({
+        now: () => nowMs,
+        runLsFiles,
+      });
+      const policy = {
+        shouldIncludePath: () => true,
+        shouldTraverseDirectory: () => true,
+        planDirectoryTraversal: () => new Set<string>(),
+      };
+
+      const first = await resolver.resolveSearchIndex(repoRoot, policy);
+      const firstReaddirCount = readdirSpy.mock.calls.length;
+      expect(first.map((item) => item.path)).toContain("pkg-00/index.ts");
+      expect(firstReaddirCount).toBeGreaterThanOrEqual(41);
+
+      nowMs = 6_000;
+      const second = await resolver.resolveSearchIndex(repoRoot, policy);
+      expect(second).toEqual(first);
+      expect(readdirSpy.mock.calls.length).toBe(firstReaddirCount);
+      expect(runLsFiles).toHaveBeenCalledTimes(6);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to non-ignored when known path lookup fails", async () => {
     const resolver = createSearchIndexResolver({
       now: () => 0,
