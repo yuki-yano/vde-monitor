@@ -127,7 +127,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           <IconButton
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 z-30"
+            className="absolute right-2.5 top-2.5 z-30"
             variant="lavender"
             size="sm"
             aria-label="Close quick panel"
@@ -136,7 +136,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           </IconButton>
           <div
             ref={scrollRef}
-            className="custom-scrollbar -mr-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pt-5"
+            className="custom-scrollbar -mr-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pt-10"
           >
             <div className="space-y-5 pr-5">
               {agentGroups.length === 0 && (
