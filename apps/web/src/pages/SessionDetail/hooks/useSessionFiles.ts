@@ -21,7 +21,6 @@ import {
 import {
   buildFileContentRequestKey,
   buildSearchRequestKey,
-  buildTreePageRequestKey,
   fetchWithRequestMap,
 } from "./useSessionFiles-request-cache";
 import { resetSessionFilesRefs, resetSessionFilesState } from "./useSessionFiles-reset";
@@ -33,11 +32,11 @@ import {
   scheduleSearchRequest,
 } from "./useSessionFiles-search-effect";
 import { useSessionFilesTreeActions } from "./useSessionFiles-tree-actions";
+import { useSessionFilesTreeLoader } from "./useSessionFiles-tree-loader";
 import { useSessionFilesTreeReveal } from "./useSessionFiles-tree-reveal";
 import {
   buildNormalRenderNodes,
   buildSearchRenderNodes,
-  mergeTreeEntries,
   resolveTreeLoadMoreTarget,
 } from "./useSessionFiles-tree-utils";
 
@@ -131,64 +130,18 @@ export const useSessionFiles = ({
     treePagesRef.current = treePages;
   }, [treePages]);
 
-  const fetchTreePage = useCallback(
-    async (targetPath: string, cursor?: string) => {
-      return fetchWithRequestMap({
-        requestMapRef: treePageRequestMapRef,
-        requestKey: buildTreePageRequestKey(paneId, targetPath, cursor),
-        requestFactory: () =>
-          requestRepoFileTree(paneId, {
-            path: targetPath === "." ? undefined : targetPath,
-            cursor,
-            limit: TREE_PAGE_LIMIT,
-          }),
-      });
-    },
-    [paneId, requestRepoFileTree],
-  );
-
-  const loadTree = useCallback(
-    async (targetPath: string, cursor?: string) => {
-      if (!repoRoot) {
-        return null;
-      }
-      const contextVersion = contextVersionRef.current;
-      setTreeLoadingByPath((prev) => ({ ...prev, [targetPath]: true }));
-      try {
-        const page = await fetchTreePage(targetPath, cursor);
-        if (contextVersion !== contextVersionRef.current) {
-          return null;
-        }
-        setTreePages((prev) => {
-          if (!cursor) {
-            return { ...prev, [targetPath]: page };
-          }
-          const previous = prev[targetPath];
-          if (!previous) {
-            return { ...prev, [targetPath]: page };
-          }
-          const merged: RepoFileTreePage = {
-            ...page,
-            entries: mergeTreeEntries(previous.entries, page.entries),
-          };
-          return { ...prev, [targetPath]: merged };
-        });
-        setTreeError(null);
-        return page;
-      } catch (error) {
-        if (contextVersion !== contextVersionRef.current) {
-          return null;
-        }
-        setTreeError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileTree));
-        return null;
-      } finally {
-        if (contextVersion === contextVersionRef.current) {
-          setTreeLoadingByPath((prev) => ({ ...prev, [targetPath]: false }));
-        }
-      }
-    },
-    [fetchTreePage, repoRoot],
-  );
+  const { loadTree } = useSessionFilesTreeLoader({
+    paneId,
+    repoRoot,
+    treePageLimit: TREE_PAGE_LIMIT,
+    requestRepoFileTree,
+    treePageRequestMapRef,
+    contextVersionRef,
+    setTreeLoadingByPath,
+    setTreePages,
+    setTreeError,
+    resolveUnknownErrorMessage,
+  });
 
   const fetchSearchPage = useCallback(
     async (query: string, cursor?: string) => {
