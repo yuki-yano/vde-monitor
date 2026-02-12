@@ -8,7 +8,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState,
 } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -24,6 +23,7 @@ import {
   type ScreenFetchLifecycleAttempt,
   screenFetchLifecycleReducer,
 } from "./screen-fetch-lifecycle";
+import { useScreenPollingPauseReason } from "./useScreenPollingPauseReason";
 
 const normalizeScreenText = (text: string) => text.replace(/\r\n/g, "\n");
 
@@ -43,30 +43,6 @@ const shouldSuppressTextRender = (
   isAtBottom: boolean,
   isUserScrolling: boolean,
 ) => mode === "text" && !isAtBottom && isUserScrolling;
-
-type PollingPauseReason = "disconnected" | "unauthorized" | "offline" | "hidden" | null;
-
-const resolvePollingPauseReason = ({
-  connected,
-  connectionIssue,
-}: {
-  connected: boolean;
-  connectionIssue: string | null;
-}): PollingPauseReason => {
-  if (!connected) {
-    return "disconnected";
-  }
-  if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
-    return "unauthorized";
-  }
-  if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    return "offline";
-  }
-  if (typeof document !== "undefined" && document.hidden) {
-    return "hidden";
-  }
-  return null;
-};
 
 type UseScreenFetchParams = {
   paneId: string;
@@ -114,9 +90,10 @@ export const useScreenFetch = ({
 }: UseScreenFetchParams) => {
   const [fallbackReason, setFallbackReason] = useAtom(screenFallbackReasonAtom);
   const [error, setError] = useAtom(screenErrorAtom);
-  const [pollingPauseReason, setPollingPauseReason] = useState<PollingPauseReason>(() =>
-    resolvePollingPauseReason({ connected, connectionIssue }),
-  );
+  const pollingPauseReason = useScreenPollingPauseReason({
+    connected,
+    connectionIssue,
+  });
   const refreshLifecycleRef = useRef(initialScreenFetchLifecycleState);
   const applyRefreshLifecycleAction = useCallback((action: ScreenFetchLifecycleAction) => {
     refreshLifecycleRef.current = screenFetchLifecycleReducer(refreshLifecycleRef.current, action);
@@ -311,29 +288,6 @@ export const useScreenFetch = ({
   useEffect(() => {
     refreshScreen();
   }, [refreshScreen]);
-
-  useEffect(() => {
-    setPollingPauseReason(resolvePollingPauseReason({ connected, connectionIssue }));
-  }, [connected, connectionIssue]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const updatePauseReason = () => {
-      setPollingPauseReason(resolvePollingPauseReason({ connected, connectionIssue }));
-    };
-    window.addEventListener("online", updatePauseReason);
-    window.addEventListener("offline", updatePauseReason);
-    window.addEventListener("visibilitychange", updatePauseReason);
-    window.addEventListener("focus", updatePauseReason);
-    return () => {
-      window.removeEventListener("online", updatePauseReason);
-      window.removeEventListener("offline", updatePauseReason);
-      window.removeEventListener("visibilitychange", updatePauseReason);
-      window.removeEventListener("focus", updatePauseReason);
-    };
-  }, [connected, connectionIssue]);
 
   useEffect(() => {
     if (!connected) {
