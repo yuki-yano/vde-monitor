@@ -2,15 +2,9 @@ import { Pin } from "lucide-react";
 
 import { IconButton, TagPill } from "@/components/ui";
 import { formatRepoDirLabel } from "@/lib/quick-panel-utils";
-import type { SessionGroup } from "@/lib/session-group";
-import type { SessionWindowGroup } from "@/pages/SessionList/session-window-group";
 
+import type { SidebarRepoGroup } from "../hooks/useSessionSidebarGroups";
 import { SessionSidebarItem } from "./SessionSidebarItem";
-
-type SidebarRepoGroup = {
-  repoRoot: SessionGroup["repoRoot"];
-  windowGroups: SessionWindowGroup[];
-};
 
 type SessionSidebarGroupListProps = {
   sidebarGroups: SidebarRepoGroup[];

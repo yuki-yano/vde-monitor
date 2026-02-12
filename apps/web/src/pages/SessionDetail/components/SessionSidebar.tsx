@@ -3,26 +3,21 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
-  SessionSummary,
 } from "@vde-monitor/shared";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { Card, FilterToggleGroup, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { buildSessionGroups, type SessionGroup } from "@/lib/session-group";
+import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
-import {
-  buildSessionWindowGroups,
-  type SessionWindowGroup,
-} from "@/pages/SessionList/session-window-group";
 import {
   DEFAULT_SESSION_LIST_FILTER,
   isSessionListFilter,
-  matchesSessionListFilter,
   SESSION_LIST_FILTER_VALUES,
   type SessionListFilter,
 } from "@/pages/SessionList/sessionListFilters";
 
+import { useSessionSidebarGroups } from "../hooks/useSessionSidebarGroups";
 import { useSidebarPreview } from "../hooks/useSidebarPreview";
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
 import { SessionSidebarPreviewPopover } from "./SessionSidebarPreviewPopover";
@@ -117,51 +112,11 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const [filter, setFilter] = useState<SessionListFilter>(DEFAULT_SESSION_LIST_FILTER);
   const [focusPendingPaneIds, setFocusPendingPaneIds] = useState<Set<string>>(() => new Set());
 
-  const filteredSessions = useMemo(
-    () =>
-      sessionGroups
-        .flatMap((group) => group.sessions)
-        .filter((session) => matchesSessionListFilter(session, filter)),
-    [filter, sessionGroups],
-  );
-
-  const filteredSessionGroups = useMemo(() => {
-    return buildSessionGroups(filteredSessions, { getRepoSortAnchorAt });
-  }, [filteredSessions, getRepoSortAnchorAt]);
-
-  const sidebarGroups = useMemo(() => {
-    return filteredSessionGroups
-      .map((group) => {
-        const windowGroups = buildSessionWindowGroups(group.sessions);
-        if (windowGroups.length === 0) {
-          return null;
-        }
-        return {
-          repoRoot: group.repoRoot,
-          windowGroups,
-        };
-      })
-      .filter(
-        (
-          group,
-        ): group is { repoRoot: SessionGroup["repoRoot"]; windowGroups: SessionWindowGroup[] } =>
-          Boolean(group),
-      );
-  }, [filteredSessionGroups]);
-
-  const { totalSessions, repoCount, sessionIndex } = useMemo(() => {
-    let total = 0;
-    const map = new Map<string, SessionSummary>();
-    sidebarGroups.forEach((group) => {
-      group.windowGroups.forEach((windowGroup) => {
-        total += windowGroup.sessions.length;
-        windowGroup.sessions.forEach((session) => {
-          map.set(session.paneId, session);
-        });
-      });
-    });
-    return { totalSessions: total, repoCount: sidebarGroups.length, sessionIndex: map };
-  }, [sidebarGroups]);
+  const { sidebarGroups, totalSessions, repoCount, sessionIndex } = useSessionSidebarGroups({
+    sessionGroups,
+    filter,
+    getRepoSortAnchorAt,
+  });
 
   const {
     preview,
