@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import type {
   HighlightCorrectionConfig,
   ScreenResponse,
@@ -6,19 +5,12 @@ import type {
   SessionStateTimelineRange,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { Clock, GitBranch, Pin, SquareTerminal } from "lucide-react";
-import { memo, type MouseEvent, useCallback, useMemo, useState } from "react";
+import { Pin } from "lucide-react";
+import { memo, useCallback, useMemo, useState } from "react";
 
-import {
-  Badge,
-  Card,
-  FilterToggleGroup,
-  IconButton,
-  LastInputPill,
-  TagPill,
-} from "@/components/ui";
+import { Card, FilterToggleGroup, IconButton, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
+import { formatRepoDirLabel } from "@/lib/quick-panel-utils";
 import { buildSessionGroups, type SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
 import {
@@ -34,18 +26,7 @@ import {
 } from "@/pages/SessionList/sessionListFilters";
 
 import { useSidebarPreview } from "../hooks/useSidebarPreview";
-import {
-  agentLabelFor,
-  agentToneFor,
-  formatBranchLabel,
-  formatRelativeTime,
-  formatWorktreeFlag,
-  getLastInputTone,
-  isEditorCommand,
-  isKnownAgent,
-  isVwManagedWorktreePath,
-  worktreeFlagClass,
-} from "../sessionDetailUtils";
+import { SessionSidebarItem } from "./SessionSidebarItem";
 import { SessionSidebarPreviewPopover } from "./SessionSidebarPreviewPopover";
 
 type SessionSidebarState = {
@@ -79,19 +60,6 @@ type SessionSidebarProps = {
   state: SessionSidebarState;
   actions: SessionSidebarActions;
 };
-
-const surfaceLinkClass =
-  "border-latte-surface2/70 bg-latte-base/70 focus-visible:ring-latte-lavender block w-full rounded-2xl border px-3 py-3.5 text-left transition-all duration-200 hover:border-latte-lavender/50 hover:bg-latte-mantle/70 hover:shadow-[0_8px_18px_-10px_rgba(114,135,253,0.35)] focus-visible:outline-none focus-visible:ring-2";
-
-const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> = {
-  RUNNING: "border-green-500/50",
-  WAITING_INPUT: "border-amber-500/50",
-  WAITING_PERMISSION: "border-red-500/50",
-  SHELL: "border-blue-500/50",
-  UNKNOWN: "border-gray-400/50",
-};
-
-const sidebarEditorSessionBorderClass = "border-latte-maroon/55";
 
 const SidebarBackdrop = memo(() => (
   <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-none rounded-r-3xl">
@@ -132,223 +100,6 @@ const SIDEBAR_FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
   value,
   label: value.replace("_", " "),
 }));
-
-type SessionSidebarItemProps = {
-  item: SessionSummary;
-  nowMs: number;
-  isCurrent: boolean;
-  isFocusPending: boolean;
-  onHoverStart: (paneId: string) => void;
-  onHoverEnd: (paneId: string) => void;
-  onFocus: (paneId: string) => void;
-  onBlur: (paneId: string) => void;
-  onSelect: () => void;
-  onFocusPane?: (paneId: string) => Promise<void> | void;
-  onTouchSession?: (paneId: string) => void;
-  registerItemRef: (paneId: string, node: HTMLDivElement | null) => void;
-};
-
-const SessionSidebarItem = memo(
-  ({
-    item,
-    nowMs,
-    isCurrent,
-    isFocusPending,
-    onHoverStart,
-    onHoverEnd,
-    onFocus,
-    onBlur,
-    onSelect,
-    onFocusPane,
-    onTouchSession,
-    registerItemRef,
-  }: SessionSidebarItemProps) => {
-    const displayTitle = item.customTitle ?? item.title ?? item.sessionName;
-    const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
-    const showEditorState = item.state === "UNKNOWN" && isEditorCommand(item.currentCommand);
-    const statusMeta = showEditorState
-      ? {
-          ...statusIconMeta("UNKNOWN"),
-          className: "text-latte-maroon",
-          wrap: "border-latte-maroon/45 bg-latte-maroon/14",
-          label: "EDITOR",
-        }
-      : statusIconMeta(item.state);
-    const sessionBorderClass = showEditorState
-      ? sidebarEditorSessionBorderClass
-      : sidebarSessionBorderClassByState[item.state];
-    const showWorktreeFlags = isVwManagedWorktreePath(item.worktreePath);
-    const StatusIcon = statusMeta.icon;
-
-    const handleRef = useCallback(
-      (node: HTMLDivElement | null) => {
-        registerItemRef(item.paneId, node);
-      },
-      [item.paneId, registerItemRef],
-    );
-
-    const handleMouseEnter = useCallback(() => {
-      if (!isCurrent) {
-        onHoverStart(item.paneId);
-      }
-    }, [isCurrent, item.paneId, onHoverStart]);
-
-    const handleMouseLeave = useCallback(() => {
-      onHoverEnd(item.paneId);
-    }, [item.paneId, onHoverEnd]);
-
-    const handleFocus = useCallback(() => {
-      if (!isCurrent) {
-        onFocus(item.paneId);
-      }
-    }, [isCurrent, item.paneId, onFocus]);
-
-    const handleBlur = useCallback(() => {
-      onBlur(item.paneId);
-    }, [item.paneId, onBlur]);
-
-    const handleFocusButtonClick = useCallback(
-      (event: MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!onFocusPane || isFocusPending) {
-          return;
-        }
-        void onFocusPane(item.paneId);
-      },
-      [isFocusPending, item.paneId, onFocusPane],
-    );
-
-    const handlePinButtonClick = useCallback(
-      (event: MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onTouchSession?.(item.paneId);
-      },
-      [item.paneId, onTouchSession],
-    );
-
-    return (
-      <div
-        className="flex items-center gap-2"
-        ref={handleRef}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onFocusCapture={handleFocus}
-        onBlurCapture={handleBlur}
-      >
-        <Link
-          to="/sessions/$paneId"
-          params={{ paneId: item.paneId }}
-          aria-current={isCurrent ? "page" : undefined}
-          onClick={onSelect}
-          className={cn(
-            surfaceLinkClass,
-            "min-w-0 flex-1 flex-col gap-3",
-            sessionBorderClass,
-            isCurrent
-              ? "bg-latte-lavender/20 ring-latte-lavender/40 hover:bg-latte-lavender/25 shadow-[0_0_0_1px_rgba(114,135,253,0.45),0_12px_24px_-12px_rgba(114,135,253,0.45)] ring-1 ring-inset"
-              : "hover:border-latte-lavender/60 hover:bg-latte-lavender/10",
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${statusMeta.wrap}`}
-              aria-label={statusMeta.label}
-            >
-              <StatusIcon className={`h-3.5 w-3.5 ${statusMeta.className}`} />
-            </span>
-            <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
-              {displayTitle}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {isKnownAgent(item.agent) && (
-              <Badge tone={agentToneFor(item.agent)} size="sm">
-                {agentLabelFor(item.agent)}
-              </Badge>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <LastInputPill
-                tone={lastInputTone}
-                label={<Clock className="h-3 w-3" />}
-                srLabel="Last input"
-                value={formatRelativeTime(item.lastInputAt, nowMs)}
-                size="xs"
-                showDot={false}
-              />
-              <TagPill tone="meta" className="inline-flex max-w-[180px] items-center gap-1">
-                <GitBranch className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
-              </TagPill>
-              {showWorktreeFlags ? (
-                <>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("dirty", item.worktreeDirty ?? null)}
-                  >
-                    D:{formatWorktreeFlag(item.worktreeDirty)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("locked", item.worktreeLocked ?? null)}
-                  >
-                    L:{formatWorktreeFlag(item.worktreeLocked)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("pr", item.worktreePrCreated ?? null)}
-                  >
-                    PR:{formatWorktreeFlag(item.worktreePrCreated)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("merged", item.worktreeMerged ?? null)}
-                  >
-                    M:{formatWorktreeFlag(item.worktreeMerged)}
-                  </TagPill>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </Link>
-        {onTouchSession || onFocusPane ? (
-          <div className="flex shrink-0 flex-col items-center gap-1.5">
-            {onTouchSession ? (
-              <IconButton
-                type="button"
-                size="md"
-                variant="base"
-                aria-label="Pin pane to top"
-                title="Pin pane to top"
-                className="border-latte-lavender/35 bg-latte-base/90 text-latte-lavender hover:bg-latte-lavender/12 h-8 w-8"
-                onClick={handlePinButtonClick}
-              >
-                <Pin className="h-4 w-4" />
-              </IconButton>
-            ) : null}
-            {onFocusPane ? (
-              <IconButton
-                type="button"
-                size="md"
-                variant="lavender"
-                aria-label="Focus terminal pane"
-                title="Focus terminal pane"
-                className="h-8 w-8"
-                onClick={handleFocusButtonClick}
-                disabled={isFocusPending}
-              >
-                <SquareTerminal className="h-4 w-4" />
-              </IconButton>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  },
-);
-
-SessionSidebarItem.displayName = "SessionSidebarItem";
 
 export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const {
