@@ -6,17 +6,16 @@ import type {
 } from "@vde-monitor/shared";
 import { memo, useCallback } from "react";
 
-import { Card, FilterToggleGroup, TagPill } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
-import { SESSION_LIST_FILTER_VALUES } from "@/pages/SessionList/sessionListFilters";
 
 import { useSessionSidebarActions } from "../hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "../hooks/useSessionSidebarGroups";
 import { useSessionSidebarPreviewPopover } from "../hooks/useSessionSidebarPreviewPopover";
 import { useSidebarPreview } from "../hooks/useSidebarPreview";
-import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
+import { SessionSidebarMainSections } from "./SessionSidebarMainSections";
 import { SessionSidebarPreviewPopover } from "./SessionSidebarPreviewPopover";
 
 type SessionSidebarState = {
@@ -61,35 +60,6 @@ const SidebarBackdrop = memo(() => (
 ));
 
 SidebarBackdrop.displayName = "SidebarBackdrop";
-
-type SidebarHeaderProps = {
-  totalSessions: number;
-  repoCount: number;
-};
-
-const SidebarHeader = memo(({ totalSessions, repoCount }: SidebarHeaderProps) => (
-  <div className="flex items-center justify-between gap-3">
-    <div>
-      <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.45em]">vde-monitor</p>
-      <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
-    </div>
-    <div className="flex flex-col items-end gap-2">
-      <TagPill tone="neutral" className="bg-latte-crust/70">
-        {totalSessions} Active
-      </TagPill>
-      <span className="text-latte-subtext0 text-[10px] uppercase tracking-[0.3em]">
-        {repoCount} repos
-      </span>
-    </div>
-  </div>
-));
-
-SidebarHeader.displayName = "SidebarHeader";
-
-const SIDEBAR_FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
-  value,
-  label: value.replace("_", " "),
-}));
 
 export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const {
@@ -169,36 +139,26 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     >
       <SidebarBackdrop />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-5">
-        <SidebarHeader totalSessions={totalSessions} repoCount={repoCount} />
-        <FilterToggleGroup
-          value={filter}
-          onChange={handleFilterChange}
-          options={SIDEBAR_FILTER_OPTIONS}
-          buttonClassName="uppercase tracking-[0.14em] text-[11px] px-2.5 py-1"
-        />
-
-        <div
-          className="custom-scrollbar -mr-2 min-h-0 flex-1 overflow-y-auto pr-2"
-          onScroll={handleListScroll}
-        >
-          <SessionSidebarGroupList
-            sidebarGroups={sidebarGroups}
-            nowMs={nowMs}
-            currentPaneId={currentPaneId}
-            focusPendingPaneIds={focusPendingPaneIds}
-            onHoverStart={handleHoverStart}
-            onHoverEnd={handleHoverEnd}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onSelect={handleSelect}
-            onFocusPane={handleFocusPane}
-            onTouchSession={handleTouchPane}
-            onTouchRepoPin={handleTouchRepoPin}
-            registerItemRef={registerItemRef}
-          />
-        </div>
-      </div>
+      <SessionSidebarMainSections
+        totalSessions={totalSessions}
+        repoCount={repoCount}
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        onListScroll={handleListScroll}
+        sidebarGroups={sidebarGroups}
+        nowMs={nowMs}
+        currentPaneId={currentPaneId}
+        focusPendingPaneIds={focusPendingPaneIds}
+        onHoverStart={handleHoverStart}
+        onHoverEnd={handleHoverEnd}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onSelect={handleSelect}
+        onFocusPane={handleFocusPane}
+        onTouchSession={handleTouchPane}
+        onTouchRepoPin={handleTouchRepoPin}
+        registerItemRef={registerItemRef}
+      />
 
       {previewPopover && <SessionSidebarPreviewPopover {...previewPopover} />}
     </Card>
