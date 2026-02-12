@@ -32,6 +32,16 @@ const baseDir = path.join(os.homedir(), ".vde-monitor");
 const PANE_PROCESS_CONCURRENCY = 8;
 const VIEWED_PANE_TTL_MS = 20_000;
 
+type SettledMapResult<R> =
+  | { status: "fulfilled"; value: R }
+  | { status: "rejected"; reason: unknown };
+
+type PaneProcessingFailure = {
+  count: number;
+  lastFailedAt: string;
+  lastErrorMessage: string;
+};
+
 export const mapWithConcurrencyLimit = async <T, R>(
   items: T[],
   limit: number,
@@ -60,6 +70,34 @@ export const mapWithConcurrencyLimit = async <T, R>(
   return results;
 };
 
+export const mapWithConcurrencyLimitSettled = async <T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<SettledMapResult<R>[]> => {
+  return mapWithConcurrencyLimit(items, limit, async (item, index) => {
+    try {
+      return { status: "fulfilled", value: await mapper(item, index) };
+    } catch (error) {
+      return { status: "rejected", reason: error };
+    }
+  });
+};
+
+const resolveErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "unknown error";
+  }
+};
+
 const resolveTimelineSource = (reason: string): SessionStateTimelineSource => {
   if (reason === "restored") {
     return "restore";
@@ -83,6 +121,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const restoredReason = new Set<string>();
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
+  const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
   const serverKey = runtime.serverKey;
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
@@ -221,7 +260,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
       return request;
     };
 
-    const paneResults = await mapWithConcurrencyLimit(
+    const paneResults = await mapWithConcurrencyLimitSettled(
       panes,
       PANE_PROCESS_CONCURRENCY,
       async (pane) => {
@@ -245,11 +284,30 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
           resolvePanePipeTagValue,
           cachePanePipeTagValue,
         });
-        return { pane, detail };
+        return detail;
       },
     );
 
-    for (const { pane, detail } of paneResults) {
+    for (const [index, paneResult] of paneResults.entries()) {
+      const pane = panes[index];
+      if (!pane) {
+        continue;
+      }
+
+      if (paneResult.status === "rejected") {
+        const failedAt = new Date().toISOString();
+        const previous = paneProcessingFailures.get(pane.paneId);
+        paneProcessingFailures.set(pane.paneId, {
+          count: (previous?.count ?? 0) + 1,
+          lastFailedAt: failedAt,
+          lastErrorMessage: resolveErrorMessage(paneResult.reason),
+        });
+        activePaneIds.add(pane.paneId);
+        continue;
+      }
+
+      paneProcessingFailures.delete(pane.paneId);
+      const detail = paneResult.value;
       if (!detail) {
         continue;
       }
@@ -282,6 +340,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
         logActivity.unregister(paneId);
         viewedPaneAtMs.delete(paneId);
         panePipeTagCache.delete(paneId);
+        paneProcessingFailures.delete(paneId);
       },
     });
     removedPaneIds.forEach((paneId) => {
