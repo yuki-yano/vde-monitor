@@ -28,6 +28,7 @@ import {
 } from "./service-context";
 import { paginateItems } from "./service-pagination";
 import { buildWordSearchMatch, tokenizeQuery } from "./service-search-matcher";
+import { withServiceTimeout } from "./service-timeout";
 import { createServiceVisibilityResolver, toDirectoryRelativePath } from "./service-visibility";
 
 const VISIBILITY_CACHE_TTL_MS = 5_000;
@@ -83,22 +84,6 @@ const extractStdoutFromExecError = (error: unknown) => {
 
 const normalizeAndSortNodes = (nodes: RepoFileTreeNode[]) => {
   return nodes.sort((left, right) => left.name.localeCompare(right.name));
-};
-
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string) => {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<T>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(createServiceError("INTERNAL", 500, timeoutMessage));
-    }, timeoutMs);
-  });
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId != null) {
-      clearTimeout(timeoutId);
-    }
-  }
 };
 
 export const createRepoFileService = ({
@@ -222,7 +207,7 @@ export const createRepoFileService = ({
     try {
       const normalizedQuery = normalizeSearchQuery(query);
       const policy = await resolveVisibilityPolicy(repoRoot);
-      const index = await withTimeout(
+      const index = await withServiceTimeout(
         resolveSearchIndex(repoRoot, policy),
         timeoutMs,
         "search timed out",
@@ -272,7 +257,7 @@ export const createRepoFileService = ({
         throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
       }
 
-      return withTimeout(
+      return withServiceTimeout(
         resolveFileContent({
           repoRoot,
           normalizedPath,
