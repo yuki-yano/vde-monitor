@@ -1,10 +1,7 @@
 import { useSetAtom } from "jotai";
 import { useHydrateAtoms } from "jotai/utils";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef } from "react";
-
-import { useSessions } from "@/state/session-context";
-import { useTheme } from "@/state/theme-context";
+import { useEffect, useRef } from "react";
 
 import {
   connectedAtom,
@@ -14,26 +11,17 @@ import {
   highlightCorrectionsAtom,
   paneIdAtom,
   resolvedThemeAtom,
-  type SessionApi,
   sessionApiAtom,
   sessionsAtom,
 } from "./atoms/sessionDetailAtoms";
+import {
+  type SessionDetailAtomSnapshot,
+  useSessionDetailAtomSnapshot,
+} from "./hooks/useSessionDetailAtomSnapshot";
 
 type SessionDetailProviderProps = {
   paneId: string;
   children: ReactNode;
-};
-
-type SessionDetailAtomSnapshot = {
-  paneId: string;
-  sessions: ReturnType<typeof useSessions>["sessions"];
-  connected: boolean;
-  connectionStatus: ReturnType<typeof useSessions>["connectionStatus"];
-  connectionIssue: string | null;
-  highlightCorrections: ReturnType<typeof useSessions>["highlightCorrections"];
-  fileNavigatorConfig: ReturnType<typeof useSessions>["fileNavigatorConfig"];
-  resolvedTheme: ReturnType<typeof useTheme>["resolvedTheme"];
-  sessionApi: SessionApi;
 };
 
 const useSyncAtomValue = <T,>(value: T, setValue: (nextValue: T) => void) => {
@@ -83,100 +71,7 @@ const SessionDetailAtomSynchronizer = ({ snapshot }: { snapshot: SessionDetailAt
 };
 
 const SessionDetailHydrator = ({ paneId }: { paneId: string }) => {
-  const {
-    sessions,
-    connected,
-    connectionStatus,
-    connectionIssue,
-    highlightCorrections,
-    fileNavigatorConfig,
-    reconnect,
-    requestDiffSummary,
-    requestDiffFile,
-    requestCommitLog,
-    requestCommitDetail,
-    requestCommitFile,
-    requestStateTimeline,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-    requestScreen,
-    focusPane,
-    uploadImageAttachment,
-    sendText,
-    sendKeys,
-    sendRaw,
-    touchSession,
-    updateSessionTitle,
-  } = useSessions();
-  const { resolvedTheme } = useTheme();
-  const sessionApi = useMemo<SessionApi>(
-    () => ({
-      reconnect,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-      requestStateTimeline,
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
-      requestScreen,
-      focusPane,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-    }),
-    [
-      reconnect,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-      requestStateTimeline,
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
-      requestScreen,
-      focusPane,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-    ],
-  );
-
-  const snapshot = useMemo<SessionDetailAtomSnapshot>(
-    () => ({
-      paneId,
-      sessions,
-      connected,
-      connectionStatus,
-      connectionIssue,
-      highlightCorrections,
-      fileNavigatorConfig,
-      resolvedTheme,
-      sessionApi,
-    }),
-    [
-      paneId,
-      sessions,
-      connected,
-      connectionStatus,
-      connectionIssue,
-      highlightCorrections,
-      fileNavigatorConfig,
-      resolvedTheme,
-      sessionApi,
-    ],
-  );
+  const snapshot = useSessionDetailAtomSnapshot(paneId);
   const initialSnapshotRef = useRef<null | SessionDetailAtomSnapshot>(null);
   if (initialSnapshotRef.current == null) {
     initialSnapshotRef.current = snapshot;
