@@ -18,6 +18,11 @@ import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
+import {
+  initialScreenFetchLifecycleState,
+  type ScreenFetchLifecycleAction,
+  screenFetchLifecycleReducer,
+} from "./screen-fetch-lifecycle";
 
 const normalizeScreenText = (text: string) => text.replace(/\r\n/g, "\n");
 
@@ -117,8 +122,13 @@ export const useScreenFetch = ({
   const [pollingPauseReason, setPollingPauseReason] = useState<PollingPauseReason>(() =>
     resolvePollingPauseReason({ connected, connectionIssue }),
   );
-  const refreshInFlightRef = useRef<null | { id: number; mode: ScreenMode }>(null);
+  const refreshLifecycleRef = useRef(initialScreenFetchLifecycleState);
   const refreshRequestIdRef = useRef(0);
+  const applyRefreshLifecycleAction = useCallback((action: ScreenFetchLifecycleAction) => {
+    refreshLifecycleRef.current = screenFetchLifecycleReducer(refreshLifecycleRef.current, action);
+    return refreshLifecycleRef.current;
+  }, []);
+
   const canPollScreen = useCallback(
     () => connectionIssue !== API_ERROR_MESSAGES.unauthorized,
     [connectionIssue],
@@ -188,7 +198,7 @@ export const useScreenFetch = ({
 
   const resetDisconnectedState = useCallback(
     (skipWhenErrorPresent: boolean) => {
-      refreshInFlightRef.current = null;
+      applyRefreshLifecycleAction({ type: "reset" });
       modeSwitchRef.current = null;
       dispatchScreenLoading({ type: "reset" });
       const shouldSetDisconnectedError = !connectionIssue && (!skipWhenErrorPresent || !error);
@@ -196,12 +206,19 @@ export const useScreenFetch = ({
         setError(DISCONNECTED_MESSAGE);
       }
     },
-    [connectionIssue, dispatchScreenLoading, error, modeSwitchRef, setError],
+    [
+      applyRefreshLifecycleAction,
+      connectionIssue,
+      dispatchScreenLoading,
+      error,
+      modeSwitchRef,
+      setError,
+    ],
   );
 
   const beginRefreshAttempt = useCallback((): RefreshAttempt | null => {
     const requestId = (refreshRequestIdRef.current += 1);
-    const inflight = refreshInFlightRef.current;
+    const inflight = refreshLifecycleRef.current.inFlight;
     if (inflight && inflight.mode === mode) {
       return null;
     }
@@ -211,9 +228,16 @@ export const useScreenFetch = ({
     if (shouldShowLoading) {
       dispatchScreenLoading({ type: "start", mode });
     }
-    refreshInFlightRef.current = { id: requestId, mode };
+    applyRefreshLifecycleAction({ type: "start", requestId, mode });
     return { requestId, isModeSwitch, shouldShowLoading };
-  }, [dispatchScreenLoading, mode, modeLoadedRef, modeSwitchRef, setError]);
+  }, [
+    applyRefreshLifecycleAction,
+    dispatchScreenLoading,
+    mode,
+    modeLoadedRef,
+    modeSwitchRef,
+    setError,
+  ]);
 
   const applyRefreshResponse = useCallback(
     (response: ScreenResponse, suppressRender: boolean) => {
@@ -234,10 +258,10 @@ export const useScreenFetch = ({
 
   const finishRefreshAttempt = useCallback(
     (attempt: RefreshAttempt) => {
-      if (refreshInFlightRef.current?.id !== attempt.requestId) {
+      if (refreshLifecycleRef.current.inFlight?.id !== attempt.requestId) {
         return;
       }
-      refreshInFlightRef.current = null;
+      applyRefreshLifecycleAction({ type: "finish", requestId: attempt.requestId });
       if (attempt.shouldShowLoading) {
         dispatchScreenLoading({ type: "finish", mode });
       }
@@ -245,7 +269,7 @@ export const useScreenFetch = ({
         modeSwitchRef.current = null;
       }
     },
-    [dispatchScreenLoading, mode, modeSwitchRef],
+    [applyRefreshLifecycleAction, dispatchScreenLoading, mode, modeSwitchRef],
   );
 
   const refreshScreen = useCallback(async () => {
@@ -260,7 +284,7 @@ export const useScreenFetch = ({
     }
     try {
       const response = await requestScreen(paneId, buildScreenOptions(mode, cursorRef.current));
-      if (refreshInFlightRef.current?.id !== attempt.requestId) {
+      if (refreshLifecycleRef.current.inFlight?.id !== attempt.requestId) {
         return;
       }
       const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
