@@ -15,6 +15,7 @@ import type {
 
 import { createFileVisibilityPolicy, type FileVisibilityPolicy } from "./file-visibility-policy";
 import { normalizeRepoRelativePath, resolveRepoAbsolutePath } from "./path-guard";
+import { createSearchIndexResolver, type SearchIndexItem } from "./search-index-resolver";
 import {
   createServiceError,
   ensureRepoRootAvailable,
@@ -29,9 +30,7 @@ import {
 } from "./service-context";
 
 const DEFAULT_CURSOR_OFFSET = 0;
-const INDEX_CACHE_TTL_MS = 5_000;
 const VISIBILITY_CACHE_TTL_MS = 5_000;
-const KNOWN_PATH_CACHE_TTL_MS = 5_000;
 const GIT_LS_FILES_TIMEOUT_MS = 1_500;
 const DEFAULT_SEARCH_TIMEOUT_MS = 2_000;
 const DEFAULT_CONTENT_TIMEOUT_MS = 2_000;
@@ -62,13 +61,6 @@ type GetFileContentInput = {
   timeoutMs?: number;
 };
 
-type SearchIndexItem = {
-  path: string;
-  name: string;
-  kind: "file" | "directory";
-  isIgnored: boolean;
-};
-
 type RepoFileService = {
   listTree: (input: ListTreeInput) => Promise<RepoFileTreePage>;
   searchFiles: (input: SearchFilesInput) => Promise<RepoFileSearchPage>;
@@ -82,17 +74,6 @@ type RepoFileServiceDeps = {
 
 type VisibilityCacheEntry = {
   policy: FileVisibilityPolicy;
-  expiresAt: number;
-};
-
-type SearchIndexCacheEntry = {
-  items: SearchIndexItem[];
-  expiresAt: number;
-};
-
-type KnownPathCacheEntry = {
-  knownFiles: Set<string> | null;
-  knownDirectories: Set<string> | null;
   expiresAt: number;
 };
 
@@ -118,26 +99,6 @@ const decodeCursor = (cursor: string | undefined) => {
 };
 
 const splitNullSeparated = (value: string) => value.split("\0").filter((token) => token.length > 0);
-
-const buildKnownDirectorySet = (knownFiles: Set<string>) => {
-  const knownDirectories = new Set<string>();
-  knownFiles.forEach((relativePath) => {
-    const segments = relativePath.split("/").filter((segment) => segment.length > 0);
-    if (segments.length <= 1) {
-      return;
-    }
-    let current = "";
-    for (let index = 0; index < segments.length - 1; index += 1) {
-      const segment = segments[index];
-      if (!segment) {
-        continue;
-      }
-      current = current.length > 0 ? `${current}/${segment}` : segment;
-      knownDirectories.add(current);
-    }
-  });
-  return knownDirectories;
-};
 
 const extractStdoutFromExecError = (error: unknown) => {
   if (typeof error !== "object" || error == null) {
@@ -436,8 +397,6 @@ export const createRepoFileService = ({
   now = () => Date.now(),
 }: RepoFileServiceDeps): RepoFileService => {
   const visibilityCache = new Map<string, VisibilityCacheEntry>();
-  const searchIndexCache = new Map<string, SearchIndexCacheEntry>();
-  const knownPathCache = new Map<string, KnownPathCacheEntry>();
 
   const resolveVisibilityPolicy = async (repoRoot: string) => {
     const cached = visibilityCache.get(repoRoot);
@@ -472,161 +431,10 @@ export const createRepoFileService = ({
       });
     return splitNullSeparated(output);
   };
-
-  const normalizeDirectoryPath = (relativePath: string) => {
-    if (!relativePath.endsWith("/")) {
-      return relativePath;
-    }
-    return relativePath.slice(0, -1);
-  };
-
-  const resolveKnownPaths = async (repoRoot: string) => {
-    const cached = knownPathCache.get(repoRoot);
-    if (cached && cached.expiresAt > now()) {
-      return cached;
-    }
-    try {
-      const [trackedFiles, untrackedFiles, untrackedPathHints] = await Promise.all([
-        runLsFiles(repoRoot, ["ls-files", "-z"]),
-        runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-        runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "--directory", "-z"]),
-      ]);
-      const knownFiles = new Set([...trackedFiles, ...untrackedFiles]);
-      const untrackedDirectories = new Set<string>();
-      untrackedPathHints.forEach((entry) => {
-        if (entry.endsWith("/")) {
-          const normalized = normalizeDirectoryPath(entry);
-          if (normalized.length > 0) {
-            untrackedDirectories.add(normalized);
-          }
-          return;
-        }
-        knownFiles.add(entry);
-      });
-      const knownDirectories = buildKnownDirectorySet(knownFiles);
-      untrackedDirectories.forEach((directoryPath) => {
-        knownDirectories.add(directoryPath);
-      });
-      const next = {
-        knownFiles,
-        knownDirectories,
-        expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
-      } satisfies KnownPathCacheEntry;
-      knownPathCache.set(repoRoot, next);
-      return next;
-    } catch {
-      const next = {
-        knownFiles: null,
-        knownDirectories: null,
-        expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
-      } satisfies KnownPathCacheEntry;
-      knownPathCache.set(repoRoot, next);
-      return next;
-    }
-  };
-
-  const resolveIsIgnored = ({
-    path: relativePath,
-    kind,
-    knownPathEntry,
-  }: {
-    path: string;
-    kind: "file" | "directory";
-    knownPathEntry: KnownPathCacheEntry;
-  }) => {
-    if (kind === "file") {
-      if (!knownPathEntry.knownFiles) {
-        return false;
-      }
-      return !knownPathEntry.knownFiles.has(relativePath);
-    }
-    if (!knownPathEntry.knownDirectories) {
-      return false;
-    }
-    if (knownPathEntry.knownDirectories.has(relativePath)) {
-      return false;
-    }
-    if (knownPathEntry.knownFiles?.has(relativePath)) {
-      return false;
-    }
-    return true;
-  };
-
-  const buildSearchIndex = async (
-    repoRoot: string,
-    policy: FileVisibilityPolicy,
-    currentRelativePath = ".",
-    output: SearchIndexItem[] = [],
-  ): Promise<SearchIndexItem[]> => {
-    const absolutePath = resolveRepoAbsolutePath(repoRoot, currentRelativePath);
-    let entries: Dirent[];
-    try {
-      entries = await fs.readdir(absolutePath, { withFileTypes: true });
-    } catch (error) {
-      if (isReadablePermissionError(error)) {
-        throw createServiceError("PERMISSION_DENIED", 403, "permission denied");
-      }
-      if (isNotFoundError(error)) {
-        return output;
-      }
-      throw error;
-    }
-
-    const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name));
-    for (const entry of sortedEntries) {
-      if (entry.isSymbolicLink()) {
-        continue;
-      }
-      const relativePath = toDirectoryRelativePath(currentRelativePath, entry.name);
-      if (entry.isDirectory()) {
-        const includeDirectory = policy.shouldIncludePath({ relativePath, isDirectory: true });
-        if (includeDirectory) {
-          output.push({
-            path: relativePath,
-            name: entry.name,
-            kind: "directory",
-            isIgnored: false,
-          });
-        }
-        if (!policy.shouldTraverseDirectory(relativePath)) {
-          continue;
-        }
-        await buildSearchIndex(repoRoot, policy, relativePath, output);
-        continue;
-      }
-      if (!entry.isFile()) {
-        continue;
-      }
-      if (!policy.shouldIncludePath({ relativePath, isDirectory: false })) {
-        continue;
-      }
-      output.push({
-        path: relativePath,
-        name: entry.name,
-        kind: "file",
-        isIgnored: false,
-      });
-    }
-    return output;
-  };
-
-  const resolveSearchIndex = async (repoRoot: string, policy: FileVisibilityPolicy) => {
-    const cached = searchIndexCache.get(repoRoot);
-    if (cached && cached.expiresAt > now()) {
-      return cached.items;
-    }
-    const items = await buildSearchIndex(repoRoot, policy);
-    const knownPathEntry = await resolveKnownPaths(repoRoot);
-    const itemsWithIgnored = items.map((item) => ({
-      ...item,
-      isIgnored: resolveIsIgnored({ path: item.path, kind: item.kind, knownPathEntry }),
-    }));
-    searchIndexCache.set(repoRoot, {
-      items: itemsWithIgnored,
-      expiresAt: now() + INDEX_CACHE_TTL_MS,
-    });
-    return itemsWithIgnored;
-  };
+  const { resolveSearchIndex, withIgnoredFlags } = createSearchIndexResolver({
+    now,
+    runLsFiles,
+  });
 
   const listTree = async ({ repoRoot, path: rawPath, cursor, limit }: ListTreeInput) => {
     await ensureRepoRootAvailable(repoRoot);
@@ -634,7 +442,6 @@ export const createRepoFileService = ({
       const basePath = normalizeRepoRelativePath(rawPath);
       const absoluteBasePath = resolveRepoAbsolutePath(repoRoot, basePath);
       const policy = await resolveVisibilityPolicy(repoRoot);
-      const knownPathEntry = await resolveKnownPaths(repoRoot);
       let entries: Dirent[];
       try {
         const stats = await fs.stat(absoluteBasePath);
@@ -690,14 +497,7 @@ export const createRepoFileService = ({
         });
       }
 
-      const nodesWithIgnored = visibleNodes.map((entry) => ({
-        ...entry,
-        isIgnored: resolveIsIgnored({
-          path: entry.path,
-          kind: entry.kind,
-          knownPathEntry,
-        }),
-      }));
+      const nodesWithIgnored = await withIgnoredFlags(repoRoot, visibleNodes);
 
       const normalizedNodes = normalizeAndSortNodes(nodesWithIgnored);
       const paged = paginateItems({
