@@ -14,7 +14,19 @@ import type {
 } from "@vde-monitor/shared";
 
 import { createFileVisibilityPolicy, type FileVisibilityPolicy } from "./file-visibility-policy";
-import { isPathGuardError, normalizeRepoRelativePath, resolveRepoAbsolutePath } from "./path-guard";
+import { normalizeRepoRelativePath, resolveRepoAbsolutePath } from "./path-guard";
+import {
+  createServiceError,
+  ensureRepoRootAvailable,
+  isNotFoundError,
+  isReadablePermissionError,
+  isRepoFileServiceError,
+  normalizeFileContentPath,
+  normalizeSearchQuery,
+  type RepoFileServiceError,
+  toServiceError,
+  validateMaxBytes,
+} from "./service-context";
 
 const DEFAULT_CURSOR_OFFSET = 0;
 const INDEX_CACHE_TTL_MS = 5_000;
@@ -57,18 +69,6 @@ type SearchIndexItem = {
   isIgnored: boolean;
 };
 
-type RepoFileServiceError = {
-  code:
-    | "INVALID_PAYLOAD"
-    | "NOT_FOUND"
-    | "REPO_UNAVAILABLE"
-    | "FORBIDDEN_PATH"
-    | "PERMISSION_DENIED"
-    | "INTERNAL";
-  status: 400 | 403 | 404 | 500;
-  message: string;
-};
-
 type RepoFileService = {
   listTree: (input: ListTreeInput) => Promise<RepoFileTreePage>;
   searchFiles: (input: SearchFilesInput) => Promise<RepoFileSearchPage>;
@@ -94,32 +94,6 @@ type KnownPathCacheEntry = {
   knownFiles: Set<string> | null;
   knownDirectories: Set<string> | null;
   expiresAt: number;
-};
-
-const createServiceError = (
-  code: RepoFileServiceError["code"],
-  status: RepoFileServiceError["status"],
-  message: string,
-): RepoFileServiceError => ({ code, status, message });
-
-const isRepoFileServiceError = (error: unknown): error is RepoFileServiceError => {
-  if (typeof error !== "object" || error == null) {
-    return false;
-  }
-  const candidate = error as { code?: unknown; status?: unknown; message?: unknown };
-  return (
-    typeof candidate.code === "string" &&
-    typeof candidate.status === "number" &&
-    typeof candidate.message === "string"
-  );
-};
-
-const toNodeErrorCode = (error: unknown) => {
-  if (typeof error !== "object" || error == null) {
-    return null;
-  }
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : null;
 };
 
 const encodeCursor = (offset: number) => {
@@ -176,13 +150,6 @@ const extractStdoutFromExecError = (error: unknown) => {
 const normalizeAndSortNodes = (nodes: RepoFileTreeNode[]) => {
   return nodes.sort((left, right) => left.name.localeCompare(right.name));
 };
-
-const isReadablePermissionError = (error: unknown) => {
-  const code = toNodeErrorCode(error);
-  return code === "EACCES" || code === "EPERM";
-};
-
-const isNotFoundError = (error: unknown) => toNodeErrorCode(error) === "ENOENT";
 
 const assertNoSymlinkInTargetPath = async ({
   repoRoot,
@@ -252,42 +219,6 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, timeoutMes
       clearTimeout(timeoutId);
     }
   }
-};
-
-const ensureRepoRootAvailable = async (repoRoot: string) => {
-  try {
-    const stats = await fs.stat(repoRoot);
-    if (!stats.isDirectory()) {
-      throw createServiceError("REPO_UNAVAILABLE", 400, "repo root is not a directory");
-    }
-  } catch (error) {
-    if (isRepoFileServiceError(error)) {
-      throw error;
-    }
-    if (isReadablePermissionError(error)) {
-      throw createServiceError("PERMISSION_DENIED", 403, "permission denied");
-    }
-    if (isNotFoundError(error)) {
-      throw createServiceError("REPO_UNAVAILABLE", 400, "repo root is unavailable");
-    }
-    throw createServiceError("INTERNAL", 500, "failed to access repo root");
-  }
-};
-
-const toServiceError = (error: unknown): RepoFileServiceError => {
-  if (isRepoFileServiceError(error)) {
-    return error;
-  }
-  if (isPathGuardError(error)) {
-    if (error.code === "FORBIDDEN_PATH") {
-      return createServiceError("FORBIDDEN_PATH", 403, error.message);
-    }
-    return createServiceError("INVALID_PAYLOAD", 400, error.message);
-  }
-  if (isReadablePermissionError(error)) {
-    return createServiceError("PERMISSION_DENIED", 403, "permission denied");
-  }
-  return createServiceError("INTERNAL", 500, "failed to access files");
 };
 
 const toDirectoryRelativePath = (basePath: string, name: string) => {
@@ -793,10 +724,7 @@ export const createRepoFileService = ({
   }: SearchFilesInput) => {
     await ensureRepoRootAvailable(repoRoot);
     try {
-      const normalizedQuery = query.trim();
-      if (normalizedQuery.length === 0) {
-        throw createServiceError("INVALID_PAYLOAD", 400, "query must not be empty");
-      }
+      const normalizedQuery = normalizeSearchQuery(query);
       const policy = await resolveVisibilityPolicy(repoRoot);
       const index = await withTimeout(
         resolveSearchIndex(repoRoot, policy),
@@ -841,14 +769,8 @@ export const createRepoFileService = ({
   }: GetFileContentInput) => {
     await ensureRepoRootAvailable(repoRoot);
     try {
-      if (!Number.isFinite(maxBytes) || maxBytes < 1) {
-        throw createServiceError("INVALID_PAYLOAD", 400, "maxBytes must be a positive number");
-      }
-
-      const normalizedPath = normalizeRepoRelativePath(rawPath);
-      if (normalizedPath === ".") {
-        throw createServiceError("INVALID_PAYLOAD", 400, "path must point to a file");
-      }
+      validateMaxBytes(maxBytes);
+      const normalizedPath = normalizeFileContentPath(rawPath);
       const absolutePath = resolveRepoAbsolutePath(repoRoot, normalizedPath);
       const policy = await resolveVisibilityPolicy(repoRoot);
       if (!policy.shouldIncludePath({ relativePath: normalizedPath, isDirectory: false })) {
