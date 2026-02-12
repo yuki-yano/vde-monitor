@@ -191,4 +191,42 @@ describe("useSessionDiffs", () => {
       expect(result.current.diffSummary?.rev).toBe("rev-fresh");
     });
   });
+
+  it("reuses cached open diff files when summary refresh keeps same rev", async () => {
+    const diffSummary = createDiffSummary({
+      rev: "HEAD",
+      files: [{ path: "src/index.ts", status: "M", staged: false, additions: 1, deletions: 0 }],
+    });
+    const requestDiffSummary = vi.fn().mockResolvedValue(diffSummary);
+    const requestDiffFile = vi.fn().mockResolvedValue(createDiffFile());
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionDiffs({
+          paneId: "pane-1",
+          connected: true,
+          requestDiffSummary,
+          requestDiffFile,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.diffSummary?.rev).toBe("HEAD");
+    });
+
+    result.current.toggleDiff("src/index.ts");
+
+    await waitFor(() => {
+      expect(requestDiffFile).toHaveBeenCalledTimes(1);
+    });
+
+    await result.current.refreshDiff();
+
+    await waitFor(() => {
+      expect(requestDiffSummary).toHaveBeenCalledTimes(2);
+    });
+    expect(requestDiffFile).toHaveBeenCalledTimes(1);
+  });
 });

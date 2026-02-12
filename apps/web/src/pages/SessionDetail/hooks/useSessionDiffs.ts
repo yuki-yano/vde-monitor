@@ -27,6 +27,16 @@ type UseSessionDiffsParams = {
   ) => Promise<DiffFile>;
 };
 
+const buildDiffFileCacheKey = ({
+  paneId,
+  rev,
+  path,
+}: {
+  paneId: string;
+  rev: string | null;
+  path: string;
+}) => `${paneId}:${rev ?? "unknown"}:${path}`;
+
 export const useSessionDiffs = ({
   paneId,
   connected,
@@ -45,12 +55,12 @@ export const useSessionDiffs = ({
   const prevConnectedRef = useRef<boolean | null>(null);
   const activePaneIdRef = useRef(paneId);
   const summaryRequestIdRef = useRef(0);
+  const diffFileCacheRef = useRef(new Map<string, DiffFile>());
   activePaneIdRef.current = paneId;
 
   const applyDiffSummary = useCallback(
     async (summary: DiffSummary, refreshOpenFiles: boolean) => {
       setDiffSummary(summary);
-      setDiffFiles({});
       const fileSet = new Set(summary.files.map((file) => file.path));
       setDiffOpen((prev) => {
         if (!summary.files.length) {
@@ -67,11 +77,33 @@ export const useSessionDiffs = ({
       const openTargets = Object.entries(diffOpenRef.current).filter(
         ([path, value]) => value && fileSet.has(path),
       );
+      const cachedFiles = openTargets.reduce<Record<string, DiffFile>>((acc, [path]) => {
+        const cacheKey = buildDiffFileCacheKey({
+          paneId,
+          rev: summary.rev,
+          path,
+        });
+        const cached = diffFileCacheRef.current.get(cacheKey);
+        if (cached) {
+          acc[path] = cached;
+        }
+        return acc;
+      }, {});
+      setDiffFiles(cachedFiles);
       if (openTargets.length > 0 && refreshOpenFiles) {
         await Promise.all(
           openTargets.map(async ([path]) => {
+            const cacheKey = buildDiffFileCacheKey({
+              paneId,
+              rev: summary.rev,
+              path,
+            });
+            if (diffFileCacheRef.current.has(cacheKey)) {
+              return;
+            }
             try {
               const file = await requestDiffFile(paneId, path, summary.rev, { force: true });
+              diffFileCacheRef.current.set(cacheKey, file);
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
               setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffFile);
@@ -136,6 +168,16 @@ export const useSessionDiffs = ({
     async (path: string) => {
       if (!paneId || !diffSummary?.rev) return;
       if (diffLoadingFiles[path]) return;
+      const cacheKey = buildDiffFileCacheKey({
+        paneId,
+        rev: diffSummary.rev,
+        path,
+      });
+      const cached = diffFileCacheRef.current.get(cacheKey);
+      if (cached) {
+        setDiffFiles((prev) => ({ ...prev, [path]: cached }));
+        return;
+      }
       const targetPaneId = paneId;
       const requestId = summaryRequestIdRef.current;
       setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
@@ -144,6 +186,7 @@ export const useSessionDiffs = ({
         if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
           return;
         }
+        diffFileCacheRef.current.set(cacheKey, file);
         setDiffFiles((prev) => ({ ...prev, [path]: file }));
       } catch (err) {
         if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
@@ -203,6 +246,7 @@ export const useSessionDiffs = ({
     setDiffOpen({});
     setDiffError(null);
     diffSignatureRef.current = null;
+    diffFileCacheRef.current.clear();
   }, [paneId, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary]);
 
   useEffect(() => {
