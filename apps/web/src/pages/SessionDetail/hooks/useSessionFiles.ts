@@ -25,6 +25,7 @@ import {
   fetchWithRequestMap,
 } from "./useSessionFiles-request-cache";
 import { resetSessionFilesRefs, resetSessionFilesState } from "./useSessionFiles-reset";
+import { useSessionFilesSearchActions } from "./useSessionFiles-search-actions";
 import {
   applyEmptySearchState,
   createNextSearchRequestId,
@@ -35,7 +36,6 @@ import {
   buildNormalRenderNodes,
   buildSearchRenderNodes,
   collectAncestorDirectories,
-  mergeSearchItems,
   mergeTreeEntries,
   resolveTreeLoadMoreTarget,
 } from "./useSessionFiles-tree-utils";
@@ -470,38 +470,21 @@ export const useSessionFiles = ({
     setFileModalMarkdownViewMode,
   });
 
-  const onSearchMove = useCallback(
-    (delta: number) => {
-      setSearchActiveIndex((prev) => {
-        const items = searchResult?.items ?? [];
-        if (items.length === 0) {
-          return 0;
-        }
-        const next = prev + delta;
-        if (next < 0) {
-          return 0;
-        }
-        if (next >= items.length) {
-          return items.length - 1;
-        }
-        return next;
-      });
-    },
-    [searchResult?.items],
-  );
-
-  const onSearchConfirm = useCallback(() => {
-    const item = searchResult?.items[searchActiveIndex];
-    if (!item) {
-      return;
-    }
-    if (item.kind === "directory") {
-      onToggleDirectory(item.path);
-      return;
-    }
-    onSelectFile(item.path);
-    onOpenFileModal(item.path);
-  }, [onOpenFileModal, onSelectFile, onToggleDirectory, searchActiveIndex, searchResult?.items]);
+  const { onSearchMove, onSearchConfirm, onLoadMoreSearch } = useSessionFilesSearchActions({
+    searchResult,
+    searchActiveIndex,
+    searchLoading,
+    fetchSearchPage,
+    resolveUnknownErrorMessage,
+    activeSearchRequestIdRef,
+    setSearchActiveIndex,
+    setSearchResult,
+    setSearchLoading,
+    setSearchError,
+    onToggleDirectory,
+    onSelectFile,
+    onOpenFileModal,
+  });
 
   const onLoadMoreTreeRoot = useCallback(() => {
     const target = resolveTreeLoadMoreTarget({
@@ -513,44 +496,6 @@ export const useSessionFiles = ({
     }
     void loadTree(target.path, target.cursor);
   }, [expandedDirSet, loadTree, treePages]);
-
-  const onLoadMoreSearch = useCallback(() => {
-    if (searchLoading) {
-      return;
-    }
-    if (!searchResult?.nextCursor || !searchResult.query) {
-      return;
-    }
-    const currentRequestId = activeSearchRequestIdRef.current;
-    setSearchLoading(true);
-    void fetchSearchPage(searchResult.query, searchResult.nextCursor)
-      .then((nextPage) => {
-        if (activeSearchRequestIdRef.current !== currentRequestId) {
-          return;
-        }
-        setSearchResult((prev) => {
-          if (!prev) {
-            return nextPage;
-          }
-          return {
-            ...nextPage,
-            items: mergeSearchItems(prev.items, nextPage.items),
-          };
-        });
-      })
-      .catch((error) => {
-        if (activeSearchRequestIdRef.current !== currentRequestId) {
-          return;
-        }
-        setSearchError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileSearch));
-      })
-      .finally(() => {
-        if (activeSearchRequestIdRef.current !== currentRequestId) {
-          return;
-        }
-        setSearchLoading(false);
-      });
-  }, [fetchSearchPage, searchLoading, searchResult]);
 
   const resetLogFileCandidateState = useCallback(() => {
     resetLogFileCandidateStateValue({
