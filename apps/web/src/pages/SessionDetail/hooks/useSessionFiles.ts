@@ -12,11 +12,7 @@ import {
   type LogFileCandidateItem,
   resetLogFileCandidateState as resetLogFileCandidateStateValue,
 } from "./useSessionFiles-log-resolve-state";
-import {
-  buildFileContentRequestKey,
-  buildSearchRequestKey,
-  fetchWithRequestMap,
-} from "./useSessionFiles-request-cache";
+import { useSessionFilesRequestActions } from "./useSessionFiles-request-actions";
 import { resetSessionFilesRefs, resetSessionFilesState } from "./useSessionFiles-reset";
 import { useSessionFilesSearchActions } from "./useSessionFiles-search-actions";
 import {
@@ -134,31 +130,15 @@ export const useSessionFiles = ({
     resolveUnknownErrorMessage,
   });
 
-  const fetchSearchPage = useCallback(
-    async (query: string, cursor?: string) => {
-      return fetchWithRequestMap({
-        requestMapRef: searchRequestMapRef,
-        requestKey: buildSearchRequestKey(paneId, query, cursor),
-        requestFactory: () =>
-          requestRepoFileSearch(paneId, query, { cursor, limit: SEARCH_PAGE_LIMIT }),
-      });
-    },
-    [paneId, requestRepoFileSearch],
-  );
-
-  const fetchFileContent = useCallback(
-    async (targetPaneId: string, targetPath: string) => {
-      return fetchWithRequestMap({
-        requestMapRef: fileContentRequestMapRef,
-        requestKey: buildFileContentRequestKey(targetPaneId, targetPath, FILE_CONTENT_MAX_BYTES),
-        requestFactory: () =>
-          requestRepoFileContent(targetPaneId, targetPath, {
-            maxBytes: FILE_CONTENT_MAX_BYTES,
-          }),
-      });
-    },
-    [requestRepoFileContent],
-  );
+  const { fetchSearchPage, fetchFileContent } = useSessionFilesRequestActions({
+    paneId,
+    searchPageLimit: SEARCH_PAGE_LIMIT,
+    fileContentMaxBytes: FILE_CONTENT_MAX_BYTES,
+    requestRepoFileSearch,
+    requestRepoFileContent,
+    searchRequestMapRef,
+    fileContentRequestMapRef,
+  });
 
   useEffect(() => {
     resetSessionFilesRefs({
