@@ -1,5 +1,5 @@
 import { useAtomValue } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { useNowMs } from "@/lib/use-now-ms";
 
@@ -16,14 +16,12 @@ import {
   sessionsAtom,
 } from "./atoms/sessionDetailAtoms";
 import { useSessionCommits } from "./hooks/useSessionCommits";
-import { useSessionDetailActions } from "./hooks/useSessionDetailActions";
 import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
+import { useSessionDetailTimelineLogsActions } from "./hooks/useSessionDetailTimelineLogsActions";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionFiles } from "./hooks/useSessionFiles";
-import { useSessionLogs } from "./hooks/useSessionLogs";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
-import { useSessionTimeline } from "./hooks/useSessionTimeline";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
@@ -217,61 +215,55 @@ export const useSessionDetailVM = (paneId: string) => {
     requestCommitFile,
   });
 
+  const currentRepoRoot = session?.repoRoot ?? null;
   const {
-    quickPanelOpen,
-    logModalOpen,
-    selectedPaneId,
-    selectedSession,
-    selectedLogLines,
-    selectedLogLoading,
-    selectedLogError,
-    openLogModal,
-    closeLogModal,
-    toggleQuickPanel,
-    closeQuickPanel,
-  } = useSessionLogs({
+    timeline: {
+      timeline,
+      timelineRange,
+      timelineError,
+      timelineLoading,
+      timelineExpanded,
+      setTimelineRange,
+      toggleTimelineExpanded,
+      refreshTimeline,
+    },
+    logs: {
+      quickPanelOpen,
+      logModalOpen,
+      selectedSession,
+      selectedLogLines,
+      selectedLogLoading,
+      selectedLogError,
+      openLogModal,
+      closeLogModal,
+      toggleQuickPanel,
+      closeQuickPanel,
+    },
+    actions: {
+      handleOpenInNewTab,
+      handleFocusPane,
+      handleOpenPaneHere,
+      handleOpenHere,
+      handleTouchRepoPin,
+      handleTouchCurrentSession,
+      handleTouchPaneWithRepoAnchor,
+    },
+  } = useSessionDetailTimelineLogsActions({
+    paneId,
     connected,
     connectionIssue,
-    sessions,
     requestScreen,
+    requestStateTimeline,
+    sessions,
     resolvedTheme,
     highlightCorrections,
-  });
-
-  const {
-    handleOpenInNewTab,
-    handleTouchSession,
-    handleTouchPane,
-    handleFocusPane,
-    handleOpenPaneHere,
-    handleOpenHere,
-  } = useSessionDetailActions({
-    paneId,
-    selectedPaneId,
-    closeQuickPanel,
-    closeLogModal,
     touchSession,
     focusPane,
     setScreenError,
+    touchRepoSortAnchor,
+    paneRepoRootMap,
+    currentRepoRoot,
   });
-  const currentRepoRoot = session?.repoRoot ?? null;
-  const handleTouchRepoPin = useCallback(
-    (repoRoot: string | null) => {
-      touchRepoSortAnchor(repoRoot);
-    },
-    [touchRepoSortAnchor],
-  );
-  const handleTouchCurrentSession = useCallback(() => {
-    touchRepoSortAnchor(currentRepoRoot);
-    handleTouchSession();
-  }, [touchRepoSortAnchor, currentRepoRoot, handleTouchSession]);
-  const handleTouchPaneWithRepoAnchor = useCallback(
-    (targetPaneId: string) => {
-      touchRepoSortAnchor(paneRepoRootMap.get(targetPaneId) ?? null);
-      handleTouchPane(targetPaneId);
-    },
-    [touchRepoSortAnchor, paneRepoRootMap, handleTouchPane],
-  );
 
   const {
     titleDraft,
@@ -302,22 +294,6 @@ export const useSessionDetailVM = (paneId: string) => {
     detailSplitRef,
     handleDetailSplitPointerDown,
   } = useSessionDetailLayoutState();
-
-  const {
-    timeline,
-    timelineRange,
-    timelineError,
-    timelineLoading,
-    timelineExpanded,
-    setTimelineRange,
-    toggleTimelineExpanded,
-    refreshTimeline,
-  } = useSessionTimeline({
-    paneId,
-    connected,
-    requestStateTimeline,
-    mobileDefaultCollapsed: true,
-  });
 
   return {
     meta: {
