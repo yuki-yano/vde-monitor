@@ -13,6 +13,10 @@ describe("pane-state", () => {
     expect(state.externalInputCursorBytes).toBeNull();
     expect(state.externalInputSignature).toBeNull();
     expect(state.externalInputLastDetectedAt).toBeNull();
+    expect(state.externalInputLastCheckedAt).toBeNull();
+    expect(state.externalInputLastReason).toBeNull();
+    expect(state.externalInputLastReasonCode).toBeNull();
+    expect(state.externalInputLastErrorMessage).toBeNull();
     expect(state.lastFingerprint).toBeNull();
     expect(state.lastFingerprintCaptureAtMs).toBeNull();
     expect(state.hookState).toBeNull();

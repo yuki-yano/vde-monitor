@@ -18,7 +18,23 @@ const ansiOscPattern = new RegExp(String.raw`\u001b\][^\u0007\u001b]*(?:\u0007|\
 const ansiCharsetDesignatePattern = new RegExp(String.raw`\u001b[\(\)\*\+\-\.\/][0-~]`, "g");
 const ansiSingleCharacterPattern = new RegExp(String.raw`\u001b(?:[@-Z\\^_]|[=>])`, "g");
 
-type ExternalInputDetectReason = "no-log" | "no-growth" | "no-pattern" | "duplicate" | "detected";
+export type ExternalInputDetectReason =
+  | "no-log"
+  | "no-growth"
+  | "no-pattern"
+  | "duplicate"
+  | "detected";
+export type ExternalInputDetectReasonCode =
+  | "SKIP_NON_AGENT_OR_NO_LOG"
+  | "LOG_STAT_UNAVAILABLE"
+  | "LOG_EMPTY"
+  | "FIRST_CURSOR_SYNC"
+  | "NO_LOG_GROWTH"
+  | "DELTA_READ_ERROR"
+  | "NO_PROMPT_PATTERN"
+  | "DUPLICATE_PROMPT_SIGNATURE"
+  | "PROMPT_DETECTED"
+  | "DETECTOR_EXCEPTION";
 
 type ExternalInputDetectorDeps = {
   statLogSize?: (logPath: string) => Promise<{ size: number } | null>;
@@ -48,6 +64,18 @@ export type ExternalInputDetectResult = {
   nextCursorBytes: number | null;
   signature: string | null;
   reason: ExternalInputDetectReason;
+  reasonCode: ExternalInputDetectReasonCode;
+  errorMessage: string | null;
+};
+
+const resolveErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.length > 0) {
+    return error;
+  }
+  return "unknown error";
 };
 
 const normalizeCursorBytes = (value: number | null) => {
@@ -185,19 +213,25 @@ const buildSignature = ({
 
 const createResult = ({
   reason,
+  reasonCode,
   detectedAt = null,
   nextCursorBytes,
   signature,
+  errorMessage = null,
 }: {
   reason: ExternalInputDetectReason;
+  reasonCode: ExternalInputDetectReasonCode;
   detectedAt?: string | null;
   nextCursorBytes: number | null;
   signature: string | null;
+  errorMessage?: string | null;
 }): ExternalInputDetectResult => ({
   detectedAt,
   nextCursorBytes,
   signature,
   reason,
+  reasonCode,
+  errorMessage,
 });
 
 const resolveReadSegments = ({
@@ -299,6 +333,7 @@ export const detectExternalInputFromLogDelta = async ({
   if (!isAgentPane || !logPath) {
     return createResult({
       reason: "no-log",
+      reasonCode: "SKIP_NON_AGENT_OR_NO_LOG",
       nextCursorBytes: previousCursor,
       signature: prevSignature,
     });
@@ -320,6 +355,7 @@ export const detectExternalInputFromLogDelta = async ({
     if (!stat) {
       return createResult({
         reason: "no-log",
+        reasonCode: "LOG_STAT_UNAVAILABLE",
         nextCursorBytes: previousCursor,
         signature: prevSignature,
       });
@@ -329,6 +365,7 @@ export const detectExternalInputFromLogDelta = async ({
     if (fileSize <= 0) {
       return createResult({
         reason: "no-log",
+        reasonCode: "LOG_EMPTY",
         nextCursorBytes: fileSize,
         signature: prevSignature,
       });
@@ -337,6 +374,7 @@ export const detectExternalInputFromLogDelta = async ({
     if (previousCursor == null) {
       return createResult({
         reason: "no-growth",
+        reasonCode: "FIRST_CURSOR_SYNC",
         nextCursorBytes: fileSize,
         signature: prevSignature,
       });
@@ -345,6 +383,7 @@ export const detectExternalInputFromLogDelta = async ({
     if (fileSize <= previousCursor) {
       return createResult({
         reason: "no-growth",
+        reasonCode: "NO_LOG_GROWTH",
         nextCursorBytes: fileSize,
         signature: prevSignature,
       });
@@ -358,6 +397,7 @@ export const detectExternalInputFromLogDelta = async ({
     if (segments.length === 0) {
       return createResult({
         reason: "no-growth",
+        reasonCode: "NO_LOG_GROWTH",
         nextCursorBytes: fileSize,
         signature: prevSignature,
       });
@@ -374,7 +414,23 @@ export const detectExternalInputFromLogDelta = async ({
         prevSignature,
         promptStartPatterns,
         readLogSlice,
+      }).catch((error: unknown) => {
+        return {
+          error,
+          matched: false as const,
+          duplicate: false as const,
+          signature: prevSignature,
+        };
       });
+      if ("error" in segmentResult) {
+        return createResult({
+          reason: "no-log",
+          reasonCode: "DELTA_READ_ERROR",
+          nextCursorBytes: previousCursor,
+          signature: prevSignature,
+          errorMessage: resolveErrorMessage(segmentResult.error),
+        });
+      }
       if (!segmentResult.matched) {
         continue;
       }
@@ -384,6 +440,7 @@ export const detectExternalInputFromLogDelta = async ({
       }
       return createResult({
         reason: "detected",
+        reasonCode: "PROMPT_DETECTED",
         detectedAt: now().toISOString(),
         nextCursorBytes: fileSize,
         signature: segmentResult.signature,
@@ -393,21 +450,24 @@ export const detectExternalInputFromLogDelta = async ({
     if (duplicateSignature) {
       return createResult({
         reason: "duplicate",
+        reasonCode: "DUPLICATE_PROMPT_SIGNATURE",
         nextCursorBytes: fileSize,
         signature: duplicateSignature,
       });
     }
     return createResult({
       reason: "no-pattern",
+      reasonCode: "NO_PROMPT_PATTERN",
       nextCursorBytes: fileSize,
       signature: prevSignature,
     });
   } catch (error) {
-    void error;
     return createResult({
       reason: "no-log",
+      reasonCode: "DETECTOR_EXCEPTION",
       nextCursorBytes: previousCursor,
       signature: prevSignature,
+      errorMessage: resolveErrorMessage(error),
     });
   }
 };

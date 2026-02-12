@@ -9,6 +9,16 @@ import { type PaneRuntimeState, updateInputAt, updateOutputAt } from "./pane-sta
 
 const DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
 
+const resolveErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.length > 0) {
+    return error;
+  }
+  return "unknown error";
+};
+
 export type PaneOutputSnapshot = {
   paneId: string;
   paneActivity: number | null;
@@ -194,6 +204,9 @@ const updateInputAtFromExternalDetection = ({
 }) => {
   paneState.externalInputCursorBytes = result.nextCursorBytes;
   paneState.externalInputSignature = result.signature;
+  paneState.externalInputLastReason = result.reason;
+  paneState.externalInputLastReasonCode = result.reasonCode;
+  paneState.externalInputLastErrorMessage = result.errorMessage;
   if (result.reason !== "detected" || !result.detectedAt) {
     return null;
   }
@@ -260,6 +273,7 @@ export const updatePaneOutputState = async ({
   const hookState = resolveHookState(paneState, outputAt);
   let inputTouchedAt: string | null = null;
   if (isAgentPane && logPath) {
+    const checkedAt = now().toISOString();
     try {
       const detectResult = await applyExternalInputDetection({
         pane,
@@ -269,12 +283,16 @@ export const updatePaneOutputState = async ({
         now,
         detectExternalInput,
       });
+      paneState.externalInputLastCheckedAt = checkedAt;
       inputTouchedAt = updateInputAtFromExternalDetection({
         paneState,
         result: detectResult,
       });
     } catch (error) {
-      void error;
+      paneState.externalInputLastCheckedAt = checkedAt;
+      paneState.externalInputLastReason = "no-log";
+      paneState.externalInputLastReasonCode = "DETECTOR_EXCEPTION";
+      paneState.externalInputLastErrorMessage = resolveErrorMessage(error);
       inputTouchedAt = null;
     }
   }

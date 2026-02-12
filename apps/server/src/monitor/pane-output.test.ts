@@ -22,6 +22,10 @@ describe("updatePaneOutputState", () => {
     externalInputCursorBytes: null,
     externalInputSignature: null,
     externalInputLastDetectedAt: null,
+    externalInputLastCheckedAt: null,
+    externalInputLastReason: null,
+    externalInputLastReasonCode: null,
+    externalInputLastErrorMessage: null,
     lastFingerprint: null,
     lastFingerprintCaptureAtMs: null,
     ...overrides,
@@ -282,6 +286,8 @@ describe("updatePaneOutputState", () => {
       nextCursorBytes: 42,
       signature: "sig-1",
       reason: "detected" as const,
+      reasonCode: "PROMPT_DETECTED" as const,
+      errorMessage: null,
     }));
 
     const result = await updatePaneOutputState({
@@ -304,6 +310,10 @@ describe("updatePaneOutputState", () => {
     expect(state.externalInputCursorBytes).toBe(42);
     expect(state.externalInputSignature).toBe("sig-1");
     expect(state.externalInputLastDetectedAt).toBe("2024-01-04T00:00:00.000Z");
+    expect(state.externalInputLastCheckedAt).toBe("2024-01-04T00:00:00.000Z");
+    expect(state.externalInputLastReason).toBe("detected");
+    expect(state.externalInputLastReasonCode).toBe("PROMPT_DETECTED");
+    expect(state.externalInputLastErrorMessage).toBeNull();
     expect(result.inputTouchedAt).toBe("2024-01-04T00:00:00.000Z");
   });
 
@@ -314,6 +324,8 @@ describe("updatePaneOutputState", () => {
       nextCursorBytes: 43,
       signature: "sig-2",
       reason: "detected" as const,
+      reasonCode: "PROMPT_DETECTED" as const,
+      errorMessage: null,
     }));
 
     const result = await updatePaneOutputState({
@@ -333,6 +345,8 @@ describe("updatePaneOutputState", () => {
 
     expect(state.lastInputAt).toBe("2024-01-05T00:00:00.000Z");
     expect(state.externalInputLastDetectedAt).toBeNull();
+    expect(state.externalInputLastCheckedAt).toBe("2024-01-05T00:00:00.000Z");
+    expect(state.externalInputLastReasonCode).toBe("PROMPT_DETECTED");
     expect(result.inputTouchedAt).toBeNull();
   });
 
@@ -343,6 +357,8 @@ describe("updatePaneOutputState", () => {
       nextCursorBytes: 42,
       signature: "sig-1",
       reason: "detected" as const,
+      reasonCode: "PROMPT_DETECTED" as const,
+      errorMessage: null,
     }));
 
     await updatePaneOutputState({
@@ -387,5 +403,9 @@ describe("updatePaneOutputState", () => {
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
     expect(result.inputTouchedAt).toBeNull();
     expect(state.lastInputAt).toBeNull();
+    expect(state.externalInputLastCheckedAt).toBe("2024-01-04T00:00:00.000Z");
+    expect(state.externalInputLastReason).toBe("no-log");
+    expect(state.externalInputLastReasonCode).toBe("DETECTOR_EXCEPTION");
+    expect(state.externalInputLastErrorMessage).toBe("boom");
   });
 });

@@ -1,5 +1,10 @@
 import type { HookStateSignal } from "@vde-monitor/shared";
 
+import type {
+  ExternalInputDetectReason,
+  ExternalInputDetectReasonCode,
+} from "./external-input-detector";
+
 export type PaneRuntimeState = {
   hookState: HookStateSignal | null;
   lastOutputAt: string | null;
@@ -9,6 +14,10 @@ export type PaneRuntimeState = {
   externalInputCursorBytes: number | null;
   externalInputSignature: string | null;
   externalInputLastDetectedAt: string | null;
+  externalInputLastCheckedAt: string | null;
+  externalInputLastReason: ExternalInputDetectReason | null;
+  externalInputLastReasonCode: ExternalInputDetectReasonCode | null;
+  externalInputLastErrorMessage: string | null;
   lastFingerprint: string | null;
   lastFingerprintCaptureAtMs: number | null;
 };
@@ -22,6 +31,10 @@ const createDefaultState = (): PaneRuntimeState => ({
   externalInputCursorBytes: null,
   externalInputSignature: null,
   externalInputLastDetectedAt: null,
+  externalInputLastCheckedAt: null,
+  externalInputLastReason: null,
+  externalInputLastReasonCode: null,
+  externalInputLastErrorMessage: null,
   lastFingerprint: null,
   lastFingerprintCaptureAtMs: null,
 });

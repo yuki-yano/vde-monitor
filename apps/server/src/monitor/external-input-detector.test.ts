@@ -20,6 +20,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("SKIP_NON_AGENT_OR_NO_LOG");
+    expect(result.errorMessage).toBeNull();
     expect(result.detectedAt).toBeNull();
     expect(result.nextCursorBytes).toBe(64);
     expect(result.signature).toBe("prev");
@@ -42,6 +44,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("no-growth");
+    expect(result.reasonCode).toBe("FIRST_CURSOR_SYNC");
+    expect(result.errorMessage).toBeNull();
     expect(result.detectedAt).toBeNull();
     expect(result.nextCursorBytes).toBe(128);
     expect(result.signature).toBeNull();
@@ -63,6 +67,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
+    expect(result.reasonCode).toBe("PROMPT_DETECTED");
+    expect(result.errorMessage).toBeNull();
     expect(result.detectedAt).toBe(FIXED_NOW_ISO);
     expect(result.nextCursorBytes).toBe(200);
     expect(result.signature).toMatch(/^[a-f0-9]{40}$/);
@@ -104,6 +110,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("no-pattern");
+    expect(result.reasonCode).toBe("NO_PROMPT_PATTERN");
+    expect(result.errorMessage).toBeNull();
     expect(result.detectedAt).toBeNull();
     expect(result.nextCursorBytes).toBe(160);
     expect(result.signature).toBe("prev-signature");
@@ -153,7 +161,10 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(first.reason).toBe("detected");
+    expect(first.reasonCode).toBe("PROMPT_DETECTED");
     expect(second.reason).toBe("duplicate");
+    expect(second.reasonCode).toBe("DUPLICATE_PROMPT_SIGNATURE");
+    expect(second.errorMessage).toBeNull();
     expect(second.detectedAt).toBeNull();
     expect(second.nextCursorBytes).toBe(80);
     expect(second.signature).toBe(first.signature);
@@ -174,6 +185,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("no-growth");
+    expect(result.reasonCode).toBe("NO_LOG_GROWTH");
+    expect(result.errorMessage).toBeNull();
     expect(result.detectedAt).toBeNull();
     expect(result.nextCursorBytes).toBe(20);
     expect(result.signature).toBe("prev");
@@ -197,6 +210,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
+    expect(result.reasonCode).toBe("PROMPT_DETECTED");
+    expect(result.errorMessage).toBeNull();
     expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 10, 131_072);
   });
 
@@ -221,6 +236,8 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
+    expect(result.reasonCode).toBe("PROMPT_DETECTED");
+    expect(result.errorMessage).toBeNull();
     expect(readLogSlice).toHaveBeenCalledTimes(1);
     expect(readLogSlice).toHaveBeenCalledWith("/tmp/pane.log", 0, 16);
   });
@@ -246,7 +263,32 @@ describe("detectExternalInputFromLogDelta", () => {
     });
 
     expect(result.reason).toBe("detected");
+    expect(result.reasonCode).toBe("PROMPT_DETECTED");
+    expect(result.errorMessage).toBeNull();
     expect(readLogSlice).toHaveBeenNthCalledWith(1, "/tmp/pane.log", 0, 16);
     expect(readLogSlice).toHaveBeenNthCalledWith(2, "/tmp/pane.log", 100, 20);
+  });
+
+  it("returns read error details when reading log delta fails", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 200 }));
+    const readLogSlice = vi.fn(async () => {
+      throw new Error("failed to read log");
+    });
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 120,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("DELTA_READ_ERROR");
+    expect(result.errorMessage).toBe("failed to read log");
+    expect(result.nextCursorBytes).toBe(120);
+    expect(result.signature).toBe("prev");
   });
 });
