@@ -6,6 +6,14 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
 import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
 import {
+  initializeLogResolveRequest,
+  isCurrentLogResolveRequest,
+  type LogFileCandidateItem,
+  openLogFileCandidateModalState,
+  resetLogFileCandidateState as resetLogFileCandidateStateValue,
+  setLogResolveErrorIfCurrent,
+} from "./useSessionFiles-log-resolve-state";
+import {
   buildFileContentRequestKey,
   buildSearchRequestKey,
   buildTreePageRequestKey,
@@ -35,11 +43,6 @@ const LOG_FILE_RESOLVE_MATCH_LIMIT = 20;
 const LOG_FILE_RESOLVE_PAGE_LIMIT = 100;
 const LOG_FILE_RESOLVE_MAX_SEARCH_PAGES = 20;
 const LOG_REFERENCE_LINKABLE_CACHE_MAX = 1000;
-
-type LogFileCandidateItem = Pick<
-  RepoFileSearchPage["items"][number],
-  "path" | "name" | "isIgnored"
->;
 
 export type { FileTreeRenderNode } from "./useSessionFiles-tree-utils";
 
@@ -670,11 +673,13 @@ export const useSessionFiles = ({
   }, [fetchSearchPage, searchLoading, searchResult]);
 
   const resetLogFileCandidateState = useCallback(() => {
-    setLogFileCandidateModalOpen(false);
-    setLogFileCandidateReference(null);
-    setLogFileCandidatePaneId(null);
-    setLogFileCandidateLine(null);
-    setLogFileCandidateItems([]);
+    resetLogFileCandidateStateValue({
+      setLogFileCandidateModalOpen,
+      setLogFileCandidateReference,
+      setLogFileCandidatePaneId,
+      setLogFileCandidateLine,
+      setLogFileCandidateItems,
+    });
   }, []);
 
   const findExactNameMatches = useCallback(
@@ -1005,24 +1010,35 @@ export const useSessionFiles = ({
       sourcePaneId: string;
       sourceRepoRoot: string | null;
     }) => {
-      const requestId = activeLogResolveRequestIdRef.current + 1;
-      activeLogResolveRequestIdRef.current = requestId;
-      setFileResolveError(null);
-      resetLogFileCandidateState();
+      const requestId = initializeLogResolveRequest({
+        activeLogResolveRequestIdRef,
+        setFileResolveError,
+        setLogFileCandidateModalOpen,
+        setLogFileCandidateReference,
+        setLogFileCandidatePaneId,
+        setLogFileCandidateLine,
+        setLogFileCandidateItems,
+      });
 
       if (sourcePaneId.trim().length === 0) {
-        if (activeLogResolveRequestIdRef.current === requestId) {
-          setFileResolveError("Session context is unavailable.");
-        }
+        setLogResolveErrorIfCurrent({
+          activeLogResolveRequestIdRef,
+          requestId,
+          setFileResolveError,
+          message: "Session context is unavailable.",
+        });
         return;
       }
 
       const location = extractLogReferenceLocation(rawToken);
       const reference = normalizeLogReference(rawToken, { sourceRepoRoot });
       if (reference.kind === "unknown") {
-        if (activeLogResolveRequestIdRef.current === requestId) {
-          setFileResolveError("No file reference found in token.");
-        }
+        setLogResolveErrorIfCurrent({
+          activeLogResolveRequestIdRef,
+          requestId,
+          setFileResolveError,
+          message: "No file reference found in token.",
+        });
         return;
       }
 
@@ -1033,7 +1049,12 @@ export const useSessionFiles = ({
           requestId,
           highlightLine: location.line,
         });
-        if (activeLogResolveRequestIdRef.current !== requestId) {
+        if (
+          !isCurrentLogResolveRequest({
+            activeLogResolveRequestIdRef,
+            requestId,
+          })
+        ) {
           return;
         }
         if (opened) {
@@ -1042,9 +1063,12 @@ export const useSessionFiles = ({
       }
 
       if (!reference.filename) {
-        if (activeLogResolveRequestIdRef.current === requestId) {
-          setFileResolveError("File not found.");
-        }
+        setLogResolveErrorIfCurrent({
+          activeLogResolveRequestIdRef,
+          requestId,
+          setFileResolveError,
+          message: "File not found.",
+        });
         return;
       }
 
@@ -1058,18 +1082,32 @@ export const useSessionFiles = ({
           requestId,
         });
       } catch {
-        if (activeLogResolveRequestIdRef.current === requestId) {
-          setFileResolveError("Failed to resolve file reference.");
-        }
+        setLogResolveErrorIfCurrent({
+          activeLogResolveRequestIdRef,
+          requestId,
+          setFileResolveError,
+          message: "Failed to resolve file reference.",
+        });
         return;
       }
 
-      if (activeLogResolveRequestIdRef.current !== requestId || matches == null) {
+      if (
+        !isCurrentLogResolveRequest({
+          activeLogResolveRequestIdRef,
+          requestId,
+        }) ||
+        matches == null
+      ) {
         return;
       }
 
       if (matches.length === 0) {
-        setFileResolveError(`No file matched: ${reference.filename}`);
+        setLogResolveErrorIfCurrent({
+          activeLogResolveRequestIdRef,
+          requestId,
+          setFileResolveError,
+          message: `No file matched: ${reference.filename}`,
+        });
         return;
       }
       if (matches.length === 1 && matches[0]) {
@@ -1081,13 +1119,30 @@ export const useSessionFiles = ({
         return;
       }
 
-      setLogFileCandidateReference(reference.display);
-      setLogFileCandidatePaneId(sourcePaneId);
-      setLogFileCandidateLine(location.line);
-      setLogFileCandidateItems(matches);
-      setLogFileCandidateModalOpen(true);
+      openLogFileCandidateModalState({
+        setLogFileCandidateModalOpen,
+        setLogFileCandidateReference,
+        setLogFileCandidatePaneId,
+        setLogFileCandidateLine,
+        setLogFileCandidateItems,
+        reference: reference.display,
+        paneId: sourcePaneId,
+        line: location.line,
+        items: matches,
+      });
     },
-    [findExactNameMatches, openFileModalByPath, resetLogFileCandidateState, tryOpenExistingPath],
+    [
+      activeLogResolveRequestIdRef,
+      findExactNameMatches,
+      openFileModalByPath,
+      setFileResolveError,
+      setLogFileCandidateItems,
+      setLogFileCandidateLine,
+      setLogFileCandidateModalOpen,
+      setLogFileCandidatePaneId,
+      setLogFileCandidateReference,
+      tryOpenExistingPath,
+    ],
   );
 
   const onSelectLogFileCandidate = useCallback(
