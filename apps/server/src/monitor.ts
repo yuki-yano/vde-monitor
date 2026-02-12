@@ -2,15 +2,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  type AgentMonitorConfig,
-  type PaneMeta,
-  type SessionStateTimelineRange,
-  type SessionStateTimelineSource,
-} from "@vde-monitor/shared";
+import { type AgentMonitorConfig, type SessionStateTimelineRange } from "@vde-monitor/shared";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
-import { mapWithConcurrencyLimitSettled } from "./monitor/concurrency";
 import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
 import {
@@ -18,54 +12,14 @@ import {
   restoreMonitorRuntimeState,
 } from "./monitor/monitor-persistence";
 import { createPaneLogManager } from "./monitor/pane-log-manager";
-import { processPane } from "./monitor/pane-processor";
 import { createPaneStateStore } from "./monitor/pane-state";
-import { resolvePrCreatedCached } from "./monitor/pr-created";
-import { cleanupRegistry } from "./monitor/registry-cleanup";
-import { resolveRepoBranchCached } from "./monitor/repo-branch";
-import { resolveRepoRootCached } from "./monitor/repo-root";
-import {
-  resolveVwWorktreeSnapshotCached,
-  resolveWorktreeStatusFromSnapshot,
-} from "./monitor/vw-worktree";
+import { createPaneUpdateService } from "./monitor/pane-update-service";
 import type { MultiplexerRuntime } from "./multiplexer/types";
 import { createSessionRegistry } from "./session-registry";
 import { restoreSessions, restoreTimeline, saveState } from "./state-store";
 import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
-const PANE_PROCESS_CONCURRENCY = 8;
-const VIEWED_PANE_TTL_MS = 20_000;
-
-type PaneProcessingFailure = {
-  count: number;
-  lastFailedAt: string;
-  lastErrorMessage: string;
-};
-
-const resolveErrorMessage = (error: unknown) => {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "unknown error";
-  }
-};
-
-const resolveTimelineSource = (reason: string): SessionStateTimelineSource => {
-  if (reason === "restored") {
-    return "restore";
-  }
-  if (reason.startsWith("hook:")) {
-    return "hook";
-  }
-  return "poll";
-};
 
 export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentMonitorConfig) => {
   const inspector = runtime.inspector;
@@ -77,9 +31,6 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const customTitles = new Map<string, string>();
   const restored = restoreSessions();
   const restoredTimeline = restoreTimeline();
-  const viewedPaneAtMs = new Map<string, number>();
-  const panePipeTagCache = new Map<string, string | null>();
-  const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
   const serverKey = runtime.serverKey;
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
@@ -105,186 +56,22 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     saveState(registry.values(), { timeline: stateTimeline.serialize() });
   };
   const applyRestored = createRestoredSessionApplier(restored);
-
-  const markPaneViewed = (paneId: string, atMs = Date.now()) => {
-    viewedPaneAtMs.set(paneId, atMs);
-  };
-
-  const isPaneViewedRecently = (paneId: string, nowMs = Date.now()) => {
-    const lastViewedAtMs = viewedPaneAtMs.get(paneId);
-    if (lastViewedAtMs == null) {
-      return false;
-    }
-    if (nowMs - lastViewedAtMs > VIEWED_PANE_TTL_MS) {
-      viewedPaneAtMs.delete(paneId);
-      return false;
-    }
-    return true;
-  };
-
-  const pruneStaleViewedPanes = (nowMs = Date.now()) => {
-    viewedPaneAtMs.forEach((lastViewedAtMs, paneId) => {
-      if (nowMs - lastViewedAtMs > VIEWED_PANE_TTL_MS) {
-        viewedPaneAtMs.delete(paneId);
-      }
-    });
-  };
-
-  const cachePanePipeTagValue = (paneId: string, pipeTagValue: string | null) => {
-    panePipeTagCache.set(paneId, pipeTagValue);
-  };
-
-  const resolvePanePipeTagValue = async (pane: PaneMeta) => {
-    if (pane.pipeTagValue != null) {
-      cachePanePipeTagValue(pane.paneId, pane.pipeTagValue);
-      return pane.pipeTagValue;
-    }
-
-    if (panePipeTagCache.has(pane.paneId)) {
-      return panePipeTagCache.get(pane.paneId) ?? null;
-    }
-
-    if (!pane.panePipe) {
-      cachePanePipeTagValue(pane.paneId, null);
-      return null;
-    }
-
-    const fallback = await inspector.readUserOption(pane.paneId, "@vde-monitor_pipe");
-    cachePanePipeTagValue(pane.paneId, fallback);
-    return fallback;
-  };
-
-  const updateFromPanes = async () => {
-    pruneStaleViewedPanes();
-    const panes = await inspector.listPanes();
-    const activePaneIds = new Set<string>();
-    const repoRootByCurrentPath = new Map<string, Promise<string | null>>();
-    const vwSnapshotByCwd = new Map<
-      string,
-      Promise<Awaited<ReturnType<typeof resolveVwWorktreeSnapshotCached>>>
-    >();
-
-    const normalizeCacheKey = (value: string | null) => {
-      if (!value) {
-        return null;
-      }
-      const normalized = value.replace(/[\\/]+$/, "");
-      return normalized.length > 0 ? normalized : value;
-    };
-
-    const resolvePaneRepoRoot = (currentPath: string | null) => {
-      const key = normalizeCacheKey(currentPath);
-      if (!key) {
-        return Promise.resolve(null);
-      }
-      const existing = repoRootByCurrentPath.get(key);
-      if (existing) {
-        return existing;
-      }
-      const request = resolveRepoRootCached(currentPath);
-      repoRootByCurrentPath.set(key, request);
-      return request;
-    };
-
-    const resolveSnapshotByCwd = (cwd: string) => {
-      const key = normalizeCacheKey(cwd) ?? cwd;
-      const existing = vwSnapshotByCwd.get(key);
-      if (existing) {
-        return existing;
-      }
-      const request = resolveVwWorktreeSnapshotCached(cwd);
-      vwSnapshotByCwd.set(key, request);
-      return request;
-    };
-
-    const paneResults = await mapWithConcurrencyLimitSettled(
-      panes,
-      PANE_PROCESS_CONCURRENCY,
-      async (pane) => {
-        const paneRepoRoot = await resolvePaneRepoRoot(pane.currentPath);
-        const snapshotCwd = paneRepoRoot ?? pane.currentPath ?? process.cwd();
-        const vwSnapshot = await resolveSnapshotByCwd(snapshotCwd);
-        const detail = await processPane({
-          pane,
-          config,
-          paneStates,
-          paneLogManager,
-          capturePaneFingerprint,
-          applyRestored,
-          getCustomTitle: (paneId) => customTitles.get(paneId) ?? null,
-          resolveRepoRoot: async () => paneRepoRoot,
-          resolveWorktreeStatus: (currentPath) =>
-            resolveWorktreeStatusFromSnapshot(vwSnapshot, currentPath),
-          resolveBranch: resolveRepoBranchCached,
-          resolvePrCreated: resolvePrCreatedCached,
-          isPaneViewedRecently,
-          resolvePanePipeTagValue,
-          cachePanePipeTagValue,
-        });
-        return detail;
-      },
-    );
-
-    for (const [index, paneResult] of paneResults.entries()) {
-      const pane = panes[index];
-      if (!pane) {
-        continue;
-      }
-
-      if (paneResult.status === "rejected") {
-        const failedAt = new Date().toISOString();
-        const previous = paneProcessingFailures.get(pane.paneId);
-        paneProcessingFailures.set(pane.paneId, {
-          count: (previous?.count ?? 0) + 1,
-          lastFailedAt: failedAt,
-          lastErrorMessage: resolveErrorMessage(paneResult.reason),
-        });
-        activePaneIds.add(pane.paneId);
-        continue;
-      }
-
-      paneProcessingFailures.delete(pane.paneId);
-      const detail = paneResult.value;
-      if (!detail) {
-        continue;
-      }
-
-      const existing = registry.getDetail(pane.paneId);
-      activePaneIds.add(pane.paneId);
-      if (
-        !existing ||
-        existing.state !== detail.state ||
-        existing.stateReason !== detail.stateReason
-      ) {
-        stateTimeline.record({
-          paneId: detail.paneId,
-          state: detail.state,
-          reason: detail.stateReason,
-          at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
-          source: resolveTimelineSource(detail.stateReason),
-        });
-      }
-      registry.update(detail);
-    }
-
-    const removedPaneIds = cleanupRegistry({
-      registry,
-      paneStates,
-      customTitles,
-      activePaneIds,
-      saveState: () => undefined,
-      onRemovedPaneId: (paneId) => {
-        logActivity.unregister(paneId);
-        viewedPaneAtMs.delete(paneId);
-        panePipeTagCache.delete(paneId);
-        paneProcessingFailures.delete(paneId);
-      },
-    });
-    removedPaneIds.forEach((paneId) => {
-      stateTimeline.closePane({ paneId });
-    });
-    savePersistedState();
-  };
+  const paneUpdateService = createPaneUpdateService({
+    inspector,
+    config,
+    paneStates,
+    paneLogManager,
+    capturePaneFingerprint,
+    applyRestored,
+    getCustomTitle: (paneId) => customTitles.get(paneId) ?? null,
+    customTitles,
+    registry,
+    stateTimeline,
+    logActivity,
+    savePersistedState,
+  });
+  const markPaneViewed = paneUpdateService.markPaneViewed;
+  const updateFromPanes = paneUpdateService.updateFromPanes;
 
   const setCustomTitle = (paneId: string, title: string | null) => {
     if (title) {
