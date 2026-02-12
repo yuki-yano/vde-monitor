@@ -70,6 +70,22 @@ export const createSessionRoutes = ({
   executeCommand,
 }: SessionRouteDeps) => {
   const sendTextIdempotency = createSendTextIdempotencyExecutor({});
+  type ResolvedPane = Exclude<ReturnType<typeof resolvePane>, Response>;
+
+  const withPane = <TReturn>(
+    c: Parameters<typeof resolvePane>[0],
+    handler: (pane: ResolvedPane) => TReturn,
+  ): TReturn | Response => {
+    const pane = resolvePane(c);
+    if (pane instanceof Response) {
+      return pane;
+    }
+    return handler(pane);
+  };
+
+  const resolveLatestSessionResponse = (pane: ResolvedPane) => ({
+    session: monitor.registry.getDetail(pane.paneId) ?? pane.detail,
+  });
 
   return new Hono()
     .get("/sessions", (c) => {
@@ -85,168 +101,147 @@ export const createSessionRoutes = ({
       });
     })
     .get("/sessions/:paneId", (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      return c.json({ session: pane.detail });
+      return withPane(c, (pane) => c.json({ session: pane.detail }));
     })
     .get("/sessions/:paneId/timeline", zValidator("query", timelineQuerySchema), (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      const query = c.req.valid("query");
-      const timeline = monitor.getStateTimeline(
-        pane.paneId,
-        resolveTimelineRange(query.range),
-        query.limit ?? 200,
-      );
-      return c.json({ timeline });
+      return withPane(c, (pane) => {
+        const query = c.req.valid("query");
+        const timeline = monitor.getStateTimeline(
+          pane.paneId,
+          resolveTimelineRange(query.range),
+          query.limit ?? 200,
+        );
+        return c.json({ timeline });
+      });
     })
     .put("/sessions/:paneId/title", zValidator("json", titleSchema), async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      const { title } = c.req.valid("json");
-      const titleUpdate = resolveTitleUpdate(c, title);
-      if (titleUpdate instanceof Response) {
-        return titleUpdate;
-      }
-      monitor.setCustomTitle(pane.paneId, titleUpdate.nextTitle);
-      const updated = monitor.registry.getDetail(pane.paneId) ?? pane.detail;
-      return c.json({ session: updated });
+      return withPane(c, (pane) => {
+        const { title } = c.req.valid("json");
+        const titleUpdate = resolveTitleUpdate(c, title);
+        if (titleUpdate instanceof Response) {
+          return titleUpdate;
+        }
+        monitor.setCustomTitle(pane.paneId, titleUpdate.nextTitle);
+        return c.json(resolveLatestSessionResponse(pane));
+      });
     })
     .post("/sessions/:paneId/touch", (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      monitor.recordInput(pane.paneId);
-      const updated = monitor.registry.getDetail(pane.paneId) ?? pane.detail;
-      return c.json({ session: updated });
+      return withPane(c, (pane) => {
+        monitor.recordInput(pane.paneId);
+        return c.json(resolveLatestSessionResponse(pane));
+      });
     })
     .post(
       "/sessions/:paneId/attachments/image",
       zValidator("form", imageAttachmentFormSchema),
       async (c) => {
-        const pane = resolvePane(c);
-        if (pane instanceof Response) {
-          return pane;
-        }
-        const contentLength = validateAttachmentContentLength(c);
-        if (contentLength instanceof Response) {
-          return contentLength;
-        }
-        if (contentLength > IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES) {
-          return c.json(
-            { error: buildError("INVALID_PAYLOAD", "attachment exceeds content-length limit") },
-            400,
-          );
-        }
-        const { image } = c.req.valid("form");
-        if (!(image instanceof File)) {
-          return c.json({ error: buildError("INVALID_PAYLOAD", "image field is required") }, 400);
-        }
-
-        try {
-          const attachment = await saveImageAttachment({
-            paneId: pane.paneId,
-            repoRoot: pane.detail.repoRoot,
-            file: image,
-          });
-          return c.json({ attachment });
-        } catch (error) {
-          if (error instanceof ImageAttachmentError) {
-            return c.json({ error: buildError(error.code, error.message) }, error.status);
+        return withPane(c, async (pane) => {
+          const contentLength = validateAttachmentContentLength(c);
+          if (contentLength instanceof Response) {
+            return contentLength;
           }
-          return c.json({ error: buildError("INTERNAL", "failed to save image attachment") }, 500);
-        }
+          if (contentLength > IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES) {
+            return c.json(
+              { error: buildError("INVALID_PAYLOAD", "attachment exceeds content-length limit") },
+              400,
+            );
+          }
+          const { image } = c.req.valid("form");
+          if (!(image instanceof File)) {
+            return c.json({ error: buildError("INVALID_PAYLOAD", "image field is required") }, 400);
+          }
+
+          try {
+            const attachment = await saveImageAttachment({
+              paneId: pane.paneId,
+              repoRoot: pane.detail.repoRoot,
+              file: image,
+            });
+            return c.json({ attachment });
+          } catch (error) {
+            if (error instanceof ImageAttachmentError) {
+              return c.json({ error: buildError(error.code, error.message) }, error.status);
+            }
+            return c.json(
+              { error: buildError("INTERNAL", "failed to save image attachment") },
+              500,
+            );
+          }
+        });
       },
     )
     .post("/sessions/:paneId/screen", zValidator("json", screenRequestSchema), async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      monitor.markPaneViewed(pane.paneId);
-      const body = c.req.valid("json");
-      const screen = await createScreenResponse({
-        config,
-        monitor,
-        target: pane.detail,
-        mode: body.mode,
-        lines: body.lines,
-        cursor: body.cursor,
-        screenLimiter,
-        limiterKey: getLimiterKey(c),
-        buildTextResponse: screenCache.buildTextResponse,
+      return withPane(c, async (pane) => {
+        monitor.markPaneViewed(pane.paneId);
+        const body = c.req.valid("json");
+        const screen = await createScreenResponse({
+          config,
+          monitor,
+          target: pane.detail,
+          mode: body.mode,
+          lines: body.lines,
+          cursor: body.cursor,
+          screenLimiter,
+          limiterKey: getLimiterKey(c),
+          buildTextResponse: screenCache.buildTextResponse,
+        });
+        return c.json({ screen });
       });
-      return c.json({ screen });
     })
     .post("/sessions/:paneId/send/text", zValidator("json", sendTextSchema), async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      const body = c.req.valid("json");
-      const command = await sendTextIdempotency.execute({
-        paneId: pane.paneId,
-        text: body.text,
-        enter: body.enter,
-        requestId: body.requestId,
-        executeSendText: ({ paneId, text, enter }) =>
-          executeCommand(c, {
-            type: "send.text",
-            paneId,
-            text,
-            enter,
-          }),
+      return withPane(c, async (pane) => {
+        const body = c.req.valid("json");
+        const command = await sendTextIdempotency.execute({
+          paneId: pane.paneId,
+          text: body.text,
+          enter: body.enter,
+          requestId: body.requestId,
+          executeSendText: ({ paneId, text, enter }) =>
+            executeCommand(c, {
+              type: "send.text",
+              paneId,
+              text,
+              enter,
+            }),
+        });
+        return c.json({ command });
       });
-      return c.json({ command });
     })
     .post("/sessions/:paneId/send/keys", zValidator("json", sendKeysSchema), async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      const body = c.req.valid("json");
-      const command = await executeCommand(c, {
-        type: "send.keys",
-        paneId: pane.paneId,
-        keys: body.keys,
+      return withPane(c, async (pane) => {
+        const body = c.req.valid("json");
+        const command = await executeCommand(c, {
+          type: "send.keys",
+          paneId: pane.paneId,
+          keys: body.keys,
+        });
+        return c.json({ command });
       });
-      return c.json({ command });
     })
     .post("/sessions/:paneId/send/raw", zValidator("json", sendRawSchema), async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      const body = c.req.valid("json");
-      const command = await executeCommand(c, {
-        type: "send.raw",
-        paneId: pane.paneId,
-        items: body.items as RawItem[],
-        unsafe: body.unsafe,
+      return withPane(c, async (pane) => {
+        const body = c.req.valid("json");
+        const command = await executeCommand(c, {
+          type: "send.raw",
+          paneId: pane.paneId,
+          items: body.items as RawItem[],
+          unsafe: body.unsafe,
+        });
+        return c.json({ command });
       });
-      return c.json({ command });
     })
     .post("/sessions/:paneId/focus", async (c) => {
-      const pane = resolvePane(c);
-      if (pane instanceof Response) {
-        return pane;
-      }
-      if (!sendLimiter(getLimiterKey(c))) {
-        return c.json({
-          command: {
-            ok: false,
-            error: buildError("RATE_LIMIT", "rate limited"),
-          },
-        });
-      }
-      const command = await actions.focusPane(pane.paneId);
-      return c.json({ command });
+      return withPane(c, async (pane) => {
+        if (!sendLimiter(getLimiterKey(c))) {
+          return c.json({
+            command: {
+              ok: false,
+              error: buildError("RATE_LIMIT", "rate limited"),
+            },
+          });
+        }
+        const command = await actions.focusPane(pane.paneId);
+        return c.json({ command });
+      });
     });
 };
