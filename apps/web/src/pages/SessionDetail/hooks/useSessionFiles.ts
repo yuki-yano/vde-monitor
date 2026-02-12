@@ -6,6 +6,10 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
 import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
 import {
+  buildLogReferenceLinkableCacheKey,
+  resolveLogReferenceLinkableWithCache,
+} from "./useSessionFiles-log-linkable-cache";
+import {
   initializeLogResolveRequest,
   isCurrentLogResolveRequest,
   type LogFileCandidateItem,
@@ -98,16 +102,6 @@ const copyTextToClipboard = async (value: string) => {
       document.body.removeChild(textarea);
     }
   }
-};
-
-const setMapEntryWithMaxSize = <K, V>(map: Map<K, V>, key: K, value: V, maxSize: number) => {
-  if (!map.has(key) && map.size >= maxSize) {
-    const oldestKey = map.keys().next().value;
-    if (oldestKey != null) {
-      map.delete(oldestKey);
-    }
-  }
-  map.set(key, value);
 };
 
 export const useSessionFiles = ({
@@ -782,28 +776,6 @@ export const useSessionFiles = ({
     [requestRepoFileSearch],
   );
 
-  const buildLogReferenceLinkableCacheKey = useCallback(
-    ({
-      sourcePaneId,
-      sourceRepoRoot,
-      kind,
-      normalizedPath,
-      filename,
-      display,
-    }: {
-      sourcePaneId: string;
-      sourceRepoRoot: string | null;
-      kind: "path" | "filename" | "unknown";
-      normalizedPath: string | null;
-      filename: string | null;
-      display: string;
-    }) => {
-      const normalizedCacheSubject = normalizedPath ?? filename ?? display;
-      return `${sourcePaneId}:${sourceRepoRoot ?? ""}:${kind}:${normalizedCacheSubject}`;
-    },
-    [],
-  );
-
   const isLogFileReferenceLinkable = useCallback(
     async ({
       rawToken,
@@ -831,63 +803,46 @@ export const useSessionFiles = ({
         filename: reference.filename,
         display: reference.display,
       });
-      const cached = logReferenceLinkableCacheRef.current.get(cacheKey);
-      if (cached != null) {
-        return cached;
-      }
-      const inFlight = logReferenceLinkableRequestMapRef.current.get(cacheKey);
-      if (inFlight) {
-        return inFlight;
-      }
+      return resolveLogReferenceLinkableWithCache({
+        cacheRef: logReferenceLinkableCacheRef,
+        requestMapRef: logReferenceLinkableRequestMapRef,
+        cacheKey,
+        cacheMaxSize: LOG_REFERENCE_LINKABLE_CACHE_MAX,
+        resolve: async () => {
+          if (reference.normalizedPath) {
+            try {
+              const pathMatched = await hasExactPathMatch({
+                paneId: sourcePaneId,
+                path: reference.normalizedPath,
+                limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
+              });
+              if (pathMatched === true) {
+                return true;
+              }
+            } catch {
+              // path resolve failed; continue to filename fallback
+            }
+          }
 
-      const request = (async () => {
-        if (reference.normalizedPath) {
+          if (!reference.filename) {
+            return false;
+          }
+
           try {
-            const pathMatched = await hasExactPathMatch({
+            const matches = await findExactNameMatches({
               paneId: sourcePaneId,
-              path: reference.normalizedPath,
+              filename: reference.filename,
+              maxMatches: 1,
               limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
             });
-            if (pathMatched === true) {
-              return true;
-            }
+            return (matches?.length ?? 0) > 0;
           } catch {
-            // path resolve failed; continue to filename fallback
+            return false;
           }
-        }
-
-        if (!reference.filename) {
-          return false;
-        }
-
-        try {
-          const matches = await findExactNameMatches({
-            paneId: sourcePaneId,
-            filename: reference.filename,
-            maxMatches: 1,
-            limitPerPage: LOG_FILE_RESOLVE_PAGE_LIMIT,
-          });
-          return (matches?.length ?? 0) > 0;
-        } catch {
-          return false;
-        }
-      })();
-
-      logReferenceLinkableRequestMapRef.current.set(cacheKey, request);
-      try {
-        const resolved = await request;
-        setMapEntryWithMaxSize(
-          logReferenceLinkableCacheRef.current,
-          cacheKey,
-          resolved,
-          LOG_REFERENCE_LINKABLE_CACHE_MAX,
-        );
-        return resolved;
-      } finally {
-        logReferenceLinkableRequestMapRef.current.delete(cacheKey);
-      }
+        },
+      });
     },
-    [buildLogReferenceLinkableCacheKey, findExactNameMatches, hasExactPathMatch],
+    [findExactNameMatches, hasExactPathMatch],
   );
 
   const onResolveLogFileReferenceCandidates = useCallback(
@@ -959,7 +914,7 @@ export const useSessionFiles = ({
 
       return uniqueTokens.filter((token) => linkableRawTokenSet.has(token));
     },
-    [buildLogReferenceLinkableCacheKey, isLogFileReferenceLinkable],
+    [isLogFileReferenceLinkable],
   );
 
   const tryOpenExistingPath = useCallback(
