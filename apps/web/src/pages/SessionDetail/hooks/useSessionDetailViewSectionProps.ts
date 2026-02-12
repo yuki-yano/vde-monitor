@@ -4,6 +4,12 @@ import type { SessionDetailViewProps } from "../SessionDetailView";
 import {
   buildCommitSectionProps,
   buildDiffSectionProps,
+  buildFileContentModalProps,
+  buildFileNavigatorSectionProps,
+  buildLogFileCandidateModalProps,
+  buildLogModalProps,
+  buildQuickPanelProps,
+  buildScreenPanelProps,
   buildStateTimelineSectionProps,
 } from "./section-props-builders";
 
@@ -286,8 +292,8 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const fileNavigatorSectionProps = useMemo(
-    () => ({
-      state: {
+    () =>
+      buildFileNavigatorSectionProps({
         unavailable,
         selectedFilePath,
         searchQuery,
@@ -301,8 +307,6 @@ export const useSessionDetailViewSectionProps = ({
         treeNodes,
         rootTreeHasMore,
         searchHasMore,
-      },
-      actions: {
         onSearchQueryChange,
         onSearchMove,
         onSearchConfirm,
@@ -311,8 +315,7 @@ export const useSessionDetailViewSectionProps = ({
         onOpenFileModal,
         onLoadMoreTreeRoot,
         onLoadMoreSearch,
-      },
-    }),
+      }),
     [
       unavailable,
       selectedFilePath,
@@ -339,27 +342,24 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const fileContentModalProps = useMemo(
-    () => ({
-      state: {
-        open: fileModalOpen,
-        path: fileModalPath,
-        loading: fileModalLoading,
-        error: fileModalError,
-        file: fileModalFile,
-        markdownViewMode: fileModalMarkdownViewMode,
-        showLineNumbers: fileModalShowLineNumbers,
-        copiedPath: fileModalCopiedPath,
-        copyError: fileModalCopyError,
-        highlightLine: fileModalHighlightLine,
-        theme: resolvedTheme,
-      },
-      actions: {
-        onClose: onCloseFileModal,
-        onToggleLineNumbers: onToggleFileModalLineNumbers,
-        onCopyPath: onCopyFileModalPath,
-        onMarkdownViewModeChange: onSetFileModalMarkdownViewMode,
-      },
-    }),
+    () =>
+      buildFileContentModalProps({
+        fileModalOpen,
+        fileModalPath,
+        fileModalLoading,
+        fileModalError,
+        fileModalFile,
+        fileModalMarkdownViewMode,
+        fileModalShowLineNumbers,
+        fileModalCopiedPath,
+        fileModalCopyError,
+        fileModalHighlightLine,
+        resolvedTheme,
+        onCloseFileModal,
+        onToggleFileModalLineNumbers,
+        onCopyFileModalPath,
+        onSetFileModalMarkdownViewMode,
+      }),
     [
       fileModalOpen,
       fileModalPath,
@@ -380,8 +380,8 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const screenPanelProps = useMemo(
-    () => ({
-      state: {
+    () =>
+      buildScreenPanelProps({
         mode,
         connectionIssue,
         fallbackReason,
@@ -398,27 +398,16 @@ export const useSessionDetailViewSectionProps = ({
         rawMode,
         allowDangerKeys,
         fileResolveError,
-      },
-      actions: {
-        onModeChange: handleModeChange,
-        onRefresh: handleRefreshScreen,
-        onAtBottomChange: handleAtBottomChange,
-        onScrollToBottom: scrollToBottom,
-        onUserScrollStateChange: handleUserScrollStateChange,
-        onResolveFileReference: (rawToken: string) =>
-          onResolveLogFileReference({
-            rawToken,
-            sourcePaneId: paneId,
-            sourceRepoRoot: session?.repoRoot ?? null,
-          }),
-        onResolveFileReferenceCandidates: (rawTokens: string[]) =>
-          onResolveLogFileReferenceCandidates({
-            rawTokens,
-            sourcePaneId: paneId,
-            sourceRepoRoot: session?.repoRoot ?? null,
-          }),
-      },
-    }),
+        handleModeChange,
+        handleRefreshScreen,
+        handleAtBottomChange,
+        scrollToBottom,
+        handleUserScrollStateChange,
+        onResolveLogFileReference,
+        onResolveLogFileReferenceCandidates,
+        paneId,
+        sourceRepoRoot: session?.repoRoot ?? null,
+      }),
     [
       mode,
       connectionIssue,
@@ -449,21 +438,17 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const quickPanelProps = useMemo(
-    () => ({
-      state: {
-        open: quickPanelOpen,
+    () =>
+      buildQuickPanelProps({
+        quickPanelOpen,
         sessionGroups,
-        allSessions: sessionGroups.flatMap((group) => group.sessions),
         nowMs,
-        currentPaneId: paneId,
-      },
-      actions: {
-        onOpenLogModal: openLogModal,
-        onOpenSessionLink: handleOpenPaneHere,
-        onClose: closeQuickPanel,
-        onToggle: toggleQuickPanel,
-      },
-    }),
+        paneId,
+        openLogModal,
+        handleOpenPaneHere,
+        closeQuickPanel,
+        toggleQuickPanel,
+      }),
     [
       quickPanelOpen,
       sessionGroups,
@@ -477,20 +462,17 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const logModalProps = useMemo(
-    () => ({
-      state: {
-        open: logModalOpen,
-        session: selectedSession,
-        logLines: selectedLogLines,
-        loading: selectedLogLoading,
-        error: selectedLogError,
-      },
-      actions: {
-        onClose: closeLogModal,
-        onOpenHere: handleOpenHere,
-        onOpenNewTab: handleOpenInNewTab,
-      },
-    }),
+    () =>
+      buildLogModalProps({
+        logModalOpen,
+        selectedSession,
+        selectedLogLines,
+        selectedLogLoading,
+        selectedLogError,
+        closeLogModal,
+        handleOpenHere,
+        handleOpenInNewTab,
+      }),
     [
       logModalOpen,
       selectedSession,
@@ -504,17 +486,14 @@ export const useSessionDetailViewSectionProps = ({
   );
 
   const logFileCandidateModalProps = useMemo(
-    () => ({
-      state: {
-        open: logFileCandidateModalOpen,
-        reference: logFileCandidateReference,
-        items: logFileCandidateItems,
-      },
-      actions: {
-        onClose: onCloseLogFileCandidateModal,
-        onSelect: onSelectLogFileCandidate,
-      },
-    }),
+    () =>
+      buildLogFileCandidateModalProps({
+        logFileCandidateModalOpen,
+        logFileCandidateReference,
+        logFileCandidateItems,
+        onCloseLogFileCandidateModal,
+        onSelectLogFileCandidate,
+      }),
     [
       logFileCandidateModalOpen,
       logFileCandidateReference,
