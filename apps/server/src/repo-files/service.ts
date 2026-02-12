@@ -1,7 +1,5 @@
-import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
-import { promisify } from "node:util";
 
 import type {
   FileNavigatorConfig,
@@ -26,6 +24,7 @@ import {
   toServiceError,
   validateMaxBytes,
 } from "./service-context";
+import { createRunLsFiles } from "./service-git-ls-files";
 import { paginateItems } from "./service-pagination";
 import { buildWordSearchMatch, tokenizeQuery } from "./service-search-matcher";
 import { withServiceTimeout } from "./service-timeout";
@@ -36,8 +35,6 @@ const GIT_LS_FILES_TIMEOUT_MS = 1_500;
 const DEFAULT_SEARCH_TIMEOUT_MS = 2_000;
 const DEFAULT_CONTENT_TIMEOUT_MS = 2_000;
 const GIT_LS_FILES_MAX_BUFFER = 10_000_000;
-
-const execFileAsync = promisify(execFile);
 
 type ListTreeInput = {
   repoRoot: string;
@@ -72,16 +69,6 @@ type RepoFileServiceDeps = {
   now?: () => number;
 };
 
-const splitNullSeparated = (value: string) => value.split("\0").filter((token) => token.length > 0);
-
-const extractStdoutFromExecError = (error: unknown) => {
-  if (typeof error !== "object" || error == null) {
-    return "";
-  }
-  const stdout = (error as { stdout?: unknown }).stdout;
-  return typeof stdout === "string" ? stdout : "";
-};
-
 const normalizeAndSortNodes = (nodes: RepoFileTreeNode[]) => {
   return nodes.sort((left, right) => left.name.localeCompare(right.name));
 };
@@ -96,22 +83,10 @@ export const createRepoFileService = ({
     visibilityCacheTtlMs: VISIBILITY_CACHE_TTL_MS,
   });
 
-  const runLsFiles = async (repoRoot: string, args: string[]) => {
-    const output = await execFileAsync("git", ["-C", repoRoot, ...args], {
-      timeout: GIT_LS_FILES_TIMEOUT_MS,
-      maxBuffer: GIT_LS_FILES_MAX_BUFFER,
-      encoding: "utf8",
-    })
-      .then((result) => result.stdout)
-      .catch((error: unknown) => {
-        const stdout = extractStdoutFromExecError(error);
-        if (stdout.length > 0) {
-          return stdout;
-        }
-        throw error;
-      });
-    return splitNullSeparated(output);
-  };
+  const runLsFiles = createRunLsFiles({
+    timeoutMs: GIT_LS_FILES_TIMEOUT_MS,
+    maxBuffer: GIT_LS_FILES_MAX_BUFFER,
+  });
   const { resolveSearchIndex, withIgnoredFlags } = createSearchIndexResolver({
     now,
     runLsFiles,
