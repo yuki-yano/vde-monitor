@@ -13,6 +13,10 @@ import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { mapWithConcurrencyLimitSettled } from "./monitor/concurrency";
 import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
+import {
+  createRestoredSessionApplier,
+  restoreMonitorRuntimeState,
+} from "./monitor/monitor-persistence";
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { processPane } from "./monitor/pane-processor";
 import { createPaneStateStore } from "./monitor/pane-state";
@@ -73,7 +77,6 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const customTitles = new Map<string, string>();
   const restored = restoreSessions();
   const restoredTimeline = restoreTimeline();
-  const restoredReason = new Set<string>();
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
   const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
@@ -90,39 +93,18 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     logActivity,
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
-  stateTimeline.restore(restoredTimeline);
+  restoreMonitorRuntimeState({
+    restoredSessions: restored,
+    restoredTimeline,
+    paneStates,
+    customTitles,
+    stateTimeline,
+  });
 
   const savePersistedState = () => {
     saveState(registry.values(), { timeline: stateTimeline.serialize() });
   };
-
-  restored.forEach((session, paneId) => {
-    const state = paneStates.get(paneId);
-    state.lastOutputAt = session.lastOutputAt ?? null;
-    state.lastEventAt = session.lastEventAt ?? null;
-    state.lastMessage = session.lastMessage ?? null;
-    state.lastInputAt = session.lastInputAt ?? null;
-    if (session.customTitle) {
-      customTitles.set(paneId, session.customTitle);
-    }
-    if (!restoredTimeline.has(paneId)) {
-      stateTimeline.record({
-        paneId,
-        state: session.state,
-        reason: session.stateReason || "restored",
-        at: session.lastEventAt ?? session.lastOutputAt ?? session.lastInputAt ?? undefined,
-        source: "restore",
-      });
-    }
-  });
-
-  const applyRestored = (paneId: string) => {
-    if (restored.has(paneId) && !restoredReason.has(paneId)) {
-      restoredReason.add(paneId);
-      return restored.get(paneId) ?? null;
-    }
-    return null;
-  };
+  const applyRestored = createRestoredSessionApplier(restored);
 
   const markPaneViewed = (paneId: string, atMs = Date.now()) => {
     viewedPaneAtMs.set(paneId, atMs);
