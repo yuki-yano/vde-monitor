@@ -38,6 +38,78 @@ const SIDEBAR_FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
   label: value.replace("_", " "),
 }));
 
+type SessionSidebarFilterSectionProps = {
+  filter: SessionListFilter;
+  onFilterChange: (next: string) => void;
+};
+
+const SessionSidebarFilterSection = ({
+  filter,
+  onFilterChange,
+}: SessionSidebarFilterSectionProps) => (
+  <FilterToggleGroup
+    value={filter}
+    onChange={onFilterChange}
+    options={SIDEBAR_FILTER_OPTIONS}
+    buttonClassName="uppercase tracking-[0.14em] text-[11px] px-2.5 py-1"
+  />
+);
+
+type SessionSidebarListSectionProps = {
+  onListScroll: () => void;
+  sidebarGroups: SidebarRepoGroup[];
+  nowMs: number;
+  currentPaneId?: string | null;
+  focusPendingPaneIds: Set<string>;
+  onHoverStart: (paneId: string) => void;
+  onHoverEnd: (paneId: string) => void;
+  onFocus: (paneId: string) => void;
+  onBlur: (paneId: string) => void;
+  onSelect: (paneId: string) => void;
+  onFocusPane: (paneId: string) => Promise<void> | void;
+  onTouchSession: (paneId: string) => void;
+  onTouchRepoPin: (repoRoot: string | null) => void;
+  registerItemRef: (paneId: string, node: HTMLDivElement | null) => void;
+};
+
+const SessionSidebarListSection = ({
+  onListScroll,
+  sidebarGroups,
+  nowMs,
+  currentPaneId,
+  focusPendingPaneIds,
+  onHoverStart,
+  onHoverEnd,
+  onFocus,
+  onBlur,
+  onSelect,
+  onFocusPane,
+  onTouchSession,
+  onTouchRepoPin,
+  registerItemRef,
+}: SessionSidebarListSectionProps) => (
+  <div
+    className="custom-scrollbar -mr-2 min-h-0 flex-1 overflow-y-auto pr-2"
+    onScroll={onListScroll}
+  >
+    <SessionSidebarGroupList
+      sidebarGroups={sidebarGroups}
+      nowMs={nowMs}
+      currentPaneId={currentPaneId}
+      focusPendingPaneIds={focusPendingPaneIds}
+      onHoverStart={onHoverStart}
+      onHoverEnd={onHoverEnd}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onSelect={onSelect}
+      onFocusPane={onFocusPane}
+      onTouchSession={onTouchSession}
+      onTouchRepoPin={onTouchRepoPin}
+      registerItemRef={registerItemRef}
+    />
+  </div>
+);
+
 type SessionSidebarMainSectionsProps = {
   totalSessions: number;
   repoCount: number;
@@ -82,33 +154,23 @@ export const SessionSidebarMainSections = ({
   return (
     <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-5">
       <SessionSidebarHeader totalSessions={totalSessions} repoCount={repoCount} />
-      <FilterToggleGroup
-        value={filter}
-        onChange={onFilterChange}
-        options={SIDEBAR_FILTER_OPTIONS}
-        buttonClassName="uppercase tracking-[0.14em] text-[11px] px-2.5 py-1"
+      <SessionSidebarFilterSection filter={filter} onFilterChange={onFilterChange} />
+      <SessionSidebarListSection
+        onListScroll={onListScroll}
+        sidebarGroups={sidebarGroups}
+        nowMs={nowMs}
+        currentPaneId={currentPaneId}
+        focusPendingPaneIds={focusPendingPaneIds}
+        onHoverStart={onHoverStart}
+        onHoverEnd={onHoverEnd}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onSelect={onSelect}
+        onFocusPane={onFocusPane}
+        onTouchSession={onTouchSession}
+        onTouchRepoPin={onTouchRepoPin}
+        registerItemRef={registerItemRef}
       />
-
-      <div
-        className="custom-scrollbar -mr-2 min-h-0 flex-1 overflow-y-auto pr-2"
-        onScroll={onListScroll}
-      >
-        <SessionSidebarGroupList
-          sidebarGroups={sidebarGroups}
-          nowMs={nowMs}
-          currentPaneId={currentPaneId}
-          focusPendingPaneIds={focusPendingPaneIds}
-          onHoverStart={onHoverStart}
-          onHoverEnd={onHoverEnd}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          onSelect={onSelect}
-          onFocusPane={onFocusPane}
-          onTouchSession={onTouchSession}
-          onTouchRepoPin={onTouchRepoPin}
-          registerItemRef={registerItemRef}
-        />
-      </div>
     </div>
   );
 };
