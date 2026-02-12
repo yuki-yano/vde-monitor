@@ -21,11 +21,14 @@ export type SearchIndexItem = SearchIndexBaseItem & {
 type SearchIndexCacheEntry = {
   items: SearchIndexItem[];
   expiresAt: number;
+  knownPathFingerprint: string | null;
+  policy: FileVisibilityPolicy;
 };
 
 type KnownPathCacheEntry = {
   knownFiles: Set<string> | null;
   knownDirectories: Set<string> | null;
+  fingerprint: string | null;
   expiresAt: number;
 };
 
@@ -65,6 +68,41 @@ const normalizeDirectoryPath = (relativePath: string) => {
   return relativePath.slice(0, -1);
 };
 
+const FNV_OFFSET_BASIS = 0x811c9dc5;
+const FNV_PRIME = 0x01000193;
+
+const updateFingerprintHash = (hash: number, value: string) => {
+  let next = hash >>> 0;
+  for (let index = 0; index < value.length; index += 1) {
+    next ^= value.charCodeAt(index);
+    next = Math.imul(next, FNV_PRIME) >>> 0;
+  }
+  next ^= 0xff;
+  return Math.imul(next, FNV_PRIME) >>> 0;
+};
+
+const buildKnownPathFingerprint = ({
+  trackedFiles,
+  untrackedFiles,
+  untrackedPathHints,
+}: {
+  trackedFiles: string[];
+  untrackedFiles: string[];
+  untrackedPathHints: string[];
+}) => {
+  let hash = FNV_OFFSET_BASIS;
+  for (const entry of trackedFiles) {
+    hash = updateFingerprintHash(hash, `t:${entry}`);
+  }
+  for (const entry of untrackedFiles) {
+    hash = updateFingerprintHash(hash, `u:${entry}`);
+  }
+  for (const entry of untrackedPathHints) {
+    hash = updateFingerprintHash(hash, `h:${entry}`);
+  }
+  return hash.toString(16).padStart(8, "0");
+};
+
 export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndexResolverDeps) => {
   const searchIndexCache = new Map<string, SearchIndexCacheEntry>();
   const knownPathCache = new Map<string, KnownPathCacheEntry>();
@@ -80,6 +118,11 @@ export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndex
         runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
         runLsFiles(repoRoot, ["ls-files", "--others", "--exclude-standard", "--directory", "-z"]),
       ]);
+      const fingerprint = buildKnownPathFingerprint({
+        trackedFiles,
+        untrackedFiles,
+        untrackedPathHints,
+      });
       const knownFiles = new Set([...trackedFiles, ...untrackedFiles]);
       const untrackedDirectories = new Set<string>();
       untrackedPathHints.forEach((entry) => {
@@ -99,6 +142,7 @@ export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndex
       const next = {
         knownFiles,
         knownDirectories,
+        fingerprint,
         expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
       } satisfies KnownPathCacheEntry;
       knownPathCache.set(repoRoot, next);
@@ -107,6 +151,7 @@ export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndex
       const next = {
         knownFiles: null,
         knownDirectories: null,
+        fingerprint: null,
         expiresAt: now() + KNOWN_PATH_CACHE_TTL_MS,
       } satisfies KnownPathCacheEntry;
       knownPathCache.set(repoRoot, next);
@@ -144,8 +189,9 @@ export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndex
   const withIgnoredFlags = async <T extends { path: string; kind: "file" | "directory" }>(
     repoRoot: string,
     items: T[],
+    knownPathEntryOverride?: KnownPathCacheEntry,
   ): Promise<Array<T & { isIgnored: boolean }>> => {
-    const knownPathEntry = await resolveKnownPaths(repoRoot);
+    const knownPathEntry = knownPathEntryOverride ?? (await resolveKnownPaths(repoRoot));
     return items.map((item) => ({
       ...item,
       isIgnored: resolveIsIgnored({
@@ -213,15 +259,38 @@ export const createSearchIndexResolver = ({ now, runLsFiles }: CreateSearchIndex
   };
 
   const resolveSearchIndex = async (repoRoot: string, policy: FileVisibilityPolicy) => {
+    const nowMs = now();
     const cached = searchIndexCache.get(repoRoot);
-    if (cached && cached.expiresAt > now()) {
+    if (cached && cached.expiresAt > nowMs) {
       return cached.items;
     }
+
+    let knownPathEntry: KnownPathCacheEntry | null = null;
+    if (cached && cached.policy === policy) {
+      knownPathEntry = await resolveKnownPaths(repoRoot);
+      if (
+        knownPathEntry.fingerprint != null &&
+        cached.knownPathFingerprint != null &&
+        knownPathEntry.fingerprint === cached.knownPathFingerprint
+      ) {
+        searchIndexCache.set(repoRoot, {
+          ...cached,
+          expiresAt: nowMs + INDEX_CACHE_TTL_MS,
+        });
+        return cached.items;
+      }
+    }
+
     const items = await buildSearchIndex(repoRoot, policy);
-    const itemsWithIgnored = await withIgnoredFlags(repoRoot, items);
+    if (knownPathEntry == null) {
+      knownPathEntry = await resolveKnownPaths(repoRoot);
+    }
+    const itemsWithIgnored = await withIgnoredFlags(repoRoot, items, knownPathEntry);
     searchIndexCache.set(repoRoot, {
       items: itemsWithIgnored,
-      expiresAt: now() + INDEX_CACHE_TTL_MS,
+      expiresAt: nowMs + INDEX_CACHE_TTL_MS,
+      knownPathFingerprint: knownPathEntry.fingerprint,
+      policy,
     });
     return itemsWithIgnored;
   };

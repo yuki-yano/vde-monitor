@@ -1,12 +1,17 @@
+import fs from "node:fs/promises";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSearchIndexResolver } from "./search-index-resolver";
 
 describe("search index resolver", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("adds ignored flags from known paths for file and directory nodes", async () => {
     const runLsFiles = vi.fn(async (_repoRoot: string, args: string[]): Promise<string[]> => {
       if (args[0] === "ls-files" && args[1] === "-z") {
@@ -64,6 +69,86 @@ describe("search index resolver", () => {
       expect(first).toEqual(second);
       expect(first.map((item) => item.path)).toContain("src/index.ts");
       expect(runLsFiles).toHaveBeenCalledTimes(3);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("skips full index rebuild when known paths are unchanged after ttl", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-stable-"));
+    try {
+      await mkdir(path.join(repoRoot, "src"), { recursive: true });
+      await writeFile(path.join(repoRoot, "src", "index.ts"), "export {};\n");
+      let nowMs = 0;
+      const runLsFiles = vi.fn(
+        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
+          if (args[0] === "ls-files" && args[1] === "-z") {
+            return ["src/index.ts"];
+          }
+          return [];
+        },
+      );
+      const readdirSpy = vi.spyOn(fs, "readdir");
+      const resolver = createSearchIndexResolver({
+        now: () => nowMs,
+        runLsFiles,
+      });
+      const policy = {
+        shouldIncludePath: () => true,
+        shouldTraverseDirectory: () => true,
+        planDirectoryTraversal: () => new Set<string>(),
+      };
+
+      const first = await resolver.resolveSearchIndex(repoRoot, policy);
+      const firstReaddirCount = readdirSpy.mock.calls.length;
+
+      nowMs = 6_000;
+      const second = await resolver.resolveSearchIndex(repoRoot, policy);
+
+      expect(second).toEqual(first);
+      expect(readdirSpy.mock.calls.length).toBe(firstReaddirCount);
+      expect(runLsFiles).toHaveBeenCalledTimes(6);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rebuilds index when known paths change after ttl", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-changed-"));
+    try {
+      await mkdir(path.join(repoRoot, "src"), { recursive: true });
+      await writeFile(path.join(repoRoot, "src", "index.ts"), "export {};\n");
+      let trackedPaths = ["src/index.ts"];
+      let nowMs = 0;
+      const runLsFiles = vi.fn(
+        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
+          if (args[0] === "ls-files" && args[1] === "-z") {
+            return trackedPaths;
+          }
+          return [];
+        },
+      );
+      const resolver = createSearchIndexResolver({
+        now: () => nowMs,
+        runLsFiles,
+      });
+      const policy = {
+        shouldIncludePath: () => true,
+        shouldTraverseDirectory: () => true,
+        planDirectoryTraversal: () => new Set<string>(),
+      };
+
+      const first = await resolver.resolveSearchIndex(repoRoot, policy);
+      expect(first.map((item) => item.path)).toContain("src/index.ts");
+      expect(first.map((item) => item.path)).not.toContain("src/new.ts");
+
+      await writeFile(path.join(repoRoot, "src", "new.ts"), "export const next = true;\n");
+      trackedPaths = ["src/index.ts", "src/new.ts"];
+      nowMs = 6_000;
+
+      const second = await resolver.resolveSearchIndex(repoRoot, policy);
+      expect(second.map((item) => item.path)).toContain("src/new.ts");
+      expect(runLsFiles).toHaveBeenCalledTimes(6);
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
