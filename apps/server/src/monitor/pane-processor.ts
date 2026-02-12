@@ -1,5 +1,6 @@
 import type { AgentMonitorConfig, PaneMeta, SessionDetail } from "@vde-monitor/shared";
 
+import { resolvePaneContext } from "./pane-context-resolver";
 import type { PaneLogManager } from "./pane-log-manager";
 import { observePane, type PaneObservationDeps, type PaneStateStore } from "./pane-observation";
 import { buildSessionDetail } from "./session-detail";
@@ -24,30 +25,6 @@ type ProcessPaneArgs = {
   isPaneViewedRecently?: (paneId: string) => boolean;
   resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
   cachePanePipeTagValue?: (paneId: string, pipeTagValue: string | null) => void;
-};
-
-const vwWorktreeSegmentPattern = /(^|[\\/])\.worktree([\\/]|$)/;
-
-const normalizePathForCompare = (value: string | null | undefined) => {
-  if (!value) return null;
-  const normalized = value.replace(/[\\/]+$/, "");
-  return normalized.length > 0 ? normalized : null;
-};
-
-const isSamePath = (left: string | null | undefined, right: string | null | undefined) => {
-  const normalizedLeft = normalizePathForCompare(left);
-  const normalizedRight = normalizePathForCompare(right);
-  if (!normalizedLeft || !normalizedRight) {
-    return false;
-  }
-  return normalizedLeft === normalizedRight;
-};
-
-const isVwManagedWorktreePath = (value: string | null | undefined) => {
-  if (!value) {
-    return false;
-  }
-  return vwWorktreeSegmentPattern.test(value.trim());
 };
 
 export const processPane = async (
@@ -89,20 +66,13 @@ export const processPane = async (
   const { agent, paneState, outputAt, pipeAttached, pipeConflict, finalState } = observation;
 
   const customTitle = getCustomTitle(pane.paneId);
-  const [candidateWorktreeStatus, resolvedRepoRoot] = await Promise.all([
-    resolveWorktreeStatus ? resolveWorktreeStatus(pane.currentPath) : Promise.resolve(null),
-    resolveRepoRoot(pane.currentPath),
-  ]);
-  const worktreeStatus =
-    candidateWorktreeStatus &&
-    (resolvedRepoRoot == null || isSamePath(candidateWorktreeStatus.worktreePath, resolvedRepoRoot))
-      ? candidateWorktreeStatus
-      : null;
-  const repoRoot = worktreeStatus?.repoRoot ?? resolvedRepoRoot;
-  const branch = worktreeStatus?.branch ?? (await resolveBranch?.(pane.currentPath)) ?? null;
-  const shouldResolvePrCreated = isVwManagedWorktreePath(worktreeStatus?.worktreePath);
-  const worktreePrCreated =
-    resolvePrCreated && shouldResolvePrCreated ? await resolvePrCreated(repoRoot, branch) : null;
+  const paneContext = await resolvePaneContext({
+    currentPath: pane.currentPath,
+    resolveRepoRoot,
+    resolveWorktreeStatus,
+    resolveBranch,
+    resolvePrCreated,
+  });
   const inputAt = paneState.lastInputAt;
 
   return buildSessionDetail({
@@ -117,14 +87,6 @@ export const processPane = async (
     pipeAttached,
     pipeConflict,
     customTitle,
-    repoRoot,
-    branch,
-    worktreePath: worktreeStatus?.worktreePath ?? null,
-    worktreeDirty: worktreeStatus?.worktreeDirty ?? null,
-    worktreeLocked: worktreeStatus?.worktreeLocked ?? null,
-    worktreeLockOwner: worktreeStatus?.worktreeLockOwner ?? null,
-    worktreeLockReason: worktreeStatus?.worktreeLockReason ?? null,
-    worktreeMerged: worktreeStatus?.worktreeMerged ?? null,
-    worktreePrCreated,
+    ...paneContext,
   });
 };
