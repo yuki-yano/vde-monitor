@@ -19,20 +19,11 @@ import type {
   SessionStateTimelineRange,
   SessionSummary,
 } from "@vde-monitor/shared";
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 
-import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { useVisibilityPolling } from "@/lib/use-visibility-polling";
-
-import { type RefreshSessionsResult, useSessionApi } from "./use-session-api";
+import { useSessionApi } from "./use-session-api";
+import { useSessionConnectionState } from "./use-session-connection-state";
+import { useSessionPolling } from "./use-session-polling";
 import { useSessionStore } from "./use-session-store";
 import { useSessionToken } from "./use-session-token";
 
@@ -105,17 +96,12 @@ type SessionContextValue = {
   getSessionDetail: (paneId: string) => SessionDetail | null;
 };
 
-const SESSION_POLL_INTERVAL_MS = 1000;
-const RATE_LIMIT_BACKOFF_STEP_MS = 5000;
-const MAX_RATE_LIMIT_STEPS = 3;
-
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const { token, apiBaseUrl } = useSessionToken();
   const { sessions, setSessions, updateSession, removeSession, getSessionDetail } =
     useSessionStore();
-  const [connectionIssue, setConnectionIssue] = useState<string | null>(null);
   const [highlightCorrections, setHighlightCorrections] = useState<HighlightCorrectionConfig>({
     codex: true,
     claude: true,
@@ -123,41 +109,22 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [fileNavigatorConfig, setFileNavigatorConfig] = useState<ClientFileNavigatorConfig>({
     autoExpandMatchLimit: 100,
   });
-  const [connected, setConnected] = useState(false);
-  const [authBlocked, setAuthBlocked] = useState(false);
-  const [pollBackoffMs, setPollBackoffMs] = useState(0);
-  const backoffStepRef = useRef(0);
+  const {
+    connectionIssue,
+    setConnectionIssue,
+    connected,
+    authBlocked,
+    pollBackoffMs,
+    connectionStatus,
+    handleRefreshResult: handleRefreshResultFromConnection,
+    reconnect: reconnectWithConnectionState,
+  } = useSessionConnectionState(token);
 
   const applyHighlightCorrections = useCallback((nextHighlight: HighlightCorrectionConfig) => {
     setHighlightCorrections((prev) => ({ ...prev, ...nextHighlight }));
   }, []);
 
-  const applyRateLimitBackoff = useCallback(() => {
-    const nextStep = Math.min(backoffStepRef.current + 1, MAX_RATE_LIMIT_STEPS);
-    if (nextStep === backoffStepRef.current) {
-      return;
-    }
-    backoffStepRef.current = nextStep;
-    setPollBackoffMs(nextStep * RATE_LIMIT_BACKOFF_STEP_MS);
-  }, []);
-
-  const resetRateLimitBackoff = useCallback(() => {
-    if (backoffStepRef.current === 0) {
-      return;
-    }
-    backoffStepRef.current = 0;
-    setPollBackoffMs(0);
-  }, []);
-
   const hasToken = Boolean(token);
-  const connectionStatus: SessionContextValue["connectionStatus"] =
-    !hasToken || authBlocked
-      ? "disconnected"
-      : connected
-        ? pollBackoffMs > 0
-          ? "degraded"
-          : "healthy"
-        : "degraded";
 
   const {
     refreshSessions: refreshSessionsApi,
@@ -189,76 +156,27 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     onFileNavigatorConfig: setFileNavigatorConfig,
   });
 
-  const handleRefreshResult = useCallback(
-    (result: RefreshSessionsResult) => {
-      if (!result.ok) {
-        if (result.authError) {
-          setAuthBlocked(true);
-        }
-        if (result.rateLimited) {
-          applyRateLimitBackoff();
-          setConnected(true);
-        } else {
-          setConnected(false);
-        }
-        return;
-      }
-      if (authBlocked) {
-        setAuthBlocked(false);
-      }
-      setConnected(true);
-      resetRateLimitBackoff();
-    },
-    [applyRateLimitBackoff, authBlocked, resetRateLimitBackoff],
-  );
-
   const refreshSessions = useCallback(async () => {
     if (!hasToken || authBlocked) {
       return;
     }
     const result = await refreshSessionsApi();
-    handleRefreshResult(result);
-  }, [authBlocked, handleRefreshResult, hasToken, refreshSessionsApi]);
+    handleRefreshResultFromConnection(result);
+  }, [authBlocked, handleRefreshResultFromConnection, hasToken, refreshSessionsApi]);
 
   const reconnect = useCallback(() => {
-    if (!token) return;
-    setAuthBlocked(false);
-    setConnectionIssue("Reconnecting...");
-    void refreshSessions();
-  }, [refreshSessions, token]);
+    reconnectWithConnectionState(refreshSessions);
+  }, [reconnectWithConnectionState, refreshSessions]);
 
-  const pollSessions = useCallback(() => {
-    void refreshSessions();
-  }, [refreshSessions]);
-
-  useEffect(() => {
-    if (!hasToken || authBlocked) {
-      return;
-    }
-    void refreshSessions();
-  }, [authBlocked, hasToken, refreshSessions]);
-
-  useEffect(() => {
-    if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
-      setAuthBlocked(true);
-      setConnected(false);
-    }
-  }, [connectionIssue]);
-
-  useVisibilityPolling({
+  useSessionPolling({
     enabled: hasToken && !authBlocked,
-    intervalMs: SESSION_POLL_INTERVAL_MS + pollBackoffMs,
-    onTick: pollSessions,
-    onResume: pollSessions,
+    pollBackoffMs,
+    refreshSessions,
   });
 
   useEffect(() => {
-    setAuthBlocked(false);
-    resetRateLimitBackoff();
-    setConnectionIssue(null);
-    setConnected(false);
     setFileNavigatorConfig({ autoExpandMatchLimit: 100 });
-  }, [resetRateLimitBackoff, token]);
+  }, [token]);
 
   return (
     <SessionContext.Provider

@@ -2,7 +2,7 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SessionProvider } from "./session-context";
+import { SessionProvider, useSessions } from "./session-context";
 
 const apiMock = {
   refreshSessions: vi.fn(async () => ({ ok: true, authError: false, rateLimited: false })),
@@ -33,8 +33,19 @@ vi.mock("./use-session-token", () => ({
   useSessionToken: () => ({ token: "token", setToken: vi.fn(), apiBaseUrl: null }),
 }));
 
+const ConnectionStatusProbe = () => {
+  const { connectionStatus } = useSessions();
+  return <div data-testid="connection-status">{connectionStatus}</div>;
+};
+
 describe("SessionProvider", () => {
   afterEach(() => {
+    apiMock.refreshSessions.mockReset();
+    apiMock.refreshSessions.mockImplementation(async () => ({
+      ok: true,
+      authError: false,
+      rateLimited: false,
+    }));
     vi.restoreAllMocks();
     vi.useRealTimers();
     Object.defineProperty(document, "hidden", { value: false, configurable: true });
@@ -114,5 +125,26 @@ describe("SessionProvider", () => {
     });
 
     expect(clearIntervalSpy).toHaveBeenCalledWith(intervalId);
+  });
+
+  it("sets disconnected status after auth error response", async () => {
+    apiMock.refreshSessions.mockResolvedValueOnce({
+      ok: false,
+      authError: true,
+      rateLimited: false,
+    });
+
+    const { getByTestId } = render(
+      <SessionProvider>
+        <ConnectionStatusProbe />
+      </SessionProvider>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getByTestId("connection-status").textContent).toBe("disconnected");
+    expect(apiMock.refreshSessions).toHaveBeenCalledTimes(1);
   });
 });
