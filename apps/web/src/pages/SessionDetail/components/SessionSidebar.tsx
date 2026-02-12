@@ -4,19 +4,15 @@ import type {
   SessionStateTimeline,
   SessionStateTimelineRange,
 } from "@vde-monitor/shared";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback } from "react";
 
 import { Card, FilterToggleGroup, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
-import {
-  DEFAULT_SESSION_LIST_FILTER,
-  isSessionListFilter,
-  SESSION_LIST_FILTER_VALUES,
-  type SessionListFilter,
-} from "@/pages/SessionList/sessionListFilters";
+import { SESSION_LIST_FILTER_VALUES } from "@/pages/SessionList/sessionListFilters";
 
+import { useSessionSidebarActions } from "../hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "../hooks/useSessionSidebarGroups";
 import { useSidebarPreview } from "../hooks/useSidebarPreview";
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
@@ -109,8 +105,21 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     className,
   } = state;
   const { onSelectSession, onFocusPane, onTouchSession, onTouchRepoPin } = actions;
-  const [filter, setFilter] = useState<SessionListFilter>(DEFAULT_SESSION_LIST_FILTER);
-  const [focusPendingPaneIds, setFocusPendingPaneIds] = useState<Set<string>>(() => new Set());
+
+  const {
+    filter,
+    focusPendingPaneIds,
+    handleSelectSession,
+    handleFocusPane,
+    handleFilterChange,
+    handleTouchRepoPin,
+    handleTouchPane,
+  } = useSessionSidebarActions({
+    onSelectSession,
+    onFocusPane,
+    onTouchSession,
+    onTouchRepoPin,
+  });
 
   const { sidebarGroups, totalSessions, repoCount, sessionIndex } = useSessionSidebarGroups({
     sessionGroups,
@@ -140,63 +149,10 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
 
   const handleSelect = useCallback(
     (paneId: string) => {
-      onSelectSession?.(paneId);
+      handleSelectSession(paneId);
       handlePreviewSelect();
     },
-    [handlePreviewSelect, onSelectSession],
-  );
-
-  const handleFocusPane = useCallback(
-    async (paneId: string) => {
-      if (!onFocusPane) {
-        return;
-      }
-      setFocusPendingPaneIds((prev) => {
-        if (prev.has(paneId)) {
-          return prev;
-        }
-        const next = new Set(prev);
-        next.add(paneId);
-        return next;
-      });
-      try {
-        await onFocusPane(paneId);
-      } catch {
-        // Best-effort UI action: ignore unexpected handler failures.
-      } finally {
-        setFocusPendingPaneIds((prev) => {
-          if (!prev.has(paneId)) {
-            return prev;
-          }
-          const next = new Set(prev);
-          next.delete(paneId);
-          return next;
-        });
-      }
-    },
-    [onFocusPane],
-  );
-
-  const handleFilterChange = useCallback((next: string) => {
-    if (!isSessionListFilter(next)) {
-      setFilter(DEFAULT_SESSION_LIST_FILTER);
-      return;
-    }
-    setFilter(next);
-  }, []);
-
-  const handleTouchRepoPin = useCallback(
-    (repoRoot: string | null) => {
-      onTouchRepoPin?.(repoRoot);
-    },
-    [onTouchRepoPin],
-  );
-
-  const handleTouchPane = useCallback(
-    (paneId: string) => {
-      onTouchSession?.(paneId);
-    },
-    [onTouchSession],
+    [handlePreviewSelect, handleSelectSession],
   );
 
   return (
