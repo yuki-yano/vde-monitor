@@ -1,14 +1,24 @@
 import type {
+  CommitDetail,
+  CommitFileDiff,
+  CommitLog,
   HighlightCorrectionConfig,
+  RepoFileContent,
+  RepoFileSearchPage,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
   SessionSummary,
 } from "@vde-monitor/shared";
-import type { PointerEvent, RefObject } from "react";
+import type { CompositionEvent, FormEvent, KeyboardEvent, PointerEvent, RefObject } from "react";
+import type { VirtuosoHandle } from "react-virtuoso";
 
+import type { ScreenMode } from "@/lib/screen-loading";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
+
+import type { LogFileCandidateItem } from "./useSessionFiles-log-resolve-state";
+import type { FileTreeRenderNode } from "./useSessionFiles-tree-utils";
 
 type BuildTimelineSectionArgs = {
   timeline: SessionStateTimeline | null;
@@ -54,6 +64,128 @@ type BuildLayoutSectionArgs = {
   detailSplitRatio: number;
   detailSplitRef: RefObject<HTMLDivElement | null>;
   handleDetailSplitPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+};
+
+type BuildScreenSectionArgs = {
+  mode: ScreenMode;
+  screenLines: string[];
+  imageBase64: string | null;
+  fallbackReason: string | null;
+  error: string | null;
+  pollingPauseReason: "disconnected" | "unauthorized" | "offline" | "hidden" | null;
+  contextLeftLabel: string | null;
+  isScreenLoading: boolean;
+  isAtBottom: boolean;
+  handleAtBottomChange: (value: boolean) => void;
+  handleUserScrollStateChange: (value: boolean) => void;
+  forceFollow: boolean;
+  scrollToBottom: (behavior: "auto" | "smooth") => void;
+  handleModeChange: (mode: ScreenMode) => void;
+  virtuosoRef: RefObject<VirtuosoHandle | null>;
+  scrollerRef: RefObject<HTMLDivElement | null>;
+  handleRefreshScreen: () => void;
+};
+
+type BuildControlsSectionArgs = {
+  interactive: boolean;
+  textInputRef: RefObject<HTMLTextAreaElement | null>;
+  autoEnter: boolean;
+  shiftHeld: boolean;
+  ctrlHeld: boolean;
+  controlsOpen: boolean;
+  rawMode: boolean;
+  allowDangerKeys: boolean;
+  isSendingText: boolean;
+  handleSendKey: (key: string) => Promise<void>;
+  handleSendText: () => Promise<void>;
+  handleUploadImage: (file: File) => Promise<void>;
+  handleRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
+  handleRawInput: (event: FormEvent<HTMLTextAreaElement>) => void;
+  handleRawKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  handleRawCompositionStart: (event: CompositionEvent<HTMLTextAreaElement>) => void;
+  handleRawCompositionEnd: (event: CompositionEvent<HTMLTextAreaElement>) => void;
+  toggleAutoEnter: () => void;
+  toggleControls: () => void;
+  toggleShift: () => void;
+  toggleCtrl: () => void;
+  toggleRawMode: () => void;
+  toggleAllowDangerKeys: () => void;
+  handleTouchCurrentSession: () => void;
+};
+
+type BuildFilesSectionArgs = {
+  unavailable: boolean;
+  selectedFilePath: string | null;
+  searchQuery: string;
+  searchActiveIndex: number;
+  searchResult: RepoFileSearchPage | null;
+  searchLoading: boolean;
+  searchError: string | null;
+  searchMode: "all-matches" | "active-only";
+  treeLoading: boolean;
+  treeError: string | null;
+  treeNodes: FileTreeRenderNode[];
+  rootTreeHasMore: boolean;
+  searchHasMore: boolean;
+  fileModalOpen: boolean;
+  fileModalPath: string | null;
+  fileModalLoading: boolean;
+  fileModalError: string | null;
+  fileModalFile: RepoFileContent | null;
+  fileModalMarkdownViewMode: "code" | "preview";
+  fileModalShowLineNumbers: boolean;
+  fileModalCopiedPath: boolean;
+  fileModalCopyError: string | null;
+  fileModalHighlightLine: number | null;
+  fileResolveError: string | null;
+  logFileCandidateModalOpen: boolean;
+  logFileCandidateReference: string | null;
+  logFileCandidatePaneId: string | null;
+  logFileCandidateItems: LogFileCandidateItem[];
+  onSearchQueryChange: (value: string) => void;
+  onSearchMove: (delta: number) => void;
+  onSearchConfirm: () => void;
+  onToggleDirectory: (targetPath: string) => void;
+  onSelectFile: (targetPath: string) => void;
+  onOpenFileModal: (targetPath: string) => void;
+  onCloseFileModal: () => void;
+  onSetFileModalMarkdownViewMode: (mode: "code" | "preview") => void;
+  onToggleFileModalLineNumbers: () => void;
+  onCopyFileModalPath: () => Promise<void>;
+  onResolveLogFileReference: (args: {
+    rawToken: string;
+    sourcePaneId: string;
+    sourceRepoRoot: string | null;
+  }) => Promise<void>;
+  onResolveLogFileReferenceCandidates: (args: {
+    rawTokens: string[];
+    sourcePaneId: string;
+    sourceRepoRoot: string | null;
+  }) => Promise<string[]>;
+  onSelectLogFileCandidate: (path: string) => void;
+  onCloseLogFileCandidateModal: () => void;
+  onLoadMoreTreeRoot: () => void;
+  onLoadMoreSearch: () => void;
+};
+
+type BuildCommitsSectionArgs = {
+  commitLog: CommitLog | null;
+  commitError: string | null;
+  commitLoading: boolean;
+  commitLoadingMore: boolean;
+  commitHasMore: boolean;
+  commitDetails: Record<string, CommitDetail>;
+  commitFileDetails: Record<string, CommitFileDiff>;
+  commitFileOpen: Record<string, boolean>;
+  commitFileLoading: Record<string, boolean>;
+  commitOpen: Record<string, boolean>;
+  commitLoadingDetails: Record<string, boolean>;
+  copiedHash: string | null;
+  refreshCommitLog: () => void;
+  loadMoreCommits: () => void;
+  toggleCommit: (hash: string) => void;
+  toggleCommitFile: (hash: string, path: string) => void;
+  copyHash: (hash: string) => void;
 };
 
 type BuildLogsSectionArgs = {
@@ -160,6 +292,226 @@ export const buildLayoutSection = ({
   detailSplitRatio,
   detailSplitRef,
   handleDetailSplitPointerDown,
+});
+
+export const buildScreenSection = ({
+  mode,
+  screenLines,
+  imageBase64,
+  fallbackReason,
+  error,
+  pollingPauseReason,
+  contextLeftLabel,
+  isScreenLoading,
+  isAtBottom,
+  handleAtBottomChange,
+  handleUserScrollStateChange,
+  forceFollow,
+  scrollToBottom,
+  handleModeChange,
+  virtuosoRef,
+  scrollerRef,
+  handleRefreshScreen,
+}: BuildScreenSectionArgs) => ({
+  mode,
+  screenLines,
+  imageBase64,
+  fallbackReason,
+  error,
+  pollingPauseReason,
+  contextLeftLabel,
+  isScreenLoading,
+  isAtBottom,
+  handleAtBottomChange,
+  handleUserScrollStateChange,
+  forceFollow,
+  scrollToBottom,
+  handleModeChange,
+  virtuosoRef,
+  scrollerRef,
+  handleRefreshScreen,
+});
+
+export const buildControlsSection = ({
+  interactive,
+  textInputRef,
+  autoEnter,
+  shiftHeld,
+  ctrlHeld,
+  controlsOpen,
+  rawMode,
+  allowDangerKeys,
+  isSendingText,
+  handleSendKey,
+  handleSendText,
+  handleUploadImage,
+  handleRawBeforeInput,
+  handleRawInput,
+  handleRawKeyDown,
+  handleRawCompositionStart,
+  handleRawCompositionEnd,
+  toggleAutoEnter,
+  toggleControls,
+  toggleShift,
+  toggleCtrl,
+  toggleRawMode,
+  toggleAllowDangerKeys,
+  handleTouchCurrentSession,
+}: BuildControlsSectionArgs) => ({
+  interactive,
+  textInputRef,
+  autoEnter,
+  shiftHeld,
+  ctrlHeld,
+  controlsOpen,
+  rawMode,
+  allowDangerKeys,
+  isSendingText,
+  handleSendKey,
+  handleSendText,
+  handleUploadImage,
+  handleRawBeforeInput,
+  handleRawInput,
+  handleRawKeyDown,
+  handleRawCompositionStart,
+  handleRawCompositionEnd,
+  toggleAutoEnter,
+  toggleControls,
+  toggleShift,
+  toggleCtrl,
+  toggleRawMode,
+  toggleAllowDangerKeys,
+  handleTouchSession: handleTouchCurrentSession,
+});
+
+export const buildFilesSection = ({
+  unavailable,
+  selectedFilePath,
+  searchQuery,
+  searchActiveIndex,
+  searchResult,
+  searchLoading,
+  searchError,
+  searchMode,
+  treeLoading,
+  treeError,
+  treeNodes,
+  rootTreeHasMore,
+  searchHasMore,
+  fileModalOpen,
+  fileModalPath,
+  fileModalLoading,
+  fileModalError,
+  fileModalFile,
+  fileModalMarkdownViewMode,
+  fileModalShowLineNumbers,
+  fileModalCopiedPath,
+  fileModalCopyError,
+  fileModalHighlightLine,
+  fileResolveError,
+  logFileCandidateModalOpen,
+  logFileCandidateReference,
+  logFileCandidatePaneId,
+  logFileCandidateItems,
+  onSearchQueryChange,
+  onSearchMove,
+  onSearchConfirm,
+  onToggleDirectory,
+  onSelectFile,
+  onOpenFileModal,
+  onCloseFileModal,
+  onSetFileModalMarkdownViewMode,
+  onToggleFileModalLineNumbers,
+  onCopyFileModalPath,
+  onResolveLogFileReference,
+  onResolveLogFileReferenceCandidates,
+  onSelectLogFileCandidate,
+  onCloseLogFileCandidateModal,
+  onLoadMoreTreeRoot,
+  onLoadMoreSearch,
+}: BuildFilesSectionArgs) => ({
+  unavailable,
+  selectedFilePath,
+  searchQuery,
+  searchActiveIndex,
+  searchResult,
+  searchLoading,
+  searchError,
+  searchMode,
+  treeLoading,
+  treeError,
+  treeNodes,
+  rootTreeHasMore,
+  searchHasMore,
+  fileModalOpen,
+  fileModalPath,
+  fileModalLoading,
+  fileModalError,
+  fileModalFile,
+  fileModalMarkdownViewMode,
+  fileModalShowLineNumbers,
+  fileModalCopiedPath,
+  fileModalCopyError,
+  fileModalHighlightLine,
+  fileResolveError,
+  logFileCandidateModalOpen,
+  logFileCandidateReference,
+  logFileCandidatePaneId,
+  logFileCandidateItems,
+  onSearchQueryChange,
+  onSearchMove,
+  onSearchConfirm,
+  onToggleDirectory,
+  onSelectFile,
+  onOpenFileModal,
+  onCloseFileModal,
+  onSetFileModalMarkdownViewMode,
+  onToggleFileModalLineNumbers,
+  onCopyFileModalPath,
+  onResolveLogFileReference,
+  onResolveLogFileReferenceCandidates,
+  onSelectLogFileCandidate,
+  onCloseLogFileCandidateModal,
+  onLoadMoreTreeRoot,
+  onLoadMoreSearch,
+});
+
+export const buildCommitsSection = ({
+  commitLog,
+  commitError,
+  commitLoading,
+  commitLoadingMore,
+  commitHasMore,
+  commitDetails,
+  commitFileDetails,
+  commitFileOpen,
+  commitFileLoading,
+  commitOpen,
+  commitLoadingDetails,
+  copiedHash,
+  refreshCommitLog,
+  loadMoreCommits,
+  toggleCommit,
+  toggleCommitFile,
+  copyHash,
+}: BuildCommitsSectionArgs) => ({
+  commitLog,
+  commitError,
+  commitLoading,
+  commitLoadingMore,
+  commitHasMore,
+  commitDetails,
+  commitFileDetails,
+  commitFileOpen,
+  commitFileLoading,
+  commitOpen,
+  commitLoadingDetails,
+  copiedHash,
+  refreshCommitLog,
+  loadMoreCommits,
+  toggleCommit,
+  toggleCommitFile,
+  copyHash,
 });
 
 export const buildLogsSection = ({

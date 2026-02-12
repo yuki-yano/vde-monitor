@@ -17,9 +17,13 @@ import {
 } from "./atoms/sessionDetailAtoms";
 import {
   buildActionsSection,
+  buildCommitsSection,
+  buildControlsSection,
+  buildFilesSection,
   buildLayoutSection,
   buildLogsSection,
   buildMetaSection,
+  buildScreenSection,
   buildSidebarSection,
   buildTimelineSection,
   buildTitleSection,
@@ -341,7 +345,7 @@ export const useSessionDetailVM = (paneId: string) => {
       toggleTimelineExpanded,
       refreshTimeline,
     }),
-    screen: {
+    screen: buildScreenSection({
       mode,
       screenLines,
       imageBase64,
@@ -359,8 +363,8 @@ export const useSessionDetailVM = (paneId: string) => {
       virtuosoRef,
       scrollerRef,
       handleRefreshScreen,
-    },
-    controls: {
+    }),
+    controls: buildControlsSection({
       interactive: connectionStatus !== "disconnected",
       textInputRef,
       autoEnter,
@@ -384,8 +388,8 @@ export const useSessionDetailVM = (paneId: string) => {
       toggleCtrl,
       toggleRawMode,
       toggleAllowDangerKeys,
-      handleTouchSession: handleTouchCurrentSession,
-    },
+      handleTouchCurrentSession,
+    }),
     diffs: {
       diffSummary,
       diffError,
@@ -396,7 +400,7 @@ export const useSessionDetailVM = (paneId: string) => {
       refreshDiff,
       toggleDiff,
     },
-    files: {
+    files: buildFilesSection({
       unavailable: filesUnavailable,
       selectedFilePath,
       searchQuery,
@@ -441,8 +445,8 @@ export const useSessionDetailVM = (paneId: string) => {
       onCloseLogFileCandidateModal,
       onLoadMoreTreeRoot,
       onLoadMoreSearch,
-    },
-    commits: {
+    }),
+    commits: buildCommitsSection({
       commitLog,
       commitError,
       commitLoading,
@@ -460,7 +464,7 @@ export const useSessionDetailVM = (paneId: string) => {
       toggleCommit,
       toggleCommitFile,
       copyHash,
-    },
+    }),
     logs: buildLogsSection({
       quickPanelOpen,
       logModalOpen,
