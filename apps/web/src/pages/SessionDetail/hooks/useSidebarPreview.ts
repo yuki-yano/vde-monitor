@@ -19,7 +19,7 @@ import {
 } from "../atoms/sidebarPreviewAtoms";
 import { useSessionPreview } from "./useSessionPreview";
 
-type SidebarPreview = {
+export type SidebarPreview = {
   paneId: string;
   sessionName: string | null;
   windowIndex: number | null;

@@ -14,6 +14,7 @@ import { SESSION_LIST_FILTER_VALUES } from "@/pages/SessionList/sessionListFilte
 
 import { useSessionSidebarActions } from "../hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "../hooks/useSessionSidebarGroups";
+import { useSessionSidebarPreviewPopover } from "../hooks/useSessionSidebarPreviewPopover";
 import { useSidebarPreview } from "../hooks/useSidebarPreview";
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
 import { SessionSidebarPreviewPopover } from "./SessionSidebarPreviewPopover";
@@ -154,6 +155,10 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     },
     [handlePreviewSelect, handleSelectSession],
   );
+  const previewPopover = useSessionSidebarPreviewPopover({
+    preview,
+    currentPaneId,
+  });
 
   return (
     <Card
@@ -195,21 +200,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
         </div>
       </div>
 
-      {preview && preview.paneId !== currentPaneId && (
-        <SessionSidebarPreviewPopover
-          frame={preview.frame}
-          title={preview.title}
-          sessionName={preview.sessionName}
-          windowIndex={preview.windowIndex}
-          paneId={preview.paneId}
-          lines={preview.lines}
-          loading={preview.loading}
-          error={preview.error ?? null}
-          timeline={preview.timeline}
-          timelineLoading={preview.timelineLoading}
-          timelineError={preview.timelineError}
-        />
-      )}
+      {previewPopover && <SessionSidebarPreviewPopover {...previewPopover} />}
     </Card>
   );
 };
