@@ -15,6 +15,12 @@ import {
   sessionApiAtom,
   sessionsAtom,
 } from "./atoms/sessionDetailAtoms";
+import {
+  buildActionsSection,
+  buildLogsSection,
+  buildTimelineSection,
+  buildTitleSection,
+} from "./hooks/session-detail-vm-section-builders";
 import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
@@ -321,7 +327,7 @@ export const useSessionDetailVM = (paneId: string) => {
       detailSplitRef,
       handleDetailSplitPointerDown,
     },
-    timeline: {
+    timeline: buildTimelineSection({
       timeline,
       timelineRange,
       timelineError,
@@ -331,7 +337,7 @@ export const useSessionDetailVM = (paneId: string) => {
       setTimelineRange,
       toggleTimelineExpanded,
       refreshTimeline,
-    },
+    }),
     screen: {
       mode,
       screenLines,
@@ -452,7 +458,7 @@ export const useSessionDetailVM = (paneId: string) => {
       toggleCommitFile,
       copyHash,
     },
-    logs: {
+    logs: buildLogsSection({
       quickPanelOpen,
       logModalOpen,
       selectedSession,
@@ -463,8 +469,8 @@ export const useSessionDetailVM = (paneId: string) => {
       closeLogModal,
       toggleQuickPanel,
       closeQuickPanel,
-    },
-    title: {
+    }),
+    title: buildTitleSection({
       titleDraft,
       titleEditing,
       titleSaving,
@@ -474,15 +480,15 @@ export const useSessionDetailVM = (paneId: string) => {
       updateTitleDraft,
       saveTitle,
       resetTitle,
-    },
-    actions: {
+    }),
+    actions: buildActionsSection({
       handleFocusPane,
-      handleTouchPane: handleTouchPaneWithRepoAnchor,
       handleTouchRepoPin,
       handleOpenPaneHere,
       handleOpenHere,
       handleOpenInNewTab,
-    },
+      handleTouchPaneWithRepoAnchor,
+    }),
   };
 };
 
