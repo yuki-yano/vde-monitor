@@ -27,9 +27,11 @@ export const useSessionDetailActions = ({
 
   const handleOpenInNewTab = useCallback(() => {
     if (!selectedPaneId) return;
+    closeQuickPanel();
+    closeLogModal();
     const encoded = encodeURIComponent(selectedPaneId);
     window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
-  }, [selectedPaneId]);
+  }, [closeLogModal, closeQuickPanel, selectedPaneId]);
 
   const handleTouchSession = useCallback(() => {
     void touchSession(paneId).catch(() => null);

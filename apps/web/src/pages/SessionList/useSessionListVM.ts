@@ -105,9 +105,11 @@ export const useSessionListVM = () => {
 
   const handleOpenInNewTab = useCallback(() => {
     if (!selectedPaneId) return;
+    closeQuickPanel();
+    closeLogModal();
     const encoded = encodeURIComponent(selectedPaneId);
     window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
-  }, [selectedPaneId]);
+  }, [closeLogModal, closeQuickPanel, selectedPaneId]);
 
   const handleOpenPaneHere = useCallback(
     (targetPaneId: string) => {

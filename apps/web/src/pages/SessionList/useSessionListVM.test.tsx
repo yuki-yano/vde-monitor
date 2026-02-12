@@ -16,19 +16,34 @@ import { useSessionListVM } from "./useSessionListVM";
 const STORAGE_KEY = "vde-monitor-session-list-pins";
 
 const mockUseSessions = vi.hoisted(() => vi.fn());
-const mockUseSessionLogs = vi.hoisted(() => ({
-  quickPanelOpen: false,
-  logModalOpen: false,
-  selectedPaneId: null,
-  selectedSession: null,
-  selectedLogLines: [],
-  selectedLogLoading: false,
-  selectedLogError: null,
-  openLogModal: vi.fn(),
-  closeLogModal: vi.fn(),
-  toggleQuickPanel: vi.fn(),
-  closeQuickPanel: vi.fn(),
-}));
+const mockUseSessionLogs = vi.hoisted(
+  () =>
+    ({
+      quickPanelOpen: false,
+      logModalOpen: false,
+      selectedPaneId: null as string | null,
+      selectedSession: null as SessionSummary | null,
+      selectedLogLines: [] as string[],
+      selectedLogLoading: false,
+      selectedLogError: null as string | null,
+      openLogModal: vi.fn<(paneId: string) => void>(),
+      closeLogModal: vi.fn<() => void>(),
+      toggleQuickPanel: vi.fn<() => void>(),
+      closeQuickPanel: vi.fn<() => void>(),
+    }) satisfies {
+      quickPanelOpen: boolean;
+      logModalOpen: boolean;
+      selectedPaneId: string | null;
+      selectedSession: SessionSummary | null;
+      selectedLogLines: string[];
+      selectedLogLoading: boolean;
+      selectedLogError: string | null;
+      openLogModal: (paneId: string) => void;
+      closeLogModal: () => void;
+      toggleQuickPanel: () => void;
+      closeQuickPanel: () => void;
+    },
+);
 
 vi.mock("@/state/session-context", () => ({
   useSessions: () => mockUseSessions(),
@@ -121,6 +136,9 @@ const TestComponent = () => {
       <button type="button" onClick={() => vm.onTouchPanePin("pane-test")}>
         touch-pane
       </button>
+      <button type="button" onClick={vm.onOpenNewTab}>
+        open-new-tab
+      </button>
     </div>
   );
 };
@@ -145,6 +163,17 @@ describe("useSessionListVM", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    mockUseSessionLogs.quickPanelOpen = false;
+    mockUseSessionLogs.logModalOpen = false;
+    mockUseSessionLogs.selectedPaneId = null;
+    mockUseSessionLogs.selectedSession = null;
+    mockUseSessionLogs.selectedLogLines = [];
+    mockUseSessionLogs.selectedLogLoading = false;
+    mockUseSessionLogs.selectedLogError = null;
+    mockUseSessionLogs.openLogModal = vi.fn();
+    mockUseSessionLogs.closeLogModal = vi.fn();
+    mockUseSessionLogs.toggleQuickPanel = vi.fn();
+    mockUseSessionLogs.closeQuickPanel = vi.fn();
     mockUseSessions.mockReturnValue({
       sessions: [],
       connected: true,
@@ -223,5 +252,37 @@ describe("useSessionListVM", () => {
       const parsed = JSON.parse(stored ?? "{}") as { repos?: Record<string, number> };
       expect(parsed.repos?.["repo:/Users/test/repo-pin-target"]).toBeTypeOf("number");
     });
+  });
+
+  it("closes quick panel and log modal before opening selected pane in new tab", async () => {
+    const closeQuickPanel = vi.fn();
+    const closeLogModal = vi.fn();
+    mockUseSessionLogs.selectedPaneId = "pane target/1";
+    mockUseSessionLogs.closeQuickPanel = closeQuickPanel;
+    mockUseSessionLogs.closeLogModal = closeLogModal;
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    await renderWithRouter(["/"]);
+    fireEvent.click(screen.getByRole("button", { name: "open-new-tab" }));
+
+    expect(closeQuickPanel).toHaveBeenCalledTimes(1);
+    expect(closeLogModal).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      "/sessions/pane%20target%2F1",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    const openOrder = openSpy.mock.invocationCallOrder[0];
+    const closeQuickOrder = closeQuickPanel.mock.invocationCallOrder[0];
+    const closeLogOrder = closeLogModal.mock.invocationCallOrder[0];
+    expect(openOrder).toBeDefined();
+    expect(closeQuickOrder).toBeDefined();
+    expect(closeLogOrder).toBeDefined();
+    if (openOrder == null || closeQuickOrder == null || closeLogOrder == null) {
+      throw new Error("missing invocation order");
+    }
+    expect(closeQuickOrder).toBeLessThan(openOrder);
+    expect(closeLogOrder).toBeLessThan(openOrder);
+    openSpy.mockRestore();
   });
 });
