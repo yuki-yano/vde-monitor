@@ -13,6 +13,12 @@ import {
 } from "./useSessionFiles-request-cache";
 import { resetSessionFilesRefs, resetSessionFilesState } from "./useSessionFiles-reset";
 import {
+  applyEmptySearchState,
+  createNextSearchRequestId,
+  resetSearchExpandOverrides,
+  scheduleSearchRequest,
+} from "./useSessionFiles-search-effect";
+import {
   buildNormalRenderNodes,
   buildSearchRenderNodes,
   collectAncestorDirectories,
@@ -298,44 +304,34 @@ export const useSessionFiles = ({
       return;
     }
     const normalized = searchQuery.trim();
-    const requestId = activeSearchRequestIdRef.current + 1;
-    activeSearchRequestIdRef.current = requestId;
+    const requestId = createNextSearchRequestId(activeSearchRequestIdRef);
+    resetSearchExpandOverrides({
+      setSearchExpandedDirSet,
+      setSearchCollapsedDirSet,
+    });
     if (normalized.length === 0) {
-      setSearchResult(null);
-      setSearchError(null);
-      setSearchLoading(false);
-      setSearchActiveIndex(0);
-      setSearchExpandedDirSet(new Set());
-      setSearchCollapsedDirSet(new Set());
+      applyEmptySearchState({
+        setSearchResult,
+        setSearchError,
+        setSearchLoading,
+        setSearchActiveIndex,
+      });
       return;
     }
 
-    setSearchExpandedDirSet(new Set());
-    setSearchCollapsedDirSet(new Set());
-    const timerId = window.setTimeout(() => {
-      setSearchLoading(true);
-      setSearchError(null);
-      void fetchSearchPage(normalized)
-        .then((nextPage) => {
-          if (activeSearchRequestIdRef.current !== requestId) {
-            return;
-          }
-          setSearchResult(nextPage);
-          setSearchActiveIndex(0);
-        })
-        .catch((error) => {
-          if (activeSearchRequestIdRef.current !== requestId) {
-            return;
-          }
-          setSearchError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileSearch));
-        })
-        .finally(() => {
-          if (activeSearchRequestIdRef.current !== requestId) {
-            return;
-          }
-          setSearchLoading(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
+    const timerId = scheduleSearchRequest({
+      requestId,
+      activeSearchRequestIdRef,
+      normalizedQuery: normalized,
+      debounceMs: SEARCH_DEBOUNCE_MS,
+      fetchSearchPage,
+      resolveErrorMessage: (error) =>
+        resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileSearch),
+      setSearchLoading,
+      setSearchError,
+      setSearchResult,
+      setSearchActiveIndex,
+    });
 
     return () => {
       window.clearTimeout(timerId);
