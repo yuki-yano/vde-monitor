@@ -283,6 +283,7 @@ describe("SessionDetailView", () => {
 
     expect(screen.getByText("Session not found.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to list" })).toBeTruthy();
+    expect(document.title).toBe("VDE Monitor");
   });
 
   it("renders main sections when session exists", () => {
@@ -300,6 +301,7 @@ describe("SessionDetailView", () => {
     expect(screen.getByText("Commit Log")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Timeline panel" })).toBeNull();
     expect(screen.getByLabelText("Toggle session quick panel")).toBeTruthy();
+    expect(document.title).toBe("Session Title - VDE Monitor");
   });
 
   it("switches section by icon tabs and stores selected tab", () => {

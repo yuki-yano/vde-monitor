@@ -17,7 +17,7 @@ type SessionSidebarHeaderProps = {
 const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarHeaderProps) => (
   <div className="flex items-center justify-between gap-3">
     <div>
-      <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.45em]">vde-monitor</p>
+      <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
       <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
     </div>
     <div className="flex flex-col items-end gap-2">

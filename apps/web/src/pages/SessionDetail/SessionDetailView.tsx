@@ -11,6 +11,7 @@ import {
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
 import { Card, Tabs, TabsList, TabsTrigger } from "@/components/ui";
+import { buildSessionDocumentTitle } from "@/lib/brand";
 import { readStoredSessionListFilter } from "@/pages/SessionList/sessionListFilters";
 
 import { CommitSection } from "./components/CommitSection";
@@ -84,6 +85,9 @@ export const SessionDetailView = ({
   actions,
 }: SessionDetailViewProps) => {
   const { session } = meta;
+  const sessionDisplayTitle =
+    session?.customTitle ?? session?.title ?? session?.sessionName ?? null;
+  const documentTitle = buildSessionDocumentTitle(sessionDisplayTitle);
   const backToListSearch = useMemo(() => ({ filter: readStoredSessionListFilter() }), []);
   const {
     is2xlUp,
@@ -197,20 +201,24 @@ export const SessionDetailView = ({
 
   if (!session || !sessionHeaderProps) {
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 px-2.5 py-4 sm:px-4 sm:py-6">
-        <Card>
-          <p className="text-latte-subtext0 text-sm">Session not found.</p>
-          <Link to="/" search={backToListSearch} className={`${backLinkClass} mt-4`}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to list
-          </Link>
-        </Card>
-      </div>
+      <>
+        <title>{documentTitle}</title>
+        <div className="mx-auto flex max-w-2xl flex-col gap-4 px-2.5 py-4 sm:px-4 sm:py-6">
+          <Card>
+            <p className="text-latte-subtext0 text-sm">Session not found.</p>
+            <Link to="/" search={backToListSearch} className={`${backLinkClass} mt-4`}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to list
+            </Link>
+          </Card>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <title>{documentTitle}</title>
       <div
         className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
         style={{ width: `${sidebarWidth}px` }}
