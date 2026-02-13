@@ -97,6 +97,8 @@ describe("LogModal", () => {
     expect(screen.getByText("Custom")).toBeTruthy();
     expect(screen.getByText("Log error")).toBeTruthy();
     expect(screen.getByText("Loading log...")).toBeTruthy();
+    expect(screen.getByLabelText("Close log").className).toContain("right-3");
+    expect(screen.getByLabelText("Close log").className).toContain("top-3");
 
     fireEvent.click(screen.getByLabelText("Close log"));
     expect(onClose).toHaveBeenCalled();
@@ -106,6 +108,28 @@ describe("LogModal", () => {
 
     fireEvent.click(screen.getByLabelText("Open in new tab"));
     expect(onOpenNewTab).toHaveBeenCalled();
+  });
+
+  it("closes when clicking outside panel", () => {
+    const onClose = vi.fn();
+    const state = buildState({ open: true, session: createSessionDetail(), logLines: ["line1"] });
+    const actions = buildActions({ onClose });
+    const wrapper = createWrapper();
+    render(<LogModal state={state} actions={actions} />, { wrapper });
+
+    fireEvent.pointerDown(screen.getByTestId("log-modal-overlay"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close when clicking inside panel", () => {
+    const onClose = vi.fn();
+    const state = buildState({ open: true, session: createSessionDetail(), logLines: ["line1"] });
+    const actions = buildActions({ onClose });
+    const wrapper = createWrapper();
+    render(<LogModal state={state} actions={actions} />, { wrapper });
+
+    fireEvent.pointerDown(screen.getByTestId("log-modal-panel"));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("buffers log lines while user is scrolling", () => {
@@ -146,12 +170,15 @@ describe("LogModal", () => {
     const wrapper = createWrapper();
     const { container } = render(<LogModal state={state} actions={actions} />, { wrapper });
 
-    const root = container.firstElementChild;
-    expect(root).toBeTruthy();
-    expect(root?.className).toContain("top-4");
-    expect(root?.className).toContain("bottom-[76px]");
+    const overlay = container.firstElementChild;
+    expect(overlay).toBeTruthy();
+    expect(overlay?.className).toContain("inset-0");
 
-    const card = root?.firstElementChild;
+    const panel = screen.getByTestId("log-modal-panel");
+    expect(panel.className).toContain("top-4");
+    expect(panel.className).toContain("bottom-[76px]");
+
+    const card = panel.firstElementChild;
     expect(card).toBeTruthy();
     expect(card?.className).toContain("h-full");
     expect(card?.className).toContain("min-h-0");

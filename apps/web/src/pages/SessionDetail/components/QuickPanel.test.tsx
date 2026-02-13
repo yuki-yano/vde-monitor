@@ -191,6 +191,26 @@ describe("QuickPanel", () => {
     expect(screen.getByLabelText("Open session link").className).toContain("z-10");
   });
 
+  it("closes when clicking outside quick panel", () => {
+    const onClose = vi.fn();
+    const state = buildState({ open: true, sessionGroups: [] });
+    const actions = buildActions({ onClose });
+    render(<QuickPanel state={state} actions={actions} />);
+
+    fireEvent.pointerDown(document.body);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close when clicking inside quick panel", () => {
+    const onClose = vi.fn();
+    const state = buildState({ open: true, sessionGroups: [] });
+    const actions = buildActions({ onClose });
+    render(<QuickPanel state={state} actions={actions} />);
+
+    fireEvent.pointerDown(screen.getByText("No agent sessions available."));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("uses window-level pane totals from all sessions", () => {
     const agentOne = createSessionDetail({
       paneId: "pane-1",
