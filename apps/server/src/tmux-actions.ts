@@ -111,7 +111,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   };
 
   const sendLiteralKeys = async (paneId: string, payload: string): Promise<ActionResult> => {
-    const result = await adapter.run(["send-keys", "-l", "-t", paneId, payload]);
+    const result = await adapter.run(["send-keys", "-l", "-t", paneId, "--", payload]);
     if (result.exitCode !== 0) {
       return internalError(result.stderr || "send-keys failed");
     }

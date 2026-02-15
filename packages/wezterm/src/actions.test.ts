@@ -50,8 +50,15 @@ describe("createWeztermActions", () => {
 
     expect(result.ok).toBe(true);
     expect(run).toHaveBeenCalledTimes(2);
-    expect(run).toHaveBeenNthCalledWith(1, ["send-text", "--pane-id", "1", "echo hi"]);
-    expect(run).toHaveBeenNthCalledWith(2, ["send-text", "--pane-id", "1", "--no-paste", "\r"]);
+    expect(run).toHaveBeenNthCalledWith(1, ["send-text", "--pane-id", "1", "--", "echo hi"]);
+    expect(run).toHaveBeenNthCalledWith(2, [
+      "send-text",
+      "--pane-id",
+      "1",
+      "--no-paste",
+      "--",
+      "\r",
+    ]);
   });
 
   it("waits enterDelayMs before sending enter", async () => {
@@ -81,8 +88,34 @@ describe("createWeztermActions", () => {
 
     expect(result.ok).toBe(true);
     expect(run).toHaveBeenCalledTimes(2);
-    expect(run).toHaveBeenNthCalledWith(1, ["send-text", "--pane-id", "1", "echo hi"]);
-    expect(run).toHaveBeenNthCalledWith(2, ["send-text", "--pane-id", "1", "--no-paste", "\r"]);
+    expect(run).toHaveBeenNthCalledWith(1, ["send-text", "--pane-id", "1", "--", "echo hi"]);
+    expect(run).toHaveBeenNthCalledWith(2, [
+      "send-text",
+      "--pane-id",
+      "1",
+      "--no-paste",
+      "--",
+      "\r",
+    ]);
+  });
+
+  it("sends leading hyphen text as a literal argument", async () => {
+    const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
+
+    const actions = createWeztermActions(
+      {
+        run,
+      },
+      {
+        ...defaultConfig,
+        token: "token",
+      },
+    );
+
+    const result = await actions.sendText("1", "-abc", false);
+
+    expect(result.ok).toBe(true);
+    expect(run).toHaveBeenCalledWith(["send-text", "--pane-id", "1", "--", "-abc"]);
   });
 
   it("blocks dangerous commands across split sendText", async () => {
@@ -281,7 +314,7 @@ describe("createWeztermActions", () => {
 
     expect(result.ok).toBe(true);
     expect(run).toHaveBeenCalledTimes(1);
-    expect(run).toHaveBeenCalledWith(["send-text", "--pane-id", "1", "ls"]);
+    expect(run).toHaveBeenCalledWith(["send-text", "--pane-id", "1", "--", "ls"]);
   });
 
   it("focuses pane via activate-pane", async () => {

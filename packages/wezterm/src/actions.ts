@@ -41,7 +41,7 @@ const sendTextToPane = async (
   if (noPaste) {
     args.push("--no-paste");
   }
-  args.push(text);
+  args.push("--", text);
   const result = await adapter.run(args);
   if (result.exitCode !== 0) {
     return {
