@@ -70,30 +70,6 @@ const ensureDir = (dir: string) => {
 };
 
 const toOptionalString = (value: unknown) => (typeof value === "string" ? value : undefined);
-const toNullableString = (value: unknown) => (typeof value === "string" ? value : null);
-
-const toRecord = (value: unknown): Record<string, unknown> | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return value as Record<string, unknown>;
-};
-
-const parseLegacyHookServerConfig = (value: unknown): HookServerConfig | null => {
-  const root = toRecord(value);
-  if (!root) {
-    return null;
-  }
-  const tmux = toRecord(root.tmux);
-  const multiplexer = toRecord(root.multiplexer);
-  const wezterm = toRecord(multiplexer?.wezterm);
-  return {
-    multiplexerBackend: multiplexer?.backend === "wezterm" ? "wezterm" : "tmux",
-    tmuxSocketName: toNullableString(tmux?.socketName),
-    tmuxSocketPath: toNullableString(tmux?.socketPath),
-    weztermTarget: toNullableString(wezterm?.target),
-  };
-};
 
 const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
   const parsed = configSchema.safeParse(value);
@@ -106,7 +82,7 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
       weztermTarget: config.multiplexer.wezterm.target,
     };
   }
-  return parseLegacyHookServerConfig(value);
+  return null;
 };
 
 const loadConfig = (): HookServerConfig | null => {

@@ -95,8 +95,6 @@ const updateOutputAtFromActivity = ({
   const activityAt = resolveActivityAt({
     paneId: pane.paneId,
     paneActivity: pane.paneActivity,
-    windowActivity: pane.windowActivity,
-    paneActive: pane.paneActive,
   });
   if (activityAt) {
     setOutputAt(activityAt);

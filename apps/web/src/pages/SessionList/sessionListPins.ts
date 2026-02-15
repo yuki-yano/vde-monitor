@@ -13,25 +13,7 @@ const EMPTY_PINS: SessionListPins = {
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-const normalizeLegacyPinList = (value: unknown): SessionListPinValues => {
-  if (!Array.isArray(value)) {
-    return {};
-  }
-
-  return value.reduce<SessionListPinValues>((acc, item, index) => {
-    if (typeof item !== "string" || item.length === 0) {
-      return acc;
-    }
-    // Legacy format was a string array. Keep deterministic relative order.
-    acc[item] = index + 1;
-    return acc;
-  }, {});
-};
-
 const normalizePinValues = (value: unknown): SessionListPinValues => {
-  if (Array.isArray(value)) {
-    return normalizeLegacyPinList(value);
-  }
   if (value == null || typeof value !== "object") {
     return {};
   }

@@ -48,7 +48,7 @@ describe("sessionListPins", () => {
     expect(updated.repos).toEqual({ "repo:/Users/test/repo": 2000 });
   });
 
-  it("creates stable keys and migrates legacy array format", () => {
+  it("creates stable keys and ignores unsupported array format", () => {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -57,7 +57,7 @@ describe("sessionListPins", () => {
     );
 
     expect(readStoredSessionListPins()).toEqual({
-      repos: { "repo:/Users/test/repo": 1 },
+      repos: {},
     } satisfies SessionListPins);
 
     expect(createRepoPinKey("/Users/test/repo")).toBe("repo:/Users/test/repo");

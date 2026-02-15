@@ -9,8 +9,6 @@ describe("resolveActivityTimestamp", () => {
     const result = resolveActivityTimestamp({
       paneId: "%1",
       paneActivity: 1_700_000_000,
-      windowActivity: 1_700_000_100,
-      paneActive: false,
       suppressor: () => false,
     });
 
@@ -21,8 +19,6 @@ describe("resolveActivityTimestamp", () => {
     const result = resolveActivityTimestamp({
       paneId: "%1",
       paneActivity: null,
-      windowActivity: 1_700_000_100,
-      paneActive: true,
       suppressor: () => false,
     });
 
@@ -36,8 +32,6 @@ describe("resolveActivityTimestamp", () => {
     const result = resolveActivityTimestamp({
       paneId: "%1",
       paneActivity: 1_700_000_000,
-      windowActivity: 1_700_000_100,
-      paneActive: true,
       suppressor,
     });
 
