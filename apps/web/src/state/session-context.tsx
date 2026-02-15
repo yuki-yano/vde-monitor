@@ -17,6 +17,7 @@ import type {
   SessionDetail,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
@@ -61,7 +62,11 @@ type SessionContextValue = {
   ) => Promise<CommitFileDiff>;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestRepoFileTree: (
     paneId: string,

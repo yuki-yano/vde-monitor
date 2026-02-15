@@ -215,10 +215,13 @@ vi.mock("./hooks/useSessionTitleEditor", () => ({
 vi.mock("./hooks/useSessionTimeline", () => ({
   useSessionTimeline: () => ({
     timeline: null,
+    timelineScope: "pane",
     timelineRange: "1h",
+    hasRepoTimeline: true,
     timelineError: null,
     timelineLoading: false,
     timelineExpanded: true,
+    setTimelineScope: vi.fn(),
     setTimelineRange: vi.fn(),
     toggleTimelineExpanded: vi.fn(),
     refreshTimeline: vi.fn(),

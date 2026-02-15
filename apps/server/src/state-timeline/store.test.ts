@@ -111,6 +111,112 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(5 * 60 * 1000);
   });
 
+  it("retains enough history for 24h range by default", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T21:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%24h",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-05T22:00:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%24h",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T08:00:00.000Z",
+      source: "hook",
+    });
+
+    const timeline = store.getTimeline({ paneId: "%24h", range: "24h" });
+
+    expect(timeline.items).toHaveLength(2);
+    expect(timeline.items[0]?.state).toBe("RUNNING");
+    expect(timeline.items[0]?.durationMs).toBe(13 * 60 * 60 * 1000);
+    expect(timeline.items[1]?.state).toBe("WAITING_INPUT");
+    expect(timeline.items[1]?.durationMs).toBe(10 * 60 * 60 * 1000);
+    expect(timeline.totalsMs.RUNNING).toBe(13 * 60 * 60 * 1000);
+    expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 60 * 1000);
+  });
+
+  it("aggregates repo timeline across panes with state priority", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T00:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%a",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-06T00:00:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%a",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T00:20:00.000Z",
+      source: "hook",
+    });
+
+    store.record({
+      paneId: "%b",
+      state: "WAITING_PERMISSION",
+      reason: "hook:permission_prompt",
+      at: "2026-02-06T00:10:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%b",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-06T00:25:00.000Z",
+      source: "hook",
+    });
+
+    clock.set("2026-02-06T00:30:00.000Z");
+    const timeline = store.getRepoTimeline({
+      paneId: "%a",
+      paneIds: ["%a", "%b"],
+      range: "1h",
+      limit: 10,
+    });
+
+    expect(timeline.items).toHaveLength(3);
+    expect(timeline.items[0]?.state).toBe("RUNNING");
+    expect(timeline.items[0]?.durationMs).toBe(5 * 60 * 1000);
+    expect(timeline.items[0]?.endedAt).toBeNull();
+    expect(timeline.items[1]?.state).toBe("WAITING_PERMISSION");
+    expect(timeline.items[1]?.durationMs).toBe(15 * 60 * 1000);
+    expect(timeline.items[2]?.state).toBe("WAITING_INPUT");
+    expect(timeline.items[2]?.durationMs).toBe(10 * 60 * 1000);
+    expect(timeline.totalsMs.RUNNING).toBe(5 * 60 * 1000);
+    expect(timeline.totalsMs.WAITING_PERMISSION).toBe(15 * 60 * 1000);
+    expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 1000);
+  });
+
+  it("returns empty repo timeline when no pane ids are provided", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T02:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    const timeline = store.getRepoTimeline({
+      paneId: "%missing",
+      paneIds: [],
+      range: "1h",
+      limit: 10,
+    });
+
+    expect(timeline.items).toHaveLength(0);
+    expect(timeline.current).toBeNull();
+    expect(timeline.totalsMs.RUNNING).toBe(0);
+    expect(timeline.totalsMs.WAITING_INPUT).toBe(0);
+    expect(timeline.totalsMs.WAITING_PERMISSION).toBe(0);
+  });
+
   it("serializes and restores timeline events", () => {
     const clock = nowAt;
     clock.set("2026-02-06T03:00:00.000Z");

@@ -154,6 +154,26 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     return stateTimeline.getTimeline({ paneId, range, limit });
   };
 
+  const getRepoStateTimeline = (
+    paneId: string,
+    range: SessionStateTimelineRange = "1h",
+    limit = 200,
+  ) => {
+    const detail = registry.getDetail(paneId);
+    const repoRoot = detail?.repoRoot;
+    if (!repoRoot) {
+      return null;
+    }
+    const paneIds = registry
+      .values()
+      .filter((session) => session.repoRoot === repoRoot)
+      .map((session) => session.paneId);
+    if (paneIds.length === 0) {
+      return null;
+    }
+    return stateTimeline.getRepoTimeline({ paneId, paneIds, range, limit });
+  };
+
   return {
     registry,
     start,
@@ -161,6 +181,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     handleHookEvent,
     getScreenCapture,
     getStateTimeline,
+    getRepoStateTimeline,
     setCustomTitle,
     recordInput,
     markPaneViewed,

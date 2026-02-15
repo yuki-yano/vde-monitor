@@ -10,6 +10,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import type { CompositionEvent, FormEvent, KeyboardEvent, RefObject } from "react";
@@ -37,11 +38,14 @@ type BuildDiffSectionPropsArgs = {
 
 type BuildStateTimelineSectionPropsArgs = {
   stateTimeline: SessionStateTimeline | null;
+  timelineScope: SessionStateTimelineScope;
   timelineRange: SessionStateTimelineRange;
+  hasRepoTimeline: boolean;
   timelineError: string | null;
   timelineLoading: boolean;
   timelineExpanded: boolean;
   isMobile: boolean;
+  setTimelineScope: (scope: SessionStateTimelineScope) => void;
   setTimelineRange: (range: SessionStateTimelineRange) => void;
   refreshTimeline: () => void;
   toggleTimelineExpanded: () => void;
@@ -198,7 +202,11 @@ type BuildSessionSidebarPropsArgs = {
   sidebarConnectionIssue: string | null;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,
@@ -270,24 +278,30 @@ export const buildDiffSectionProps = ({
 
 export const buildStateTimelineSectionProps = ({
   stateTimeline,
+  timelineScope,
   timelineRange,
+  hasRepoTimeline,
   timelineError,
   timelineLoading,
   timelineExpanded,
   isMobile,
+  setTimelineScope,
   setTimelineRange,
   refreshTimeline,
   toggleTimelineExpanded,
 }: BuildStateTimelineSectionPropsArgs) => ({
   state: {
     timeline: stateTimeline,
+    timelineScope,
     timelineRange,
+    hasRepoTimeline,
     timelineError,
     timelineLoading,
     timelineExpanded,
     isMobile,
   },
   actions: {
+    onTimelineScopeChange: setTimelineScope,
     onTimelineRangeChange: setTimelineRange,
     onTimelineRefresh: refreshTimeline,
     onToggleTimelineExpanded: toggleTimelineExpanded,

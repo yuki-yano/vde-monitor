@@ -8,6 +8,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import type { CompositionEvent, FormEvent, KeyboardEvent, PointerEvent, RefObject } from "react";
@@ -22,11 +23,14 @@ import type { FileTreeRenderNode } from "./useSessionFiles-tree-utils";
 
 type BuildTimelineSectionArgs = {
   timeline: SessionStateTimeline | null;
+  timelineScope: SessionStateTimelineScope;
   timelineRange: SessionStateTimelineRange;
+  hasRepoTimeline: boolean;
   timelineError: string | null;
   timelineLoading: boolean;
   timelineExpanded: boolean;
   isMobile: boolean;
+  setTimelineScope: (scope: SessionStateTimelineScope) => void;
   setTimelineRange: (range: SessionStateTimelineRange) => void;
   toggleTimelineExpanded: () => void;
   refreshTimeline: () => void;
@@ -47,7 +51,11 @@ type BuildSidebarSectionArgs = {
   connectionIssue: string | null;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,
@@ -224,21 +232,27 @@ type BuildActionsSectionArgs = {
 
 export const buildTimelineSection = ({
   timeline,
+  timelineScope,
   timelineRange,
+  hasRepoTimeline,
   timelineError,
   timelineLoading,
   timelineExpanded,
   isMobile,
+  setTimelineScope,
   setTimelineRange,
   toggleTimelineExpanded,
   refreshTimeline,
 }: BuildTimelineSectionArgs) => ({
   timeline,
+  timelineScope,
   timelineRange,
+  hasRepoTimeline,
   timelineError,
   timelineLoading,
   timelineExpanded,
   isMobile,
+  setTimelineScope,
   setTimelineRange,
   toggleTimelineExpanded,
   refreshTimeline,

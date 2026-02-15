@@ -53,13 +53,16 @@ const timeline: SessionStateTimeline = {
 const buildProps = (overrides?: { timelineExpanded?: boolean; isMobile?: boolean }) => ({
   state: {
     timeline,
+    timelineScope: "pane" as const,
     timelineRange: "1h" as const,
+    hasRepoTimeline: true,
     timelineError: null,
     timelineLoading: false,
     timelineExpanded: overrides?.timelineExpanded ?? false,
     isMobile: overrides?.isMobile ?? false,
   },
   actions: {
+    onTimelineScopeChange: vi.fn(),
     onTimelineRangeChange: vi.fn(),
     onTimelineRefresh: vi.fn(),
     onToggleTimelineExpanded: vi.fn(),
@@ -125,5 +128,39 @@ describe("StateTimelineSection", () => {
     fireEvent.click(compactButton);
     expect(compactButton.className).toContain("border-latte-surface2/70");
     expect(compactButton.className).toContain("bg-latte-base/75");
+  });
+
+  it("shows extended range tabs and calls action on selection", () => {
+    const props = buildProps({ timelineExpanded: false, isMobile: false });
+    render(<StateTimelineSection {...props} />);
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "3h" }), { button: 0 });
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "24h" }), { button: 0 });
+
+    expect(props.actions.onTimelineRangeChange).toHaveBeenNthCalledWith(1, "3h");
+    expect(props.actions.onTimelineRangeChange).toHaveBeenNthCalledWith(2, "24h");
+  });
+
+  it("switches timeline scope between pane and repo", () => {
+    const props = buildProps({ timelineExpanded: false, isMobile: false });
+    const { rerender } = render(<StateTimelineSection {...props} />);
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Repo" }), { button: 0 });
+    expect(props.actions.onTimelineScopeChange).toHaveBeenNthCalledWith(1, "repo");
+
+    rerender(
+      <StateTimelineSection
+        {...{
+          ...props,
+          state: {
+            ...props.state,
+            timelineScope: "repo",
+          },
+        }}
+      />,
+    );
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Pane" }), { button: 0 });
+    expect(props.actions.onTimelineScopeChange).toHaveBeenNthCalledWith(2, "pane");
   });
 });

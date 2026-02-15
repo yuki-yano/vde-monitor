@@ -2,6 +2,7 @@ import type {
   SessionStateTimeline,
   SessionStateTimelineItem,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionStateValue,
 } from "@vde-monitor/shared";
 import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
@@ -26,7 +27,9 @@ import { buildTimelineDisplay } from "./state-timeline-display";
 
 type StateTimelineSectionState = {
   timeline: SessionStateTimeline | null;
+  timelineScope: SessionStateTimelineScope;
   timelineRange: SessionStateTimelineRange;
+  hasRepoTimeline: boolean;
   timelineError: string | null;
   timelineLoading: boolean;
   timelineExpanded: boolean;
@@ -34,6 +37,7 @@ type StateTimelineSectionState = {
 };
 
 type StateTimelineSectionActions = {
+  onTimelineScopeChange: (scope: SessionStateTimelineScope) => void;
   onTimelineRangeChange: (range: SessionStateTimelineRange) => void;
   onTimelineRefresh: () => void;
   onToggleTimelineExpanded: () => void;
@@ -47,7 +51,9 @@ type StateTimelineSectionProps = {
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
   "1h": 60 * 60 * 1000,
+  "3h": 3 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
 };
 
 const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
@@ -130,7 +136,13 @@ const timelineRangeTabs = (
   <Tabs
     value={timelineRange}
     onValueChange={(value) => {
-      if (value === "15m" || value === "1h" || value === "6h") {
+      if (
+        value === "15m" ||
+        value === "1h" ||
+        value === "3h" ||
+        value === "6h" ||
+        value === "24h"
+      ) {
         onTimelineRangeChange(value);
       }
     }}
@@ -138,7 +150,31 @@ const timelineRangeTabs = (
     <TabsList aria-label="Timeline range">
       <TabsTrigger value="15m">15m</TabsTrigger>
       <TabsTrigger value="1h">1h</TabsTrigger>
+      <TabsTrigger value="3h">3h</TabsTrigger>
       <TabsTrigger value="6h">6h</TabsTrigger>
+      <TabsTrigger value="24h">24h</TabsTrigger>
+    </TabsList>
+  </Tabs>
+);
+
+const timelineScopeTabs = (
+  timelineScope: SessionStateTimelineScope,
+  hasRepoTimeline: boolean,
+  onTimelineScopeChange: (scope: SessionStateTimelineScope) => void,
+) => (
+  <Tabs
+    value={timelineScope}
+    onValueChange={(value) => {
+      if (value === "pane" || value === "repo") {
+        onTimelineScopeChange(value);
+      }
+    }}
+  >
+    <TabsList aria-label="Timeline scope">
+      <TabsTrigger value="pane">Pane</TabsTrigger>
+      <TabsTrigger value="repo" disabled={!hasRepoTimeline}>
+        Repo
+      </TabsTrigger>
     </TabsList>
   </Tabs>
 );
@@ -147,9 +183,22 @@ const resolveWaitingMs = (totalsMs: Record<SessionStateValue, number>) =>
   totalsMs.WAITING_INPUT + totalsMs.WAITING_PERMISSION;
 
 export const StateTimelineSection = ({ state, actions }: StateTimelineSectionProps) => {
-  const { timeline, timelineRange, timelineError, timelineLoading, timelineExpanded, isMobile } =
-    state;
-  const { onTimelineRangeChange, onTimelineRefresh, onToggleTimelineExpanded } = actions;
+  const {
+    timeline,
+    timelineScope,
+    timelineRange,
+    hasRepoTimeline,
+    timelineError,
+    timelineLoading,
+    timelineExpanded,
+    isMobile,
+  } = state;
+  const {
+    onTimelineScopeChange,
+    onTimelineRangeChange,
+    onTimelineRefresh,
+    onToggleTimelineExpanded,
+  } = actions;
   const [compactView, setCompactView] = useState(true);
   const isTimelineExpanded = isMobile || timelineExpanded;
 
@@ -173,49 +222,54 @@ export const StateTimelineSection = ({ state, actions }: StateTimelineSectionPro
       <SectionHeader
         title="State Timeline"
         action={
-          <div className="flex w-full flex-wrap items-center gap-2">
-            {timelineRangeTabs(timelineRange, onTimelineRangeChange)}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCompactView((previous) => !previous);
-              }}
-              aria-label="Toggle compact timeline"
-              className={cn(
-                "bg-latte-base/75 transition-all duration-200",
-                compactView
-                  ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
-                  : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
-              )}
-            >
-              Compact
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onTimelineRefresh}
-              aria-label="Refresh timeline"
-            >
-              <RefreshCw className={`h-4 w-4 ${timelineLoading ? "animate-spin" : ""}`} />
-            </Button>
-            {!isMobile ? (
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2">
+              {timelineScopeTabs(timelineScope, hasRepoTimeline, onTimelineScopeChange)}
+            </div>
+            <div className="flex w-full flex-wrap items-center gap-2">
+              {timelineRangeTabs(timelineRange, onTimelineRangeChange)}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={onToggleTimelineExpanded}
-                aria-label={timelineExpanded ? "Collapse timeline" : "Expand timeline"}
-              >
-                {timelineExpanded ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
+                onClick={() => {
+                  setCompactView((previous) => !previous);
+                }}
+                aria-label="Toggle compact timeline"
+                className={cn(
+                  "bg-latte-base/75 transition-all duration-200",
+                  compactView
+                    ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
+                    : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
                 )}
+              >
+                Compact
               </Button>
-            ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onTimelineRefresh}
+                aria-label="Refresh timeline"
+              >
+                <RefreshCw className={`h-4 w-4 ${timelineLoading ? "animate-spin" : ""}`} />
+              </Button>
+              {!isMobile ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleTimelineExpanded}
+                  aria-label={timelineExpanded ? "Collapse timeline" : "Expand timeline"}
+                >
+                  {timelineExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              ) : null}
+            </div>
           </div>
         }
       />

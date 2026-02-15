@@ -4,6 +4,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { useCallback } from "react";
@@ -24,7 +25,11 @@ type UseSessionDetailTimelineLogsActionsArgs = {
   ) => Promise<ScreenResponse>;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   sessions: SessionSummary[];
   resolvedTheme: Theme;
@@ -57,6 +62,7 @@ export const useSessionDetailTimelineLogsActions = ({
     paneId,
     connected,
     requestStateTimeline,
+    hasRepoTimeline: currentRepoRoot != null,
     mobileDefaultCollapsed: true,
   });
 

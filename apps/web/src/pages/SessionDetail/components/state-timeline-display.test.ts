@@ -235,4 +235,33 @@ describe("buildTimelineDisplay", () => {
     expect(display.totalsMs.RUNNING).toBe(3 * 60 * 60 * 1000);
     expect(display.totalsMs.WAITING_INPUT).toBe(3 * 60 * 60 * 1000);
   });
+
+  it("clips segments to 24h range window", () => {
+    const timeline = createTimeline([
+      createTimelineItem({
+        id: "2",
+        state: "RUNNING",
+        startedAt: "2026-02-06T08:00:00.000Z",
+        endedAt: null,
+        reason: "recent_output",
+      }),
+      createTimelineItem({
+        id: "1",
+        state: "WAITING_INPUT",
+        startedAt: "2026-02-05T18:00:00.000Z",
+        endedAt: "2026-02-06T08:00:00.000Z",
+        reason: "inactive_timeout",
+      }),
+    ]);
+
+    const display = buildTimelineDisplay(timeline, "24h", { compact: false });
+
+    expect(display.items).toHaveLength(2);
+    expect(display.items[0]?.state).toBe("RUNNING");
+    expect(display.items[0]?.durationMs).toBe(13 * 60 * 60 * 1000);
+    expect(display.items[1]?.state).toBe("WAITING_INPUT");
+    expect(display.items[1]?.durationMs).toBe(11 * 60 * 60 * 1000);
+    expect(display.totalsMs.RUNNING).toBe(13 * 60 * 60 * 1000);
+    expect(display.totalsMs.WAITING_INPUT).toBe(11 * 60 * 60 * 1000);
+  });
 });

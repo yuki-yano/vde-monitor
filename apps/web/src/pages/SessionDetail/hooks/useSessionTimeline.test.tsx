@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { SessionStateTimeline, SessionStateTimelineRange } from "@vde-monitor/shared";
+import type {
+  SessionStateTimeline,
+  SessionStateTimelineRange,
+  SessionStateTimelineScope,
+} from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { createDeferred } from "../test-helpers";
@@ -21,6 +25,14 @@ const buildTimeline = (range: SessionStateTimelineRange): SessionStateTimeline =
   current: null,
 });
 
+const buildTimelineRequest = (
+  range: SessionStateTimelineRange,
+  scope: SessionStateTimelineScope = "pane",
+): SessionStateTimeline => ({
+  ...buildTimeline(range),
+  paneId: scope === "repo" ? "repo-pane-1" : "pane-1",
+});
+
 describe("useSessionTimeline", () => {
   it("loads timeline on mount", async () => {
     const requestStateTimeline = vi.fn().mockResolvedValue(buildTimeline("1h"));
@@ -30,6 +42,7 @@ describe("useSessionTimeline", () => {
         paneId: "pane-1",
         connected: true,
         requestStateTimeline,
+        hasRepoTimeline: true,
         mobileDefaultCollapsed: false,
       }),
     );
@@ -50,6 +63,7 @@ describe("useSessionTimeline", () => {
         paneId: "pane-1",
         connected: true,
         requestStateTimeline,
+        hasRepoTimeline: true,
         mobileDefaultCollapsed: false,
       }),
     );
@@ -78,6 +92,7 @@ describe("useSessionTimeline", () => {
         paneId: "pane-1",
         connected: true,
         requestStateTimeline,
+        hasRepoTimeline: true,
         mobileDefaultCollapsed: true,
       }),
     );
@@ -108,6 +123,7 @@ describe("useSessionTimeline", () => {
           paneId,
           connected: true,
           requestStateTimeline,
+          hasRepoTimeline: true,
           mobileDefaultCollapsed: false,
         }),
       {
@@ -144,6 +160,7 @@ describe("useSessionTimeline", () => {
         paneId: "pane-1",
         connected: true,
         requestStateTimeline,
+        hasRepoTimeline: true,
         mobileDefaultCollapsed: false,
       }),
     );
@@ -165,6 +182,88 @@ describe("useSessionTimeline", () => {
 
     await waitFor(() => {
       expect(result.current.timeline?.range).toBe("1h");
+    });
+  });
+
+  it("refetches when scope changes to repo", async () => {
+    const requestStateTimeline = vi
+      .fn()
+      .mockResolvedValueOnce(buildTimelineRequest("1h", "pane"))
+      .mockResolvedValueOnce(buildTimelineRequest("1h", "repo"));
+
+    const { result } = renderHook(() =>
+      useSessionTimeline({
+        paneId: "pane-1",
+        connected: true,
+        requestStateTimeline,
+        hasRepoTimeline: true,
+        mobileDefaultCollapsed: false,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenCalledWith("pane-1", { range: "1h", limit: 200 });
+    });
+
+    act(() => {
+      result.current.setTimelineScope("repo");
+    });
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenLastCalledWith("pane-1", {
+        scope: "repo",
+        range: "1h",
+        limit: 200,
+      });
+    });
+  });
+
+  it("clears loading when a non-silent request becomes stale due to reconnect silent refresh", async () => {
+    const refreshRequest = createDeferred<SessionStateTimeline>();
+    const reconnectRequest = createDeferred<SessionStateTimeline>();
+    const requestStateTimeline = vi
+      .fn()
+      .mockResolvedValueOnce(buildTimeline("1h"))
+      .mockImplementationOnce(() => refreshRequest.promise)
+      .mockImplementationOnce(() => reconnectRequest.promise);
+
+    const { result, rerender } = renderHook(
+      ({ connected }) =>
+        useSessionTimeline({
+          paneId: "pane-1",
+          connected,
+          requestStateTimeline,
+          hasRepoTimeline: true,
+          mobileDefaultCollapsed: false,
+        }),
+      { initialProps: { connected: false } },
+    );
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenCalledTimes(1);
+      expect(result.current.timelineLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.refreshTimeline();
+    });
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenCalledTimes(2);
+      expect(result.current.timelineLoading).toBe(true);
+    });
+
+    rerender({ connected: true });
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenCalledTimes(3);
+    });
+
+    reconnectRequest.resolve(buildTimeline("1h"));
+    refreshRequest.resolve(buildTimeline("1h"));
+
+    await waitFor(() => {
+      expect(result.current.timelineLoading).toBe(false);
     });
   });
 });

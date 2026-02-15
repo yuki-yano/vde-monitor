@@ -82,10 +82,25 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     },
     current: null,
   }));
+  const getRepoStateTimeline = vi.fn(() => ({
+    paneId: detail.paneId,
+    now: new Date(0).toISOString(),
+    range: "1h",
+    items: [],
+    totalsMs: {
+      RUNNING: 0,
+      WAITING_INPUT: 0,
+      WAITING_PERMISSION: 0,
+      SHELL: 0,
+      UNKNOWN: 0,
+    },
+    current: null,
+  }));
   const monitor = {
     registry,
     getScreenCapture: () => ({ captureText }),
     getStateTimeline,
+    getRepoStateTimeline,
     setCustomTitle: vi.fn((paneId: string, title: string | null) => {
       const existing = registry.getDetail(paneId);
       if (!existing) return;
@@ -101,7 +116,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     focusPane: vi.fn(async () => ({ ok: true as const })),
   } as unknown as MultiplexerInputActions;
   const api = createApiRouter({ config, monitor, actions });
-  return { api, config, monitor, actions, detail, getStateTimeline };
+  return { api, config, monitor, actions, detail, getStateTimeline, getRepoStateTimeline };
 };
 
 const authHeaders = {
@@ -194,6 +209,39 @@ describe("createApiRouter", () => {
     expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "15m", 50);
     const data = await res.json();
     expect(data.timeline.paneId).toBe("pane-1");
+  });
+
+  it("accepts extended timeline range values", async () => {
+    const { api, getStateTimeline } = createTestContext();
+    const res = await api.request("/sessions/pane-1/timeline?range=24h&limit=20", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "24h", 20);
+  });
+
+  it("returns repo timeline when scope=repo", async () => {
+    const { api, getRepoStateTimeline } = createTestContext();
+    const res = await api.request("/sessions/pane-1/timeline?scope=repo&range=3h&limit=40", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getRepoStateTimeline).toHaveBeenCalledWith("pane-1", "3h", 40);
+  });
+
+  it("returns invalid payload when repo timeline is unavailable", async () => {
+    const { api, getRepoStateTimeline } = createTestContext();
+    getRepoStateTimeline.mockReturnValueOnce(null as never);
+
+    const res = await api.request("/sessions/pane-1/timeline?scope=repo", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error.code).toBe("INVALID_PAYLOAD");
   });
 
   it("returns rate limit error on repeated screen requests", async () => {

@@ -9,7 +9,9 @@ import type {
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
   "1h": 60 * 60 * 1000,
+  "3h": 3 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
 };
 
 const DEFAULT_MERGE_GAP_MS = 3_000;

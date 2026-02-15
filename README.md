@@ -52,7 +52,7 @@ Supports remote control of PC-hosted AI agent sessions from smartphone browsers.
 - Session title customization
 - Screen capture in text mode on all platforms, optional image mode on macOS terminals
 - Image upload from the composer (attachments are inserted into the prompt automatically)
-- State Timeline view (`15m` / `1h` / `6h`) with persisted history across restarts
+- State Timeline view (`15m` / `1h` / `3h` / `6h` / `24h`) with persisted history across restarts
 - Per-session Git context: diff summary/file view and commit log/detail view
 - Desktop sidebar pane focus action on macOS (bring terminal app to foreground and target pane)
 - Token-based API auth, origin allowlist, and request rate limits

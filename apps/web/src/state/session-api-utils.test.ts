@@ -168,7 +168,11 @@ describe("session-api-utils", () => {
     });
 
     expect(buildTimelineQuery()).toEqual({});
+    expect(buildTimelineQuery({ scope: "pane" })).toEqual({ scope: "pane" });
+    expect(buildTimelineQuery({ scope: "repo" })).toEqual({ scope: "repo" });
     expect(buildTimelineQuery({ range: "1h" })).toEqual({ range: "1h" });
+    expect(buildTimelineQuery({ range: "3h" })).toEqual({ range: "3h" });
+    expect(buildTimelineQuery({ range: "24h" })).toEqual({ range: "24h" });
     expect(buildTimelineQuery({ limit: 9.8 })).toEqual({ limit: "9" });
     expect(buildTimelineQuery({ limit: 0 })).toEqual({ limit: "1" });
 

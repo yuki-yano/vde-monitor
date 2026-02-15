@@ -143,10 +143,13 @@ export const useSessionDetailVM = (paneId: string) => {
   const {
     timeline: {
       timeline,
+      timelineScope,
       timelineRange,
+      hasRepoTimeline,
       timelineError,
       timelineLoading,
       timelineExpanded,
+      setTimelineScope,
       setTimelineRange,
       toggleTimelineExpanded,
       refreshTimeline,
@@ -247,11 +250,14 @@ export const useSessionDetailVM = (paneId: string) => {
     }),
     timeline: buildTimelineSection({
       timeline,
+      timelineScope,
       timelineRange,
+      hasRepoTimeline,
       timelineError,
       timelineLoading,
       timelineExpanded,
       isMobile,
+      setTimelineScope,
       setTimelineRange,
       toggleTimelineExpanded,
       refreshTimeline,

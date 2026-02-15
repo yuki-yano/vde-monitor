@@ -291,10 +291,14 @@ export const buildCommitFileQuery = (
 };
 
 export const buildTimelineQuery = (options?: {
+  scope?: TimelineQuery["scope"];
   range?: TimelineQuery["range"];
   limit?: number;
 }) => {
   const query: TimelineQuery = {};
+  if (options?.scope) {
+    query.scope = options.scope;
+  }
   if (options?.range) {
     query.range = options.range;
   }

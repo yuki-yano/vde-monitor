@@ -59,6 +59,7 @@ describe("section props builders", () => {
   });
 
   it("builds timeline section props with renamed action keys", () => {
+    const setTimelineScope = vi.fn();
     const setTimelineRange = vi.fn();
     const refreshTimeline = vi.fn();
     const toggleTimelineExpanded = vi.fn();
@@ -78,17 +79,22 @@ describe("section props builders", () => {
         },
         current: null,
       },
+      timelineScope: "pane",
       timelineRange: "1h",
+      hasRepoTimeline: true,
       timelineError: null,
       timelineLoading: true,
       timelineExpanded: false,
       isMobile: true,
+      setTimelineScope,
       setTimelineRange,
       refreshTimeline,
       toggleTimelineExpanded,
     });
 
+    expect(props.state.timelineScope).toBe("pane");
     expect(props.state.timelineRange).toBe("1h");
+    expect(props.actions.onTimelineScopeChange).toBe(setTimelineScope);
     expect(props.actions.onTimelineRangeChange).toBe(setTimelineRange);
     expect(props.actions.onTimelineRefresh).toBe(refreshTimeline);
     expect(props.actions.onToggleTimelineExpanded).toBe(toggleTimelineExpanded);

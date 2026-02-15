@@ -291,7 +291,8 @@ export type ScreenDelta = {
   insertLines: string[];
 };
 
-export type SessionStateTimelineRange = "15m" | "1h" | "6h";
+export type SessionStateTimelineRange = "15m" | "1h" | "3h" | "6h" | "24h";
+export type SessionStateTimelineScope = "pane" | "repo";
 
 export type SessionStateTimelineSource = "poll" | "hook" | "restore";
 

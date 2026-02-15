@@ -3,6 +3,7 @@ import {
   allowedKeySchema,
   type RawItem,
   type SessionStateTimelineRange,
+  type SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -18,7 +19,8 @@ import { createSendTextIdempotencyExecutor } from "../send-text-idempotency";
 import type { SessionRouteDeps } from "./types";
 
 const timelineQuerySchema = z.object({
-  range: z.enum(["15m", "1h", "6h"]).optional(),
+  scope: z.enum(["pane", "repo"]).optional(),
+  range: z.enum(["15m", "1h", "3h", "6h", "24h"]).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 const titleSchema = z.object({
@@ -50,10 +52,17 @@ const imageAttachmentFormSchema = z.object({
 });
 
 const resolveTimelineRange = (range: string | undefined): SessionStateTimelineRange => {
-  if (range === "15m" || range === "1h" || range === "6h") {
+  if (range === "15m" || range === "1h" || range === "3h" || range === "6h" || range === "24h") {
     return range;
   }
   return "1h";
+};
+
+const resolveTimelineScope = (scope: string | undefined): SessionStateTimelineScope => {
+  if (scope === "repo") {
+    return "repo";
+  }
+  return "pane";
 };
 
 export const createSessionRoutes = ({
@@ -106,11 +115,19 @@ export const createSessionRoutes = ({
     .get("/sessions/:paneId/timeline", zValidator("query", timelineQuerySchema), (c) => {
       return withPane(c, (pane) => {
         const query = c.req.valid("query");
-        const timeline = monitor.getStateTimeline(
-          pane.paneId,
-          resolveTimelineRange(query.range),
-          query.limit ?? 200,
-        );
+        const range = resolveTimelineRange(query.range);
+        const scope = resolveTimelineScope(query.scope);
+        const limit = query.limit ?? 200;
+        const timeline =
+          scope === "repo"
+            ? monitor.getRepoStateTimeline(pane.paneId, range, limit)
+            : monitor.getStateTimeline(pane.paneId, range, limit);
+        if (!timeline) {
+          return c.json(
+            { error: buildError("INVALID_PAYLOAD", "repo timeline is unavailable") },
+            400,
+          );
+        }
         return c.json({ timeline });
       });
     })

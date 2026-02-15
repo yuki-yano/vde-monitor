@@ -3,6 +3,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 import { memo, useCallback } from "react";
 
@@ -26,7 +27,11 @@ type SessionSidebarState = {
   connectionIssue: string | null;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,

@@ -9,6 +9,7 @@ import type {
   RepoFileTreePage,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -123,7 +124,11 @@ export const createSessionQueryRequests = ({
 
   const requestStateTimeline = async (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ): Promise<SessionStateTimeline> => {
     const query = buildTimelineQuery(options);
     return requestPaneQueryField<{ timeline?: SessionStateTimeline }, "timeline">({

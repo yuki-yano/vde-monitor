@@ -16,6 +16,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { atom } from "jotai";
@@ -48,7 +49,11 @@ export type SessionApi = {
   ) => Promise<CommitFileDiff>;
   requestStateTimeline: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestRepoFileTree: (
     paneId: string,

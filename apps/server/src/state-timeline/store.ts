@@ -9,7 +9,9 @@ import type {
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
   "1h": 60 * 60 * 1000,
+  "3h": 3 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
 };
 
 const ALL_STATES: SessionStateValue[] = [
@@ -20,7 +22,7 @@ const ALL_STATES: SessionStateValue[] = [
   "UNKNOWN",
 ];
 
-const DEFAULT_RETENTION_MS = RANGE_MS["6h"];
+const DEFAULT_RETENTION_MS = RANGE_MS["24h"];
 const DEFAULT_LIMIT = 200;
 const DEFAULT_MAX_ITEMS_PER_PANE = 1000;
 
@@ -53,6 +55,22 @@ type GetTimelineInput = {
   limit?: number;
 };
 
+type GetRepoTimelineInput = {
+  paneId: string;
+  paneIds: string[];
+  range?: SessionStateTimelineRange;
+  limit?: number;
+};
+
+type RepoTimelineSegment = {
+  state: SessionStateValue;
+  startedAtMs: number;
+  endedAtMs: number;
+  isOpen: boolean;
+  source: SessionStateTimelineSource;
+  reason: string;
+};
+
 const toIso = (ms: number) => new Date(ms).toISOString();
 
 const parseIso = (value: string | null | undefined) => {
@@ -82,6 +100,14 @@ const parseSequenceFromId = (id: string) => {
   }
   return parsed;
 };
+
+const TIMELINE_STATE_PRIORITY: SessionStateValue[] = [
+  "WAITING_PERMISSION",
+  "RUNNING",
+  "WAITING_INPUT",
+  "SHELL",
+  "UNKNOWN",
+];
 
 export const createSessionTimelineStore = (options: StoreOptions = {}) => {
   const now = options.now ?? (() => new Date());
@@ -242,6 +268,178 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     };
   };
 
+  const resolveDominantState = (states: SessionStateValue[]) => {
+    for (const state of TIMELINE_STATE_PRIORITY) {
+      if (states.includes(state)) {
+        return state;
+      }
+    }
+    return "UNKNOWN" as SessionStateValue;
+  };
+
+  const resolveDominantSource = (sources: SessionStateTimelineSource[]) => {
+    if (sources.includes("hook")) {
+      return "hook" as SessionStateTimelineSource;
+    }
+    if (sources.includes("restore")) {
+      return "restore" as SessionStateTimelineSource;
+    }
+    return "poll" as SessionStateTimelineSource;
+  };
+
+  const getRepoTimeline = ({
+    paneId,
+    paneIds,
+    range = "1h",
+    limit = DEFAULT_LIMIT,
+  }: GetRepoTimelineInput): SessionStateTimeline => {
+    const nowMs = now().getTime();
+    const nowIso = toIso(nowMs);
+    const rangeMs = RANGE_MS[range];
+    const rangeStartMs = nowMs - rangeMs;
+    const resolvedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : DEFAULT_LIMIT;
+    const totals = createEmptyTotals();
+
+    const uniquePaneIds = Array.from(new Set(paneIds.filter(Boolean)));
+    uniquePaneIds.forEach((candidatePaneId) => {
+      prunePane(candidatePaneId, nowMs);
+    });
+
+    const intervals = uniquePaneIds.flatMap((candidatePaneId) => {
+      const events = eventsByPane.get(candidatePaneId) ?? [];
+      return events
+        .map((event) => {
+          const startedAtMs = parseIso(event.startedAt);
+          if (startedAtMs == null) {
+            return null;
+          }
+          const endedAtMs = parseIso(event.endedAt) ?? nowMs;
+          const clippedStartMs = Math.max(startedAtMs, rangeStartMs);
+          const clippedEndMs = Math.min(endedAtMs, nowMs);
+          const durationMs = Math.max(0, clippedEndMs - clippedStartMs);
+          if (durationMs <= 0) {
+            return null;
+          }
+          return {
+            state: event.state,
+            source: event.source,
+            reason: event.reason,
+            startedAtMs: clippedStartMs,
+            endedAtMs: clippedEndMs,
+            isOpen: event.endedAt == null && clippedEndMs === nowMs,
+          };
+        })
+        .filter(
+          (
+            item,
+          ): item is {
+            state: SessionStateValue;
+            source: SessionStateTimelineSource;
+            reason: string;
+            startedAtMs: number;
+            endedAtMs: number;
+            isOpen: boolean;
+          } => item != null,
+        );
+    });
+
+    if (intervals.length === 0) {
+      return {
+        paneId,
+        now: nowIso,
+        range,
+        items: [],
+        totalsMs: totals,
+        current: null,
+      };
+    }
+
+    const boundaries = Array.from(
+      new Set([
+        rangeStartMs,
+        nowMs,
+        ...intervals.flatMap((interval) => [interval.startedAtMs, interval.endedAtMs]),
+      ]),
+    ).sort((left, right) => left - right);
+
+    const segments: RepoTimelineSegment[] = [];
+    for (let index = 0; index < boundaries.length - 1; index += 1) {
+      const segmentStartMs = boundaries[index];
+      const segmentEndMs = boundaries[index + 1];
+      if (segmentStartMs == null || segmentEndMs == null || segmentEndMs <= segmentStartMs) {
+        continue;
+      }
+
+      const activeIntervals = intervals.filter(
+        (interval) => interval.startedAtMs < segmentEndMs && interval.endedAtMs > segmentStartMs,
+      );
+      if (activeIntervals.length === 0) {
+        continue;
+      }
+
+      const dominantState = resolveDominantState(activeIntervals.map((interval) => interval.state));
+      const dominantSource = resolveDominantSource(
+        activeIntervals.map((interval) => interval.source),
+      );
+      const isOpen =
+        segmentEndMs === nowMs &&
+        activeIntervals.some((interval) => interval.isOpen && interval.endedAtMs === nowMs);
+
+      const previous = segments.at(-1);
+      if (
+        previous &&
+        previous.state === dominantState &&
+        previous.endedAtMs === segmentStartMs &&
+        previous.isOpen === isOpen
+      ) {
+        previous.endedAtMs = segmentEndMs;
+        previous.source = dominantSource;
+        continue;
+      }
+
+      segments.push({
+        state: dominantState,
+        startedAtMs: segmentStartMs,
+        endedAtMs: segmentEndMs,
+        isOpen,
+        source: dominantSource,
+        reason: "repo:aggregate",
+      });
+    }
+
+    const items = segments
+      .map<SessionStateTimelineItem>((segment, index) => {
+        const durationMs = Math.max(0, segment.endedAtMs - segment.startedAtMs);
+        totals[segment.state] += durationMs;
+        return {
+          id: `repo:${paneId}:${segment.startedAtMs}:${index}`,
+          paneId,
+          state: segment.state,
+          reason: segment.reason,
+          startedAt: toIso(segment.startedAtMs),
+          endedAt: segment.isOpen ? null : toIso(segment.endedAtMs),
+          durationMs,
+          source: segment.source,
+        };
+      })
+      .sort((left, right) => {
+        const leftMs = parseIso(left.startedAt) ?? 0;
+        const rightMs = parseIso(right.startedAt) ?? 0;
+        return rightMs - leftMs;
+      })
+      .slice(0, resolvedLimit);
+
+    const current = items.find((item) => item.endedAt == null) ?? null;
+    return {
+      paneId,
+      now: nowIso,
+      range,
+      items,
+      totalsMs: totals,
+      current,
+    };
+  };
+
   const reset = () => {
     eventsByPane.clear();
   };
@@ -353,7 +551,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     });
   };
 
-  return { record, closePane, getTimeline, reset, serialize, restore };
+  return { record, closePane, getTimeline, getRepoTimeline, reset, serialize, restore };
 };
 
 export const timelineRangeMs = RANGE_MS;

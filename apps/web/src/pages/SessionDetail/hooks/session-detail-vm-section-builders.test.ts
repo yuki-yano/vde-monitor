@@ -2,6 +2,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
@@ -85,7 +86,11 @@ describe("session detail vm section builders", () => {
     const getRepoSortAnchorAt = vi.fn(() => null);
     const requestStateTimeline = vi.fn() as unknown as (
       paneId: string,
-      options?: { range?: SessionStateTimelineRange; limit?: number },
+      options?: {
+        scope?: SessionStateTimelineScope;
+        range?: SessionStateTimelineRange;
+        limit?: number;
+      },
     ) => Promise<SessionStateTimeline>;
     const requestScreen = vi.fn() as unknown as (
       paneId: string,
@@ -128,15 +133,19 @@ describe("session detail vm section builders", () => {
 
     const timeline = buildTimelineSection({
       timeline: null,
+      timelineScope: "pane",
       timelineRange: "1h",
+      hasRepoTimeline: true,
       timelineError: null,
       timelineLoading: false,
       timelineExpanded: true,
       isMobile: false,
+      setTimelineScope: vi.fn(),
       setTimelineRange,
       toggleTimelineExpanded,
       refreshTimeline,
     });
+    expect(timeline.timelineScope).toBe("pane");
     expect(timeline.timelineRange).toBe("1h");
     expect(timeline.setTimelineRange).toBe(setTimelineRange);
 

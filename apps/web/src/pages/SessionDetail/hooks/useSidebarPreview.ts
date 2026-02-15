@@ -3,6 +3,7 @@ import type {
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
@@ -40,7 +41,11 @@ type UseSidebarPreviewParams = {
   connectionIssue: string | null;
   requestStateTimeline?: (
     paneId: string,
-    options?: { range?: SessionStateTimelineRange; limit?: number },
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
   ) => Promise<SessionStateTimeline>;
   requestScreen: (
     paneId: string,
