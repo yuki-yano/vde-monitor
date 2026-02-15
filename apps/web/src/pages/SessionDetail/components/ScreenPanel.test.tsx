@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -52,6 +52,14 @@ describe("ScreenPanel", () => {
     rawMode: false,
     allowDangerKeys: false,
     fileResolveError: null,
+    worktreeSelectorEnabled: false,
+    worktreeSelectorLoading: false,
+    worktreeSelectorError: null,
+    worktreeEntries: [],
+    worktreeRepoRoot: null,
+    worktreeBaseBranch: null,
+    actualWorktreePath: null,
+    virtualWorktreePath: null,
     ...overrides,
   });
 
@@ -101,15 +109,15 @@ describe("ScreenPanel", () => {
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.getByText("feature/session-detail")).toBeTruthy();
-    expect(screen.getByText("add 1")).toBeTruthy();
-    expect(screen.getByText("m 2")).toBeTruthy();
-    expect(screen.getByText("d 1")).toBeTruthy();
+    expect(screen.getByText("A 1")).toBeTruthy();
+    expect(screen.getByText("M 2")).toBeTruthy();
+    expect(screen.getByText("D 1")).toBeTruthy();
     expect(screen.getByText("+18")).toBeTruthy();
     expect(screen.getByText("-6")).toBeTruthy();
     expect(screen.getByTestId("prompt-git-context-row")).toBeTruthy();
   });
 
-  it("shows only existing file-change categories", () => {
+  it("shows file-change categories as A/M/D without zero entries", () => {
     const state = buildState({
       promptGitContext: {
         branch: "feature/session-detail",
@@ -125,9 +133,9 @@ describe("ScreenPanel", () => {
     const actions = buildActions();
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
-    expect(screen.queryByText("add 0")).toBeNull();
-    expect(screen.getByText("m 3")).toBeTruthy();
-    expect(screen.queryByText("d 0")).toBeNull();
+    expect(screen.queryByText("A 0")).toBeNull();
+    expect(screen.getByText("M 3")).toBeTruthy();
+    expect(screen.queryByText("D 0")).toBeNull();
   });
 
   it("shows context-left label when available", () => {
@@ -135,8 +143,234 @@ describe("ScreenPanel", () => {
     const actions = buildActions();
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
-    expect(screen.getByText("73% context left")).toBeTruthy();
-    expect(screen.getByTestId("prompt-git-context-row")).toBeTruthy();
+    const gitRow = screen.getByTestId("prompt-git-context-row");
+    expect(gitRow.textContent).toContain("73% context left");
+  });
+
+  it("shows worktree path as relative path with decorated status labels", () => {
+    const state = buildState({
+      worktreeSelectorEnabled: true,
+      worktreeRepoRoot: "/repo",
+      worktreeEntries: [
+        {
+          path: "/repo/worktree-a",
+          branch: "feature/worktree-a",
+          dirty: true,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: false,
+          fileChanges: {
+            add: 2,
+            m: 3,
+            d: 1,
+          },
+          additions: 27,
+          deletions: 4,
+        },
+      ],
+      actualWorktreePath: "/repo/worktree-a",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
+
+    const selectorPanel = screen.getByTestId("worktree-selector-panel");
+    expect(within(selectorPanel).getByText("worktree-a")).toBeTruthy();
+    expect(within(selectorPanel).queryByText("/repo/worktree-a")).toBeNull();
+    expect(within(selectorPanel).getByText("A 2")).toBeTruthy();
+    expect(within(selectorPanel).getByText("M 3")).toBeTruthy();
+    expect(within(selectorPanel).getByText("D 1")).toBeTruthy();
+    expect(within(selectorPanel).getByText("+27")).toBeTruthy();
+    expect(within(selectorPanel).getByText("-4")).toBeTruthy();
+    expect(within(selectorPanel).getByText("Dirty Yes")).toBeTruthy();
+    expect(within(selectorPanel).getByText("Locked No")).toBeTruthy();
+    expect(within(selectorPanel).getByText("Merged No")).toBeTruthy();
+    expect(within(selectorPanel).getByText("Current")).toBeTruthy();
+  });
+
+  it("does not render dot path for repo-root worktree", () => {
+    const state = buildState({
+      worktreeSelectorEnabled: true,
+      worktreeRepoRoot: "/repo",
+      worktreeBaseBranch: "main",
+      worktreeEntries: [
+        {
+          path: "/repo",
+          branch: "main",
+          dirty: true,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: false,
+          fileChanges: {
+            add: 0,
+            m: 1,
+            d: 0,
+          },
+          additions: 2,
+          deletions: 1,
+        },
+      ],
+      actualWorktreePath: "/repo",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
+
+    const selectorPanel = screen.getByTestId("worktree-selector-panel");
+    expect(within(selectorPanel).getByText("Repo Root")).toBeTruthy();
+    expect(within(selectorPanel).queryByText("Locked No")).toBeNull();
+    expect(within(selectorPanel).queryByText("Merged No")).toBeNull();
+    expect(within(selectorPanel).queryByText(".")).toBeNull();
+  });
+
+  it("shows repo-root entry first", () => {
+    const state = buildState({
+      worktreeSelectorEnabled: true,
+      worktreeRepoRoot: "/repo",
+      worktreeEntries: [
+        {
+          path: "/repo/feature-a",
+          branch: "feature/a",
+          dirty: false,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: false,
+          fileChanges: {
+            add: 1,
+            m: 0,
+            d: 0,
+          },
+          additions: 1,
+          deletions: 0,
+        },
+        {
+          path: "/repo",
+          branch: "main",
+          dirty: true,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: true,
+          fileChanges: {
+            add: 0,
+            m: 1,
+            d: 0,
+          },
+          additions: 2,
+          deletions: 1,
+        },
+      ],
+      actualWorktreePath: "/repo",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
+
+    const selectorPanel = screen.getByTestId("worktree-selector-panel");
+    const repoRootButton = within(selectorPanel).getByText("Repo Root").closest("button");
+    const featureButton = within(selectorPanel).getByText("feature/a").closest("button");
+    expect(repoRootButton).toBeTruthy();
+    expect(featureButton).toBeTruthy();
+    expect(
+      repoRootButton!.compareDocumentPosition(featureButton!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("updates body dataset while worktree selector is open", () => {
+    const state = buildState({
+      worktreeSelectorEnabled: true,
+      worktreeEntries: [
+        {
+          path: "/repo",
+          branch: "main",
+          dirty: false,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: false,
+          fileChanges: {
+            add: 0,
+            m: 1,
+            d: 0,
+          },
+          additions: 1,
+          deletions: 0,
+        },
+      ],
+      actualWorktreePath: "/repo",
+    });
+    const actions = buildActions();
+    const view = render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(document.body.dataset.vdeWorktreeSelectorOpen).toBeUndefined();
+    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
+    expect(document.body.dataset.vdeWorktreeSelectorOpen).toBe("true");
+
+    fireEvent.click(screen.getByLabelText("Close worktree selector"));
+    expect(document.body.dataset.vdeWorktreeSelectorOpen).toBeUndefined();
+
+    view.unmount();
+    expect(document.body.dataset.vdeWorktreeSelectorOpen).toBeUndefined();
+  });
+
+  it("renders virtual badge on the right of worktree name", () => {
+    const onClearVirtualWorktree = vi.fn();
+    const state = buildState({
+      worktreeSelectorEnabled: true,
+      worktreeRepoRoot: "/repo",
+      worktreeEntries: [
+        {
+          path: "/repo/worktree-a",
+          branch: "feature/worktree-a",
+          dirty: false,
+          locked: false,
+          lockOwner: null,
+          lockReason: null,
+          merged: false,
+          fileChanges: {
+            add: 0,
+            m: 1,
+            d: 0,
+          },
+          additions: 1,
+          deletions: 0,
+        },
+      ],
+      actualWorktreePath: "/repo",
+      virtualWorktreePath: "/repo/worktree-a",
+      promptGitContext: {
+        branch: "feature/very-long-branch-name-for-virtual-worktree-layout-check",
+        fileChanges: {
+          add: 0,
+          m: 1,
+          d: 0,
+        },
+        additions: 1,
+        deletions: 0,
+      },
+    });
+    const actions = buildActions({ onClearVirtualWorktree });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const clearButton = screen.getByLabelText("Clear virtual worktree");
+    const worktreeTrigger = screen.getByTestId("worktree-selector-trigger");
+    const virtualBadge = screen.getByTitle("Virtual worktree active");
+    expect(
+      clearButton.compareDocumentPosition(worktreeTrigger) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      worktreeTrigger.compareDocumentPosition(virtualBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(virtualBadge.textContent).toBe("Virt");
+
+    fireEvent.click(clearButton);
+    expect(onClearVirtualWorktree).toHaveBeenCalled();
   });
 
   it("shows polling pause indicator on second row and keeps context on first row", () => {
@@ -153,7 +387,6 @@ describe("ScreenPanel", () => {
     expect(statusRow.textContent).toContain("PAUSED (offline)");
     expect(statusRow.textContent).not.toContain("73% context left");
     expect(screen.getByText("PAUSED (offline)")).toBeTruthy();
-    expect(screen.getByText("73% context left")).toBeTruthy();
   });
 
   it("shows reconnecting indicator when disconnected", () => {

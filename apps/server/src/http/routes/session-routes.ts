@@ -17,6 +17,7 @@ import {
 } from "../image-attachment";
 import { createSendTextIdempotencyExecutor } from "../send-text-idempotency";
 import type { SessionRouteDeps } from "./types";
+import { resolveWorktreeListPayload } from "./worktree-utils";
 
 const timelineQuerySchema = z.object({
   scope: z.enum(["pane", "repo"]).optional(),
@@ -111,6 +112,12 @@ export const createSessionRoutes = ({
     })
     .get("/sessions/:paneId", (c) => {
       return withPane(c, (pane) => c.json({ session: pane.detail }));
+    })
+    .get("/sessions/:paneId/worktrees", async (c) => {
+      return withPane(c, async (pane) => {
+        const worktrees = await resolveWorktreeListPayload(pane.detail);
+        return c.json({ worktrees });
+      });
     })
     .get("/sessions/:paneId/timeline", zValidator("query", timelineQuerySchema), (c) => {
       return withPane(c, (pane) => {

@@ -18,7 +18,6 @@ export const useSessionDetailViewExplorerSectionProps = ({
   diffs,
 }: SessionDetailViewProps) => {
   const { paneId, session, connectionIssue } = meta;
-  const sourceRepoRoot = session?.repoRoot ?? null;
   const { resolvedTheme } = sidebar;
   const {
     mode,
@@ -38,7 +37,20 @@ export const useSessionDetailViewExplorerSectionProps = ({
     virtuosoRef,
     scrollerRef,
     handleRefreshScreen,
+    effectiveBranch = null,
+    effectiveWorktreePath = null,
+    worktreeRepoRoot = null,
+    worktreeBaseBranch = null,
+    worktreeSelectorEnabled = false,
+    worktreeSelectorLoading = false,
+    worktreeSelectorError = null,
+    worktreeEntries = [],
+    actualWorktreePath = null,
+    virtualWorktreePath = null,
+    selectVirtualWorktree,
+    clearVirtualWorktree,
   } = screen;
+  const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
   const { diffSummary, diffError, diffFiles, diffLoadingFiles, ensureDiffFile } = diffs;
   const { rawMode, allowDangerKeys } = controls;
   const {
@@ -113,6 +125,10 @@ export const useSessionDetailViewExplorerSectionProps = ({
               counts.add += 1;
               return counts;
             }
+            if (file.status === "?") {
+              counts.add += 1;
+              return counts;
+            }
             if (file.status === "D") {
               counts.d += 1;
               return counts;
@@ -124,12 +140,12 @@ export const useSessionDetailViewExplorerSectionProps = ({
         )
       : null;
     return {
-      branch: session?.branch ?? null,
+      branch: effectiveBranch ?? session?.branch ?? null,
       fileChanges,
       additions: totals?.additions ?? null,
       deletions: totals?.deletions ?? null,
     };
-  }, [diffSummary, session?.branch]);
+  }, [diffSummary, effectiveBranch, session?.branch]);
 
   const fileNavigatorSectionProps = useMemo(
     () =>
@@ -271,11 +287,21 @@ export const useSessionDetailViewExplorerSectionProps = ({
         rawMode,
         allowDangerKeys,
         fileResolveError,
+        worktreeSelectorEnabled,
+        worktreeSelectorLoading,
+        worktreeSelectorError,
+        worktreeEntries,
+        worktreeRepoRoot,
+        worktreeBaseBranch,
+        actualWorktreePath,
+        virtualWorktreePath,
         handleModeChange,
         handleRefreshScreen,
         handleAtBottomChange,
         scrollToBottom,
         handleUserScrollStateChange,
+        onSelectVirtualWorktree: selectVirtualWorktree,
+        onClearVirtualWorktree: clearVirtualWorktree,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
       }),
@@ -297,11 +323,21 @@ export const useSessionDetailViewExplorerSectionProps = ({
       rawMode,
       allowDangerKeys,
       fileResolveError,
+      worktreeSelectorEnabled,
+      worktreeSelectorLoading,
+      worktreeSelectorError,
+      worktreeEntries,
+      worktreeRepoRoot,
+      worktreeBaseBranch,
+      actualWorktreePath,
+      virtualWorktreePath,
       handleModeChange,
       handleRefreshScreen,
       handleAtBottomChange,
       scrollToBottom,
       handleUserScrollStateChange,
+      selectVirtualWorktree,
+      clearVirtualWorktree,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,
     ],

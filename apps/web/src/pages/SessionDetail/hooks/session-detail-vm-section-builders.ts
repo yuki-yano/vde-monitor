@@ -10,6 +10,7 @@ import type {
   SessionStateTimelineRange,
   SessionStateTimelineScope,
   SessionSummary,
+  WorktreeListEntry,
 } from "@vde-monitor/shared";
 import type { CompositionEvent, FormEvent, KeyboardEvent, PointerEvent, RefObject } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
@@ -92,6 +93,18 @@ type BuildScreenSectionArgs = {
   virtuosoRef: RefObject<VirtuosoHandle | null>;
   scrollerRef: RefObject<HTMLDivElement | null>;
   handleRefreshScreen: () => void;
+  effectiveBranch?: string | null;
+  effectiveWorktreePath?: string | null;
+  worktreeRepoRoot?: string | null;
+  worktreeBaseBranch?: string | null;
+  worktreeSelectorEnabled?: boolean;
+  worktreeSelectorLoading?: boolean;
+  worktreeSelectorError?: string | null;
+  worktreeEntries?: WorktreeListEntry[];
+  actualWorktreePath?: string | null;
+  virtualWorktreePath?: string | null;
+  selectVirtualWorktree?: (path: string) => void;
+  clearVirtualWorktree?: () => void;
 };
 
 type BuildControlsSectionArgs = {
@@ -324,7 +337,19 @@ export const buildScreenSection = ({
   virtuosoRef,
   scrollerRef,
   handleRefreshScreen,
-}: BuildScreenSectionArgs) => ({
+  effectiveBranch = null,
+  effectiveWorktreePath = null,
+  worktreeRepoRoot = null,
+  worktreeBaseBranch = null,
+  worktreeSelectorEnabled = false,
+  worktreeSelectorLoading = false,
+  worktreeSelectorError = null,
+  worktreeEntries = [],
+  actualWorktreePath = null,
+  virtualWorktreePath = null,
+  selectVirtualWorktree,
+  clearVirtualWorktree,
+}: BuildScreenSectionArgs): BuildScreenSectionArgs => ({
   mode,
   screenLines,
   imageBase64,
@@ -342,6 +367,18 @@ export const buildScreenSection = ({
   virtuosoRef,
   scrollerRef,
   handleRefreshScreen,
+  effectiveBranch,
+  effectiveWorktreePath,
+  worktreeRepoRoot,
+  worktreeBaseBranch,
+  worktreeSelectorEnabled,
+  worktreeSelectorLoading,
+  worktreeSelectorError,
+  worktreeEntries,
+  actualWorktreePath,
+  virtualWorktreePath,
+  selectVirtualWorktree,
+  clearVirtualWorktree,
 });
 
 export const buildControlsSection = ({

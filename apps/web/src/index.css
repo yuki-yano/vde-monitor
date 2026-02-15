@@ -518,3 +518,8 @@ body::before {
 .animate-panel-enter {
   animation: panel-enter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+body[data-vde-worktree-selector-open="true"] [data-quick-panel-root][data-open="false"] {
+  pointer-events: none;
+  z-index: -1 !important;
+}

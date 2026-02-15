@@ -1,0 +1,205 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { fetchDiffSummary } from "../../git-diff";
+import { resolveRepoBranchCached } from "../../monitor/repo-branch";
+import { resolveVwWorktreeSnapshotCached } from "../../monitor/vw-worktree";
+import {
+  resolveValidWorktreePath,
+  resolveWorktreeListPayload,
+  resolveWorktreePathValidationPayload,
+} from "./worktree-utils";
+
+vi.mock("../../git-diff", () => ({
+  fetchDiffSummary: vi.fn(),
+}));
+
+vi.mock("../../monitor/vw-worktree", () => ({
+  resolveVwWorktreeSnapshotCached: vi.fn(),
+}));
+
+vi.mock("../../monitor/repo-branch", () => ({
+  resolveRepoBranchCached: vi.fn(),
+}));
+
+describe("worktree-utils", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(resolveRepoBranchCached).mockResolvedValue(null);
+  });
+
+  it("returns empty entries when vw snapshot is unavailable", async () => {
+    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce(null);
+
+    const payload = await resolveWorktreeListPayload({
+      repoRoot: "/repo",
+      currentPath: "/repo/worktree-a",
+    });
+
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledWith("/repo");
+    expect(fetchDiffSummary).not.toHaveBeenCalled();
+    expect(payload).toEqual({
+      repoRoot: "/repo",
+      currentPath: "/repo/worktree-a",
+      baseBranch: null,
+      entries: [],
+    });
+  });
+
+  it("adds repo root fallback entry when vw list does not include root", async () => {
+    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce({
+      repoRoot: "/repo",
+      baseBranch: "main",
+      entries: [
+        {
+          path: "/repo/worktree-a",
+          branch: "feature/a",
+          dirty: true,
+          locked: { value: false, owner: null, reason: null },
+          merged: { overall: false },
+        },
+      ],
+    });
+    vi.mocked(fetchDiffSummary).mockImplementation(async (cwd: string | null) => {
+      if (cwd === "/repo/worktree-a") {
+        return {
+          repoRoot: cwd,
+          rev: "rev-a",
+          generatedAt: "2026-01-01T00:00:00.000Z",
+          files: [
+            { path: "a.ts", status: "A", staged: false, additions: 2, deletions: 0 },
+            { path: "new.ts", status: "?", staged: false, additions: 4, deletions: 0 },
+            { path: "b.ts", status: "D", staged: false, additions: 0, deletions: 1 },
+            { path: "c.ts", status: "M", staged: false, additions: 3, deletions: 2 },
+          ],
+        };
+      }
+      return {
+        repoRoot: cwd,
+        rev: "rev-root",
+        generatedAt: "2026-01-01T00:00:00.000Z",
+        files: [],
+      };
+    });
+    vi.mocked(resolveRepoBranchCached).mockResolvedValueOnce("feature/root");
+
+    const payload = await resolveWorktreeListPayload({
+      repoRoot: "/repo",
+      currentPath: "/repo/worktree-a",
+    });
+
+    expect(payload.entries).toEqual([
+      {
+        path: "/repo/worktree-a",
+        branch: "feature/a",
+        dirty: true,
+        locked: false,
+        lockOwner: null,
+        lockReason: null,
+        merged: false,
+        fileChanges: { add: 2, m: 1, d: 1 },
+        additions: 9,
+        deletions: 3,
+      },
+      {
+        path: "/repo",
+        branch: "feature/root",
+        dirty: null,
+        locked: null,
+        lockOwner: null,
+        lockReason: null,
+        merged: null,
+        fileChanges: { add: 0, m: 0, d: 0 },
+        additions: 0,
+        deletions: 0,
+      },
+    ]);
+    expect(payload.baseBranch).toBe("main");
+    expect(fetchDiffSummary).toHaveBeenCalledTimes(2);
+    expect(fetchDiffSummary).toHaveBeenNthCalledWith(1, "/repo/worktree-a");
+    expect(fetchDiffSummary).toHaveBeenNthCalledWith(2, "/repo");
+    expect(resolveRepoBranchCached).toHaveBeenCalledWith("/repo");
+  });
+
+  it("normalizes and validates worktree path override candidates", () => {
+    const resolved = resolveValidWorktreePath(
+      {
+        entries: [
+          {
+            path: "/repo/worktree-a",
+            branch: "feature/a",
+            dirty: false,
+            locked: false,
+            lockOwner: null,
+            lockReason: null,
+            merged: true,
+          },
+        ],
+      },
+      "/repo/worktree-a/",
+    );
+
+    expect(resolved).toBe("/repo/worktree-a");
+    expect(
+      resolveValidWorktreePath(
+        {
+          entries: [
+            {
+              path: "/repo/worktree-a",
+              branch: "feature/a",
+              dirty: false,
+              locked: false,
+              lockOwner: null,
+              lockReason: null,
+              merged: true,
+            },
+          ],
+        },
+        "/repo/worktree-b",
+      ),
+    ).toBeNull();
+  });
+
+  it("builds worktree validation payload without diff stats collection", async () => {
+    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce({
+      repoRoot: "/repo",
+      baseBranch: "main",
+      entries: [
+        {
+          path: "/repo/worktree-a",
+          branch: "feature/a",
+          dirty: true,
+          locked: { value: false, owner: null, reason: null },
+          merged: { overall: false },
+        },
+      ],
+    });
+
+    const payload = await resolveWorktreePathValidationPayload({
+      repoRoot: "/repo",
+      currentPath: "/repo/worktree-a",
+    });
+
+    expect(payload.entries).toEqual([
+      {
+        path: "/repo/worktree-a",
+        branch: "feature/a",
+        dirty: true,
+        locked: false,
+        lockOwner: null,
+        lockReason: null,
+        merged: false,
+      },
+      {
+        path: "/repo",
+        branch: null,
+        dirty: null,
+        locked: null,
+        lockOwner: null,
+        lockReason: null,
+        merged: null,
+      },
+    ]);
+    expect(fetchDiffSummary).not.toHaveBeenCalled();
+    expect(resolveRepoBranchCached).not.toHaveBeenCalled();
+  });
+});

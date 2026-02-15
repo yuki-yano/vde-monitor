@@ -24,11 +24,17 @@ export const fetchWithRequestMap = async <T>({
   }
 };
 
-export const buildTreePageRequestKey = (paneId: string, targetPath: string, cursor?: string) =>
-  `${paneId}:${targetPath}:${cursor ?? ""}`;
+export const buildTreePageRequestKey = (
+  requestScopeId: string,
+  targetPath: string,
+  cursor?: string,
+) => `${requestScopeId}:${targetPath}:${cursor ?? ""}`;
 
-export const buildSearchRequestKey = (paneId: string, query: string, cursor?: string) =>
-  `${paneId}:${query}:${cursor ?? ""}`;
+export const buildSearchRequestKey = (requestScopeId: string, query: string, cursor?: string) =>
+  `${requestScopeId}:${query}:${cursor ?? ""}`;
 
-export const buildFileContentRequestKey = (paneId: string, path: string, maxBytes: number) =>
-  `${paneId}:${path}:${maxBytes}`;
+export const buildFileContentRequestKey = (
+  requestScopeId: string,
+  path: string,
+  maxBytes: number,
+) => `${requestScopeId}:${path}:${maxBytes}`;

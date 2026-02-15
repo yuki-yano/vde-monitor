@@ -10,6 +10,7 @@ import {
 type UseSessionFilesContextResetEffectArgs = {
   paneId: string;
   repoRoot: string | null;
+  worktreePath: string | null;
   loadTree: (targetPath: string) => Promise<unknown>;
 } & ResetSessionFilesRefsInput &
   ResetSessionFilesStateInput;
@@ -17,6 +18,7 @@ type UseSessionFilesContextResetEffectArgs = {
 export const useSessionFilesContextResetEffect = ({
   paneId,
   repoRoot,
+  worktreePath,
   loadTree,
   treePageRequestMapRef,
   searchRequestMapRef,
@@ -119,6 +121,7 @@ export const useSessionFilesContextResetEffect = ({
     logReferenceLinkableRequestMapRef,
     paneId,
     repoRoot,
+    worktreePath,
     searchRequestMapRef,
     setExpandedDirSet,
     setFileModalCopiedPath,

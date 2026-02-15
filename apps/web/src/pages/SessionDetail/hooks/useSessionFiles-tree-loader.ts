@@ -8,11 +8,13 @@ import { mergeTreeEntries } from "./useSessionFiles-tree-utils";
 
 type UseSessionFilesTreeLoaderArgs = {
   paneId: string;
+  requestScopeId: string;
   repoRoot: string | null;
+  worktreePath: string | null;
   treePageLimit: number;
   requestRepoFileTree: (
     paneId: string,
-    options?: { path?: string; cursor?: string; limit?: number },
+    options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileTreePage>;
   treePageRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileTreePage>>>;
   contextVersionRef: MutableRefObject<number>;
@@ -24,7 +26,9 @@ type UseSessionFilesTreeLoaderArgs = {
 
 export const useSessionFilesTreeLoader = ({
   paneId,
+  requestScopeId,
   repoRoot,
+  worktreePath,
   treePageLimit,
   requestRepoFileTree,
   treePageRequestMapRef,
@@ -38,16 +42,24 @@ export const useSessionFilesTreeLoader = ({
     async (targetPath: string, cursor?: string) => {
       return fetchWithRequestMap({
         requestMapRef: treePageRequestMapRef,
-        requestKey: buildTreePageRequestKey(paneId, targetPath, cursor),
+        requestKey: buildTreePageRequestKey(requestScopeId, targetPath, cursor),
         requestFactory: () =>
           requestRepoFileTree(paneId, {
             path: targetPath === "." ? undefined : targetPath,
             cursor,
             limit: treePageLimit,
+            ...(worktreePath ? { worktreePath } : {}),
           }),
       });
     },
-    [paneId, requestRepoFileTree, treePageLimit, treePageRequestMapRef],
+    [
+      paneId,
+      requestRepoFileTree,
+      requestScopeId,
+      treePageLimit,
+      treePageRequestMapRef,
+      worktreePath,
+    ],
   );
 
   const loadTree = useCallback(

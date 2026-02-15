@@ -5,22 +5,26 @@ import { z } from "zod";
 import { createRepoFileService, type RepoFileServiceError } from "../../repo-files/service";
 import { buildError } from "../helpers";
 import type { FileRouteDeps } from "./types";
+import { resolveValidWorktreePath, resolveWorktreePathValidationPayload } from "./worktree-utils";
 
 const treeQuerySchema = z.object({
   path: z.string().optional(),
   cursor: z.string().optional(),
   limit: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
 
 const searchQuerySchema = z.object({
   q: z.string(),
   cursor: z.string().optional(),
   limit: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
 
 const contentQuerySchema = z.object({
   path: z.string(),
   maxBytes: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
 
 const SEARCH_QUERY_MAX_LENGTH = 4096;
@@ -65,6 +69,30 @@ const resolveRepoRoot = (repoRoot: string | null): string | null => {
   return repoRoot;
 };
 
+const resolveRequestedRepoRoot = async (
+  c: {
+    json: (body: unknown, status?: number) => Response;
+  },
+  detail: { repoRoot: string | null; currentPath: string | null },
+  worktreePath: string | undefined,
+): Promise<Response | string | null> => {
+  if (!worktreePath) {
+    return resolveRepoRoot(detail.repoRoot);
+  }
+  const payload = await resolveWorktreePathValidationPayload(detail);
+  if (payload.entries.length === 0) {
+    return c.json(
+      { error: buildError("INVALID_PAYLOAD", "worktree override is unavailable") },
+      400,
+    );
+  }
+  const target = resolveValidWorktreePath(payload, worktreePath);
+  if (!target) {
+    return c.json({ error: buildError("INVALID_PAYLOAD", "invalid worktree path") }, 400);
+  }
+  return target;
+};
+
 const mapServiceError = (error: RepoFileServiceError) => {
   return {
     error: buildError(error.code, error.message),
@@ -83,12 +111,14 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
       if (pane instanceof Response) {
         return pane;
       }
-      const repoRoot = resolveRepoRoot(pane.detail.repoRoot);
+      const query = c.req.valid("query");
+      const repoRoot = await resolveRequestedRepoRoot(c, pane.detail, query.worktreePath);
+      if (repoRoot instanceof Response) {
+        return repoRoot;
+      }
       if (!repoRoot) {
         return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
       }
-
-      const query = c.req.valid("query");
       const limit = parseLimit({
         rawLimit: query.limit,
         fallback: 100,
@@ -120,12 +150,14 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
       if (pane instanceof Response) {
         return pane;
       }
-      const repoRoot = resolveRepoRoot(pane.detail.repoRoot);
+      const query = c.req.valid("query");
+      const repoRoot = await resolveRequestedRepoRoot(c, pane.detail, query.worktreePath);
+      if (repoRoot instanceof Response) {
+        return repoRoot;
+      }
       if (!repoRoot) {
         return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
       }
-
-      const query = c.req.valid("query");
       const limit = parseLimit({
         rawLimit: query.limit,
         fallback: 50,
@@ -161,12 +193,14 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
       if (pane instanceof Response) {
         return pane;
       }
-      const repoRoot = resolveRepoRoot(pane.detail.repoRoot);
+      const query = c.req.valid("query");
+      const repoRoot = await resolveRequestedRepoRoot(c, pane.detail, query.worktreePath);
+      if (repoRoot instanceof Response) {
+        return repoRoot;
+      }
       if (!repoRoot) {
         return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
       }
-
-      const query = c.req.valid("query");
       const limit = parseLimit({
         rawLimit: query.maxBytes,
         fallback: 256 * 1024,

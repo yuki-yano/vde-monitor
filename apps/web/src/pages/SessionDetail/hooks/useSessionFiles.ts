@@ -35,20 +35,21 @@ export type { FileTreeRenderNode } from "./useSessionFiles-tree-utils";
 type UseSessionFilesParams = {
   paneId: string;
   repoRoot: string | null;
+  worktreePath?: string | null;
   autoExpandMatchLimit: number;
   requestRepoFileTree: (
     paneId: string,
-    options?: { path?: string; cursor?: string; limit?: number },
+    options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileTreePage>;
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number },
+    options?: { cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
 };
 
@@ -58,11 +59,13 @@ const resolveUnknownErrorMessage = (error: unknown, fallbackMessage: string) =>
 export const useSessionFiles = ({
   paneId,
   repoRoot,
+  worktreePath = null,
   autoExpandMatchLimit,
   requestRepoFileTree,
   requestRepoFileSearch,
   requestRepoFileContent,
 }: UseSessionFilesParams) => {
+  const requestScopeId = `${paneId}:${worktreePath ?? "__default__"}`;
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [expandedDirSet, setExpandedDirSet] = useState<Set<string>>(new Set());
   const [searchExpandedDirSet, setSearchExpandedDirSet] = useState<Set<string>>(new Set());
@@ -111,9 +114,16 @@ export const useSessionFiles = ({
     treePagesRef.current = treePages;
   }, [treePages]);
 
+  const resolveWorktreePathForPane = useCallback(
+    (targetPaneId: string) => (targetPaneId === paneId ? (worktreePath ?? undefined) : undefined),
+    [paneId, worktreePath],
+  );
+
   const { loadTree } = useSessionFilesTreeLoader({
     paneId,
+    requestScopeId,
     repoRoot,
+    worktreePath,
     treePageLimit: TREE_PAGE_LIMIT,
     requestRepoFileTree,
     treePageRequestMapRef,
@@ -126,8 +136,11 @@ export const useSessionFiles = ({
 
   const { fetchSearchPage, fetchFileContent } = useSessionFilesRequestActions({
     paneId,
+    requestScopeId,
+    worktreePath,
     searchPageLimit: SEARCH_PAGE_LIMIT,
     fileContentMaxBytes: FILE_CONTENT_MAX_BYTES,
+    resolveWorktreePathForPane,
     requestRepoFileSearch,
     requestRepoFileContent,
     searchRequestMapRef,
@@ -137,6 +150,7 @@ export const useSessionFiles = ({
   useSessionFilesContextResetEffect({
     paneId,
     repoRoot,
+    worktreePath,
     loadTree,
     treePageRequestMapRef,
     searchRequestMapRef,
@@ -294,6 +308,7 @@ export const useSessionFiles = ({
 
   const { hasExactPathMatch, findExactNameMatches, tryOpenExistingPath } =
     useSessionFilesLogResolveSearch({
+      resolveWorktreePathForPane,
       requestRepoFileSearch,
       activeLogResolveRequestIdRef,
       logFileResolveMaxSearchPages: LOG_FILE_RESOLVE_MAX_SEARCH_PAGES,

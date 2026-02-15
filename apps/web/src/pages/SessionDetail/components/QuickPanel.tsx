@@ -147,7 +147,11 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
   }, []);
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-2.5 z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3">
+    <div
+      data-quick-panel-root
+      data-open={open ? "true" : "false"}
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-2.5 z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3"
+    >
       {open && (
         <Card
           data-quick-panel-card

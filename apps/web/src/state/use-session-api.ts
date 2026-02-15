@@ -220,6 +220,7 @@ export const useSessionApi = ({
   );
 
   const {
+    requestWorktrees,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,
@@ -349,6 +350,7 @@ export const useSessionApi = ({
 
   return {
     refreshSessions,
+    requestWorktrees,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,

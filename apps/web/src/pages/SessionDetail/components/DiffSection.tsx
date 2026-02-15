@@ -96,6 +96,33 @@ type DiffFileListProps = {
 
 const toFileCountLabel = (fileCount: number) => `${fileCount} file${fileCount === 1 ? "" : "s"}`;
 
+const buildVisibleFileChangeCategories = (files: DiffSummary["files"] | null | undefined) => {
+  const counts = (files ?? []).reduce(
+    (result, file) => {
+      if (file.status === "A") {
+        result.add += 1;
+        return result;
+      }
+      if (file.status === "?") {
+        result.add += 1;
+        return result;
+      }
+      if (file.status === "D") {
+        result.d += 1;
+        return result;
+      }
+      result.m += 1;
+      return result;
+    },
+    { add: 0, m: 0, d: 0 },
+  );
+  return [
+    { key: "add", label: "A", value: counts.add, className: "text-latte-green" },
+    { key: "m", label: "M", value: counts.m, className: "text-latte-yellow" },
+    { key: "d", label: "D", value: counts.d, className: "text-latte-red" },
+  ].filter((item) => item.value > 0);
+};
+
 const shouldShowCleanState = (diffSummary: DiffSummary | null) =>
   Boolean(diffSummary && diffSummary.files.length === 0 && !diffSummary.reason);
 
@@ -246,16 +273,27 @@ const DiffSummaryDescription = memo(
     diffBranch,
     showTotals,
     totals,
+    fileChangeCategories,
   }: {
     fileCount: number;
     diffBranch: string | null;
     showTotals: boolean;
     totals: ReturnType<typeof sumFileStats>;
+    fileChangeCategories: ReturnType<typeof buildVisibleFileChangeCategories>;
   }) => (
     <span className="inline-flex items-center gap-1.5">
       <span>{toFileCountLabel(fileCount)}</span>
       {showTotals ? (
         <span className="inline-flex items-center gap-2 text-xs">
+          {fileChangeCategories.map((item) => (
+            <TagPill
+              key={item.key}
+              tone="meta"
+              className={`${item.className} px-1.5 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em]`}
+            >
+              {item.label} {item.value}
+            </TagPill>
+          ))}
           <span className="text-latte-green">+{totals?.additions ?? "—"}</span>
           <span className="text-latte-red">-{totals?.deletions ?? "—"}</span>
         </span>
@@ -416,6 +454,10 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
   const { onRefresh, onToggle, onResolveFileReference, onResolveFileReferenceCandidates } = actions;
   const [expandedDiffs, setExpandedDiffs] = useAtom(diffExpandedAtom);
   const totals = useMemo(() => sumFileStats(diffSummary?.files), [diffSummary]);
+  const fileChangeCategories = useMemo(
+    () => buildVisibleFileChangeCategories(diffSummary?.files),
+    [diffSummary],
+  );
   const files = diffSummary?.files ?? [];
   const fileCount = files.length;
   const showCleanState = shouldShowCleanState(diffSummary);
@@ -446,6 +488,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
             diffBranch={diffBranch}
             showTotals={Boolean(diffSummary)}
             totals={totals}
+            fileChangeCategories={fileChangeCategories}
           />
         }
         action={

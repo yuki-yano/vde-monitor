@@ -4,10 +4,11 @@ import { type MutableRefObject, useCallback } from "react";
 import type { LogFileCandidateItem } from "./useSessionFiles-log-resolve-state";
 
 type UseSessionFilesLogResolveSearchArgs = {
+  resolveWorktreePathForPane: (targetPaneId: string) => string | undefined;
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number },
+    options?: { cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileSearchPage>;
   activeLogResolveRequestIdRef: MutableRefObject<number>;
   logFileResolveMaxSearchPages: number;
@@ -23,6 +24,7 @@ type UseSessionFilesLogResolveSearchArgs = {
 };
 
 export const useSessionFilesLogResolveSearch = ({
+  resolveWorktreePathForPane,
   requestRepoFileSearch,
   activeLogResolveRequestIdRef,
   logFileResolveMaxSearchPages,
@@ -52,6 +54,9 @@ export const useSessionFilesLogResolveSearch = ({
         const page = await requestRepoFileSearch(targetPaneId, path, {
           cursor,
           limit: limitPerPage,
+          ...(resolveWorktreePathForPane(targetPaneId)
+            ? { worktreePath: resolveWorktreePathForPane(targetPaneId) }
+            : {}),
         });
         pageCount += 1;
         if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
@@ -75,7 +80,12 @@ export const useSessionFilesLogResolveSearch = ({
 
       return false;
     },
-    [activeLogResolveRequestIdRef, logFileResolveMaxSearchPages, requestRepoFileSearch],
+    [
+      activeLogResolveRequestIdRef,
+      logFileResolveMaxSearchPages,
+      requestRepoFileSearch,
+      resolveWorktreePathForPane,
+    ],
   );
 
   const findExactNameMatches = useCallback(
@@ -103,6 +113,9 @@ export const useSessionFilesLogResolveSearch = ({
         const page = await requestRepoFileSearch(targetPaneId, filename, {
           cursor,
           limit: limitPerPage,
+          ...(resolveWorktreePathForPane(targetPaneId)
+            ? { worktreePath: resolveWorktreePathForPane(targetPaneId) }
+            : {}),
         });
         if (requestId != null && activeLogResolveRequestIdRef.current !== requestId) {
           return null;
@@ -126,7 +139,7 @@ export const useSessionFilesLogResolveSearch = ({
 
       return matches.slice(0, maxMatches);
     },
-    [activeLogResolveRequestIdRef, requestRepoFileSearch],
+    [activeLogResolveRequestIdRef, requestRepoFileSearch, resolveWorktreePathForPane],
   );
 
   const tryOpenExistingPath = useCallback(

@@ -347,7 +347,7 @@ export const SessionDetailView = ({
                 }
               >
                 <div
-                  className={is2xlUp ? "min-w-0 flex-[0_0_auto]" : "min-w-0"}
+                  className={is2xlUp ? "relative z-20 min-w-0 flex-[0_0_auto]" : "min-w-0"}
                   style={is2xlUp ? { flexBasis: `${detailSplitRatio * 100}%` } : undefined}
                 >
                   <ScreenPanel

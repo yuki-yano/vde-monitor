@@ -246,6 +246,17 @@ const applyForceQuery = <T extends { force?: string }>(query: T, force?: boolean
   return query;
 };
 
+const applyWorktreePathQuery = <T extends { worktreePath?: string }>(
+  query: T,
+  worktreePath?: string,
+): T => {
+  const normalized = worktreePath?.trim();
+  if (normalized) {
+    query.worktreePath = normalized;
+  }
+  return query;
+};
+
 const assignNumberAsStringIfTruthy = <T extends object, K extends keyof T>(
   query: T,
   key: K,
@@ -256,38 +267,39 @@ const assignNumberAsStringIfTruthy = <T extends object, K extends keyof T>(
   }
 };
 
-export const buildForceQuery = (options?: { force?: boolean }): ForceQuery =>
-  applyForceQuery({}, options?.force);
+export const buildForceQuery = (options?: { force?: boolean; worktreePath?: string }): ForceQuery =>
+  applyWorktreePathQuery(applyForceQuery({}, options?.force), options?.worktreePath);
 
 export const buildDiffFileQuery = (
   path: string,
   rev?: string | null,
-  options?: { force?: boolean },
+  options?: { force?: boolean; worktreePath?: string },
 ): DiffFileQuery => {
   const query: DiffFileQuery = { path };
   if (rev) {
     query.rev = rev;
   }
-  return applyForceQuery(query, options?.force);
+  return applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath);
 };
 
 export const buildCommitLogQuery = (options?: {
   limit?: number;
   skip?: number;
   force?: boolean;
+  worktreePath?: string;
 }): CommitLogQuery => {
   const query: CommitLogQuery = {};
   assignNumberAsStringIfTruthy(query, "limit", options?.limit);
   assignNumberAsStringIfTruthy(query, "skip", options?.skip);
-  return applyForceQuery(query, options?.force);
+  return applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath);
 };
 
 export const buildCommitFileQuery = (
   path: string,
-  options?: { force?: boolean },
+  options?: { force?: boolean; worktreePath?: string },
 ): CommitFileQuery => {
   const query: CommitFileQuery = { path };
-  return applyForceQuery(query, options?.force);
+  return applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath);
 };
 
 export const buildTimelineQuery = (options?: {
@@ -312,6 +324,7 @@ export const buildRepoFileTreeQuery = (options?: {
   path?: string;
   cursor?: string;
   limit?: number;
+  worktreePath?: string;
 }): RepoFileTreeQuery => {
   const query: RepoFileTreeQuery = {};
   if (options?.path) {
@@ -323,7 +336,7 @@ export const buildRepoFileTreeQuery = (options?: {
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     query.limit = String(Math.max(1, Math.floor(options.limit)));
   }
-  return query;
+  return applyWorktreePathQuery(query, options?.worktreePath);
 };
 
 export const buildRepoFileSearchQuery = (
@@ -331,6 +344,7 @@ export const buildRepoFileSearchQuery = (
   options?: {
     cursor?: string;
     limit?: number;
+    worktreePath?: string;
   },
 ): RepoFileSearchQuery => {
   const query: RepoFileSearchQuery = {
@@ -342,13 +356,14 @@ export const buildRepoFileSearchQuery = (
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     query.limit = String(Math.max(1, Math.floor(options.limit)));
   }
-  return query;
+  return applyWorktreePathQuery(query, options?.worktreePath);
 };
 
 export const buildRepoFileContentQuery = (
   path: string,
   options?: {
     maxBytes?: number;
+    worktreePath?: string;
   },
 ): RepoFileContentQuery => {
   const query: RepoFileContentQuery = {
@@ -357,5 +372,5 @@ export const buildRepoFileContentQuery = (
   if (typeof options?.maxBytes === "number" && Number.isFinite(options.maxBytes)) {
     query.maxBytes = String(Math.max(1, Math.floor(options.maxBytes)));
   }
-  return query;
+  return applyWorktreePathQuery(query, options?.worktreePath);
 };

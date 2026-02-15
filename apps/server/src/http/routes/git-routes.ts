@@ -7,25 +7,35 @@ import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../../git-co
 import { fetchDiffFile, fetchDiffSummary } from "../../git-diff";
 import { buildError } from "../helpers";
 import type { GitRouteDeps, RouteContext } from "./types";
+import { resolveValidWorktreePath, resolveWorktreePathValidationPayload } from "./worktree-utils";
 
 type DiffSummaryResult = Awaited<ReturnType<typeof fetchDiffSummary>>;
 type CommitLogResult = Awaited<ReturnType<typeof fetchCommitLog>>;
 
-const forceQuerySchema = z.object({ force: z.string().optional() });
+const forceQuerySchema = z.object({
+  force: z.string().optional(),
+  worktreePath: z.string().optional(),
+});
 const diffFileQuerySchema = z.object({
   path: z.string(),
   rev: z.string().optional(),
   force: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
 const commitLogQuerySchema = z.object({
   limit: z.string().optional(),
   skip: z.string().optional(),
   force: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
-const commitDetailQuerySchema = z.object({ force: z.string().optional() });
+const commitDetailQuerySchema = z.object({
+  force: z.string().optional(),
+  worktreePath: z.string().optional(),
+});
 const commitFileQuerySchema = z.object({
   path: z.string(),
   force: z.string().optional(),
+  worktreePath: z.string().optional(),
 });
 
 const isForceRequested = (force?: string) => force === "1";
@@ -43,12 +53,34 @@ const resolveHash = (c: RouteContext): string | Response => {
   return hash;
 };
 
-const loadReadyDiffSummary = async (
+const resolveRequestedCwd = async (
   c: RouteContext,
   detail: SessionDetail,
+  worktreePath: string | undefined,
+): Promise<Response | string | null> => {
+  if (!worktreePath) {
+    return detail.currentPath;
+  }
+  const payload = await resolveWorktreePathValidationPayload(detail);
+  if (payload.entries.length === 0) {
+    return c.json(
+      { error: buildError("INVALID_PAYLOAD", "worktree override is unavailable") },
+      400,
+    );
+  }
+  const target = resolveValidWorktreePath(payload, worktreePath);
+  if (!target) {
+    return c.json({ error: buildError("INVALID_PAYLOAD", "invalid worktree path") }, 400);
+  }
+  return target;
+};
+
+const loadReadyDiffSummary = async (
+  c: RouteContext,
+  cwd: string | null,
   force: boolean,
 ): Promise<Response | { summary: DiffSummaryResult; repoRoot: string; rev: string }> => {
-  const summary = await fetchDiffSummary(detail.currentPath, { force });
+  const summary = await fetchDiffSummary(cwd, { force });
   if (!summary.repoRoot || summary.reason || !summary.rev) {
     return c.json({ error: buildError("INVALID_PAYLOAD", "diff summary unavailable") }, 400);
   }
@@ -61,9 +93,9 @@ const loadReadyDiffSummary = async (
 
 const loadReadyCommitLog = async (
   c: RouteContext,
-  detail: SessionDetail,
+  cwd: string | null,
 ): Promise<Response | { log: CommitLogResult; repoRoot: string }> => {
-  const log = await fetchCommitLog(detail.currentPath, { limit: 1, skip: 0 });
+  const log = await fetchCommitLog(cwd, { limit: 1, skip: 0 });
   if (!log.repoRoot || log.reason) {
     return c.json({ error: buildError("INVALID_PAYLOAD", "commit log unavailable") }, 400);
   }
@@ -82,7 +114,11 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       }
       const query = c.req.valid("query");
       const force = isForceRequested(query.force);
-      const summary = await fetchDiffSummary(pane.detail.currentPath, { force });
+      const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
+      if (cwd instanceof Response) {
+        return cwd;
+      }
+      const summary = await fetchDiffSummary(cwd, { force });
       return c.json({ summary });
     })
     .get("/sessions/:paneId/diff/file", zValidator("query", diffFileQuerySchema), async (c) => {
@@ -93,7 +129,11 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       const query = c.req.valid("query");
       const pathParam = query.path;
       const force = isForceRequested(query.force);
-      const readySummary = await loadReadyDiffSummary(c, pane.detail, force);
+      const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
+      if (cwd instanceof Response) {
+        return cwd;
+      }
+      const readySummary = await loadReadyDiffSummary(c, cwd, force);
       if (readySummary instanceof Response) {
         return readySummary;
       }
@@ -113,7 +153,11 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       const limit = parseQueryInteger(query.limit, 10);
       const skip = parseQueryInteger(query.skip, 0);
       const force = isForceRequested(query.force);
-      const log = await fetchCommitLog(pane.detail.currentPath, {
+      const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
+      if (cwd instanceof Response) {
+        return cwd;
+      }
+      const log = await fetchCommitLog(cwd, {
         limit,
         skip,
         force,
@@ -132,11 +176,15 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
         if (hash instanceof Response) {
           return hash;
         }
-        const readyCommitLog = await loadReadyCommitLog(c, pane.detail);
+        const query = c.req.valid("query");
+        const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
+        if (cwd instanceof Response) {
+          return cwd;
+        }
+        const readyCommitLog = await loadReadyCommitLog(c, cwd);
         if (readyCommitLog instanceof Response) {
           return readyCommitLog;
         }
-        const query = c.req.valid("query");
         const commit = await fetchCommitDetail(readyCommitLog.repoRoot, hash, {
           force: isForceRequested(query.force),
         });
@@ -160,7 +208,11 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
         }
         const query = c.req.valid("query");
         const pathParam = query.path;
-        const readyCommitLog = await loadReadyCommitLog(c, pane.detail);
+        const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
+        if (cwd instanceof Response) {
+          return cwd;
+        }
+        const readyCommitLog = await loadReadyCommitLog(c, cwd);
         if (readyCommitLog instanceof Response) {
           return readyCommitLog;
         }

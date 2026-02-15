@@ -47,6 +47,9 @@ describe("DiffSection", () => {
 
     expect(screen.getByText("Changes")).toBeTruthy();
     expect(screen.getByText("src/index.ts")).toBeTruthy();
+    expect(screen.getByText("M 1")).toBeTruthy();
+    expect(screen.queryByText("A 0")).toBeNull();
+    expect(screen.queryByText("D 0")).toBeNull();
     expect(screen.getAllByText("+1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("-0").length).toBeGreaterThan(0);
 
@@ -66,6 +69,29 @@ describe("DiffSection", () => {
     expect(screen.getByText("feature/changes-tab")).toBeTruthy();
   });
 
+  it("shows A/M/D categories to the left of line totals in header summary", () => {
+    const state = buildState({
+      diffSummary: createDiffSummary({
+        files: [
+          { path: "a.ts", status: "A", staged: false, additions: 3, deletions: 0 },
+          { path: "new.ts", status: "?", staged: false, additions: 2, deletions: 0 },
+          { path: "b.ts", status: "D", staged: false, additions: 0, deletions: 2 },
+          { path: "c.ts", status: "M", staged: false, additions: 1, deletions: 1 },
+          { path: "d.ts", status: "M", staged: false, additions: 4, deletions: 0 },
+        ],
+      }),
+    });
+    const actions = buildActions();
+    const wrapper = createWrapper();
+    render(<DiffSection state={state} actions={actions} />, { wrapper });
+
+    expect(screen.getByText("A 2")).toBeTruthy();
+    expect(screen.getByText("M 2")).toBeTruthy();
+    expect(screen.getByText("D 1")).toBeTruthy();
+    expect(screen.getByText("+10")).toBeTruthy();
+    expect(screen.getByText("-3")).toBeTruthy();
+  });
+
   it("renders clean state and error message", () => {
     const state = buildState({
       diffSummary: createDiffSummary({ files: [] }),
@@ -76,6 +102,9 @@ describe("DiffSection", () => {
     render(<DiffSection state={state} actions={actions} />, { wrapper });
 
     expect(screen.getByText("Working directory is clean")).toBeTruthy();
+    expect(screen.queryByText("A 0")).toBeNull();
+    expect(screen.queryByText("M 0")).toBeNull();
+    expect(screen.queryByText("D 0")).toBeNull();
     expect(screen.getByText("+0")).toBeTruthy();
     expect(screen.getByText("-0")).toBeTruthy();
     expect(screen.getByText("Diff error")).toBeTruthy();

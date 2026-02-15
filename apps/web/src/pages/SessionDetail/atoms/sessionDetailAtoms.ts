@@ -18,6 +18,7 @@ import type {
   SessionStateTimelineRange,
   SessionStateTimelineScope,
   SessionSummary,
+  WorktreeList,
 } from "@vde-monitor/shared";
 import { atom } from "jotai";
 
@@ -25,27 +26,31 @@ import type { Theme } from "@/lib/theme";
 
 export type SessionApi = {
   reconnect: () => void;
-  requestDiffSummary: (paneId: string, options?: { force?: boolean }) => Promise<DiffSummary>;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
+  requestDiffSummary: (
+    paneId: string,
+    options?: { force?: boolean; worktreePath?: string },
+  ) => Promise<DiffSummary>;
   requestDiffFile: (
     paneId: string,
     path: string,
     rev?: string | null,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<DiffFile>;
   requestCommitLog: (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean },
+    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
   ) => Promise<CommitLog>;
   requestCommitDetail: (
     paneId: string,
     hash: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<CommitDetail>;
   requestCommitFile: (
     paneId: string,
     hash: string,
     path: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<CommitFileDiff>;
   requestStateTimeline: (
     paneId: string,
@@ -57,17 +62,17 @@ export type SessionApi = {
   ) => Promise<SessionStateTimeline>;
   requestRepoFileTree: (
     paneId: string,
-    options?: { path?: string; cursor?: string; limit?: number },
+    options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileTreePage>;
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number },
+    options?: { cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
   requestScreen: (
     paneId: string,

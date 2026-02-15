@@ -11,20 +11,21 @@ import { AUTO_REFRESH_INTERVAL_MS, buildCommitLogSignature } from "../sessionDet
 type UseSessionCommitsParams = {
   paneId: string;
   connected: boolean;
+  worktreePath?: string | null;
   requestCommitLog: (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean },
+    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
   ) => Promise<CommitLog>;
   requestCommitDetail: (
     paneId: string,
     hash: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<CommitDetail>;
   requestCommitFile: (
     paneId: string,
     hash: string,
     path: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<CommitFileDiff>;
 };
 
@@ -199,6 +200,7 @@ const resolveCommitLogSkip = (append: boolean, commitLog: CommitLog | null) => {
 export const useSessionCommits = ({
   paneId,
   connected,
+  worktreePath = null,
   requestCommitLog,
   requestCommitDetail,
   requestCommitFile,
@@ -230,9 +232,10 @@ export const useSessionCommits = ({
   const commitSignatureRef = useRef<string | null>(null);
   const commitCopyTimeoutRef = useRef<number | null>(null);
   const prevConnectedRef = useRef<boolean | null>(null);
-  const activePaneIdRef = useRef(paneId);
+  const requestScopeKey = `${paneId}:${worktreePath ?? "__default__"}`;
+  const activeScopeRef = useRef(requestScopeKey);
   const commitLogRequestIdRef = useRef(0);
-  activePaneIdRef.current = paneId;
+  activeScopeRef.current = requestScopeKey;
 
   const applyCommitLog = useCallback(
     (log: CommitLog, options: { append: boolean; updateSignature: boolean }) => {
@@ -247,7 +250,7 @@ export const useSessionCommits = ({
   const loadCommitLog = useCallback(
     async (options?: { append?: boolean; force?: boolean }) => {
       if (!paneId) return;
-      const targetPaneId = paneId;
+      const targetScopeKey = requestScopeKey;
       const requestId = commitLogRequestIdRef.current + 1;
       commitLogRequestIdRef.current = requestId;
       const { append, force } = resolveCommitLogLoadOptions(options);
@@ -255,13 +258,14 @@ export const useSessionCommits = ({
       dispatch({ type: "setCommitError", error: null });
       try {
         const skip = resolveCommitLogSkip(append, commitLogRef.current);
-        const log = await requestCommitLog(targetPaneId, {
+        const log = await requestCommitLog(paneId, {
           limit: commitPageSize,
           skip,
           force,
+          ...(worktreePath ? { worktreePath } : {}),
         });
         if (
-          activePaneIdRef.current !== targetPaneId ||
+          activeScopeRef.current !== targetScopeKey ||
           commitLogRequestIdRef.current !== requestId
         ) {
           return;
@@ -269,7 +273,7 @@ export const useSessionCommits = ({
         applyCommitLog(log, { append, updateSignature: !append });
       } catch (err) {
         if (
-          activePaneIdRef.current !== targetPaneId ||
+          activeScopeRef.current !== targetScopeKey ||
           commitLogRequestIdRef.current !== requestId
         ) {
           return;
@@ -277,29 +281,41 @@ export const useSessionCommits = ({
         dispatchCommitLogError(dispatch, append, err);
       } finally {
         if (
-          activePaneIdRef.current === targetPaneId &&
+          activeScopeRef.current === targetScopeKey &&
           commitLogRequestIdRef.current === requestId
         ) {
           dispatch({ type: "finishLogLoad", append });
         }
       }
     },
-    [applyCommitLog, commitPageSize, dispatch, paneId, requestCommitLog],
+    [
+      applyCommitLog,
+      commitPageSize,
+      dispatch,
+      paneId,
+      requestCommitLog,
+      requestScopeKey,
+      worktreePath,
+    ],
   );
 
   const loadCommitDetail = useCallback(
     async (hash: string) => {
       if (!paneId || commitLoadingDetails[hash]) return;
-      const targetPaneId = paneId;
+      const targetScopeKey = requestScopeKey;
       dispatch({ type: "setCommitLoadingDetails", hash, loading: true });
       try {
-        const detail = await requestCommitDetail(targetPaneId, hash, { force: true });
-        if (activePaneIdRef.current !== targetPaneId) {
+        const detail = await requestCommitDetail(
+          paneId,
+          hash,
+          worktreePath ? { force: true, worktreePath } : { force: true },
+        );
+        if (activeScopeRef.current !== targetScopeKey) {
           return;
         }
         dispatch({ type: "setCommitDetail", hash, detail });
       } catch (err) {
-        if (activePaneIdRef.current !== targetPaneId) {
+        if (activeScopeRef.current !== targetScopeKey) {
           return;
         }
         dispatch({
@@ -307,12 +323,12 @@ export const useSessionCommits = ({
           error: err instanceof Error ? err.message : API_ERROR_MESSAGES.commitDetail,
         });
       } finally {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (activeScopeRef.current === targetScopeKey) {
           dispatch({ type: "setCommitLoadingDetails", hash, loading: false });
         }
       }
     },
-    [commitLoadingDetails, dispatch, paneId, requestCommitDetail],
+    [commitLoadingDetails, dispatch, paneId, requestCommitDetail, requestScopeKey, worktreePath],
   );
 
   const loadCommitFile = useCallback(
@@ -320,16 +336,21 @@ export const useSessionCommits = ({
       if (!paneId) return;
       const key = `${hash}:${path}`;
       if (commitFileLoading[key]) return;
-      const targetPaneId = paneId;
+      const targetScopeKey = requestScopeKey;
       dispatch({ type: "setCommitFileLoading", key, loading: true });
       try {
-        const file = await requestCommitFile(targetPaneId, hash, path, { force: true });
-        if (activePaneIdRef.current !== targetPaneId) {
+        const file = await requestCommitFile(
+          paneId,
+          hash,
+          path,
+          worktreePath ? { force: true, worktreePath } : { force: true },
+        );
+        if (activeScopeRef.current !== targetScopeKey) {
           return;
         }
         dispatch({ type: "setCommitFileDetail", key, file });
       } catch (err) {
-        if (activePaneIdRef.current !== targetPaneId) {
+        if (activeScopeRef.current !== targetScopeKey) {
           return;
         }
         dispatch({
@@ -337,26 +358,30 @@ export const useSessionCommits = ({
           error: err instanceof Error ? err.message : API_ERROR_MESSAGES.commitFile,
         });
       } finally {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (activeScopeRef.current === targetScopeKey) {
           dispatch({ type: "setCommitFileLoading", key, loading: false });
         }
       }
     },
-    [commitFileLoading, dispatch, paneId, requestCommitFile],
+    [commitFileLoading, dispatch, paneId, requestCommitFile, requestScopeKey, worktreePath],
   );
 
   const pollCommitLog = useCallback(async () => {
     if (!paneId) return;
-    const targetPaneId = paneId;
+    const targetScopeKey = requestScopeKey;
     const requestId = commitLogRequestIdRef.current + 1;
     commitLogRequestIdRef.current = requestId;
     try {
-      const log = await requestCommitLog(targetPaneId, {
+      const log = await requestCommitLog(paneId, {
         limit: commitPageSize,
         skip: 0,
         force: true,
+        ...(worktreePath ? { worktreePath } : {}),
       });
-      if (activePaneIdRef.current !== targetPaneId || commitLogRequestIdRef.current !== requestId) {
+      if (
+        activeScopeRef.current !== targetScopeKey ||
+        commitLogRequestIdRef.current !== requestId
+      ) {
         return;
       }
       const signature = buildCommitLogSignature(log);
@@ -368,7 +393,15 @@ export const useSessionCommits = ({
     } catch {
       return;
     }
-  }, [applyCommitLog, commitPageSize, dispatch, paneId, requestCommitLog]);
+  }, [
+    applyCommitLog,
+    commitPageSize,
+    dispatch,
+    paneId,
+    requestCommitLog,
+    requestScopeKey,
+    worktreePath,
+  ]);
   const pollCommitLogTick = useCallback(() => {
     void pollCommitLog();
   }, [pollCommitLog]);
@@ -442,7 +475,7 @@ export const useSessionCommits = ({
       window.clearTimeout(commitCopyTimeoutRef.current);
       commitCopyTimeoutRef.current = null;
     }
-  }, [dispatch, paneId]);
+  }, [dispatch, paneId, worktreePath]);
 
   useEffect(() => {
     loadCommitLog({ force: true });

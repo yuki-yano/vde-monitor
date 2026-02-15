@@ -10,12 +10,13 @@ import {
 export const useSessionDetailViewDataSectionProps = ({
   meta,
   timeline,
+  screen,
   diffs,
   files,
   commits,
 }: SessionDetailViewProps) => {
   const { paneId, session } = meta;
-  const sourceRepoRoot = session?.repoRoot ?? null;
+  const sourceRepoRoot = screen.effectiveWorktreePath ?? session?.repoRoot ?? null;
   const {
     timeline: stateTimeline,
     timelineScope,
@@ -60,7 +61,7 @@ export const useSessionDetailViewDataSectionProps = ({
     toggleCommitFile,
     copyHash,
   } = commits;
-  const sessionBranch = session?.branch ?? null;
+  const sessionBranch = screen.effectiveBranch ?? session?.branch ?? null;
 
   const handleResolveFileReference = useCallback(
     (rawToken: string) =>

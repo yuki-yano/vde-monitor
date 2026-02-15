@@ -240,6 +240,30 @@ export type RepoFileContent = {
   content: string | null;
 };
 
+export type WorktreeListEntry = {
+  path: string;
+  branch: string | null;
+  dirty: boolean | null;
+  locked: boolean | null;
+  lockOwner: string | null;
+  lockReason: string | null;
+  merged: boolean | null;
+  fileChanges?: {
+    add: number;
+    m: number;
+    d: number;
+  } | null;
+  additions?: number | null;
+  deletions?: number | null;
+};
+
+export type WorktreeList = {
+  repoRoot: string | null;
+  currentPath: string | null;
+  baseBranch?: string | null;
+  entries: WorktreeListEntry[];
+};
+
 export type FileNavigatorConfig = {
   includeIgnoredPaths: string[];
   autoExpandMatchLimit: number;

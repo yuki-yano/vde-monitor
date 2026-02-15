@@ -22,6 +22,7 @@ import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
+import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
 export const useSessionDetailVM = (paneId: string) => {
@@ -39,6 +40,7 @@ export const useSessionDetailVM = (paneId: string) => {
     requestCommitDetail,
     requestCommitFile,
     requestCommitLog,
+    requestWorktrees,
     requestDiffFile,
     requestDiffSummary,
     requestRepoFileContent,
@@ -113,9 +115,16 @@ export const useSessionDetailVM = (paneId: string) => {
     uploadImageAttachment,
   });
 
+  const virtualWorktree = useSessionVirtualWorktree({
+    paneId,
+    session,
+    requestWorktrees,
+  });
+
   const diffs = useSessionDiffs({
     paneId,
     connected,
+    worktreePath: virtualWorktree.effectiveWorktreePath,
     requestDiffSummary,
     requestDiffFile,
   });
@@ -123,6 +132,7 @@ export const useSessionDetailVM = (paneId: string) => {
   const files = useSessionFiles({
     paneId,
     repoRoot: session?.repoRoot ?? null,
+    worktreePath: virtualWorktree.effectiveWorktreePath,
     autoExpandMatchLimit: fileNavigatorConfig.autoExpandMatchLimit,
     requestRepoFileTree,
     requestRepoFileSearch,
@@ -132,6 +142,7 @@ export const useSessionDetailVM = (paneId: string) => {
   const commits = useSessionCommits({
     paneId,
     connected,
+    worktreePath: virtualWorktree.effectiveWorktreePath,
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
@@ -278,6 +289,18 @@ export const useSessionDetailVM = (paneId: string) => {
       virtuosoRef,
       scrollerRef,
       handleRefreshScreen,
+      effectiveBranch: virtualWorktree.effectiveBranch,
+      effectiveWorktreePath: virtualWorktree.effectiveWorktreePath,
+      worktreeRepoRoot: virtualWorktree.repoRoot,
+      worktreeBaseBranch: virtualWorktree.baseBranch,
+      worktreeSelectorEnabled: virtualWorktree.selectorEnabled,
+      worktreeSelectorLoading: virtualWorktree.loading,
+      worktreeSelectorError: virtualWorktree.error,
+      worktreeEntries: virtualWorktree.entries,
+      actualWorktreePath: virtualWorktree.actualWorktreePath,
+      virtualWorktreePath: virtualWorktree.virtualWorktreePath,
+      selectVirtualWorktree: virtualWorktree.selectVirtualWorktree,
+      clearVirtualWorktree: virtualWorktree.clearVirtualWorktree,
     }),
     controls: buildControlsSection({
       interactive: connectionStatus !== "disconnected",

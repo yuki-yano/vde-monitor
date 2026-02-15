@@ -12,6 +12,7 @@ import type {
   SessionStateTimelineRange,
   SessionStateTimelineScope,
   SessionSummary,
+  WorktreeListEntry,
 } from "@vde-monitor/shared";
 import type { CompositionEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
@@ -149,11 +150,21 @@ type BuildScreenPanelPropsArgs = {
   rawMode: boolean;
   allowDangerKeys: boolean;
   fileResolveError: string | null;
+  worktreeSelectorEnabled?: boolean;
+  worktreeSelectorLoading?: boolean;
+  worktreeSelectorError?: string | null;
+  worktreeEntries?: WorktreeListEntry[];
+  worktreeRepoRoot?: string | null;
+  worktreeBaseBranch?: string | null;
+  actualWorktreePath?: string | null;
+  virtualWorktreePath?: string | null;
   handleModeChange: (mode: ScreenMode) => void;
   handleRefreshScreen: () => void;
   handleAtBottomChange: (value: boolean) => void;
   scrollToBottom: (behavior: "auto" | "smooth") => void;
   handleUserScrollStateChange: (value: boolean) => void;
+  onSelectVirtualWorktree?: (path: string) => void;
+  onClearVirtualWorktree?: () => void;
   onResolveFileReference: (rawToken: string) => Promise<void>;
   onResolveFileReferenceCandidates: (rawTokens: string[]) => Promise<string[]>;
 };
@@ -488,11 +499,21 @@ export const buildScreenPanelProps = ({
   rawMode,
   allowDangerKeys,
   fileResolveError,
+  worktreeSelectorEnabled = false,
+  worktreeSelectorLoading = false,
+  worktreeSelectorError = null,
+  worktreeEntries = [],
+  worktreeRepoRoot = null,
+  worktreeBaseBranch = null,
+  actualWorktreePath = null,
+  virtualWorktreePath = null,
   handleModeChange,
   handleRefreshScreen,
   handleAtBottomChange,
   scrollToBottom,
   handleUserScrollStateChange,
+  onSelectVirtualWorktree,
+  onClearVirtualWorktree,
   onResolveFileReference,
   onResolveFileReferenceCandidates,
 }: BuildScreenPanelPropsArgs) => ({
@@ -514,6 +535,14 @@ export const buildScreenPanelProps = ({
     rawMode,
     allowDangerKeys,
     fileResolveError,
+    worktreeSelectorEnabled,
+    worktreeSelectorLoading,
+    worktreeSelectorError,
+    worktreeEntries,
+    worktreeRepoRoot,
+    worktreeBaseBranch,
+    actualWorktreePath,
+    virtualWorktreePath,
   },
   actions: {
     onModeChange: handleModeChange,
@@ -521,6 +550,8 @@ export const buildScreenPanelProps = ({
     onAtBottomChange: handleAtBottomChange,
     onScrollToBottom: scrollToBottom,
     onUserScrollStateChange: handleUserScrollStateChange,
+    onSelectVirtualWorktree,
+    onClearVirtualWorktree,
     onResolveFileReference,
     onResolveFileReferenceCandidates,
   },

@@ -248,6 +248,7 @@ describe("useSessionDetailVM", () => {
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     };
 
     const store = createStore();
@@ -297,6 +298,7 @@ describe("useSessionDetailVM", () => {
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     };
 
     const store = createStore();
@@ -343,6 +345,7 @@ describe("useSessionDetailVM", () => {
       sendRaw: vi.fn(),
       touchSession,
       updateSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     };
 
     const store = createStore();
@@ -387,6 +390,7 @@ describe("useSessionDetailVM", () => {
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     };
 
     const store = createStore();
@@ -428,6 +432,7 @@ describe("useSessionDetailVM", () => {
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     };
 
     const store = createStore();

@@ -25,6 +25,7 @@ type VwWorktreeEntry = {
 
 type VwWorktreeSnapshot = {
   repoRoot: string | null;
+  baseBranch: string | null;
   entries: VwWorktreeEntry[];
 };
 
@@ -63,12 +64,14 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
   const payload = raw as {
     status?: unknown;
     repoRoot?: unknown;
+    baseBranch?: unknown;
     worktrees?: unknown;
   };
   if (payload.status !== "ok" || !Array.isArray(payload.worktrees)) {
     return null;
   }
   const repoRoot = normalizePath(toNullableString(payload.repoRoot));
+  const baseBranch = toNullableString(payload.baseBranch);
   const entries = payload.worktrees
     .map((item): VwWorktreeEntry | null => {
       if (!item || typeof item !== "object") {
@@ -107,7 +110,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
     })
     .filter((entry): entry is VwWorktreeEntry => entry != null)
     .sort((a, b) => b.path.length - a.path.length);
-  return { repoRoot, entries };
+  return { repoRoot, baseBranch, entries };
 };
 
 const fetchSnapshot = async (cwd: string): Promise<VwWorktreeSnapshot | null> => {

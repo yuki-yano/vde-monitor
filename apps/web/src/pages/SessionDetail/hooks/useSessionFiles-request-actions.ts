@@ -9,17 +9,20 @@ import {
 
 type UseSessionFilesRequestActionsArgs = {
   paneId: string;
+  requestScopeId: string;
+  worktreePath: string | null;
   searchPageLimit: number;
   fileContentMaxBytes: number;
+  resolveWorktreePathForPane: (targetPaneId: string) => string | undefined;
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number },
+    options?: { cursor?: string; limit?: number; worktreePath?: string },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
   searchRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileSearchPage>>>;
   fileContentRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileContent>>>;
@@ -27,8 +30,11 @@ type UseSessionFilesRequestActionsArgs = {
 
 export const useSessionFilesRequestActions = ({
   paneId,
+  requestScopeId,
+  worktreePath,
   searchPageLimit,
   fileContentMaxBytes,
+  resolveWorktreePathForPane,
   requestRepoFileSearch,
   requestRepoFileContent,
   searchRequestMapRef,
@@ -38,26 +44,48 @@ export const useSessionFilesRequestActions = ({
     async (query: string, cursor?: string) => {
       return fetchWithRequestMap({
         requestMapRef: searchRequestMapRef,
-        requestKey: buildSearchRequestKey(paneId, query, cursor),
+        requestKey: buildSearchRequestKey(requestScopeId, query, cursor),
         requestFactory: () =>
-          requestRepoFileSearch(paneId, query, { cursor, limit: searchPageLimit }),
+          requestRepoFileSearch(paneId, query, {
+            cursor,
+            limit: searchPageLimit,
+            ...(worktreePath ? { worktreePath } : {}),
+          }),
       });
     },
-    [paneId, requestRepoFileSearch, searchPageLimit, searchRequestMapRef],
+    [
+      paneId,
+      requestRepoFileSearch,
+      requestScopeId,
+      searchPageLimit,
+      searchRequestMapRef,
+      worktreePath,
+    ],
   );
 
   const fetchFileContent = useCallback(
     async (targetPaneId: string, targetPath: string) => {
+      const scopedWorktreePath = resolveWorktreePathForPane(targetPaneId);
+      const targetScopeId =
+        targetPaneId === paneId ? requestScopeId : `${targetPaneId}:__default__`;
       return fetchWithRequestMap({
         requestMapRef: fileContentRequestMapRef,
-        requestKey: buildFileContentRequestKey(targetPaneId, targetPath, fileContentMaxBytes),
+        requestKey: buildFileContentRequestKey(targetScopeId, targetPath, fileContentMaxBytes),
         requestFactory: () =>
           requestRepoFileContent(targetPaneId, targetPath, {
             maxBytes: fileContentMaxBytes,
+            ...(scopedWorktreePath ? { worktreePath: scopedWorktreePath } : {}),
           }),
       });
     },
-    [fileContentMaxBytes, fileContentRequestMapRef, requestRepoFileContent],
+    [
+      fileContentMaxBytes,
+      fileContentRequestMapRef,
+      paneId,
+      requestRepoFileContent,
+      requestScopeId,
+      resolveWorktreePathForPane,
+    ],
   );
 
   return {

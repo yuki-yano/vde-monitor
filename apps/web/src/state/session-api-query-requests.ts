@@ -10,6 +10,7 @@ import type {
   SessionStateTimeline,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
+  WorktreeList,
 } from "@vde-monitor/shared";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -52,7 +53,10 @@ export const createSessionQueryRequests = ({
   requestPaneQueryField,
   requestPaneHashField,
 }: CreateSessionQueryRequestsParams) => {
-  const requestDiffSummary = async (paneId: string, options?: { force?: boolean }) => {
+  const requestDiffSummary = async (
+    paneId: string,
+    options?: { force?: boolean; worktreePath?: string },
+  ) => {
     const query = buildForceQuery(options);
     return requestPaneQueryField<{ summary?: DiffSummary }, "summary">({
       paneId,
@@ -66,7 +70,7 @@ export const createSessionQueryRequests = ({
     paneId: string,
     filePath: string,
     rev?: string | null,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => {
     const query = buildDiffFileQuery(filePath, rev, options);
     return requestPaneQueryField<{ file?: DiffFile }, "file">({
@@ -79,7 +83,7 @@ export const createSessionQueryRequests = ({
 
   const requestCommitLog = async (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean },
+    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
   ) => {
     const query = buildCommitLogQuery(options);
     return requestPaneQueryField<{ log?: CommitLog }, "log">({
@@ -93,7 +97,7 @@ export const createSessionQueryRequests = ({
   const requestCommitDetail = async (
     paneId: string,
     hash: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => {
     const query = buildForceQuery(options);
     return requestPaneHashField<{ commit?: CommitDetail }, "commit">({
@@ -109,7 +113,7 @@ export const createSessionQueryRequests = ({
     paneId: string,
     hash: string,
     path: string,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => {
     const query = buildCommitFileQuery(path, options);
     return requestPaneHashField<{ file?: CommitFileDiff }, "file">({
@@ -141,7 +145,7 @@ export const createSessionQueryRequests = ({
 
   const requestRepoFileTree = async (
     paneId: string,
-    options?: { path?: string; cursor?: string; limit?: number },
+    options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
   ): Promise<RepoFileTreePage> => {
     const query = buildRepoFileTreeQuery(options);
     return requestPaneQueryField<{ tree?: RepoFileTreePage }, "tree">({
@@ -155,7 +159,7 @@ export const createSessionQueryRequests = ({
   const requestRepoFileSearch = async (
     paneId: string,
     queryValue: string,
-    options?: { cursor?: string; limit?: number },
+    options?: { cursor?: string; limit?: number; worktreePath?: string },
   ): Promise<RepoFileSearchPage> => {
     const query = buildRepoFileSearchQuery(queryValue, options);
     return requestPaneQueryField<{ result?: RepoFileSearchPage }, "result">({
@@ -169,7 +173,7 @@ export const createSessionQueryRequests = ({
   const requestRepoFileContent = async (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number },
+    options?: { maxBytes?: number; worktreePath?: string },
   ): Promise<RepoFileContent> => {
     const query = buildRepoFileContentQuery(path, options);
     return requestPaneQueryField<{ file?: RepoFileContent }, "file">({
@@ -180,7 +184,17 @@ export const createSessionQueryRequests = ({
     });
   };
 
+  const requestWorktrees = async (paneId: string): Promise<WorktreeList> => {
+    return requestPaneQueryField<{ worktrees?: WorktreeList }, "worktrees">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].worktrees.$get({ param }),
+      field: "worktrees",
+      fallbackMessage: "Failed to load worktrees",
+    });
+  };
+
   return {
+    requestWorktrees,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,

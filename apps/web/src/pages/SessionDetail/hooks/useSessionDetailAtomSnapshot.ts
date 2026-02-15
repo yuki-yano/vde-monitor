@@ -26,6 +26,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
     highlightCorrections,
     fileNavigatorConfig,
     reconnect,
+    requestWorktrees,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,
@@ -49,6 +50,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
   const sessionApi = useMemo<SessionApi>(
     () => ({
       reconnect,
+      requestWorktrees,
       requestDiffSummary,
       requestDiffFile,
       requestCommitLog,
@@ -69,6 +71,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
     }),
     [
       reconnect,
+      requestWorktrees,
       requestDiffSummary,
       requestDiffFile,
       requestCommitLog,

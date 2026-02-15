@@ -20,12 +20,16 @@ import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySignature } from "../sessionD
 type UseSessionDiffsParams = {
   paneId: string;
   connected: boolean;
-  requestDiffSummary: (paneId: string, options?: { force?: boolean }) => Promise<DiffSummary>;
+  worktreePath?: string | null;
+  requestDiffSummary: (
+    paneId: string,
+    options?: { force?: boolean; worktreePath?: string },
+  ) => Promise<DiffSummary>;
   requestDiffFile: (
     paneId: string,
     path: string,
     rev?: string | null,
-    options?: { force?: boolean },
+    options?: { force?: boolean; worktreePath?: string },
   ) => Promise<DiffFile>;
 };
 
@@ -33,17 +37,20 @@ const DIFF_FILE_QUERY_KEY = "session-diff-file";
 
 const buildDiffFileQueryKey = ({
   paneId,
+  worktreePath,
   rev,
   path,
 }: {
   paneId: string;
+  worktreePath: string | null;
   rev: string | null;
   path: string;
-}) => [DIFF_FILE_QUERY_KEY, paneId, rev ?? "unknown", path] as const;
+}) => [DIFF_FILE_QUERY_KEY, paneId, worktreePath ?? "__default__", rev ?? "unknown", path] as const;
 
 export const useSessionDiffs = ({
   paneId,
   connected,
+  worktreePath = null,
   requestDiffSummary,
   requestDiffFile,
 }: UseSessionDiffsParams) => {
@@ -58,9 +65,10 @@ export const useSessionDiffs = ({
   const diffOpenRef = useRef<Record<string, boolean>>({});
   const diffSignatureRef = useRef<string | null>(null);
   const prevConnectedRef = useRef<boolean | null>(null);
-  const activePaneIdRef = useRef(paneId);
+  const requestScopeKey = `${paneId}:${worktreePath ?? "__default__"}`;
+  const activeScopeRef = useRef(requestScopeKey);
   const summaryRequestIdRef = useRef(0);
-  activePaneIdRef.current = paneId;
+  activeScopeRef.current = requestScopeKey;
 
   const applyDiffSummary = useCallback(
     async (summary: DiffSummary, refreshOpenFiles: boolean) => {
@@ -85,6 +93,7 @@ export const useSessionDiffs = ({
         const cached = queryClient.getQueryData<DiffFile>(
           buildDiffFileQueryKey({
             paneId,
+            worktreePath,
             rev: summary.rev,
             path,
           }),
@@ -100,6 +109,7 @@ export const useSessionDiffs = ({
           openTargets.map(async ([path]) => {
             const queryKey = buildDiffFileQueryKey({
               paneId,
+              worktreePath,
               rev: summary.rev,
               path,
             });
@@ -109,7 +119,13 @@ export const useSessionDiffs = ({
             try {
               const file = await queryClient.fetchQuery({
                 queryKey,
-                queryFn: () => requestDiffFile(paneId, path, summary.rev, { force: true }),
+                queryFn: () =>
+                  requestDiffFile(
+                    paneId,
+                    path,
+                    summary.rev,
+                    worktreePath ? { force: true, worktreePath } : { force: true },
+                  ),
                 gcTime: QUERY_GC_TIME_MS,
                 retry: false,
               });
@@ -121,42 +137,65 @@ export const useSessionDiffs = ({
         );
       }
     },
-    [paneId, queryClient, requestDiffFile, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary],
+    [
+      paneId,
+      queryClient,
+      requestDiffFile,
+      setDiffError,
+      setDiffFiles,
+      setDiffOpen,
+      setDiffSummary,
+      worktreePath,
+    ],
   );
 
   const loadDiffSummary = useCallback(async () => {
     if (!paneId) return;
-    const targetPaneId = paneId;
+    const targetScopeKey = requestScopeKey;
     const requestId = summaryRequestIdRef.current + 1;
     summaryRequestIdRef.current = requestId;
     setDiffLoading(true);
     setDiffError(null);
     try {
-      const summary = await requestDiffSummary(targetPaneId, { force: true });
-      if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
+      const summary = await requestDiffSummary(
+        paneId,
+        worktreePath ? { force: true, worktreePath } : { force: true },
+      );
+      if (summaryRequestIdRef.current !== requestId || activeScopeRef.current !== targetScopeKey) {
         return;
       }
       await applyDiffSummary(summary, true);
     } catch (err) {
-      if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
+      if (summaryRequestIdRef.current !== requestId || activeScopeRef.current !== targetScopeKey) {
         return;
       }
       setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffSummary);
     } finally {
-      if (summaryRequestIdRef.current === requestId && activePaneIdRef.current === targetPaneId) {
+      if (summaryRequestIdRef.current === requestId && activeScopeRef.current === targetScopeKey) {
         setDiffLoading(false);
       }
     }
-  }, [applyDiffSummary, paneId, requestDiffSummary, setDiffError, setDiffLoading]);
+  }, [
+    applyDiffSummary,
+    paneId,
+    requestDiffSummary,
+    requestScopeKey,
+    setDiffError,
+    setDiffLoading,
+    worktreePath,
+  ]);
 
   const pollDiffSummary = useCallback(async () => {
     if (!paneId) return;
-    const targetPaneId = paneId;
+    const targetScopeKey = requestScopeKey;
     const requestId = summaryRequestIdRef.current + 1;
     summaryRequestIdRef.current = requestId;
     try {
-      const summary = await requestDiffSummary(targetPaneId, { force: true });
-      if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
+      const summary = await requestDiffSummary(
+        paneId,
+        worktreePath ? { force: true, worktreePath } : { force: true },
+      );
+      if (summaryRequestIdRef.current !== requestId || activeScopeRef.current !== targetScopeKey) {
         return;
       }
       const signature = buildDiffSummarySignature(summary);
@@ -168,7 +207,7 @@ export const useSessionDiffs = ({
     } catch {
       return;
     }
-  }, [applyDiffSummary, paneId, requestDiffSummary, setDiffError]);
+  }, [applyDiffSummary, paneId, requestDiffSummary, requestScopeKey, setDiffError, worktreePath]);
   const pollDiffSummaryTick = useCallback(() => {
     void pollDiffSummary();
   }, [pollDiffSummary]);
@@ -179,6 +218,7 @@ export const useSessionDiffs = ({
       if (diffLoadingFiles[path]) return;
       const queryKey = buildDiffFileQueryKey({
         paneId,
+        worktreePath,
         rev: diffSummary.rev,
         path,
       });
@@ -187,27 +227,42 @@ export const useSessionDiffs = ({
         setDiffFiles((prev) => ({ ...prev, [path]: cached }));
         return;
       }
-      const targetPaneId = paneId;
+      const targetScopeKey = requestScopeKey;
       const requestId = summaryRequestIdRef.current;
       setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
       try {
         const file = await queryClient.fetchQuery({
           queryKey,
-          queryFn: () => requestDiffFile(targetPaneId, path, diffSummary.rev, { force: true }),
+          queryFn: () =>
+            requestDiffFile(
+              paneId,
+              path,
+              diffSummary.rev,
+              worktreePath ? { force: true, worktreePath } : { force: true },
+            ),
           gcTime: QUERY_GC_TIME_MS,
           retry: false,
         });
-        if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
+        if (
+          summaryRequestIdRef.current !== requestId ||
+          activeScopeRef.current !== targetScopeKey
+        ) {
           return;
         }
         setDiffFiles((prev) => ({ ...prev, [path]: file }));
       } catch (err) {
-        if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
+        if (
+          summaryRequestIdRef.current !== requestId ||
+          activeScopeRef.current !== targetScopeKey
+        ) {
           return;
         }
         setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffFile);
       } finally {
-        if (summaryRequestIdRef.current === requestId && activePaneIdRef.current === targetPaneId) {
+        if (
+          summaryRequestIdRef.current === requestId &&
+          activeScopeRef.current === targetScopeKey
+        ) {
           setDiffLoadingFiles((prev) => ({ ...prev, [path]: false }));
         }
       }
@@ -217,10 +272,12 @@ export const useSessionDiffs = ({
       diffSummary?.rev,
       paneId,
       queryClient,
+      requestScopeKey,
       requestDiffFile,
       setDiffError,
       setDiffFiles,
       setDiffLoadingFiles,
+      worktreePath,
     ],
   );
 
@@ -262,10 +319,10 @@ export const useSessionDiffs = ({
     diffSignatureRef.current = null;
     return () => {
       queryClient.removeQueries({
-        queryKey: [DIFF_FILE_QUERY_KEY, paneId],
+        queryKey: [DIFF_FILE_QUERY_KEY, paneId, worktreePath ?? "__default__"],
       });
     };
-  }, [paneId, queryClient, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary]);
+  }, [paneId, queryClient, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary, worktreePath]);
 
   useEffect(() => {
     diffOpenRef.current = diffOpen;
