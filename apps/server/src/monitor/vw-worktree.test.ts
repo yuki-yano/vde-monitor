@@ -98,6 +98,120 @@ describe("resolveVwWorktreeSnapshotCached", () => {
     expect(second?.entries[0]?.path).toBe("/repo");
     expect(execaMock).toHaveBeenCalledTimes(1);
   });
+
+  it("uses --no-gh within refresh interval and reuses cached PR state", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+      const { resolveVwWorktreeSnapshotCached, resolveWorktreeStatusFromSnapshot } =
+        await loadModule();
+      execaMock.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "ok",
+          repoRoot: "/repo",
+          worktrees: [
+            {
+              branch: "feature/foo",
+              path: "/repo/.worktree/feature/foo",
+              dirty: false,
+              locked: {},
+              merged: { overall: false, byPR: true },
+            },
+          ],
+        }),
+      });
+
+      const first = await resolveVwWorktreeSnapshotCached("/repo");
+      expect(execaMock).toHaveBeenNthCalledWith(1, "vw", ["list", "--json"], expect.any(Object));
+      expect(
+        resolveWorktreeStatusFromSnapshot(first, "/repo/.worktree/feature/foo")?.worktreePrCreated,
+      ).toBe(true);
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:03.100Z"));
+      execaMock.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "ok",
+          repoRoot: "/repo",
+          worktrees: [
+            {
+              branch: "feature/foo",
+              path: "/repo/.worktree/feature/foo",
+              dirty: false,
+              locked: {},
+              merged: { overall: false, byPR: null },
+            },
+          ],
+        }),
+      });
+      const second = await resolveVwWorktreeSnapshotCached("/repo");
+
+      expect(execaMock).toHaveBeenNthCalledWith(
+        2,
+        "vw",
+        ["list", "--json", "--no-gh"],
+        expect.any(Object),
+      );
+      expect(
+        resolveWorktreeStatusFromSnapshot(second, "/repo/.worktree/feature/foo")?.worktreePrCreated,
+      ).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("respects configurable gh refresh interval", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+      const { configureVwGhRefreshIntervalMs, resolveVwWorktreeSnapshotCached } =
+        await loadModule();
+      configureVwGhRefreshIntervalMs(10_000);
+
+      execaMock.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "ok",
+          repoRoot: "/repo",
+          worktrees: [{ branch: "main", path: "/repo", dirty: false, locked: {}, merged: {} }],
+        }),
+      });
+      await resolveVwWorktreeSnapshotCached("/repo");
+      expect(execaMock).toHaveBeenNthCalledWith(1, "vw", ["list", "--json"], expect.any(Object));
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:03.100Z"));
+      execaMock.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "ok",
+          repoRoot: "/repo",
+          worktrees: [{ branch: "main", path: "/repo", dirty: false, locked: {}, merged: {} }],
+        }),
+      });
+      await resolveVwWorktreeSnapshotCached("/repo");
+      expect(execaMock).toHaveBeenNthCalledWith(
+        2,
+        "vw",
+        ["list", "--json", "--no-gh"],
+        expect.any(Object),
+      );
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:10.300Z"));
+      execaMock.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "ok",
+          repoRoot: "/repo",
+          worktrees: [{ branch: "main", path: "/repo", dirty: false, locked: {}, merged: {} }],
+        }),
+      });
+      await resolveVwWorktreeSnapshotCached("/repo");
+      expect(execaMock).toHaveBeenNthCalledWith(3, "vw", ["list", "--json"], expect.any(Object));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("resolveWorktreeStatusFromSnapshot", () => {
@@ -143,6 +257,7 @@ describe("resolveWorktreeStatusFromSnapshot", () => {
       worktreeLockOwner: "codex",
       worktreeLockReason: "in progress",
       worktreeMerged: true,
+      worktreePrCreated: null,
     });
   });
 });

@@ -7,7 +7,6 @@ type ResolvePaneContextArgs = {
     currentPath: string | null,
   ) => ResolvedWorktreeStatus | Promise<ResolvedWorktreeStatus | null> | null;
   resolveBranch?: (currentPath: string | null) => Promise<string | null>;
-  resolvePrCreated?: (repoRoot: string | null, branch: string | null) => Promise<boolean | null>;
 };
 
 export type PaneResolvedContext = {
@@ -51,7 +50,6 @@ export const resolvePaneContext = async ({
   resolveRepoRoot,
   resolveWorktreeStatus,
   resolveBranch,
-  resolvePrCreated,
 }: ResolvePaneContextArgs): Promise<PaneResolvedContext> => {
   const [candidateWorktreeStatus, resolvedRepoRoot] = await Promise.all([
     resolveWorktreeStatus ? resolveWorktreeStatus(currentPath) : Promise.resolve(null),
@@ -65,8 +63,9 @@ export const resolvePaneContext = async ({
   const repoRoot = worktreeStatus?.repoRoot ?? resolvedRepoRoot;
   const branch = worktreeStatus?.branch ?? (await resolveBranch?.(currentPath)) ?? null;
   const shouldResolvePrCreated = isVwManagedWorktreePath(worktreeStatus?.worktreePath);
-  const worktreePrCreated =
-    resolvePrCreated && shouldResolvePrCreated ? await resolvePrCreated(repoRoot, branch) : null;
+  const worktreePrCreated = shouldResolvePrCreated
+    ? (worktreeStatus?.worktreePrCreated ?? null)
+    : null;
 
   return {
     repoRoot,

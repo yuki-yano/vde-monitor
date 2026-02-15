@@ -91,6 +91,7 @@ export const defaultConfig: AgentMonitorConfigFile = {
   dangerCommandPatterns: [...defaultDangerCommandPatterns],
   activity: {
     pollIntervalMs: 1000,
+    vwGhRefreshIntervalMs: 30_000,
     runningThresholdMs: 15000,
     inactiveThresholdMs: 60000,
   },

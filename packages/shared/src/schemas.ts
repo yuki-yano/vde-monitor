@@ -314,6 +314,7 @@ export const configSchema = z.object({
   dangerCommandPatterns: z.array(z.string()),
   activity: z.object({
     pollIntervalMs: z.number(),
+    vwGhRefreshIntervalMs: z.number(),
     runningThresholdMs: z.number(),
     inactiveThresholdMs: z.number(),
   }),
@@ -409,6 +410,7 @@ export const configOverrideSchema = strictObject({
   dangerCommandPatterns: z.array(z.string()).optional(),
   activity: strictObject({
     pollIntervalMs: z.number().optional(),
+    vwGhRefreshIntervalMs: z.number().optional(),
     runningThresholdMs: z.number().optional(),
     inactiveThresholdMs: z.number().optional(),
   }).optional(),

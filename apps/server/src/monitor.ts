@@ -14,6 +14,7 @@ import {
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
+import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
 import { createSessionRegistry } from "./session-registry";
 import { restoreSessions, restoreTimeline, saveState } from "./state-store";
@@ -22,6 +23,8 @@ import { createSessionTimelineStore } from "./state-timeline/store";
 const baseDir = path.join(os.homedir(), ".vde-monitor");
 
 export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentMonitorConfig) => {
+  configureVwGhRefreshIntervalMs(config.activity.vwGhRefreshIntervalMs);
+
   const inspector = runtime.inspector;
   const screenCapture = runtime.screenCapture;
   const registry = createSessionRegistry();

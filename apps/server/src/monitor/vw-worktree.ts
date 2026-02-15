@@ -5,9 +5,15 @@ import { execa } from "execa";
 import { setMapEntryWithLimit } from "../cache";
 
 const vwSnapshotCacheTtlMs = 3000;
+const defaultVwGhRefreshIntervalMs = 30_000;
 const VW_SNAPSHOT_CACHE_MAX_ENTRIES = 50;
+const VW_GH_LOOKUP_CACHE_MAX_ENTRIES = 200;
+let vwGhRefreshIntervalMs = defaultVwGhRefreshIntervalMs;
 const vwSnapshotCache = new Map<string, { snapshot: VwWorktreeSnapshot | null; at: number }>();
 const inflight = new Map<string, Promise<VwWorktreeSnapshot | null>>();
+const ghLookupAt = new Map<string, number>();
+const repoRootByCwd = new Map<string, string>();
+const prCreatedByRepoRoot = new Map<string, Map<string, boolean | null>>();
 
 type VwWorktreeEntry = {
   path: string;
@@ -20,6 +26,7 @@ type VwWorktreeEntry = {
   };
   merged: {
     overall: boolean | null;
+    byPR: boolean | null;
   };
 };
 
@@ -38,6 +45,15 @@ export type ResolvedWorktreeStatus = {
   worktreeLockOwner: string | null;
   worktreeLockReason: string | null;
   worktreeMerged: boolean | null;
+  worktreePrCreated: boolean | null;
+};
+
+export const configureVwGhRefreshIntervalMs = (intervalMs: number) => {
+  if (!Number.isFinite(intervalMs) || intervalMs < 0) {
+    vwGhRefreshIntervalMs = defaultVwGhRefreshIntervalMs;
+    return;
+  }
+  vwGhRefreshIntervalMs = intervalMs;
 };
 
 const normalizePath = (value: string | null): string | null => {
@@ -56,6 +72,104 @@ const toNullableBoolean = (value: unknown) => (typeof value === "boolean" ? valu
 
 const toNullableString = (value: unknown) =>
   typeof value === "string" && value.trim().length > 0 ? value : null;
+
+const resolveLookupKey = (cwd: string) => {
+  const directRepoRoot = repoRootByCwd.get(cwd);
+  if (directRepoRoot) {
+    return directRepoRoot;
+  }
+
+  let matchedRepoRoot: string | null = null;
+  for (const repoRoot of prCreatedByRepoRoot.keys()) {
+    if (
+      isWithinPath(cwd, repoRoot) &&
+      (!matchedRepoRoot || repoRoot.length > matchedRepoRoot.length)
+    ) {
+      matchedRepoRoot = repoRoot;
+    }
+  }
+  return matchedRepoRoot ?? cwd;
+};
+
+const shouldRunGhLookup = (cwd: string, nowMs: number) => {
+  const key = resolveLookupKey(cwd);
+  const lastLookupAt = ghLookupAt.get(key);
+  if (lastLookupAt == null) {
+    return { key, ghEnabled: true } as const;
+  }
+  return { key, ghEnabled: nowMs - lastLookupAt >= vwGhRefreshIntervalMs } as const;
+};
+
+const markGhLookupAt = (key: string, nowMs: number) => {
+  setMapEntryWithLimit(ghLookupAt, key, nowMs, VW_GH_LOOKUP_CACHE_MAX_ENTRIES);
+};
+
+const trackRepoRoot = (cwd: string, repoRoot: string | null) => {
+  if (!repoRoot) {
+    return;
+  }
+  setMapEntryWithLimit(repoRootByCwd, cwd, repoRoot, VW_GH_LOOKUP_CACHE_MAX_ENTRIES);
+  if (cwd === repoRoot) {
+    return;
+  }
+  const cwdLookupAt = ghLookupAt.get(cwd);
+  if (cwdLookupAt == null) {
+    return;
+  }
+  const repoRootLookupAt = ghLookupAt.get(repoRoot);
+  if (repoRootLookupAt == null || cwdLookupAt > repoRootLookupAt) {
+    markGhLookupAt(repoRoot, cwdLookupAt);
+  }
+  ghLookupAt.delete(cwd);
+};
+
+const buildPrCreatedByBranch = (entries: VwWorktreeEntry[]) => {
+  const byBranch = new Map<string, boolean | null>();
+  entries.forEach((entry) => {
+    if (!entry.branch) {
+      return;
+    }
+    byBranch.set(entry.branch, entry.merged.byPR);
+  });
+  return byBranch;
+};
+
+const applyCachedPrCreated = (
+  repoRoot: string | null,
+  entries: VwWorktreeEntry[],
+): VwWorktreeEntry[] => {
+  if (!repoRoot) {
+    return entries;
+  }
+  const cached = prCreatedByRepoRoot.get(repoRoot);
+  if (!cached) {
+    return entries;
+  }
+
+  let changed = false;
+  const nextEntries = entries.map((entry) => {
+    if (!entry.branch) {
+      return entry;
+    }
+    if (!cached.has(entry.branch)) {
+      return entry;
+    }
+    const cachedByPr = cached.get(entry.branch) ?? null;
+    if (entry.merged.byPR === cachedByPr) {
+      return entry;
+    }
+    changed = true;
+    return {
+      ...entry,
+      merged: {
+        ...entry.merged,
+        byPR: cachedByPr,
+      },
+    };
+  });
+
+  return changed ? nextEntries : entries;
+};
 
 const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
   if (!raw || typeof raw !== "object") {
@@ -93,7 +207,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
         owner?: unknown;
         reason?: unknown;
       };
-      const merged = (worktree.merged ?? {}) as { overall?: unknown };
+      const merged = (worktree.merged ?? {}) as { overall?: unknown; byPR?: unknown };
       return {
         path: normalizedPath,
         branch: toNullableString(worktree.branch),
@@ -105,6 +219,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
         },
         merged: {
           overall: toNullableBoolean(merged.overall),
+          byPR: toNullableBoolean(merged.byPR),
         },
       };
     })
@@ -113,9 +228,13 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
   return { repoRoot, baseBranch, entries };
 };
 
-const fetchSnapshot = async (cwd: string): Promise<VwWorktreeSnapshot | null> => {
+const fetchSnapshot = async (
+  cwd: string,
+  options: { ghEnabled: boolean },
+): Promise<VwWorktreeSnapshot | null> => {
+  const args = options.ghEnabled ? ["list", "--json"] : ["list", "--json", "--no-gh"];
   try {
-    const result = await execa("vw", ["list", "--json"], {
+    const result = await execa("vw", args, {
       cwd,
       reject: false,
       timeout: 4000,
@@ -151,16 +270,41 @@ export const resolveVwWorktreeSnapshotCached = async (
   if (existing) {
     return existing;
   }
-  const request = fetchSnapshot(normalizedCwd).then((snapshot) => {
-    setMapEntryWithLimit(
-      vwSnapshotCache,
-      normalizedCwd,
-      { snapshot, at: Date.now() },
-      VW_SNAPSHOT_CACHE_MAX_ENTRIES,
-    );
-    inflight.delete(normalizedCwd);
-    return snapshot;
-  });
+  const ghLookup = shouldRunGhLookup(normalizedCwd, nowMs);
+  if (ghLookup.ghEnabled) {
+    markGhLookupAt(ghLookup.key, nowMs);
+  }
+
+  const request = fetchSnapshot(normalizedCwd, { ghEnabled: ghLookup.ghEnabled }).then(
+    (snapshot) => {
+      let resolvedSnapshot = snapshot;
+      if (snapshot) {
+        trackRepoRoot(normalizedCwd, snapshot.repoRoot);
+        if (ghLookup.ghEnabled) {
+          setMapEntryWithLimit(
+            prCreatedByRepoRoot,
+            snapshot.repoRoot ?? normalizedCwd,
+            buildPrCreatedByBranch(snapshot.entries),
+            VW_GH_LOOKUP_CACHE_MAX_ENTRIES,
+          );
+        } else {
+          resolvedSnapshot = {
+            ...snapshot,
+            entries: applyCachedPrCreated(snapshot.repoRoot, snapshot.entries),
+          };
+        }
+      }
+
+      setMapEntryWithLimit(
+        vwSnapshotCache,
+        normalizedCwd,
+        { snapshot: resolvedSnapshot, at: Date.now() },
+        VW_SNAPSHOT_CACHE_MAX_ENTRIES,
+      );
+      inflight.delete(normalizedCwd);
+      return resolvedSnapshot;
+    },
+  );
   inflight.set(normalizedCwd, request);
   return request;
 };
@@ -183,5 +327,6 @@ export const resolveWorktreeStatusFromSnapshot = (
     worktreeLockOwner: matched.locked.owner,
     worktreeLockReason: matched.locked.reason,
     worktreeMerged: matched.merged.overall,
+    worktreePrCreated: matched.merged.byPR,
   };
 };

@@ -430,6 +430,7 @@ export type AgentMonitorConfigBase = {
   dangerCommandPatterns: string[];
   activity: {
     pollIntervalMs: number;
+    vwGhRefreshIntervalMs: number;
     runningThresholdMs: number;
     inactiveThresholdMs: number;
   };

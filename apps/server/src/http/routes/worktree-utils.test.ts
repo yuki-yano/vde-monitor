@@ -61,7 +61,7 @@ describe("worktree-utils", () => {
           branch: "feature/a",
           dirty: true,
           locked: { value: false, owner: null, reason: null },
-          merged: { overall: false },
+          merged: { overall: false, byPR: null },
         },
       ],
     });
@@ -186,7 +186,7 @@ describe("worktree-utils", () => {
           branch: "feature/a",
           dirty: true,
           locked: { value: false, owner: null, reason: null },
-          merged: { overall: false },
+          merged: { overall: false, byPR: null },
         },
       ],
     });

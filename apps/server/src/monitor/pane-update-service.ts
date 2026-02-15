@@ -9,7 +9,6 @@ import { mapWithConcurrencyLimitSettled } from "./concurrency";
 import type { PaneLogManager } from "./pane-log-manager";
 import { processPane } from "./pane-processor";
 import type { PaneRuntimeState } from "./pane-state";
-import { resolvePrCreatedCached } from "./pr-created";
 import { cleanupRegistry } from "./registry-cleanup";
 import { resolveRepoBranchCached } from "./repo-branch";
 import { resolveRepoRootCached } from "./repo-root";
@@ -224,7 +223,6 @@ export const createPaneUpdateService = ({
           resolveWorktreeStatus: (currentPath) =>
             resolveWorktreeStatusFromSnapshot(vwSnapshot, currentPath),
           resolveBranch: resolveRepoBranchCached,
-          resolvePrCreated: resolvePrCreatedCached,
           isPaneViewedRecently,
           resolvePanePipeTagValue,
           cachePanePipeTagValue,

@@ -21,7 +21,6 @@ type ProcessPaneArgs = {
     currentPath: string | null,
   ) => ResolvedWorktreeStatus | Promise<ResolvedWorktreeStatus | null> | null;
   resolveBranch?: (currentPath: string | null) => Promise<string | null>;
-  resolvePrCreated?: (repoRoot: string | null, branch: string | null) => Promise<boolean | null>;
   isPaneViewedRecently?: (paneId: string) => boolean;
   resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
   cachePanePipeTagValue?: (paneId: string, pipeTagValue: string | null) => void;
@@ -39,7 +38,6 @@ export const processPane = async (
     resolveRepoRoot,
     resolveWorktreeStatus,
     resolveBranch,
-    resolvePrCreated,
     isPaneViewedRecently,
     resolvePanePipeTagValue,
     cachePanePipeTagValue,
@@ -70,7 +68,6 @@ export const processPane = async (
     resolveRepoRoot,
     resolveWorktreeStatus,
     resolveBranch,
-    resolvePrCreated,
   });
 
   return buildPaneDetail({
