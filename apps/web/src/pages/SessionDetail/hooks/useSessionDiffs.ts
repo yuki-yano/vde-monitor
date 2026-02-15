@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
+import { QUERY_GC_TIME_MS } from "@/state/query-client";
 
 import {
   diffErrorAtom,
@@ -29,7 +30,6 @@ type UseSessionDiffsParams = {
 };
 
 const DIFF_FILE_QUERY_KEY = "session-diff-file";
-const DIFF_FILE_QUERY_GC_TIME_MS = 5 * 60 * 1000;
 
 const buildDiffFileQueryKey = ({
   paneId,
@@ -110,7 +110,8 @@ export const useSessionDiffs = ({
               const file = await queryClient.fetchQuery({
                 queryKey,
                 queryFn: () => requestDiffFile(paneId, path, summary.rev, { force: true }),
-                gcTime: DIFF_FILE_QUERY_GC_TIME_MS,
+                gcTime: QUERY_GC_TIME_MS,
+                retry: false,
               });
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
@@ -193,7 +194,8 @@ export const useSessionDiffs = ({
         const file = await queryClient.fetchQuery({
           queryKey,
           queryFn: () => requestDiffFile(targetPaneId, path, diffSummary.rev, { force: true }),
-          gcTime: DIFF_FILE_QUERY_GC_TIME_MS,
+          gcTime: QUERY_GC_TIME_MS,
+          retry: false,
         });
         if (summaryRequestIdRef.current !== requestId || activePaneIdRef.current !== targetPaneId) {
           return;
@@ -259,7 +261,7 @@ export const useSessionDiffs = ({
     setDiffError(null);
     diffSignatureRef.current = null;
     queryClient.removeQueries({
-      queryKey: [DIFF_FILE_QUERY_KEY],
+      queryKey: [DIFF_FILE_QUERY_KEY, paneId],
     });
   }, [paneId, queryClient, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary]);
 

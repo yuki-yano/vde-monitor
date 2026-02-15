@@ -46,7 +46,7 @@ if (typeof window !== "undefined") {
 }
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: "bypass" });
+  server.listen({ onUnhandledRequest: "error" });
 });
 
 afterEach(() => {
