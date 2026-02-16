@@ -2,12 +2,6 @@ import { useCallback, useMemo } from "react";
 
 import { sumFileStats } from "../sessionDetailUtils";
 import type { SessionDetailViewProps } from "../SessionDetailView";
-import {
-  buildFileContentModalProps,
-  buildFileNavigatorSectionProps,
-  buildLogFileCandidateModalProps,
-  buildScreenPanelProps,
-} from "./section-props-builders";
 
 type SessionDetailViewExplorerSectionsInput = Pick<
   SessionDetailViewProps,
@@ -154,8 +148,8 @@ export const useSessionDetailViewExplorerSectionProps = ({
   }, [diffSummary, effectiveBranch, session?.branch]);
 
   const fileNavigatorSectionProps = useMemo(
-    () =>
-      buildFileNavigatorSectionProps({
+    () => ({
+      state: {
         unavailable,
         selectedFilePath,
         searchQuery,
@@ -169,6 +163,8 @@ export const useSessionDetailViewExplorerSectionProps = ({
         treeNodes,
         rootTreeHasMore,
         searchHasMore,
+      },
+      actions: {
         onSearchQueryChange,
         onSearchMove,
         onSearchConfirm,
@@ -177,7 +173,8 @@ export const useSessionDetailViewExplorerSectionProps = ({
         onOpenFileModal,
         onLoadMoreTreeRoot,
         onLoadMoreSearch,
-      }),
+      },
+    }),
     [
       unavailable,
       selectedFilePath,
@@ -204,30 +201,33 @@ export const useSessionDetailViewExplorerSectionProps = ({
   );
 
   const fileContentModalProps = useMemo(
-    () =>
-      buildFileContentModalProps({
-        fileModalOpen,
-        fileModalPath,
-        fileModalLoading,
-        fileModalError,
-        fileModalFile,
-        fileModalMarkdownViewMode,
-        fileModalDiffAvailable,
-        fileModalDiffLoading,
-        fileModalDiffPatch,
-        fileModalDiffBinary,
-        fileModalDiffError,
-        fileModalShowLineNumbers,
-        fileModalCopiedPath,
-        fileModalCopyError,
-        fileModalHighlightLine,
-        resolvedTheme,
-        onCloseFileModal,
-        onToggleFileModalLineNumbers,
-        onCopyFileModalPath,
-        onSetFileModalMarkdownViewMode,
-        onLoadFileModalDiff,
-      }),
+    () => ({
+      state: {
+        open: fileModalOpen,
+        path: fileModalPath,
+        loading: fileModalLoading,
+        error: fileModalError,
+        file: fileModalFile,
+        markdownViewMode: fileModalMarkdownViewMode,
+        diffAvailable: fileModalDiffAvailable,
+        diffLoading: fileModalDiffLoading,
+        diffPatch: fileModalDiffPatch,
+        diffBinary: fileModalDiffBinary,
+        diffError: fileModalDiffError,
+        showLineNumbers: fileModalShowLineNumbers,
+        copiedPath: fileModalCopiedPath,
+        copyError: fileModalCopyError,
+        highlightLine: fileModalHighlightLine,
+        theme: resolvedTheme,
+      },
+      actions: {
+        onClose: onCloseFileModal,
+        onToggleLineNumbers: onToggleFileModalLineNumbers,
+        onCopyPath: onCopyFileModalPath,
+        onMarkdownViewModeChange: onSetFileModalMarkdownViewMode,
+        onLoadDiff: onLoadFileModalDiff,
+      },
+    }),
     [
       fileModalOpen,
       fileModalPath,
@@ -274,8 +274,8 @@ export const useSessionDetailViewExplorerSectionProps = ({
   );
 
   const screenPanelProps = useMemo(
-    () =>
-      buildScreenPanelProps({
+    () => ({
+      state: {
         mode,
         connectionIssue,
         fallbackReason,
@@ -301,17 +301,22 @@ export const useSessionDetailViewExplorerSectionProps = ({
         worktreeBaseBranch,
         actualWorktreePath,
         virtualWorktreePath,
-        handleModeChange,
-        handleRefreshScreen,
-        handleRefreshWorktrees,
-        handleAtBottomChange,
-        scrollToBottom,
-        handleUserScrollStateChange,
+      },
+      actions: {
+        onModeChange: handleModeChange,
+        onRefresh: handleRefreshScreen,
+        onRefreshWorktrees: () => {
+          void (handleRefreshWorktrees ?? handleRefreshScreen)();
+        },
+        onAtBottomChange: handleAtBottomChange,
+        onScrollToBottom: scrollToBottom,
+        onUserScrollStateChange: handleUserScrollStateChange,
         onSelectVirtualWorktree: selectVirtualWorktree,
         onClearVirtualWorktree: clearVirtualWorktree,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
-      }),
+      },
+    }),
     [
       mode,
       connectionIssue,
@@ -352,14 +357,17 @@ export const useSessionDetailViewExplorerSectionProps = ({
   );
 
   const logFileCandidateModalProps = useMemo(
-    () =>
-      buildLogFileCandidateModalProps({
-        logFileCandidateModalOpen,
-        logFileCandidateReference,
-        logFileCandidateItems,
-        onCloseLogFileCandidateModal,
-        onSelectLogFileCandidate,
-      }),
+    () => ({
+      state: {
+        open: logFileCandidateModalOpen,
+        reference: logFileCandidateReference,
+        items: logFileCandidateItems,
+      },
+      actions: {
+        onClose: onCloseLogFileCandidateModal,
+        onSelect: onSelectLogFileCandidate,
+      },
+    }),
     [
       logFileCandidateModalOpen,
       logFileCandidateReference,

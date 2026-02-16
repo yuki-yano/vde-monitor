@@ -1,12 +1,6 @@
 import { useCallback, useMemo } from "react";
 
 import type { SessionDetailViewProps } from "../SessionDetailView";
-import {
-  buildCommitSectionProps,
-  buildDiffSectionProps,
-  buildNotesSectionProps,
-  buildStateTimelineSectionProps,
-} from "./section-props-builders";
 
 type SessionDetailViewDataSectionsInput = Pick<
   SessionDetailViewProps,
@@ -104,20 +98,23 @@ export const useSessionDetailViewDataSectionProps = ({
   );
 
   const diffSectionProps = useMemo(
-    () =>
-      buildDiffSectionProps({
+    () => ({
+      state: {
         diffSummary,
-        diffBranch: sessionBranch,
         diffError,
         diffLoading,
         diffFiles,
         diffOpen,
         diffLoadingFiles,
-        refreshDiff,
-        toggleDiff,
+        diffBranch: sessionBranch,
+      },
+      actions: {
+        onRefresh: refreshDiff,
+        onToggle: toggleDiff,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
-      }),
+      },
+    }),
     [
       diffSummary,
       sessionBranch,
@@ -134,9 +131,9 @@ export const useSessionDetailViewDataSectionProps = ({
   );
 
   const stateTimelineSectionProps = useMemo(
-    () =>
-      buildStateTimelineSectionProps({
-        stateTimeline,
+    () => ({
+      state: {
+        timeline: stateTimeline,
         timelineScope,
         timelineRange,
         hasRepoTimeline,
@@ -144,11 +141,14 @@ export const useSessionDetailViewDataSectionProps = ({
         timelineLoading,
         timelineExpanded,
         isMobile,
-        setTimelineScope,
-        setTimelineRange,
-        refreshTimeline,
-        toggleTimelineExpanded,
-      }),
+      },
+      actions: {
+        onTimelineScopeChange: setTimelineScope,
+        onTimelineRangeChange: setTimelineRange,
+        onTimelineRefresh: refreshTimeline,
+        onToggleTimelineExpanded: toggleTimelineExpanded,
+      },
+    }),
     [
       stateTimeline,
       timelineScope,
@@ -166,10 +166,9 @@ export const useSessionDetailViewDataSectionProps = ({
   );
 
   const commitSectionProps = useMemo(
-    () =>
-      buildCommitSectionProps({
+    () => ({
+      state: {
         commitLog,
-        commitBranch: sessionBranch,
         commitError,
         commitLoading,
         commitLoadingMore,
@@ -181,14 +180,18 @@ export const useSessionDetailViewDataSectionProps = ({
         commitOpen,
         commitLoadingDetails,
         copiedHash,
-        refreshCommitLog,
-        loadMoreCommits,
-        toggleCommit,
-        toggleCommitFile,
-        copyHash,
+        commitBranch: sessionBranch,
+      },
+      actions: {
+        onRefresh: refreshCommitLog,
+        onLoadMore: loadMoreCommits,
+        onToggleCommit: toggleCommit,
+        onToggleCommitFile: toggleCommitFile,
+        onCopyHash: copyHash,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
-      }),
+      },
+    }),
     [
       commitLog,
       sessionBranch,
@@ -214,8 +217,8 @@ export const useSessionDetailViewDataSectionProps = ({
   );
 
   const notesSectionProps = useMemo(
-    () =>
-      buildNotesSectionProps({
+    () => ({
+      state: {
         repoRoot,
         notes: repoNotes,
         notesLoading,
@@ -223,11 +226,14 @@ export const useSessionDetailViewDataSectionProps = ({
         creatingNote,
         savingNoteId,
         deletingNoteId,
-        refreshNotes,
-        createNote,
-        saveNote,
-        removeNote,
-      }),
+      },
+      actions: {
+        onRefresh: refreshNotes,
+        onCreate: createNote,
+        onSave: saveNote,
+        onDelete: removeNote,
+      },
+    }),
     [
       createNote,
       creatingNote,

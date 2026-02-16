@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 
 import type { SessionDetailViewProps } from "../SessionDetailView";
-import {
-  buildControlsPanelProps,
-  buildLogModalProps,
-  buildQuickPanelProps,
-  buildSessionHeaderProps,
-  buildSessionSidebarProps,
-} from "./section-props-builders";
 
 type SessionDetailViewShellSectionsInput = Pick<
   SessionDetailViewProps,
@@ -96,18 +89,22 @@ export const useSessionDetailViewShellSectionProps = ({
   } = actions;
 
   const quickPanelProps = useMemo(
-    () =>
-      buildQuickPanelProps({
-        quickPanelOpen,
+    () => ({
+      state: {
+        open: quickPanelOpen,
         sessionGroups,
+        allSessions: sessionGroups.flatMap((group) => group.sessions),
         nowMs,
-        paneId,
-        openLogModal,
-        handleOpenPaneHere,
-        handleOpenPaneInNewWindow,
-        closeQuickPanel,
-        toggleQuickPanel,
-      }),
+        currentPaneId: paneId,
+      },
+      actions: {
+        onOpenLogModal: openLogModal,
+        onOpenSessionLink: handleOpenPaneHere,
+        onOpenSessionLinkInNewWindow: handleOpenPaneInNewWindow,
+        onClose: closeQuickPanel,
+        onToggle: toggleQuickPanel,
+      },
+    }),
     [
       quickPanelOpen,
       sessionGroups,
@@ -122,17 +119,20 @@ export const useSessionDetailViewShellSectionProps = ({
   );
 
   const logModalProps = useMemo(
-    () =>
-      buildLogModalProps({
-        logModalOpen,
-        selectedSession,
-        selectedLogLines,
-        selectedLogLoading,
-        selectedLogError,
-        closeLogModal,
-        handleOpenHere,
-        handleOpenInNewTab,
-      }),
+    () => ({
+      state: {
+        open: logModalOpen,
+        session: selectedSession,
+        logLines: selectedLogLines,
+        loading: selectedLogLoading,
+        error: selectedLogError,
+      },
+      actions: {
+        onClose: closeLogModal,
+        onOpenHere: handleOpenHere,
+        onOpenNewTab: handleOpenInNewTab,
+      },
+    }),
     [
       logModalOpen,
       selectedSession,
@@ -146,21 +146,29 @@ export const useSessionDetailViewShellSectionProps = ({
   );
 
   const sessionHeaderProps = useMemo(() => {
-    return buildSessionHeaderProps({
-      session,
-      connectionIssue,
-      nowMs,
-      titleDraft,
-      titleEditing,
-      titleSaving,
-      titleError,
-      updateTitleDraft,
-      saveTitle,
-      resetTitle,
-      openTitleEditor,
-      closeTitleEditor,
-      handleTouchSession,
-    });
+    if (!session) {
+      return null;
+    }
+
+    return {
+      state: {
+        session,
+        connectionIssue,
+        nowMs,
+        titleDraft,
+        titleEditing,
+        titleSaving,
+        titleError,
+      },
+      actions: {
+        onTitleDraftChange: updateTitleDraft,
+        onTitleSave: saveTitle,
+        onTitleReset: resetTitle,
+        onOpenTitleEditor: openTitleEditor,
+        onCloseTitleEditor: closeTitleEditor,
+        onTouchSession: handleTouchSession,
+      },
+    };
   }, [
     session,
     connectionIssue,
@@ -178,25 +186,29 @@ export const useSessionDetailViewShellSectionProps = ({
   ]);
 
   const sessionSidebarProps = useMemo(
-    () =>
-      buildSessionSidebarProps({
+    () => ({
+      state: {
         sessionGroups,
         getRepoSortAnchorAt,
         nowMs,
         connected,
-        sidebarConnectionIssue,
+        connectionIssue: sidebarConnectionIssue,
         launchConfig,
         requestWorktrees,
         requestStateTimeline,
         requestScreen,
         highlightCorrections,
         resolvedTheme,
-        paneId,
-        handleFocusPane,
-        handleLaunchAgentInSession,
-        handleTouchPane,
-        handleTouchRepoPin,
-      }),
+        currentPaneId: paneId,
+        className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
+      },
+      actions: {
+        onFocusPane: handleFocusPane,
+        onLaunchAgentInSession: handleLaunchAgentInSession,
+        onTouchSession: handleTouchPane,
+        onTouchRepoPin: handleTouchRepoPin,
+      },
+    }),
     [
       sessionGroups,
       getRepoSortAnchorAt,
@@ -218,8 +230,8 @@ export const useSessionDetailViewShellSectionProps = ({
   );
 
   const controlsPanelProps = useMemo(
-    () =>
-      buildControlsPanelProps({
+    () => ({
+      state: {
         interactive,
         textInputRef,
         autoEnter,
@@ -228,22 +240,25 @@ export const useSessionDetailViewShellSectionProps = ({
         isSendingText,
         shiftHeld,
         ctrlHeld,
-        handleSendText,
-        handleUploadImage,
-        toggleAutoEnter,
-        toggleRawMode,
-        toggleAllowDangerKeys,
-        toggleShift,
-        toggleCtrl,
-        handleSendKey,
-        handleKillPane,
-        handleKillWindow,
-        handleRawBeforeInput,
-        handleRawInput,
-        handleRawKeyDown,
-        handleRawCompositionStart,
-        handleRawCompositionEnd,
-      }),
+      },
+      actions: {
+        onSendText: handleSendText,
+        onPickImage: handleUploadImage,
+        onToggleAutoEnter: toggleAutoEnter,
+        onToggleRawMode: toggleRawMode,
+        onToggleAllowDangerKeys: toggleAllowDangerKeys,
+        onToggleShift: toggleShift,
+        onToggleCtrl: toggleCtrl,
+        onSendKey: handleSendKey,
+        onKillPane: handleKillPane,
+        onKillWindow: handleKillWindow,
+        onRawBeforeInput: handleRawBeforeInput,
+        onRawInput: handleRawInput,
+        onRawKeyDown: handleRawKeyDown,
+        onRawCompositionStart: handleRawCompositionStart,
+        onRawCompositionEnd: handleRawCompositionEnd,
+      },
+    }),
     [
       interactive,
       textInputRef,
