@@ -170,4 +170,68 @@ describe("ansi-text-utils", () => {
     expect(html).toContain('vde-markdown-pipe-table-cell-right">1</td>');
     expect(html).toContain("APIサーバー");
   });
+
+  it("normalizes markdown pipe table rows that wrap long evidence lines", () => {
+    const lines = [
+      "| ID | 判定 | 調査結果（根拠） |",
+      "|---|---|---|",
+      "| STY-H1 | 一部進行だが有効 | SessionDetailViewProps が SessionDetailVM を直接参照する点は進展あり（apps/web/src/pages/",
+      "SessionDetail/useSessionDetailVM.ts:426）。ただし VM builder 層と View builder 層の二段変換は継続（apps/web/src/pages/",
+      "SessionDetail/hooks/section-props-builders.ts:303）。 |",
+      "| STY-H2 | 有効 | ScreenPanel.tsx は現状 1351 行で責務集中は継続（apps/web/src/pages/SessionDetail/components/ScreenPanel.tsx:519）。 |",
+    ];
+    const normalized = normalizeMarkdownPipeTableLines(lines);
+
+    expect(normalized).toHaveLength(1);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain('class="vde-markdown-pipe-table"');
+    expect(html).toContain("STY-H1");
+    expect(html).toContain("useSessionDetailVM.ts:426");
+    expect(html).toContain("section-props-builders.ts:303");
+    expect(html).toContain("STY-H2");
+  });
+
+  it("normalizes wrapped rows that contain a standalone pipe continuation line", () => {
+    const lines = [
+      "| ID | 判定 | 調査結果（根拠） |",
+      "|---|---|---|",
+      "| STY-L1 | 有効 | apps/web/src/pages/SessionDetail/SessionDetailView.tsx:522`。",
+      "|",
+      "SessionDetailView.tsx:453`）。 |",
+      "| STY-L2 | 有効 | 継続確認 |",
+    ];
+    const normalized = normalizeMarkdownPipeTableLines(lines);
+
+    expect(normalized).toHaveLength(1);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain('class="vde-markdown-pipe-table"');
+    expect(html).toContain("STY-L1");
+    expect(html).toContain("SessionDetailView.tsx:453");
+    expect(html).toContain("STY-L2");
+  });
+
+  it("keeps each markdown row separate when multiple rows are wrapped", () => {
+    const lines = [
+      "| ID | 判定 | 調査結果（根拠） |",
+      "|---|---|---|",
+      "| STY-H1 | 一部進行だが有効 | SessionDetailViewProps が SessionDetailVM を直接参照する点は進展あり（apps/web/src/pages/",
+      "SessionDetail/useSessionDetailVM.ts:426）。ただし VM builder 層と View builder 層の二段変換は継続（apps/web/src/pages/",
+      "SessionDetail/hooks/section-props-builders.ts:303）。",
+      "| STY-H2 | 有効 | ScreenPanel.tsx は現状 1351 行で責務集中は継続（apps/web/src/pages/SessionDetail/",
+      "components/ScreenPanel.tsx:519, apps/web/src/pages/SessionDetail/components/ScreenPanel.tsx:676）。",
+      "| STY-H3 | 有効 | 型重複は解消されておらず Build*Args 群が残存（apps/web/src/pages/SessionDetail/hooks/",
+      "session-detail-vm-section-builders.ts:29, apps/web/src/pages/SessionDetail/hooks/section-props-builders.ts:30）。 |",
+    ];
+    const normalized = normalizeMarkdownPipeTableLines(lines);
+
+    expect(normalized).toHaveLength(1);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain('class="vde-markdown-pipe-table"');
+    expect(html).toContain("STY-H1");
+    expect(html).toContain("STY-H2");
+    expect(html).toContain("STY-H3");
+    const tbodyHtml = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? "";
+    const rowCount = (tbodyHtml.match(/<tr>/g) ?? []).length;
+    expect(rowCount).toBe(3);
+  });
 });

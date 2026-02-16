@@ -12,9 +12,10 @@ const backgroundColorPattern = /background-color:\s*([^;"']+)/i;
 const backgroundColorPatternGlobal = /background-color:\s*([^;"']+)/gi;
 const unicodeTableBorderPattern = /^(\s*)([┌├└]).*([┐┤┘])\s*$/;
 const unicodeTableRowPattern = /^(\s*)│(.*)│\s*$/;
-const markdownTableRowPattern = /^(\s*)\|(.+)\|\s*$/;
-const markdownTableListPrefixPattern = /^(\s*(?:[-*+•]|\d+\.)\s+)(\|.+\|\s*)$/;
+const markdownTableRowPattern = /^(\s*)\|(.+?)(?:\|\s*)?$/;
+const markdownTableListPrefixPattern = /^(\s*(?:[-*+•]|\d+\.)\s+)(\|.+(?:\|\s*)?)$/;
 const markdownTableDelimiterCellPattern = /^:?-{3,}:?$/;
+const markdownTableRowStartPattern = /^\s*\|/;
 const tableHtmlLinePrefix = "__VDE_TABLE_HTML__:";
 type UnicodeTableCell = {
   text: string;
@@ -26,6 +27,11 @@ type MarkdownTableRow = {
   indent: string;
   cells: string[];
   prefix: string;
+};
+
+type ParsedMarkdownBodyRow = {
+  cells: string[];
+  nextIndex: number;
 };
 
 export const stripAnsi = (value: string) => value.replace(ansiEscapePattern, "");
@@ -263,6 +269,115 @@ const parseMarkdownTableDelimiterRow = (plainLine: string, expectedColumns: numb
   };
 };
 
+const cjkTrailingPattern = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]$/u;
+const cjkLeadingPattern = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+
+const appendMarkdownTableText = (base: string, fragment: string) => {
+  const normalizedFragment = fragment.trim();
+  if (normalizedFragment.length === 0) {
+    return base;
+  }
+  if (base.length === 0) {
+    return normalizedFragment;
+  }
+  if (/\s$/.test(base) || /^[\s,.;:!?)]/.test(normalizedFragment)) {
+    return `${base}${normalizedFragment}`;
+  }
+  if (base.endsWith("/") || /[[({<-]$/.test(base)) {
+    return `${base}${normalizedFragment}`;
+  }
+  if (cjkTrailingPattern.test(base) && cjkLeadingPattern.test(normalizedFragment)) {
+    return `${base}${normalizedFragment}`;
+  }
+  return `${base} ${normalizedFragment}`;
+};
+
+const normalizeMarkdownRowContinuation = (plainLine: string) => {
+  const trimmed = plainLine.trim();
+  if (trimmed === "|") {
+    return "";
+  }
+  const withoutLeading = trimmed.startsWith("|") ? trimmed.slice(1).trimStart() : trimmed;
+  const withoutTrailing = withoutLeading.endsWith("|")
+    ? withoutLeading.slice(0, Math.max(withoutLeading.length - 1, 0)).trimEnd()
+    : withoutLeading;
+  return withoutTrailing;
+};
+
+const parseMarkdownBodyRow = (
+  lines: string[],
+  startIndex: number,
+  expectedColumns: number,
+): ParsedMarkdownBodyRow | null => {
+  const firstLine = lines[startIndex] ?? "";
+  const firstPlain = stripAnsi(firstLine);
+  if (!markdownTableRowStartPattern.test(firstPlain)) {
+    return null;
+  }
+
+  let candidate = firstPlain;
+  let cursor = startIndex;
+  let consumedLineCount = 1;
+  const firstLineHasTrailingPipe = /\|\s*$/.test(firstPlain);
+  let parsed = parseMarkdownTableRow(candidate);
+
+  while ((!parsed || parsed.cells.length !== expectedColumns) && cursor + 1 < lines.length) {
+    const nextPlain = stripAnsi(lines[cursor + 1] ?? "");
+    const nextTrimmed = nextPlain.trim();
+    if (nextTrimmed.length === 0) {
+      return null;
+    }
+    const nextAsStandaloneRow = parseMarkdownTableRow(nextPlain);
+    if (nextAsStandaloneRow && nextAsStandaloneRow.cells.length === expectedColumns) {
+      return null;
+    }
+    candidate = appendMarkdownTableText(candidate, nextTrimmed);
+    cursor += 1;
+    consumedLineCount += 1;
+    parsed = parseMarkdownTableRow(candidate);
+    if (consumedLineCount >= 16) {
+      break;
+    }
+  }
+
+  if (!parsed || parsed.cells.length !== expectedColumns) {
+    return null;
+  }
+
+  const cells = [...parsed.cells];
+  let nextIndex = cursor + 1;
+  const allowTrailingContinuation = consumedLineCount > 1 || !firstLineHasTrailingPipe;
+  if (!allowTrailingContinuation) {
+    return { cells, nextIndex };
+  }
+
+  while (nextIndex < lines.length) {
+    const continuationPlain = stripAnsi(lines[nextIndex] ?? "");
+    if (continuationPlain.trim().length === 0) {
+      break;
+    }
+    if (parseMarkdownTableDelimiterRow(continuationPlain, expectedColumns)) {
+      break;
+    }
+    const nextAsStandaloneRow = parseMarkdownTableRow(continuationPlain);
+    if (nextAsStandaloneRow && nextAsStandaloneRow.cells.length === expectedColumns) {
+      break;
+    }
+
+    const fragment = normalizeMarkdownRowContinuation(continuationPlain);
+    if (fragment.length > 0) {
+      const lastCellIndex = cells.length - 1;
+      cells[lastCellIndex] = appendMarkdownTableText(cells[lastCellIndex] ?? "", fragment);
+    }
+    nextIndex += 1;
+    if (nextIndex - startIndex >= 24) {
+      break;
+    }
+  }
+
+  return { cells, nextIndex };
+};
+
 const isUnicodeTableCandidateLine = (plainLine: string) =>
   parseUnicodeTableBorder(plainLine) != null || parseUnicodeTableRow(plainLine) != null;
 
@@ -476,13 +591,12 @@ export const normalizeMarkdownPipeTableLines = (lines: string[]): string[] => {
     const bodyRows: string[][] = [];
     let cursor = index + 2;
     while (cursor < lines.length) {
-      const bodyLine = lines[cursor] ?? "";
-      const bodyRow = parseMarkdownTableRow(stripAnsi(bodyLine));
-      if (!bodyRow || bodyRow.cells.length !== headerRow.cells.length) {
+      const bodyRow = parseMarkdownBodyRow(lines, cursor, headerRow.cells.length);
+      if (!bodyRow) {
         break;
       }
       bodyRows.push(bodyRow.cells);
-      cursor += 1;
+      cursor = bodyRow.nextIndex;
     }
 
     const indent = headerRow.prefix.length > 0 ? "" : headerRow.indent || delimiterRow.indent;
