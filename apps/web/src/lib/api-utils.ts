@@ -13,6 +13,12 @@ type RequestJsonOptions = {
   timeoutMessage?: string;
 };
 
+type ErrorMessageResult = {
+  error?: {
+    message?: string | null;
+  } | null;
+};
+
 const readJsonSafe = async <T>(res: Response): Promise<T | null> => {
   try {
     return (await res.json()) as T;
@@ -34,6 +40,9 @@ const isAbortError = (error: unknown) =>
 
 export const resolveUnknownErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
+
+export const resolveResultErrorMessage = (result: ErrorMessageResult, fallback: string) =>
+  result.error?.message ?? fallback;
 
 export const requestJson = async <T>(request: JsonRequest, options?: RequestJsonOptions) => {
   const timeoutMs = options?.timeoutMs ?? 0;

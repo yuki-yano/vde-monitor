@@ -9,6 +9,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveResultErrorMessage } from "@/lib/api-utils";
 import type { ScreenMode } from "@/lib/screen-loading";
 
 import {
@@ -47,9 +48,6 @@ type FailedSendTextAttempt = {
   requestId: string;
 };
 
-const resolveCommandErrorMessage = (response: CommandResponse, fallback: string) =>
-  response.error?.message ?? fallback;
-
 const handleCommandFailure = (
   response: CommandResponse,
   fallback: string,
@@ -58,7 +56,7 @@ const handleCommandFailure = (
   if (response.ok) {
     return false;
   }
-  setScreenError(resolveCommandErrorMessage(response, fallback));
+  setScreenError(resolveResultErrorMessage(response, fallback));
   return true;
 };
 

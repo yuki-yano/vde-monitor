@@ -3,6 +3,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
 
 import {
   getScreenCacheAtom,
@@ -66,12 +67,6 @@ const resolveDisconnectedMessage = (connectionIssue: string | null) =>
 
 const resolveRequestLines = (options: FetchOptions, lines?: number) => options.lines ?? lines;
 
-const resolveResponseErrorMessage = (response: ScreenResponse, fallback: string) =>
-  response.error?.message ?? fallback;
-
-const resolveThrownErrorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
-
 const isLatestRequest = (
   latestRequests: Record<string, number>,
   paneId: string,
@@ -118,7 +113,7 @@ export const useScreenCache = ({
         if (!response.ok) {
           setError((prev) => ({
             ...prev,
-            [paneId]: resolveResponseErrorMessage(response, loadErrorMessage),
+            [paneId]: resolveResultErrorMessage(response, loadErrorMessage),
           }));
           return;
         }
@@ -132,7 +127,7 @@ export const useScreenCache = ({
         }
         setError((prev) => ({
           ...prev,
-          [paneId]: resolveThrownErrorMessage(err, requestFailedMessage),
+          [paneId]: resolveUnknownErrorMessage(err, requestFailedMessage),
         }));
       } finally {
         inflightRef.current.delete(paneId);
