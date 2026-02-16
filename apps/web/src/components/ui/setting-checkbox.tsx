@@ -22,7 +22,7 @@ const SettingCheckbox = forwardRef<HTMLInputElement, SettingCheckboxProps>(
     return (
       <label
         className={cn(
-          "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2 transition",
+          "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition",
           disabled ? "cursor-not-allowed opacity-60" : null,
           className,
         )}
@@ -30,7 +30,7 @@ const SettingCheckbox = forwardRef<HTMLInputElement, SettingCheckboxProps>(
         <Checkbox
           ref={ref}
           aria-label={inputAriaLabel}
-          className="mt-0.5 h-3.5 w-3.5"
+          className="h-3.5 w-3.5"
           checked={checked}
           disabled={disabled}
           onChange={(event) => onCheckedChange(event.currentTarget.checked)}
