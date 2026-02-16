@@ -2,6 +2,7 @@ import type { RepoNote } from "@vde-monitor/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 
 type UseSessionRepoNotesParams = {
   paneId: string;
@@ -35,9 +36,6 @@ const sortNotesDesc = (notes: RepoNote[]) =>
     }
     return b.id.localeCompare(a.id);
   });
-
-const resolveErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 export const useSessionRepoNotes = ({
   paneId,
@@ -84,7 +82,7 @@ export const useSessionRepoNotes = ({
         if (activePaneIdRef.current !== targetPaneId || noteRequestIdRef.current !== requestId) {
           return;
         }
-        setNotesError(resolveErrorMessage(error, API_ERROR_MESSAGES.repoNotes));
+        setNotesError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.repoNotes));
       } finally {
         if (!silent) {
           pendingInteractiveLoadsRef.current = Math.max(0, pendingInteractiveLoadsRef.current - 1);
@@ -152,7 +150,7 @@ export const useSessionRepoNotes = ({
         return true;
       } catch (error) {
         if (activePaneIdRef.current === targetPaneId) {
-          setNotesError(resolveErrorMessage(error, API_ERROR_MESSAGES.createRepoNote));
+          setNotesError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.createRepoNote));
         }
         return false;
       } finally {
@@ -182,7 +180,7 @@ export const useSessionRepoNotes = ({
         return true;
       } catch (error) {
         if (activePaneIdRef.current === targetPaneId) {
-          setNotesError(resolveErrorMessage(error, API_ERROR_MESSAGES.updateRepoNote));
+          setNotesError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateRepoNote));
         }
         return false;
       } finally {
@@ -212,7 +210,7 @@ export const useSessionRepoNotes = ({
         return true;
       } catch (error) {
         if (activePaneIdRef.current === targetPaneId) {
-          setNotesError(resolveErrorMessage(error, API_ERROR_MESSAGES.deleteRepoNote));
+          setNotesError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.deleteRepoNote));
         }
         return false;
       } finally {

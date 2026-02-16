@@ -32,6 +32,9 @@ const isAbortError = (error: unknown) =>
       "name" in error &&
       (error as { name?: string }).name === "AbortError";
 
+export const resolveUnknownErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export const requestJson = async <T>(request: JsonRequest, options?: RequestJsonOptions) => {
   const timeoutMs = options?.timeoutMs ?? 0;
   let res: Response;

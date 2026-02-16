@@ -2,6 +2,7 @@ import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 
 import { useSessionFilesContextResetEffect } from "./useSessionFiles-context-reset-effect";
 import { useSessionFilesFileModalActions } from "./useSessionFiles-file-modal-actions";
@@ -52,9 +53,6 @@ type UseSessionFilesParams = {
     options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
 };
-
-const resolveUnknownErrorMessage = (error: unknown, fallbackMessage: string) =>
-  error instanceof Error ? error.message : fallbackMessage;
 
 export const useSessionFiles = ({
   paneId,

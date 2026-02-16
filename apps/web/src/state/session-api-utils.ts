@@ -49,15 +49,14 @@ export type SessionsResponseEnvelope = ApiEnvelope<{
   errorCause?: string;
 };
 
+export { resolveUnknownErrorMessage } from "@/lib/api-utils";
+
 export const buildRefreshFailureResult = (status: number): RefreshSessionsResult => ({
   ok: false,
   status,
   authError: status === 401 || status === 403,
   rateLimited: status === 429,
 });
-
-export const resolveUnknownErrorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
 
 export const buildScreenErrorResponse = ({
   paneId,
