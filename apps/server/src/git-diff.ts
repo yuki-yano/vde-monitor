@@ -4,6 +4,7 @@ import path from "node:path";
 import type { DiffFile, DiffFileStatus, DiffSummary, DiffSummaryFile } from "@vde-monitor/shared";
 
 import { setMapEntryWithLimit } from "./cache";
+import { shouldReuseCacheEntry, truncateTextByLength } from "./git-common";
 import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
 import { resolveRepoRoot, runGit } from "./git-utils";
 
@@ -133,10 +134,20 @@ const buildUnknownSummary = (reason: "cwd_unknown" | "not_git"): DiffSummary => 
 
 const getCachedSummary = (repoRoot: string, force: boolean | undefined, nowMs: number) => {
   const cached = summaryCache.get(repoRoot);
-  if (force || !cached) {
+  if (!cached) {
     return null;
   }
-  return nowMs - cached.at < SUMMARY_TTL_MS ? cached.summary : null;
+  if (
+    !shouldReuseCacheEntry({
+      force,
+      cachedAt: cached.at,
+      nowMs,
+      ttlMs: SUMMARY_TTL_MS,
+    })
+  ) {
+    return null;
+  }
+  return cached.summary;
 };
 
 const fetchUntrackedNumstat = async (
@@ -208,10 +219,20 @@ const getCachedDiffFile = (
   nowMs: number,
 ): DiffFile | null => {
   const cached = fileCache.get(cacheKey);
-  if (force || !cached) {
+  if (!cached) {
     return null;
   }
-  return nowMs - cached.at < FILE_TTL_MS ? cached.file : null;
+  if (
+    !shouldReuseCacheEntry({
+      force,
+      cachedAt: cached.at,
+      nowMs,
+      ttlMs: FILE_TTL_MS,
+    })
+  ) {
+    return null;
+  }
+  return cached.file;
 };
 
 const fetchPatchForUntrackedFile = async (repoRoot: string, safePath: string) => {
@@ -237,25 +258,21 @@ const fetchPatchData = async (repoRoot: string, file: DiffSummaryFile, safePath:
   return fetchPatchForTrackedFile(repoRoot, file.path);
 };
 
-const truncatePatch = (patch: string) => {
-  if (patch.length <= MAX_PATCH_BYTES) {
-    return { patch, truncated: false };
-  }
-  return { patch: patch.slice(0, MAX_PATCH_BYTES), truncated: true };
-};
-
 const buildDiffFileFromPatch = (
   file: DiffSummaryFile,
   rev: string,
   patch: string,
   numstat: NumstatResult | null,
 ): DiffFile => {
-  const truncatedPatch = truncatePatch(patch);
+  const truncatedPatch = truncateTextByLength({
+    text: patch,
+    maxLength: MAX_PATCH_BYTES,
+  });
   const binary = isBinaryPatch(patch) || numstat?.additions == null || numstat?.deletions == null;
   return {
     path: file.path,
     status: file.status,
-    patch: truncatedPatch.patch.length > 0 ? truncatedPatch.patch : null,
+    patch: truncatedPatch.text.length > 0 ? truncatedPatch.text : null,
     binary,
     truncated: truncatedPatch.truncated,
     rev,

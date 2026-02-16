@@ -7,6 +7,7 @@ import type {
 } from "@vde-monitor/shared";
 
 import { setMapEntryWithLimit } from "./cache";
+import { shouldReuseCacheEntry, truncateTextByLength } from "./git-common";
 import { isBinaryPatch, parseNumstat, pickStatus } from "./git-parsers";
 import { resolveRepoRoot, runGit } from "./git-utils";
 
@@ -233,7 +234,15 @@ const shouldUseCachedCommitLog = ({
   cached: { at: number; rev: string | null; log: CommitLog; signature: string } | undefined;
   nowMs: number;
   head: string | null;
-}) => !force && cached && nowMs - cached.at < LOG_TTL_MS && cached.rev === head;
+}) =>
+  Boolean(cached) &&
+  (cached?.rev ?? null) === head &&
+  shouldReuseCacheEntry({
+    force,
+    cachedAt: cached?.at ?? 0,
+    nowMs,
+    ttlMs: LOG_TTL_MS,
+  });
 
 const commitLogFormat = [
   RECORD_SEPARATOR,
@@ -269,16 +278,6 @@ const loadCommitPatch = async (repoRoot: string, hash: string, file: CommitFile)
   } catch {
     return "";
   }
-};
-
-const truncateCommitPatch = (patch: string) => {
-  if (patch.length <= MAX_PATCH_BYTES) {
-    return { patch, truncated: false };
-  }
-  return {
-    patch: patch.slice(0, MAX_PATCH_BYTES),
-    truncated: true,
-  };
 };
 
 export const fetchCommitLog = async (
@@ -347,7 +346,15 @@ export const fetchCommitDetail = async (
   const cacheKey = `${repoRoot}:${hash}`;
   const cached = detailCache.get(cacheKey);
   const nowMs = Date.now();
-  if (!options?.force && cached && nowMs - cached.at < DETAIL_TTL_MS) {
+  if (
+    cached &&
+    shouldReuseCacheEntry({
+      force: options?.force,
+      cachedAt: cached.at,
+      nowMs,
+      ttlMs: DETAIL_TTL_MS,
+    })
+  ) {
     return cached.detail;
   }
   try {
@@ -410,12 +417,23 @@ export const fetchCommitFile = async (
   const cacheKey = `${repoRoot}:${hash}:${file.path}`;
   const cached = fileCache.get(cacheKey);
   const nowMs = Date.now();
-  if (!options?.force && cached && nowMs - cached.at < FILE_TTL_MS) {
+  if (
+    cached &&
+    shouldReuseCacheEntry({
+      force: options?.force,
+      cachedAt: cached.at,
+      nowMs,
+      ttlMs: FILE_TTL_MS,
+    })
+  ) {
     return cached.file;
   }
   const patch = await loadCommitPatch(repoRoot, hash, file);
   const binary = isBinaryPatch(patch) || file.additions == null || file.deletions == null;
-  const { patch: normalizedPatch, truncated } = truncateCommitPatch(patch);
+  const { text: normalizedPatch, truncated } = truncateTextByLength({
+    text: patch,
+    maxLength: MAX_PATCH_BYTES,
+  });
   const diff: CommitFileDiff = {
     path: file.path,
     status: file.status,
