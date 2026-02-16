@@ -197,7 +197,6 @@ describe("processPane", () => {
       worktreeLockOwner: "codex",
       worktreeLockReason: "in progress",
       worktreeMerged: false,
-      worktreePrCreated: true,
     }));
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
@@ -238,7 +237,6 @@ describe("processPane", () => {
     expect(detail?.worktreePath).toBe(worktreePath);
     expect(detail?.worktreeDirty).toBe(true);
     expect(detail?.worktreeLocked).toBe(true);
-    expect(detail?.worktreePrCreated).toBe(true);
     expect(resolveRepoRoot).toHaveBeenCalledWith("/tmp/project");
     expect(resolveBranch).not.toHaveBeenCalled();
     expect(updatePaneOutputState).toHaveBeenCalledWith(
@@ -252,7 +250,7 @@ describe("processPane", () => {
     );
   });
 
-  it("keeps PR flag null for non-vw-managed worktree paths", async () => {
+  it("keeps worktree context for non-vw-managed worktree paths", async () => {
     const resolveRepoRoot = vi.fn(async () => "/tmp/project");
     const resolveWorktreeStatus = vi.fn(() => ({
       repoRoot: "/tmp/project",
@@ -263,7 +261,6 @@ describe("processPane", () => {
       worktreeLockOwner: null,
       worktreeLockReason: null,
       worktreeMerged: false,
-      worktreePrCreated: false,
     }));
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
@@ -290,7 +287,6 @@ describe("processPane", () => {
     );
 
     expect(detail?.worktreePath).toBe("/tmp/project");
-    expect(detail?.worktreePrCreated).toBeNull();
   });
 
   it("ignores mismatched worktree snapshot and falls back to repo resolvers", async () => {
@@ -305,7 +301,6 @@ describe("processPane", () => {
       worktreeLockOwner: "codex",
       worktreeLockReason: "mismatch",
       worktreeMerged: false,
-      worktreePrCreated: false,
     }));
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
@@ -336,7 +331,6 @@ describe("processPane", () => {
     expect(detail?.branch).toBe("feature/submodule");
     expect(detail?.worktreePath).toBeNull();
     expect(detail?.worktreeDirty).toBeNull();
-    expect(detail?.worktreePrCreated).toBeNull();
     expect(resolveBranch).toHaveBeenCalledWith("/tmp/project/submodule");
   });
 

@@ -18,10 +18,7 @@ export type PaneResolvedContext = {
   worktreeLockOwner: string | null;
   worktreeLockReason: string | null;
   worktreeMerged: boolean | null;
-  worktreePrCreated: boolean | null;
 };
-
-const vwWorktreeSegmentPattern = /(^|[\\/])\.worktree([\\/]|$)/;
 
 const normalizePathForCompare = (value: string | null | undefined) => {
   if (!value) return null;
@@ -36,13 +33,6 @@ const isSamePath = (left: string | null | undefined, right: string | null | unde
     return false;
   }
   return normalizedLeft === normalizedRight;
-};
-
-const isVwManagedWorktreePath = (value: string | null | undefined) => {
-  if (!value) {
-    return false;
-  }
-  return vwWorktreeSegmentPattern.test(value.trim());
 };
 
 export const resolvePaneContext = async ({
@@ -62,10 +52,6 @@ export const resolvePaneContext = async ({
       : null;
   const repoRoot = worktreeStatus?.repoRoot ?? resolvedRepoRoot;
   const branch = worktreeStatus?.branch ?? (await resolveBranch?.(currentPath)) ?? null;
-  const shouldResolvePrCreated = isVwManagedWorktreePath(worktreeStatus?.worktreePath);
-  const worktreePrCreated = shouldResolvePrCreated
-    ? (worktreeStatus?.worktreePrCreated ?? null)
-    : null;
 
   return {
     repoRoot,
@@ -76,6 +62,5 @@ export const resolvePaneContext = async ({
     worktreeLockOwner: worktreeStatus?.worktreeLockOwner ?? null,
     worktreeLockReason: worktreeStatus?.worktreeLockReason ?? null,
     worktreeMerged: worktreeStatus?.worktreeMerged ?? null,
-    worktreePrCreated,
   };
 };

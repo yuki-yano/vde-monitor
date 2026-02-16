@@ -140,7 +140,6 @@ describe("QuickPanel", () => {
       worktreePath: "/Users/test/repo",
       worktreeDirty: true,
       worktreeLocked: true,
-      worktreePrCreated: true,
       worktreeMerged: true,
     });
     const state = buildState({
@@ -170,7 +169,6 @@ describe("QuickPanel", () => {
       worktreePath: "/Users/test/repo/.worktree/feature/worktree",
       worktreeDirty: true,
       worktreeLocked: false,
-      worktreePrCreated: true,
       worktreeMerged: false,
     });
     const state = buildState({

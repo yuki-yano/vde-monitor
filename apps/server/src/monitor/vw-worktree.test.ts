@@ -139,6 +139,7 @@ describe("resolveVwWorktreeSnapshotCached", () => {
               dirty: false,
               locked: {},
               merged: { overall: false, byPR: null },
+              pr: { status: "unknown" },
             },
           ],
         }),
@@ -155,6 +156,7 @@ describe("resolveVwWorktreeSnapshotCached", () => {
               dirty: false,
               locked: {},
               merged: { overall: false, byPR: true },
+              pr: { status: "merged" },
             },
           ],
         }),
@@ -164,7 +166,9 @@ describe("resolveVwWorktreeSnapshotCached", () => {
     const second = await resolveVwWorktreeSnapshotCached("/repo", { ghMode: "auto" });
 
     expect(first?.entries[0]?.merged.byPR).toBeNull();
+    expect(first?.entries[0]?.pr.status).toBe("unknown");
     expect(second?.entries[0]?.merged.byPR).toBe(true);
+    expect(second?.entries[0]?.pr.status).toBe("merged");
     expect(execaMock).toHaveBeenNthCalledWith(
       1,
       "vw",
@@ -192,6 +196,7 @@ describe("resolveVwWorktreeSnapshotCached", () => {
               dirty: false,
               locked: {},
               merged: { overall: true, byPR: true },
+              pr: { status: "merged" },
             },
           ],
         }),
@@ -199,9 +204,6 @@ describe("resolveVwWorktreeSnapshotCached", () => {
 
       const first = await resolveVwWorktreeSnapshotCached("/repo");
       expect(execaMock).toHaveBeenNthCalledWith(1, "vw", ["list", "--json"], expect.any(Object));
-      expect(
-        resolveWorktreeStatusFromSnapshot(first, "/repo/.worktree/feature/foo")?.worktreePrCreated,
-      ).toBe(true);
       expect(
         resolveWorktreeStatusFromSnapshot(first, "/repo/.worktree/feature/foo")?.worktreeMerged,
       ).toBe(true);
@@ -219,6 +221,7 @@ describe("resolveVwWorktreeSnapshotCached", () => {
               dirty: false,
               locked: {},
               merged: { overall: false, byPR: null },
+              pr: { status: "unknown" },
             },
           ],
         }),
@@ -232,11 +235,9 @@ describe("resolveVwWorktreeSnapshotCached", () => {
         expect.any(Object),
       );
       expect(
-        resolveWorktreeStatusFromSnapshot(second, "/repo/.worktree/feature/foo")?.worktreePrCreated,
-      ).toBe(true);
-      expect(
         resolveWorktreeStatusFromSnapshot(second, "/repo/.worktree/feature/foo")?.worktreeMerged,
       ).toBe(true);
+      expect(second?.entries[0]?.pr.status).toBe("merged");
     } finally {
       vi.useRealTimers();
     }
@@ -338,7 +339,6 @@ describe("resolveWorktreeStatusFromSnapshot", () => {
       worktreeLockOwner: "codex",
       worktreeLockReason: "in progress",
       worktreeMerged: true,
-      worktreePrCreated: null,
     });
   });
 });

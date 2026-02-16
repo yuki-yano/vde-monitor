@@ -89,7 +89,6 @@ export type SessionSummary = {
   worktreeLockOwner?: string | null;
   worktreeLockReason?: string | null;
   worktreeMerged?: boolean | null;
-  worktreePrCreated?: boolean | null;
   repoRoot: string | null;
   agent: "codex" | "claude" | "unknown";
   state: SessionStateValue;
@@ -240,6 +239,8 @@ export type RepoFileContent = {
   content: string | null;
 };
 
+export type WorktreePrStatus = "none" | "open" | "merged" | "closed_unmerged" | "unknown";
+
 export type WorktreeListEntry = {
   path: string;
   branch: string | null;
@@ -248,7 +249,7 @@ export type WorktreeListEntry = {
   lockOwner: string | null;
   lockReason: string | null;
   merged: boolean | null;
-  prCreated?: boolean | null;
+  prStatus?: WorktreePrStatus | null;
   ahead?: number | null;
   behind?: number | null;
   fileChanges?: {

@@ -39,7 +39,7 @@ const buildRootFallbackEntry = (rootPath: string): WorktreeListEntryBase => ({
   lockOwner: null,
   lockReason: null,
   merged: null,
-  prCreated: null,
+  prStatus: null,
   ahead: null,
   behind: null,
 });
@@ -56,7 +56,7 @@ const toEntry = (
   lockOwner: entry.locked.owner,
   lockReason: entry.locked.reason,
   merged: entry.merged.overall,
-  prCreated: entry.merged.byPR,
+  prStatus: entry.pr.status,
   ahead: null,
   behind: null,
 });

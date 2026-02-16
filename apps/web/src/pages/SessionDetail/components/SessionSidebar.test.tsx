@@ -123,7 +123,6 @@ describe("SessionSidebar", () => {
       worktreePath: "/Users/test/repo/.worktree/feature/codex",
       worktreeDirty: true,
       worktreeLocked: false,
-      worktreePrCreated: true,
       worktreeMerged: false,
       windowIndex: 1,
       sessionName: "alpha",

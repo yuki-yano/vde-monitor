@@ -211,7 +211,6 @@ export const sessionSummarySchema = z.object({
   worktreeLockOwner: z.string().nullable().optional(),
   worktreeLockReason: z.string().nullable().optional(),
   worktreeMerged: z.boolean().nullable().optional(),
-  worktreePrCreated: z.boolean().nullable().optional(),
   repoRoot: z.string().nullable(),
   agent: z.enum(["codex", "claude", "unknown"]),
   state: sessionStateSchema,

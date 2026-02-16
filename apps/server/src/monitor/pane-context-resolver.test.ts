@@ -15,7 +15,6 @@ describe("resolvePaneContext", () => {
       worktreeLockOwner: null,
       worktreeLockReason: null,
       worktreeMerged: false,
-      worktreePrCreated: true,
     }));
     const resolveBranch = vi.fn(async () => "feature/fallback");
 
@@ -30,7 +29,6 @@ describe("resolvePaneContext", () => {
     expect(context.branch).toBe("feature/worktree");
     expect(context.worktreePath).toBe(worktreePath);
     expect(context.worktreeDirty).toBe(true);
-    expect(context.worktreePrCreated).toBe(true);
     expect(resolveBranch).not.toHaveBeenCalled();
   });
 
@@ -45,7 +43,6 @@ describe("resolvePaneContext", () => {
       worktreeLockOwner: "codex",
       worktreeLockReason: "mismatch",
       worktreeMerged: false,
-      worktreePrCreated: false,
     }));
     const resolveBranch = vi.fn(async () => "feature/submodule");
 
@@ -60,7 +57,6 @@ describe("resolvePaneContext", () => {
     expect(context.branch).toBe("feature/submodule");
     expect(context.worktreePath).toBeNull();
     expect(context.worktreeDirty).toBeNull();
-    expect(context.worktreePrCreated).toBeNull();
     expect(resolveBranch).toHaveBeenCalledWith("/tmp/project/submodule");
   });
 });

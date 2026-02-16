@@ -601,6 +601,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
           dirty: false,
           locked: { value: false, owner: null, reason: null },
           merged: { overall: false, byPR: null },
+          pr: { status: "none" },
         },
       ],
     });
@@ -683,6 +684,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
           dirty: false,
           locked: { value: false, owner: null, reason: null },
           merged: { overall: false, byPR: null },
+          pr: { status: "none" },
         },
       ],
     });
@@ -778,6 +780,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
           dirty: false,
           locked: { value: false, owner: null, reason: null },
           merged: { overall: false, byPR: null },
+          pr: { status: "none" },
         },
         {
           path: "/repo/.worktree/feature/b",
@@ -785,6 +788,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
           dirty: false,
           locked: { value: false, owner: null, reason: null },
           merged: { overall: false, byPR: null },
+          pr: { status: "none" },
         },
       ],
     });

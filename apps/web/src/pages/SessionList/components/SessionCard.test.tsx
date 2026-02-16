@@ -100,7 +100,6 @@ describe("SessionCard", () => {
       worktreePath: "/Users/test/repo",
       worktreeDirty: true,
       worktreeLocked: true,
-      worktreePrCreated: true,
       worktreeMerged: true,
     });
     renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
@@ -116,7 +115,6 @@ describe("SessionCard", () => {
       worktreePath: "/Users/test/repo/.worktree/feature/foo",
       worktreeDirty: true,
       worktreeLocked: false,
-      worktreePrCreated: true,
       worktreeMerged: false,
     });
     renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);

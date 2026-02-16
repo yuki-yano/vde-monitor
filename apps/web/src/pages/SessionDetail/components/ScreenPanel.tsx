@@ -222,31 +222,36 @@ const resolveWorktreeFlagClassName = (
 };
 
 const resolveWorktreePrStatus = (
-  prCreated: boolean | null | undefined,
-  merged: boolean | null,
+  prStatus: WorktreeListEntry["prStatus"] | null | undefined,
 ): { label: string; className: string } => {
-  if (prCreated == null) {
-    return {
-      label: "PR Unknown",
-      className: "border-latte-surface2/70 bg-latte-surface0/60 text-latte-subtext0",
-    };
+  switch (prStatus) {
+    case "none":
+      return {
+        label: "PR None",
+        className: "border-latte-peach/45 bg-latte-peach/12 text-latte-peach",
+      };
+    case "open":
+      return {
+        label: "PR Open",
+        className: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue",
+      };
+    case "merged":
+      return {
+        label: "PR Merged",
+        className: "border-latte-green/45 bg-latte-green/10 text-latte-green",
+      };
+    case "closed_unmerged":
+      return {
+        label: "PR Closed",
+        className: "border-latte-red/45 bg-latte-red/10 text-latte-red",
+      };
+    case "unknown":
+    default:
+      return {
+        label: "PR Unknown",
+        className: "border-latte-surface2/70 bg-latte-surface0/60 text-latte-subtext0",
+      };
   }
-  if (!prCreated) {
-    return {
-      label: "PR None",
-      className: "border-latte-peach/45 bg-latte-peach/12 text-latte-peach",
-    };
-  }
-  if (merged === true) {
-    return {
-      label: "PR Merged",
-      className: "border-latte-green/45 bg-latte-green/10 text-latte-green",
-    };
-  }
-  return {
-    label: "PR Created",
-    className: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue",
-  };
 };
 
 const pollingPauseLabelMap: Record<
@@ -1149,10 +1154,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
                           const hasBehind = hasWorktreeUpstreamDelta(entry.behind);
                           const shouldShowAheadBehind = !isRepoRootPath && (hasAhead || hasBehind);
                           const entryBranchLabel = formatBranchLabel(entry.branch);
-                          const prStatus = resolveWorktreePrStatus(
-                            entry.prCreated ?? null,
-                            entry.merged,
-                          );
+                          const prStatus = resolveWorktreePrStatus(entry.prStatus ?? null);
                           return (
                             <button
                               key={entry.path}

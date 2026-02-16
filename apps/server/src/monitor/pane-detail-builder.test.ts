@@ -61,7 +61,6 @@ const paneContext: PaneResolvedContext = {
   worktreeLockOwner: null,
   worktreeLockReason: null,
   worktreeMerged: false,
-  worktreePrCreated: true,
 };
 
 describe("buildPaneDetail", () => {
@@ -83,6 +82,5 @@ describe("buildPaneDetail", () => {
     expect(detail.customTitle).toBe("Custom");
     expect(detail.repoRoot).toBe("/tmp/project");
     expect(detail.branch).toBe("feature/worktree");
-    expect(detail.worktreePrCreated).toBe(true);
   });
 });

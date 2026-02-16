@@ -26,7 +26,6 @@ export const createSessionDetail = (overrides: Partial<SessionDetail> = {}): Ses
   worktreeLockOwner: null,
   worktreeLockReason: null,
   worktreeMerged: null,
-  worktreePrCreated: null,
   repoRoot: "/Users/test/repo",
   agent: "codex",
   state: "RUNNING",

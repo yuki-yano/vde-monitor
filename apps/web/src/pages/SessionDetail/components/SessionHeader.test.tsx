@@ -109,7 +109,6 @@ describe("SessionHeader", () => {
       worktreePath: "/Users/test/repo/.worktree/feature/awesome",
       worktreeDirty: true,
       worktreeLocked: false,
-      worktreePrCreated: true,
       worktreeMerged: false,
     });
     const state = buildState({ session });
