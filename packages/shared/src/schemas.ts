@@ -61,12 +61,15 @@ export const commandResponseSchema = z.object({
 export const launchAgentSchema = z.enum(["codex", "claude"]);
 
 const containsNulOrLineBreak = (value: string) =>
-  value.includes("\0") || value.includes("\r") || value.includes("\n");
+  value.includes("\0") || value.includes("\r") || value.includes("\n") || value.includes("\t");
 
 const launchOptionSchema = z
   .string()
-  .transform((value) => value.trim())
-  .pipe(z.string().min(1).max(256))
+  .min(1)
+  .max(256)
+  .refine((value) => value.trim().length > 0, {
+    message: "launch option must not be empty",
+  })
   .refine((value) => !containsNulOrLineBreak(value), {
     message: "launch option contains forbidden control characters",
   });
@@ -85,10 +88,7 @@ export const launchAgentRequestSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (
-      value.windowName &&
-      (containsNulOrLineBreak(value.windowName) || value.windowName.includes("\t"))
-    ) {
+    if (value.windowName && containsNulOrLineBreak(value.windowName)) {
       ctx.addIssue({
         code: "custom",
         path: ["windowName"],

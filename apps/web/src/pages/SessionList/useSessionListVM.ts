@@ -1,6 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
@@ -60,6 +61,7 @@ export const useSessionListVM = () => {
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const [pins, setPins] = useState(() => readStoredSessionListPins());
   const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
+  const [screenError, setScreenError] = useState<string | null>(null);
   const launchPendingRef = useRef<Set<string>>(new Set());
   const repoPinValues = pins.repos;
 
@@ -216,9 +218,14 @@ export const useSessionListVM = () => {
           createLaunchRequestId(),
           options,
         );
-        if (result.ok) {
-          await refreshSessions();
+        if (!result.ok) {
+          setScreenError(result.error?.message ?? API_ERROR_MESSAGES.launchAgent);
+          return;
         }
+        await refreshSessions();
+        setScreenError(null);
+      } catch (error) {
+        setScreenError(error instanceof Error ? error.message : API_ERROR_MESSAGES.launchAgent);
       } finally {
         launchPendingRef.current.delete(key);
         setLaunchPendingSessions(new Set(launchPendingRef.current));
@@ -265,6 +272,7 @@ export const useSessionListVM = () => {
     onOpenPaneInNewWindow: handleOpenPaneInNewWindow,
     onOpenHere: handleOpenHere,
     onOpenNewTab: handleOpenInNewTab,
+    screenError,
     launchPendingSessions,
     onLaunchAgentInSession: handleLaunchAgentInSession,
     onTouchRepoPin: handleTouchRepoPin,

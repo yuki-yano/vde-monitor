@@ -230,6 +230,7 @@ export const runLaunchAgentCommand = async (args: ParsedArgs): Promise<number> =
   const result = await runtime.actions.launchAgentInSession({
     sessionName: launchArgs.sessionName,
     agent: launchArgs.agent,
+    requestId,
     windowName: launchArgs.windowName,
     cwd: launchArgs.cwd,
     worktreePath: launchArgs.worktreePath,

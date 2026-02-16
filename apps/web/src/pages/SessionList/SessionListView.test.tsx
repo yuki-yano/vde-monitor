@@ -243,6 +243,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     onOpenPaneInNewWindow: vi.fn(),
     onOpenHere: vi.fn(),
     onOpenNewTab: vi.fn(),
+    screenError: null,
     launchPendingSessions: new Set<string>(),
     onLaunchAgentInSession: vi.fn(),
     onTouchRepoPin: vi.fn(),

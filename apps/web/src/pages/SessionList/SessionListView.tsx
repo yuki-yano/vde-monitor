@@ -54,6 +54,7 @@ export const SessionListView = ({
   onOpenPaneInNewWindow,
   onOpenHere,
   onOpenNewTab,
+  screenError,
   launchPendingSessions,
   onLaunchAgentInSession,
   onTouchRepoPin,
@@ -168,8 +169,7 @@ export const SessionListView = ({
           actions={{
             onSelectSession: onOpenPaneHere,
             onFocusPane: onOpenPaneHere,
-            onLaunchAgentInSession: (sessionName, agent, options) =>
-              onLaunchAgentInSession(sessionName, agent, options),
+            onLaunchAgentInSession,
             onTouchSession: handleTouchPanePinWithScroll,
             onTouchRepoPin: handleTouchRepoPinWithScroll,
           }}
@@ -202,6 +202,14 @@ export const SessionListView = ({
             onSearchQueryChange={onSearchQueryChange}
             onRefresh={onRefresh}
           />
+          {screenError ? (
+            <div
+              role="alert"
+              className="border-latte-red/30 bg-latte-red/10 text-latte-red rounded-xl border px-3 py-2 text-sm"
+            >
+              {screenError}
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-4 sm:gap-6">
             <div className="flex min-w-0 flex-1 flex-col gap-4 sm:gap-6">

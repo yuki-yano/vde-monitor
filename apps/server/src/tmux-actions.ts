@@ -393,13 +393,13 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   };
 
   const containsNulOrLineBreak = (value: string) =>
-    value.includes("\0") || value.includes("\r") || value.includes("\n");
+    value.includes("\0") || value.includes("\r") || value.includes("\n") || value.includes("\t");
 
   const validateWindowName = (value: string | undefined): ApiError | null => {
     if (!value) {
       return null;
     }
-    if (containsNulOrLineBreak(value) || value.includes("\t")) {
+    if (containsNulOrLineBreak(value)) {
       return buildError("INVALID_PAYLOAD", "windowName must not include control characters");
     }
     return null;
@@ -572,6 +572,16 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       return undefined;
     }
     return options.filter((option) => option.trim().length > 0);
+  };
+
+  const validateLaunchOptions = (options: string[] | undefined): ApiError | null => {
+    if (!options) {
+      return null;
+    }
+    if (options.some((option) => option.length > 256 || containsNulOrLineBreak(option))) {
+      return buildError("INVALID_PAYLOAD", "agent options include an invalid value");
+    }
+    return null;
   };
 
   const resolveConfiguredLaunchOptions = (agent: LaunchAgent, optionsOverride?: string[]) => {
@@ -788,6 +798,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   }: {
     sessionName: string;
     agent: LaunchAgent;
+    requestId?: string;
     windowName?: string;
     cwd?: string;
     agentOptions?: string[];
@@ -811,6 +822,10 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
 
     const normalizedCwd = normalizeOptionalText(cwd);
     const normalizedAgentOptions = normalizeLaunchOptions(agentOptions);
+    const normalizedAgentOptionsError = validateLaunchOptions(normalizedAgentOptions);
+    if (normalizedAgentOptionsError) {
+      return launchError(normalizedAgentOptionsError, defaultLaunchRollback());
+    }
     const normalizedWorktreePath = normalizeOptionalText(worktreePath);
     const normalizedWorktreeBranch = normalizeOptionalText(worktreeBranch);
     const normalizedWorktreeCreateIfMissing = worktreeCreateIfMissing === true;
@@ -886,6 +901,11 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     }
 
     const resolvedOptions = resolveConfiguredLaunchOptions(agent, normalizedAgentOptions);
+    const resolvedOptionsError = validateLaunchOptions(resolvedOptions);
+    if (resolvedOptionsError) {
+      const rollback = await rollbackCreatedWindow(created.windowId);
+      return launchError(resolvedOptionsError, rollback);
+    }
     const sendResult = await sendLaunchCommand({
       paneId: created.paneId,
       agent,

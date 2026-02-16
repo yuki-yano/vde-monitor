@@ -684,6 +684,138 @@ describe("createApiRouter", () => {
     expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects launch requestId reuse with different payload", async () => {
+    const { api, actions } = createTestContext();
+    const headers = { ...authHeaders, "content-type": "application/json" };
+
+    const first = await api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        sessionName: "dev-main",
+        agent: "codex",
+        requestId: "launch-req-mismatch",
+      }),
+    });
+    const second = await api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        sessionName: "dev-main",
+        agent: "claude",
+        requestId: "launch-req-mismatch",
+      }),
+    });
+
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(false);
+    expect(secondData.command.error.code).toBe("INVALID_PAYLOAD");
+    expect(secondData.command.error.message).toBe("requestId payload mismatch");
+    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays cached launch response before rate-limit check", async () => {
+    const { api, actions } = createTestContext({
+      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
+    });
+    const headers = { ...authHeaders, "content-type": "application/json" };
+    const payload = JSON.stringify({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "launch-req-rate-retry",
+    });
+
+    const first = await api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+    const second = await api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: payload,
+    });
+
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(true);
+    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent launch requests with same idempotency key", async () => {
+    const { api, actions } = createTestContext();
+    const headers = { ...authHeaders, "content-type": "application/json" };
+    const launchResult: Awaited<ReturnType<typeof actions.launchAgentInSession>> = {
+      ok: true,
+      result: {
+        sessionName: "session",
+        agent: "codex",
+        windowId: "@42",
+        windowIndex: 1,
+        windowName: "codex-work",
+        paneId: "%99",
+        launchedCommand: "codex",
+        resolvedOptions: [],
+        verification: {
+          status: "verified",
+          observedCommand: "codex",
+          attempts: 1,
+        },
+      },
+      rollback: { attempted: false, ok: true },
+    };
+    const launchController: {
+      resolve: (value: Awaited<ReturnType<typeof actions.launchAgentInSession>>) => void;
+      pending: boolean;
+    } = {
+      resolve: () => undefined,
+      pending: true,
+    };
+
+    vi.mocked(actions.launchAgentInSession).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          launchController.resolve = resolve;
+          launchController.pending = false;
+        }),
+    );
+
+    const requestBody = JSON.stringify({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "launch-concurrent-1",
+    });
+    const firstPromise = api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: requestBody,
+    });
+    const secondPromise = api.request("/sessions/launch", {
+      method: "POST",
+      headers,
+      body: requestBody,
+    });
+    for (let attempt = 0; attempt < 10 && launchController.pending; attempt += 1) {
+      await Promise.resolve();
+    }
+
+    if (launchController.pending) {
+      throw new Error("launch resolver is missing");
+    }
+    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    launchController.resolve(launchResult);
+
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(true);
+    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+  });
+
   it("returns rate limit error on repeated launch requests", async () => {
     const { api, actions } = createTestContext({
       rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },

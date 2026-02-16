@@ -184,6 +184,7 @@ describe("runLaunchAgentCommand", () => {
     expect(launchAgentInSessionMock).toHaveBeenCalledWith({
       sessionName: "dev-main",
       agent: "codex",
+      requestId: expect.any(String),
       windowName: undefined,
       cwd: undefined,
       worktreePath: undefined,

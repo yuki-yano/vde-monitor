@@ -484,6 +484,26 @@ describe("createTmuxActions.launchAgentInSession", () => {
     ]);
   });
 
+  it("rejects agentOptions containing tab characters", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+
+    const result = await tmuxActions.launchAgentInSession({
+      sessionName: "dev-main",
+      agent: "codex",
+      agentOptions: ["--model\tgpt-5"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error.code).toBe("INVALID_PAYLOAD");
+    expect(adapter.run).not.toHaveBeenCalled();
+  });
+
   it("passes shell fragments in agentOptions without extra quoting", async () => {
     const adapter = {
       run: vi.fn(async (args: string[]) => {

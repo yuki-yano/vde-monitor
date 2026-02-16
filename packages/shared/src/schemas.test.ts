@@ -574,7 +574,7 @@ describe("configSchema", () => {
     }
   });
 
-  it("trims launch agent options", () => {
+  it("preserves launch agent options text", () => {
     const result = configSchema.safeParse({
       ...defaultConfig,
       launch: {
@@ -586,8 +586,10 @@ describe("configSchema", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.launch.agents.codex.options).toEqual(["--model", "--approval-mode"]);
-      expect(result.data.launch.agents.claude.options).toEqual(["--dangerously-skip-permissions"]);
+      expect(result.data.launch.agents.codex.options).toEqual(["  --model  ", "--approval-mode"]);
+      expect(result.data.launch.agents.claude.options).toEqual([
+        "  --dangerously-skip-permissions  ",
+      ]);
     }
   });
 
@@ -610,6 +612,19 @@ describe("configSchema", () => {
       launch: {
         agents: {
           codex: { options: ["--model\ngpt"] },
+          claude: { options: [] },
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects launch options with tab characters", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      launch: {
+        agents: {
+          codex: { options: ["--model\tgpt"] },
           claude: { options: [] },
         },
       },
@@ -835,7 +850,7 @@ describe("configOverrideSchema", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.launch?.agents?.codex?.options).toEqual(["--model"]);
+      expect(result.data.launch?.agents?.codex?.options).toEqual([" --model "]);
     }
   });
 
@@ -845,6 +860,19 @@ describe("configOverrideSchema", () => {
         agents: {
           claude: {
             options: ["--flag\nbad"],
+          },
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects launch options override with tab", () => {
+    const result = configOverrideSchema.safeParse({
+      launch: {
+        agents: {
+          claude: {
+            options: ["--flag\tbad"],
           },
         },
       },

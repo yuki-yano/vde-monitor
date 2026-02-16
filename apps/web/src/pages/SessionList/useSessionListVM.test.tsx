@@ -167,6 +167,7 @@ const TestComponent = () => {
         open-pane-new-window
       </button>
       <span data-testid="query">{vm.searchQuery}</span>
+      <span data-testid="screen-error">{vm.screenError ?? ""}</span>
       <span data-testid="visible-count">{vm.visibleSessionCount}</span>
     </div>
   );
@@ -387,6 +388,39 @@ describe("useSessionListVM", () => {
     });
     await waitFor(() => {
       expect(refreshSessions).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("screen-error").textContent).toBe("");
+  });
+
+  it("shows launch error when launchAgentInSession returns error", async () => {
+    const launchAgentInSession = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: "TMUX_UNAVAILABLE", message: "launch-agent requires tmux backend" },
+      rollback: { attempted: false, ok: true },
+    });
+
+    mockUseSessions.mockReturnValue({
+      sessions: [],
+      connected: true,
+      connectionStatus: "healthy",
+      connectionIssue: null,
+      refreshSessions: vi.fn(),
+      requestStateTimeline: vi.fn(),
+      requestScreen: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      launchAgentInSession,
+      touchSession: vi.fn(),
+      highlightCorrections: { codex: true, claude: true },
+      launchConfig: defaultLaunchConfig,
+    });
+
+    await renderWithRouter(["/"]);
+    fireEvent.click(screen.getByRole("button", { name: "launch-agent" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("screen-error").textContent).toBe(
+        "launch-agent requires tmux backend",
+      );
     });
   });
 

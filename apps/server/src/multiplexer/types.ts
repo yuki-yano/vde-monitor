@@ -44,6 +44,7 @@ export type MultiplexerActionResult =
 export type LaunchAgentInSessionInput = {
   sessionName: string;
   agent: LaunchAgent;
+  requestId?: string;
   windowName?: string;
   cwd?: string;
   agentOptions?: string[];
