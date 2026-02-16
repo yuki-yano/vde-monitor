@@ -4,14 +4,16 @@ import type {
   CommandResponse,
   ImageAttachment,
   RawItem,
+  RepoNote,
 } from "@vde-monitor/shared";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
-import type { ApiClientContract, PaneParam } from "./session-api-contract";
+import type { ApiClientContract, NoteIdParam, PaneParam } from "./session-api-contract";
 import { requestImageAttachment as executeRequestImageAttachment } from "./session-api-request-executors";
 import {
   buildPaneParam,
+  buildRepoNotePayloadJson,
   buildSendKeysJson,
   buildSendRawJson,
   buildSendTextJson,
@@ -34,10 +36,27 @@ type RunPaneMutation = (
   request: (param: PaneParam) => Promise<Response>,
 ) => Promise<unknown>;
 
+type RequestPaneField = <T, K extends keyof T>(params: {
+  paneId: string;
+  request: (param: PaneParam) => Promise<Response>;
+  field: K;
+  fallbackMessage: string;
+}) => Promise<NonNullable<T[K]>>;
+
+type RequestPaneNoteField = <T, K extends keyof T>(params: {
+  paneId: string;
+  noteId: string;
+  request: (param: NoteIdParam) => Promise<Response>;
+  field: K;
+  fallbackMessage: string;
+}) => Promise<NonNullable<T[K]>>;
+
 type CreateSessionActionRequestsParams = {
   apiClient: ApiClientContract;
   runPaneCommand: RunPaneCommand;
   runPaneMutation: RunPaneMutation;
+  requestPaneField: RequestPaneField;
+  requestPaneNoteField: RequestPaneNoteField;
   ensureToken: () => void;
   onConnectionIssue: (message: string | null) => void;
   handleSessionMissing: (paneId: string, res: Response, data: ApiEnvelope<unknown> | null) => void;
@@ -47,6 +66,8 @@ export const createSessionActionRequests = ({
   apiClient,
   runPaneCommand,
   runPaneMutation,
+  requestPaneField,
+  requestPaneNoteField,
   ensureToken,
   onConnectionIssue,
   handleSessionMissing,
@@ -136,6 +157,47 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const createRepoNote = async (
+    paneId: string,
+    input: { title?: string | null; body: string },
+  ): Promise<RepoNote> =>
+    requestPaneField<{ note?: RepoNote }, "note">({
+      paneId,
+      request: (param) =>
+        apiClient.sessions[":paneId"].notes.$post({
+          param,
+          json: buildRepoNotePayloadJson(input.title, input.body),
+        }),
+      field: "note",
+      fallbackMessage: API_ERROR_MESSAGES.createRepoNote,
+    });
+
+  const updateRepoNote = async (
+    paneId: string,
+    noteId: string,
+    input: { title?: string | null; body: string },
+  ): Promise<RepoNote> =>
+    requestPaneNoteField<{ note?: RepoNote }, "note">({
+      paneId,
+      noteId,
+      request: (param) =>
+        apiClient.sessions[":paneId"].notes[":noteId"].$put({
+          param,
+          json: buildRepoNotePayloadJson(input.title, input.body),
+        }),
+      field: "note",
+      fallbackMessage: API_ERROR_MESSAGES.updateRepoNote,
+    });
+
+  const deleteRepoNote = async (paneId: string, noteId: string): Promise<string> =>
+    requestPaneNoteField<{ noteId?: string }, "noteId">({
+      paneId,
+      noteId,
+      request: (param) => apiClient.sessions[":paneId"].notes[":noteId"].$delete({ param }),
+      field: "noteId",
+      fallbackMessage: API_ERROR_MESSAGES.deleteRepoNote,
+    });
+
   return {
     sendText,
     focusPane,
@@ -144,5 +206,8 @@ export const createSessionActionRequests = ({
     sendRaw,
     updateSessionTitle,
     touchSession,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
   };
 };

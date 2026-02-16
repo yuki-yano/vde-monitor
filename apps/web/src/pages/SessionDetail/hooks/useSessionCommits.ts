@@ -3,6 +3,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { type CommitState, commitStateAtom, initialCommitState } from "../atoms/commitAtoms";
@@ -431,26 +432,7 @@ export const useSessionCommits = ({
 
   const copyHash = useCallback(
     async (hash: string) => {
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(hash);
-        copied = true;
-      } catch {
-        const textarea = document.createElement("textarea");
-        textarea.value = hash;
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        try {
-          copied = document.execCommand("copy");
-        } catch {
-          copied = false;
-        } finally {
-          document.body.removeChild(textarea);
-        }
-      }
+      const copied = await copyToClipboard(hash);
       if (!copied) return;
       dispatch({ type: "setCopiedHash", hash });
       if (commitCopyTimeoutRef.current) {

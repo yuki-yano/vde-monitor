@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  BookText,
   Clock,
   FileCheck,
   FolderOpen,
@@ -22,6 +23,7 @@ import { FileContentModal } from "./components/FileContentModal";
 import { FileNavigatorSection } from "./components/FileNavigatorSection";
 import { LogFileCandidateModal } from "./components/LogFileCandidateModal";
 import { LogModal } from "./components/LogModal";
+import { NotesSection } from "./components/NotesSection";
 import { QuickPanel } from "./components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
 import { SessionHeader } from "./components/SessionHeader";
@@ -33,7 +35,14 @@ import type { SessionDetailVM } from "./useSessionDetailVM";
 
 export type SessionDetailViewProps = SessionDetailVM;
 
-const DETAIL_SECTION_TAB_VALUES = ["keys", "timeline", "file", "changes", "commits"] as const;
+const DETAIL_SECTION_TAB_VALUES = [
+  "keys",
+  "timeline",
+  "file",
+  "changes",
+  "commits",
+  "notes",
+] as const;
 type DetailSectionTab = (typeof DETAIL_SECTION_TAB_VALUES)[number];
 
 const DETAIL_SECTION_TAB_STORAGE_KEY_PREFIX = "vde-monitor-session-detail-section-tab";
@@ -41,9 +50,9 @@ const DEFAULT_DETAIL_SECTION_TAB: DetailSectionTab = "timeline";
 const DETAIL_SECTION_TAB_TEXT_MIN_WIDTH = 340;
 const CLOSE_DETAIL_TAB_VALUE = "__close__";
 type SectionTabValue = DetailSectionTab | typeof CLOSE_DETAIL_TAB_VALUE;
-const SECTION_TAB_ICON_ONLY_CLASS = "inline-flex h-8 flex-1 items-center justify-center p-0 sm:h-9";
+const SECTION_TAB_ICON_ONLY_CLASS = "inline-flex h-8 items-center justify-center p-0 sm:h-9";
 const SECTION_TAB_TEXT_CLASS =
-  "inline-flex h-8 flex-1 items-center justify-center gap-1 px-1.5 py-0.5 text-[10px] leading-tight sm:h-9 sm:gap-1.5 sm:px-2 sm:text-[11px]";
+  "inline-flex h-8 items-center justify-center gap-1 px-1.5 py-0.5 text-[10px] leading-tight sm:h-9 sm:gap-1.5 sm:px-2 sm:text-[11px]";
 const SECTION_TAB_STORAGE_REPO_FALLBACK = "__unknown_repo__";
 const SECTION_TAB_STORAGE_BRANCH_FALLBACK = "__no_branch__";
 
@@ -120,6 +129,7 @@ export const SessionDetailView = ({
   diffs,
   files,
   commits,
+  notes,
   logs,
   title,
   actions,
@@ -155,6 +165,7 @@ export const SessionDetailView = ({
     commitSectionProps,
     screenPanelProps,
     stateTimelineSectionProps,
+    notesSectionProps,
     quickPanelProps,
     logModalProps,
     logFileCandidateModalProps,
@@ -171,6 +182,7 @@ export const SessionDetailView = ({
     diffs,
     files,
     commits,
+    notes,
     logs,
     title,
     actions,
@@ -300,7 +312,7 @@ export const SessionDetailView = ({
                 <TabsList
                   ref={setSectionTabsListElement}
                   aria-label="Session detail sections"
-                  className="w-full rounded-2xl"
+                  className="grid w-full grid-cols-[repeat(3,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >
                   <TabsTrigger
                     value="keys"
@@ -358,10 +370,21 @@ export const SessionDetailView = ({
                     {!sectionTabsIconOnly ? <span className="truncate">Commits</span> : null}
                   </TabsTrigger>
                   <TabsTrigger
+                    value="notes"
+                    aria-label="Notes panel"
+                    title="Notes"
+                    className={
+                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
+                    }
+                  >
+                    <BookText className="h-3.5 w-3.5 shrink-0" />
+                    {!sectionTabsIconOnly ? <span className="truncate">Notes</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger
                     value={CLOSE_DETAIL_TAB_VALUE}
                     aria-label="Close detail sections"
                     title="Close detail sections"
-                    className="inline-flex h-8 w-7 shrink-0 items-center justify-center p-0 sm:h-9 sm:w-8"
+                    className="col-start-4 row-span-2 row-start-1 inline-flex h-8 w-8 items-center justify-center self-center p-0 sm:h-9 sm:w-9"
                   >
                     <X className="h-3.5 w-3.5" />
                   </TabsTrigger>
@@ -383,6 +406,7 @@ export const SessionDetailView = ({
                   <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
                 </Card>
               ) : null}
+              {selectedSectionTabValue === "notes" ? <NotesSection {...notesSectionProps} /> : null}
             </>
           ) : (
             <>
@@ -397,13 +421,18 @@ export const SessionDetailView = ({
                 }
               >
                 <div
-                  className={is2xlUp ? "relative z-20 min-w-0 flex-[0_0_auto]" : "min-w-0"}
+                  className={
+                    is2xlUp
+                      ? "relative z-20 flex min-w-0 flex-[0_0_auto] flex-col gap-2.5 sm:gap-4"
+                      : "flex min-w-0 flex-col gap-2.5 sm:gap-4"
+                  }
                   style={is2xlUp ? { flexBasis: `${detailSplitRatio * 100}%` } : undefined}
                 >
                   <ScreenPanel
                     {...screenPanelProps}
                     controls={<ControlsPanel {...controlsPanelProps} />}
                   />
+                  <NotesSection {...notesSectionProps} />
                 </div>
 
                 <div

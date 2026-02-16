@@ -3,10 +3,13 @@ import os from "node:os";
 import path from "node:path";
 
 import type {
+  RepoNote,
   SessionDetail,
   SessionStateTimelineSource,
   SessionStateValue,
 } from "@vde-monitor/shared";
+
+import type { PersistedRepoNotesRecord } from "./repo-notes/store";
 
 type PersistedSession = {
   paneId: string;
@@ -36,6 +39,7 @@ type PersistedState = {
   savedAt: string;
   sessions: Record<string, PersistedSession>;
   timeline: PersistedTimelineRecord;
+  repoNotes?: PersistedRepoNotesRecord;
 };
 
 const getStatePath = () => {
@@ -54,6 +58,7 @@ const loadState = (): PersistedState | null => {
 
 type SaveStateOptions = {
   timeline?: PersistedTimelineRecord;
+  repoNotes?: PersistedRepoNotesRecord;
 };
 
 const isStateValue = (value: unknown): value is SessionStateValue =>
@@ -79,6 +84,21 @@ const isPersistedTimelineEvent = (value: unknown): value is PersistedTimelineEve
     typeof event.startedAt === "string" &&
     (event.endedAt == null || typeof event.endedAt === "string") &&
     isTimelineSource(event.source)
+  );
+};
+
+const isPersistedRepoNote = (value: unknown): value is RepoNote => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const note = value as Partial<RepoNote>;
+  return (
+    typeof note.id === "string" &&
+    typeof note.repoRoot === "string" &&
+    (note.title == null || typeof note.title === "string") &&
+    typeof note.body === "string" &&
+    typeof note.createdAt === "string" &&
+    typeof note.updatedAt === "string"
   );
 };
 
@@ -117,6 +137,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions =
       ]),
     ),
     timeline: options.timeline ?? {},
+    repoNotes: options.repoNotes ?? {},
   };
   const dir = path.dirname(getStatePath());
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -128,6 +149,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions =
 
 export type PersistedSessionMap = Map<string, PersistedSession>;
 export type PersistedTimelineMap = Map<string, PersistedTimelineEvent[]>;
+export type PersistedRepoNotesMap = Map<string, RepoNote[]>;
 
 export const restoreSessions = () => {
   const state = loadState();
@@ -150,5 +172,21 @@ export const restoreTimeline = (): PersistedTimelineMap => {
       return [paneId, events.filter(isPersistedTimelineEvent)] as const;
     })
     .filter(([, events]) => events.length > 0);
+  return new Map(entries);
+};
+
+export const restoreRepoNotes = (): PersistedRepoNotesMap => {
+  const state = loadState();
+  if (!state) {
+    return new Map();
+  }
+  const entries = Object.entries(state.repoNotes ?? {})
+    .map(([repoRoot, notes]) => {
+      if (!Array.isArray(notes)) {
+        return [repoRoot, [] as RepoNote[]] as const;
+      }
+      return [repoRoot, notes.filter(isPersistedRepoNote)] as const;
+    })
+    .filter(([, notes]) => notes.length > 0);
   return new Map(entries);
 };

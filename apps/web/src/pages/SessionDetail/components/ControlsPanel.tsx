@@ -22,6 +22,10 @@ import {
 
 import { Button, ModifierToggle, PillToggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import {
+  IOS_ZOOM_SAFE_TEXTAREA_SCALE,
+  IOS_ZOOM_SAFE_TEXTAREA_STYLE,
+} from "@/lib/ios-zoom-safe-textarea";
 
 type ControlsPanelState = {
   interactive: boolean;
@@ -56,9 +60,6 @@ type ControlsPanelProps = {
   showComposerSection?: boolean;
   showKeysSection?: boolean;
 };
-
-const PROMPT_SCALE = 0.875;
-const PROMPT_SCALE_INVERSE = 1 / PROMPT_SCALE;
 
 const RAW_MODE_INPUT_CLASS_DANGER =
   "border-latte-red/70 bg-latte-red/10 focus-within:border-latte-red/80 focus-within:ring-2 focus-within:ring-latte-red/30";
@@ -470,7 +471,7 @@ export const ControlsPanel = ({
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
     if (inputWrapperRef.current) {
-      inputWrapperRef.current.style.height = `${textarea.scrollHeight * PROMPT_SCALE}px`;
+      inputWrapperRef.current.style.height = `${textarea.scrollHeight * IOS_ZOOM_SAFE_TEXTAREA_SCALE}px`;
     }
   }, []);
 
@@ -559,11 +560,7 @@ export const ControlsPanel = ({
                 onInput={handleTextareaInput}
                 onKeyDown={handleTextareaKeyDown}
                 onPaste={handleTextareaPaste}
-                style={{
-                  transform: `scale(${PROMPT_SCALE})`,
-                  transformOrigin: "top left",
-                  width: `${PROMPT_SCALE_INVERSE * 100}%`,
-                }}
+                style={IOS_ZOOM_SAFE_TEXTAREA_STYLE}
                 className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
               />
             </div>

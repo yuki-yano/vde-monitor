@@ -33,6 +33,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoNotes,
     requestRepoFileTree,
     requestRepoFileSearch,
     requestRepoFileContent,
@@ -44,6 +45,9 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
     sendRaw,
     touchSession,
     updateSessionTitle,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
   } = useSessions();
   const { resolvedTheme } = useTheme();
 
@@ -57,6 +61,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       requestCommitDetail,
       requestCommitFile,
       requestStateTimeline,
+      requestRepoNotes,
       requestRepoFileTree,
       requestRepoFileSearch,
       requestRepoFileContent,
@@ -68,6 +73,9 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       sendRaw,
       touchSession,
       updateSessionTitle,
+      createRepoNote,
+      updateRepoNote,
+      deleteRepoNote,
     }),
     [
       reconnect,
@@ -78,6 +86,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       requestCommitDetail,
       requestCommitFile,
       requestStateTimeline,
+      requestRepoNotes,
       requestRepoFileTree,
       requestRepoFileSearch,
       requestRepoFileContent,
@@ -89,6 +98,9 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       sendRaw,
       touchSession,
       updateSessionTitle,
+      createRepoNote,
+      updateRepoNote,
+      deleteRepoNote,
     ],
   );
 

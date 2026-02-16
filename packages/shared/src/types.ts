@@ -265,7 +265,14 @@ export type WorktreeList = {
   baseBranch?: string | null;
   entries: WorktreeListEntry[];
 };
-
+export type RepoNote = {
+  id: string;
+  repoRoot: string;
+  title: string | null;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+};
 export type FileNavigatorConfig = {
   includeIgnoredPaths: string[];
   autoExpandMatchLimit: number;

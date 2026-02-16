@@ -33,6 +33,7 @@ const mockSessionsContext = {
   requestCommitDetail: vi.fn(),
   requestCommitFile: vi.fn(),
   requestStateTimeline: vi.fn(),
+  requestRepoNotes: vi.fn(),
   requestRepoFileTree: vi.fn(),
   requestRepoFileSearch: vi.fn(),
   requestRepoFileContent: vi.fn(),
@@ -44,6 +45,9 @@ const mockSessionsContext = {
   sendRaw: vi.fn(),
   touchSession: vi.fn(),
   updateSessionTitle: vi.fn(),
+  createRepoNote: vi.fn(),
+  updateRepoNote: vi.fn(),
+  deleteRepoNote: vi.fn(),
   getSessionDetail: vi.fn(),
 };
 let mockResolvedTheme: "latte" | "mocha" = "mocha";

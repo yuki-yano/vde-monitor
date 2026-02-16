@@ -2,7 +2,12 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 
-import { type AgentMonitorConfig, defaultConfig, type SessionDetail } from "@vde-monitor/shared";
+import {
+  type AgentMonitorConfig,
+  defaultConfig,
+  type RepoNote,
+  type SessionDetail,
+} from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits";
@@ -96,11 +101,39 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     },
     current: null,
   }));
+  const getRepoNotes = vi.fn((): RepoNote[] => []);
+  const createRepoNote = vi.fn((_: string, input: { title?: string | null; body: string }) => ({
+    id: "note-1",
+    repoRoot: detail.repoRoot ?? "/repo",
+    title: input.title ?? null,
+    body: input.body,
+    createdAt: "2026-02-10T00:00:00.000Z",
+    updatedAt: "2026-02-10T00:00:00.000Z",
+  }));
+  const updateRepoNote = vi.fn(
+    (
+      _: string,
+      noteId: string,
+      input: { title?: string | null; body: string },
+    ): RepoNote | null => ({
+      id: noteId,
+      repoRoot: detail.repoRoot ?? "/repo",
+      title: input.title ?? null,
+      body: input.body,
+      createdAt: "2026-02-10T00:00:00.000Z",
+      updatedAt: "2026-02-10T00:00:01.000Z",
+    }),
+  );
+  const deleteRepoNote = vi.fn(() => true);
   const monitor = {
     registry,
     getScreenCapture: () => ({ captureText }),
     getStateTimeline,
     getRepoStateTimeline,
+    getRepoNotes,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
     setCustomTitle: vi.fn((paneId: string, title: string | null) => {
       const existing = registry.getDetail(paneId);
       if (!existing) return;
@@ -116,7 +149,19 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     focusPane: vi.fn(async () => ({ ok: true as const })),
   } as unknown as MultiplexerInputActions;
   const api = createApiRouter({ config, monitor, actions });
-  return { api, config, monitor, actions, detail, getStateTimeline, getRepoStateTimeline };
+  return {
+    api,
+    config,
+    monitor,
+    actions,
+    detail,
+    getStateTimeline,
+    getRepoStateTimeline,
+    getRepoNotes,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
+  };
 };
 
 const authHeaders = {
@@ -273,6 +318,152 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error.code).toBe("INVALID_PAYLOAD");
+  });
+
+  it("lists repo notes for the pane repository", async () => {
+    const { api, monitor, detail, getRepoNotes } = createTestContext();
+    monitor.registry.update({
+      ...detail,
+      repoRoot: "/repo",
+    });
+    getRepoNotes.mockReturnValueOnce([
+      {
+        id: "note-1",
+        repoRoot: "/repo",
+        title: "todo",
+        body: "write tests",
+        createdAt: "2026-02-10T00:00:00.000Z",
+        updatedAt: "2026-02-10T00:00:00.000Z",
+      },
+    ]);
+
+    const res = await api.request("/sessions/pane-1/notes", { headers: authHeaders });
+
+    expect(res.status).toBe(200);
+    expect(getRepoNotes).toHaveBeenCalledWith("pane-1");
+    const data = await res.json();
+    expect(data.repoRoot).toBe("/repo");
+    expect(data.notes).toHaveLength(1);
+  });
+
+  it("returns REPO_UNAVAILABLE for notes endpoints when pane has no repoRoot", async () => {
+    const { api } = createTestContext();
+
+    const getRes = await api.request("/sessions/pane-1/notes", { headers: authHeaders });
+    expect(getRes.status).toBe(400);
+    const getData = await getRes.json();
+    expect(getData.error.code).toBe("REPO_UNAVAILABLE");
+
+    const postRes = await api.request("/sessions/pane-1/notes", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "todo", body: "write tests" }),
+    });
+    expect(postRes.status).toBe(400);
+    const postData = await postRes.json();
+    expect(postData.error.code).toBe("REPO_UNAVAILABLE");
+  });
+
+  it("creates and updates repo notes", async () => {
+    const { api, monitor, detail, createRepoNote, updateRepoNote } = createTestContext();
+    monitor.registry.update({
+      ...detail,
+      repoRoot: "/repo",
+    });
+
+    const createRes = await api.request("/sessions/pane-1/notes", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "  todo  ", body: "write tests" }),
+    });
+    expect(createRes.status).toBe(200);
+    expect(createRepoNote).toHaveBeenCalledWith("pane-1", {
+      title: "todo",
+      body: "write tests",
+    });
+
+    const updateRes = await api.request("/sessions/pane-1/notes/note-1", {
+      method: "PUT",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "done", body: "completed" }),
+    });
+    expect(updateRes.status).toBe(200);
+    expect(updateRepoNote).toHaveBeenCalledWith("pane-1", "note-1", {
+      title: "done",
+      body: "completed",
+    });
+  });
+
+  it("allows empty-body repo notes for create and update", async () => {
+    const { api, monitor, detail, createRepoNote, updateRepoNote } = createTestContext();
+    monitor.registry.update({
+      ...detail,
+      repoRoot: "/repo",
+    });
+
+    const createRes = await api.request("/sessions/pane-1/notes", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ body: "" }),
+    });
+    expect(createRes.status).toBe(200);
+    expect(createRepoNote).toHaveBeenCalledWith("pane-1", {
+      title: null,
+      body: "",
+    });
+
+    const updateRes = await api.request("/sessions/pane-1/notes/note-1", {
+      method: "PUT",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ body: "" }),
+    });
+    expect(updateRes.status).toBe(200);
+    expect(updateRepoNote).toHaveBeenCalledWith("pane-1", "note-1", {
+      title: null,
+      body: "",
+    });
+  });
+
+  it("returns NOT_FOUND when updating a missing repo note", async () => {
+    const { api, monitor, detail, updateRepoNote } = createTestContext();
+    monitor.registry.update({
+      ...detail,
+      repoRoot: "/repo",
+    });
+    updateRepoNote.mockReturnValueOnce(null);
+
+    const res = await api.request("/sessions/pane-1/notes/missing", {
+      method: "PUT",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "todo", body: "write tests" }),
+    });
+
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error.code).toBe("NOT_FOUND");
+  });
+
+  it("deletes repo note and validates note id", async () => {
+    const { api, monitor, detail, deleteRepoNote } = createTestContext();
+    monitor.registry.update({
+      ...detail,
+      repoRoot: "/repo",
+    });
+
+    const deleteRes = await api.request("/sessions/pane-1/notes/note-1", {
+      method: "DELETE",
+      headers: authHeaders,
+    });
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRepoNote).toHaveBeenCalledWith("pane-1", "note-1");
+
+    const invalidIdRes = await api.request("/sessions/pane-1/notes/%20", {
+      method: "DELETE",
+      headers: authHeaders,
+    });
+    expect(invalidIdRes.status).toBe(400);
+    const invalidIdData = await invalidIdRes.json();
+    expect(invalidIdData.error.code).toBe("INVALID_PAYLOAD");
   });
 
   it("returns rate limit error on repeated screen requests", async () => {

@@ -7,6 +7,7 @@ import type {
   HighlightCorrectionConfig,
   RepoFileContent,
   RepoFileSearchPage,
+  RepoNote,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
@@ -73,6 +74,20 @@ type BuildCommitSectionPropsArgs = {
   copyHash: (hash: string) => void;
   onResolveFileReference?: (rawToken: string) => Promise<void>;
   onResolveFileReferenceCandidates?: (rawTokens: string[]) => Promise<string[]>;
+};
+
+type BuildNotesSectionPropsArgs = {
+  repoRoot: string | null;
+  notes: RepoNote[];
+  notesLoading: boolean;
+  notesError: string | null;
+  creatingNote: boolean;
+  savingNoteId: string | null;
+  deletingNoteId: string | null;
+  refreshNotes: (options?: { silent?: boolean }) => void;
+  createNote: (input: { title?: string | null; body: string }) => Promise<boolean>;
+  saveNote: (noteId: string, input: { title?: string | null; body: string }) => Promise<boolean>;
+  removeNote: (noteId: string) => Promise<boolean>;
 };
 
 type BuildFileNavigatorSectionPropsArgs = {
@@ -380,6 +395,36 @@ export const buildCommitSectionProps = ({
     onCopyHash: copyHash,
     onResolveFileReference,
     onResolveFileReferenceCandidates,
+  },
+});
+
+export const buildNotesSectionProps = ({
+  repoRoot,
+  notes,
+  notesLoading,
+  notesError,
+  creatingNote,
+  savingNoteId,
+  deletingNoteId,
+  refreshNotes,
+  createNote,
+  saveNote,
+  removeNote,
+}: BuildNotesSectionPropsArgs) => ({
+  state: {
+    repoRoot,
+    notes,
+    notesLoading,
+    notesError,
+    creatingNote,
+    savingNoteId,
+    deletingNoteId,
+  },
+  actions: {
+    onRefresh: refreshNotes,
+    onCreate: createNote,
+    onSave: saveNote,
+    onDelete: removeNote,
   },
 });
 

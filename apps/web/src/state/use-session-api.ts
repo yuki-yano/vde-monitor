@@ -23,6 +23,7 @@ import {
 import { createSessionScreenRequest } from "./session-api-screen-request";
 import {
   buildPaneHashParam,
+  buildPaneNoteParam,
   buildPaneParam,
   type RefreshSessionsResult,
 } from "./session-api-utils";
@@ -40,6 +41,7 @@ type UseSessionApiParams = {
 
 type PaneParam = ReturnType<typeof buildPaneParam>;
 type PaneHashParam = ReturnType<typeof buildPaneHashParam>;
+type NoteIdParam = ReturnType<typeof buildPaneNoteParam>;
 
 export type { RefreshSessionsResult } from "./session-api-utils";
 
@@ -219,6 +221,29 @@ export const useSessionApi = ({
     [requestPaneField],
   );
 
+  const requestPaneNoteField = useCallback(
+    async <T, K extends keyof T>({
+      paneId,
+      noteId,
+      request,
+      field,
+      fallbackMessage,
+    }: {
+      paneId: string;
+      noteId: string;
+      request: (param: NoteIdParam) => Promise<Response>;
+      field: K;
+      fallbackMessage: string;
+    }) =>
+      requestPaneField<T, K>({
+        paneId,
+        request: request(buildPaneNoteParam(paneId, noteId)),
+        field,
+        fallbackMessage,
+      }),
+    [requestPaneField],
+  );
+
   const {
     requestWorktrees,
     requestDiffSummary,
@@ -227,6 +252,7 @@ export const useSessionApi = ({
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoNotes,
     requestRepoFileTree,
     requestRepoFileSearch,
     requestRepoFileContent,
@@ -328,12 +354,17 @@ export const useSessionApi = ({
     sendRaw,
     updateSessionTitle,
     touchSession,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
   } = useMemo(
     () =>
       createSessionActionRequests({
         apiClient,
         runPaneCommand,
         runPaneMutation,
+        requestPaneField: requestPaneQueryField,
+        requestPaneNoteField,
         ensureToken,
         onConnectionIssue,
         handleSessionMissing,
@@ -345,28 +376,61 @@ export const useSessionApi = ({
       onConnectionIssue,
       runPaneCommand,
       runPaneMutation,
+      requestPaneQueryField,
+      requestPaneNoteField,
     ],
   );
 
-  return {
-    refreshSessions,
-    requestWorktrees,
-    requestDiffSummary,
-    requestDiffFile,
-    requestCommitLog,
-    requestCommitDetail,
-    requestCommitFile,
-    requestStateTimeline,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-    requestScreen,
-    sendText,
-    focusPane,
-    uploadImageAttachment,
-    sendKeys,
-    sendRaw,
-    updateSessionTitle,
-    touchSession,
-  };
+  return useMemo(
+    () => ({
+      refreshSessions,
+      requestWorktrees,
+      requestDiffSummary,
+      requestDiffFile,
+      requestCommitLog,
+      requestCommitDetail,
+      requestCommitFile,
+      requestStateTimeline,
+      requestRepoNotes,
+      requestRepoFileTree,
+      requestRepoFileSearch,
+      requestRepoFileContent,
+      requestScreen,
+      sendText,
+      focusPane,
+      uploadImageAttachment,
+      sendKeys,
+      sendRaw,
+      updateSessionTitle,
+      touchSession,
+      createRepoNote,
+      updateRepoNote,
+      deleteRepoNote,
+    }),
+    [
+      createRepoNote,
+      deleteRepoNote,
+      focusPane,
+      refreshSessions,
+      requestCommitDetail,
+      requestCommitFile,
+      requestCommitLog,
+      requestDiffFile,
+      requestDiffSummary,
+      requestRepoFileContent,
+      requestRepoFileSearch,
+      requestRepoFileTree,
+      requestRepoNotes,
+      requestScreen,
+      requestStateTimeline,
+      requestWorktrees,
+      sendKeys,
+      sendRaw,
+      sendText,
+      touchSession,
+      updateRepoNote,
+      updateSessionTitle,
+      uploadImageAttachment,
+    ],
+  );
 };

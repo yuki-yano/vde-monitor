@@ -13,6 +13,7 @@ import type {
   RepoFileContent,
   RepoFileSearchPage,
   RepoFileTreePage,
+  RepoNote,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
@@ -60,6 +61,7 @@ export type SessionApi = {
       limit?: number;
     },
   ) => Promise<SessionStateTimeline>;
+  requestRepoNotes: (paneId: string) => Promise<RepoNote[]>;
   requestRepoFileTree: (
     paneId: string,
     options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
@@ -90,6 +92,16 @@ export type SessionApi = {
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  createRepoNote: (
+    paneId: string,
+    input: { title?: string | null; body: string },
+  ) => Promise<RepoNote>;
+  updateRepoNote: (
+    paneId: string,
+    noteId: string,
+    input: { title?: string | null; body: string },
+  ) => Promise<RepoNote>;
+  deleteRepoNote: (paneId: string, noteId: string) => Promise<string>;
 };
 
 type ConnectionStatus = "healthy" | "degraded" | "disconnected";

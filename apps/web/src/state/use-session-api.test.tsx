@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { renderHook, waitFor } from "@testing-library/react";
+import type { CommitLog, DiffSummary, RepoNote, SessionStateTimeline } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -99,6 +100,199 @@ describe("useSessionApi", () => {
 
     await expect(promise1).resolves.toMatchObject({ ok: true, paneId: "pane-1" });
     await expect(promise2).resolves.toMatchObject({ ok: true, paneId: "pane-1" });
+  });
+
+  it("updates connectionIssue on diff summary errors and clears on success", async () => {
+    const onConnectionIssue = vi.fn();
+    const summary: DiffSummary = {
+      repoRoot: "/repo",
+      rev: "main",
+      generatedAt: new Date(0).toISOString(),
+      files: [],
+    };
+    let requestCount = 0;
+    server.use(
+      http.get(pathToUrl("/sessions/:paneId/diff"), () => {
+        requestCount += 1;
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            { error: { code: "INTERNAL", message: "boom" } },
+            { status: 500 },
+          );
+        }
+        return HttpResponse.json({ summary });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        apiBaseUrl: API_BASE_URL,
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
+      }),
+    );
+
+    await expect(result.current.requestDiffSummary("pane-1")).rejects.toThrow("boom");
+    expect(onConnectionIssue).toHaveBeenCalledWith("boom");
+
+    await expect(result.current.requestDiffSummary("pane-1")).resolves.toEqual(summary);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("loads state timeline and clears connection issue", async () => {
+    const onConnectionIssue = vi.fn();
+    const timeline: SessionStateTimeline = {
+      paneId: "pane-1",
+      now: new Date(0).toISOString(),
+      range: "15m",
+      items: [],
+      totalsMs: {
+        RUNNING: 1000,
+        WAITING_INPUT: 0,
+        WAITING_PERMISSION: 0,
+        SHELL: 0,
+        UNKNOWN: 0,
+      },
+      current: null,
+    };
+    server.use(
+      http.get(pathToUrl("/sessions/:paneId/timeline"), () => {
+        return HttpResponse.json({ timeline });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        apiBaseUrl: API_BASE_URL,
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
+      }),
+    );
+
+    await expect(
+      result.current.requestStateTimeline("pane-1", { range: "15m", limit: 50 }),
+    ).resolves.toEqual(timeline);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("loads repository notes and handles note mutations", async () => {
+    const onConnectionIssue = vi.fn();
+    const notes: RepoNote[] = [
+      {
+        id: "note-1",
+        repoRoot: "/repo",
+        title: "todo",
+        body: "write tests",
+        createdAt: "2026-02-10T00:00:00.000Z",
+        updatedAt: "2026-02-10T00:00:00.000Z",
+      },
+    ];
+
+    server.use(
+      http.get(pathToUrl("/sessions/:paneId/notes"), () =>
+        HttpResponse.json({ repoRoot: "/repo", notes }),
+      ),
+      http.post(pathToUrl("/sessions/:paneId/notes"), async ({ request }) => {
+        const payload = (await request.json()) as { title?: string | null; body: string };
+        return HttpResponse.json({
+          note: {
+            ...notes[0],
+            id: "note-2",
+            title: payload.title ?? null,
+            body: payload.body,
+          },
+        });
+      }),
+      http.put(pathToUrl("/sessions/:paneId/notes/:noteId"), async ({ request, params }) => {
+        const payload = (await request.json()) as { title?: string | null; body: string };
+        return HttpResponse.json({
+          note: {
+            ...notes[0],
+            id: String(params.noteId),
+            title: payload.title ?? null,
+            body: payload.body,
+          },
+        });
+      }),
+      http.delete(pathToUrl("/sessions/:paneId/notes/:noteId"), ({ params }) => {
+        return HttpResponse.json({ noteId: String(params.noteId) });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        apiBaseUrl: API_BASE_URL,
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
+      }),
+    );
+
+    await expect(result.current.requestRepoNotes("pane-1")).resolves.toEqual(notes);
+    await expect(
+      result.current.createRepoNote("pane-1", { title: "new", body: "memo" }),
+    ).resolves.toMatchObject({ id: "note-2", title: "new", body: "memo" });
+    await expect(
+      result.current.updateRepoNote("pane-1", "note-1", { title: null, body: "updated" }),
+    ).resolves.toMatchObject({ id: "note-1", title: null, body: "updated" });
+    await expect(result.current.deleteRepoNote("pane-1", "note-1")).resolves.toBe("note-1");
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
+
+  it("updates connectionIssue on commit log errors and clears on success", async () => {
+    const onConnectionIssue = vi.fn();
+    const log: CommitLog = {
+      repoRoot: "/repo",
+      rev: "main",
+      generatedAt: new Date(0).toISOString(),
+      commits: [],
+    };
+    let requestCount = 0;
+    server.use(
+      http.get(pathToUrl("/sessions/:paneId/commits"), () => {
+        requestCount += 1;
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            { error: { code: "INTERNAL", message: "bad" } },
+            { status: 502 },
+          );
+        }
+        return HttpResponse.json({ log });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        apiBaseUrl: API_BASE_URL,
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
+      }),
+    );
+
+    await expect(result.current.requestCommitLog("pane-1")).rejects.toThrow("bad");
+    expect(onConnectionIssue).toHaveBeenCalledWith("bad");
+
+    await expect(result.current.requestCommitLog("pane-1")).resolves.toEqual(log);
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 
   it("does not remove session when commit detail is missing", async () => {

@@ -24,7 +24,7 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { restoreSessions, restoreTimeline, saveState } from "./state-store";
+import { restoreRepoNotes, restoreSessions, restoreTimeline, saveState } from "./state-store";
 
 const statePath = "/mock/home/.vde-monitor/state.json";
 
@@ -114,6 +114,30 @@ describe("state-store timeline persistence", () => {
     expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
   });
 
+  it("saves and restores repository notes", () => {
+    saveState([createSessionDetail()], {
+      repoNotes: {
+        "/repo/a": [
+          {
+            id: "note-1",
+            repoRoot: "/repo/a",
+            title: "todo",
+            body: "update tests",
+            createdAt: "2026-02-07T00:00:00.000Z",
+            updatedAt: "2026-02-07T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
+    expect(parsed.repoNotes["/repo/a"]).toHaveLength(1);
+
+    const restoredRepoNotes = restoreRepoNotes();
+    expect(restoredRepoNotes.get("/repo/a")).toHaveLength(1);
+    expect(restoredRepoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
+  });
+
   it("returns empty state for unsupported format", () => {
     fileContents.set(
       statePath,
@@ -130,7 +154,9 @@ describe("state-store timeline persistence", () => {
 
     const restoredSessions = restoreSessions();
     const restoredTimeline = restoreTimeline();
+    const restoredRepoNotes = restoreRepoNotes();
     expect(restoredSessions.size).toBe(0);
     expect(restoredTimeline.size).toBe(0);
+    expect(restoredRepoNotes.size).toBe(0);
   });
 });

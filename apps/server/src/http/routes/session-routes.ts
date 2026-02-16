@@ -48,6 +48,10 @@ const sendRawSchema = z.object({
   items: z.array(rawItemSchema),
   unsafe: z.boolean().optional(),
 });
+const notePayloadSchema = z.object({
+  title: z.string().max(120).nullable().optional(),
+  body: z.string().max(10_000),
+});
 const imageAttachmentFormSchema = z.object({
   image: z.instanceof(File).optional(),
 });
@@ -64,6 +68,14 @@ const resolveTimelineScope = (scope: string | undefined): SessionStateTimelineSc
     return "repo";
   }
   return "pane";
+};
+
+const normalizeNoteTitle = (title: string | null | undefined) => {
+  if (title == null) {
+    return null;
+  }
+  const trimmed = title.trim();
+  return trimmed.length > 0 ? trimmed : null;
 };
 
 export const createSessionRoutes = ({
@@ -136,6 +148,67 @@ export const createSessionRoutes = ({
           );
         }
         return c.json({ timeline });
+      });
+    })
+    .get("/sessions/:paneId/notes", (c) => {
+      return withPane(c, (pane) => {
+        if (!pane.detail.repoRoot) {
+          return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
+        }
+        const notes = monitor.getRepoNotes(pane.paneId) ?? [];
+        return c.json({ repoRoot: pane.detail.repoRoot, notes });
+      });
+    })
+    .post("/sessions/:paneId/notes", zValidator("json", notePayloadSchema), (c) => {
+      return withPane(c, (pane) => {
+        if (!pane.detail.repoRoot) {
+          return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
+        }
+        const payload = c.req.valid("json");
+        const note = monitor.createRepoNote(pane.paneId, {
+          title: normalizeNoteTitle(payload.title),
+          body: payload.body,
+        });
+        if (!note) {
+          return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
+        }
+        return c.json({ note });
+      });
+    })
+    .put("/sessions/:paneId/notes/:noteId", zValidator("json", notePayloadSchema), (c) => {
+      return withPane(c, (pane) => {
+        if (!pane.detail.repoRoot) {
+          return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
+        }
+        const noteId = c.req.param("noteId")?.trim();
+        if (!noteId) {
+          return c.json({ error: buildError("INVALID_PAYLOAD", "invalid note id") }, 400);
+        }
+        const payload = c.req.valid("json");
+        const note = monitor.updateRepoNote(pane.paneId, noteId, {
+          title: normalizeNoteTitle(payload.title),
+          body: payload.body,
+        });
+        if (!note) {
+          return c.json({ error: buildError("NOT_FOUND", "note not found") }, 404);
+        }
+        return c.json({ note });
+      });
+    })
+    .delete("/sessions/:paneId/notes/:noteId", (c) => {
+      return withPane(c, (pane) => {
+        if (!pane.detail.repoRoot) {
+          return c.json({ error: buildError("REPO_UNAVAILABLE", "repo root is unavailable") }, 400);
+        }
+        const noteId = c.req.param("noteId")?.trim();
+        if (!noteId) {
+          return c.json({ error: buildError("INVALID_PAYLOAD", "invalid note id") }, 400);
+        }
+        const removed = monitor.deleteRepoNote(pane.paneId, noteId);
+        if (!removed) {
+          return c.json({ error: buildError("NOT_FOUND", "note not found") }, 404);
+        }
+        return c.json({ noteId });
       });
     })
     .put("/sessions/:paneId/title", zValidator("json", titleSchema), async (c) => {
