@@ -34,7 +34,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   const GRACEFUL_TERMINATE_EXIT_DELAY_MS = 120;
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const dangerKeys = new Set(config.dangerKeys);
-  const allowedKeySet = new Set(allowedKeys);
+  const allowedKeySet: ReadonlySet<string> = new Set(allowedKeys);
   const pendingCommands = new Map<string, string>();
   const enterKey = config.input.enterKey || "C-m";
   const enterDelayMs = config.input.enterDelayMs ?? 0;
@@ -84,7 +84,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     return null;
   };
 
-  const hasInvalidKey = (keys: string[]) => keys.some((key) => !allowedKeySet.has(key as never));
+  const hasInvalidKey = (keys: string[]) => keys.some((key) => !allowedKeySet.has(key));
 
   const hasDangerKey = (keys: string[]) => keys.some((key) => dangerKeys.has(key));
 
