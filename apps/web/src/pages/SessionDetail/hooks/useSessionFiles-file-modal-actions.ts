@@ -2,6 +2,7 @@ import type { RepoFileContent } from "@vde-monitor/shared";
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 
 const markdownPathPattern = /\.(md|markdown)$/i;
 
@@ -10,28 +11,6 @@ const isMarkdownFileContent = (file: RepoFileContent) => {
     return true;
   }
   return markdownPathPattern.test(file.path);
-};
-
-const copyTextToClipboard = async (value: string) => {
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-      return document.execCommand("copy");
-    } catch {
-      return false;
-    } finally {
-      document.body.removeChild(textarea);
-    }
-  }
 };
 
 type UseSessionFilesFileModalActionsArgs = {
@@ -204,7 +183,7 @@ export const useSessionFilesFileModalActions = ({
       return;
     }
     setFileModalCopyError(null);
-    const copied = await copyTextToClipboard(fileModalPath);
+    const copied = await copyToClipboard(fileModalPath);
     if (!copied) {
       setFileModalCopiedPath(false);
       setFileModalCopyError("Failed to copy the file path.");

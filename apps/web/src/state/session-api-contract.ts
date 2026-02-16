@@ -10,6 +10,7 @@ export const createApiClient = (apiBasePath: string, authHeaders: Record<string,
 
 type ApiClientContract = ReturnType<typeof createApiClient>;
 type SessionClient = ApiClientContract["sessions"][":paneId"];
+type NotesClient = SessionClient["notes"];
 
 export type PaneParam = NonNullable<InferRequestType<SessionClient["focus"]["$post"]>["param"]>;
 export type PaneHashParam = NonNullable<
@@ -46,6 +47,7 @@ export type UploadImageForm = NonNullable<
 export type TimelineQuery = NonNullable<
   InferRequestType<SessionClient["timeline"]["$get"]>["query"]
 >;
+export type RepoNotePayloadJson = NonNullable<InferRequestType<NotesClient["$post"]>["json"]>;
 export type RepoFileTreeQuery = NonNullable<
   InferRequestType<SessionClient["files"]["tree"]["$get"]>["query"]
 >;
@@ -55,5 +57,6 @@ export type RepoFileSearchQuery = NonNullable<
 export type RepoFileContentQuery = NonNullable<
   InferRequestType<SessionClient["files"]["content"]["$get"]>["query"]
 >;
+export type NoteIdParam = NonNullable<InferRequestType<NotesClient[":noteId"]["$put"]>["param"]>;
 
 export type { ApiClientContract };

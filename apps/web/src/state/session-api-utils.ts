@@ -17,11 +17,13 @@ import type {
   CommitLogQuery,
   DiffFileQuery,
   ForceQuery,
+  NoteIdParam,
   PaneHashParam,
   PaneParam,
   RepoFileContentQuery,
   RepoFileSearchQuery,
   RepoFileTreeQuery,
+  RepoNotePayloadJson,
   ScreenRequestJson,
   SendKeysJson,
   SendRawJson,
@@ -115,6 +117,14 @@ export const buildSendRawJson = (items: SendRawJson["items"], unsafe: boolean): 
 
 export const buildSessionTitleJson = (title: string | null): SessionTitleJson => ({
   title,
+});
+
+export const buildRepoNotePayloadJson = (
+  title: string | null | undefined,
+  body: string,
+): RepoNotePayloadJson => ({
+  title: title ?? null,
+  body,
 });
 
 export const buildUploadImageForm = (file: File): UploadImageForm => ({
@@ -247,6 +257,11 @@ export const buildPaneParam = (paneId: string): PaneParam => ({
 export const buildPaneHashParam = (paneId: string, hash: string): PaneHashParam => ({
   paneId: encodePaneId(paneId),
   hash,
+});
+
+export const buildPaneNoteParam = (paneId: string, noteId: string): NoteIdParam => ({
+  paneId: encodePaneId(paneId),
+  noteId,
 });
 
 const applyForceQuery = <T extends { force?: string }>(query: T, force?: boolean): T => {

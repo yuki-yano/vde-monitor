@@ -7,6 +7,7 @@ import type {
   RepoFileContent,
   RepoFileSearchPage,
   RepoFileTreePage,
+  RepoNote,
   SessionStateTimeline,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
@@ -143,6 +144,15 @@ export const createSessionQueryRequests = ({
     });
   };
 
+  const requestRepoNotes = async (paneId: string): Promise<RepoNote[]> => {
+    return requestPaneQueryField<{ notes?: RepoNote[] }, "notes">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].notes.$get({ param }),
+      field: "notes",
+      fallbackMessage: API_ERROR_MESSAGES.repoNotes,
+    });
+  };
+
   const requestRepoFileTree = async (
     paneId: string,
     options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
@@ -201,6 +211,7 @@ export const createSessionQueryRequests = ({
     requestCommitDetail,
     requestCommitFile,
     requestStateTimeline,
+    requestRepoNotes,
     requestRepoFileTree,
     requestRepoFileSearch,
     requestRepoFileContent,

@@ -4,6 +4,7 @@ import type { SessionDetailViewProps } from "../SessionDetailView";
 import {
   buildCommitSectionProps,
   buildDiffSectionProps,
+  buildNotesSectionProps,
   buildStateTimelineSectionProps,
 } from "./section-props-builders";
 
@@ -14,6 +15,7 @@ export const useSessionDetailViewDataSectionProps = ({
   diffs,
   files,
   commits,
+  notes,
 }: SessionDetailViewProps) => {
   const { paneId, session } = meta;
   const sourceRepoRoot = screen.effectiveWorktreePath ?? session?.repoRoot ?? null;
@@ -61,6 +63,19 @@ export const useSessionDetailViewDataSectionProps = ({
     toggleCommitFile,
     copyHash,
   } = commits;
+  const {
+    repoRoot,
+    notes: repoNotes,
+    notesLoading,
+    notesError,
+    creatingNote,
+    savingNoteId,
+    deletingNoteId,
+    refreshNotes,
+    createNote,
+    saveNote,
+    removeNote,
+  } = notes;
   const sessionBranch = screen.effectiveBranch ?? session?.branch ?? null;
 
   const handleResolveFileReference = useCallback(
@@ -193,9 +208,40 @@ export const useSessionDetailViewDataSectionProps = ({
     ],
   );
 
+  const notesSectionProps = useMemo(
+    () =>
+      buildNotesSectionProps({
+        repoRoot,
+        notes: repoNotes,
+        notesLoading,
+        notesError,
+        creatingNote,
+        savingNoteId,
+        deletingNoteId,
+        refreshNotes,
+        createNote,
+        saveNote,
+        removeNote,
+      }),
+    [
+      createNote,
+      creatingNote,
+      deletingNoteId,
+      notesError,
+      notesLoading,
+      refreshNotes,
+      removeNote,
+      repoNotes,
+      repoRoot,
+      saveNote,
+      savingNoteId,
+    ],
+  );
+
   return {
     diffSectionProps,
     stateTimelineSectionProps,
     commitSectionProps,
+    notesSectionProps,
   };
 };

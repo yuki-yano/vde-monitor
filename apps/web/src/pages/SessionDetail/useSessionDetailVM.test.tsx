@@ -181,6 +181,21 @@ vi.mock("./hooks/useSessionCommits", () => ({
   }),
 }));
 
+vi.mock("./hooks/useSessionRepoNotes", () => ({
+  useSessionRepoNotes: () => ({
+    notes: [],
+    notesLoading: false,
+    notesError: null,
+    creatingNote: false,
+    savingNoteId: null,
+    deletingNoteId: null,
+    refreshNotes: vi.fn(),
+    createNote: vi.fn(async () => true),
+    saveNote: vi.fn(async () => true),
+    removeNote: vi.fn(async () => true),
+  }),
+}));
+
 vi.mock("./hooks/useSessionLogs", () => ({
   useSessionLogs: () => ({
     quickPanelOpen: false,
@@ -237,6 +252,7 @@ describe("useSessionDetailVM", () => {
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
       requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
@@ -249,6 +265,9 @@ describe("useSessionDetailVM", () => {
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     };
 
     const store = createStore();
@@ -287,6 +306,7 @@ describe("useSessionDetailVM", () => {
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
       requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
@@ -299,6 +319,9 @@ describe("useSessionDetailVM", () => {
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     };
 
     const store = createStore();
@@ -334,6 +357,7 @@ describe("useSessionDetailVM", () => {
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
       requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
@@ -346,6 +370,9 @@ describe("useSessionDetailVM", () => {
       touchSession,
       updateSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     };
 
     const store = createStore();
@@ -379,6 +406,7 @@ describe("useSessionDetailVM", () => {
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
       requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
@@ -391,6 +419,9 @@ describe("useSessionDetailVM", () => {
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     };
 
     const store = createStore();
@@ -421,6 +452,7 @@ describe("useSessionDetailVM", () => {
       requestCommitDetail: vi.fn(),
       requestCommitFile: vi.fn(),
       requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
@@ -433,6 +465,9 @@ describe("useSessionDetailVM", () => {
       touchSession: vi.fn(),
       updateSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     };
 
     const store = createStore();

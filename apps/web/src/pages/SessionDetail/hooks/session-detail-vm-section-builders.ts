@@ -5,6 +5,7 @@ import type {
   HighlightCorrectionConfig,
   RepoFileContent,
   RepoFileSearchPage,
+  RepoNote,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
@@ -206,6 +207,20 @@ type BuildCommitsSectionArgs = {
   toggleCommit: (hash: string) => void;
   toggleCommitFile: (hash: string, path: string) => void;
   copyHash: (hash: string) => void;
+};
+
+type BuildNotesSectionArgs = {
+  repoRoot: string | null;
+  notes: RepoNote[];
+  notesLoading: boolean;
+  notesError: string | null;
+  creatingNote: boolean;
+  savingNoteId: string | null;
+  deletingNoteId: string | null;
+  refreshNotes: (options?: { silent?: boolean }) => void;
+  createNote: (input: { title?: string | null; body: string }) => Promise<boolean>;
+  saveNote: (noteId: string, input: { title?: string | null; body: string }) => Promise<boolean>;
+  removeNote: (noteId: string) => Promise<boolean>;
 };
 
 type BuildLogsSectionArgs = {
@@ -561,6 +576,32 @@ export const buildCommitsSection = ({
   toggleCommit,
   toggleCommitFile,
   copyHash,
+});
+
+export const buildNotesSection = ({
+  repoRoot,
+  notes,
+  notesLoading,
+  notesError,
+  creatingNote,
+  savingNoteId,
+  deletingNoteId,
+  refreshNotes,
+  createNote,
+  saveNote,
+  removeNote,
+}: BuildNotesSectionArgs) => ({
+  repoRoot,
+  notes,
+  notesLoading,
+  notesError,
+  creatingNote,
+  savingNoteId,
+  deletingNoteId,
+  refreshNotes,
+  createNote,
+  saveNote,
+  removeNote,
 });
 
 export const buildLogsSection = ({

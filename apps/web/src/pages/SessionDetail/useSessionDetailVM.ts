@@ -8,6 +8,7 @@ import {
   buildLayoutSection,
   buildLogsSection,
   buildMetaSection,
+  buildNotesSection,
   buildScreenSection,
   buildSidebarSection,
   buildTimelineSection,
@@ -20,6 +21,7 @@ import { useSessionDetailTimelineLogsActions } from "./hooks/useSessionDetailTim
 import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionFiles } from "./hooks/useSessionFiles";
+import { useSessionRepoNotes } from "./hooks/useSessionRepoNotes";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
 import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
@@ -43,6 +45,7 @@ export const useSessionDetailVM = (paneId: string) => {
     requestWorktrees,
     requestDiffFile,
     requestDiffSummary,
+    requestRepoNotes,
     requestRepoFileContent,
     requestRepoFileSearch,
     requestRepoFileTree,
@@ -55,6 +58,9 @@ export const useSessionDetailVM = (paneId: string) => {
     sendRaw,
     touchSession,
     updateSessionTitle,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
   } = useSessionDetailVMState();
 
   const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups } =
@@ -149,6 +155,27 @@ export const useSessionDetailVM = (paneId: string) => {
   });
 
   const currentRepoRoot = session?.repoRoot ?? null;
+  const {
+    notes,
+    notesLoading,
+    notesError,
+    creatingNote,
+    savingNoteId,
+    deletingNoteId,
+    refreshNotes,
+    createNote,
+    saveNote,
+    removeNote,
+  } = useSessionRepoNotes({
+    paneId,
+    repoRoot: currentRepoRoot,
+    connected,
+    requestRepoNotes,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
+  });
+
   const {
     timeline: {
       timeline,
@@ -331,6 +358,19 @@ export const useSessionDetailVM = (paneId: string) => {
     diffs,
     files: buildFilesSection(files),
     commits: buildCommitsSection(commits),
+    notes: buildNotesSection({
+      repoRoot: currentRepoRoot,
+      notes,
+      notesLoading,
+      notesError,
+      creatingNote,
+      savingNoteId,
+      deletingNoteId,
+      refreshNotes,
+      createNote,
+      saveNote,
+      removeNote,
+    }),
     logs: buildLogsSection({
       quickPanelOpen,
       logModalOpen,

@@ -60,6 +60,7 @@ type SessionDetailViewOverrides = {
   diffs?: Partial<SessionDetailViewProps["diffs"]>;
   files?: Partial<SessionDetailViewProps["files"]>;
   commits?: Partial<SessionDetailViewProps["commits"]>;
+  notes?: Partial<SessionDetailViewProps["notes"]>;
   logs?: Partial<SessionDetailViewProps["logs"]>;
   title?: Partial<SessionDetailViewProps["title"]>;
   actions?: Partial<SessionDetailViewProps["actions"]>;
@@ -225,6 +226,19 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       toggleCommitFile: vi.fn(),
       copyHash: vi.fn(),
     },
+    notes: {
+      repoRoot: null,
+      notes: [],
+      notesLoading: false,
+      notesError: null,
+      creatingNote: false,
+      savingNoteId: null,
+      deletingNoteId: null,
+      refreshNotes: vi.fn(),
+      createNote: vi.fn(async () => true),
+      saveNote: vi.fn(async () => true),
+      removeNote: vi.fn(async () => true),
+    },
     logs: {
       quickPanelOpen: false,
       logModalOpen: false,
@@ -270,6 +284,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     diffs: { ...base.diffs, ...overrides.diffs },
     files: { ...base.files, ...overrides.files },
     commits: { ...base.commits, ...overrides.commits },
+    notes: { ...base.notes, ...overrides.notes },
     logs: { ...base.logs, ...overrides.logs },
     title: { ...base.title, ...overrides.title },
     actions: { ...base.actions, ...overrides.actions },
@@ -328,6 +343,7 @@ describe("SessionDetailView", () => {
     expect(screen.getByText("Changes")).toBeTruthy();
     expect(screen.getByText("File Navigator")).toBeTruthy();
     expect(screen.getByText("Commit Log")).toBeTruthy();
+    expect(screen.getByText("Notes")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Timeline panel" })).toBeNull();
     expect(screen.getByLabelText("Toggle session quick panel")).toBeTruthy();
     expect(document.title).toBe("Session Title - VDE Monitor");
@@ -368,6 +384,12 @@ describe("SessionDetailView", () => {
       "active",
     );
     expect(window.localStorage.getItem(storageKey)).toBe("keys");
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Notes panel" }), { button: 0 });
+    expect(screen.getByRole("tab", { name: "Notes panel" }).getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(window.localStorage.getItem(storageKey)).toBe("notes");
   });
 
   it("restores last selected tab from localStorage", () => {
@@ -408,6 +430,7 @@ describe("SessionDetailView", () => {
     expect(screen.queryByText("State Timeline")).toBeNull();
     expect(screen.queryByText("File Navigator")).toBeNull();
     expect(screen.queryByText("Commit Log")).toBeNull();
+    expect(screen.queryByText("No notes yet")).toBeNull();
     expect(window.localStorage.getItem(storageKey)).toBe(CLOSE_DETAIL_TAB_VALUE);
   });
 
@@ -427,6 +450,7 @@ describe("SessionDetailView", () => {
     expect(screen.queryByText("State Timeline")).toBeNull();
     expect(screen.queryByText("File Navigator")).toBeNull();
     expect(screen.queryByText("Commit Log")).toBeNull();
+    expect(screen.queryByText("No notes yet")).toBeNull();
     expect(
       screen.getByRole("tab", { name: "Close detail sections" }).getAttribute("data-state"),
     ).toBe("active");
@@ -448,6 +472,7 @@ describe("SessionDetailView", () => {
     expect(screen.getByText("State Timeline")).toBeTruthy();
     expect(screen.getByText("File Navigator")).toBeTruthy();
     expect(screen.getByText("Commit Log")).toBeTruthy();
+    expect(screen.getByText("Notes")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Close detail sections" })).toBeNull();
   });
 

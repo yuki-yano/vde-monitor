@@ -2,7 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { type AgentMonitorConfig, type SessionStateTimelineRange } from "@vde-monitor/shared";
+import {
+  type AgentMonitorConfig,
+  type RepoNote,
+  type SessionStateTimelineRange,
+} from "@vde-monitor/shared";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
@@ -16,8 +20,9 @@ import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
+import { createRepoNotesStore } from "./repo-notes/store";
 import { createSessionRegistry } from "./session-registry";
-import { restoreSessions, restoreTimeline, saveState } from "./state-store";
+import { restoreRepoNotes, restoreSessions, restoreTimeline, saveState } from "./state-store";
 import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
@@ -34,6 +39,9 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const customTitles = new Map<string, string>();
   const restored = restoreSessions();
   const restoredTimeline = restoreTimeline();
+  const restoredRepoNotes = restoreRepoNotes();
+  const repoNotes = createRepoNotesStore();
+  repoNotes.restore(restoredRepoNotes);
   const serverKey = runtime.serverKey;
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
@@ -56,7 +64,10 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   });
 
   const savePersistedState = () => {
-    saveState(registry.values(), { timeline: stateTimeline.serialize() });
+    saveState(registry.values(), {
+      timeline: stateTimeline.serialize(),
+      repoNotes: repoNotes.serialize(),
+    });
   };
   const applyRestored = createRestoredSessionApplier(restored);
   const paneUpdateService = createPaneUpdateService({
@@ -177,6 +188,61 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     return stateTimeline.getRepoTimeline({ paneId, paneIds, range, limit });
   };
 
+  const resolveRepoRootFromPane = (paneId: string): string | null => {
+    const detail = registry.getDetail(paneId);
+    return detail?.repoRoot ?? null;
+  };
+
+  const getRepoNotes = (paneId: string): RepoNote[] | null => {
+    const repoRoot = resolveRepoRootFromPane(paneId);
+    if (!repoRoot) {
+      return null;
+    }
+    return repoNotes.list(repoRoot);
+  };
+
+  const createRepoNote = (
+    paneId: string,
+    input: { title?: string | null; body: string },
+  ): RepoNote | null => {
+    const repoRoot = resolveRepoRootFromPane(paneId);
+    if (!repoRoot) {
+      return null;
+    }
+    const note = repoNotes.create(repoRoot, input);
+    savePersistedState();
+    return note;
+  };
+
+  const updateRepoNote = (
+    paneId: string,
+    noteId: string,
+    input: { title?: string | null; body: string },
+  ): RepoNote | null => {
+    const repoRoot = resolveRepoRootFromPane(paneId);
+    if (!repoRoot) {
+      return null;
+    }
+    const note = repoNotes.update(repoRoot, noteId, input);
+    if (!note) {
+      return null;
+    }
+    savePersistedState();
+    return note;
+  };
+
+  const deleteRepoNote = (paneId: string, noteId: string): boolean | null => {
+    const repoRoot = resolveRepoRootFromPane(paneId);
+    if (!repoRoot) {
+      return null;
+    }
+    const removed = repoNotes.remove(repoRoot, noteId);
+    if (removed) {
+      savePersistedState();
+    }
+    return removed;
+  };
+
   return {
     registry,
     start,
@@ -185,6 +251,10 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     getScreenCapture,
     getStateTimeline,
     getRepoStateTimeline,
+    getRepoNotes,
+    createRepoNote,
+    updateRepoNote,
+    deleteRepoNote,
     setCustomTitle,
     recordInput,
     markPaneViewed,

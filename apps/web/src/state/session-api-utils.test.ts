@@ -9,11 +9,13 @@ import {
   buildDiffFileQuery,
   buildForceQuery,
   buildPaneHashParam,
+  buildPaneNoteParam,
   buildPaneParam,
   buildRefreshFailureResult,
   buildRepoFileContentQuery,
   buildRepoFileSearchQuery,
   buildRepoFileTreeQuery,
+  buildRepoNotePayloadJson,
   buildScreenRequestJson,
   buildScreenRequestKeys,
   buildSendKeysJson,
@@ -159,6 +161,7 @@ describe("session-api-utils", () => {
   it("builds query helpers", () => {
     expect(buildPaneParam("pane-1")).toEqual({ paneId: "pane-1" });
     expect(buildPaneHashParam("pane-1", "hash")).toEqual({ paneId: "pane-1", hash: "hash" });
+    expect(buildPaneNoteParam("pane-1", "note-1")).toEqual({ paneId: "pane-1", noteId: "note-1" });
     expect(buildSendTextJson("echo test", true)).toEqual({ text: "echo test", enter: true });
     expect(buildSendTextJson("echo test", true, "req-1")).toEqual({
       text: "echo test",
@@ -171,6 +174,8 @@ describe("session-api-utils", () => {
       unsafe: false,
     });
     expect(buildSessionTitleJson("next title")).toEqual({ title: "next title" });
+    expect(buildRepoNotePayloadJson("note", "body")).toEqual({ title: "note", body: "body" });
+    expect(buildRepoNotePayloadJson(undefined, "body")).toEqual({ title: null, body: "body" });
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
     expect(buildUploadImageForm(file)).toEqual({ image: file });
 
