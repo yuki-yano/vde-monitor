@@ -4,13 +4,18 @@ import path from "node:path";
 import type { DiffFile, DiffFileStatus, DiffSummary, DiffSummaryFile } from "@vde-monitor/shared";
 
 import { setMapEntryWithLimit } from "./cache";
-import { shouldReuseCacheEntry, truncateTextByLength } from "./git-common";
+import {
+  GIT_CACHE_TTL_MS,
+  GIT_PATCH_MAX_BYTES,
+  shouldReuseCacheEntry,
+  truncateTextByLength,
+} from "./git-common";
 import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
 import { resolveRepoRoot, runGit } from "./git-utils";
 
-const SUMMARY_TTL_MS = 3000;
-const FILE_TTL_MS = 3000;
-const MAX_PATCH_BYTES = 2_000_000;
+const SUMMARY_TTL_MS = GIT_CACHE_TTL_MS;
+const FILE_TTL_MS = GIT_CACHE_TTL_MS;
+const MAX_PATCH_BYTES = GIT_PATCH_MAX_BYTES;
 const SUMMARY_CACHE_MAX_ENTRIES = 200;
 const FILE_CACHE_MAX_ENTRIES = 500;
 

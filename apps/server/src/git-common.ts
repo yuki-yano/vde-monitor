@@ -1,3 +1,6 @@
+export const GIT_CACHE_TTL_MS = 3000;
+export const GIT_PATCH_MAX_BYTES = 2_000_000;
+
 export const shouldReuseCacheEntry = ({
   force,
   cachedAt,
