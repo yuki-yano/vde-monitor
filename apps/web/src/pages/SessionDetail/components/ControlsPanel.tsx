@@ -88,7 +88,7 @@ const DANGER_TOGGLE_CLASS_DEFAULT =
 const MODIFIER_DOT_CLASS_ACTIVE = "bg-latte-lavender";
 const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
 
-const COMPOSER_PILL_CLASS = "h-7 px-1.5 text-[10px] tracking-[0.18em] sm:h-8";
+const COMPOSER_PILL_CLASS = "h-7 px-1.5 text-[10px] tracking-[0.12em] sm:h-8";
 const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
 const KEY_BUTTON_CLASS =
   "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
@@ -309,10 +309,10 @@ const ComposerActionsRow = ({
           active={autoEnter}
           disabled={rawMode}
           title="Auto-enter after send"
-          className="group"
+          className="group gap-0.5"
         >
-          <span>Auto</span>
-          <CornerDownLeft className="h-3 w-3" />
+          <span className="tracking-[0.08em]">Auto</span>
+          <CornerDownLeft className="-ml-0.5 h-3 w-3" />
           <span className="sr-only">Auto-enter</span>
         </ComposerPill>
         <Button
