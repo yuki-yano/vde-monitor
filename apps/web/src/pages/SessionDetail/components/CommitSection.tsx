@@ -23,6 +23,7 @@ import {
   TagPill,
 } from "@/components/ui";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { cn } from "@/lib/cn";
 
 import {
   diffStatusClass,
@@ -342,7 +343,7 @@ const CommitFileRow = memo(
           className="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <TagPill tone="status" className={`${diffStatusClass(statusLabel)} shrink-0`}>
+            <TagPill tone="status" className={cn(diffStatusClass(statusLabel), "shrink-0")}>
               {statusLabel}
             </TagPill>
             <div ref={labelContainerRef} className="min-w-0 flex-1">

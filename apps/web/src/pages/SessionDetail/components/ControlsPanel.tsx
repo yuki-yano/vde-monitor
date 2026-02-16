@@ -365,11 +365,11 @@ const KeysSection = ({
       <div id="session-controls" className="space-y-2 px-0 pb-0 pt-1">
         <div className="flex flex-wrap items-center gap-2">
           <ModifierKeyToggle type="button" onClick={onToggleShift} active={shiftHeld}>
-            <span className={`h-2 w-2 rounded-full transition-colors ${shiftDotClass}`} />
+            <span className={cn("h-2 w-2 rounded-full transition-colors", shiftDotClass)} />
             Shift
           </ModifierKeyToggle>
           <ModifierKeyToggle type="button" onClick={onToggleCtrl} active={ctrlHeld}>
-            <span className={`h-2 w-2 rounded-full transition-colors ${ctrlDotClass}`} />
+            <span className={cn("h-2 w-2 rounded-full transition-colors", ctrlDotClass)} />
             Ctrl
           </ModifierKeyToggle>
         </div>
@@ -629,7 +629,10 @@ export const ControlsPanel = ({
         {showComposerSection ? (
           <div className="min-w-0">
             <div
-              className={`min-w-0 overflow-hidden rounded-2xl border transition ${rawModeInputClass}`}
+              className={cn(
+                "min-w-0 overflow-hidden rounded-2xl border transition",
+                rawModeInputClass,
+              )}
             >
               <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
                 <ZoomSafeTextarea

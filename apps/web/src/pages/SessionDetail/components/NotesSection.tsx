@@ -27,6 +27,7 @@ import {
   SectionHeader,
   ZoomSafeTextarea,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
 
 type NotesSectionState = {
@@ -365,7 +366,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
             onClick={() => onRefresh()}
             disabled={!repoRoot}
           >
-            <RefreshCw className={`h-4 w-4 ${notesLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={cn("h-4 w-4", notesLoading && "animate-spin")} />
           </IconButton>
           <IconButton
             type="button"

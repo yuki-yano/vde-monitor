@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { MonoBlock } from "@/components/ui";
+import { cn } from "@/lib/cn";
 
 import { normalizeLogReference } from "../log-file-reference";
 import { diffLineClass } from "../sessionDetailUtils";
@@ -206,7 +207,7 @@ const DiffPatch = memo(
         {renderedLines.map((line, index) => (
           <div
             key={`${index}-${lines[index]?.slice(0, 12) ?? ""}`}
-            className={`${diffLineClass(lines[index] ?? "")} -mx-2 block w-full rounded-sm px-2`}
+            className={cn(diffLineClass(lines[index] ?? ""), "-mx-2 block w-full rounded-sm px-2")}
             onClick={handleResolveFileReference}
             onKeyDown={handleResolveFileReferenceKeyDown}
           >

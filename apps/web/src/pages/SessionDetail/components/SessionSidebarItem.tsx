@@ -149,10 +149,13 @@ export const SessionSidebarItem = memo(
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
-              className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${statusMeta.wrap}`}
+              className={cn(
+                "inline-flex h-6 w-6 items-center justify-center rounded-full border",
+                statusMeta.wrap,
+              )}
               aria-label={statusMeta.label}
             >
-              <StatusIcon className={`h-3.5 w-3.5 ${statusMeta.className}`} />
+              <StatusIcon className={cn("h-3.5 w-3.5", statusMeta.className)} />
             </span>
             <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
               {displayTitle}

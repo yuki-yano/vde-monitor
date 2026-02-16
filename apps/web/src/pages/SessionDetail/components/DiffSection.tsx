@@ -17,6 +17,7 @@ import {
   TruncatedSegmentText,
 } from "@/components/ui";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { cn } from "@/lib/cn";
 
 import { diffExpandedAtom } from "../atoms/diffAtoms";
 import {
@@ -292,7 +293,10 @@ const DiffSummaryDescription = memo(
             <TagPill
               key={item.key}
               tone="meta"
-              className={`${item.className} px-1.5 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em]`}
+              className={cn(
+                item.className,
+                "px-1.5 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em]",
+              )}
             >
               {item.label} {item.value}
             </TagPill>
@@ -390,7 +394,7 @@ const DiffFileItem = memo(
       <InsetPanel key={`${file.path}-${file.status}`}>
         <RowButton type="button" onClick={() => onToggle(file.path)}>
           <div className="flex min-w-0 items-center gap-3">
-            <TagPill tone="status" className={`${diffStatusClass(statusLabel)} shrink-0`}>
+            <TagPill tone="status" className={cn(diffStatusClass(statusLabel), "shrink-0")}>
               {statusLabel}
             </TagPill>
             <FilePathLabel path={file.path} size="sm" tailSegments={3} className="font-mono" />

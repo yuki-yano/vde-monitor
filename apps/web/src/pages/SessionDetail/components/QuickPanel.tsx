@@ -2,6 +2,7 @@ import { ArrowRight, Clock, ExternalLink, GitBranch, List, X } from "lucide-reac
 import { useEffect, useRef } from "react";
 
 import { Card, IconButton, LastInputPill, SurfaceButton, TagPill } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
 import type { SessionGroup } from "@/lib/session-group";
 import {
@@ -236,19 +237,22 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                                     type="button"
                                     onClick={() => onOpenLogModal(item.paneId)}
                                     aria-current={isCurrent ? "true" : undefined}
-                                    className={`flex w-full min-w-0 flex-col gap-2.5 ${
-                                      isCurrent
-                                        ? "border-latte-lavender/70 bg-latte-lavender/10 shadow-accent"
-                                        : ""
-                                    }`}
+                                    className={cn(
+                                      "flex w-full min-w-0 flex-col gap-2.5",
+                                      isCurrent &&
+                                        "border-latte-lavender/70 bg-latte-lavender/10 shadow-accent",
+                                    )}
                                   >
                                     <div className="flex min-w-0 items-center gap-2">
                                       <span
-                                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${statusMeta.wrap}`}
+                                        className={cn(
+                                          "inline-flex h-6 w-6 items-center justify-center rounded-full border",
+                                          statusMeta.wrap,
+                                        )}
                                         aria-label={statusMeta.label}
                                       >
                                         <StatusIcon
-                                          className={`h-3.5 w-3.5 ${statusMeta.className}`}
+                                          className={cn("h-3.5 w-3.5", statusMeta.className)}
                                         />
                                       </span>
                                       <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
@@ -257,10 +261,13 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                                     </div>
                                     <div className="flex w-full flex-wrap items-center gap-2">
                                       <span
-                                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${agentMeta.wrap}`}
+                                        className={cn(
+                                          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                          agentMeta.wrap,
+                                        )}
                                         aria-label={agentMeta.label}
                                       >
-                                        <AgentIcon className={`h-3 w-3 ${agentMeta.className}`} />
+                                        <AgentIcon className={cn("h-3 w-3", agentMeta.className)} />
                                       </span>
                                       <TagPill
                                         tone="meta"

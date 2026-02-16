@@ -232,7 +232,7 @@ export const StateTimelineSection = ({ state, actions }: StateTimelineSectionPro
           onClick={onTimelineRefresh}
           aria-label="Refresh timeline"
         >
-          <RefreshCw className={`h-4 w-4 ${timelineLoading ? "animate-spin" : ""}`} />
+          <RefreshCw className={cn("h-4 w-4", timelineLoading && "animate-spin")} />
           <span className="sr-only">Refresh</span>
         </Button>
       </div>
