@@ -78,6 +78,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
   const lastSavedBodyRef = useRef("");
   const autoSaveTimerRef = useRef<number | null>(null);
   const copyResetTimerRef = useRef<number | null>(null);
+  const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const pendingNewNoteAutoEditRef = useRef(false);
   const previousNoteIdSetRef = useRef<Set<string>>(new Set(notes.map((note) => note.id)));
@@ -105,12 +106,20 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
   }, []);
 
   const runAutoSave = useCallback(
-    async (noteId: string, body: string) => {
-      const ok = await onSave(noteId, { title: null, body });
-      if (ok) {
-        lastSavedBodyRef.current = body;
-      }
-      return ok;
+    (noteId: string, body: string) => {
+      const queuedSave = saveQueueRef.current.then(async () => {
+        try {
+          const ok = await onSave(noteId, { title: null, body });
+          if (ok && editingNoteIdRef.current === noteId) {
+            lastSavedBodyRef.current = body;
+          }
+          return ok;
+        } catch {
+          return false;
+        }
+      });
+      saveQueueRef.current = queuedSave;
+      return queuedSave;
     },
     [onSave],
   );
@@ -162,7 +171,10 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
     (note: RepoNote) => {
       void (async () => {
         if (editingNoteIdRef.current && editingNoteIdRef.current !== note.id) {
-          await flushPendingAutoSave();
+          const ok = await flushPendingAutoSave();
+          if (!ok) {
+            return;
+          }
         }
         setEditingNoteId(note.id);
         setEditingBody(note.body);
@@ -528,12 +540,15 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
               variant="danger"
               size="sm"
               onClick={() => {
-                if (deleteDialogNoteId) {
+                if (deleteDialogNoteId && deleteTargetNote) {
                   handleDeleteNote(deleteDialogNoteId);
                 }
               }}
               disabled={
-                !deleteDialogNoteId || isDeletingDialogTarget || savingNoteId === deleteDialogNoteId
+                !deleteDialogNoteId ||
+                !deleteTargetNote ||
+                isDeletingDialogTarget ||
+                savingNoteId === deleteDialogNoteId
               }
             >
               {isDeletingDialogTarget ? "Deleting..." : "Delete"}

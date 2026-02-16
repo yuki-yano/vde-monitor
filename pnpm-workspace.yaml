@@ -3,7 +3,5 @@ packages:
   - packages/*
 
 onlyBuiltDependencies:
-  - "["
-  - "]"
   - esbuild
   - msw

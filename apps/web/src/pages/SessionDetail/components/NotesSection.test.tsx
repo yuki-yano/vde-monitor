@@ -173,6 +173,27 @@ describe("NotesSection", () => {
     expect(screen.getByRole("button", { name: "Start editing note note-1" })).toBeTruthy();
   });
 
+  it("keeps editing current note when switching fails to save", async () => {
+    const onSave = vi.fn(async () => false);
+    const notes = [createNote({ id: "note-1" }), createNote({ id: "note-2", body: "second" })];
+    render(<NotesSection state={buildState({ notes })} actions={buildActions({ onSave })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "draft" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-2" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith("note-1", { title: null, body: "draft" });
+    });
+    expect(screen.getByLabelText("Edit note body note-1")).toBeTruthy();
+    expect(screen.queryByLabelText("Edit note body note-2")).toBeNull();
+  });
+
   it("moves caret to end when entering edit mode", async () => {
     render(<NotesSection state={buildState()} actions={buildActions()} />);
 
@@ -183,6 +204,76 @@ describe("NotesSection", () => {
     await waitFor(() => {
       expect(textarea.selectionStart).toBe(textarea.value.length);
       expect(textarea.selectionEnd).toBe(textarea.value.length);
+    });
+  });
+
+  it("keeps delete action disabled when dialog target disappears", async () => {
+    const { rerender } = render(<NotesSection state={buildState()} actions={buildActions()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete note note-1" }));
+    expect(screen.getByText("Delete note?")).toBeTruthy();
+
+    rerender(<NotesSection state={buildState({ notes: [] })} actions={buildActions()} />);
+
+    expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
+  it("serializes auto-save requests while a previous save is in flight", async () => {
+    vi.useFakeTimers();
+    const createDeferred = () => {
+      let resolve: (value: boolean) => void = () => {};
+      const promise = new Promise<boolean>((res) => {
+        resolve = res;
+      });
+      return { promise, resolve };
+    };
+    const first = createDeferred();
+    const second = createDeferred();
+    const onSave = vi.fn<NotesSectionActions["onSave"]>();
+    onSave.mockImplementationOnce(() => first.promise);
+    onSave.mockImplementationOnce(() => second.promise);
+    render(<NotesSection state={buildState()} actions={buildActions({ onSave })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "first" },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenNthCalledWith(1, "note-1", { title: null, body: "first" });
+
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "second" },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      first.resolve(true);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenNthCalledWith(2, "note-1", { title: null, body: "second" });
+
+    await act(async () => {
+      second.resolve(true);
+      await Promise.resolve();
     });
   });
 
