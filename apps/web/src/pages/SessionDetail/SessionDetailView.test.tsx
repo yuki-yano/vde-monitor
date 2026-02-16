@@ -6,7 +6,7 @@ import {
   createRouter,
   RouterContextProvider,
 } from "@tanstack/react-router";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { MutableRefObject, ReactNode } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -306,13 +306,32 @@ describe("SessionDetailView", () => {
     window.localStorage.clear();
   });
 
-  it("renders not found state when session is missing", () => {
-    const props = createViewProps({ meta: { session: null } });
+  it("renders not found state when session remains missing", () => {
+    vi.useFakeTimers();
+    try {
+      const props = createViewProps({ meta: { session: null, connected: true } });
+      renderWithRouter(<SessionDetailView {...props} />);
+
+      expect(screen.getByText("Loading session...")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+      expect(screen.getByText("Session not found.")).toBeTruthy();
+      expect(screen.getByRole("link", { name: "Back to list" })).toBeTruthy();
+      expect(document.title).toBe("VDE Monitor");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps showing loading while initial session fetch is in progress", () => {
+    const props = createViewProps({
+      meta: { session: null, connected: false, connectionIssue: null },
+    });
     renderWithRouter(<SessionDetailView {...props} />);
 
-    expect(screen.getByText("Session not found.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Back to list" })).toBeTruthy();
-    expect(document.title).toBe("VDE Monitor");
+    expect(screen.getByText("Loading session...")).toBeTruthy();
+    expect(screen.queryByText("Session not found.")).toBeNull();
   });
 
   it("shows authentication error in missing-session state", () => {

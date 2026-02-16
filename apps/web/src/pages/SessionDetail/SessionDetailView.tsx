@@ -7,6 +7,7 @@ import {
   FolderOpen,
   GitCommitHorizontal,
   Keyboard,
+  Loader2,
   X,
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
@@ -55,6 +56,7 @@ const SECTION_TAB_TEXT_CLASS =
   "inline-flex h-8 items-center justify-center gap-1 px-1.5 py-0.5 text-[10px] leading-tight sm:h-9 sm:gap-1.5 sm:px-2 sm:text-[11px]";
 const SECTION_TAB_STORAGE_REPO_FALLBACK = "__unknown_repo__";
 const SECTION_TAB_STORAGE_BRANCH_FALLBACK = "__no_branch__";
+const MISSING_SESSION_GRACE_MS = 1600;
 
 type SectionTabStorageScope = {
   repoRoot?: null | string;
@@ -158,6 +160,7 @@ export const SessionDetailView = ({
     readStoredSectionTabValue(sectionTabStorageKey),
   );
   const [sectionTabsIconOnly, setSectionTabsIconOnly] = useState(false);
+  const [missingSessionGraceElapsed, setMissingSessionGraceElapsed] = useState(false);
   const {
     diffSectionProps,
     fileNavigatorSectionProps,
@@ -187,6 +190,10 @@ export const SessionDetailView = ({
     title,
     actions,
   });
+  const hasConnectionIssue = splitConnectionIssueLines(meta.connectionIssue).length > 0;
+  const isSessionMissing = !session || !sessionHeaderProps;
+  const isInitialSessionLoading = isSessionMissing && !meta.connected && !hasConnectionIssue;
+  const shouldDelayMissingState = isSessionMissing && meta.connected && !hasConnectionIssue;
   const handleSectionTabChange = (value: string) => {
     if (!isSectionTabValue(value)) {
       return;
@@ -252,7 +259,45 @@ export const SessionDetailView = ({
     };
   }, [sectionTabsListElement]);
 
-  if (!session || !sessionHeaderProps) {
+  useEffect(() => {
+    if (!shouldDelayMissingState) {
+      setMissingSessionGraceElapsed(false);
+      return;
+    }
+
+    setMissingSessionGraceElapsed(false);
+    const timeoutId = window.setTimeout(() => {
+      setMissingSessionGraceElapsed(true);
+    }, MISSING_SESSION_GRACE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [shouldDelayMissingState]);
+
+  if (isSessionMissing) {
+    const showMissingState = hasConnectionIssue || missingSessionGraceElapsed;
+    if (isInitialSessionLoading || !showMissingState) {
+      return (
+        <>
+          <title>{documentTitle}</title>
+          <div className="mx-auto flex max-w-2xl flex-col gap-4 px-2.5 py-4 sm:px-4 sm:py-6">
+            <Card>
+              <div className="text-latte-subtext0 flex items-center gap-2 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading session...</span>
+              </div>
+              <p className="text-latte-subtext1 mt-2 text-xs">Checking the latest session state.</p>
+              <Link to="/" search={backToListSearch} className={`${backLinkClass} mt-4`}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to list
+              </Link>
+            </Card>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <title>{documentTitle}</title>

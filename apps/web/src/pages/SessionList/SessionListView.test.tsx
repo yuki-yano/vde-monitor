@@ -270,6 +270,22 @@ describe("SessionListView", () => {
     expect(props.onRefresh).toHaveBeenCalled();
   });
 
+  it("renders loading state while discovering sessions", () => {
+    const props = createViewProps({
+      sessions: [],
+      groups: [],
+      visibleSessionCount: 0,
+      quickPanelGroups: [],
+      connected: false,
+      connectionStatus: "degraded",
+      connectionIssue: null,
+    });
+    renderWithRouter(<SessionListView {...props} />);
+
+    expect(screen.getByText("Loading Sessions...")).toBeTruthy();
+    expect(screen.queryByText("No Active Sessions")).toBeNull();
+  });
+
   it("renders empty filter state when sessions exist but no groups", () => {
     const session = buildSession();
     const onFilterChange = vi.fn();

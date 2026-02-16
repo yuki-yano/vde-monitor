@@ -62,6 +62,8 @@ export const SessionListView = ({
   const [reorderScrollTarget, setReorderScrollTarget] = useState<ReorderScrollTarget | null>(null);
   const repoScrollTargetsRef = useRef(new Map<string, HTMLElement>());
   const paneScrollTargetsRef = useRef(new Map<string, HTMLAnchorElement>());
+  const isDiscoveringSessions =
+    sessions.length === 0 && connectionStatus === "degraded" && connectionIssue == null;
 
   const registerRepoScrollTarget = useCallback((key: string, element: HTMLElement | null) => {
     const targetMap = repoScrollTargetsRef.current;
@@ -203,7 +205,18 @@ export const SessionListView = ({
 
           <div className="flex flex-col gap-4 sm:gap-6">
             <div className="flex min-w-0 flex-1 flex-col gap-4 sm:gap-6">
-              {sessions.length === 0 && (
+              {isDiscoveringSessions && (
+                <EmptyCard
+                  icon={<RefreshCw className="text-latte-overlay1 h-10 w-10 animate-spin" />}
+                  title="Loading Sessions..."
+                  description="Checking tmux sessions in the background. This should finish shortly."
+                  className="py-12 sm:py-16"
+                  iconWrapperClassName="bg-latte-surface1/50 h-20 w-20"
+                  titleClassName="text-xl"
+                  descriptionClassName="max-w-sm"
+                />
+              )}
+              {sessions.length === 0 && !isDiscoveringSessions && (
                 <EmptyCard
                   icon={<MonitorX className="text-latte-overlay1 h-10 w-10" />}
                   title="No Active Sessions"
