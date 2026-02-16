@@ -3,6 +3,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 
 import {
   titleDraftAtom,
@@ -74,7 +75,7 @@ export const useSessionTitleEditor = ({
       setTitleEditing(false);
       setTitleError(null);
     } catch (err) {
-      setTitleError(err instanceof Error ? err.message : API_ERROR_MESSAGES.updateTitle);
+      setTitleError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
     } finally {
       setTitleSaving(false);
     }
@@ -101,7 +102,7 @@ export const useSessionTitleEditor = ({
       setTitleDraft(nextTitle ?? "");
       setTitleError(null);
     } catch (err) {
-      setTitleError(err instanceof Error ? err.message : API_ERROR_MESSAGES.updateTitle);
+      setTitleError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
     } finally {
       setTitleSaving(false);
     }

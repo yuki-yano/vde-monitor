@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { applyScreenDeltas } from "@/lib/screen-delta";
 import type { ScreenLoadingEvent, ScreenMode } from "@/lib/screen-loading";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
@@ -263,7 +264,7 @@ export const useScreenFetch = ({
       const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
       applyRefreshResponse(response, suppressRender);
     } catch (err) {
-      setError(err instanceof Error ? err.message : API_ERROR_MESSAGES.screenRequestFailed);
+      setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.screenRequestFailed));
     } finally {
       finishRefreshAttempt(attempt);
     }

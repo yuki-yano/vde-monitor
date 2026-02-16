@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import type { Theme } from "@/lib/theme";
 
 import {
@@ -133,7 +134,7 @@ const pickPaneTimeline = (paneId: string | null, cache: TimelineCacheMap) => {
 };
 
 const resolveTimelineError = (err: unknown) =>
-  err instanceof Error ? err.message : API_ERROR_MESSAGES.timeline;
+  resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.timeline);
 
 const prunePaneRecord = <T>(record: Record<string, T>, activePaneIds: Set<string>) => {
   const keys = Object.keys(record);

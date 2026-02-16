@@ -4,6 +4,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 import { QUERY_GC_TIME_MS } from "@/state/query-client";
 
@@ -132,7 +133,7 @@ export const useSessionDiffs = ({
               });
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
-              setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffFile);
+              setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
             }
           }),
         );
@@ -183,7 +184,7 @@ export const useSessionDiffs = ({
       ) {
         return;
       }
-      setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffSummary);
+      setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffSummary));
     } finally {
       if (
         isCurrentScopedRequest({
@@ -292,7 +293,7 @@ export const useSessionDiffs = ({
         ) {
           return;
         }
-        setDiffError(err instanceof Error ? err.message : API_ERROR_MESSAGES.diffFile);
+        setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
       } finally {
         if (
           isCurrentScopedRequest({

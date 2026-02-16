@@ -3,6 +3,7 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
@@ -178,7 +179,7 @@ const commitReducer = (state: CommitState, action: CommitAction): CommitState =>
 };
 
 const resolveCommitLogError = (err: unknown) =>
-  err instanceof Error ? err.message : API_ERROR_MESSAGES.commitLog;
+  resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.commitLog);
 
 const dispatchCommitLogError = (dispatch: CommitDispatch, append: boolean, err: unknown) => {
   if (append) {
@@ -333,7 +334,7 @@ export const useSessionCommits = ({
         }
         dispatch({
           type: "setCommitError",
-          error: err instanceof Error ? err.message : API_ERROR_MESSAGES.commitDetail,
+          error: resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.commitDetail),
         });
       } finally {
         if (activeScopeRef.current === targetScopeKey) {
@@ -368,7 +369,7 @@ export const useSessionCommits = ({
         }
         dispatch({
           type: "setCommitError",
-          error: err instanceof Error ? err.message : API_ERROR_MESSAGES.commitFile,
+          error: resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.commitFile),
         });
       } finally {
         if (activeScopeRef.current === targetScopeKey) {

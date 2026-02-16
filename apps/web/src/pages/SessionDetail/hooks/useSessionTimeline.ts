@@ -6,6 +6,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { createNextRequestId, isCurrentPaneRequest } from "./session-request-guard";
@@ -34,7 +35,7 @@ const DEFAULT_SCOPE: SessionStateTimelineScope = "pane";
 const TIMELINE_POLL_INTERVAL_MS = 5000;
 
 const resolveTimelineError = (err: unknown) =>
-  err instanceof Error ? err.message : API_ERROR_MESSAGES.timeline;
+  resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.timeline);
 
 export const useSessionTimeline = ({
   paneId,

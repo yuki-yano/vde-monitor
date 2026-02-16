@@ -1,6 +1,8 @@
 import type { SessionSummary, WorktreeList } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
+
 import { createNextRequestId, isCurrentRequest } from "./session-request-guard";
 
 const VIRTUAL_WORKTREE_STORAGE_KEY_PREFIX = "vde-monitor:virtual-worktree:v1";
@@ -140,7 +142,7 @@ export const useSessionVirtualWorktree = ({
         if (shouldShowLoading) {
           setWorktreeList(null);
         }
-        setError(nextError instanceof Error ? nextError.message : "Failed to load worktrees");
+        setError(resolveUnknownErrorMessage(nextError, "Failed to load worktrees"));
       } finally {
         if (isCurrentRequest(latestRequestIdRef, requestId) && shouldShowLoading) {
           setLoading(false);
