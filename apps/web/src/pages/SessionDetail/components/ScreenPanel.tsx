@@ -9,10 +9,7 @@ import {
   type ReactNode,
   type RefObject,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
@@ -32,6 +29,7 @@ import type { ScreenMode } from "@/lib/screen-loading";
 
 import { usePromptContextLayout } from "../hooks/usePromptContextLayout";
 import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogReferenceLinking";
+import { useScreenPanelWorktreeSelector } from "../hooks/useScreenPanelWorktreeSelector";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
 import { ScreenPanelViewport } from "./ScreenPanelViewport";
@@ -122,9 +120,6 @@ const pollingPauseLabelMap: Record<
     className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow",
   },
 };
-
-const WORKTREE_SELECTOR_OPEN_BODY_DATASET_KEY = "vdeWorktreeSelectorOpen";
-const WORKTREE_SELECTOR_REFRESH_INTERVAL_MS = 10_000;
 
 const resolveRawTokenFromEventTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -241,8 +236,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const gitAdditionsLabel = formatGitMetric(promptGitContext?.additions ?? null);
   const gitDeletionsLabel = formatGitMetric(promptGitContext?.deletions ?? null);
   const isVirtualActive = Boolean(virtualWorktreePath);
-  const [isWorktreeSelectorOpen, setIsWorktreeSelectorOpen] = useState(false);
-  const lastWorktreeSelectorClosedAtRef = useRef(Date.now());
   const visibleFileChangeCategories = useMemo(
     () => buildVisibleFileChangeCategories(gitFileChanges),
     [gitFileChanges],
@@ -286,73 +279,16 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     isVirtualActive,
     visibleFileChangeCategoriesKey,
   });
-  const refreshWorktrees = useCallback(() => {
-    if (onRefreshWorktrees) {
-      onRefreshWorktrees();
-      return;
-    }
-    onRefresh();
-  }, [onRefresh, onRefreshWorktrees]);
-
-  useEffect(() => {
-    if (!worktreeSelectorEnabled && isWorktreeSelectorOpen) {
-      setIsWorktreeSelectorOpen(false);
-    }
-  }, [isWorktreeSelectorOpen, worktreeSelectorEnabled]);
-
-  useEffect(() => {
-    if (!worktreeSelectorEnabled) {
-      return;
-    }
-    if (!isWorktreeSelectorOpen) {
-      lastWorktreeSelectorClosedAtRef.current = Date.now();
-      return;
-    }
-    const elapsedSinceCloseMs = Date.now() - lastWorktreeSelectorClosedAtRef.current;
-    if (elapsedSinceCloseMs >= WORKTREE_SELECTOR_REFRESH_INTERVAL_MS) {
-      refreshWorktrees();
-    }
-    const timerId = window.setInterval(() => {
-      refreshWorktrees();
-    }, WORKTREE_SELECTOR_REFRESH_INTERVAL_MS);
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, [isWorktreeSelectorOpen, refreshWorktrees, worktreeSelectorEnabled]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    const { body } = document;
-    if (isWorktreeSelectorOpen) {
-      body.dataset[WORKTREE_SELECTOR_OPEN_BODY_DATASET_KEY] = "true";
-    } else {
-      delete body.dataset[WORKTREE_SELECTOR_OPEN_BODY_DATASET_KEY];
-    }
-    return () => {
-      delete body.dataset[WORKTREE_SELECTOR_OPEN_BODY_DATASET_KEY];
-    };
-  }, [isWorktreeSelectorOpen]);
-
-  useEffect(() => {
-    if (!isWorktreeSelectorOpen || typeof document === "undefined") {
-      return;
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const containerNode = branchPillContainerRef.current;
-      if (!containerNode) {
-        return;
-      }
-      if (event.target instanceof Node && !containerNode.contains(event.target)) {
-        setIsWorktreeSelectorOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [branchPillContainerRef, isWorktreeSelectorOpen]);
+  const {
+    isOpen: isWorktreeSelectorOpen,
+    toggle: toggleWorktreeSelector,
+    close: closeWorktreeSelector,
+  } = useScreenPanelWorktreeSelector({
+    enabled: worktreeSelectorEnabled,
+    onRefreshScreen: onRefresh,
+    onRefreshWorktrees,
+    containerRef: branchPillContainerRef,
+  });
 
   const { scrollerRef: stableScrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: screenLines,
@@ -513,7 +449,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
                 className="shrink-0"
                 onClick={() => {
                   onClearVirtualWorktree?.();
-                  setIsWorktreeSelectorOpen(false);
+                  closeWorktreeSelector();
                 }}
               >
                 <X className="h-3 w-3" />
@@ -526,9 +462,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
                   className={`border-latte-surface2/70 bg-latte-base/70 text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[10px] font-semibold tracking-[0.05em] ${branchTriggerWidthClassName}`}
                   title={gitBranchLabel}
                   aria-label="Select worktree"
-                  onClick={() => {
-                    setIsWorktreeSelectorOpen((previous) => !previous);
-                  }}
+                  onClick={toggleWorktreeSelector}
                   data-testid="worktree-selector-trigger"
                 >
                   <GitBranch className="text-latte-subtext0 h-3 w-3 shrink-0" />
@@ -560,7 +494,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
                   worktreeSelectorError={worktreeSelectorError}
                   onRefresh={onRefreshWorktrees ?? onRefresh}
                   onClose={() => {
-                    setIsWorktreeSelectorOpen(false);
+                    closeWorktreeSelector();
                   }}
                   onSelectVirtualWorktree={onSelectVirtualWorktree}
                 />
