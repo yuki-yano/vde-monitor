@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildSessionGroups } from "@/lib/session-group";
+import { defaultLaunchConfig } from "@/state/launch-agent-options";
 
 import type { SessionListViewProps } from "./SessionListView";
 import { SessionListView } from "./SessionListView";
@@ -31,6 +32,10 @@ vi.mock("@/pages/SessionDetail/components/SessionSidebar", () => ({
       onLaunchAgentInSession?: (
         sessionName: string,
         agent: "codex" | "claude",
+        options?: {
+          worktreePath?: string;
+          worktreeBranch?: string;
+        },
       ) => Promise<void> | void;
       onTouchSession?: (paneId: string) => void;
       onTouchRepoPin?: (repoRoot: string | null) => void;
@@ -48,7 +53,12 @@ vi.mock("@/pages/SessionDetail/components/SessionSidebar", () => ({
       </button>
       <button
         type="button"
-        onClick={() => actions.onLaunchAgentInSession?.("sidebar-session", "claude")}
+        onClick={() =>
+          actions.onLaunchAgentInSession?.("sidebar-session", "claude", {
+            worktreePath: "/Users/test/sidebar-repo/.worktree/feature/sidebar",
+            worktreeBranch: "feature/sidebar",
+          })
+        }
       >
         sidebar-launch
       </button>
@@ -99,6 +109,43 @@ vi.mock("@/pages/SessionDetail/components/LogModal", () => ({
         open-new-tab
       </button>
     </div>
+  ),
+}));
+
+vi.mock("@/components/launch-agent-button", () => ({
+  LaunchAgentButton: ({
+    sessionName,
+    sourceSession,
+    onLaunchAgentInSession,
+  }: {
+    sessionName: string;
+    sourceSession?: SessionSummary;
+    onLaunchAgentInSession: (
+      sessionName: string,
+      agent: "codex" | "claude",
+      options?: { worktreePath?: string; worktreeBranch?: string; cwd?: string },
+    ) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => {
+        const hasWorktree = Boolean(sourceSession?.worktreePath?.includes(".worktree"));
+        onLaunchAgentInSession(
+          sessionName,
+          "codex",
+          hasWorktree
+            ? {
+                worktreePath: sourceSession?.worktreePath ?? undefined,
+                worktreeBranch: sourceSession?.branch ?? undefined,
+              }
+            : {
+                cwd: sourceSession?.repoRoot ?? undefined,
+              },
+        );
+      }}
+    >
+      Launch Agent
+    </button>
   ),
 }));
 
@@ -172,7 +219,9 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     connectionIssue: null,
     requestStateTimeline: vi.fn(),
     requestScreen: vi.fn(),
+    requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     highlightCorrections: { codex: true, claude: true },
+    launchConfig: defaultLaunchConfig,
     resolvedTheme: "latte",
     nowMs: Date.now(),
     sidebarWidth: 280,
@@ -194,7 +243,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     onOpenPaneInNewWindow: vi.fn(),
     onOpenHere: vi.fn(),
     onOpenNewTab: vi.fn(),
-    launchPendingKeys: new Set<string>(),
+    launchPendingSessions: new Set<string>(),
     onLaunchAgentInSession: vi.fn(),
     onTouchRepoPin: vi.fn(),
     onTouchPanePin: vi.fn(),
@@ -325,11 +374,41 @@ describe("SessionListView", () => {
     });
 
     renderWithRouter(<SessionListView {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Launch Codex" }));
+    fireEvent.click(screen.getByRole("button", { name: "Launch Agent" }));
 
     expect(onLaunchAgentInSession).toHaveBeenCalledWith("launch-target", "codex", {
       worktreePath: "/Users/test/repo/.worktree/feature/a",
       worktreeBranch: "feature/a",
+    });
+  });
+
+  it("prefers repo root pane for launch options even when another pane is vw worktree", () => {
+    const activeNonWorktreePane = buildSession({
+      paneId: "pane-active",
+      sessionName: "launch-target",
+      paneActive: true,
+      worktreePath: "/Users/test/repo",
+      branch: "main",
+    });
+    const inactiveWorktreePane = buildSession({
+      paneId: "pane-worktree",
+      sessionName: "launch-target",
+      paneActive: false,
+      worktreePath: "/Users/test/repo/.worktree/feature/a",
+      branch: "feature/a",
+    });
+    const onLaunchAgentInSession = vi.fn();
+    const props = createViewProps({
+      sessions: [activeNonWorktreePane, inactiveWorktreePane],
+      groups: buildSessionGroups([activeNonWorktreePane, inactiveWorktreePane]),
+      onLaunchAgentInSession,
+    });
+
+    renderWithRouter(<SessionListView {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Launch Agent" }));
+
+    expect(onLaunchAgentInSession).toHaveBeenCalledWith("launch-target", "codex", {
+      cwd: "/Users/test/repo",
     });
   });
 
@@ -450,7 +529,10 @@ describe("SessionListView", () => {
     fireEvent.click(screen.getByRole("button", { name: "sidebar-launch" }));
 
     expect(onOpenPaneHere).toHaveBeenCalledWith("pane-sidebar-open");
-    expect(onLaunchAgentInSession).toHaveBeenCalledWith("sidebar-session", "claude");
+    expect(onLaunchAgentInSession).toHaveBeenCalledWith("sidebar-session", "claude", {
+      worktreePath: "/Users/test/sidebar-repo/.worktree/feature/sidebar",
+      worktreeBranch: "feature/sidebar",
+    });
     expect(onTouchPanePin).toHaveBeenCalledWith("pane-sidebar-pin");
     expect(onTouchRepoPin).toHaveBeenCalledWith("/Users/test/sidebar-repo");
   });

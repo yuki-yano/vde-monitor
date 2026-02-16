@@ -446,6 +446,7 @@ export type ClientFileNavigatorConfig = {
 export type ClientConfig = {
   screen: ClientScreenConfig;
   fileNavigator: ClientFileNavigatorConfig;
+  launch: LaunchConfig;
 };
 
 export type ServerHealth = {

@@ -5,6 +5,7 @@ import {
   type CommandResponse,
   type HighlightCorrectionConfig,
   type LaunchCommandResponse,
+  type LaunchConfig,
   type ScreenResponse,
   type SessionSummary,
 } from "@vde-monitor/shared";
@@ -39,6 +40,7 @@ type UseSessionApiParams = {
   onSessionRemoved: (paneId: string) => void;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
+  onLaunchConfig?: (config: LaunchConfig) => void;
 };
 
 type PaneParam = ReturnType<typeof buildPaneParam>;
@@ -56,6 +58,7 @@ export const useSessionApi = ({
   onSessionRemoved,
   onHighlightCorrections,
   onFileNavigatorConfig,
+  onLaunchConfig,
 }: UseSessionApiParams) => {
   const ensureToken = useCallback(() => {
     if (!token) {
@@ -105,12 +108,14 @@ export const useSessionApi = ({
       onConnectionIssue,
       onHighlightCorrections,
       onFileNavigatorConfig,
+      onLaunchConfig,
     });
   }, [
     apiClient,
     onConnectionIssue,
     onFileNavigatorConfig,
     onHighlightCorrections,
+    onLaunchConfig,
     onSessions,
     token,
   ]);

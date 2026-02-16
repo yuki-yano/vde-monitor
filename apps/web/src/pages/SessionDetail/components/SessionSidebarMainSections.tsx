@@ -1,3 +1,4 @@
+import type { LaunchConfig, WorktreeList } from "@vde-monitor/shared";
 import { memo } from "react";
 
 import { FilterToggleGroup, TagPill } from "@/components/ui";
@@ -5,6 +6,7 @@ import {
   SESSION_LIST_FILTER_VALUES,
   type SessionListFilter,
 } from "@/pages/SessionList/sessionListFilters";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import type { SidebarRepoGroup } from "../hooks/useSessionSidebarGroups";
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
@@ -61,7 +63,9 @@ type SessionSidebarListSectionProps = {
   nowMs: number;
   currentPaneId?: string | null;
   focusPendingPaneIds: Set<string>;
-  launchPendingKeys: Set<string>;
+  launchPendingSessions: Set<string>;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onHoverStart: (paneId: string) => void;
   onHoverEnd: (paneId: string) => void;
   onFocus: (paneId: string) => void;
@@ -71,6 +75,7 @@ type SessionSidebarListSectionProps = {
   onLaunchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchSession: (paneId: string) => void;
   onTouchRepoPin: (repoRoot: string | null) => void;
@@ -83,7 +88,9 @@ const SessionSidebarListSection = ({
   nowMs,
   currentPaneId,
   focusPendingPaneIds,
-  launchPendingKeys,
+  launchPendingSessions,
+  launchConfig,
+  requestWorktrees,
   onHoverStart,
   onHoverEnd,
   onFocus,
@@ -104,7 +111,9 @@ const SessionSidebarListSection = ({
       nowMs={nowMs}
       currentPaneId={currentPaneId}
       focusPendingPaneIds={focusPendingPaneIds}
-      launchPendingKeys={launchPendingKeys}
+      launchPendingSessions={launchPendingSessions}
+      launchConfig={launchConfig}
+      requestWorktrees={requestWorktrees}
       onHoverStart={onHoverStart}
       onHoverEnd={onHoverEnd}
       onFocus={onFocus}
@@ -129,7 +138,9 @@ type SessionSidebarMainSectionsProps = {
   nowMs: number;
   currentPaneId?: string | null;
   focusPendingPaneIds: Set<string>;
-  launchPendingKeys: Set<string>;
+  launchPendingSessions: Set<string>;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onHoverStart: (paneId: string) => void;
   onHoverEnd: (paneId: string) => void;
   onFocus: (paneId: string) => void;
@@ -139,6 +150,7 @@ type SessionSidebarMainSectionsProps = {
   onLaunchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchSession: (paneId: string) => void;
   onTouchRepoPin: (repoRoot: string | null) => void;
@@ -155,7 +167,9 @@ export const SessionSidebarMainSections = ({
   nowMs,
   currentPaneId,
   focusPendingPaneIds,
-  launchPendingKeys,
+  launchPendingSessions,
+  launchConfig,
+  requestWorktrees,
   onHoverStart,
   onHoverEnd,
   onFocus,
@@ -177,7 +191,9 @@ export const SessionSidebarMainSections = ({
         nowMs={nowMs}
         currentPaneId={currentPaneId}
         focusPendingPaneIds={focusPendingPaneIds}
-        launchPendingKeys={launchPendingKeys}
+        launchPendingSessions={launchPendingSessions}
+        launchConfig={launchConfig}
+        requestWorktrees={requestWorktrees}
         onHoverStart={onHoverStart}
         onHoverEnd={onHoverEnd}
         onFocus={onFocus}

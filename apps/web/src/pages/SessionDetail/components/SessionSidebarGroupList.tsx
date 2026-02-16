@@ -1,9 +1,13 @@
+import type { LaunchConfig, WorktreeList } from "@vde-monitor/shared";
 import { Pin } from "lucide-react";
 
+import { LaunchAgentButton } from "@/components/launch-agent-button";
 import { IconButton, TagPill } from "@/components/ui";
 import { formatRepoDirLabel } from "@/lib/quick-panel-utils";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import type { SidebarRepoGroup } from "../hooks/useSessionSidebarGroups";
+import { isVwManagedWorktreePath } from "../sessionDetailUtils";
 import { SessionSidebarItem } from "./SessionSidebarItem";
 
 type SessionSidebarGroupListProps = {
@@ -11,7 +15,9 @@ type SessionSidebarGroupListProps = {
   nowMs: number;
   currentPaneId?: string | null;
   focusPendingPaneIds: Set<string>;
-  launchPendingKeys: Set<string>;
+  launchPendingSessions: Set<string>;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onHoverStart: (paneId: string) => void;
   onHoverEnd: (paneId: string) => void;
   onFocus: (paneId: string) => void;
@@ -21,6 +27,7 @@ type SessionSidebarGroupListProps = {
   onLaunchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchSession: (paneId: string) => void;
   onTouchRepoPin: (repoRoot: string | null) => void;
@@ -32,7 +39,9 @@ export const SessionSidebarGroupList = ({
   nowMs,
   currentPaneId,
   focusPendingPaneIds,
-  launchPendingKeys,
+  launchPendingSessions,
+  launchConfig,
+  requestWorktrees,
   onHoverStart,
   onHoverEnd,
   onFocus,
@@ -90,8 +99,22 @@ export const SessionSidebarGroupList = ({
                 if (shouldRenderLaunchButtons) {
                   launchedSessions.add(windowGroup.sessionName);
                 }
-                const codexLaunchKey = `${windowGroup.sessionName}:codex`;
-                const claudeLaunchKey = `${windowGroup.sessionName}:claude`;
+                const sessionPaneCandidates = group.windowGroups
+                  .filter((candidate) => candidate.sessionName === windowGroup.sessionName)
+                  .flatMap((candidate) => candidate.sessions);
+                const repoRootPane = sessionPaneCandidates.find((session) => {
+                  const repoRoot = session.repoRoot?.trim();
+                  const worktreePath = session.worktreePath?.trim();
+                  return Boolean(repoRoot && worktreePath && repoRoot === worktreePath);
+                });
+                const nonWorktreePane = sessionPaneCandidates.find(
+                  (session) => !isVwManagedWorktreePath(session.worktreePath),
+                );
+                const launchSourceSession =
+                  repoRootPane ??
+                  nonWorktreePane ??
+                  sessionPaneCandidates.find((session) => session.paneActive) ??
+                  sessionPaneCandidates[0];
 
                 return (
                   <div
@@ -113,22 +136,14 @@ export const SessionSidebarGroupList = ({
                     </div>
                     {shouldRenderLaunchButtons ? (
                       <div className="mt-2 flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          className="border-latte-blue/45 bg-latte-base/85 text-latte-blue hover:bg-latte-blue/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => onLaunchAgentInSession(windowGroup.sessionName, "codex")}
-                          disabled={launchPendingKeys.has(codexLaunchKey)}
-                        >
-                          Launch Codex
-                        </button>
-                        <button
-                          type="button"
-                          className="border-latte-mauve/45 bg-latte-base/85 text-latte-mauve hover:bg-latte-mauve/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => onLaunchAgentInSession(windowGroup.sessionName, "claude")}
-                          disabled={launchPendingKeys.has(claudeLaunchKey)}
-                        >
-                          Launch Claude
-                        </button>
+                        <LaunchAgentButton
+                          sessionName={windowGroup.sessionName}
+                          sourceSession={launchSourceSession}
+                          launchConfig={launchConfig}
+                          launchPendingSessions={launchPendingSessions}
+                          requestWorktrees={requestWorktrees}
+                          onLaunchAgentInSession={onLaunchAgentInSession}
+                        />
                       </div>
                     ) : null}
                     <div className="mt-3 space-y-2">

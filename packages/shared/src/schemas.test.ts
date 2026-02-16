@@ -454,7 +454,9 @@ describe("launch schemas", () => {
       sessionName: "dev-main",
       agent: "codex",
       requestId: "req-1",
+      agentOptions: ["--model", "gpt-5"],
       worktreeBranch: "feature/foo",
+      worktreeCreateIfMissing: true,
     });
     expect(result.success).toBe(true);
   });
@@ -476,6 +478,28 @@ describe("launch schemas", () => {
       requestId: "req-1",
       cwd: "/tmp/work",
       worktreePath: "/tmp/worktree",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects createIfMissing launch request without worktreeBranch", () => {
+    const result = launchAgentRequestSchema.safeParse({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "req-1",
+      worktreeCreateIfMissing: true,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects createIfMissing launch request when worktreePath is also provided", () => {
+    const result = launchAgentRequestSchema.safeParse({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "req-1",
+      worktreePath: "/repo/.worktree/feature/foo",
+      worktreeBranch: "feature/foo",
+      worktreeCreateIfMissing: true,
     });
     expect(result.success).toBe(false);
   });

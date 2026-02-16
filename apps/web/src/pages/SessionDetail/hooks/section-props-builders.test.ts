@@ -400,6 +400,13 @@ describe("section props builders", () => {
     const handleRawCompositionEnd = vi.fn();
     const requestStateTimeline = vi.fn();
     const requestScreen = vi.fn();
+    const requestWorktrees = vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] }));
+    const launchConfig = {
+      agents: {
+        codex: { options: [] },
+        claude: { options: ["--dangerously-skip-permissions"] },
+      },
+    };
     const getRepoSortAnchorAt = vi.fn(() => null);
 
     const session = {
@@ -469,6 +476,8 @@ describe("section props builders", () => {
       nowMs: 1,
       connected: true,
       sidebarConnectionIssue: null,
+      launchConfig,
+      requestWorktrees,
       requestStateTimeline,
       requestScreen,
       highlightCorrections: { codex: false, claude: false },
@@ -480,6 +489,8 @@ describe("section props builders", () => {
       handleTouchRepoPin,
     });
     expect(sidebar.state.currentPaneId).toBe("%1");
+    expect(sidebar.state.launchConfig).toEqual(launchConfig);
+    expect(sidebar.state.requestWorktrees).toBe(requestWorktrees);
     expect(sidebar.actions.onFocusPane).toBe(handleFocusPane);
     expect(sidebar.actions.onLaunchAgentInSession).toBe(handleLaunchAgentInSession);
 

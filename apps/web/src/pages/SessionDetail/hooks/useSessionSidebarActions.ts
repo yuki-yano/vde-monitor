@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import {
   DEFAULT_SESSION_LIST_FILTER,
   isSessionListFilter,
   type SessionListFilter,
 } from "@/pages/SessionList/sessionListFilters";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 type UseSessionSidebarActionsArgs = {
   onSelectSession?: (paneId: string) => void;
@@ -12,6 +13,7 @@ type UseSessionSidebarActionsArgs = {
   onLaunchAgentInSession?: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchSession?: (paneId: string) => void;
   onTouchRepoPin?: (repoRoot: string | null) => void;
@@ -26,7 +28,8 @@ export const useSessionSidebarActions = ({
 }: UseSessionSidebarActionsArgs) => {
   const [filter, setFilter] = useState<SessionListFilter>(DEFAULT_SESSION_LIST_FILTER);
   const [focusPendingPaneIds, setFocusPendingPaneIds] = useState<Set<string>>(() => new Set());
-  const [launchPendingKeys, setLaunchPendingKeys] = useState<Set<string>>(() => new Set());
+  const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
+  const launchPendingRef = useRef<Set<string>>(new Set());
 
   const handleSelectSession = useCallback(
     (paneId: string) => {
@@ -67,32 +70,27 @@ export const useSessionSidebarActions = ({
   );
 
   const handleLaunchAgentInSession = useCallback(
-    async (sessionName: string, agent: "codex" | "claude") => {
+    async (
+      sessionName: string,
+      agent: "codex" | "claude",
+      options?: LaunchAgentRequestOptions,
+    ) => {
       if (!onLaunchAgentInSession) {
         return;
       }
-      const launchKey = `${sessionName}:${agent}`;
-      setLaunchPendingKeys((prev) => {
-        if (prev.has(launchKey)) {
-          return prev;
-        }
-        const next = new Set(prev);
-        next.add(launchKey);
-        return next;
-      });
+      const launchKey = sessionName;
+      if (launchPendingRef.current.has(launchKey)) {
+        return;
+      }
+      launchPendingRef.current.add(launchKey);
+      setLaunchPendingSessions(new Set(launchPendingRef.current));
       try {
-        await onLaunchAgentInSession(sessionName, agent);
+        await onLaunchAgentInSession(sessionName, agent, options);
       } catch {
         // Best-effort UI action: ignore unexpected handler failures.
       } finally {
-        setLaunchPendingKeys((prev) => {
-          if (!prev.has(launchKey)) {
-            return prev;
-          }
-          const next = new Set(prev);
-          next.delete(launchKey);
-          return next;
-        });
+        launchPendingRef.current.delete(launchKey);
+        setLaunchPendingSessions(new Set(launchPendingRef.current));
       }
     },
     [onLaunchAgentInSession],
@@ -123,7 +121,7 @@ export const useSessionSidebarActions = ({
   return {
     filter,
     focusPendingPaneIds,
-    launchPendingKeys,
+    launchPendingSessions,
     handleSelectSession,
     handleFocusPane,
     handleLaunchAgentInSession,

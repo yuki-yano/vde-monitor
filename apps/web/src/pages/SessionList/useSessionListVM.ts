@@ -1,9 +1,10 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 import { useSessions } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
@@ -44,9 +45,11 @@ export const useSessionListVM = () => {
     refreshSessions,
     requestStateTimeline,
     requestScreen,
+    requestWorktrees,
     launchAgentInSession,
     touchSession,
     highlightCorrections,
+    launchConfig,
   } = useSessions();
   const nowMs = useNowMs();
   const search = useSearch({ from: "/" });
@@ -56,7 +59,8 @@ export const useSessionListVM = () => {
   const { resolvedTheme } = useTheme();
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const [pins, setPins] = useState(() => readStoredSessionListPins());
-  const [launchPendingKeys, setLaunchPendingKeys] = useState<Set<string>>(() => new Set());
+  const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
+  const launchPendingRef = useRef<Set<string>>(new Set());
   const repoPinValues = pins.repos;
 
   useEffect(() => {
@@ -200,25 +204,14 @@ export const useSessionListVM = () => {
     async (
       sessionName: string,
       agent: "codex" | "claude",
-      options?: {
-        worktreePath?: string;
-        worktreeBranch?: string;
-      },
+      options?: LaunchAgentRequestOptions,
     ) => {
-      const key = `${sessionName}:${agent}`;
-      let shouldLaunch = false;
-      setLaunchPendingKeys((prev) => {
-        if (prev.has(key)) {
-          return prev;
-        }
-        shouldLaunch = true;
-        const next = new Set(prev);
-        next.add(key);
-        return next;
-      });
-      if (!shouldLaunch) {
+      const key = sessionName;
+      if (launchPendingRef.current.has(key)) {
         return;
       }
+      launchPendingRef.current.add(key);
+      setLaunchPendingSessions(new Set(launchPendingRef.current));
 
       try {
         const result = await launchAgentInSession(sessionName, agent, createLaunchRequestId(), options);
@@ -226,14 +219,8 @@ export const useSessionListVM = () => {
           await refreshSessions();
         }
       } finally {
-        setLaunchPendingKeys((prev) => {
-          if (!prev.has(key)) {
-            return prev;
-          }
-          const next = new Set(prev);
-          next.delete(key);
-          return next;
-        });
+        launchPendingRef.current.delete(key);
+        setLaunchPendingSessions(new Set(launchPendingRef.current));
       }
     },
     [launchAgentInSession, refreshSessions],
@@ -253,7 +240,9 @@ export const useSessionListVM = () => {
     connectionIssue,
     requestStateTimeline,
     requestScreen,
+    requestWorktrees,
     highlightCorrections,
+    launchConfig,
     resolvedTheme,
     nowMs,
     sidebarWidth,
@@ -275,7 +264,7 @@ export const useSessionListVM = () => {
     onOpenPaneInNewWindow: handleOpenPaneInNewWindow,
     onOpenHere: handleOpenHere,
     onOpenNewTab: handleOpenInNewTab,
-    launchPendingKeys,
+    launchPendingSessions,
     onLaunchAgentInSession: handleLaunchAgentInSession,
     onTouchRepoPin: handleTouchRepoPin,
     onTouchPanePin: handleTouchPanePin,

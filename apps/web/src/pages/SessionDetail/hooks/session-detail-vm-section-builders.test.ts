@@ -97,6 +97,13 @@ describe("session detail vm section builders", () => {
       paneId: string,
       options: { lines?: number; mode?: "text" | "image"; cursor?: string },
     ) => Promise<ScreenResponse>;
+    const requestWorktrees = vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] }));
+    const launchConfig = {
+      agents: {
+        codex: { options: ["--model", "gpt-5"] },
+        claude: { options: [] },
+      },
+    };
 
     const meta = buildMetaSection({
       paneId: "pane-1",
@@ -113,6 +120,8 @@ describe("session detail vm section builders", () => {
       getRepoSortAnchorAt,
       connected: true,
       connectionIssue: null,
+      launchConfig,
+      requestWorktrees,
       requestStateTimeline,
       requestScreen,
       highlightCorrections: { codex: true, claude: false },
@@ -120,6 +129,8 @@ describe("session detail vm section builders", () => {
     });
     expect(sidebar.getRepoSortAnchorAt).toBe(getRepoSortAnchorAt);
     expect(sidebar.resolvedTheme).toBe("latte");
+    expect(sidebar.launchConfig).toEqual(launchConfig);
+    expect(sidebar.requestWorktrees).toBe(requestWorktrees);
 
     const layout = buildLayoutSection({
       is2xlUp: true,

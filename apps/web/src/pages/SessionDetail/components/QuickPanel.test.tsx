@@ -163,7 +163,7 @@ describe("QuickPanel", () => {
     expect(screen.queryByText("M:Y")).toBeNull();
   });
 
-  it("shows worktree flags for vw worktree paths", () => {
+  it("hides worktree flags for vw worktree paths", () => {
     const session = createSessionDetail({
       agent: "codex",
       branch: "feature/worktree",
@@ -187,10 +187,10 @@ describe("QuickPanel", () => {
     const actions = buildActions();
     render(<QuickPanel state={state} actions={actions} />);
 
-    expect(screen.getByText("D:Y")).toBeTruthy();
-    expect(screen.getByText("L:N")).toBeTruthy();
-    expect(screen.getByText("PR:Y")).toBeTruthy();
-    expect(screen.getByText("M:N")).toBeTruthy();
+    expect(screen.queryByText("D:Y")).toBeNull();
+    expect(screen.queryByText("L:N")).toBeNull();
+    expect(screen.queryByText("PR:Y")).toBeNull();
+    expect(screen.queryByText("M:N")).toBeNull();
   });
 
   it("closes when clicking outside quick panel", () => {

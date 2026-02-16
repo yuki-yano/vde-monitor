@@ -80,6 +80,13 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       getRepoSortAnchorAt: () => null,
       connected: false,
       connectionIssue: null,
+      launchConfig: {
+        agents: {
+          codex: { options: [] },
+          claude: { options: [] },
+        },
+      },
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
       highlightCorrections: { codex: true, claude: true },

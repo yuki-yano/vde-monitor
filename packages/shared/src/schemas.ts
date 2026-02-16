@@ -78,8 +78,10 @@ export const launchAgentRequestSchema = z
     requestId: z.string().trim().min(1).max(128),
     windowName: z.string().trim().min(1).max(64).optional(),
     cwd: z.string().trim().min(1).max(512).optional(),
+    agentOptions: z.array(launchOptionSchema).max(32).optional(),
     worktreePath: z.string().trim().min(1).max(1024).optional(),
     worktreeBranch: z.string().trim().min(1).max(256).optional(),
+    worktreeCreateIfMissing: z.boolean().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -95,6 +97,20 @@ export const launchAgentRequestSchema = z
         code: "custom",
         path: ["cwd"],
         message: "cwd cannot be combined with worktreePath/worktreeBranch",
+      });
+    }
+    if (value.worktreeCreateIfMissing && !value.worktreeBranch) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["worktreeBranch"],
+        message: "worktreeBranch is required when worktreeCreateIfMissing is true",
+      });
+    }
+    if (value.worktreeCreateIfMissing && value.worktreePath) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["worktreePath"],
+        message: "worktreePath cannot be combined with worktreeCreateIfMissing",
       });
     }
   });

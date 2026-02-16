@@ -9,6 +9,7 @@ import {
   connectionStatusAtom,
   fileNavigatorConfigAtom,
   highlightCorrectionsAtom,
+  launchConfigAtom,
   paneIdAtom,
   resolvedThemeAtom,
   sessionApiAtom,
@@ -39,6 +40,7 @@ const SessionDetailInitialHydrator = ({ snapshot }: { snapshot: SessionDetailAto
     [connectionIssueAtom, snapshot.connectionIssue],
     [highlightCorrectionsAtom, snapshot.highlightCorrections],
     [fileNavigatorConfigAtom, snapshot.fileNavigatorConfig],
+    [launchConfigAtom, snapshot.launchConfig],
     [resolvedThemeAtom, snapshot.resolvedTheme],
     [sessionApiAtom, snapshot.sessionApi],
   ]);
@@ -54,6 +56,7 @@ const SessionDetailAtomSynchronizer = ({ snapshot }: { snapshot: SessionDetailAt
   const setConnectionIssue = useSetAtom(connectionIssueAtom);
   const setHighlightCorrections = useSetAtom(highlightCorrectionsAtom);
   const setFileNavigatorConfig = useSetAtom(fileNavigatorConfigAtom);
+  const setLaunchConfig = useSetAtom(launchConfigAtom);
   const setResolvedTheme = useSetAtom(resolvedThemeAtom);
   const setSessionApi = useSetAtom(sessionApiAtom);
 
@@ -64,6 +67,7 @@ const SessionDetailAtomSynchronizer = ({ snapshot }: { snapshot: SessionDetailAt
   useSyncAtomValue(snapshot.connectionIssue, setConnectionIssue);
   useSyncAtomValue(snapshot.highlightCorrections, setHighlightCorrections);
   useSyncAtomValue(snapshot.fileNavigatorConfig, setFileNavigatorConfig);
+  useSyncAtomValue(snapshot.launchConfig, setLaunchConfig);
   useSyncAtomValue(snapshot.resolvedTheme, setResolvedTheme);
   useSyncAtomValue(snapshot.sessionApi, setSessionApi);
 

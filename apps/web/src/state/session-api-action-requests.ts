@@ -10,6 +10,7 @@ import type {
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
+import type { LaunchAgentRequestOptions } from "./launch-agent-options";
 import type { ApiClientContract, NoteIdParam, PaneParam } from "./session-api-contract";
 import { requestImageAttachment as executeRequestImageAttachment } from "./session-api-request-executors";
 import {
@@ -118,12 +119,7 @@ export const createSessionActionRequests = ({
     sessionName: string,
     agent: "codex" | "claude",
     requestId: string,
-    options?: {
-      windowName?: string;
-      cwd?: string;
-      worktreePath?: string;
-      worktreeBranch?: string;
-    },
+    options?: LaunchAgentRequestOptions,
   ): Promise<LaunchCommandResponse> => {
     return runLaunchCommand(
       API_ERROR_MESSAGES.launchAgent,
@@ -136,8 +132,10 @@ export const createSessionActionRequests = ({
               requestId,
               windowName: options?.windowName,
               cwd: options?.cwd,
+              agentOptions: options?.agentOptions,
               worktreePath: options?.worktreePath,
               worktreeBranch: options?.worktreeBranch,
+              worktreeCreateIfMissing: options?.worktreeCreateIfMissing,
             }),
           },
           { init: { signal } },

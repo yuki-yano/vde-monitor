@@ -25,9 +25,9 @@ import {
   LoadingOverlay,
   PanelSection,
   SectionHeader,
+  ZoomSafeTextarea,
 } from "@/components/ui";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
-import { IOS_ZOOM_SAFE_TEXTAREA_STYLE } from "@/lib/ios-zoom-safe-textarea";
 
 type NotesSectionState = {
   repoRoot: string | null;
@@ -474,10 +474,9 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
                         {isEditing ? (
                           <div className="flex flex-col gap-2">
                             <div className="border-latte-surface2 focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 overflow-hidden rounded-2xl border transition focus-within:ring-2">
-                              <textarea
+                              <ZoomSafeTextarea
                                 ref={editingTextareaRef}
                                 aria-label={`Edit note body ${note.id}`}
-                                style={IOS_ZOOM_SAFE_TEXTAREA_STYLE}
                                 className="text-latte-text min-h-[96px] w-full resize-y bg-transparent px-3 py-2 text-base outline-none"
                                 maxLength={10_000}
                                 value={editingBody}

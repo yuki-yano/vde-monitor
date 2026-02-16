@@ -12,12 +12,9 @@ import {
   agentToneFor,
   formatBranchLabel,
   formatRelativeTime,
-  formatWorktreeFlag,
   getLastInputTone,
   isEditorCommand,
   isKnownAgent,
-  isVwManagedWorktreePath,
-  worktreeFlagClass,
 } from "../sessionDetailUtils";
 
 const surfaceLinkClass =
@@ -77,7 +74,6 @@ export const SessionSidebarItem = memo(
     const sessionBorderClass = showEditorState
       ? sidebarEditorSessionBorderClass
       : sidebarSessionBorderClassByState[item.state];
-    const showWorktreeFlags = isVwManagedWorktreePath(item.worktreePath);
     const StatusIcon = statusMeta.icon;
 
     const handleRef = useCallback(
@@ -181,34 +177,6 @@ export const SessionSidebarItem = memo(
                 <GitBranch className="h-2.5 w-2.5 shrink-0" />
                 <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
               </TagPill>
-              {showWorktreeFlags ? (
-                <>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("dirty", item.worktreeDirty ?? null)}
-                  >
-                    D:{formatWorktreeFlag(item.worktreeDirty)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("locked", item.worktreeLocked ?? null)}
-                  >
-                    L:{formatWorktreeFlag(item.worktreeLocked)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("pr", item.worktreePrCreated ?? null)}
-                  >
-                    PR:{formatWorktreeFlag(item.worktreePrCreated)}
-                  </TagPill>
-                  <TagPill
-                    tone="meta"
-                    className={worktreeFlagClass("merged", item.worktreeMerged ?? null)}
-                  >
-                    M:{formatWorktreeFlag(item.worktreeMerged)}
-                  </TagPill>
-                </>
-              ) : null}
             </div>
           </div>
         </Link>

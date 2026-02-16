@@ -20,12 +20,9 @@ import {
   useRef,
 } from "react";
 
-import { Button, ModifierToggle, PillToggle } from "@/components/ui";
+import { Button, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import {
-  IOS_ZOOM_SAFE_TEXTAREA_SCALE,
-  IOS_ZOOM_SAFE_TEXTAREA_STYLE,
-} from "@/lib/ios-zoom-safe-textarea";
+import { IOS_ZOOM_SAFE_FIELD_SCALE } from "@/lib/ios-zoom-safe-textarea";
 
 type ControlsPanelState = {
   interactive: boolean;
@@ -471,7 +468,7 @@ export const ControlsPanel = ({
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
     if (inputWrapperRef.current) {
-      inputWrapperRef.current.style.height = `${textarea.scrollHeight * IOS_ZOOM_SAFE_TEXTAREA_SCALE}px`;
+      inputWrapperRef.current.style.height = `${textarea.scrollHeight * IOS_ZOOM_SAFE_FIELD_SCALE}px`;
     }
   }, []);
 
@@ -549,7 +546,7 @@ export const ControlsPanel = ({
             className={`min-w-0 overflow-hidden rounded-2xl border transition ${rawModeInputClass}`}
           >
             <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
-              <textarea
+              <ZoomSafeTextarea
                 placeholder={placeholder}
                 ref={textInputRef}
                 rows={2}
@@ -560,7 +557,6 @@ export const ControlsPanel = ({
                 onInput={handleTextareaInput}
                 onKeyDown={handleTextareaKeyDown}
                 onPaste={handleTextareaPaste}
-                style={IOS_ZOOM_SAFE_TEXTAREA_STYLE}
                 className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
               />
             </div>

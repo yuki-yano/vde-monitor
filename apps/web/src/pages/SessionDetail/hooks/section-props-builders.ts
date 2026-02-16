@@ -5,6 +5,7 @@ import type {
   DiffFile,
   DiffSummary,
   HighlightCorrectionConfig,
+  LaunchConfig,
   RepoFileContent,
   RepoFileSearchPage,
   RepoNote,
@@ -13,6 +14,7 @@ import type {
   SessionStateTimelineRange,
   SessionStateTimelineScope,
   SessionSummary,
+  WorktreeList,
   WorktreeListEntry,
 } from "@vde-monitor/shared";
 import type { CompositionEvent, FormEvent, KeyboardEvent, RefObject } from "react";
@@ -21,6 +23,7 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import type { ScreenMode } from "@/lib/screen-loading";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import type { FileTreeRenderNode } from "./useSessionFiles";
 
@@ -244,6 +247,8 @@ type BuildSessionSidebarPropsArgs = {
   nowMs: number;
   connected: boolean;
   sidebarConnectionIssue: string | null;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   requestStateTimeline: (
     paneId: string,
     options?: {
@@ -259,10 +264,11 @@ type BuildSessionSidebarPropsArgs = {
   highlightCorrections: HighlightCorrectionConfig;
   resolvedTheme: Theme;
   paneId: string;
-  handleFocusPane: (paneId: string) => void;
+  handleFocusPane: (paneId: string) => Promise<void> | void;
   handleLaunchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void>;
   handleTouchPane: (paneId: string) => void;
   handleTouchRepoPin: (repoRoot: string | null) => void;
@@ -726,6 +732,8 @@ export const buildSessionSidebarProps = ({
   nowMs,
   connected,
   sidebarConnectionIssue,
+  launchConfig,
+  requestWorktrees,
   requestStateTimeline,
   requestScreen,
   highlightCorrections,
@@ -742,6 +750,8 @@ export const buildSessionSidebarProps = ({
     nowMs,
     connected,
     connectionIssue: sidebarConnectionIssue,
+    launchConfig,
+    requestWorktrees,
     requestStateTimeline,
     requestScreen,
     highlightCorrections,

@@ -1,11 +1,13 @@
-import type { SessionSummary } from "@vde-monitor/shared";
+import type { LaunchConfig, SessionSummary, WorktreeList } from "@vde-monitor/shared";
 import { Clock, FolderGit2, Github, Pin } from "lucide-react";
 
+import { LaunchAgentButton } from "@/components/launch-agent-button";
 import { GlassPanel, GlowCard, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
-import { formatRelativeTime, getLastInputTone } from "@/lib/session-format";
+import { formatRelativeTime, getLastInputTone, isVwManagedWorktreePath } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import { buildSessionWindowGroups, type SessionWindowGroup } from "../session-window-group";
 import { formatRepoName, formatRepoPath } from "../sessionListFormat";
@@ -15,14 +17,13 @@ type SessionGroupSectionProps = {
   group: SessionGroup;
   nowMs: number;
   allSessions: SessionSummary[];
-  launchPendingKeys: Set<string>;
+  launchPendingSessions: Set<string>;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onLaunchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
-    options?: {
-      worktreePath?: string;
-      worktreeBranch?: string;
-    },
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchRepoPin: (repoRoot: string | null) => void;
   onTouchPanePin: (paneId: string) => void;
@@ -33,7 +34,9 @@ export const SessionGroupSection = ({
   group,
   nowMs,
   allSessions,
-  launchPendingKeys,
+  launchPendingSessions,
+  launchConfig,
+  requestWorktrees,
   onLaunchAgentInSession,
   onTouchRepoPin,
   onTouchPanePin,
@@ -142,44 +145,33 @@ export const SessionGroupSection = ({
                 const sessionPaneCandidates = sessionSection.windowGroups.flatMap(
                   (windowGroup) => windowGroup.sessions,
                 );
+                const repoRootPane = sessionPaneCandidates.find((session) => {
+                  const repoRoot = session.repoRoot?.trim();
+                  const worktreePath = session.worktreePath?.trim();
+                  return Boolean(repoRoot && worktreePath && repoRoot === worktreePath);
+                });
+                const nonWorktreePane = sessionPaneCandidates.find(
+                  (session) => !isVwManagedWorktreePath(session.worktreePath),
+                );
                 const launchSourceSession =
+                  repoRootPane ??
+                  nonWorktreePane ??
                   sessionPaneCandidates.find((session) => session.paneActive) ??
                   sessionPaneCandidates[0];
-                const launchOptions =
-                  launchSourceSession?.worktreePath || launchSourceSession?.branch
-                    ? {
-                        worktreePath: launchSourceSession.worktreePath ?? undefined,
-                        worktreeBranch: launchSourceSession.branch ?? undefined,
-                      }
-                    : undefined;
-                const codexLaunchKey = `${sessionSection.sessionName}:codex`;
-                const claudeLaunchKey = `${sessionSection.sessionName}:claude`;
                 return (
                   <div className="mb-2.5 flex flex-wrap items-center gap-2.5 px-1">
                     <TagPill tone="neutral" className="text-[10px]">
                       Session {sessionSection.sessionName}
                     </TagPill>
                     <div className="ml-auto flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        className="border-latte-blue/45 bg-latte-base/85 text-latte-blue hover:bg-latte-blue/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() =>
-                          onLaunchAgentInSession(sessionSection.sessionName, "codex", launchOptions)
-                        }
-                        disabled={launchPendingKeys.has(codexLaunchKey)}
-                      >
-                        Launch Codex
-                      </button>
-                      <button
-                        type="button"
-                        className="border-latte-mauve/45 bg-latte-base/85 text-latte-mauve hover:bg-latte-mauve/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() =>
-                          onLaunchAgentInSession(sessionSection.sessionName, "claude", launchOptions)
-                        }
-                        disabled={launchPendingKeys.has(claudeLaunchKey)}
-                      >
-                        Launch Claude
-                      </button>
+                      <LaunchAgentButton
+                        sessionName={sessionSection.sessionName}
+                        sourceSession={launchSourceSession}
+                        launchConfig={launchConfig}
+                        launchPendingSessions={launchPendingSessions}
+                        requestWorktrees={requestWorktrees}
+                        onLaunchAgentInSession={onLaunchAgentInSession}
+                      />
                     </div>
                   </div>
                 );

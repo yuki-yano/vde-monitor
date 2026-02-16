@@ -253,6 +253,7 @@ describe("createApiRouter", () => {
     expect(data.clientConfig.fileNavigator.autoExpandMatchLimit).toBe(
       config.fileNavigator.autoExpandMatchLimit,
     );
+    expect(data.clientConfig.launch).toEqual(config.launch);
   });
 
   it("returns 404 when session is missing", async () => {
@@ -592,6 +593,7 @@ describe("createApiRouter", () => {
         requestId: "launch-req-1",
         windowName: "codex-work",
         cwd: "/tmp",
+        agentOptions: ["--model", "gpt-5"],
       }),
     });
 
@@ -603,6 +605,37 @@ describe("createApiRouter", () => {
       agent: "codex",
       windowName: "codex-work",
       cwd: "/tmp",
+      agentOptions: ["--model", "gpt-5"],
+      worktreePath: undefined,
+      worktreeBranch: undefined,
+      worktreeCreateIfMissing: undefined,
+    });
+  });
+
+  it("passes worktree creation options to launch action", async () => {
+    const { api, actions } = createTestContext();
+    const res = await api.request("/sessions/launch", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionName: "dev-main",
+        agent: "claude",
+        requestId: "launch-req-create",
+        worktreeBranch: "feature/new-pane",
+        worktreeCreateIfMissing: true,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(actions.launchAgentInSession).toHaveBeenCalledWith({
+      sessionName: "dev-main",
+      agent: "claude",
+      windowName: undefined,
+      cwd: undefined,
+      agentOptions: undefined,
+      worktreePath: undefined,
+      worktreeBranch: "feature/new-pane",
+      worktreeCreateIfMissing: true,
     });
   });
 

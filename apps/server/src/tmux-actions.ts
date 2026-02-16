@@ -13,6 +13,7 @@ import type {
 } from "@vde-monitor/shared";
 import { allowedKeys, compileDangerPatterns, isDangerousCommand } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
+import { execa } from "execa";
 
 import { markPaneFocus } from "./activity-suppressor";
 import { setMapEntryWithLimit } from "./cache";
@@ -366,12 +367,14 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     sessionName,
     worktreePath,
     worktreeBranch,
+    worktreeCreateIfMissing,
   }: {
     sessionName: string;
     worktreePath?: string;
     worktreeBranch?: string;
+    worktreeCreateIfMissing: boolean;
   }): Promise<{ ok: true; cwd?: string } | { ok: false; error: ApiError }> => {
-    if (!worktreePath && !worktreeBranch) {
+    if (!worktreePath && !worktreeBranch && !worktreeCreateIfMissing) {
       return { ok: true, cwd: undefined };
     }
 
@@ -402,7 +405,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     const matchedByBranch = worktreeBranch
       ? snapshot.entries.find((entry) => entry.branch === worktreeBranch) ?? null
       : null;
-    if (worktreeBranch && !matchedByBranch) {
+    if (worktreeBranch && !matchedByBranch && !worktreeCreateIfMissing) {
       return {
         ok: false,
         error: buildError("INVALID_PAYLOAD", `worktree branch not found: ${worktreeBranch}`),
@@ -419,12 +422,67 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       };
     }
 
+    if (worktreeBranch && !matchedByBranch && worktreeCreateIfMissing) {
+      const repoRoot = snapshot.repoRoot ? normalizePathValue(snapshot.repoRoot) : null;
+      if (!repoRoot) {
+        return {
+          ok: false,
+          error: buildError("INVALID_PAYLOAD", "repo root is unavailable for vw worktree creation"),
+        };
+      }
+
+      const switched = await execa("vw", ["switch", worktreeBranch], {
+        cwd: repoRoot,
+        reject: false,
+        timeout: 15_000,
+        maxBuffer: 2_000_000,
+      });
+      if (switched.exitCode !== 0) {
+        const message = (switched.stderr || switched.stdout || "vw switch failed").trim();
+        return {
+          ok: false,
+          error: buildError("INVALID_PAYLOAD", `vw switch failed: ${message}`),
+        };
+      }
+
+      const resolvedPath = await execa("vw", ["path", worktreeBranch], {
+        cwd: repoRoot,
+        reject: false,
+        timeout: 5000,
+        maxBuffer: 2_000_000,
+      });
+      if (resolvedPath.exitCode !== 0) {
+        const message = (resolvedPath.stderr || resolvedPath.stdout || "vw path failed").trim();
+        return {
+          ok: false,
+          error: buildError("INVALID_PAYLOAD", `vw path failed: ${message}`),
+        };
+      }
+
+      const nextCwd = normalizeOptionalText(resolvedPath.stdout);
+      if (!nextCwd) {
+        return {
+          ok: false,
+          error: buildError("INVALID_PAYLOAD", "vw path returned an empty path"),
+        };
+      }
+      return { ok: true, cwd: normalizePathValue(nextCwd) };
+    }
+
     const resolvedCwd = matchedByPath?.path ?? matchedByBranch?.path;
     return { ok: true, cwd: resolvedCwd };
   };
 
-  const resolveConfiguredLaunchOptions = (agent: LaunchAgent) => {
-    return (config.launch.agents[agent].options ?? [])
+  const normalizeLaunchOptions = (options?: string[]) => {
+    if (!options) {
+      return undefined;
+    }
+    return options.map((option) => option.trim()).filter((option) => option.length > 0);
+  };
+
+  const resolveConfiguredLaunchOptions = (agent: LaunchAgent, optionsOverride?: string[]) => {
+    const sourceOptions = optionsOverride ?? (config.launch.agents[agent].options ?? []);
+    return sourceOptions
       .map((option) => option.trim())
       .filter((option) => option.length > 0);
   };
@@ -629,15 +687,19 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     agent,
     windowName,
     cwd,
+    agentOptions,
     worktreePath,
     worktreeBranch,
+    worktreeCreateIfMissing,
   }: {
     sessionName: string;
     agent: LaunchAgent;
     windowName?: string;
     cwd?: string;
+    agentOptions?: string[];
     worktreePath?: string;
     worktreeBranch?: string;
+    worktreeCreateIfMissing?: boolean;
   }): Promise<LaunchResult> => {
     const normalizedSessionName = sessionName.trim();
     if (!normalizedSessionName) {
@@ -651,11 +713,33 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     }
 
     const normalizedCwd = normalizeOptionalText(cwd);
+    const normalizedAgentOptions = normalizeLaunchOptions(agentOptions);
     const normalizedWorktreePath = normalizeOptionalText(worktreePath);
     const normalizedWorktreeBranch = normalizeOptionalText(worktreeBranch);
-    if (normalizedCwd && (normalizedWorktreePath || normalizedWorktreeBranch)) {
+    const normalizedWorktreeCreateIfMissing = worktreeCreateIfMissing === true;
+    if (
+      normalizedCwd &&
+      (normalizedWorktreePath || normalizedWorktreeBranch || normalizedWorktreeCreateIfMissing)
+    ) {
       return launchError(
-        buildError("INVALID_PAYLOAD", "cwd cannot be combined with worktreePath/worktreeBranch"),
+        buildError(
+          "INVALID_PAYLOAD",
+          "cwd cannot be combined with worktreePath/worktreeBranch/worktreeCreateIfMissing",
+        ),
+        defaultLaunchRollback(),
+      );
+    }
+
+    if (normalizedWorktreeCreateIfMissing && normalizedWorktreePath) {
+      return launchError(
+        buildError("INVALID_PAYLOAD", "worktreePath cannot be combined with worktreeCreateIfMissing"),
+        defaultLaunchRollback(),
+      );
+    }
+
+    if (normalizedWorktreeCreateIfMissing && !normalizedWorktreeBranch) {
+      return launchError(
+        buildError("INVALID_PAYLOAD", "worktreeBranch is required when worktreeCreateIfMissing is true"),
         defaultLaunchRollback(),
       );
     }
@@ -669,6 +753,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       sessionName: normalizedSessionName,
       worktreePath: normalizedWorktreePath,
       worktreeBranch: normalizedWorktreeBranch,
+      worktreeCreateIfMissing: normalizedWorktreeCreateIfMissing,
     });
     if (!resolvedWorktreeCwd.ok) {
       return launchError(resolvedWorktreeCwd.error, defaultLaunchRollback());
@@ -697,7 +782,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       return launchError(created.error, defaultLaunchRollback());
     }
 
-    const resolvedOptions = resolveConfiguredLaunchOptions(agent);
+    const resolvedOptions = resolveConfiguredLaunchOptions(agent, normalizedAgentOptions);
     const sendResult = await sendLaunchCommand({
       paneId: created.paneId,
       agent,

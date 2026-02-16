@@ -7,6 +7,7 @@ import {
   ImageAttachment,
   imageAttachmentSchema,
   LaunchCommandResponse,
+  LaunchConfig,
   ScreenResponse,
   SessionSummary,
 } from "@vde-monitor/shared";
@@ -329,6 +330,7 @@ type RefreshSessionsParams = {
   onConnectionIssue: OnConnectionIssue;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
+  onLaunchConfig?: (config: LaunchConfig) => void;
 };
 
 export const refreshSessions = async ({
@@ -338,6 +340,7 @@ export const refreshSessions = async ({
   onConnectionIssue,
   onHighlightCorrections,
   onFileNavigatorConfig,
+  onLaunchConfig,
 }: RefreshSessionsParams): Promise<RefreshSessionsResult> => {
   if (!token) {
     return { ok: false, authError: true };
@@ -353,6 +356,7 @@ export const refreshSessions = async ({
       onSessions,
       onHighlightCorrections,
       onFileNavigatorConfig,
+      onLaunchConfig,
       onConnectionIssue,
     });
   } catch (error) {

@@ -10,6 +10,7 @@ import {
   currentSessionAtom,
   fileNavigatorConfigAtom,
   highlightCorrectionsAtom,
+  launchConfigAtom,
   resolvedThemeAtom,
   sessionApiAtom,
   sessionsAtom,
@@ -22,6 +23,7 @@ export const useSessionDetailVMState = () => {
   const connectionIssue = useAtomValue(connectionIssueAtom);
   const highlightCorrections = useAtomValue(highlightCorrectionsAtom);
   const fileNavigatorConfig = useAtomValue(fileNavigatorConfigAtom);
+  const launchConfig = useAtomValue(launchConfigAtom);
   const resolvedTheme = useAtomValue(resolvedThemeAtom);
   const session = useAtomValue(currentSessionAtom);
   const screenText = useAtomValue(screenTextAtom);
@@ -38,6 +40,7 @@ export const useSessionDetailVMState = () => {
     connectionIssue,
     highlightCorrections,
     fileNavigatorConfig,
+    launchConfig,
     resolvedTheme,
     session,
     screenText,

@@ -30,7 +30,9 @@ export const SessionListView = ({
   connectionIssue,
   requestStateTimeline,
   requestScreen,
+  requestWorktrees,
   highlightCorrections,
+  launchConfig,
   resolvedTheme,
   nowMs,
   sidebarWidth,
@@ -52,7 +54,7 @@ export const SessionListView = ({
   onOpenPaneInNewWindow,
   onOpenHere,
   onOpenNewTab,
-  launchPendingKeys,
+  launchPendingSessions,
   onLaunchAgentInSession,
   onTouchRepoPin,
   onTouchPanePin,
@@ -152,6 +154,8 @@ export const SessionListView = ({
             nowMs,
             connected,
             connectionIssue,
+            launchConfig,
+            requestWorktrees,
             requestStateTimeline,
             requestScreen,
             highlightCorrections,
@@ -162,8 +166,8 @@ export const SessionListView = ({
           actions={{
             onSelectSession: onOpenPaneHere,
             onFocusPane: onOpenPaneHere,
-            onLaunchAgentInSession: (sessionName, agent) =>
-              onLaunchAgentInSession(sessionName, agent),
+            onLaunchAgentInSession: (sessionName, agent, options) =>
+              onLaunchAgentInSession(sessionName, agent, options),
             onTouchSession: handleTouchPanePinWithScroll,
             onTouchRepoPin: handleTouchRepoPinWithScroll,
           }}
@@ -263,7 +267,9 @@ export const SessionListView = ({
                       group={group}
                       allSessions={sessions}
                       nowMs={nowMs}
-                      launchPendingKeys={launchPendingKeys}
+                      launchPendingSessions={launchPendingSessions}
+                      launchConfig={launchConfig}
+                      requestWorktrees={requestWorktrees}
                       onLaunchAgentInSession={onLaunchAgentInSession}
                       onTouchRepoPin={handleTouchRepoPinWithScroll}
                       onTouchPanePin={handleTouchPanePinWithScroll}

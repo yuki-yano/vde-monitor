@@ -46,8 +46,10 @@ export type LaunchAgentInSessionInput = {
   agent: LaunchAgent;
   windowName?: string;
   cwd?: string;
+  agentOptions?: string[];
   worktreePath?: string;
   worktreeBranch?: string;
+  worktreeCreateIfMissing?: boolean;
 };
 
 export type MultiplexerLaunchRollback = LaunchRollback;

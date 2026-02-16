@@ -26,6 +26,47 @@ vi.mock("../hooks/useSidebarPreview", () => ({
   }),
 }));
 
+vi.mock("@/components/launch-agent-button", () => ({
+  LaunchAgentButton: ({
+    sessionName,
+    sourceSession,
+    onLaunchAgentInSession,
+  }: {
+    sessionName: string;
+    sourceSession?: {
+      worktreePath?: string | null;
+      branch?: string | null;
+      repoRoot?: string | null;
+    };
+    onLaunchAgentInSession: (
+      sessionName: string,
+      agent: "codex" | "claude",
+      options?: { worktreePath?: string; worktreeBranch?: string; cwd?: string },
+    ) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => {
+        const hasWorktree = Boolean(sourceSession?.worktreePath?.includes(".worktree"));
+        onLaunchAgentInSession(
+          sessionName,
+          "codex",
+          hasWorktree
+            ? {
+                worktreePath: sourceSession?.worktreePath ?? undefined,
+                worktreeBranch: sourceSession?.branch ?? undefined,
+              }
+            : {
+                cwd: sourceSession?.repoRoot ?? undefined,
+              },
+        );
+      }}
+    >
+      Launch Agent
+    </button>
+  ),
+}));
+
 describe("SessionSidebar", () => {
   type SessionSidebarState = Parameters<typeof SessionSidebar>[0]["state"];
   type SessionSidebarActions = Parameters<typeof SessionSidebar>[0]["actions"];
@@ -51,6 +92,13 @@ describe("SessionSidebar", () => {
     connectionIssue: null,
     requestStateTimeline: vi.fn(),
     requestScreen: vi.fn(),
+    launchConfig: {
+      agents: {
+        codex: { options: [] },
+        claude: { options: [] },
+      },
+    },
+    requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     highlightCorrections: { codex: true, claude: true },
     resolvedTheme: "latte",
     currentPaneId: null,
@@ -117,10 +165,10 @@ describe("SessionSidebar", () => {
     expect(screen.getByText("Window 2")).toBeTruthy();
     expect(screen.getByText("feature/codex")).toBeTruthy();
     expect(screen.getByText("feature/claude")).toBeTruthy();
-    expect(screen.getByText("D:Y")).toBeTruthy();
-    expect(screen.getByText("L:N")).toBeTruthy();
-    expect(screen.getByText("PR:Y")).toBeTruthy();
-    expect(screen.getByText("M:N")).toBeTruthy();
+    expect(screen.queryByText("D:Y")).toBeNull();
+    expect(screen.queryByText("L:N")).toBeNull();
+    expect(screen.queryByText("PR:Y")).toBeNull();
+    expect(screen.queryByText("M:N")).toBeNull();
     expect(screen.queryByText("D:?")).toBeNull();
     expect(screen.getByText("2 windows")).toBeTruthy();
     expect(screen.getAllByText("1 / 2 panes")).toHaveLength(2);
@@ -364,5 +412,53 @@ describe("SessionSidebar", () => {
 
     expect(onTouchSession).toHaveBeenCalledWith("pane-1");
     expect(onSelectSession).not.toHaveBeenCalled();
+  });
+
+  it("prefers repo root launch options over vw worktree pane", () => {
+    const inactiveWorktreePane = createSessionDetail({
+      paneId: "pane-1",
+      title: "Codex Session Worktree",
+      agent: "codex",
+      sessionName: "alpha",
+      windowIndex: 1,
+      paneActive: false,
+      branch: "feature/alpha-worktree",
+      worktreePath: "/Users/test/repo/.worktree/feature/alpha-worktree",
+    });
+    const activeNonWorktreePane = createSessionDetail({
+      paneId: "pane-2",
+      title: "Codex Session Active",
+      agent: "codex",
+      sessionName: "alpha",
+      windowIndex: 2,
+      paneActive: true,
+      branch: "main",
+      worktreePath: "/Users/test/repo",
+    });
+    const onLaunchAgentInSession = vi.fn();
+    const state = buildState({
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo",
+          sessions: [inactiveWorktreePane, activeNonWorktreePane],
+          lastInputAt: activeNonWorktreePane.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(
+      <SessionSidebar
+        state={state}
+        actions={{
+          onLaunchAgentInSession,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Launch Agent" }));
+
+    expect(onLaunchAgentInSession).toHaveBeenCalledWith("alpha", "codex", {
+      cwd: "/Users/test/repo",
+    });
   });
 });

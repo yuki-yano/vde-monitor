@@ -12,13 +12,10 @@ import {
   formatPath,
   formatRelativeTime,
   formatStateLabel,
-  formatWorktreeFlag,
   getLastInputTone,
   isEditorCommand,
   isKnownAgent,
-  isVwManagedWorktreePath,
   stateTone,
-  worktreeFlagClass,
 } from "@/lib/session-format";
 
 type SessionCardProps = {
@@ -81,7 +78,6 @@ export const SessionCard = ({
   const stateStyle = showEditorState ? editorSessionStyle : sessionStateStyles[session.state];
   const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
   const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
-  const showWorktreeFlags = isVwManagedWorktreePath(session.worktreePath);
   const handlePinClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -160,34 +156,6 @@ export const SessionCard = ({
             <GitBranch className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate font-mono">{formatBranchLabel(session.branch)}</span>
           </TagPill>
-          {showWorktreeFlags ? (
-            <>
-              <TagPill
-                tone="meta"
-                className={worktreeFlagClass("dirty", session.worktreeDirty ?? null)}
-              >
-                D:{formatWorktreeFlag(session.worktreeDirty)}
-              </TagPill>
-              <TagPill
-                tone="meta"
-                className={worktreeFlagClass("locked", session.worktreeLocked ?? null)}
-              >
-                L:{formatWorktreeFlag(session.worktreeLocked)}
-              </TagPill>
-              <TagPill
-                tone="meta"
-                className={worktreeFlagClass("pr", session.worktreePrCreated ?? null)}
-              >
-                PR:{formatWorktreeFlag(session.worktreePrCreated)}
-              </TagPill>
-              <TagPill
-                tone="meta"
-                className={worktreeFlagClass("merged", session.worktreeMerged ?? null)}
-              >
-                M:{formatWorktreeFlag(session.worktreeMerged)}
-              </TagPill>
-            </>
-          ) : null}
           <TagPill tone="meta">Pane {session.paneId}</TagPill>
           {onTouchPin ? (
             <IconButton

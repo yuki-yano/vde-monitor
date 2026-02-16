@@ -193,6 +193,7 @@ describe("session-api-utils", () => {
         sessionName: "dev-main",
         agent: "claude",
         requestId: "req-2",
+        agentOptions: ["--dangerously-skip-permissions"],
         worktreePath: "/repo/.worktree/feature/x",
         worktreeBranch: "feature/x",
       }),
@@ -200,8 +201,24 @@ describe("session-api-utils", () => {
       sessionName: "dev-main",
       agent: "claude",
       requestId: "req-2",
+      agentOptions: ["--dangerously-skip-permissions"],
       worktreePath: "/repo/.worktree/feature/x",
       worktreeBranch: "feature/x",
+    });
+    expect(
+      buildLaunchAgentJson({
+        sessionName: "dev-main",
+        agent: "codex",
+        requestId: "req-2b",
+        worktreeBranch: "feature/new-worktree",
+        worktreeCreateIfMissing: true,
+      }),
+    ).toEqual({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "req-2b",
+      worktreeBranch: "feature/new-worktree",
+      worktreeCreateIfMissing: true,
     });
     expect(() =>
       buildLaunchAgentJson({
@@ -212,6 +229,14 @@ describe("session-api-utils", () => {
         worktreeBranch: "feature/x",
       }),
     ).toThrow("cwd cannot be combined with worktreePath/worktreeBranch");
+    expect(() =>
+      buildLaunchAgentJson({
+        sessionName: "dev-main",
+        agent: "codex",
+        requestId: "req-4",
+        worktreeCreateIfMissing: true,
+      }),
+    ).toThrow("worktreeBranch is required when worktreeCreateIfMissing is true");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
     expect(buildUploadImageForm(file)).toEqual({ image: file });
 

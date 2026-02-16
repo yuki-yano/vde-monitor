@@ -13,6 +13,7 @@ export type SessionDetailAtomSnapshot = {
   connectionIssue: string | null;
   highlightCorrections: ReturnType<typeof useSessions>["highlightCorrections"];
   fileNavigatorConfig: ReturnType<typeof useSessions>["fileNavigatorConfig"];
+  launchConfig: ReturnType<typeof useSessions>["launchConfig"];
   resolvedTheme: ReturnType<typeof useTheme>["resolvedTheme"];
   sessionApi: SessionApi;
 };
@@ -25,6 +26,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
     connectionIssue,
     highlightCorrections,
     fileNavigatorConfig,
+    launchConfig,
     refreshSessions,
     reconnect,
     requestWorktrees,
@@ -119,6 +121,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       connectionIssue,
       highlightCorrections,
       fileNavigatorConfig,
+      launchConfig,
       resolvedTheme,
       sessionApi,
     }),
@@ -130,6 +133,7 @@ export const useSessionDetailAtomSnapshot = (paneId: string): SessionDetailAtomS
       connectionIssue,
       highlightCorrections,
       fileNavigatorConfig,
+      launchConfig,
       resolvedTheme,
       sessionApi,
     ],

@@ -10,6 +10,7 @@ import type {
   HighlightCorrectionConfig,
   ImageAttachment,
   LaunchCommandResponse,
+  LaunchConfig,
   RawItem,
   RepoFileContent,
   RepoFileSearchPage,
@@ -25,6 +26,10 @@ import type {
 import { atom } from "jotai";
 
 import type { Theme } from "@/lib/theme";
+import {
+  defaultLaunchConfig,
+  type LaunchAgentRequestOptions,
+} from "@/state/launch-agent-options";
 
 export type SessionApi = {
   reconnect: () => void;
@@ -87,12 +92,7 @@ export type SessionApi = {
     sessionName: string,
     agent: "codex" | "claude",
     requestId: string,
-    options?: {
-      windowName?: string;
-      cwd?: string;
-      worktreePath?: string;
-      worktreeBranch?: string;
-    },
+    options?: LaunchAgentRequestOptions,
   ) => Promise<LaunchCommandResponse>;
   uploadImageAttachment: (paneId: string, file: File) => Promise<ImageAttachment>;
   sendText: (
@@ -131,6 +131,7 @@ export const highlightCorrectionsAtom = atom<HighlightCorrectionConfig>({
 export const fileNavigatorConfigAtom = atom<ClientFileNavigatorConfig>({
   autoExpandMatchLimit: 100,
 });
+export const launchConfigAtom = atom<LaunchConfig>(defaultLaunchConfig);
 export const resolvedThemeAtom = atom<Theme>("latte");
 export const sessionApiAtom = atom<SessionApi | null>(null);
 

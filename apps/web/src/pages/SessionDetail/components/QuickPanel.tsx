@@ -12,10 +12,7 @@ import {
 import {
   formatBranchLabel,
   formatRelativeTime,
-  formatWorktreeFlag,
   getLastInputTone,
-  isVwManagedWorktreePath,
-  worktreeFlagClass,
 } from "../sessionDetailUtils";
 
 type QuickPanelState = {
@@ -236,7 +233,6 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                               const agentMeta = agentIconMeta(item.agent);
                               const StatusIcon = statusMeta.icon;
                               const AgentIcon = agentMeta.icon;
-                              const showWorktreeFlags = isVwManagedWorktreePath(item.worktreePath);
                               const isCurrent = currentPaneId === item.paneId;
                               return (
                                 <div key={item.paneId} className="relative pr-11">
@@ -279,46 +275,6 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                                           {formatBranchLabel(item.branch)}
                                         </span>
                                       </TagPill>
-                                      {showWorktreeFlags ? (
-                                        <>
-                                          <TagPill
-                                            tone="meta"
-                                            className={worktreeFlagClass(
-                                              "dirty",
-                                              item.worktreeDirty ?? null,
-                                            )}
-                                          >
-                                            D:{formatWorktreeFlag(item.worktreeDirty)}
-                                          </TagPill>
-                                          <TagPill
-                                            tone="meta"
-                                            className={worktreeFlagClass(
-                                              "locked",
-                                              item.worktreeLocked ?? null,
-                                            )}
-                                          >
-                                            L:{formatWorktreeFlag(item.worktreeLocked)}
-                                          </TagPill>
-                                          <TagPill
-                                            tone="meta"
-                                            className={worktreeFlagClass(
-                                              "pr",
-                                              item.worktreePrCreated ?? null,
-                                            )}
-                                          >
-                                            PR:{formatWorktreeFlag(item.worktreePrCreated)}
-                                          </TagPill>
-                                          <TagPill
-                                            tone="meta"
-                                            className={worktreeFlagClass(
-                                              "merged",
-                                              item.worktreeMerged ?? null,
-                                            )}
-                                          >
-                                            M:{formatWorktreeFlag(item.worktreeMerged)}
-                                          </TagPill>
-                                        </>
-                                      ) : null}
                                       <LastInputPill
                                         tone={lastInputTone}
                                         label={<Clock className="h-3 w-3" />}

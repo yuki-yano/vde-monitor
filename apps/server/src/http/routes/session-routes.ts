@@ -149,8 +149,10 @@ export const createSessionRoutes = ({
       agent: body.agent,
       windowName: body.windowName,
       cwd: body.cwd,
+      agentOptions: body.agentOptions,
       worktreePath: body.worktreePath,
       worktreeBranch: body.worktreeBranch,
+      worktreeCreateIfMissing: body.worktreeCreateIfMissing,
     });
     setMapEntryWithLimit(
       launchIdempotency,
@@ -174,6 +176,7 @@ export const createSessionRoutes = ({
           fileNavigator: {
             autoExpandMatchLimit: config.fileNavigator.autoExpandMatchLimit,
           },
+          launch: config.launch,
         },
       });
     })

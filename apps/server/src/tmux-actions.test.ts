@@ -1,4 +1,5 @@
 import { defaultConfig } from "@vde-monitor/shared";
+import { execa } from "execa";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { markPaneFocus } from "./activity-suppressor";
@@ -27,6 +28,10 @@ vi.mock("./activity-suppressor", () => ({
 
 vi.mock("./monitor/vw-worktree", () => ({
   resolveVwWorktreeSnapshotCached: vi.fn(),
+}));
+
+vi.mock("execa", () => ({
+  execa: vi.fn(),
 }));
 
 const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
@@ -279,6 +284,7 @@ describe("createTmuxActions.sendRaw", () => {
 describe("createTmuxActions.launchAgentInSession", () => {
   beforeEach(() => {
     vi.mocked(resolveVwWorktreeSnapshotCached).mockReset();
+    vi.mocked(execa).mockReset();
   });
 
   it("launches codex in a new detached window", async () => {
@@ -335,6 +341,57 @@ describe("createTmuxActions.launchAgentInSession", () => {
       "codex '--model' 'gpt-5-codex'",
     ]);
     expect(result.rollback).toEqual({ attempted: false, ok: true });
+  });
+
+  it("overrides configured launch options when agentOptions are provided", async () => {
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "has-session") {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-windows") {
+          return { stdout: "main\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "new-window") {
+          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-panes") {
+          return { stdout: "codex\n", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const config = {
+      ...defaultConfig,
+      token: "test-token",
+      launch: {
+        agents: {
+          codex: { options: ["--model", "gpt-5-codex"] },
+          claude: { options: [] },
+        },
+      },
+    };
+    const tmuxActions = createTmuxActions(adapter, config);
+
+    const result = await tmuxActions.launchAgentInSession({
+      sessionName: "dev-main",
+      agent: "codex",
+      agentOptions: ["--approval-mode", "full-auto"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.result.resolvedOptions).toEqual(["--approval-mode", "full-auto"]);
+    expect(adapter.run).toHaveBeenCalledWith([
+      "send-keys",
+      "-l",
+      "-t",
+      "%128",
+      "--",
+      "codex '--approval-mode' 'full-auto'",
+    ]);
   });
 
   it("appends suffix when requested window name already exists", async () => {
@@ -456,6 +513,103 @@ describe("createTmuxActions.launchAgentInSession", () => {
     expect(result.error.code).toBe("INVALID_PAYLOAD");
     expect(result.error.message).toContain("vw worktree snapshot is unavailable");
     expect(adapter.run.mock.calls.some((call) => call[0]?.[0] === "new-window")).toBe(false);
+  });
+
+  it("creates a worktree via vw switch when worktreeCreateIfMissing is true", async () => {
+    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce({
+      repoRoot: "/tmp",
+      baseBranch: "main",
+      entries: [
+        {
+          path: "/tmp/.worktree/feature/a",
+          branch: "feature/a",
+          dirty: false,
+          locked: { value: false, owner: null, reason: null },
+          merged: { overall: false, byPR: null },
+        },
+      ],
+    });
+    vi.mocked(execa)
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+      } as never)
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "/tmp\n",
+        stderr: "",
+      } as never);
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "has-session") {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+          return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-windows") {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "new-window") {
+          return { stdout: "@51\t2\tclaude-work\t%151\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-panes" && args.includes("#{pane_current_command}")) {
+          return { stdout: "claude\n", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+
+    const result = await tmuxActions.launchAgentInSession({
+      sessionName: "dev-main",
+      agent: "claude",
+      worktreeBranch: "feature/new-pane",
+      worktreeCreateIfMissing: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(vi.mocked(execa)).toHaveBeenNthCalledWith(
+      1,
+      "vw",
+      ["switch", "feature/new-pane"],
+      expect.objectContaining({ cwd: "/tmp" }),
+    );
+    expect(vi.mocked(execa)).toHaveBeenNthCalledWith(
+      2,
+      "vw",
+      ["path", "feature/new-pane"],
+      expect.objectContaining({ cwd: "/tmp" }),
+    );
+    expect(adapter.run).toHaveBeenCalledWith(
+      expect.arrayContaining(["new-window", "-d", "-P", "-F"]),
+    );
+    expect(adapter.run).toHaveBeenCalledWith(
+      expect.arrayContaining(["-c", "/tmp"]),
+    );
+  });
+
+  it("returns INVALID_PAYLOAD when worktreePath and worktreeCreateIfMissing are combined", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+
+    const result = await tmuxActions.launchAgentInSession({
+      sessionName: "dev-main",
+      agent: "claude",
+      worktreePath: "/repo/.worktree/feature/a",
+      worktreeBranch: "feature/a",
+      worktreeCreateIfMissing: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error.code).toBe("INVALID_PAYLOAD");
+    expect(result.error.message).toContain("worktreePath cannot be combined");
   });
 
   it("returns INVALID_PAYLOAD when worktreePath and worktreeBranch mismatch", async () => {

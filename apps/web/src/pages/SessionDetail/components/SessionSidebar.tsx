@@ -1,9 +1,11 @@
 import type {
   HighlightCorrectionConfig,
+  LaunchConfig,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
+  WorktreeList,
 } from "@vde-monitor/shared";
 import { memo, useCallback } from "react";
 
@@ -11,6 +13,7 @@ import { Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import { useSessionSidebarActions } from "../hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "../hooks/useSessionSidebarGroups";
@@ -25,6 +28,8 @@ type SessionSidebarState = {
   nowMs: number;
   connected: boolean;
   connectionIssue: string | null;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   requestStateTimeline: (
     paneId: string,
     options?: {
@@ -49,6 +54,7 @@ type SessionSidebarActions = {
   onLaunchAgentInSession?: (
     sessionName: string,
     agent: "codex" | "claude",
+    options?: LaunchAgentRequestOptions,
   ) => Promise<void> | void;
   onTouchSession?: (paneId: string) => void;
   onTouchRepoPin?: (repoRoot: string | null) => void;
@@ -77,6 +83,8 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     nowMs,
     connected,
     connectionIssue,
+    launchConfig,
+    requestWorktrees,
     requestStateTimeline,
     requestScreen,
     highlightCorrections,
@@ -90,7 +98,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const {
     filter,
     focusPendingPaneIds,
-    launchPendingKeys,
+    launchPendingSessions,
     handleSelectSession,
     handleFocusPane,
     handleLaunchAgentInSession,
@@ -162,7 +170,9 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
         nowMs={nowMs}
         currentPaneId={currentPaneId}
         focusPendingPaneIds={focusPendingPaneIds}
-        launchPendingKeys={launchPendingKeys}
+        launchPendingSessions={launchPendingSessions}
+        launchConfig={launchConfig}
+        requestWorktrees={requestWorktrees}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
         onFocus={handleFocus}

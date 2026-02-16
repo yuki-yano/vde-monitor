@@ -12,6 +12,7 @@ import { useCallback } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import { useSessionDetailActions } from "./useSessionDetailActions";
 import { useSessionLogs } from "./useSessionLogs";
@@ -43,17 +44,8 @@ type UseSessionDetailTimelineLogsActionsArgs = {
     sessionName: string,
     agent: "codex" | "claude",
     requestId: string,
-    options?: {
-      windowName?: string;
-      cwd?: string;
-      worktreePath?: string;
-      worktreeBranch?: string;
-    },
+    options?: LaunchAgentRequestOptions,
   ) => Promise<LaunchCommandResponse>;
-  launchOptions?: {
-    worktreePath?: string;
-    worktreeBranch?: string;
-  };
   setScreenError: (error: string | null) => void;
   touchRepoSortAnchor: (repoRoot: string | null) => void;
   paneRepoRootMap: Map<string, string | null>;
@@ -73,7 +65,6 @@ export const useSessionDetailTimelineLogsActions = ({
   focusPane,
   refreshSessions,
   launchAgentInSession,
-  launchOptions,
   setScreenError,
   touchRepoSortAnchor,
   paneRepoRootMap,
@@ -142,8 +133,12 @@ export const useSessionDetailTimelineLogsActions = ({
   );
 
   const handleLaunchAgentInSession = useCallback(
-    async (sessionName: string, agent: "codex" | "claude") => {
-      const result = await launchAgentInSession(sessionName, agent, createRequestId(), launchOptions);
+    async (
+      sessionName: string,
+      agent: "codex" | "claude",
+      options?: LaunchAgentRequestOptions,
+    ) => {
+      const result = await launchAgentInSession(sessionName, agent, createRequestId(), options);
       if (!result.ok) {
         setScreenError(result.error?.message ?? API_ERROR_MESSAGES.launchAgent);
         return;
@@ -155,7 +150,7 @@ export const useSessionDetailTimelineLogsActions = ({
       }
       setScreenError(null);
     },
-    [launchAgentInSession, launchOptions, refreshSessions, setScreenError],
+    [launchAgentInSession, refreshSessions, setScreenError],
   );
 
   return {

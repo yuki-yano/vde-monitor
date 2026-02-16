@@ -10,6 +10,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import type { SessionSummary } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { defaultLaunchConfig } from "@/state/launch-agent-options";
+
 import { DEFAULT_SESSION_LIST_FILTER, isSessionListFilter } from "./sessionListFilters";
 import { normalizeSessionListSearchQuery } from "./sessionListSearch";
 import { useSessionListVM } from "./useSessionListVM";
@@ -209,9 +211,11 @@ describe("useSessionListVM", () => {
       refreshSessions: vi.fn(),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession: vi.fn(),
       touchSession: vi.fn(),
       highlightCorrections: { codex: true, claude: true },
+      launchConfig: defaultLaunchConfig,
     });
   });
 
@@ -286,9 +290,11 @@ describe("useSessionListVM", () => {
       refreshSessions: vi.fn(),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession: vi.fn(),
       touchSession: vi.fn(),
       highlightCorrections: { codex: true, claude: true },
+      launchConfig: defaultLaunchConfig,
     });
 
     await renderWithRouter(["/?filter=ALL&q=repo-match"]);
@@ -310,9 +316,11 @@ describe("useSessionListVM", () => {
       refreshSessions: vi.fn(),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession: vi.fn(),
       touchSession,
       highlightCorrections: { codex: true, claude: true },
+      launchConfig: defaultLaunchConfig,
     });
 
     await renderWithRouter(["/"]);
@@ -356,9 +364,11 @@ describe("useSessionListVM", () => {
       refreshSessions,
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession,
       touchSession: vi.fn(),
       highlightCorrections: { codex: true, claude: true },
+      launchConfig: defaultLaunchConfig,
     });
 
     await renderWithRouter(["/"]);

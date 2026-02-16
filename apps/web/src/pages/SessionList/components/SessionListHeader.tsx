@@ -6,8 +6,8 @@ import {
   Callout,
   ConnectionStatusPill,
   FilterToggleGroup,
-  Input,
   Toolbar,
+  ZoomSafeInput,
 } from "@/components/ui";
 
 type SessionListHeaderProps = {
@@ -66,14 +66,14 @@ export const SessionListHeader = ({
           </div>
         </div>
       </Toolbar>
-      <div className="relative">
+      <div className="border-latte-surface2 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 relative overflow-hidden rounded-2xl border transition focus-within:ring-2">
         <Search className="text-latte-subtext0 pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-        <Input
+        <ZoomSafeInput
           value={searchQuery}
           onChange={handleSearchChange}
           placeholder="Search sessions"
           aria-label="Search sessions"
-          className="h-10 py-0 pl-9 pr-12 text-sm"
+          className="h-10 border-none bg-transparent py-0 pl-9 pr-12 text-sm shadow-none focus:ring-0"
         />
         {searchQuery.length > 0 && (
           <Button
