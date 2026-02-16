@@ -11,7 +11,7 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Card, Tabs, TabsList, TabsTrigger } from "@/components/ui";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -66,6 +66,14 @@ const MISSING_SESSION_GRACE_MS = 1600;
 type SectionTabStorageScope = {
   repoRoot?: null | string;
   branch?: null | string;
+};
+
+type DetailSectionTabDefinition = {
+  value: DetailSectionTab;
+  ariaLabel: string;
+  label: string;
+  icon: typeof Clock;
+  render: () => ReactNode;
 };
 
 const isDetailSectionTab = (value: unknown): value is DetailSectionTab =>
@@ -207,6 +215,83 @@ export const SessionDetailView = ({
   const isSessionMissing = !session || !sessionHeaderProps;
   const isInitialSessionLoading = isSessionMissing && !meta.connected && !hasConnectionIssue;
   const shouldDelayMissingState = isSessionMissing && meta.connected && !hasConnectionIssue;
+  const mobileSectionTabs: DetailSectionTabDefinition[] = [
+    {
+      value: "keys",
+      ariaLabel: "Keys panel",
+      label: "Keys",
+      icon: Keyboard,
+      render: () => (
+        <Card className="p-3 sm:p-4">
+          <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
+        </Card>
+      ),
+    },
+    {
+      value: "timeline",
+      ariaLabel: "Timeline panel",
+      label: "Timeline",
+      icon: Clock,
+      render: () => <StateTimelineSection {...stateTimelineSectionProps} />,
+    },
+    {
+      value: "file",
+      ariaLabel: "Files panel",
+      label: "Files",
+      icon: FolderOpen,
+      render: () => <FileNavigatorSection {...fileNavigatorSectionProps} />,
+    },
+    {
+      value: "changes",
+      ariaLabel: "Changes panel",
+      label: "Changes",
+      icon: FileCheck,
+      render: () => <DiffSection {...diffSectionProps} />,
+    },
+    {
+      value: "commits",
+      ariaLabel: "Commits panel",
+      label: "Commits",
+      icon: GitCommitHorizontal,
+      render: () => <CommitSection {...commitSectionProps} />,
+    },
+    {
+      value: "worktrees",
+      ariaLabel: "Worktrees panel",
+      label: "Worktrees",
+      icon: GitBranch,
+      render: () => (
+        <WorktreeSection
+          state={{
+            worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
+            worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
+            worktreeSelectorError: screen.worktreeSelectorError ?? null,
+            worktreeEntries: screen.worktreeEntries ?? [],
+            worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
+            worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
+            actualWorktreePath: screen.actualWorktreePath ?? null,
+            virtualWorktreePath: screen.virtualWorktreePath ?? null,
+          }}
+          actions={{
+            onRefreshWorktrees: () => {
+              void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
+            },
+            onSelectVirtualWorktree: screen.selectVirtualWorktree,
+            onClearVirtualWorktree: screen.clearVirtualWorktree,
+          }}
+        />
+      ),
+    },
+    {
+      value: "notes",
+      ariaLabel: "Notes panel",
+      label: "Notes",
+      icon: BookText,
+      render: () => <NotesSection {...notesSectionProps} />,
+    },
+  ];
+  const selectedMobileSectionContent =
+    mobileSectionTabs.find((tab) => tab.value === selectedSectionTabValue)?.render() ?? null;
   const handleSectionTabChange = (value: string) => {
     if (!isSectionTabValue(value)) {
       return;
@@ -372,83 +457,25 @@ export const SessionDetailView = ({
                   aria-label="Session detail sections"
                   className="grid w-full grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >
-                  <TabsTrigger
-                    value="keys"
-                    aria-label="Keys panel"
-                    title="Keys"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <Keyboard className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Keys</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="timeline"
-                    aria-label="Timeline panel"
-                    title="Timeline"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <Clock className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Timeline</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="file"
-                    aria-label="Files panel"
-                    title="Files"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <FolderOpen className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Files</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="changes"
-                    aria-label="Changes panel"
-                    title="Changes"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <FileCheck className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Changes</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="commits"
-                    aria-label="Commits panel"
-                    title="Commits"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Commits</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="worktrees"
-                    aria-label="Worktrees panel"
-                    title="Worktrees"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Worktrees</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="notes"
-                    aria-label="Notes panel"
-                    title="Notes"
-                    className={
-                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                    }
-                  >
-                    <BookText className="h-3.5 w-3.5 shrink-0" />
-                    {!sectionTabsIconOnly ? <span className="truncate">Notes</span> : null}
-                  </TabsTrigger>
+                  {mobileSectionTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        aria-label={tab.ariaLabel}
+                        title={tab.label}
+                        className={
+                          sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
+                        }
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        {!sectionTabsIconOnly ? (
+                          <span className="truncate">{tab.label}</span>
+                        ) : null}
+                      </TabsTrigger>
+                    );
+                  })}
                   <TabsTrigger
                     value={CLOSE_DETAIL_TAB_VALUE}
                     aria-label="Close detail sections"
@@ -459,44 +486,7 @@ export const SessionDetailView = ({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-
-              {selectedSectionTabValue === "timeline" ? (
-                <StateTimelineSection {...stateTimelineSectionProps} />
-              ) : null}
-              {selectedSectionTabValue === "changes" ? <DiffSection {...diffSectionProps} /> : null}
-              {selectedSectionTabValue === "file" ? (
-                <FileNavigatorSection {...fileNavigatorSectionProps} />
-              ) : null}
-              {selectedSectionTabValue === "commits" ? (
-                <CommitSection {...commitSectionProps} />
-              ) : null}
-              {selectedSectionTabValue === "worktrees" ? (
-                <WorktreeSection
-                  state={{
-                    worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
-                    worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
-                    worktreeSelectorError: screen.worktreeSelectorError ?? null,
-                    worktreeEntries: screen.worktreeEntries ?? [],
-                    worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
-                    worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
-                    actualWorktreePath: screen.actualWorktreePath ?? null,
-                    virtualWorktreePath: screen.virtualWorktreePath ?? null,
-                  }}
-                  actions={{
-                    onRefreshWorktrees: () => {
-                      void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
-                    },
-                    onSelectVirtualWorktree: screen.selectVirtualWorktree,
-                    onClearVirtualWorktree: screen.clearVirtualWorktree,
-                  }}
-                />
-              ) : null}
-              {selectedSectionTabValue === "keys" ? (
-                <Card className="p-3 sm:p-4">
-                  <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
-                </Card>
-              ) : null}
-              {selectedSectionTabValue === "notes" ? <NotesSection {...notesSectionProps} /> : null}
+              {selectedMobileSectionContent}
             </>
           ) : (
             <>
