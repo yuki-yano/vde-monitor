@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 import { setMapEntryWithLimit } from "../../cache";
+import { toErrorMessage } from "../../errors";
 import { createScreenResponse } from "../../screen/screen-response";
 import { buildError, nowIso } from "../helpers";
 import {
@@ -222,10 +223,10 @@ export const createSessionRoutes = ({
         })
         .catch((error) => {
           launchIdempotency.delete(cacheKey);
-          if (error instanceof Error && error.message.trim().length > 0) {
-            return launchResponseWithRollback("INTERNAL", error.message);
-          }
-          return launchResponseWithRollback("INTERNAL", "launch command failed");
+          return launchResponseWithRollback(
+            "INTERNAL",
+            toErrorMessage(error, "launch command failed"),
+          );
         }),
     };
 
