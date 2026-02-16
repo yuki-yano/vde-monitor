@@ -360,7 +360,7 @@ export const SessionDetailView = ({
                 <TabsList
                   ref={setSectionTabsListElement}
                   aria-label="Session detail sections"
-                  className="grid w-full grid-cols-4 grid-rows-2 gap-1 rounded-2xl"
+                  className="grid w-full grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >
                   <TabsTrigger
                     value="keys"
@@ -443,7 +443,7 @@ export const SessionDetailView = ({
                     value={CLOSE_DETAIL_TAB_VALUE}
                     aria-label="Close detail sections"
                     title="Close detail sections"
-                    className="inline-flex h-8 w-8 items-center justify-center justify-self-end p-0 sm:h-9 sm:w-9"
+                    className="col-start-5 row-span-2 row-start-1 inline-flex h-8 w-8 items-center justify-center self-center justify-self-end p-0 sm:h-9 sm:w-9"
                   >
                     <X className="h-3.5 w-3.5" />
                   </TabsTrigger>
