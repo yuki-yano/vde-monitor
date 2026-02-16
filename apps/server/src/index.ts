@@ -17,6 +17,7 @@ import {
   resolveMultiplexerOverrides,
 } from "./cli";
 import { ensureConfig, rotateToken } from "./config";
+import { toErrorMessage } from "./errors";
 import { createSessionMonitor } from "./monitor";
 import { createMultiplexerRuntime } from "./multiplexer/runtime";
 import { getLocalIP, getTailscaleIP } from "./network";
@@ -271,7 +272,7 @@ export const main = async () => {
 
 if (process.env.NODE_ENV !== "test") {
   main().catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(toErrorMessage(error));
     process.exit(1);
   });
 }

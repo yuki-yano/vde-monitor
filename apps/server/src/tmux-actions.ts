@@ -17,7 +17,7 @@ import { execa } from "execa";
 
 import { markPaneFocus } from "./activity-suppressor";
 import { setMapEntryWithLimit } from "./cache";
-import { buildError } from "./errors";
+import { buildError, toErrorMessage } from "./errors";
 import { resolveVwWorktreeSnapshotCached } from "./monitor/vw-worktree";
 import { resolveBackendApp } from "./screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "./screen/macos-applescript";
@@ -382,8 +382,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
       await focusTmuxPane(paneId, config.tmux).catch(() => null);
       return okResult();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "failed to focus pane";
-      return internalError(message);
+      return internalError(toErrorMessage(error, "failed to focus pane"));
     }
   };
 
