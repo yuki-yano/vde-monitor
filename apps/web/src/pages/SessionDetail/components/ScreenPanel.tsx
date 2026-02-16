@@ -1,5 +1,5 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
-import { ArrowDown, ChevronsUpDown, FileText, GitBranch, Image, RefreshCw, X } from "lucide-react";
+import { ChevronsUpDown, FileText, GitBranch, Image, RefreshCw, X } from "lucide-react";
 import {
   type ClipboardEvent,
   forwardRef,
@@ -14,14 +14,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import type { VirtuosoHandle } from "react-virtuoso";
 
 import {
   Button,
   Callout,
   Card,
   IconButton,
-  LoadingOverlay,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -35,6 +34,7 @@ import { usePromptContextLayout } from "../hooks/usePromptContextLayout";
 import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogReferenceLinking";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
+import { ScreenPanelViewport } from "./ScreenPanelViewport";
 import { ScreenPanelWorktreeSelectorPanel } from "./ScreenPanelWorktreeSelectorPanel";
 import { buildVisibleFileChangeCategories, formatGitMetric } from "./worktree-view-model";
 
@@ -193,99 +193,6 @@ const RawModeIndicator = ({
     </div>
   );
 };
-
-const ScreenContent = ({
-  mode,
-  imageBase64,
-  isAtBottom,
-  isScreenLoading,
-  screenLines,
-  virtuosoRef,
-  onAtBottomChange,
-  handleRangeChanged,
-  VirtuosoScroller,
-  onScrollToBottom,
-  onResolveFileReference,
-  onResolveFileReferenceKeyDown,
-}: {
-  mode: ScreenMode;
-  imageBase64: string | null;
-  isAtBottom: boolean;
-  isScreenLoading: boolean;
-  screenLines: string[];
-  virtuosoRef: RefObject<VirtuosoHandle | null>;
-  onAtBottomChange: (value: boolean) => void;
-  handleRangeChanged: (range: { startIndex: number; endIndex: number }) => void;
-  VirtuosoScroller: (
-    props: HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> },
-  ) => ReactNode;
-  onScrollToBottom: (behavior: "auto" | "smooth") => void;
-  onResolveFileReference: (event: MouseEvent<HTMLDivElement>) => void;
-  onResolveFileReferenceKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-}) => {
-  const showImage = mode === "image" && Boolean(imageBase64);
-
-  return (
-    <div className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[260px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 sm:min-h-[320px]">
-      {isScreenLoading && <LoadingOverlay label="Loading screen..." />}
-      {showImage ? (
-        <div className="flex w-full items-center justify-center p-1.5 sm:p-3">
-          <img
-            src={`data:image/png;base64,${imageBase64}`}
-            alt="screen"
-            className="border-latte-surface2 max-h-[480px] w-full rounded-xl border object-contain"
-          />
-        </div>
-      ) : (
-        <>
-          <Virtuoso
-            ref={virtuosoRef}
-            data={screenLines}
-            initialTopMostItemIndex={Math.max(screenLines.length - 1, 0)}
-            followOutput="auto"
-            atBottomStateChange={onAtBottomChange}
-            rangeChanged={handleRangeChanged}
-            components={{ Scroller: VirtuosoScroller, List: VirtuosoList }}
-            className="w-full min-w-0 max-w-full"
-            style={{ height: "60vh" }}
-            itemContent={(_index, line) => (
-              <div
-                className="min-h-4 whitespace-pre leading-4"
-                onClick={onResolveFileReference}
-                onKeyDown={onResolveFileReferenceKeyDown}
-                dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }}
-              />
-            )}
-          />
-          {!isAtBottom && (
-            <IconButton
-              type="button"
-              onClick={() => onScrollToBottom("smooth")}
-              aria-label="Scroll to bottom"
-              className="absolute bottom-2 right-2"
-              variant="base"
-              size="sm"
-            >
-              <ArrowDown className="h-4 w-4" />
-            </IconButton>
-          )}
-        </>
-      )}
-    </div>
-  );
-};
-
-const VirtuosoList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      className={`text-latte-text w-max min-w-full px-1 py-1 font-mono text-xs sm:px-2 sm:py-2 ${className ?? ""}`}
-    />
-  ),
-);
-
-VirtuosoList.displayName = "VirtuosoList";
 
 export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const {
@@ -560,7 +467,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
         </Callout>
       )}
       <div onCopy={handleCopy}>
-        <ScreenContent
+        <ScreenPanelViewport
           mode={mode}
           imageBase64={imageBase64}
           isAtBottom={isAtBottom}
@@ -568,7 +475,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           screenLines={linkifiedScreenLines}
           virtuosoRef={virtuosoRef}
           onAtBottomChange={onAtBottomChange}
-          handleRangeChanged={handleScreenRangeChanged}
+          onRangeChanged={handleScreenRangeChanged}
           VirtuosoScroller={VirtuosoScroller}
           onScrollToBottom={onScrollToBottom}
           onResolveFileReference={handleResolveFileReference}
