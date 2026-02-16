@@ -48,18 +48,24 @@ const toEntry = (
   entry: NonNullable<
     Awaited<ReturnType<typeof resolveVwWorktreeSnapshotCached>>
   >["entries"][number],
-): WorktreeListEntryBase => ({
-  path: entry.path,
-  branch: entry.branch,
-  dirty: entry.dirty,
-  locked: entry.locked.value,
-  lockOwner: entry.locked.owner,
-  lockReason: entry.locked.reason,
-  merged: entry.merged.overall,
-  prStatus: entry.pr.status,
-  ahead: null,
-  behind: null,
-});
+): WorktreeListEntryBase => {
+  const base: WorktreeListEntryBase = {
+    path: entry.path,
+    branch: entry.branch,
+    dirty: entry.dirty,
+    locked: entry.locked.value,
+    lockOwner: entry.locked.owner,
+    lockReason: entry.locked.reason,
+    merged: entry.merged.overall,
+    prStatus: entry.pr.status,
+    ahead: null,
+    behind: null,
+  };
+  if (entry.pr.url) {
+    base.prUrl = entry.pr.url;
+  }
+  return base;
+};
 
 const buildEmptyDiffStats = (): WorktreeDiffStats => ({
   fileChanges: null,

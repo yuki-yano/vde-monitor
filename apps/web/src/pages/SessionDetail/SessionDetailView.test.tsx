@@ -408,6 +408,12 @@ describe("SessionDetailView", () => {
     );
     expect(window.localStorage.getItem(storageKey)).toBe("commits");
 
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Worktrees panel" }), { button: 0 });
+    expect(screen.getByRole("tab", { name: "Worktrees panel" }).getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(window.localStorage.getItem(storageKey)).toBe("worktrees");
+
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Keys panel" }), { button: 0 });
     expect(screen.getByRole("tab", { name: "Keys panel" }).getAttribute("data-state")).toBe(
       "active",
@@ -435,6 +441,24 @@ describe("SessionDetailView", () => {
     renderWithRouter(<SessionDetailView {...props} />);
 
     expect(screen.getByText("File Navigator")).toBeTruthy();
+    expect(screen.queryByText("State Timeline")).toBeNull();
+  });
+
+  it("restores worktrees tab from localStorage", () => {
+    const session = createSessionDetail({ repoRoot: "/Users/test/repo-a", branch: "main" });
+    const storageKey = buildSectionTabStorageKey({
+      repoRoot: session.repoRoot,
+      branch: session.branch,
+    });
+    window.localStorage.setItem(storageKey, "worktrees");
+    const props = createViewProps({
+      meta: { session },
+      timeline: { isMobile: true },
+    });
+    renderWithRouter(<SessionDetailView {...props} />);
+
+    expect(screen.getByTestId("worktree-section")).toBeTruthy();
+    expect(screen.getByText("Worktree selector is not available for this session.")).toBeTruthy();
     expect(screen.queryByText("State Timeline")).toBeNull();
   });
 

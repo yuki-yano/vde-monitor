@@ -5,6 +5,7 @@ import {
   Clock,
   FileCheck,
   FolderOpen,
+  GitBranch,
   GitCommitHorizontal,
   Keyboard,
   Loader2,
@@ -30,6 +31,7 @@ import { ScreenPanel } from "./components/ScreenPanel";
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { StateTimelineSection } from "./components/StateTimelineSection";
+import { WorktreeSection } from "./components/WorktreeSection";
 import { useSessionDetailViewSectionProps } from "./hooks/useSessionDetailViewSectionProps";
 import { backLinkClass } from "./sessionDetailUtils";
 import type { SessionDetailVM } from "./useSessionDetailVM";
@@ -42,6 +44,7 @@ const DETAIL_SECTION_TAB_VALUES = [
   "file",
   "changes",
   "commits",
+  "worktrees",
   "notes",
 ] as const;
 type DetailSectionTab = (typeof DETAIL_SECTION_TAB_VALUES)[number];
@@ -357,7 +360,7 @@ export const SessionDetailView = ({
                 <TabsList
                   ref={setSectionTabsListElement}
                   aria-label="Session detail sections"
-                  className="grid w-full grid-cols-[repeat(3,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
+                  className="grid w-full grid-cols-4 grid-rows-2 gap-1 rounded-2xl"
                 >
                   <TabsTrigger
                     value="keys"
@@ -415,6 +418,17 @@ export const SessionDetailView = ({
                     {!sectionTabsIconOnly ? <span className="truncate">Commits</span> : null}
                   </TabsTrigger>
                   <TabsTrigger
+                    value="worktrees"
+                    aria-label="Worktrees panel"
+                    title="Worktrees"
+                    className={
+                      sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
+                    }
+                  >
+                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                    {!sectionTabsIconOnly ? <span className="truncate">Worktrees</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="notes"
                     aria-label="Notes panel"
                     title="Notes"
@@ -429,7 +443,7 @@ export const SessionDetailView = ({
                     value={CLOSE_DETAIL_TAB_VALUE}
                     aria-label="Close detail sections"
                     title="Close detail sections"
-                    className="col-start-4 row-span-2 row-start-1 inline-flex h-8 w-8 items-center justify-center self-center p-0 sm:h-9 sm:w-9"
+                    className="inline-flex h-8 w-8 items-center justify-center justify-self-end p-0 sm:h-9 sm:w-9"
                   >
                     <X className="h-3.5 w-3.5" />
                   </TabsTrigger>
@@ -445,6 +459,27 @@ export const SessionDetailView = ({
               ) : null}
               {selectedSectionTabValue === "commits" ? (
                 <CommitSection {...commitSectionProps} />
+              ) : null}
+              {selectedSectionTabValue === "worktrees" ? (
+                <WorktreeSection
+                  state={{
+                    worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
+                    worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
+                    worktreeSelectorError: screen.worktreeSelectorError ?? null,
+                    worktreeEntries: screen.worktreeEntries ?? [],
+                    worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
+                    worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
+                    actualWorktreePath: screen.actualWorktreePath ?? null,
+                    virtualWorktreePath: screen.virtualWorktreePath ?? null,
+                  }}
+                  actions={{
+                    onRefreshWorktrees: () => {
+                      void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
+                    },
+                    onSelectVirtualWorktree: screen.selectVirtualWorktree,
+                    onClearVirtualWorktree: screen.clearVirtualWorktree,
+                  }}
+                />
               ) : null}
               {selectedSectionTabValue === "keys" ? (
                 <Card className="p-3 sm:p-4">

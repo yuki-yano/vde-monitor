@@ -15,7 +15,15 @@ const ghLookupAt = new Map<string, number>();
 const repoRootByCwd = new Map<string, string>();
 const cachedWorktreeStateByRepoRoot = new Map<
   string,
-  Map<string, { byPR: boolean | null; overall: boolean | null; prStatus: VwPrStatus | null }>
+  Map<
+    string,
+    {
+      byPR: boolean | null;
+      overall: boolean | null;
+      prStatus: VwPrStatus | null;
+      prUrl: string | null;
+    }
+  >
 >();
 
 type VwSnapshotGhMode = "auto" | "always" | "never";
@@ -40,6 +48,7 @@ type VwWorktreeEntry = {
   };
   pr: {
     status: VwPrStatus | null;
+    url?: string | null;
   };
 };
 
@@ -167,7 +176,12 @@ const trackRepoRoot = (cwd: string, repoRoot: string | null) => {
 const buildCachedStateByBranch = (entries: VwWorktreeEntry[]) => {
   const byBranch = new Map<
     string,
-    { byPR: boolean | null; overall: boolean | null; prStatus: VwPrStatus | null }
+    {
+      byPR: boolean | null;
+      overall: boolean | null;
+      prStatus: VwPrStatus | null;
+      prUrl: string | null;
+    }
   >();
   entries.forEach((entry) => {
     if (!entry.branch) {
@@ -177,6 +191,7 @@ const buildCachedStateByBranch = (entries: VwWorktreeEntry[]) => {
       byPR: entry.merged.byPR,
       overall: entry.merged.overall,
       prStatus: entry.pr.status,
+      prUrl: entry.pr.url ?? null,
     });
   });
   return byBranch;
@@ -206,11 +221,13 @@ const applyCachedWorktreeState = (
       byPR: null,
       overall: null,
       prStatus: null,
+      prUrl: null,
     };
     if (
       entry.merged.byPR === cachedState.byPR &&
       entry.merged.overall === cachedState.overall &&
-      entry.pr.status === cachedState.prStatus
+      entry.pr.status === cachedState.prStatus &&
+      (entry.pr.url ?? null) === cachedState.prUrl
     ) {
       return entry;
     }
@@ -225,6 +242,7 @@ const applyCachedWorktreeState = (
       pr: {
         ...entry.pr,
         status: cachedState.prStatus,
+        url: cachedState.prUrl,
       },
     };
   });
@@ -270,7 +288,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
         reason?: unknown;
       };
       const merged = (worktree.merged ?? {}) as { overall?: unknown; byPR?: unknown };
-      const pr = (worktree.pr ?? {}) as { status?: unknown };
+      const pr = (worktree.pr ?? {}) as { status?: unknown; url?: unknown };
       const mergedByPr = toNullableBoolean(merged.byPR);
       return {
         path: normalizedPath,
@@ -287,6 +305,7 @@ const parseSnapshot = (raw: unknown): VwWorktreeSnapshot | null => {
         },
         pr: {
           status: toNullablePrStatus(pr.status) ?? deriveLegacyPrStatus(mergedByPr),
+          url: toNullableString(pr.url),
         },
       };
     })
