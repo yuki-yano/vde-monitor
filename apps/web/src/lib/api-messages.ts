@@ -13,6 +13,8 @@ export const API_ERROR_MESSAGES = {
   sendKeys: "Failed to send keys",
   sendText: "Failed to send text",
   sendRaw: "Failed to send raw input",
+  killPane: "Failed to kill pane",
+  killWindow: "Failed to kill window",
   launchAgent: "Failed to launch agent window",
   focusPane: "Failed to focus terminal pane",
   uploadImage: "Failed to upload image attachment",

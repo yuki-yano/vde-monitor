@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseArgs, resolveHosts, resolveLaunchAgentArgs, resolveMultiplexerOverrides } from "./cli";
+import {
+  parseArgs,
+  resolveHosts,
+  resolveLaunchAgentArgs,
+  resolveMultiplexerOverrides,
+} from "./cli";
 
 const baseOptions = {
   configBind: "127.0.0.1" as const,

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ControlsPanel } from "./ControlsPanel";
@@ -29,6 +29,8 @@ describe("ControlsPanel", () => {
     onToggleShift: vi.fn(),
     onToggleCtrl: vi.fn(),
     onSendKey: vi.fn(),
+    onKillPane: vi.fn(),
+    onKillWindow: vi.fn(),
     onRawBeforeInput: vi.fn(),
     onRawInput: vi.fn(),
     onRawKeyDown: vi.fn(),
@@ -95,15 +97,19 @@ describe("ControlsPanel", () => {
     expect(screen.queryByText("Sending...")).toBeNull();
   });
 
-  it("sends keys", () => {
+  it("sends keys", async () => {
     const onSendKey = vi.fn();
     const onToggleShift = vi.fn();
     const onToggleCtrl = vi.fn();
+    const onKillPane = vi.fn();
+    const onKillWindow = vi.fn();
     const state = buildState();
     const actions = buildActions({
       onSendKey,
       onToggleShift,
       onToggleCtrl,
+      onKillPane,
+      onKillWindow,
     });
     render(<ControlsPanel state={state} actions={actions} />);
 
@@ -115,6 +121,22 @@ describe("ControlsPanel", () => {
 
     fireEvent.click(screen.getByText("Enter"));
     expect(onSendKey).toHaveBeenCalledWith("Enter");
+
+    fireEvent.click(screen.getByText("Kill Pane"));
+    expect(screen.getByText("Kill pane?")).toBeTruthy();
+    expect(onKillPane).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole("button", { name: /Kill Pane/u }).slice(-1)[0]!);
+    await waitFor(() => {
+      expect(onKillPane).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByText("Kill Window"));
+    expect(screen.getByText("Kill window?")).toBeTruthy();
+    expect(onKillWindow).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole("button", { name: /Kill Window/u }).slice(-1)[0]!);
+    await waitFor(() => {
+      expect(onKillWindow).toHaveBeenCalled();
+    });
   });
 
   it("opens file picker and uploads selected image", () => {

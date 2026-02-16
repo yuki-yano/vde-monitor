@@ -70,11 +70,7 @@ export const useSessionSidebarActions = ({
   );
 
   const handleLaunchAgentInSession = useCallback(
-    async (
-      sessionName: string,
-      agent: "codex" | "claude",
-      options?: LaunchAgentRequestOptions,
-    ) => {
+    async (sessionName: string, agent: "codex" | "claude", options?: LaunchAgentRequestOptions) => {
       if (!onLaunchAgentInSession) {
         return;
       }

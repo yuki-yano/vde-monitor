@@ -26,10 +26,7 @@ import type {
 import { atom } from "jotai";
 
 import type { Theme } from "@/lib/theme";
-import {
-  defaultLaunchConfig,
-  type LaunchAgentRequestOptions,
-} from "@/state/launch-agent-options";
+import { defaultLaunchConfig, type LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 export type SessionApi = {
   reconnect: () => void;
@@ -88,6 +85,8 @@ export type SessionApi = {
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
   focusPane: (paneId: string) => Promise<CommandResponse>;
+  killPane: (paneId: string) => Promise<CommandResponse>;
+  killWindow: (paneId: string) => Promise<CommandResponse>;
   launchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",

@@ -39,7 +39,9 @@ export type SendKeysJson = NonNullable<
 export type SendRawJson = NonNullable<
   InferRequestType<SessionClient["send"]["raw"]["$post"]>["json"]
 >;
-export type LaunchAgentJson = NonNullable<InferRequestType<SessionsClient["launch"]["$post"]>["json"]>;
+export type LaunchAgentJson = NonNullable<
+  InferRequestType<SessionsClient["launch"]["$post"]>["json"]
+>;
 export type SessionTitleJson = NonNullable<
   InferRequestType<SessionClient["title"]["$put"]>["json"]
 >;

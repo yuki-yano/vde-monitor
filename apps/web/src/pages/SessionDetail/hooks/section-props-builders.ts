@@ -291,6 +291,8 @@ type BuildControlsPanelPropsArgs = {
   toggleShift: () => void;
   toggleCtrl: () => void;
   handleSendKey: (key: string) => Promise<void>;
+  handleKillPane: () => Promise<void>;
+  handleKillWindow: () => Promise<void>;
   handleRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   handleRawInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   handleRawKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -784,6 +786,8 @@ export const buildControlsPanelProps = ({
   toggleShift,
   toggleCtrl,
   handleSendKey,
+  handleKillPane,
+  handleKillWindow,
   handleRawBeforeInput,
   handleRawInput,
   handleRawKeyDown,
@@ -809,6 +813,8 @@ export const buildControlsPanelProps = ({
     onToggleShift: toggleShift,
     onToggleCtrl: toggleCtrl,
     onSendKey: handleSendKey,
+    onKillPane: handleKillPane,
+    onKillWindow: handleKillWindow,
     onRawBeforeInput: handleRawBeforeInput,
     onRawInput: handleRawInput,
     onRawKeyDown: handleRawKeyDown,

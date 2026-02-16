@@ -350,4 +350,34 @@ describe("createWeztermActions", () => {
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe("INVALID_PANE");
   });
+
+  it("kills pane via wezterm cli", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const actions = createWeztermActions(adapter, {
+      ...defaultConfig,
+      token: "token",
+    });
+
+    const result = await actions.killPane("9");
+
+    expect(result.ok).toBe(true);
+    expect(adapter.run).toHaveBeenCalledWith(["kill-pane", "--pane-id", "9"]);
+  });
+
+  it("returns TMUX_UNAVAILABLE for kill window on wezterm backend", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const actions = createWeztermActions(adapter, {
+      ...defaultConfig,
+      token: "token",
+    });
+
+    const result = await actions.killWindow();
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("TMUX_UNAVAILABLE");
+  });
 });

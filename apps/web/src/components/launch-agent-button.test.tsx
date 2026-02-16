@@ -38,7 +38,11 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
 
 describe("LaunchAgentButton", () => {
   it("shows one-line default options and launches without override options by default", async () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/repo", currentPath: "/repo", entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/repo",
+      currentPath: "/repo",
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
     const launchConfig = {
       ...defaultLaunchConfig,
@@ -75,7 +79,11 @@ describe("LaunchAgentButton", () => {
   });
 
   it("submits overridden agent options when override is enabled", async () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/repo", currentPath: "/repo", entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/repo",
+      currentPath: "/repo",
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
     const launchConfig = {
       ...defaultLaunchConfig,
@@ -115,7 +123,11 @@ describe("LaunchAgentButton", () => {
   });
 
   it("submits worktree create request in new mode", async () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/repo", currentPath: "/repo", entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/repo",
+      currentPath: "/repo",
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
 
     render(
@@ -136,6 +148,7 @@ describe("LaunchAgentButton", () => {
     await waitFor(() => {
       expect(requestWorktrees).toHaveBeenCalledWith("pane-1");
     });
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     fireEvent.change(screen.getByPlaceholderText("feature/new-worktree"), {
       target: { value: "feature/new-pane" },
     });
@@ -246,7 +259,11 @@ describe("LaunchAgentButton", () => {
   });
 
   it("keeps launch location selection while modal is open even if source session updates", async () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/repo", currentPath: "/repo", entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/repo",
+      currentPath: "/repo",
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
     const { rerender } = render(
       <LaunchAgentButton
@@ -285,7 +302,11 @@ describe("LaunchAgentButton", () => {
   });
 
   it("keeps edited agent options while modal is open even if launch config updates", () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/repo", currentPath: "/repo", entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/repo",
+      currentPath: "/repo",
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
     const initialLaunchConfig = {
       ...defaultLaunchConfig,
@@ -334,7 +355,11 @@ describe("LaunchAgentButton", () => {
   });
 
   it("renders repo root with tilde when under home path", () => {
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: "/Users/test/repo", currentPath: null, entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: "/Users/test/repo",
+      currentPath: null,
+      entries: [],
+    }));
     const onLaunchAgentInSession = vi.fn(async () => undefined);
 
     render(

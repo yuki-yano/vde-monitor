@@ -98,6 +98,8 @@ type SessionContextValue = {
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
   focusPane: (paneId: string) => Promise<CommandResponse>;
+  killPane: (paneId: string) => Promise<CommandResponse>;
+  killWindow: (paneId: string) => Promise<CommandResponse>;
   launchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
@@ -174,6 +176,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     requestRepoFileContent,
     requestScreen,
     focusPane,
+    killPane,
+    killWindow,
     launchAgentInSession,
     uploadImageAttachment,
     sendText,
@@ -245,6 +249,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         requestRepoFileContent,
         requestScreen,
         focusPane,
+        killPane,
+        killWindow,
         launchAgentInSession,
         uploadImageAttachment,
         sendText,

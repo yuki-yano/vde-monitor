@@ -9,11 +9,7 @@ import {
   type SessionWindowGroup,
 } from "@/pages/SessionList/session-window-group";
 
-import {
-  formatBranchLabel,
-  formatRelativeTime,
-  getLastInputTone,
-} from "../sessionDetailUtils";
+import { formatBranchLabel, formatRelativeTime, getLastInputTone } from "../sessionDetailUtils";
 
 type QuickPanelState = {
   open: boolean;

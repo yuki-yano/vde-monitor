@@ -65,9 +65,9 @@ export type MultiplexerInputActions = {
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<MultiplexerActionResult>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<MultiplexerActionResult>;
   focusPane: (paneId: string) => Promise<MultiplexerActionResult>;
-  launchAgentInSession: (
-    input: LaunchAgentInSessionInput,
-  ) => Promise<MultiplexerLaunchResult>;
+  killPane: (paneId: string) => Promise<MultiplexerActionResult>;
+  killWindow: (paneId: string) => Promise<MultiplexerActionResult>;
+  launchAgentInSession: (input: LaunchAgentInSessionInput) => Promise<MultiplexerLaunchResult>;
 };
 
 export type MultiplexerRuntime = {

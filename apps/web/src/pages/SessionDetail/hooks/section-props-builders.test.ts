@@ -393,6 +393,8 @@ describe("section props builders", () => {
     const toggleShift = vi.fn();
     const toggleCtrl = vi.fn();
     const handleSendKey = vi.fn(async () => undefined);
+    const handleKillPane = vi.fn(async () => undefined);
+    const handleKillWindow = vi.fn(async () => undefined);
     const handleRawBeforeInput = vi.fn();
     const handleRawInput = vi.fn();
     const handleRawKeyDown = vi.fn();
@@ -400,7 +402,11 @@ describe("section props builders", () => {
     const handleRawCompositionEnd = vi.fn();
     const requestStateTimeline = vi.fn();
     const requestScreen = vi.fn();
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: null,
+      currentPath: null,
+      entries: [],
+    }));
     const launchConfig = {
       agents: {
         codex: { options: [] },
@@ -511,6 +517,8 @@ describe("section props builders", () => {
       toggleShift,
       toggleCtrl,
       handleSendKey,
+      handleKillPane,
+      handleKillWindow,
       handleRawBeforeInput,
       handleRawInput,
       handleRawKeyDown,

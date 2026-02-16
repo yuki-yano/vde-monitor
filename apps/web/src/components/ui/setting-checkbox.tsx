@@ -16,21 +16,13 @@ type SettingCheckboxProps = {
 
 const SettingCheckbox = forwardRef<HTMLInputElement, SettingCheckboxProps>(
   (
-    {
-      checked,
-      onCheckedChange,
-      label,
-      description,
-      inputAriaLabel,
-      disabled = false,
-      className,
-    },
+    { checked, onCheckedChange, label, description, inputAriaLabel, disabled = false, className },
     ref,
   ) => {
     return (
       <label
         className={cn(
-          "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2 transition hover:border-latte-lavender/35 hover:bg-latte-mantle/65",
+          "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2 transition",
           disabled ? "cursor-not-allowed opacity-60" : null,
           className,
         )}
@@ -44,10 +36,12 @@ const SettingCheckbox = forwardRef<HTMLInputElement, SettingCheckboxProps>(
           onChange={(event) => onCheckedChange(event.currentTarget.checked)}
         />
         <span className="min-w-0">
-          <span className="text-latte-text block text-xs font-semibold tracking-[0.06em] uppercase">
+          <span className="text-latte-text block text-xs font-semibold uppercase tracking-[0.06em]">
             {label}
           </span>
-          {description ? <span className="text-latte-subtext1 mt-0.5 block text-[11px]">{description}</span> : null}
+          {description ? (
+            <span className="text-latte-subtext1 mt-0.5 block text-[11px]">{description}</span>
+          ) : null}
         </span>
       </label>
     );

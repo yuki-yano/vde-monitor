@@ -5,7 +5,11 @@ import { LaunchAgentButton } from "@/components/launch-agent-button";
 import { GlassPanel, GlowCard, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
-import { formatRelativeTime, getLastInputTone, isVwManagedWorktreePath } from "@/lib/session-format";
+import {
+  formatRelativeTime,
+  getLastInputTone,
+  isVwManagedWorktreePath,
+} from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 

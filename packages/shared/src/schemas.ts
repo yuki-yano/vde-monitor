@@ -85,7 +85,10 @@ export const launchAgentRequestSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.windowName && (containsNulOrLineBreak(value.windowName) || value.windowName.includes("\t"))) {
+    if (
+      value.windowName &&
+      (containsNulOrLineBreak(value.windowName) || value.windowName.includes("\t"))
+    ) {
       ctx.addIssue({
         code: "custom",
         path: ["windowName"],

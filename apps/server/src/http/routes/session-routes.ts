@@ -400,6 +400,34 @@ export const createSessionRoutes = ({
         return c.json({ command });
       });
     })
+    .post("/sessions/:paneId/kill/pane", async (c) => {
+      return withPane(c, async (pane) => {
+        if (!sendLimiter(getLimiterKey(c))) {
+          return c.json({
+            command: {
+              ok: false,
+              error: buildError("RATE_LIMIT", "rate limited"),
+            },
+          });
+        }
+        const command = await actions.killPane(pane.paneId);
+        return c.json({ command });
+      });
+    })
+    .post("/sessions/:paneId/kill/window", async (c) => {
+      return withPane(c, async (pane) => {
+        if (!sendLimiter(getLimiterKey(c))) {
+          return c.json({
+            command: {
+              ok: false,
+              error: buildError("RATE_LIMIT", "rate limited"),
+            },
+          });
+        }
+        const command = await actions.killWindow(pane.paneId);
+        return c.json({ command });
+      });
+    })
     .post("/sessions/:paneId/focus", async (c) => {
       return withPane(c, async (pane) => {
         if (!sendLimiter(getLimiterKey(c))) {

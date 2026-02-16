@@ -25,6 +25,8 @@ type UseSessionDetailScreenControlsArgs = {
   ) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
+  killPane: (paneId: string) => Promise<CommandResponse>;
+  killWindow: (paneId: string) => Promise<CommandResponse>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
@@ -36,6 +38,8 @@ export const useSessionDetailScreenControls = ({
   sendText,
   sendKeys,
   sendRaw,
+  killPane,
+  killWindow,
   uploadImageAttachment,
 }: UseSessionDetailScreenControlsArgs) => {
   const screen = useSessionScreen({
@@ -51,6 +55,8 @@ export const useSessionDetailScreenControls = ({
     sendText,
     sendKeys,
     sendRaw,
+    killPane,
+    killWindow,
     uploadImageAttachment,
     setScreenError: screen.setScreenError,
     scrollToBottom: screen.scrollToBottom,

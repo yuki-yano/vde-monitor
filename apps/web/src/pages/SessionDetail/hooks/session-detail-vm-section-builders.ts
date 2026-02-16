@@ -124,6 +124,8 @@ type BuildControlsSectionArgs = {
   allowDangerKeys: boolean;
   isSendingText: boolean;
   handleSendKey: (key: string) => Promise<void>;
+  handleKillPane: () => Promise<void>;
+  handleKillWindow: () => Promise<void>;
   handleSendText: () => Promise<void>;
   handleUploadImage: (file: File) => Promise<void>;
   handleRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
@@ -424,6 +426,8 @@ export const buildControlsSection = ({
   allowDangerKeys,
   isSendingText,
   handleSendKey,
+  handleKillPane,
+  handleKillWindow,
   handleSendText,
   handleUploadImage,
   handleRawBeforeInput,
@@ -447,6 +451,8 @@ export const buildControlsSection = ({
   allowDangerKeys,
   isSendingText,
   handleSendKey,
+  handleKillPane,
+  handleKillWindow,
   handleSendText,
   handleUploadImage,
   handleRawBeforeInput,

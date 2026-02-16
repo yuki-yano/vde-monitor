@@ -502,4 +502,29 @@ describe("useSessionApi", () => {
     });
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
+
+  it("sends kill pane command successfully", async () => {
+    const onConnectionIssue = vi.fn();
+    server.use(
+      http.post(pathToUrl("/sessions/:paneId/kill/pane"), () => {
+        return HttpResponse.json({ command: { ok: true } });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionApi({
+        token: "token",
+        apiBaseUrl: API_BASE_URL,
+        onSessions: vi.fn(),
+        onConnectionIssue,
+        onSessionUpdated: vi.fn(),
+        onSessionRemoved: vi.fn(),
+        onHighlightCorrections: vi.fn(),
+        onFileNavigatorConfig: vi.fn(),
+      }),
+    );
+
+    await expect(result.current.killPane("pane-1")).resolves.toEqual({ ok: true });
+    expect(onConnectionIssue).toHaveBeenCalledWith(null);
+  });
 });

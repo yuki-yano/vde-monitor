@@ -33,6 +33,8 @@ type UseSessionControlsParams = {
   ) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
+  killPane?: (paneId: string) => Promise<CommandResponse>;
+  killWindow?: (paneId: string) => Promise<CommandResponse>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
   setScreenError: (error: string | null) => void;
   scrollToBottom: (behavior?: "auto" | "smooth") => void;
@@ -115,6 +117,8 @@ export const useSessionControls = ({
   sendText,
   sendKeys,
   sendRaw,
+  killPane,
+  killWindow,
   uploadImageAttachment,
   setScreenError,
   scrollToBottom,
@@ -167,6 +171,24 @@ export const useSessionControls = ({
     },
     [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setScreenError, shiftHeld],
   );
+
+  const handleKillPane = useCallback(async () => {
+    if (!killPane) {
+      setScreenError(API_ERROR_MESSAGES.killPane);
+      return;
+    }
+    const result = await killPane(paneId);
+    handleCommandFailure(result, API_ERROR_MESSAGES.killPane, setScreenError);
+  }, [killPane, paneId, setScreenError]);
+
+  const handleKillWindow = useCallback(async () => {
+    if (!killWindow) {
+      setScreenError(API_ERROR_MESSAGES.killWindow);
+      return;
+    }
+    const result = await killWindow(paneId);
+    handleCommandFailure(result, API_ERROR_MESSAGES.killWindow, setScreenError);
+  }, [killWindow, paneId, setScreenError]);
 
   const handleSendText = useCallback(async () => {
     if (sendTextInFlightRef.current) {
@@ -283,6 +305,8 @@ export const useSessionControls = ({
     allowDangerKeys,
     isSendingText,
     handleSendKey,
+    handleKillPane,
+    handleKillWindow,
     handleSendText,
     handleUploadImage,
     handleRawBeforeInput,

@@ -72,7 +72,7 @@ const SettingRadioGroup = <T extends string>({
             <span className="min-w-0">
               <span
                 className={cn(
-                  "text-latte-text block text-xs font-semibold tracking-[0.06em] uppercase",
+                  "text-latte-text block text-xs font-semibold uppercase tracking-[0.06em]",
                   option.labelClassName,
                 )}
               >

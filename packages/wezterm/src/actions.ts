@@ -73,6 +73,10 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     ok: false,
     error: buildError("DANGEROUS_COMMAND", "dangerous key blocked"),
   });
+  const unsupportedWindowKill = (): ActionResult => ({
+    ok: false,
+    error: buildError("TMUX_UNAVAILABLE", "kill-window requires tmux backend"),
+  });
 
   const sendKey = async (paneId: string, key: AllowedKey): Promise<ActionResult> => {
     const proxyEvent = toProxyKeyEvent(key);
@@ -231,10 +235,34 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     return okResult();
   };
 
+  const killPane = async (paneId: string): Promise<ActionResult> => {
+    if (!paneId) {
+      return invalidPayload("pane id is required");
+    }
+    const result = await adapter.run(["kill-pane", "--pane-id", paneId]);
+    if (result.exitCode !== 0) {
+      const message = result.stderr || "wezterm kill-pane failed";
+      if (isPaneNotFoundError(message)) {
+        return okResult();
+      }
+      return {
+        ok: false,
+        error: resolveCliError(result.stderr, "wezterm kill-pane failed"),
+      };
+    }
+    return okResult();
+  };
+
+  const killWindow = async (): Promise<ActionResult> => {
+    return unsupportedWindowKill();
+  };
+
   return {
     sendText,
     sendKeys,
     sendRaw,
     focusPane,
+    killPane,
+    killWindow,
   };
 };

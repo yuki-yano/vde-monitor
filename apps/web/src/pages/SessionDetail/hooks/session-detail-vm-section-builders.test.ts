@@ -62,6 +62,8 @@ describe("session detail vm section builders", () => {
     const toggleCtrl = vi.fn();
     const toggleRawMode = vi.fn();
     const toggleAllowDangerKeys = vi.fn();
+    const handleKillPane = vi.fn(async () => undefined);
+    const handleKillWindow = vi.fn(async () => undefined);
     const handleTouchCurrentSession = vi.fn();
     const onSearchQueryChange = vi.fn();
     const onSearchMove = vi.fn();
@@ -97,7 +99,11 @@ describe("session detail vm section builders", () => {
       paneId: string,
       options: { lines?: number; mode?: "text" | "image"; cursor?: string },
     ) => Promise<ScreenResponse>;
-    const requestWorktrees = vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] }));
+    const requestWorktrees = vi.fn(async () => ({
+      repoRoot: null,
+      currentPath: null,
+      entries: [],
+    }));
     const launchConfig = {
       agents: {
         codex: { options: ["--model", "gpt-5"] },
@@ -193,6 +199,8 @@ describe("session detail vm section builders", () => {
       allowDangerKeys: false,
       isSendingText: false,
       handleSendKey,
+      handleKillPane,
+      handleKillWindow,
       handleSendText,
       handleUploadImage,
       handleRawBeforeInput,

@@ -133,11 +133,7 @@ export const useSessionDetailTimelineLogsActions = ({
   );
 
   const handleLaunchAgentInSession = useCallback(
-    async (
-      sessionName: string,
-      agent: "codex" | "claude",
-      options?: LaunchAgentRequestOptions,
-    ) => {
+    async (sessionName: string, agent: "codex" | "claude", options?: LaunchAgentRequestOptions) => {
       const result = await launchAgentInSession(sessionName, agent, createRequestId(), options);
       if (!result.ok) {
         setScreenError(result.error?.message ?? API_ERROR_MESSAGES.launchAgent);

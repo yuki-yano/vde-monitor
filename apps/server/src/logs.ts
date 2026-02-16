@@ -34,7 +34,7 @@ export const rotateLogIfNeeded = async (
 };
 
 export const createLogActivityPoller = (pollIntervalMs: number) => {
-  const entries = new Map<string, { paneId: string; size: number }>();
+  const entries = new Map<string, { paneId: string; size: number; initialized: boolean }>();
   const listeners = new Set<(paneId: string, at: string) => void>();
   let timer: NodeJS.Timeout | null = null;
   let pollRunning = false;
@@ -50,7 +50,7 @@ export const createLogActivityPoller = (pollIntervalMs: number) => {
       existing.paneId = paneId;
       return;
     }
-    entries.set(filePath, { paneId, size: 0 });
+    entries.set(filePath, { paneId, size: 0, initialized: false });
   };
 
   const unregister = (paneId: string) => {
@@ -80,6 +80,11 @@ export const createLogActivityPoller = (pollIntervalMs: number) => {
           Array.from(entries.entries()).map(async ([filePath, entry]) => {
             const stat = await fs.stat(filePath).catch(() => null);
             if (!stat) {
+              return;
+            }
+            if (!entry.initialized) {
+              entry.size = stat.size;
+              entry.initialized = true;
               return;
             }
             if (stat.size < entry.size) {

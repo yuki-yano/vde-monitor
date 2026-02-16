@@ -281,6 +281,96 @@ describe("createTmuxActions.sendRaw", () => {
   });
 });
 
+describe("createTmuxActions.killPane / killWindow", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("gracefully terminates pane session before kill-pane", async () => {
+    vi.useFakeTimers();
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const tmuxActions = createTmuxActions(adapter, {
+      ...defaultConfig,
+      token: "test-token",
+      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
+    });
+
+    const promise = tmuxActions.killPane("%1");
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.ok).toBe(true);
+    expect(adapter.run).toHaveBeenNthCalledWith(1, [
+      "if-shell",
+      "-t",
+      "%1",
+      '[ "#{pane_in_mode}" = "1" ]',
+      "copy-mode -q -t %1",
+    ]);
+    expect(adapter.run).toHaveBeenNthCalledWith(2, ["send-keys", "-t", "%1", "C-c"]);
+    expect(adapter.run).toHaveBeenNthCalledWith(3, ["send-keys", "-l", "-t", "%1", "--", "exit"]);
+    expect(adapter.run).toHaveBeenNthCalledWith(4, ["send-keys", "-t", "%1", "C-m"]);
+    expect(adapter.run).toHaveBeenNthCalledWith(5, ["kill-pane", "-t", "%1"]);
+  });
+
+  it("kills pane window after graceful termination", async () => {
+    vi.useFakeTimers();
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "list-panes") {
+          return { stdout: "@42\n", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, {
+      ...defaultConfig,
+      token: "test-token",
+      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
+    });
+
+    const promise = tmuxActions.killWindow("%1");
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.ok).toBe(true);
+    expect(adapter.run).toHaveBeenNthCalledWith(1, [
+      "list-panes",
+      "-t",
+      "%1",
+      "-F",
+      "#{window_id}",
+    ]);
+    expect(adapter.run).toHaveBeenNthCalledWith(6, ["kill-window", "-t", "@42"]);
+  });
+
+  it("treats already-closed pane as successful kill-pane", async () => {
+    vi.useFakeTimers();
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "kill-pane") {
+          return { stdout: "", stderr: "can't find pane: %1", exitCode: 1 };
+        }
+        return { stdout: "", stderr: "can't find pane: %1", exitCode: 1 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, {
+      ...defaultConfig,
+      token: "test-token",
+      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
+    });
+
+    const promise = tmuxActions.killPane("%1");
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.ok).toBe(true);
+    expect(adapter.run).toHaveBeenCalledWith(["kill-pane", "-t", "%1"]);
+  });
+});
+
 describe("createTmuxActions.launchAgentInSession", () => {
   beforeEach(() => {
     vi.mocked(resolveVwWorktreeSnapshotCached).mockReset();
@@ -480,9 +570,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
     expect(adapter.run).toHaveBeenCalledWith(
       expect.arrayContaining(["new-window", "-d", "-P", "-F"]),
     );
-    expect(adapter.run).toHaveBeenCalledWith(
-      expect.arrayContaining(["-c", "/tmp"]),
-    );
+    expect(adapter.run).toHaveBeenCalledWith(expect.arrayContaining(["-c", "/tmp"]));
   });
 
   it("returns INVALID_PAYLOAD when vw snapshot is unavailable", async () => {
@@ -585,9 +673,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
     expect(adapter.run).toHaveBeenCalledWith(
       expect.arrayContaining(["new-window", "-d", "-P", "-F"]),
     );
-    expect(adapter.run).toHaveBeenCalledWith(
-      expect.arrayContaining(["-c", "/tmp"]),
-    );
+    expect(adapter.run).toHaveBeenCalledWith(expect.arrayContaining(["-c", "/tmp"]));
   });
 
   it("returns INVALID_PAYLOAD when worktreePath and worktreeCreateIfMissing are combined", async () => {

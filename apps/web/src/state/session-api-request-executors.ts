@@ -190,10 +190,13 @@ export const requestLaunchCommand = async ({
 }: RequestLaunchCommandParams): Promise<LaunchCommandResponse> => {
   ensureToken();
   try {
-    const { res, data } = await requestJson<ApiEnvelope<{ command?: LaunchCommandResponse }>>(request, {
-      timeoutMs: requestTimeoutMs,
-      timeoutMessage: API_ERROR_MESSAGES.requestTimeout,
-    });
+    const { res, data } = await requestJson<ApiEnvelope<{ command?: LaunchCommandResponse }>>(
+      request,
+      {
+        timeoutMs: requestTimeoutMs,
+        timeoutMessage: API_ERROR_MESSAGES.requestTimeout,
+      },
+    );
     if (!res.ok) {
       const message = extractErrorMessage(res, data, fallbackMessage, { includeStatus: true });
       onConnectionIssue(message);

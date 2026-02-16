@@ -18,9 +18,20 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
-import { Button, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  ModifierToggle,
+  PillToggle,
+  ZoomSafeTextarea,
+} from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { IOS_ZOOM_SAFE_FIELD_SCALE } from "@/lib/ios-zoom-safe-textarea";
 
@@ -44,6 +55,8 @@ type ControlsPanelActions = {
   onToggleShift: () => void;
   onToggleCtrl: () => void;
   onSendKey: (key: string) => void;
+  onKillPane: () => void | Promise<void>;
+  onKillWindow: () => void | Promise<void>;
   onRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   onRawInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   onRawKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -79,6 +92,10 @@ const COMPOSER_PILL_CLASS = "h-7 px-1.5 text-[10px] tracking-[0.18em] sm:h-8";
 const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
 const KEY_BUTTON_CLASS =
   "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
+const KEY_ACTION_BUTTON_CLASS =
+  "border-latte-red/40 bg-latte-red/10 text-latte-red/85 h-7 px-2 text-[10px] tracking-[0.12em] shadow-none hover:border-latte-red/65 hover:bg-latte-red/20 hover:text-latte-red sm:h-8 sm:px-2.5";
+const KILL_DIALOG_CONFIRM_BUTTON_CLASS =
+  "border-latte-red/55 bg-latte-red/15 text-latte-red shadow-none hover:border-latte-red/75 hover:bg-latte-red/25";
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 const resolveRawModeInputClass = (rawMode: boolean, allowDangerKeys: boolean) => {
@@ -318,6 +335,7 @@ const ComposerActionsRow = ({
 };
 
 type KeysSectionState = {
+  interactive: boolean;
   shiftHeld: boolean;
   ctrlHeld: boolean;
   shiftDotClass: string;
@@ -328,6 +346,8 @@ type KeysSectionActions = {
   onToggleShift: () => void;
   onToggleCtrl: () => void;
   onSendKey: (key: string) => void;
+  onKillPane: () => void;
+  onKillWindow: () => void;
 };
 
 const KeysSection = ({
@@ -337,8 +357,8 @@ const KeysSection = ({
   state: KeysSectionState;
   actions: KeysSectionActions;
 }) => {
-  const { shiftHeld, ctrlHeld, shiftDotClass, ctrlDotClass } = state;
-  const { onToggleShift, onToggleCtrl, onSendKey } = actions;
+  const { interactive, shiftHeld, ctrlHeld, shiftDotClass, ctrlDotClass } = state;
+  const { onToggleShift, onToggleCtrl, onSendKey, onKillPane, onKillWindow } = actions;
 
   return (
     <div className="space-y-2 pt-1">
@@ -418,6 +438,28 @@ const KeysSection = ({
             ))}
           </div>
         </div>
+        <div className="pt-1">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={KEY_ACTION_BUTTON_CLASS}
+              disabled={!interactive}
+              onClick={onKillPane}
+            >
+              Kill Pane
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={KEY_ACTION_BUTTON_CLASS}
+              disabled={!interactive}
+              onClick={onKillWindow}
+            >
+              Kill Window
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -429,6 +471,7 @@ export const ControlsPanel = ({
   showComposerSection = true,
   showKeysSection = true,
 }: ControlsPanelProps) => {
+  type KillTarget = "pane" | "window";
   const {
     interactive,
     isSendingText,
@@ -448,6 +491,8 @@ export const ControlsPanel = ({
     onToggleShift,
     onToggleCtrl,
     onSendKey,
+    onKillPane,
+    onKillWindow,
     onRawBeforeInput,
     onRawInput,
     onRawKeyDown,
@@ -457,6 +502,8 @@ export const ControlsPanel = ({
 
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [killDialogTarget, setKillDialogTarget] = useState<KillTarget | null>(null);
+  const [isSubmittingKill, setIsSubmittingKill] = useState(false);
   const placeholder = rawMode ? "Raw input (sent immediately)..." : "Type a prompt…";
   const rawModeInputClass = resolveRawModeInputClass(rawMode, allowDangerKeys);
   const rawModeToggleClass = resolveRawModeToggleClass(rawMode, allowDangerKeys);
@@ -517,6 +564,37 @@ export const ControlsPanel = ({
     fileInputRef.current?.click();
   };
 
+  const openKillDialog = useCallback(
+    (target: KillTarget) => {
+      if (!interactive) {
+        return;
+      }
+      setKillDialogTarget(target);
+    },
+    [interactive],
+  );
+
+  const closeKillDialog = useCallback(() => {
+    if (isSubmittingKill) {
+      return;
+    }
+    setKillDialogTarget(null);
+  }, [isSubmittingKill]);
+
+  const executeKillFromDialog = useCallback(() => {
+    if (!killDialogTarget || isSubmittingKill) {
+      return;
+    }
+    const action = killDialogTarget === "pane" ? onKillPane : onKillWindow;
+    setIsSubmittingKill(true);
+    void Promise.resolve(action())
+      .catch(() => null)
+      .finally(() => {
+        setIsSubmittingKill(false);
+        setKillDialogTarget(null);
+      });
+  }, [isSubmittingKill, killDialogTarget, onKillPane, onKillWindow]);
+
   const handleImageFileChange = (event: FormEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -538,73 +616,122 @@ export const ControlsPanel = ({
     }
   }, [syncPromptHeight, textInputRef]);
 
+  const killDialogTitle = killDialogTarget === "window" ? "Kill window?" : "Kill pane?";
+  const killDialogDescription =
+    killDialogTarget === "window"
+      ? "This sends Ctrl-C and exit to the active pane, then kills the whole window."
+      : "This sends Ctrl-C and exit to the active pane, then kills that pane.";
+  const killDialogActionLabel = killDialogTarget === "window" ? "Kill Window" : "Kill Pane";
+
   return (
-    <div className="space-y-2">
-      {showComposerSection ? (
-        <div className="min-w-0">
-          <div
-            className={`min-w-0 overflow-hidden rounded-2xl border transition ${rawModeInputClass}`}
-          >
-            <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
-              <ZoomSafeTextarea
-                placeholder={placeholder}
-                ref={textInputRef}
-                rows={2}
+    <>
+      <div className="space-y-2">
+        {showComposerSection ? (
+          <div className="min-w-0">
+            <div
+              className={`min-w-0 overflow-hidden rounded-2xl border transition ${rawModeInputClass}`}
+            >
+              <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
+                <ZoomSafeTextarea
+                  placeholder={placeholder}
+                  ref={textInputRef}
+                  rows={2}
+                  disabled={!interactive}
+                  onBeforeInput={onRawBeforeInput}
+                  onCompositionStart={onRawCompositionStart}
+                  onCompositionEnd={onRawCompositionEnd}
+                  onInput={handleTextareaInput}
+                  onKeyDown={handleTextareaKeyDown}
+                  onPaste={handleTextareaPaste}
+                  className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
+                />
+              </div>
+              <ComposerActionsRow
+                state={{
+                  interactive,
+                  rawMode,
+                  autoEnter,
+                  allowDangerKeys,
+                  isSendingText,
+                  rawModeToggleClass,
+                  dangerToggleClass,
+                }}
+                actions={{
+                  onPickImage: handlePickImage,
+                  onToggleAllowDangerKeys: onToggleAllowDangerKeys,
+                  onToggleRawMode: onToggleRawMode,
+                  onToggleAutoEnter: onToggleAutoEnter,
+                  onSendText: handleSendText,
+                }}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                aria-label="Attach image file"
+                className="hidden"
                 disabled={!interactive}
-                onBeforeInput={onRawBeforeInput}
-                onCompositionStart={onRawCompositionStart}
-                onCompositionEnd={onRawCompositionEnd}
-                onInput={handleTextareaInput}
-                onKeyDown={handleTextareaKeyDown}
-                onPaste={handleTextareaPaste}
-                className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
+                onChange={handleImageFileChange}
               />
             </div>
-            <ComposerActionsRow
-              state={{
-                interactive,
-                rawMode,
-                autoEnter,
-                allowDangerKeys,
-                isSendingText,
-                rawModeToggleClass,
-                dangerToggleClass,
-              }}
-              actions={{
-                onPickImage: handlePickImage,
-                onToggleAllowDangerKeys: onToggleAllowDangerKeys,
-                onToggleRawMode: onToggleRawMode,
-                onToggleAutoEnter: onToggleAutoEnter,
-                onSendText: handleSendText,
-              }}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              aria-label="Attach image file"
-              className="hidden"
-              disabled={!interactive}
-              onChange={handleImageFileChange}
-            />
           </div>
-        </div>
-      ) : null}
-      {showKeysSection ? (
-        <KeysSection
-          state={{
-            shiftHeld,
-            ctrlHeld,
-            shiftDotClass,
-            ctrlDotClass,
-          }}
-          actions={{
-            onToggleShift,
-            onToggleCtrl,
-            onSendKey,
-          }}
-        />
-      ) : null}
-    </div>
+        ) : null}
+        {showKeysSection ? (
+          <KeysSection
+            state={{
+              interactive,
+              shiftHeld,
+              ctrlHeld,
+              shiftDotClass,
+              ctrlDotClass,
+            }}
+            actions={{
+              onToggleShift,
+              onToggleCtrl,
+              onSendKey,
+              onKillPane: () => openKillDialog("pane"),
+              onKillWindow: () => openKillDialog("window"),
+            }}
+          />
+        ) : null}
+      </div>
+
+      <Dialog
+        open={killDialogTarget != null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            closeKillDialog();
+          }
+        }}
+      >
+        <DialogContent className="w-[min(420px,calc(100vw-1rem))] sm:w-[min(420px,calc(100vw-1.5rem))]">
+          <DialogHeader>
+            <DialogTitle>{killDialogTitle}</DialogTitle>
+            <DialogDescription>{killDialogDescription}</DialogDescription>
+          </DialogHeader>
+          <div className="mt-1 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={closeKillDialog}
+              disabled={isSubmittingKill}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={KILL_DIALOG_CONFIRM_BUTTON_CLASS}
+              onClick={executeKillFromDialog}
+              disabled={!killDialogTarget || isSubmittingKill}
+            >
+              {isSubmittingKill ? `${killDialogActionLabel}...` : killDialogActionLabel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

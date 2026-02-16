@@ -30,6 +30,8 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   const PENDING_COMMANDS_MAX_ENTRIES = 500;
   const LAUNCH_VERIFY_INTERVAL_MS = 200;
   const LAUNCH_VERIFY_MAX_ATTEMPTS = 5;
+  const GRACEFUL_TERMINATE_INTERRUPT_DELAY_MS = 120;
+  const GRACEFUL_TERMINATE_EXIT_DELAY_MS = 120;
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const dangerKeys = new Set(config.dangerKeys);
   const allowedKeySet = new Set(allowedKeys);
@@ -38,6 +40,10 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   const enterDelayMs = config.input.enterDelayMs ?? 0;
   const bracketedPaste = (value: string) => `\u001b[200~${value}\u001b[201~`;
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const isTmuxTargetMissing = (message: string) =>
+    /can't find pane|can't find window|no such pane|no such window|invalid pane|invalid window/i.test(
+      message,
+    );
 
   const okResult = (): ActionResult => ({ ok: true });
   const invalidPayload = (message: string): ActionResult => ({
@@ -269,6 +275,87 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     return okResult();
   };
 
+  const resolvePaneId = (paneId: string): string | null => {
+    const normalized = paneId.trim();
+    return normalized.length > 0 ? normalized : null;
+  };
+
+  const gracefullyTerminatePaneSession = async (paneId: string) => {
+    await exitCopyModeIfNeeded(paneId);
+    await adapter.run(["send-keys", "-t", paneId, "C-c"]);
+    await sleep(GRACEFUL_TERMINATE_INTERRUPT_DELAY_MS);
+    await adapter.run(["send-keys", "-l", "-t", paneId, "--", "exit"]);
+    await sendEnterKey(paneId);
+    await sleep(GRACEFUL_TERMINATE_EXIT_DELAY_MS);
+  };
+
+  const resolveWindowIdFromPane = async (
+    paneId: string,
+  ): Promise<{ ok: true; windowId: string } | { ok: false; error: ApiError } | null> => {
+    const listed = await adapter.run(["list-panes", "-t", paneId, "-F", "#{window_id}"]);
+    if (listed.exitCode !== 0) {
+      const message = listed.stderr || "failed to resolve pane window";
+      if (isTmuxTargetMissing(message)) {
+        return null;
+      }
+      return {
+        ok: false,
+        error: buildError("INTERNAL", message),
+      };
+    }
+    const windowId =
+      listed.stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? null;
+    if (!windowId) {
+      return {
+        ok: false,
+        error: buildError("INTERNAL", "failed to resolve pane window"),
+      };
+    }
+    return { ok: true, windowId };
+  };
+
+  const killPane = async (paneId: string): Promise<ActionResult> => {
+    const targetPaneId = resolvePaneId(paneId);
+    if (!targetPaneId) {
+      return invalidPayload("pane id is required");
+    }
+
+    await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
+    const killed = await adapter.run(["kill-pane", "-t", targetPaneId]);
+    if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
+      pendingCommands.delete(targetPaneId);
+      return okResult();
+    }
+    return internalError(killed.stderr || "kill-pane failed");
+  };
+
+  const killWindow = async (paneId: string): Promise<ActionResult> => {
+    const targetPaneId = resolvePaneId(paneId);
+    if (!targetPaneId) {
+      return invalidPayload("pane id is required");
+    }
+
+    const resolvedWindow = await resolveWindowIdFromPane(targetPaneId);
+    if (resolvedWindow == null) {
+      pendingCommands.delete(targetPaneId);
+      return okResult();
+    }
+    if (!resolvedWindow.ok) {
+      return { ok: false, error: resolvedWindow.error };
+    }
+
+    await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
+    const killed = await adapter.run(["kill-window", "-t", resolvedWindow.windowId]);
+    if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
+      pendingCommands.delete(targetPaneId);
+      return okResult();
+    }
+    return internalError(killed.stderr || "kill-window failed");
+  };
+
   const focusPane = async (paneId: string): Promise<ActionResult> => {
     if (!paneId) {
       return invalidPayload("pane id is required");
@@ -342,7 +429,13 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   const resolveSessionSnapshotCwd = async (
     sessionName: string,
   ): Promise<{ ok: true; cwd: string } | { ok: false; error: ApiError }> => {
-    const listed = await adapter.run(["list-panes", "-t", sessionName, "-F", "#{pane_current_path}"]);
+    const listed = await adapter.run([
+      "list-panes",
+      "-t",
+      sessionName,
+      "-F",
+      "#{pane_current_path}",
+    ]);
     if (listed.exitCode !== 0) {
       return {
         ok: false,
@@ -393,7 +486,8 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
 
     const normalizedPath = worktreePath ? normalizePathValue(worktreePath) : undefined;
     const matchedByPath = normalizedPath
-      ? snapshot.entries.find((entry) => normalizePathValue(entry.path) === normalizedPath) ?? null
+      ? (snapshot.entries.find((entry) => normalizePathValue(entry.path) === normalizedPath) ??
+        null)
       : null;
     if (normalizedPath && !matchedByPath) {
       return {
@@ -403,7 +497,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     }
 
     const matchedByBranch = worktreeBranch
-      ? snapshot.entries.find((entry) => entry.branch === worktreeBranch) ?? null
+      ? (snapshot.entries.find((entry) => entry.branch === worktreeBranch) ?? null)
       : null;
     if (worktreeBranch && !matchedByBranch && !worktreeCreateIfMissing) {
       return {
@@ -481,10 +575,8 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   };
 
   const resolveConfiguredLaunchOptions = (agent: LaunchAgent, optionsOverride?: string[]) => {
-    const sourceOptions = optionsOverride ?? (config.launch.agents[agent].options ?? []);
-    return sourceOptions
-      .map((option) => option.trim())
-      .filter((option) => option.length > 0);
+    const sourceOptions = optionsOverride ?? config.launch.agents[agent].options ?? [];
+    return sourceOptions.map((option) => option.trim()).filter((option) => option.length > 0);
   };
 
   const escapeShellArgument = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
@@ -634,7 +726,13 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     let observedCommand: string | null = null;
 
     for (let attempt = 1; attempt <= LAUNCH_VERIFY_MAX_ATTEMPTS; attempt += 1) {
-      const result = await adapter.run(["list-panes", "-t", paneId, "-F", "#{pane_current_command}"]);
+      const result = await adapter.run([
+        "list-panes",
+        "-t",
+        paneId,
+        "-F",
+        "#{pane_current_command}",
+      ]);
       if (result.exitCode === 0) {
         const currentCommand =
           result.stdout
@@ -703,7 +801,10 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   }): Promise<LaunchResult> => {
     const normalizedSessionName = sessionName.trim();
     if (!normalizedSessionName) {
-      return launchError(buildError("INVALID_PAYLOAD", "sessionName is required"), defaultLaunchRollback());
+      return launchError(
+        buildError("INVALID_PAYLOAD", "sessionName is required"),
+        defaultLaunchRollback(),
+      );
     }
 
     const normalizedWindowName = normalizeOptionalText(windowName);
@@ -732,14 +833,20 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
 
     if (normalizedWorktreeCreateIfMissing && normalizedWorktreePath) {
       return launchError(
-        buildError("INVALID_PAYLOAD", "worktreePath cannot be combined with worktreeCreateIfMissing"),
+        buildError(
+          "INVALID_PAYLOAD",
+          "worktreePath cannot be combined with worktreeCreateIfMissing",
+        ),
         defaultLaunchRollback(),
       );
     }
 
     if (normalizedWorktreeCreateIfMissing && !normalizedWorktreeBranch) {
       return launchError(
-        buildError("INVALID_PAYLOAD", "worktreeBranch is required when worktreeCreateIfMissing is true"),
+        buildError(
+          "INVALID_PAYLOAD",
+          "worktreeBranch is required when worktreeCreateIfMissing is true",
+        ),
         defaultLaunchRollback(),
       );
     }
@@ -807,5 +914,5 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     });
   };
 
-  return { sendText, sendKeys, sendRaw, focusPane, launchAgentInSession };
+  return { sendText, sendKeys, sendRaw, focusPane, killPane, killWindow, launchAgentInSession };
 };

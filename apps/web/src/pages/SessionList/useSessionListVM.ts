@@ -201,11 +201,7 @@ export const useSessionListVM = () => {
   );
 
   const handleLaunchAgentInSession = useCallback(
-    async (
-      sessionName: string,
-      agent: "codex" | "claude",
-      options?: LaunchAgentRequestOptions,
-    ) => {
+    async (sessionName: string, agent: "codex" | "claude", options?: LaunchAgentRequestOptions) => {
       const key = sessionName;
       if (launchPendingRef.current.has(key)) {
         return;
@@ -214,7 +210,12 @@ export const useSessionListVM = () => {
       setLaunchPendingSessions(new Set(launchPendingRef.current));
 
       try {
-        const result = await launchAgentInSession(sessionName, agent, createLaunchRequestId(), options);
+        const result = await launchAgentInSession(
+          sessionName,
+          agent,
+          createLaunchRequestId(),
+          options,
+        );
         if (result.ok) {
           await refreshSessions();
         }

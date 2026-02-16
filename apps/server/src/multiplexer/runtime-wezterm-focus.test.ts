@@ -31,6 +31,8 @@ vi.mock("@vde-monitor/wezterm", () => ({
     sendKeys: vi.fn(async () => ({ ok: true })),
     sendRaw: vi.fn(async () => ({ ok: true })),
     focusPane: focusPaneMock,
+    killPane: vi.fn(async () => ({ ok: true })),
+    killWindow: vi.fn(async () => ({ ok: true })),
   })),
   createWeztermAdapter: vi.fn(() => ({
     run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),

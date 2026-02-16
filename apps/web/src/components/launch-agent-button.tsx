@@ -30,7 +30,8 @@ const parseAgentOptions = (value: string) =>
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-const normalizePathForDisplay = (value: string) => value.replace(/[\\/]+$/g, "").replace(/\\/g, "/");
+const normalizePathForDisplay = (value: string) =>
+  value.replace(/[\\/]+$/g, "").replace(/\\/g, "/");
 
 const toRepoRelativePath = (targetPath: string, repoRoot: string | null) => {
   const normalizedTarget = normalizePathForDisplay(targetPath);
@@ -169,7 +170,9 @@ export const LaunchAgentButton = ({
           return;
         }
         setWorktreeRepoRootForModal(payload.repoRoot?.trim() || repoRootForModal);
-        const managedEntries = payload.entries.filter((entry) => isVwManagedWorktreePath(entry.path));
+        const managedEntries = payload.entries.filter((entry) =>
+          isVwManagedWorktreePath(entry.path),
+        );
         setExistingWorktrees(managedEntries);
         if (managedEntries.length === 0) {
           setWorktreeMode("new");
@@ -199,13 +202,7 @@ export const LaunchAgentButton = ({
     return () => {
       active = false;
     };
-  }, [
-    open,
-    repoRootForModal,
-    requestWorktrees,
-    sourcePaneIdForModal,
-    useWorktree,
-  ]);
+  }, [open, repoRootForModal, requestWorktrees, sourcePaneIdForModal, useWorktree]);
 
   const selectedWorktree = useMemo(
     () => existingWorktrees.find((entry) => entry.path === selectedWorktreePath) ?? null,
@@ -320,7 +317,9 @@ export const LaunchAgentButton = ({
           </DialogHeader>
           <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">Agent</p>
+              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                Agent
+              </p>
               <div className="flex items-center gap-2">
                 {(["codex", "claude"] as const).map((agent) => (
                   <PillToggle
@@ -336,7 +335,9 @@ export const LaunchAgentButton = ({
             </div>
 
             <div className="space-y-2">
-              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">Agent Options</p>
+              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                Agent Options
+              </p>
               <SettingCheckbox
                 label="Override options"
                 description="Enable to edit launch arguments manually."
@@ -345,13 +346,13 @@ export const LaunchAgentButton = ({
                 onCheckedChange={setOverrideAgentOptions}
               />
               {!overrideAgentOptions ? (
-                <p className="text-latte-subtext1 rounded-xl border border-dashed border-latte-surface2/80 bg-latte-base/60 px-3 py-2 font-mono text-xs">
+                <p className="text-latte-subtext1 border-latte-surface2/80 bg-latte-base/60 rounded-xl border border-dashed px-3 py-2 font-mono text-xs">
                   {launchOptionsDefaultOneLine(launchAgent) || "(no default options)"}
                 </p>
               ) : null}
               {overrideAgentOptions ? (
                 <div className="space-y-2">
-                  <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 text-[11px] font-mono">
+                  <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
                     Override format: 1 line = 1 argument (e.g. `--dangerously-skip-permissions`)
                   </p>
                   <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
@@ -379,13 +380,13 @@ export const LaunchAgentButton = ({
                 onCheckedChange={handleUseWorktreeChange}
               />
               {!useWorktree ? (
-                <p className="text-latte-subtext1 rounded-xl border border-dashed border-latte-surface2/80 bg-latte-base/60 px-3 py-2 font-mono text-xs">
+                <p className="text-latte-subtext1 border-latte-surface2/80 bg-latte-base/60 rounded-xl border border-dashed px-3 py-2 font-mono text-xs">
                   {repoRootForModal
                     ? `repo root: ${formatPath(repoRootForModal)}`
                     : "repo root is unavailable for this session"}
                 </p>
               ) : (
-                <div className="space-y-3 rounded-2xl border border-latte-surface2/80 bg-latte-base/55 p-3">
+                <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
                   <div className="flex items-center gap-2">
                     <PillToggle
                       type="button"
@@ -409,7 +410,9 @@ export const LaunchAgentButton = ({
                       {worktreeLoading ? (
                         <p className="text-latte-subtext0 text-xs">Loading worktrees...</p>
                       ) : null}
-                      {worktreeError ? <p className="text-latte-red text-xs">{worktreeError}</p> : null}
+                      {worktreeError ? (
+                        <p className="text-latte-red text-xs">{worktreeError}</p>
+                      ) : null}
                       {!worktreeLoading && existingWorktrees.length === 0 ? (
                         <p className="text-latte-subtext1 text-xs">
                           No existing vw worktree found. Switch to New mode to create one.
@@ -429,7 +432,8 @@ export const LaunchAgentButton = ({
                   ) : (
                     <div className="space-y-2">
                       <p className="text-latte-subtext1 text-xs">
-                        Enter a branch name. `vw switch &lt;branch&gt;` will create the worktree if missing.
+                        Enter a branch name. `vw switch &lt;branch&gt;` will create the worktree if
+                        missing.
                       </p>
                       <div className="border-latte-surface2 bg-latte-base/70 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 shadow-elev-1 overflow-hidden rounded-2xl border transition focus-within:ring-2">
                         <ZoomSafeInput

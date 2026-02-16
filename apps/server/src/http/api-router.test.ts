@@ -147,6 +147,8 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     sendKeys: vi.fn(async () => ({ ok: true })),
     sendRaw: vi.fn(async () => ({ ok: true })),
     focusPane: vi.fn(async () => ({ ok: true as const })),
+    killPane: vi.fn(async () => ({ ok: true as const })),
+    killWindow: vi.fn(async () => ({ ok: true as const })),
     launchAgentInSession: vi.fn(async () => ({
       ok: true as const,
       result: {
@@ -752,6 +754,32 @@ describe("createApiRouter", () => {
     expect(actions.focusPane).toHaveBeenCalledWith("pane-1");
   });
 
+  it("kills pane via kill pane endpoint", async () => {
+    const { api, actions } = createTestContext();
+    const res = await api.request("/sessions/pane-1/kill/pane", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.command.ok).toBe(true);
+    expect(actions.killPane).toHaveBeenCalledWith("pane-1");
+  });
+
+  it("kills window via kill window endpoint", async () => {
+    const { api, actions } = createTestContext();
+    const res = await api.request("/sessions/pane-1/kill/window", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.command.ok).toBe(true);
+    expect(actions.killWindow).toHaveBeenCalledWith("pane-1");
+  });
+
   it("focuses pane for wezterm backend as well", async () => {
     const { api } = createTestContext({
       multiplexer: {
@@ -788,6 +816,45 @@ describe("createApiRouter", () => {
     expect(secondData.command.ok).toBe(false);
     expect(secondData.command.error.code).toBe("RATE_LIMIT");
     expect(actions.focusPane).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns rate limit error on repeated kill pane requests", async () => {
+    const { api, actions } = createTestContext({
+      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
+    });
+    const first = await api.request("/sessions/pane-1/kill/pane", {
+      method: "POST",
+      headers: authHeaders,
+    });
+    const second = await api.request("/sessions/pane-1/kill/pane", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    const firstData = await first.json();
+    const secondData = await second.json();
+    expect(firstData.command.ok).toBe(true);
+    expect(secondData.command.ok).toBe(false);
+    expect(secondData.command.error.code).toBe("RATE_LIMIT");
+    expect(actions.killPane).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns kill window command errors from actions", async () => {
+    const { api, actions } = createTestContext();
+    vi.mocked(actions.killWindow).mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "kill-window failed" },
+    });
+
+    const res = await api.request("/sessions/pane-1/kill/window", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.command.ok).toBe(false);
+    expect(data.command.error.code).toBe("INTERNAL");
   });
 
   it("returns focus command errors from actions", async () => {
@@ -852,6 +919,19 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.error.code).toBe("INVALID_PANE");
     expect(actions.focusPane).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when pane is missing on kill window endpoint", async () => {
+    const { api, actions } = createTestContext();
+    const res = await api.request("/sessions/missing/kill/window", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error.code).toBe("INVALID_PANE");
+    expect(actions.killWindow).not.toHaveBeenCalled();
   });
 
   it("returns 400 when diff summary is unavailable", async () => {

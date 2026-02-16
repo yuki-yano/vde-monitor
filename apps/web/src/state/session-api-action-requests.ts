@@ -115,6 +115,18 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const killPane = async (paneId: string): Promise<CommandResponse> => {
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.killPane, (param, signal) =>
+      apiClient.sessions[":paneId"].kill.pane.$post({ param }, { init: { signal } }),
+    );
+  };
+
+  const killWindow = async (paneId: string): Promise<CommandResponse> => {
+    return runPaneCommand(paneId, API_ERROR_MESSAGES.killWindow, (param, signal) =>
+      apiClient.sessions[":paneId"].kill.window.$post({ param }, { init: { signal } }),
+    );
+  };
+
   const launchAgentInSession = async (
     sessionName: string,
     agent: "codex" | "claude",
@@ -245,6 +257,8 @@ export const createSessionActionRequests = ({
     sendText,
     launchAgentInSession,
     focusPane,
+    killPane,
+    killWindow,
     uploadImageAttachment,
     sendKeys,
     sendRaw,
