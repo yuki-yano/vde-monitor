@@ -11,6 +11,7 @@ import {
 } from "@/features/shared-session-ui/atoms/logAtoms";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
 import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
+import { resolveSessionDisplayTitle } from "@/features/shared-session-ui/model/session-display";
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
 
@@ -155,7 +156,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
           <Toolbar className="gap-3 pr-10 sm:pr-12">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <p className="text-latte-text truncate text-base font-semibold">
-                {session.customTitle ?? session.title ?? session.sessionName}
+                {resolveSessionDisplayTitle(session)}
               </p>
             </div>
             <div className="flex items-center gap-2">

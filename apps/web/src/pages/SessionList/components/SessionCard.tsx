@@ -4,6 +4,12 @@ import { Clock, GitBranch, Pin } from "lucide-react";
 import type { MouseEvent } from "react";
 
 import { Badge, Card, IconButton, LastInputPill, TagPill } from "@/components/ui";
+import {
+  isSessionEditorState,
+  resolveSessionDisplayTitle,
+  resolveSessionStateLabel,
+  resolveSessionStateTone,
+} from "@/features/shared-session-ui/model/session-display";
 import { cn } from "@/lib/cn";
 import {
   agentLabelFor,
@@ -11,11 +17,8 @@ import {
   formatBranchLabel,
   formatPath,
   formatRelativeTime,
-  formatStateLabel,
   getLastInputTone,
-  isEditorCommand,
   isKnownAgent,
-  stateTone,
 } from "@/lib/session-format";
 
 type SessionCardProps = {
@@ -59,12 +62,6 @@ const editorSessionStyle = {
   overlay: "from-latte-maroon/8",
 } as const;
 
-const resolveSessionTitle = (session: SessionSummary) => {
-  if (session.customTitle) return session.customTitle;
-  if (session.title) return session.title;
-  return session.sessionName;
-};
-
 export const SessionCard = ({
   session,
   nowMs,
@@ -72,12 +69,12 @@ export const SessionCard = ({
   onRegisterScrollTarget,
 }: SessionCardProps) => {
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
-  const sessionTitle = resolveSessionTitle(session);
+  const sessionTitle = resolveSessionDisplayTitle(session);
   const showAgentBadge = isKnownAgent(session.agent);
-  const showEditorState = session.state === "UNKNOWN" && isEditorCommand(session.currentCommand);
+  const showEditorState = isSessionEditorState(session);
   const stateStyle = showEditorState ? editorSessionStyle : sessionStateStyles[session.state];
-  const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
-  const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
+  const stateBadgeTone = resolveSessionStateTone(session);
+  const stateBadgeLabel = resolveSessionStateLabel(session);
   const handlePinClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();

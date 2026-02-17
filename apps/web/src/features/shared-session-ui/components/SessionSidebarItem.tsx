@@ -4,6 +4,10 @@ import { Clock, GitBranch, Pin, SquareTerminal } from "lucide-react";
 import { memo, type MouseEvent, useCallback } from "react";
 
 import { Badge, IconButton, LastInputPill, TagPill } from "@/components/ui";
+import {
+  isSessionEditorState,
+  resolveSessionDisplayTitle,
+} from "@/features/shared-session-ui/model/session-display";
 import { cn } from "@/lib/cn";
 import { statusIconMeta } from "@/lib/quick-panel-utils";
 import {
@@ -12,7 +16,6 @@ import {
   formatBranchLabel,
   formatRelativeTime,
   getLastInputTone,
-  isEditorCommand,
   isKnownAgent,
 } from "@/lib/session-format";
 
@@ -59,9 +62,9 @@ export const SessionSidebarItem = memo(
     onTouchSession,
     registerItemRef,
   }: SessionSidebarItemProps) => {
-    const displayTitle = item.customTitle ?? item.title ?? item.sessionName;
+    const displayTitle = resolveSessionDisplayTitle(item);
     const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
-    const showEditorState = item.state === "UNKNOWN" && isEditorCommand(item.currentCommand);
+    const showEditorState = isSessionEditorState(item);
     const statusMeta = showEditorState
       ? {
           ...statusIconMeta("UNKNOWN"),

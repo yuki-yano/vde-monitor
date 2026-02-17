@@ -3,6 +3,10 @@ import { useEffect, useRef } from "react";
 
 import { Card, IconButton, LastInputPill, SurfaceButton, TagPill } from "@/components/ui";
 import {
+  isSessionEditorState,
+  resolveSessionDisplayTitle,
+} from "@/features/shared-session-ui/model/session-display";
+import {
   buildSessionWindowGroups,
   type SessionWindowGroup,
 } from "@/features/shared-session-ui/model/session-window-group";
@@ -219,13 +223,19 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                           </div>
                           <div className="mt-1.5 space-y-2 sm:mt-2">
                             {windowGroup.sessions.map((item) => {
-                              const displayTitle =
-                                item.customTitle ?? item.title ?? item.sessionName;
+                              const displayTitle = resolveSessionDisplayTitle(item);
                               const lastInputTone = getLastInputTone(
                                 item.lastInputAt ?? null,
                                 nowMs,
                               );
-                              const statusMeta = statusIconMeta(item.state);
+                              const statusMeta = isSessionEditorState(item)
+                                ? {
+                                    ...statusIconMeta("UNKNOWN"),
+                                    className: "text-latte-maroon",
+                                    wrap: "border-latte-maroon/45 bg-latte-maroon/14",
+                                    label: "EDITOR",
+                                  }
+                                : statusIconMeta(item.state);
                               const agentMeta = agentIconMeta(item.agent);
                               const StatusIcon = statusMeta.icon;
                               const AgentIcon = agentMeta.icon;
