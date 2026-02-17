@@ -1,5 +1,6 @@
+import { useLocalStorage } from "@mantine/hooks";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { usePointerDrag } from "./use-pointer-drag";
 
@@ -11,17 +12,19 @@ const MAX_WIDTH = 460;
 const clamp = (value: number) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, value));
 
 export const useSidebarWidth = () => {
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === "undefined") return DEFAULT_WIDTH;
-    const stored = Number(window.localStorage.getItem(STORAGE_KEY));
-    if (!Number.isFinite(stored)) return DEFAULT_WIDTH;
-    return clamp(stored);
+  const [sidebarWidth, setSidebarWidth] = useLocalStorage<number>({
+    key: STORAGE_KEY,
+    defaultValue: DEFAULT_WIDTH,
+    getInitialValueInEffect: false,
+    deserialize: (value) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) {
+        return DEFAULT_WIDTH;
+      }
+      return clamp(parsed);
+    },
+    serialize: (value) => String(clamp(value)),
   });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, String(sidebarWidth));
-  }, [sidebarWidth]);
 
   const { startDrag } = usePointerDrag<{ startX: number; startWidth: number }>({
     onMove: (event, context) => {

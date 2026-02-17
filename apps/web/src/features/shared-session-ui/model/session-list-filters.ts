@@ -1,3 +1,4 @@
+import { readSessionStorageValue } from "@mantine/hooks";
 import type { SessionSummary } from "@vde-monitor/shared";
 
 import { isEditorCommand } from "@/lib/session-format";
@@ -17,8 +18,11 @@ export const isSessionListFilter = (value: unknown): value is SessionListFilter 
 };
 
 export const readStoredSessionListFilter = (): SessionListFilter => {
-  if (typeof window === "undefined") return DEFAULT_SESSION_LIST_FILTER;
-  const stored = window.sessionStorage.getItem(SESSION_LIST_FILTER_STORAGE_KEY);
+  const stored = readSessionStorageValue<string | null>({
+    key: SESSION_LIST_FILTER_STORAGE_KEY,
+    defaultValue: null,
+    deserialize: (value) => value ?? null,
+  });
   return isSessionListFilter(stored) ? stored : DEFAULT_SESSION_LIST_FILTER;
 };
 

@@ -1,5 +1,6 @@
+import { useLocalStorage } from "@mantine/hooks";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 import { usePointerDrag } from "./use-pointer-drag";
 
@@ -18,18 +19,20 @@ export const useSplitRatio = ({
   minRatio = 0.4,
   maxRatio = 0.7,
 }: SplitRatioOptions) => {
-  const [ratio, setRatio] = useState(() => {
-    if (typeof window === "undefined") return defaultRatio;
-    const stored = Number(window.localStorage.getItem(storageKey));
-    if (!Number.isFinite(stored)) return defaultRatio;
-    return clamp(stored, minRatio, maxRatio);
+  const [ratio, setRatio] = useLocalStorage<number>({
+    key: storageKey,
+    defaultValue: defaultRatio,
+    getInitialValueInEffect: false,
+    deserialize: (value) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) {
+        return defaultRatio;
+      }
+      return clamp(parsed, minRatio, maxRatio);
+    },
+    serialize: (value) => String(clamp(value, minRatio, maxRatio)),
   });
   const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(storageKey, String(ratio));
-  }, [ratio, storageKey]);
 
   const { startDrag } = usePointerDrag<{ startX: number; startRatio: number; width: number }>({
     onMove: (event, context) => {
