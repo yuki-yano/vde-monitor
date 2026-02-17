@@ -1,16 +1,15 @@
-import { ArrowDown } from "lucide-react";
 import {
-  forwardRef,
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type RefObject,
 } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import type { VirtuosoHandle } from "react-virtuoso";
 
-import { IconButton, LoadingOverlay } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { LoadingOverlay } from "@/components/ui";
+import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
+import { sanitizeLogCopyText } from "@/lib/clipboard";
 import type { ScreenMode } from "@/lib/screen-loading";
 
 type ScreenPanelViewportProps = {
@@ -30,21 +29,6 @@ type ScreenPanelViewportProps = {
   onResolveFileReferenceKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
 
-const VirtuosoList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      className={cn(
-        "text-latte-text w-max min-w-full px-1 py-1 font-mono text-xs sm:px-2 sm:py-2",
-        className,
-      )}
-    />
-  ),
-);
-
-VirtuosoList.displayName = "VirtuosoList";
-
 export const ScreenPanelViewport = ({
   mode,
   imageBase64,
@@ -61,10 +45,10 @@ export const ScreenPanelViewport = ({
 }: ScreenPanelViewportProps) => {
   const showImage = mode === "image" && Boolean(imageBase64);
 
-  return (
-    <div className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[260px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 sm:min-h-[320px]">
-      {isScreenLoading && <LoadingOverlay label="Loading screen..." />}
-      {showImage ? (
+  if (showImage) {
+    return (
+      <div className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[260px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 sm:min-h-[320px]">
+        {isScreenLoading && <LoadingOverlay label="Loading screen..." />}
         <div className="flex w-full items-center justify-center p-1.5 sm:p-3">
           <img
             src={`data:image/png;base64,${imageBase64}`}
@@ -72,41 +56,29 @@ export const ScreenPanelViewport = ({
             className="border-latte-surface2 max-h-[480px] w-full rounded-xl border object-contain"
           />
         </div>
-      ) : (
-        <>
-          <Virtuoso
-            ref={virtuosoRef}
-            data={screenLines}
-            initialTopMostItemIndex={Math.max(screenLines.length - 1, 0)}
-            followOutput="auto"
-            atBottomStateChange={onAtBottomChange}
-            rangeChanged={onRangeChanged}
-            components={{ Scroller: VirtuosoScroller, List: VirtuosoList }}
-            className="w-full min-w-0 max-w-full"
-            style={{ height: "60vh" }}
-            itemContent={(_index, line) => (
-              <div
-                className="min-h-4 whitespace-pre leading-4"
-                onClick={onResolveFileReference}
-                onKeyDown={onResolveFileReferenceKeyDown}
-                dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }}
-              />
-            )}
-          />
-          {!isAtBottom && (
-            <IconButton
-              type="button"
-              onClick={() => onScrollToBottom("smooth")}
-              aria-label="Scroll to bottom"
-              className="absolute bottom-2 right-2"
-              variant="base"
-              size="sm"
-            >
-              <ArrowDown className="h-4 w-4" />
-            </IconButton>
-          )}
-        </>
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <AnsiVirtualizedViewport
+      lines={screenLines}
+      loading={isScreenLoading}
+      loadingLabel="Loading screen..."
+      isAtBottom={isAtBottom}
+      onAtBottomChange={onAtBottomChange}
+      onRangeChanged={onRangeChanged}
+      virtuosoRef={virtuosoRef}
+      scroller={VirtuosoScroller}
+      onScrollToBottom={onScrollToBottom}
+      className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[260px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 sm:min-h-[320px]"
+      viewportClassName="w-full min-w-0 max-w-full"
+      listClassName="text-latte-text w-max min-w-full px-1 py-1 font-mono text-xs sm:px-2 sm:py-2"
+      lineClassName="min-h-4 whitespace-pre leading-4"
+      height="60vh"
+      sanitizeCopyText={sanitizeLogCopyText}
+      onLineClick={onResolveFileReference}
+      onLineKeyDown={onResolveFileReferenceKeyDown}
+    />
   );
 };

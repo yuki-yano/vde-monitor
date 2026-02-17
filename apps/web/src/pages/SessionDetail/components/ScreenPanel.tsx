@@ -1,7 +1,6 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
 import { FileText, Image, RefreshCw } from "lucide-react";
 import {
-  type ClipboardEvent,
   forwardRef,
   type HTMLAttributes,
   type KeyboardEvent,
@@ -14,7 +13,6 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/components/ui";
-import { sanitizeLogCopyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
 import type { ScreenMode } from "@/lib/screen-loading";
 
@@ -310,16 +308,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     return Component;
   }, [stableScrollerRef]);
 
-  const handleCopy = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
-    const selection = window.getSelection?.();
-    const raw = selection?.toString() ?? "";
-    if (!raw) return;
-    const sanitized = sanitizeLogCopyText(raw);
-    if (sanitized === raw || !event.clipboardData) return;
-    event.preventDefault();
-    event.clipboardData.setData("text/plain", sanitized);
-  }, []);
-
   const handleResolveFileReference = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
       const rawToken = resolveRawTokenFromEventTarget(event.target);
@@ -387,22 +375,20 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           {fileResolveError}
         </Callout>
       )}
-      <div onCopy={handleCopy}>
-        <ScreenPanelViewport
-          mode={mode}
-          imageBase64={imageBase64}
-          isAtBottom={isAtBottom}
-          isScreenLoading={isScreenLoading}
-          screenLines={linkifiedScreenLines}
-          virtuosoRef={virtuosoRef}
-          onAtBottomChange={onAtBottomChange}
-          onRangeChanged={handleScreenRangeChanged}
-          VirtuosoScroller={VirtuosoScroller}
-          onScrollToBottom={onScrollToBottom}
-          onResolveFileReference={handleResolveFileReference}
-          onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
-        />
-      </div>
+      <ScreenPanelViewport
+        mode={mode}
+        imageBase64={imageBase64}
+        isAtBottom={isAtBottom}
+        isScreenLoading={isScreenLoading}
+        screenLines={linkifiedScreenLines}
+        virtuosoRef={virtuosoRef}
+        onAtBottomChange={onAtBottomChange}
+        onRangeChanged={handleScreenRangeChanged}
+        VirtuosoScroller={VirtuosoScroller}
+        onScrollToBottom={onScrollToBottom}
+        onResolveFileReference={handleResolveFileReference}
+        onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
+      />
       <ScreenPanelPromptContext
         promptGitContext={promptGitContext}
         contextLeftLabel={contextLeftLabel}

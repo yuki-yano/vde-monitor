@@ -1,22 +1,15 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { ArrowDown, ArrowRight, ExternalLink, X } from "lucide-react";
-import {
-  type ClipboardEvent,
-  forwardRef,
-  type HTMLAttributes,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { ArrowRight, ExternalLink, X } from "lucide-react";
+import { forwardRef, type HTMLAttributes, useCallback, useEffect, useMemo, useRef } from "react";
+import type { VirtuosoHandle } from "react-virtuoso";
 
-import { Button, Callout, Card, IconButton, LoadingOverlay, Toolbar } from "@/components/ui";
+import { Button, Callout, Card, IconButton, Toolbar } from "@/components/ui";
 import {
   logModalDisplayLinesAtom,
   logModalIsAtBottomAtom,
 } from "@/features/shared-session-ui/atoms/logAtoms";
+import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
 import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
@@ -39,21 +32,6 @@ type LogModalProps = {
   state: LogModalState;
   actions: LogModalActions;
 };
-
-const QuickLogList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      className={cn(
-        "text-latte-text w-max min-w-max px-2 py-1.5 font-mono text-[12px] leading-[16px] sm:px-3 sm:py-2",
-        className,
-      )}
-    />
-  ),
-);
-
-QuickLogList.displayName = "QuickLogList";
 
 export const LogModal = ({ state, actions }: LogModalProps) => {
   const { open, session, logLines, loading, error } = state;
@@ -146,16 +124,6 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     }
   };
 
-  const handleCopy = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
-    const selection = window.getSelection?.();
-    const raw = selection?.toString() ?? "";
-    if (!raw) return;
-    const sanitized = sanitizeLogCopyText(raw);
-    if (sanitized === raw || !event.clipboardData) return;
-    event.preventDefault();
-    event.clipboardData.setData("text/plain", sanitized);
-  }, []);
-
   if (!open || !session) return null;
 
   return (
@@ -216,41 +184,23 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
               {error}
             </Callout>
           )}
-          <div
+          <AnsiVirtualizedViewport
+            lines={displayLines}
+            loading={loading}
+            loadingLabel="Loading log..."
+            isAtBottom={isAtBottom}
+            onAtBottomChange={setIsAtBottom}
+            onRangeChanged={handleRangeChanged}
+            virtuosoRef={virtuosoRef}
+            scroller={VirtuosoScroller}
+            onScrollToBottom={scrollToBottom}
             className="border-latte-surface2/50 bg-latte-crust/60 shadow-inner-soft relative mt-2.5 flex min-h-0 w-full flex-1 rounded-2xl border sm:mt-3"
-            onCopy={handleCopy}
-          >
-            {loading && <LoadingOverlay label="Loading log..." size="sm" />}
-            <Virtuoso
-              ref={virtuosoRef}
-              data={displayLines}
-              initialTopMostItemIndex={Math.max(displayLines.length - 1, 0)}
-              followOutput="auto"
-              atBottomStateChange={setIsAtBottom}
-              rangeChanged={handleRangeChanged}
-              components={{ Scroller: VirtuosoScroller, List: QuickLogList }}
-              className="h-full w-full min-w-0 max-w-full"
-              style={{ height: "100%" }}
-              itemContent={(_index, line) => (
-                <div
-                  className="min-h-4 whitespace-pre leading-5"
-                  dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }}
-                />
-              )}
-            />
-            {!isAtBottom && (
-              <IconButton
-                type="button"
-                onClick={scrollToBottom}
-                aria-label="Scroll to bottom"
-                className="absolute bottom-2 right-2"
-                variant="base"
-                size="sm"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </IconButton>
-            )}
-          </div>
+            viewportClassName="h-full w-full min-w-0 max-w-full"
+            listClassName="text-latte-text w-max min-w-max px-2 py-1.5 font-mono text-[12px] leading-[16px] sm:px-3 sm:py-2"
+            lineClassName="min-h-4 whitespace-pre leading-5"
+            height="100%"
+            sanitizeCopyText={sanitizeLogCopyText}
+          />
         </Card>
       </div>
     </div>
