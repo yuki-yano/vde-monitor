@@ -1,30 +1,21 @@
 import { CHAT_GRID_MAX_PANE_COUNT } from "./model/chat-grid-layout";
 
+const normalizePaneIds = (paneIds: string[]): string[] =>
+  [...new Set(paneIds.map((paneId) => paneId.trim()).filter((paneId) => paneId.length > 0))].slice(
+    0,
+    CHAT_GRID_MAX_PANE_COUNT,
+  );
+
 export const normalizeChatGridPaneParam = (value: unknown): string[] => {
   if (typeof value !== "string") {
     return [];
   }
 
-  const parsed = value
-    .split(",")
-    .map((paneId) => paneId.trim())
-    .filter((paneId) => paneId.length > 0);
-
-  const uniquePaneIds: string[] = [];
-  const seen = new Set<string>();
-  parsed.forEach((paneId) => {
-    if (seen.has(paneId)) {
-      return;
-    }
-    seen.add(paneId);
-    uniquePaneIds.push(paneId);
-  });
-
-  return uniquePaneIds.slice(0, CHAT_GRID_MAX_PANE_COUNT);
+  return normalizePaneIds(value.split(","));
 };
 
 export const serializeChatGridPaneParam = (paneIds: string[]): string | undefined => {
-  const normalized = normalizeChatGridPaneParam(paneIds.join(","));
+  const normalized = normalizePaneIds(paneIds);
   if (normalized.length === 0) {
     return undefined;
   }

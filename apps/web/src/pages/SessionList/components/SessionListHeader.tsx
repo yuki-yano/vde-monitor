@@ -85,7 +85,7 @@ export const SessionListHeader = ({
           onChange={handleSearchChange}
           placeholder="Search sessions"
           aria-label="Search sessions"
-          className="h-10 border-none bg-transparent py-0 pl-11 pr-12 text-sm shadow-none focus:ring-0 sm:pl-11 sm:pr-12"
+          className="h-10 border-none bg-transparent py-0 pl-11 pr-12 text-base shadow-none focus:ring-0 sm:pl-11 sm:pr-12 sm:text-sm"
         />
         {searchQuery.length > 0 && (
           <Button

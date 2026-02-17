@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { memo } from "react";
 
 import { FilterToggleGroup, TagPill } from "@/components/ui";
@@ -21,14 +22,15 @@ type SessionSidebarHeaderProps = {
 const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarHeaderProps) => (
   <div className="flex items-center justify-between gap-3">
     <div>
-      <a
-        href={`/?filter=${DEFAULT_SESSION_LIST_FILTER}`}
+      <Link
+        to="/"
+        search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
         className="hover:text-latte-lavender focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-none transition focus-visible:ring-2"
         aria-label="Go to top"
       >
         <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
         <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
-      </a>
+      </Link>
     </div>
     <div className="flex flex-col items-end gap-2">
       <TagPill

@@ -53,7 +53,7 @@ describe("ChatGridCandidateModal", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Apply" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveProperty("disabled", true);
     expect(screen.getByText("Select between 2 and 6 panes.")).toBeTruthy();
   });
 
@@ -81,5 +81,43 @@ describe("ChatGridCandidateModal", () => {
 
     expect(onTogglePane).toHaveBeenCalledWith("pane-1");
     expect(onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters candidates by session and window fields", () => {
+    render(
+      <ChatGridCandidateModal
+        open
+        candidateItems={[
+          buildSession({
+            paneId: "pane-1",
+            title: "First Session",
+            sessionName: "alpha-session",
+            windowIndex: 3,
+          }),
+          buildSession({
+            paneId: "pane-2",
+            title: "Second Session",
+            sessionName: "beta-session",
+            windowIndex: 8,
+          }),
+        ]}
+        selectedPaneIds={[]}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        onOpenChange={vi.fn()}
+        onTogglePane={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText("Filter candidate panes");
+    fireEvent.change(searchInput, { target: { value: "beta-session" } });
+
+    expect(screen.queryByLabelText("Select First Session")).toBeNull();
+    expect(screen.getByLabelText("Select Second Session")).toBeTruthy();
+
+    fireEvent.change(searchInput, { target: { value: "window 3" } });
+
+    expect(screen.getByLabelText("Select First Session")).toBeTruthy();
+    expect(screen.queryByLabelText("Select Second Session")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMultiPaneScreenFeed";
 import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessionListPins";
@@ -62,14 +62,17 @@ export const useChatGridVM = () => {
 
   const [candidateModalOpen, setCandidateModalOpen] = useState(false);
   const [selectedCandidatePaneIds, setSelectedCandidatePaneIds] = useState<string[]>([]);
+  const [hasResolvedGridSelection, setHasResolvedGridSelection] = useState(false);
   const paneIdsFromSearch = useMemo(() => normalizeChatGridPaneParam(search.panes), [search.panes]);
-  const hasResolvedGridSelectionRef = useRef(false);
 
   useEffect(() => {
-    if (sessions.length > 0 || connected || connectionStatus === "disconnected") {
-      hasResolvedGridSelectionRef.current = true;
+    if (
+      !hasResolvedGridSelection &&
+      (sessions.length > 0 || connected || connectionStatus === "disconnected")
+    ) {
+      setHasResolvedGridSelection(true);
     }
-  }, [connected, connectionStatus, sessions.length]);
+  }, [connected, connectionStatus, hasResolvedGridSelection, sessions.length]);
 
   const candidateItems = useMemo(
     () =>
@@ -149,10 +152,10 @@ export const useChatGridVM = () => {
     () => resolveChatGridLayout(Math.max(selectedSessions.length, CHAT_GRID_MIN_PANE_COUNT)),
     [selectedSessions.length],
   );
-  const isRestoringSelection = paneIdsFromSearch.length > 0 && !hasResolvedGridSelectionRef.current;
+  const isRestoringSelection = paneIdsFromSearch.length > 0 && !hasResolvedGridSelection;
 
   useEffect(() => {
-    if (paneIdsFromSearch.length > 0 && !hasResolvedGridSelectionRef.current) {
+    if (paneIdsFromSearch.length > 0 && !hasResolvedGridSelection) {
       return;
     }
     const availablePaneParam = serializeChatGridPaneParam(selectedPaneIds);
@@ -168,7 +171,7 @@ export const useChatGridVM = () => {
       }),
       replace: true,
     });
-  }, [navigate, paneIdsFromSearch, selectedPaneIds]);
+  }, [hasResolvedGridSelection, navigate, paneIdsFromSearch, selectedPaneIds]);
 
   const handleOpenCandidateModal = useCallback(() => {
     setSelectedCandidatePaneIds([]);

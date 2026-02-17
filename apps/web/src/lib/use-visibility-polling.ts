@@ -95,5 +95,5 @@ export const useVisibilityPolling = ({
       window.removeEventListener("pageshow", handlePageShow);
       window.removeEventListener("offline", stop);
     };
-  }, [enabled, intervalMs]);
+  }, [enabled, intervalMs, shouldPoll]);
 };

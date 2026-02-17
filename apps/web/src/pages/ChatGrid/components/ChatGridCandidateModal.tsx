@@ -1,5 +1,6 @@
 import type { SessionSummary } from "@vde-monitor/shared";
-import { GitBranch, MousePointerClick } from "lucide-react";
+import { GitBranch, MousePointerClick, Search } from "lucide-react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 
 import {
   Badge,
@@ -11,6 +12,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  Input,
 } from "@/components/ui";
 import {
   resolveSessionDisplayTitle,
@@ -25,6 +27,8 @@ import {
   isKnownAgent,
 } from "@/lib/session-format";
 
+import { CHAT_GRID_MAX_PANE_COUNT, CHAT_GRID_MIN_PANE_COUNT } from "../model/chat-grid-layout";
+
 type ChatGridCandidateModalProps = {
   open: boolean;
   candidateItems: SessionSummary[];
@@ -35,8 +39,10 @@ type ChatGridCandidateModalProps = {
   onApply: () => void;
 };
 
-const MIN_SELECTION_COUNT = 2;
-const MAX_SELECTION_COUNT = 6;
+const MIN_SELECTION_COUNT = CHAT_GRID_MIN_PANE_COUNT;
+const MAX_SELECTION_COUNT = CHAT_GRID_MAX_PANE_COUNT;
+
+const normalizeSearchText = (value: string) => value.trim().toLowerCase();
 
 export const ChatGridCandidateModal = ({
   open,
@@ -47,28 +53,79 @@ export const ChatGridCandidateModal = ({
   onTogglePane,
   onApply,
 }: ChatGridCandidateModalProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedPaneSet = new Set(selectedPaneIds);
   const selectedCount = selectedPaneIds.length;
   const reachedMaxSelection = selectedCount >= MAX_SELECTION_COUNT;
   const hasSelectionError =
     selectedCount < MIN_SELECTION_COUNT || selectedCount > MAX_SELECTION_COUNT;
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
+
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery("");
+    }
+  }, [open]);
+
+  const filteredCandidateItems = useMemo(() => {
+    if (normalizedSearchQuery.length === 0) {
+      return candidateItems;
+    }
+    return candidateItems.filter((session) => {
+      const searchableValues = [
+        resolveSessionDisplayTitle(session),
+        session.sessionName,
+        `${session.windowIndex}`,
+        `window ${session.windowIndex}`,
+        `pane ${session.paneId}`,
+        formatBranchLabel(session.branch),
+      ];
+      return normalizeSearchText(searchableValues.join(" ")).includes(normalizedSearchQuery);
+    });
+  }, [candidateItems, normalizedSearchQuery]);
+
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(760px,calc(100vw-1rem))] sm:w-[min(760px,calc(100vw-1.5rem))]">
         <DialogHeader className="space-y-2">
           <DialogTitle>Candidate Panes</DialogTitle>
-          <DialogDescription>Choose 2-6 panes and click Apply.</DialogDescription>
+          <DialogDescription>
+            Choose {MIN_SELECTION_COUNT}-{MAX_SELECTION_COUNT} panes and click Apply.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <p className="text-latte-subtext0 text-xs uppercase tracking-[0.08em]">
+              Search Candidates
+            </p>
+            <div className="border-latte-surface2 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 relative overflow-hidden rounded-2xl border transition focus-within:ring-2">
+              <Search className="text-latte-subtext0 pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+              <Input
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Filter by session or window"
+                aria-label="Filter candidate panes"
+                className="h-9 border-none bg-transparent py-0 pl-10 pr-3 text-sm shadow-none focus:ring-0 sm:pl-10 sm:pr-3"
+              />
+            </div>
+          </div>
+
           {candidateItems.length === 0 ? (
             <Callout tone="warning" size="sm">
               No candidate panes are available.
             </Callout>
+          ) : filteredCandidateItems.length === 0 ? (
+            <Callout tone="warning" size="sm">
+              No candidate panes match "{searchQuery}".
+            </Callout>
           ) : (
             <div className="border-latte-surface1/70 bg-latte-base/50 max-h-[52vh] space-y-1 overflow-y-auto rounded-2xl border p-2">
-              {candidateItems.map((session) => {
+              {filteredCandidateItems.map((session) => {
                 const checked = selectedPaneSet.has(session.paneId);
                 const disabled = !checked && reachedMaxSelection;
                 return (
@@ -100,6 +157,8 @@ export const ChatGridCandidateModal = ({
                         {resolveSessionDisplayTitle(session)}
                       </p>
                       <div className="text-latte-subtext0 mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span>Session {session.sessionName}</span>
+                        <span>Window {session.windowIndex}</span>
                         <span className="inline-flex items-center gap-1">
                           <GitBranch className="h-3 w-3" />
                           {formatBranchLabel(session.branch)}

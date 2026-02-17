@@ -8,6 +8,7 @@ import {
   CornerDownLeft,
   ImagePlus,
   Loader2,
+  type LucideIcon,
   Send,
 } from "lucide-react";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
@@ -48,6 +49,18 @@ const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
 const KEY_BUTTON_CLASS =
   "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const FUNCTION_KEY_BUTTONS = [
+  { label: "Esc", key: "Escape" },
+  { label: "Tab", key: "Tab" },
+  { label: "Backspace", key: "BSpace" },
+  { label: "Enter", key: "Enter" },
+] as const;
+const ARROW_KEY_BUTTONS: { key: string; ariaLabel: string; Icon: LucideIcon }[] = [
+  { key: "Left", ariaLabel: "Left", Icon: ArrowLeft },
+  { key: "Up", ariaLabel: "Up", Icon: ArrowUp },
+  { key: "Down", ariaLabel: "Down", Icon: ArrowDown },
+  { key: "Right", ariaLabel: "Right", Icon: ArrowRight },
+];
 
 type PaneTextComposerKeyPanelState = {
   shiftHeld: boolean;
@@ -241,11 +254,17 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const rawModeToggleClass = resolveRawModeToggleClass(rawMode, allowDangerKeys);
   const dangerToggleClass = resolveDangerToggleClass(allowDangerKeys);
   const [keysExpanded, setKeysExpanded] = useState(false);
-  const canUseKeyPanel = keyPanel != null && keyPanelActions != null;
-  const shiftDotClass = keyPanel?.shiftHeld
-    ? MODIFIER_DOT_CLASS_ACTIVE
-    : MODIFIER_DOT_CLASS_DEFAULT;
-  const ctrlDotClass = keyPanel?.ctrlHeld ? MODIFIER_DOT_CLASS_ACTIVE : MODIFIER_DOT_CLASS_DEFAULT;
+  const keyPanelState = keyPanel ?? null;
+  const keyPanelHandlers = keyPanelActions ?? null;
+  const canUseKeyPanel = keyPanelState != null && keyPanelHandlers != null;
+  const shiftDotClass =
+    keyPanelState != null && keyPanelState.shiftHeld
+      ? MODIFIER_DOT_CLASS_ACTIVE
+      : MODIFIER_DOT_CLASS_DEFAULT;
+  const ctrlDotClass =
+    keyPanelState != null && keyPanelState.ctrlHeld
+      ? MODIFIER_DOT_CLASS_ACTIVE
+      : MODIFIER_DOT_CLASS_DEFAULT;
 
   const syncPromptHeight = useCallback((textarea: HTMLTextAreaElement) => {
     textarea.style.height = "auto";
@@ -427,89 +446,48 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             </Button>
           </div>
         </div>
-        {canUseKeyPanel && keysExpanded ? (
+        {keyPanelState != null && keyPanelHandlers != null && keysExpanded ? (
           <div className="border-latte-surface2/65 bg-latte-mantle/40 space-y-2 border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <ModifierKeyToggle
                 type="button"
-                onClick={() => keyPanelActions?.onToggleShift()}
-                active={Boolean(keyPanel?.shiftHeld)}
+                onClick={keyPanelHandlers.onToggleShift}
+                active={keyPanelState.shiftHeld}
               >
                 <span className={cn("h-2 w-2 rounded-full transition-colors", shiftDotClass)} />
                 Shift
               </ModifierKeyToggle>
               <ModifierKeyToggle
                 type="button"
-                onClick={() => keyPanelActions?.onToggleCtrl()}
-                active={Boolean(keyPanel?.ctrlHeld)}
+                onClick={keyPanelHandlers.onToggleCtrl}
+                active={keyPanelState.ctrlHeld}
               >
                 <span className={cn("h-2 w-2 rounded-full transition-colors", ctrlDotClass)} />
                 Ctrl
               </ModifierKeyToggle>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { label: "Esc", key: "Escape" },
-                { label: "Tab", key: "Tab" },
-                { label: "Backspace", key: "BSpace" },
-                { label: "Enter", key: "Enter" },
-              ].map((item) => (
+              {FUNCTION_KEY_BUTTONS.map((item) => (
                 <KeyButton
                   key={item.key}
                   label={item.label}
-                  onClick={() => keyPanelActions?.onSendKey(item.key)}
+                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
                   disabled={!interactive}
                 />
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                {
-                  label: (
-                    <>
-                      <ArrowLeft className="h-4 w-4" />
-                      <span className="sr-only">Left</span>
-                    </>
-                  ),
-                  key: "Left",
-                  ariaLabel: "Left",
-                },
-                {
-                  label: (
-                    <>
-                      <ArrowUp className="h-4 w-4" />
-                      <span className="sr-only">Up</span>
-                    </>
-                  ),
-                  key: "Up",
-                  ariaLabel: "Up",
-                },
-                {
-                  label: (
-                    <>
-                      <ArrowDown className="h-4 w-4" />
-                      <span className="sr-only">Down</span>
-                    </>
-                  ),
-                  key: "Down",
-                  ariaLabel: "Down",
-                },
-                {
-                  label: (
-                    <>
-                      <ArrowRight className="h-4 w-4" />
-                      <span className="sr-only">Right</span>
-                    </>
-                  ),
-                  key: "Right",
-                  ariaLabel: "Right",
-                },
-              ].map((item) => (
+              {ARROW_KEY_BUTTONS.map((item) => (
                 <KeyButton
                   key={item.key}
-                  label={item.label}
+                  label={
+                    <>
+                      <item.Icon className="h-4 w-4" />
+                      <span className="sr-only">{item.ariaLabel}</span>
+                    </>
+                  }
                   ariaLabel={item.ariaLabel}
-                  onClick={() => keyPanelActions?.onSendKey(item.key)}
+                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
                   disabled={!interactive}
                 />
               ))}

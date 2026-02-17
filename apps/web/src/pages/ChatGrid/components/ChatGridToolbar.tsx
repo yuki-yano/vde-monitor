@@ -2,6 +2,8 @@ import { RefreshCw, Sparkles } from "lucide-react";
 
 import { Button, ConnectionStatusPill, TagPill, Toolbar } from "@/components/ui";
 
+import { CHAT_GRID_MAX_PANE_COUNT } from "../model/chat-grid-layout";
+
 type ChatGridToolbarProps = {
   selectedCount: number;
   connectionStatus: "healthy" | "degraded" | "disconnected";
@@ -39,7 +41,7 @@ export const ChatGridToolbar = ({
           Refresh Screens
         </Button>
         <TagPill tone="meta" className="ml-auto text-[11px]">
-          Selected: {selectedCount} (max 6)
+          Selected: {selectedCount} (max {CHAT_GRID_MAX_PANE_COUNT})
         </TagPill>
       </Toolbar>
     </header>

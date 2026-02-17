@@ -248,6 +248,14 @@ export const ChatGridTile = ({
   );
 
   const currentComposerError = composerError ?? sendError;
+  const callout =
+    currentComposerError != null
+      ? { tone: "error" as const, message: currentComposerError }
+      : screenError != null
+        ? { tone: "warning" as const, message: screenError }
+        : !connected
+          ? { tone: "warning" as const, message: "Disconnected. Reconnecting..." }
+          : null;
 
   return (
     <Card className="grid h-full min-h-[420px] grid-rows-[auto_minmax(0,1fr)] gap-2.5 p-3 sm:p-3.5">
@@ -292,19 +300,9 @@ export const ChatGridTile = ({
       </header>
 
       <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2">
-        {!connected ? (
-          <Callout tone="warning" size="xs">
-            Disconnected. Reconnecting...
-          </Callout>
-        ) : null}
-        {screenError ? (
-          <Callout tone="warning" size="xs">
-            {screenError}
-          </Callout>
-        ) : null}
-        {currentComposerError ? (
-          <Callout tone="error" size="xs">
-            {currentComposerError}
+        {callout ? (
+          <Callout tone={callout.tone} size="xs">
+            {callout.message}
           </Callout>
         ) : null}
 
