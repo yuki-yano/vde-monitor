@@ -6,8 +6,9 @@ import {
   type RawItem,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
+import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
 import type { ScreenMode } from "@/lib/screen-loading";
@@ -39,13 +40,6 @@ type UseSessionControlsParams = {
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
   setScreenError: (error: string | null) => void;
   scrollToBottom: (behavior?: "auto" | "smooth") => void;
-};
-
-type FailedSendTextAttempt = {
-  paneId: string;
-  text: string;
-  enter: boolean;
-  requestId: string;
 };
 
 const handleCommandFailure = (
@@ -83,12 +77,6 @@ const confirmDangerousTextSend = (value: string) => {
   return window.confirm("Dangerous command detected. Send anyway?");
 };
 
-const shouldSkipTextSend = ({ rawMode, value }: { rawMode: boolean; value: string }) =>
-  rawMode || !value.trim();
-
-const buildSendTextRequestId = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
 const insertIntoTextarea = (textarea: HTMLTextAreaElement, insertText: string) => {
   const start = textarea.selectionStart ?? textarea.value.length;
   const end = textarea.selectionEnd ?? start;
@@ -123,9 +111,6 @@ export const useSessionControls = ({
 }: UseSessionControlsParams) => {
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const prevAutoEnterRef = useRef<boolean | null>(null);
-  const sendTextInFlightRef = useRef(false);
-  const lastFailedSendTextRef = useRef<FailedSendTextAttempt | null>(null);
-  const [isSendingText, setIsSendingText] = useState(false);
   const [autoEnter, setAutoEnter] = useAtom(controlsAutoEnterAtom);
   const [shiftHeld, setShiftHeld] = useAtom(controlsShiftHeldAtom);
   const [ctrlHeld, setCtrlHeld] = useAtom(controlsCtrlHeldAtom);
@@ -134,9 +119,6 @@ export const useSessionControls = ({
 
   useEffect(() => {
     prevAutoEnterRef.current = null;
-    sendTextInFlightRef.current = false;
-    lastFailedSendTextRef.current = null;
-    setIsSendingText(false);
     setAutoEnter(true);
     setShiftHeld(false);
     setCtrlHeld(false);
@@ -150,6 +132,14 @@ export const useSessionControls = ({
       prevAutoEnterRef.current = null;
     }
   }, [rawMode, setAutoEnter]);
+
+  const { send: sendPaneText, isSending: isSendingText } = usePaneSendText({
+    paneId,
+    mode,
+    sendText,
+    setScreenError,
+    scrollToBottom,
+  });
 
   const handleSendKey = useCallback(
     async (key: string) => {
@@ -189,44 +179,17 @@ export const useSessionControls = ({
   }, [killWindow, paneId, setScreenError]);
 
   const handleSendText = useCallback(async () => {
-    if (sendTextInFlightRef.current) {
-      return;
-    }
     const currentValue = readPromptValue(textInputRef);
-    if (shouldSkipTextSend({ rawMode, value: currentValue })) return;
-    if (!confirmDangerousTextSend(currentValue)) return;
-    const failedAttempt = lastFailedSendTextRef.current;
-    const requestId =
-      failedAttempt &&
-      failedAttempt.paneId === paneId &&
-      failedAttempt.text === currentValue &&
-      failedAttempt.enter === autoEnter
-        ? failedAttempt.requestId
-        : buildSendTextRequestId();
-
-    sendTextInFlightRef.current = true;
-    setIsSendingText(true);
-    try {
-      const result = await sendText(paneId, currentValue, autoEnter, requestId);
-      if (handleCommandFailure(result, API_ERROR_MESSAGES.sendText, setScreenError)) {
-        lastFailedSendTextRef.current = {
-          paneId,
-          text: currentValue,
-          enter: autoEnter,
-          requestId,
-        };
-        return;
-      }
-      lastFailedSendTextRef.current = null;
-      clearPromptValue(textInputRef);
-      if (mode === "text") {
-        scrollToBottom("auto");
-      }
-    } finally {
-      sendTextInFlightRef.current = false;
-      setIsSendingText(false);
-    }
-  }, [autoEnter, mode, paneId, rawMode, scrollToBottom, sendText, setScreenError]);
+    await sendPaneText({
+      text: currentValue,
+      enter: autoEnter,
+      skip: rawMode,
+      confirm: () => confirmDangerousTextSend(currentValue),
+      onSuccess: () => {
+        clearPromptValue(textInputRef);
+      },
+    });
+  }, [autoEnter, rawMode, sendPaneText]);
 
   const handleUploadImage = useCallback(
     async (file: File) => {
