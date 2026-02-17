@@ -11,12 +11,10 @@ import {
   quickPanelOpenAtom,
   selectedPaneIdAtom,
 } from "@/features/shared-session-ui/atoms/logAtoms";
-import { useScreenCache } from "@/features/shared-session-ui/hooks/useScreenCache";
-import { findStalePaneIds } from "@/features/shared-session-ui/model/pane-record-utils";
+import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMultiPaneScreenFeed";
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
-import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 type UseSessionLogsParams = {
   connected: boolean;
@@ -65,13 +63,29 @@ export const useSessionLogs = ({
   const [quickPanelOpen, setQuickPanelOpen] = useAtom(quickPanelOpenAtom);
   const [logModalOpen, setLogModalOpen] = useAtom(logModalOpenAtom);
   const [selectedPaneId, setSelectedPaneId] = useAtom(selectedPaneIdAtom);
+  const feedPaneIds = useMemo(() => {
+    if (!logModalOpen || !selectedPaneId) {
+      return [];
+    }
+    return [selectedPaneId];
+  }, [logModalOpen, selectedPaneId]);
+  const retainedPaneIds = useMemo(() => sessions.map((session) => session.paneId), [sessions]);
+  const canPollLogs = useCallback(
+    () => connectionIssue !== API_ERROR_MESSAGES.unauthorized,
+    [connectionIssue],
+  );
+
   const {
     cache: logCache,
     loading: logLoading,
     error: logError,
-    fetchScreen,
-    clearCache,
-  } = useScreenCache({
+    fetchPane,
+  } = useMultiPaneScreenFeed({
+    paneIds: feedPaneIds,
+    retainedPaneIds,
+    enabled: logModalOpen,
+    intervalMs: 2000,
+    concurrency: 1,
     connected,
     connectionIssue,
     requestScreen,
@@ -80,6 +94,7 @@ export const useSessionLogs = ({
       load: API_ERROR_MESSAGES.logLoad,
       requestFailed: API_ERROR_MESSAGES.logRequestFailed,
     },
+    shouldPoll: canPollLogs,
   });
 
   const selectedSession = useMemo(
@@ -104,18 +119,10 @@ export const useSessionLogs = ({
 
   const fetchLog = useCallback(
     async (paneId: string) => {
-      await fetchScreen(paneId, { loading: "if-empty" });
+      await fetchPane(paneId, { loading: "if-empty" });
     },
-    [fetchScreen],
+    [fetchPane],
   );
-  const canPollLogs = useCallback(
-    () => connectionIssue !== API_ERROR_MESSAGES.unauthorized,
-    [connectionIssue],
-  );
-  const refreshSelectedLog = useCallback(() => {
-    if (!selectedPaneId) return;
-    void fetchLog(selectedPaneId);
-  }, [fetchLog, selectedPaneId]);
 
   useEffect(() => {
     if (!logModalOpen || !selectedPaneId) {
@@ -123,22 +130,6 @@ export const useSessionLogs = ({
     }
     void fetchLog(selectedPaneId);
   }, [fetchLog, logModalOpen, selectedPaneId]);
-
-  useVisibilityPolling({
-    enabled: logModalOpen && Boolean(selectedPaneId),
-    intervalMs: 2000,
-    shouldPoll: canPollLogs,
-    onTick: refreshSelectedLog,
-    onResume: refreshSelectedLog,
-  });
-
-  useEffect(() => {
-    const activePaneIds = new Set(sessions.map((session) => session.paneId));
-    const stalePaneIds = findStalePaneIds(logCache, activePaneIds);
-    stalePaneIds.forEach((paneId) => {
-      clearCache(paneId);
-    });
-  }, [clearCache, logCache, sessions]);
 
   const openLogModal = useCallback(
     (paneId: string) => {
