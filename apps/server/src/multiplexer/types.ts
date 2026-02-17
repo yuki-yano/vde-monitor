@@ -7,26 +7,11 @@ import type {
   LaunchVerification,
   PaneMeta,
   RawItem,
+  TextCaptureOptions,
+  TextCaptureResult,
 } from "@vde-monitor/shared";
 
 export type MultiplexerBackend = "tmux" | "wezterm";
-
-type MultiplexerTextCaptureOptions = {
-  paneId: string;
-  lines: number;
-  joinLines: boolean;
-  includeAnsi: boolean;
-  includeTruncated?: boolean;
-  altScreen: "auto" | "on" | "off";
-  alternateOn: boolean;
-  currentCommand?: string | null;
-};
-
-type MultiplexerTextCaptureResult = {
-  screen: string;
-  truncated: boolean | null;
-  alternateOn: boolean;
-};
 
 export type MultiplexerInspector = {
   listPanes: () => Promise<PaneMeta[]>;
@@ -34,7 +19,7 @@ export type MultiplexerInspector = {
 };
 
 export type MultiplexerScreenCapture = {
-  captureText: (options: MultiplexerTextCaptureOptions) => Promise<MultiplexerTextCaptureResult>;
+  captureText: (options: TextCaptureOptions) => Promise<TextCaptureResult>;
 };
 
 export type MultiplexerActionResult =

@@ -5,5 +5,6 @@ export * from "./paths";
 export * from "./prompt-block";
 export * from "./prompt-start";
 export * from "./schemas";
+export * from "./screen-capture";
 export * from "./types";
 export * from "./xdg";

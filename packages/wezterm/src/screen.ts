@@ -1,21 +1,8 @@
+import type { TextCaptureOptions, TextCaptureResult } from "@vde-monitor/shared";
+
 import type { WeztermAdapter } from "./adapter";
 
-export type TextCaptureOptions = {
-  paneId: string;
-  lines: number;
-  joinLines: boolean;
-  includeAnsi: boolean;
-  includeTruncated?: boolean;
-  altScreen: "auto" | "on" | "off";
-  alternateOn: boolean;
-  currentCommand?: string | null;
-};
-
-export type TextCaptureResult = {
-  screen: string;
-  truncated: boolean | null;
-  alternateOn: boolean;
-};
+export type { TextCaptureOptions, TextCaptureResult };
 
 const normalizeLines = (text: string) => {
   const lines = text.replace(/\r/g, "").split("\n");
