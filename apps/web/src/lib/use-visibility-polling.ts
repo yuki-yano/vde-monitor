@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 type UseVisibilityPollingParams = {
   enabled: boolean;
@@ -15,6 +15,22 @@ export const useVisibilityPolling = ({
   onResume,
   shouldPoll,
 }: UseVisibilityPollingParams) => {
+  const onTickRef = useRef(onTick);
+  const onResumeRef = useRef(onResume);
+  const shouldPollRef = useRef(shouldPoll);
+
+  useEffect(() => {
+    onTickRef.current = onTick;
+  }, [onTick]);
+
+  useEffect(() => {
+    onResumeRef.current = onResume;
+  }, [onResume]);
+
+  useEffect(() => {
+    shouldPollRef.current = shouldPoll;
+  }, [shouldPoll]);
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
       return;
@@ -24,7 +40,8 @@ export const useVisibilityPolling = ({
     const canPoll = () => {
       if (document.hidden) return false;
       if (navigator.onLine === false) return false;
-      if (shouldPoll && !shouldPoll()) return false;
+      const shouldPollNow = shouldPollRef.current;
+      if (shouldPollNow && !shouldPollNow()) return false;
       return true;
     };
     const stop = () => {
@@ -39,7 +56,7 @@ export const useVisibilityPolling = ({
           stop();
           return;
         }
-        onTick();
+        onTickRef.current();
       }, intervalMs);
     };
     const handleResume = () => {
@@ -47,8 +64,9 @@ export const useVisibilityPolling = ({
         stop();
         return;
       }
-      if (onResume) {
-        onResume();
+      const resumeCallback = onResumeRef.current;
+      if (resumeCallback) {
+        resumeCallback();
       }
       start();
     };
@@ -77,5 +95,5 @@ export const useVisibilityPolling = ({
       window.removeEventListener("pageshow", handlePageShow);
       window.removeEventListener("offline", stop);
     };
-  }, [enabled, intervalMs, onResume, onTick, shouldPoll]);
+  }, [enabled, intervalMs, shouldPoll]);
 };

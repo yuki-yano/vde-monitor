@@ -175,4 +175,35 @@ describe("useVisibilityPolling", () => {
     expect(onResume).not.toHaveBeenCalled();
     expect(onTick).not.toHaveBeenCalled();
   });
+
+  it("starts polling when shouldPoll changes from false to true", () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+    const onTick = vi.fn();
+    const neverPoll: () => boolean = () => false;
+    const alwaysPoll: () => boolean = () => true;
+
+    const { rerender } = renderHook(
+      ({ shouldPoll }: { shouldPoll: () => boolean }) =>
+        useVisibilityPolling({
+          enabled: true,
+          intervalMs: 1000,
+          onTick,
+          shouldPoll,
+        }),
+      { initialProps: { shouldPoll: neverPoll } },
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onTick).not.toHaveBeenCalled();
+
+    rerender({ shouldPoll: alwaysPoll });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onTick).toHaveBeenCalledTimes(1);
+  });
 });

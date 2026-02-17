@@ -1,4 +1,17 @@
-import { CornerDownLeft, ImagePlus, Loader2, Send } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  CornerDownLeft,
+  ImagePlus,
+  Loader2,
+  type LucideIcon,
+  Send,
+} from "lucide-react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import {
   type ClipboardEvent,
   type CompositionEvent,
@@ -8,9 +21,10 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
-import { Button, PillToggle, ZoomSafeTextarea } from "@/components/ui";
+import { Button, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { IOS_ZOOM_SAFE_FIELD_SCALE } from "@/lib/ios-zoom-safe-textarea";
 
@@ -29,7 +43,35 @@ const DANGER_TOGGLE_CLASS_ACTIVE =
 const DANGER_TOGGLE_CLASS_DEFAULT =
   "border-latte-surface2/70 bg-transparent text-latte-subtext0 shadow-none hover:border-latte-overlay1 hover:bg-latte-surface0/50 hover:text-latte-text";
 const COMPOSER_PILL_CLASS = "h-7 px-1.5 text-[10px] tracking-[0.12em] sm:h-8";
+const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
+const MODIFIER_DOT_CLASS_ACTIVE = "bg-latte-lavender";
+const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
+const KEY_BUTTON_CLASS =
+  "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const FUNCTION_KEY_BUTTONS = [
+  { label: "Esc", key: "Escape" },
+  { label: "Tab", key: "Tab" },
+  { label: "Backspace", key: "BSpace" },
+  { label: "Enter", key: "Enter" },
+] as const;
+const ARROW_KEY_BUTTONS: { key: string; ariaLabel: string; Icon: LucideIcon }[] = [
+  { key: "Left", ariaLabel: "Left", Icon: ArrowLeft },
+  { key: "Up", ariaLabel: "Up", Icon: ArrowUp },
+  { key: "Down", ariaLabel: "Down", Icon: ArrowDown },
+  { key: "Right", ariaLabel: "Right", Icon: ArrowRight },
+];
+
+type PaneTextComposerKeyPanelState = {
+  shiftHeld: boolean;
+  ctrlHeld: boolean;
+};
+
+type PaneTextComposerKeyPanelActions = {
+  onToggleShift: () => void;
+  onToggleCtrl: () => void;
+  onSendKey: (key: string) => void;
+};
 
 type PaneTextComposerState = {
   interactive: boolean;
@@ -38,6 +80,7 @@ type PaneTextComposerState = {
   autoEnter: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
+  keyPanel?: PaneTextComposerKeyPanelState;
 };
 
 type PaneTextComposerActions = {
@@ -46,6 +89,7 @@ type PaneTextComposerActions = {
   onToggleAutoEnter: () => void;
   onToggleRawMode: () => void;
   onToggleAllowDangerKeys: () => void;
+  keyPanel?: PaneTextComposerKeyPanelActions;
   onRawBeforeInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   onRawInput: (event: FormEvent<HTMLTextAreaElement>) => void;
   onRawKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -145,21 +189,58 @@ const handlePromptKeyDown = ({
   onSend();
 };
 
-const ComposerPill = ({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof PillToggle>) => (
+const ComposerPill = ({ className, ...props }: ComponentPropsWithoutRef<typeof PillToggle>) => (
   <PillToggle className={cn(COMPOSER_PILL_CLASS, className)} {...props} />
 );
 
+const ModifierKeyToggle = ({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof ModifierToggle>) => (
+  <ModifierToggle className={cn(MODIFIER_TOGGLE_CLASS, className)} {...props} />
+);
+
+const KeyButton = ({
+  label,
+  ariaLabel,
+  onClick,
+  disabled,
+}: {
+  label: ReactNode;
+  ariaLabel?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) => (
+  <Button
+    type="button"
+    variant="ghost"
+    size="sm"
+    onClick={onClick}
+    className={KEY_BUTTON_CLASS}
+    disabled={disabled}
+    aria-label={ariaLabel}
+  >
+    {label}
+  </Button>
+);
+
 export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
-  const { interactive, isSendingText, textInputRef, autoEnter, rawMode, allowDangerKeys } = state;
+  const {
+    interactive,
+    isSendingText,
+    textInputRef,
+    autoEnter,
+    rawMode,
+    allowDangerKeys,
+    keyPanel,
+  } = state;
   const {
     onSendText,
     onPickImage,
     onToggleAutoEnter,
     onToggleRawMode,
     onToggleAllowDangerKeys,
+    keyPanel: keyPanelActions,
     onRawBeforeInput,
     onRawInput,
     onRawKeyDown,
@@ -172,6 +253,18 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const rawModeInputClass = resolveRawModeInputClass(rawMode, allowDangerKeys);
   const rawModeToggleClass = resolveRawModeToggleClass(rawMode, allowDangerKeys);
   const dangerToggleClass = resolveDangerToggleClass(allowDangerKeys);
+  const [keysExpanded, setKeysExpanded] = useState(false);
+  const keyPanelState = keyPanel ?? null;
+  const keyPanelHandlers = keyPanelActions ?? null;
+  const canUseKeyPanel = keyPanelState != null && keyPanelHandlers != null;
+  const shiftDotClass =
+    keyPanelState != null && keyPanelState.shiftHeld
+      ? MODIFIER_DOT_CLASS_ACTIVE
+      : MODIFIER_DOT_CLASS_DEFAULT;
+  const ctrlDotClass =
+    keyPanelState != null && keyPanelState.ctrlHeld
+      ? MODIFIER_DOT_CLASS_ACTIVE
+      : MODIFIER_DOT_CLASS_DEFAULT;
 
   const syncPromptHeight = useCallback((textarea: HTMLTextAreaElement) => {
     textarea.style.height = "auto";
@@ -285,6 +378,25 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
+            {canUseKeyPanel ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setKeysExpanded((prev) => !prev)}
+                disabled={!interactive}
+                aria-expanded={keysExpanded}
+                aria-label={keysExpanded ? "Hide key options" : "Show key options"}
+                className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
+              >
+                <span>Keys</span>
+                {keysExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            ) : null}
             {rawMode ? (
               <ComposerPill
                 type="button"
@@ -334,6 +446,56 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             </Button>
           </div>
         </div>
+        {keyPanelState != null && keyPanelHandlers != null && keysExpanded ? (
+          <div className="border-latte-surface2/65 bg-latte-mantle/40 space-y-2 border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ModifierKeyToggle
+                type="button"
+                onClick={keyPanelHandlers.onToggleShift}
+                active={keyPanelState.shiftHeld}
+                disabled={!interactive}
+              >
+                <span className={cn("h-2 w-2 rounded-full transition-colors", shiftDotClass)} />
+                Shift
+              </ModifierKeyToggle>
+              <ModifierKeyToggle
+                type="button"
+                onClick={keyPanelHandlers.onToggleCtrl}
+                active={keyPanelState.ctrlHeld}
+                disabled={!interactive}
+              >
+                <span className={cn("h-2 w-2 rounded-full transition-colors", ctrlDotClass)} />
+                Ctrl
+              </ModifierKeyToggle>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {FUNCTION_KEY_BUTTONS.map((item) => (
+                <KeyButton
+                  key={item.key}
+                  label={item.label}
+                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
+                  disabled={!interactive}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {ARROW_KEY_BUTTONS.map((item) => (
+                <KeyButton
+                  key={item.key}
+                  label={
+                    <>
+                      <item.Icon className="h-4 w-4" />
+                      <span className="sr-only">{item.ariaLabel}</span>
+                    </>
+                  }
+                  ariaLabel={item.ariaLabel}
+                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
+                  disabled={!interactive}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
         <input
           ref={fileInputRef}
           type="file"

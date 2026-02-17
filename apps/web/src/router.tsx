@@ -5,6 +5,11 @@ import {
   DEFAULT_SESSION_LIST_FILTER,
   isSessionListFilter,
 } from "./features/shared-session-ui/model/session-list-filters";
+import { ChatGridPage } from "./pages/ChatGrid";
+import {
+  normalizeChatGridPaneParam,
+  serializeChatGridPaneParam,
+} from "./pages/ChatGrid/chatGridSearch";
 import { SessionDetailPage } from "./pages/SessionDetail";
 import { SessionListPage } from "./pages/SessionList";
 import { normalizeSessionListSearchQuery } from "./pages/SessionList/sessionListSearch";
@@ -33,7 +38,21 @@ const sessionDetailRoute = createRoute({
   component: SessionDetailPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, sessionDetailRoute]);
+const chatGridRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat-grid",
+  component: ChatGridPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    const paneIds = normalizeChatGridPaneParam(search.panes);
+    const panes = serializeChatGridPaneParam(paneIds);
+    if (!panes) {
+      return {};
+    }
+    return { panes };
+  },
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, sessionDetailRoute, chatGridRoute]);
 
 export const router = createRouter({
   routeTree,

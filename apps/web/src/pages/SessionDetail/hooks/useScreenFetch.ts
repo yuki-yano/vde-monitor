@@ -14,6 +14,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { applyScreenDeltas } from "@/lib/screen-delta";
 import type { ScreenLoadingEvent, ScreenMode } from "@/lib/screen-loading";
+import { resolveScreenPollIntervalMs } from "@/lib/screen-polling";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
@@ -302,7 +303,7 @@ export const useScreenFetch = ({
 
   useVisibilityPolling({
     enabled: Boolean(paneId) && connected,
-    intervalMs: mode === "image" ? 2000 : 1000,
+    intervalMs: resolveScreenPollIntervalMs(mode),
     shouldPoll: canPollScreen,
     onTick: pollScreen,
     onResume: pollScreen,

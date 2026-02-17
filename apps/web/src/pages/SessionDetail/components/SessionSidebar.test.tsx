@@ -338,7 +338,9 @@ describe("SessionSidebar", () => {
 
     renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
 
-    const links = screen.getAllByRole("link");
+    const links = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.startsWith("/sessions/"));
     expect(links[0]?.textContent).toContain("Repo A Agent");
     expect(links[1]?.textContent).toContain("Repo B Agent");
   });

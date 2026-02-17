@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { matchesSessionListSearch, normalizeSessionListSearchQuery } from "./sessionListSearch";
+import {
+  hasSessionListSearchTerms,
+  matchesSessionListSearch,
+  normalizeSessionListSearchQuery,
+} from "./sessionListSearch";
 
 const session = {
   customTitle: "Custom API Session",
@@ -16,7 +20,14 @@ describe("sessionListSearch", () => {
   it("normalizes unknown query values to empty", () => {
     expect(normalizeSessionListSearchQuery(undefined)).toBe("");
     expect(normalizeSessionListSearchQuery(123)).toBe("");
-    expect(normalizeSessionListSearchQuery("  api  ")).toBe("api");
+    expect(normalizeSessionListSearchQuery("  api  ")).toBe("  api  ");
+  });
+
+  it("detects whether query includes searchable terms", () => {
+    expect(hasSessionListSearchTerms("api")).toBe(true);
+    expect(hasSessionListSearchTerms(" custom  api ")).toBe(true);
+    expect(hasSessionListSearchTerms("   ")).toBe(false);
+    expect(hasSessionListSearchTerms("　　")).toBe(false);
   });
 
   it("matches known searchable fields", () => {
@@ -27,6 +38,8 @@ describe("sessionListSearch", () => {
     expect(matchesSessionListSearch(session, "apps/server")).toBe(true);
     expect(matchesSessionListSearch(session, "FEATURE/SESSION")).toBe(true);
     expect(matchesSessionListSearch(session, "%12")).toBe(true);
+    expect(matchesSessionListSearch(session, "custom feature")).toBe(true);
+    expect(matchesSessionListSearch(session, "custom　feature")).toBe(true);
   });
 
   it("returns true for empty query", () => {

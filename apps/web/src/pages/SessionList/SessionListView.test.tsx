@@ -6,7 +6,7 @@ import {
   createRouter,
   RouterContextProvider,
 } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -228,6 +228,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     onFilterChange: vi.fn(),
     onSearchQueryChange: vi.fn(),
     onRefresh: vi.fn(),
+    onOpenChatGrid: vi.fn(),
     onSidebarResizeStart: vi.fn(),
     quickPanelOpen: false,
     logModalOpen: false,
@@ -254,6 +255,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
 
 describe("SessionListView", () => {
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
   });
 
@@ -332,6 +334,15 @@ describe("SessionListView", () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it("calls onOpenChatGrid when chat grid button is clicked", () => {
+    const onOpenChatGrid = vi.fn();
+    const props = createViewProps({ onOpenChatGrid });
+    renderWithRouter(<SessionListView {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chat Grid" }));
+    expect(onOpenChatGrid).toHaveBeenCalledTimes(1);
+  });
+
   it("calls onFilterChange when filter button is clicked", () => {
     const onFilterChange = vi.fn();
     const props = createViewProps({ onFilterChange });
@@ -341,13 +352,19 @@ describe("SessionListView", () => {
     expect(onFilterChange).toHaveBeenCalledWith("SHELL");
   });
 
-  it("calls onSearchQueryChange when typing in search input", () => {
+  it("calls onSearchQueryChange with debounce when typing in search input", () => {
+    vi.useFakeTimers();
     const onSearchQueryChange = vi.fn();
     const props = createViewProps({ onSearchQueryChange });
     renderWithRouter(<SessionListView {...props} />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search sessions" }), {
       target: { value: "repo" },
+    });
+
+    expect(onSearchQueryChange).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(180);
     });
     expect(onSearchQueryChange).toHaveBeenCalledWith("repo");
   });

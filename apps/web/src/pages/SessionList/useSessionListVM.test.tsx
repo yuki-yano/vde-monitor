@@ -120,8 +120,17 @@ const createTestRouter = (initialEntries: string[]) => {
       return { filter, q };
     },
   });
+  const chatGridRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/chat-grid",
+    component: () => null,
+    validateSearch: (search: Record<string, unknown>) => {
+      const panes = typeof search.panes === "string" ? search.panes : undefined;
+      return panes ? { panes } : {};
+    },
+  });
   return createRouter({
-    routeTree: rootRoute.addChildren([indexRoute]),
+    routeTree: rootRoute.addChildren([indexRoute, chatGridRoute]),
     history: createMemoryHistory({ initialEntries }),
   });
 };
@@ -146,6 +155,9 @@ const TestComponent = () => {
       <button type="button" onClick={() => vm.onSearchQueryChange("repo")}>
         set-query
       </button>
+      <button type="button" onClick={() => vm.onSearchQueryChange("repo backend")}>
+        set-query-words
+      </button>
       <button type="button" onClick={() => vm.onSearchQueryChange("")}>
         clear-query
       </button>
@@ -169,6 +181,9 @@ const TestComponent = () => {
       <button type="button" onClick={() => vm.onOpenPaneInNewWindow("pane direct/2")}>
         open-pane-new-window
       </button>
+      <button type="button" onClick={vm.onOpenChatGrid}>
+        open-chat-grid
+      </button>
       <span data-testid="query">{vm.searchQuery}</span>
       <span data-testid="screen-error">{vm.screenError ?? ""}</span>
       <span data-testid="visible-count">{vm.visibleSessionCount}</span>
@@ -181,11 +196,14 @@ const renderWithRouter = async (initialEntries: string[] = ["/"]) => {
   await act(async () => {
     await router.load();
   });
-  return render(
-    <RouterContextProvider router={router}>
-      <TestComponent />
-    </RouterContextProvider>,
-  );
+  return {
+    ...render(
+      <RouterContextProvider router={router}>
+        <TestComponent />
+      </RouterContextProvider>,
+    ),
+    router,
+  };
 };
 
 describe("useSessionListVM", () => {
@@ -268,6 +286,14 @@ describe("useSessionListVM", () => {
     fireEvent.click(screen.getByRole("button", { name: "set-query" }));
     await waitFor(() => {
       expect(screen.getByTestId("query").textContent).toBe("repo");
+    });
+  });
+
+  it("keeps space-separated query terms", async () => {
+    await renderWithRouter(["/?filter=AGENT"]);
+    fireEvent.click(screen.getByRole("button", { name: "set-query-words" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("query").textContent).toBe("repo backend");
     });
   });
 
@@ -476,5 +502,22 @@ describe("useSessionListVM", () => {
       "noopener,noreferrer",
     );
     openSpy.mockRestore();
+  });
+
+  it("closes overlays and navigates to chat grid", async () => {
+    const closeQuickPanel = vi.fn();
+    const closeLogModal = vi.fn();
+    mockUseSessionLogs.closeQuickPanel = closeQuickPanel;
+    mockUseSessionLogs.closeLogModal = closeLogModal;
+
+    const { router } = await renderWithRouter(["/"]);
+    const navigateSpy = vi.spyOn(router, "navigate").mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole("button", { name: "open-chat-grid" }));
+
+    await waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledWith(expect.objectContaining({ to: "/chat-grid" }));
+    });
+    expect(closeQuickPanel).toHaveBeenCalledTimes(1);
+    expect(closeLogModal).toHaveBeenCalledTimes(1);
   });
 });

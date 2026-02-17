@@ -171,17 +171,14 @@ export const SessionSidebarItem = memo(
                   {agentLabelFor(item.agent)}
                 </Badge>
               ) : null}
-              {hasKnownAgent ? <span aria-hidden="true" className="min-w-0 flex-1" /> : null}
-              <div className="flex min-w-0 shrink-0 items-center">
-                <LastInputPill
-                  tone={lastInputTone}
-                  label={<Clock className="h-3 w-3" />}
-                  srLabel="Last input"
-                  value={formatRelativeTime(item.lastInputAt, nowMs)}
-                  size="xs"
-                  showDot={false}
-                />
-              </div>
+              <LastInputPill
+                tone={lastInputTone}
+                label={<Clock className="h-3 w-3" />}
+                srLabel="Last input"
+                value={formatRelativeTime(item.lastInputAt, nowMs)}
+                size="xs"
+                showDot={false}
+              />
             </div>
             <span aria-hidden="true" className="basis-full" />
             <TagPill tone="meta" className="inline-flex max-w-[220px] items-center gap-1">

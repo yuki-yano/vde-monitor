@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { memo } from "react";
 
 import { FilterToggleGroup, TagPill } from "@/components/ui";
@@ -6,6 +7,7 @@ import type {
   SessionSidebarMainSectionsViewModel,
 } from "@/features/shared-session-ui/hooks/useSessionSidebarMainSectionsViewModel";
 import {
+  DEFAULT_SESSION_LIST_FILTER,
   SESSION_LIST_FILTER_VALUES,
   type SessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
@@ -20,16 +22,29 @@ type SessionSidebarHeaderProps = {
 const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarHeaderProps) => (
   <div className="flex items-center justify-between gap-3">
     <div>
-      <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
-      <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
+      <Link
+        to="/"
+        search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
+        className="hover:text-latte-lavender focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-none transition focus-visible:ring-2"
+        aria-label="Go to top"
+      >
+        <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
+        <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
+      </Link>
     </div>
     <div className="flex flex-col items-end gap-2">
-      <TagPill tone="neutral" className="bg-latte-crust/70">
+      <TagPill
+        tone="neutral"
+        className="border-latte-green/35 bg-latte-green/10 text-latte-green text-[10px] uppercase tracking-[0.22em]"
+      >
         {totalSessions} Active
       </TagPill>
-      <span className="text-latte-subtext0 text-[10px] uppercase tracking-[0.3em]">
+      <TagPill
+        tone="meta"
+        className="border-latte-blue/35 bg-latte-blue/10 text-latte-blue text-[10px] uppercase tracking-[0.22em]"
+      >
         {repoCount} repos
-      </span>
+      </TagPill>
     </div>
   </div>
 ));

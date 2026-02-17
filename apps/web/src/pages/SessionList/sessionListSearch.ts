@@ -9,16 +9,25 @@ export const normalizeSessionListSearchQuery = (value: unknown) => {
   if (typeof value !== "string") {
     return "";
   }
-  return value.trim();
+  return value;
 };
 
+const tokenizeSessionListSearchTerms = (query: string) =>
+  normalizeSessionListSearchQuery(query)
+    .toLowerCase()
+    .split(/[\s\u3000]+/)
+    .filter((term) => term.length > 0);
+
+export const hasSessionListSearchTerms = (query: string) =>
+  tokenizeSessionListSearchTerms(query).length > 0;
+
 export const matchesSessionListSearch = (session: SessionListSearchTarget, query: string) => {
-  const normalizedQuery = normalizeSessionListSearchQuery(query).toLowerCase();
-  if (normalizedQuery.length === 0) {
+  const searchTerms = tokenizeSessionListSearchTerms(query);
+  if (searchTerms.length === 0) {
     return true;
   }
 
-  return [
+  const searchableText = [
     session.customTitle,
     session.title,
     session.sessionName,
@@ -28,5 +37,8 @@ export const matchesSessionListSearch = (session: SessionListSearchTarget, query
     session.paneId,
   ]
     .filter((value): value is string => typeof value === "string" && value.length > 0)
-    .some((value) => value.toLowerCase().includes(normalizedQuery));
+    .join(" ")
+    .toLowerCase();
+
+  return searchTerms.every((term) => searchableText.includes(term));
 };

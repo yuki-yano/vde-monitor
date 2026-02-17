@@ -68,4 +68,26 @@ describe("PaneTextComposer", () => {
     const sendButton = screen.getByRole("button", { name: "Send" }) as HTMLButtonElement;
     expect(sendButton.disabled).toBe(true);
   });
+
+  it("expands key options when Keys button is pressed", () => {
+    const onSendKey = vi.fn();
+    render(
+      <PaneTextComposer
+        state={buildState({ keyPanel: { shiftHeld: false, ctrlHeld: false } })}
+        actions={buildActions({
+          keyPanel: {
+            onToggleShift: vi.fn(),
+            onToggleCtrl: vi.fn(),
+            onSendKey,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Shift")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show key options" }));
+    expect(screen.getByText("Shift")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+    expect(onSendKey).toHaveBeenCalledWith("Enter");
+  });
 });
