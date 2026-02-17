@@ -28,9 +28,6 @@ export const useSessionDetailVMState = () => {
   const session = useAtomValue(currentSessionAtom);
   const screenText = useAtomValue(screenTextAtom);
   const sessionApi = useAtomValue(sessionApiAtom);
-  if (!sessionApi) {
-    throw new Error("SessionDetailProvider is required");
-  }
   const nowMs = useNowMs();
 
   return {

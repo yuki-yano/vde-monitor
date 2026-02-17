@@ -1,138 +1,30 @@
-import type {
-  AllowedKey,
-  ClientFileNavigatorConfig,
-  CommandResponse,
-  CommitDetail,
-  CommitFileDiff,
-  CommitLog,
-  DiffFile,
-  DiffSummary,
-  HighlightCorrectionConfig,
-  ImageAttachment,
-  LaunchCommandResponse,
-  LaunchConfig,
-  RawItem,
-  RepoFileContent,
-  RepoFileSearchPage,
-  RepoFileTreePage,
-  RepoNote,
-  ScreenResponse,
-  SessionStateTimeline,
-  SessionStateTimelineRange,
-  SessionStateTimelineScope,
-  SessionSummary,
-  WorktreeList,
-} from "@vde-monitor/shared";
 import { atom } from "jotai";
 
 import type { Theme } from "@/lib/theme";
-import { defaultLaunchConfig, type LaunchAgentRequestOptions } from "@/state/launch-agent-options";
+import {
+  type SessionApi,
+  sessionApiAtom as sharedSessionApiAtom,
+  sessionConnectedAtom as sharedConnectedAtom,
+  sessionConnectionIssueAtom as sharedConnectionIssueAtom,
+  sessionConnectionStatusAtom as sharedConnectionStatusAtom,
+  sessionFileNavigatorConfigAtom as sharedFileNavigatorConfigAtom,
+  sessionHighlightCorrectionsAtom as sharedHighlightCorrectionsAtom,
+  sessionLaunchConfigAtom as sharedLaunchConfigAtom,
+} from "@/state/session-state-atoms";
+import { sessionsAtom as sharedSessionsAtom } from "@/state/use-session-store";
 
-export type SessionApi = {
-  reconnect: () => void;
-  refreshSessions: () => Promise<void>;
-  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
-  requestDiffSummary: (
-    paneId: string,
-    options?: { force?: boolean; worktreePath?: string },
-  ) => Promise<DiffSummary>;
-  requestDiffFile: (
-    paneId: string,
-    path: string,
-    rev?: string | null,
-    options?: { force?: boolean; worktreePath?: string },
-  ) => Promise<DiffFile>;
-  requestCommitLog: (
-    paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
-  ) => Promise<CommitLog>;
-  requestCommitDetail: (
-    paneId: string,
-    hash: string,
-    options?: { force?: boolean; worktreePath?: string },
-  ) => Promise<CommitDetail>;
-  requestCommitFile: (
-    paneId: string,
-    hash: string,
-    path: string,
-    options?: { force?: boolean; worktreePath?: string },
-  ) => Promise<CommitFileDiff>;
-  requestStateTimeline: (
-    paneId: string,
-    options?: {
-      scope?: SessionStateTimelineScope;
-      range?: SessionStateTimelineRange;
-      limit?: number;
-    },
-  ) => Promise<SessionStateTimeline>;
-  requestRepoNotes: (paneId: string) => Promise<RepoNote[]>;
-  requestRepoFileTree: (
-    paneId: string,
-    options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
-  ) => Promise<RepoFileTreePage>;
-  requestRepoFileSearch: (
-    paneId: string,
-    query: string,
-    options?: { cursor?: string; limit?: number; worktreePath?: string },
-  ) => Promise<RepoFileSearchPage>;
-  requestRepoFileContent: (
-    paneId: string,
-    path: string,
-    options?: { maxBytes?: number; worktreePath?: string },
-  ) => Promise<RepoFileContent>;
-  requestScreen: (
-    paneId: string,
-    options: { lines?: number; mode?: "text" | "image"; cursor?: string },
-  ) => Promise<ScreenResponse>;
-  focusPane: (paneId: string) => Promise<CommandResponse>;
-  killPane: (paneId: string) => Promise<CommandResponse>;
-  killWindow: (paneId: string) => Promise<CommandResponse>;
-  launchAgentInSession: (
-    sessionName: string,
-    agent: "codex" | "claude",
-    requestId: string,
-    options?: LaunchAgentRequestOptions,
-  ) => Promise<LaunchCommandResponse>;
-  uploadImageAttachment: (paneId: string, file: File) => Promise<ImageAttachment>;
-  sendText: (
-    paneId: string,
-    text: string,
-    enter?: boolean,
-    requestId?: string,
-  ) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
-  touchSession: (paneId: string) => Promise<void>;
-  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
-  createRepoNote: (
-    paneId: string,
-    input: { title?: string | null; body: string },
-  ) => Promise<RepoNote>;
-  updateRepoNote: (
-    paneId: string,
-    noteId: string,
-    input: { title?: string | null; body: string },
-  ) => Promise<RepoNote>;
-  deleteRepoNote: (paneId: string, noteId: string) => Promise<string>;
-};
-
-type ConnectionStatus = "healthy" | "degraded" | "disconnected";
+export type { SessionApi };
 
 export const paneIdAtom = atom<string | null>(null);
-export const sessionsAtom = atom<SessionSummary[]>([]);
-export const connectedAtom = atom(false);
-export const connectionStatusAtom = atom<ConnectionStatus>("degraded");
-export const connectionIssueAtom = atom<string | null>(null);
-export const highlightCorrectionsAtom = atom<HighlightCorrectionConfig>({
-  codex: true,
-  claude: true,
-});
-export const fileNavigatorConfigAtom = atom<ClientFileNavigatorConfig>({
-  autoExpandMatchLimit: 100,
-});
-export const launchConfigAtom = atom<LaunchConfig>(defaultLaunchConfig);
+export const sessionsAtom = sharedSessionsAtom;
+export const connectedAtom = sharedConnectedAtom;
+export const connectionStatusAtom = sharedConnectionStatusAtom;
+export const connectionIssueAtom = sharedConnectionIssueAtom;
+export const highlightCorrectionsAtom = sharedHighlightCorrectionsAtom;
+export const fileNavigatorConfigAtom = sharedFileNavigatorConfigAtom;
+export const launchConfigAtom = sharedLaunchConfigAtom;
 export const resolvedThemeAtom = atom<Theme>("latte");
-export const sessionApiAtom = atom<SessionApi | null>(null);
+export const sessionApiAtom = sharedSessionApiAtom;
 
 export const currentSessionAtom = atom((get) => {
   const paneId = get(paneIdAtom);
