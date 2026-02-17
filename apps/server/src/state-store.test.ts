@@ -24,7 +24,13 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { restoreRepoNotes, restoreSessions, restoreTimeline, saveState } from "./state-store";
+import {
+  restorePersistedState,
+  restoreRepoNotes,
+  restoreSessions,
+  restoreTimeline,
+  saveState,
+} from "./state-store";
 
 const statePath = "/mock/home/.vde-monitor/state.json";
 
@@ -112,6 +118,44 @@ describe("state-store timeline persistence", () => {
     const restoredTimeline = restoreTimeline();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
+  });
+
+  it("restores sessions/timeline/repoNotes from a single read", () => {
+    saveState([createSessionDetail()], {
+      timeline: {
+        "pane-1": [
+          {
+            id: "pane-1:1700000000000:1",
+            paneId: "pane-1",
+            state: "RUNNING",
+            reason: "poll",
+            startedAt: "2026-02-07T00:00:00.000Z",
+            endedAt: null,
+            source: "poll",
+          },
+        ],
+      },
+      repoNotes: {
+        "/repo/a": [
+          {
+            id: "note-1",
+            repoRoot: "/repo/a",
+            title: "todo",
+            body: "update tests",
+            createdAt: "2026-02-07T00:00:00.000Z",
+            updatedAt: "2026-02-07T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+    mocks.readFileSync.mockClear();
+
+    const restored = restorePersistedState();
+
+    expect(mocks.readFileSync).toHaveBeenCalledTimes(1);
+    expect(restored.sessions.get("pane-1")?.paneId).toBe("pane-1");
+    expect(restored.timeline.get("pane-1")).toHaveLength(1);
+    expect(restored.repoNotes.get("/repo/a")).toHaveLength(1);
   });
 
   it("saves and restores repository notes", () => {

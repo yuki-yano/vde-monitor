@@ -151,16 +151,20 @@ export type PersistedSessionMap = Map<string, PersistedSession>;
 export type PersistedTimelineMap = Map<string, PersistedTimelineEvent[]>;
 export type PersistedRepoNotesMap = Map<string, RepoNote[]>;
 
-export const restoreSessions = () => {
-  const state = loadState();
+export type RestoredPersistedState = {
+  sessions: PersistedSessionMap;
+  timeline: PersistedTimelineMap;
+  repoNotes: PersistedRepoNotesMap;
+};
+
+const restorePersistedSessionMap = (state: PersistedState | null): PersistedSessionMap => {
   if (!state) {
     return new Map();
   }
   return new Map(Object.entries(state.sessions)) as PersistedSessionMap;
 };
 
-export const restoreTimeline = (): PersistedTimelineMap => {
-  const state = loadState();
+const restorePersistedTimelineMap = (state: PersistedState | null): PersistedTimelineMap => {
   if (!state) {
     return new Map();
   }
@@ -175,8 +179,7 @@ export const restoreTimeline = (): PersistedTimelineMap => {
   return new Map(entries);
 };
 
-export const restoreRepoNotes = (): PersistedRepoNotesMap => {
-  const state = loadState();
+const restorePersistedRepoNotesMap = (state: PersistedState | null): PersistedRepoNotesMap => {
   if (!state) {
     return new Map();
   }
@@ -189,4 +192,25 @@ export const restoreRepoNotes = (): PersistedRepoNotesMap => {
     })
     .filter(([, notes]) => notes.length > 0);
   return new Map(entries);
+};
+
+export const restorePersistedState = (): RestoredPersistedState => {
+  const state = loadState();
+  return {
+    sessions: restorePersistedSessionMap(state),
+    timeline: restorePersistedTimelineMap(state),
+    repoNotes: restorePersistedRepoNotesMap(state),
+  };
+};
+
+export const restoreSessions = () => {
+  return restorePersistedState().sessions;
+};
+
+export const restoreTimeline = (): PersistedTimelineMap => {
+  return restorePersistedState().timeline;
+};
+
+export const restoreRepoNotes = (): PersistedRepoNotesMap => {
+  return restorePersistedState().repoNotes;
 };

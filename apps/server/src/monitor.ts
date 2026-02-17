@@ -22,7 +22,7 @@ import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
 import { createRepoNotesStore } from "./repo-notes/store";
 import { createSessionRegistry } from "./session-registry";
-import { restoreRepoNotes, restoreSessions, restoreTimeline, saveState } from "./state-store";
+import { restorePersistedState, saveState } from "./state-store";
 import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
@@ -37,9 +37,10 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
   const capturePaneFingerprint = runtime.captureFingerprint;
   const paneStates = createPaneStateStore();
   const customTitles = new Map<string, string>();
-  const restored = restoreSessions();
-  const restoredTimeline = restoreTimeline();
-  const restoredRepoNotes = restoreRepoNotes();
+  const restoredState = restorePersistedState();
+  const restored = restoredState.sessions;
+  const restoredTimeline = restoredState.timeline;
+  const restoredRepoNotes = restoredState.repoNotes;
   const repoNotes = createRepoNotesStore();
   repoNotes.restore(restoredRepoNotes);
   const serverKey = runtime.serverKey;
