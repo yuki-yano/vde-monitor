@@ -137,7 +137,7 @@ export const SessionDetailView = ({
   const {
     selectedSectionTabValue,
     sectionTabsIconOnly,
-    setSectionTabsListElement,
+    sectionTabsListRef,
     handleSectionTabChange,
   } = useSessionDetailSectionTabs({
     scope: { repoRoot: session?.repoRoot, branch: session?.branch },
@@ -321,7 +321,7 @@ export const SessionDetailView = ({
 
               <Tabs value={selectedSectionTabValue} onValueChange={handleSectionTabChange}>
                 <TabsList
-                  ref={setSectionTabsListElement}
+                  ref={sectionTabsListRef}
                   aria-label="Session detail sections"
                   className="grid w-full grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >

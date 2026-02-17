@@ -1,3 +1,4 @@
+import { useWindowEvent } from "@mantine/hooks";
 import type {
   HighlightCorrectionConfig,
   ScreenResponse,
@@ -161,23 +162,19 @@ export const useSessionLogs = ({
     setSelectedPaneId(null);
   }, [setLogModalOpen, setQuickPanelOpen, setSelectedPaneId]);
 
-  useEffect(() => {
+  useWindowEvent("keydown", (event) => {
     if (!quickPanelOpen && !logModalOpen) {
       return;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (logModalOpen) {
-        closeLogModal();
-        return;
-      }
-      closeQuickPanel();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [closeLogModal, closeQuickPanel, logModalOpen, quickPanelOpen]);
+    if (event.key !== "Escape") {
+      return;
+    }
+    if (logModalOpen) {
+      closeLogModal();
+      return;
+    }
+    closeQuickPanel();
+  });
 
   return {
     quickPanelOpen,

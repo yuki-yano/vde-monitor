@@ -1,3 +1,4 @@
+import { readLocalStorageValue } from "@mantine/hooks";
 import type { SessionSummary, WorktreeList } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -37,12 +38,11 @@ const readStoredSelection = (paneId: string): StoredVirtualWorktreeSelection | n
   if (typeof window === "undefined") {
     return null;
   }
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(buildStorageKey(paneId));
-  } catch {
-    return null;
-  }
+  const raw = readLocalStorageValue<string | null>({
+    key: buildStorageKey(paneId),
+    defaultValue: null,
+    deserialize: (value) => value ?? null,
+  });
   if (!raw) {
     return null;
   }
