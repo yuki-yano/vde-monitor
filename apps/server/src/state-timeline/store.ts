@@ -6,6 +6,12 @@ import type {
   SessionStateValue,
 } from "@vde-monitor/shared";
 
+import {
+  aggregateRepoTimelineSegments,
+  buildTimelineBoundaries,
+  clipTimelineEventToInterval,
+} from "./timeline-aggregation";
+
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
   "1h": 60 * 60 * 1000,
@@ -59,15 +65,6 @@ type GetRepoTimelineInput = {
   paneIds: string[];
   range?: SessionStateTimelineRange;
   limit?: number;
-};
-
-type RepoTimelineSegment = {
-  state: SessionStateValue;
-  startedAtMs: number;
-  endedAtMs: number;
-  isOpen: boolean;
-  source: SessionStateTimelineSource;
-  reason: string;
 };
 
 const toIso = (ms: number) => new Date(ms).toISOString();
@@ -238,17 +235,16 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
 
     const withDuration = events
       .map<SessionStateTimelineItem | null>((event) => {
-        const startedAtMs = parseIso(event.startedAt);
-        if (startedAtMs == null) {
+        const interval = clipTimelineEventToInterval({
+          event,
+          rangeStartMs,
+          nowMs,
+          parseIso,
+        });
+        if (!interval) {
           return null;
         }
-        const endedAtMs = parseIso(event.endedAt) ?? nowMs;
-        const clippedStartMs = Math.max(startedAtMs, rangeStartMs);
-        const clippedEndMs = Math.min(endedAtMs, nowMs);
-        const durationMs = Math.max(0, clippedEndMs - clippedStartMs);
-        if (durationMs <= 0) {
-          return null;
-        }
+        const durationMs = Math.max(0, interval.endedAtMs - interval.startedAtMs);
         totals[event.state] += durationMs;
         return { ...event, durationMs };
       })
@@ -311,39 +307,15 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     const intervals = uniquePaneIds.flatMap((candidatePaneId) => {
       const events = eventsByPane.get(candidatePaneId) ?? [];
       return events
-        .map((event) => {
-          const startedAtMs = parseIso(event.startedAt);
-          if (startedAtMs == null) {
-            return null;
-          }
-          const endedAtMs = parseIso(event.endedAt) ?? nowMs;
-          const clippedStartMs = Math.max(startedAtMs, rangeStartMs);
-          const clippedEndMs = Math.min(endedAtMs, nowMs);
-          const durationMs = Math.max(0, clippedEndMs - clippedStartMs);
-          if (durationMs <= 0) {
-            return null;
-          }
-          return {
-            state: event.state,
-            source: event.source,
-            reason: event.reason,
-            startedAtMs: clippedStartMs,
-            endedAtMs: clippedEndMs,
-            isOpen: event.endedAt == null && clippedEndMs === nowMs,
-          };
-        })
-        .filter(
-          (
-            item,
-          ): item is {
-            state: SessionStateValue;
-            source: SessionStateTimelineSource;
-            reason: string;
-            startedAtMs: number;
-            endedAtMs: number;
-            isOpen: boolean;
-          } => item != null,
-        );
+        .map((event) =>
+          clipTimelineEventToInterval({
+            event,
+            rangeStartMs,
+            nowMs,
+            parseIso,
+          }),
+        )
+        .filter((item): item is NonNullable<typeof item> => item != null);
     });
 
     if (intervals.length === 0) {
@@ -357,58 +329,14 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       };
     }
 
-    const boundaries = Array.from(
-      new Set([
-        rangeStartMs,
-        nowMs,
-        ...intervals.flatMap((interval) => [interval.startedAtMs, interval.endedAtMs]),
-      ]),
-    ).sort((left, right) => left - right);
-
-    const segments: RepoTimelineSegment[] = [];
-    for (let index = 0; index < boundaries.length - 1; index += 1) {
-      const segmentStartMs = boundaries[index];
-      const segmentEndMs = boundaries[index + 1];
-      if (segmentStartMs == null || segmentEndMs == null || segmentEndMs <= segmentStartMs) {
-        continue;
-      }
-
-      const activeIntervals = intervals.filter(
-        (interval) => interval.startedAtMs < segmentEndMs && interval.endedAtMs > segmentStartMs,
-      );
-      if (activeIntervals.length === 0) {
-        continue;
-      }
-
-      const dominantState = resolveDominantState(activeIntervals.map((interval) => interval.state));
-      const dominantSource = resolveDominantSource(
-        activeIntervals.map((interval) => interval.source),
-      );
-      const isOpen =
-        segmentEndMs === nowMs &&
-        activeIntervals.some((interval) => interval.isOpen && interval.endedAtMs === nowMs);
-
-      const previous = segments.at(-1);
-      if (
-        previous &&
-        previous.state === dominantState &&
-        previous.endedAtMs === segmentStartMs &&
-        previous.isOpen === isOpen
-      ) {
-        previous.endedAtMs = segmentEndMs;
-        previous.source = dominantSource;
-        continue;
-      }
-
-      segments.push({
-        state: dominantState,
-        startedAtMs: segmentStartMs,
-        endedAtMs: segmentEndMs,
-        isOpen,
-        source: dominantSource,
-        reason: "repo:aggregate",
-      });
-    }
+    const boundaries = buildTimelineBoundaries({ rangeStartMs, nowMs, intervals });
+    const segments = aggregateRepoTimelineSegments({
+      intervals,
+      boundaries,
+      nowMs,
+      resolveDominantState,
+      resolveDominantSource,
+    });
 
     const items = segments
       .map<SessionStateTimelineItem>((segment, index) => {
