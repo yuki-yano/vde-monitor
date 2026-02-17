@@ -6,12 +6,12 @@ import { memo, useCallback, useEffect, useMemo } from "react";
 import {
   Button,
   Callout,
-  Card,
   EmptyState,
   LoadingOverlay,
   TagPill,
   TruncatedSegmentText,
 } from "@/components/ui";
+import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSectionShell";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { cn } from "@/lib/cn";
 
@@ -244,22 +244,18 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
   );
 
   return (
-    <Card className="flex flex-col gap-2">
-      <div data-testid="changes-header" className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
-            Changes
-          </h2>
-          <p className="text-latte-subtext0 min-w-0 overflow-hidden text-sm">
-            <DiffSummaryDescription
-              fileCount={fileCount}
-              diffBranch={diffBranch}
-              showTotals={Boolean(diffSummary)}
-              totals={totals}
-              fileChangeCategories={fileChangeCategories}
-            />
-          </p>
-        </div>
+    <PaneSectionShell
+      title="Changes"
+      description={
+        <DiffSummaryDescription
+          fileCount={fileCount}
+          diffBranch={diffBranch}
+          showTotals={Boolean(diffSummary)}
+          totals={totals}
+          fileChangeCategories={fileChangeCategories}
+        />
+      }
+      action={
         <Button
           variant="ghost"
           size="sm"
@@ -271,10 +267,16 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
           <RefreshCw className="h-4 w-4" />
           <span className="sr-only">Refresh</span>
         </Button>
-      </div>
-      {renderRepoRoot(diffSummary?.repoRoot)}
-      <DiffSummaryReasonCallout reason={diffSummary?.reason} />
-      <DiffErrorCallout diffError={diffError} />
+      }
+      status={
+        <>
+          {renderRepoRoot(diffSummary?.repoRoot)}
+          <DiffSummaryReasonCallout reason={diffSummary?.reason} />
+          <DiffErrorCallout diffError={diffError} />
+        </>
+      }
+      headerTestId="changes-header"
+    >
       <div className={buildDiffBodyClassName(diffLoading)}>
         {renderDiffLoadingOverlay(diffLoading)}
         {renderCleanState(showCleanState)}
@@ -290,7 +292,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
           onResolveFileReferenceCandidates={onResolveFileReferenceCandidates}
         />
       </div>
-    </Card>
+    </PaneSectionShell>
   );
 });
 

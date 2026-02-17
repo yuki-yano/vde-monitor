@@ -2,7 +2,8 @@ import type { CommitDetail, CommitFileDiff, CommitLog } from "@vde-monitor/share
 import { GitCommitHorizontal, RefreshCw } from "lucide-react";
 import { memo, useMemo } from "react";
 
-import { Button, Callout, Card, EmptyState, LoadingOverlay } from "@/components/ui";
+import { Button, Callout, EmptyState, LoadingOverlay } from "@/components/ui";
+import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSectionShell";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { formatBranchLabel, formatPath } from "../sessionDetailUtils";
@@ -166,16 +167,10 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
   const canLoadMore = shouldShowLoadMore(commitLog, commitHasMore);
 
   return (
-    <Card className="flex flex-col gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
-            Commit Log
-          </h2>
-          <p className="text-latte-subtext0 min-w-0 overflow-hidden text-sm">
-            {commitHeaderDescription}
-          </p>
-        </div>
+    <PaneSectionShell
+      title="Commit Log"
+      description={commitHeaderDescription}
+      action={
         <Button
           variant="ghost"
           size="sm"
@@ -187,10 +182,15 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
           <RefreshCw className="h-4 w-4" />
           <span className="sr-only">Refresh</span>
         </Button>
-      </div>
-      <CommitRepoRoot repoRoot={commitLog?.repoRoot} />
-      <CommitReasonCallout reason={commitLog?.reason} />
-      <CommitErrorCallout commitError={commitError} />
+      }
+      status={
+        <>
+          <CommitRepoRoot repoRoot={commitLog?.repoRoot} />
+          <CommitReasonCallout reason={commitLog?.reason} />
+          <CommitErrorCallout commitError={commitError} />
+        </>
+      }
+    >
       <div className={buildCommitListClassName(commitLoading)}>
         <CommitLoadingOverlay commitLoading={commitLoading} />
         <CommitEmptyStateNotice showEmptyState={showEmptyState} />
@@ -216,7 +216,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
         commitLoadingMore={commitLoadingMore}
         onLoadMore={onLoadMore}
       />
-    </Card>
+    </PaneSectionShell>
   );
 });
 
