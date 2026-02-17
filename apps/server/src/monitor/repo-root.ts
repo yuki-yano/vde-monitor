@@ -1,5 +1,5 @@
 import { setMapEntryWithLimit } from "../cache";
-import { resolveRepoRoot as resolveRepoRootShared } from "../git-utils";
+import { resolveRepoRoot as resolveRepoRootShared } from "../domain/git/git-utils";
 
 const repoRootCacheTtlMs = 10000;
 const REPO_ROOT_CACHE_MAX_ENTRIES = 1000;

@@ -191,6 +191,13 @@ describe("runLaunchAgentCommand", () => {
       worktreeBranch: undefined,
     });
     expect(consoleSpy).toHaveBeenCalledTimes(1);
+    const serialized = consoleSpy.mock.calls[0]?.[0];
+    expect(typeof serialized).toBe("string");
+    if (typeof serialized === "string") {
+      const payload = JSON.parse(serialized) as { ok: boolean; requestId?: string };
+      expect(payload.ok).toBe(true);
+      expect(payload.requestId).toEqual(expect.any(String));
+    }
     consoleSpy.mockRestore();
   });
 

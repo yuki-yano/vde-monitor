@@ -26,7 +26,7 @@ const previewCache: Record<
   },
 };
 
-vi.mock("./useSessionPreview", () => ({
+vi.mock("@/features/shared-session-ui/hooks/useSessionPreview", () => ({
   useSessionPreview: () => ({
     previewCache,
     previewLoading: {},

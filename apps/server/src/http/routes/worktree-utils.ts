@@ -1,7 +1,7 @@
 import type { SessionDetail, WorktreeList, WorktreeListEntry } from "@vde-monitor/shared";
 
-import { fetchDiffSummary } from "../../git-diff";
-import { runGit } from "../../git-utils";
+import { fetchDiffSummary } from "../../domain/git/git-diff";
+import { runGit } from "../../domain/git/git-utils";
 import { resolveRepoBranchCached } from "../../monitor/repo-branch";
 import { resolveVwWorktreeSnapshotCached } from "../../monitor/vw-worktree";
 import { normalizeAbsolutePath } from "../../path-normalization";

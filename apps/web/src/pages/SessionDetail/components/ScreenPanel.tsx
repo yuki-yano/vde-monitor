@@ -1,5 +1,5 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
-import { ChevronsUpDown, FileText, GitBranch, Image, RefreshCw, X } from "lucide-react";
+import { FileText, Image, RefreshCw } from "lucide-react";
 import {
   type ClipboardEvent,
   forwardRef,
@@ -13,17 +13,7 @@ import {
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
-import {
-  Button,
-  Callout,
-  Card,
-  IconButton,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TagPill,
-  Toolbar,
-} from "@/components/ui";
+import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/components/ui";
 import { sanitizeLogCopyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
 import type { ScreenMode } from "@/lib/screen-loading";
@@ -33,8 +23,8 @@ import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogRef
 import { useScreenPanelWorktreeSelector } from "../hooks/useScreenPanelWorktreeSelector";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
+import { ScreenPanelPromptContext } from "./screen-panel-prompt-context";
 import { ScreenPanelViewport } from "./ScreenPanelViewport";
-import { ScreenPanelWorktreeSelectorPanel } from "./ScreenPanelWorktreeSelectorPanel";
 import {
   buildVisibleFileChangeCategories,
   formatGitMetric,
@@ -100,9 +90,6 @@ type ScreenPanelProps = {
 const shouldShowErrorMessage = (error: string | null, connectionIssue: string | null) =>
   Boolean(error) &&
   (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
-
-const LEADING_TRUNCATE_CLASS_NAME =
-  "block w-full min-w-0 overflow-hidden whitespace-nowrap text-left font-mono";
 
 const pollingPauseLabelMap: Record<
   NonNullable<ScreenPanelState["pollingPauseReason"]>,
@@ -416,149 +403,41 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
         />
       </div>
-      {contextLeftLabel ? (
-        <span
-          ref={contextLabelMeasureRef}
-          aria-hidden="true"
-          className="pointer-events-none fixed -left-[9999px] -top-[9999px] whitespace-nowrap px-1 text-[12px] font-medium tracking-[0.14em]"
-        >
-          {contextLeftLabel}
-        </span>
-      ) : null}
-      <span
-        ref={branchLabelMeasureRef}
-        aria-hidden="true"
-        className="pointer-events-none fixed -left-[9999px] -top-[9999px] whitespace-nowrap font-mono text-[10px] font-semibold tracking-[0.05em]"
+      <ScreenPanelPromptContext
+        promptGitContext={promptGitContext}
+        contextLeftLabel={contextLeftLabel}
+        isContextInStatusRow={isContextInStatusRow}
+        displayGitBranchLabel={displayGitBranchLabel}
+        gitBranchLabel={gitBranchLabel}
+        isVirtualActive={isVirtualActive}
+        visibleFileChangeCategories={visibleFileChangeCategories}
+        gitAdditionsLabel={gitAdditionsLabel}
+        gitDeletionsLabel={gitDeletionsLabel}
+        worktreeSelectorEnabled={worktreeSelectorEnabled}
+        worktreeSelectorLoading={worktreeSelectorLoading}
+        worktreeSelectorError={worktreeSelectorError}
+        displayedWorktreeEntries={displayedWorktreeEntries}
+        worktreeRepoRoot={worktreeRepoRoot}
+        worktreeBaseBranch={worktreeBaseBranch}
+        actualWorktreePath={actualWorktreePath}
+        virtualWorktreePath={virtualWorktreePath}
+        isWorktreeSelectorOpen={isWorktreeSelectorOpen}
+        branchLabelSlotClassName={branchLabelSlotClassName}
+        branchTriggerWidthClassName={branchTriggerWidthClassName}
+        branchContainerClassName={branchContainerClassName}
+        promptGitContextRowRef={promptGitContextRowRef}
+        promptGitContextLeftRef={promptGitContextLeftRef}
+        contextLabelMeasureRef={contextLabelMeasureRef}
+        branchPillContainerRef={branchPillContainerRef}
+        branchLabelMeasureRef={branchLabelMeasureRef}
+        pollingPauseMeta={pollingPauseMeta}
+        onRefresh={onRefresh}
+        onRefreshWorktrees={onRefreshWorktrees}
+        onSelectVirtualWorktree={onSelectVirtualWorktree}
+        onClearVirtualWorktree={onClearVirtualWorktree}
+        onToggleWorktreeSelector={toggleWorktreeSelector}
+        onCloseWorktreeSelector={closeWorktreeSelector}
       />
-      {promptGitContext || contextLeftLabel ? (
-        <div
-          ref={promptGitContextRowRef}
-          data-testid="prompt-git-context-row"
-          className="-my-0.5 flex items-center justify-between gap-2"
-        >
-          <div ref={promptGitContextLeftRef} className="flex min-w-0 flex-1 items-center gap-1.5">
-            {isVirtualActive ? (
-              <IconButton
-                type="button"
-                size="xs"
-                variant="dangerOutline"
-                aria-label="Clear virtual worktree"
-                title="Clear virtual worktree"
-                className="shrink-0"
-                onClick={() => {
-                  onClearVirtualWorktree?.();
-                  closeWorktreeSelector();
-                }}
-              >
-                <X className="h-3 w-3" />
-              </IconButton>
-            ) : null}
-            <div ref={branchPillContainerRef} className={branchContainerClassName}>
-              {worktreeSelectorEnabled ? (
-                <button
-                  type="button"
-                  className={cn(
-                    "border-latte-surface2/70 bg-latte-base/70 text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[10px] font-semibold tracking-[0.05em]",
-                    branchTriggerWidthClassName,
-                  )}
-                  title={gitBranchLabel}
-                  aria-label="Select worktree"
-                  onClick={toggleWorktreeSelector}
-                  data-testid="worktree-selector-trigger"
-                >
-                  <GitBranch className="text-latte-subtext0 h-3 w-3 shrink-0" />
-                  <span className={branchLabelSlotClassName}>
-                    <span className={LEADING_TRUNCATE_CLASS_NAME}>{displayGitBranchLabel}</span>
-                  </span>
-                  <ChevronsUpDown className="text-latte-subtext0 h-2.5 w-2.5 shrink-0" />
-                </button>
-              ) : (
-                <TagPill
-                  tone="neutral"
-                  className={cn(
-                    "text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 px-2 py-[3px] text-[10px] font-semibold tracking-[0.05em]",
-                    branchTriggerWidthClassName,
-                  )}
-                  title={gitBranchLabel}
-                >
-                  <GitBranch className="text-latte-subtext0 h-3 w-3 shrink-0" />
-                  <span className={branchLabelSlotClassName}>
-                    <span className={LEADING_TRUNCATE_CLASS_NAME}>{displayGitBranchLabel}</span>
-                  </span>
-                </TagPill>
-              )}
-              {worktreeSelectorEnabled && isWorktreeSelectorOpen ? (
-                <ScreenPanelWorktreeSelectorPanel
-                  entries={displayedWorktreeEntries}
-                  worktreeRepoRoot={worktreeRepoRoot}
-                  worktreeBaseBranch={worktreeBaseBranch}
-                  virtualWorktreePath={virtualWorktreePath}
-                  actualWorktreePath={actualWorktreePath}
-                  worktreeSelectorLoading={worktreeSelectorLoading}
-                  worktreeSelectorError={worktreeSelectorError}
-                  onRefresh={onRefreshWorktrees ?? onRefresh}
-                  onClose={() => {
-                    closeWorktreeSelector();
-                  }}
-                  onSelectVirtualWorktree={onSelectVirtualWorktree}
-                />
-              ) : null}
-            </div>
-            {isVirtualActive ? (
-              <TagPill
-                tone="meta"
-                aria-label="Virtual worktree active"
-                title="Virtual worktree active"
-                className="border-latte-lavender/50 bg-latte-lavender/10 text-latte-lavender inline-flex shrink-0 items-center justify-center px-2 py-[3px] text-[10px] font-semibold tracking-[0.08em]"
-              >
-                Virt
-              </TagPill>
-            ) : null}
-            {visibleFileChangeCategories.map((item) => (
-              <TagPill
-                key={item.key}
-                tone="meta"
-                className={cn(
-                  item.className,
-                  "shrink-0 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em]",
-                )}
-              >
-                {item.label} {item.value}
-              </TagPill>
-            ))}
-            <span className="text-latte-green shrink-0 text-[11px] font-semibold">
-              +{gitAdditionsLabel}
-            </span>
-            <span className="text-latte-red shrink-0 text-[11px] font-semibold">
-              -{gitDeletionsLabel}
-            </span>
-          </div>
-          {contextLeftLabel && !isContextInStatusRow ? (
-            <span className="text-latte-subtext0 shrink-0 px-1 text-[12px] font-medium tracking-[0.14em]">
-              {contextLeftLabel}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      {pollingPauseMeta || (contextLeftLabel && isContextInStatusRow) ? (
-        <div data-testid="prompt-status-row" className="-mt-0.5 flex items-center gap-2">
-          {pollingPauseMeta ? (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
-                pollingPauseMeta.className,
-              )}
-            >
-              {pollingPauseMeta.label}
-            </span>
-          ) : null}
-          {contextLeftLabel && isContextInStatusRow ? (
-            <span className="text-latte-subtext0 ml-auto shrink-0 px-1 text-right text-[12px] font-medium tracking-[0.14em]">
-              {contextLeftLabel}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
       <div>{controls}</div>
     </Card>
   );

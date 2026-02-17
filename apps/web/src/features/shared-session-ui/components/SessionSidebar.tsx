@@ -10,15 +10,15 @@ import type {
 import { memo, useCallback } from "react";
 
 import { Card } from "@/components/ui";
+import { SessionSidebarMainSections } from "@/features/shared-session-ui/components/SessionSidebarMainSections";
+import { SessionSidebarPreviewPopover } from "@/features/shared-session-ui/components/SessionSidebarPreviewPopover";
+import { useSessionSidebarActions } from "@/features/shared-session-ui/hooks/useSessionSidebarActions";
+import { useSessionSidebarGroups } from "@/features/shared-session-ui/hooks/useSessionSidebarGroups";
+import { useSessionSidebarPreviewPopover } from "@/features/shared-session-ui/hooks/useSessionSidebarPreviewPopover";
+import { useSidebarPreview } from "@/features/shared-session-ui/hooks/useSidebarPreview";
 import { cn } from "@/lib/cn";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
-import { SessionSidebarMainSections } from "@/pages/SessionDetail/components/SessionSidebarMainSections";
-import { SessionSidebarPreviewPopover } from "@/pages/SessionDetail/components/SessionSidebarPreviewPopover";
-import { useSessionSidebarActions } from "@/pages/SessionDetail/hooks/useSessionSidebarActions";
-import { useSessionSidebarGroups } from "@/pages/SessionDetail/hooks/useSessionSidebarGroups";
-import { useSessionSidebarPreviewPopover } from "@/pages/SessionDetail/hooks/useSessionSidebarPreviewPopover";
-import { useSidebarPreview } from "@/pages/SessionDetail/hooks/useSidebarPreview";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 type SessionSidebarState = {

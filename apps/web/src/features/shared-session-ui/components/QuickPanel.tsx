@@ -8,12 +8,8 @@ import {
 } from "@/features/shared-session-ui/model/session-window-group";
 import { cn } from "@/lib/cn";
 import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
+import { formatBranchLabel, formatRelativeTime, getLastInputTone } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
-import {
-  formatBranchLabel,
-  formatRelativeTime,
-  getLastInputTone,
-} from "@/pages/SessionDetail/sessionDetailUtils";
 
 type QuickPanelState = {
   open: boolean;

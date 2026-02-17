@@ -1,7 +1,6 @@
+import type { ApiAppType } from "@vde-monitor/server/http/api-router";
 import type { InferRequestType } from "hono/client";
 import { hc } from "hono/client";
-
-import type { ApiAppType } from "../../../server/src/http/api-router";
 
 export const createApiClient = (apiBasePath: string, authHeaders: Record<string, string>) =>
   hc<ApiAppType>(apiBasePath, {

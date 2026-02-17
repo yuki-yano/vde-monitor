@@ -1,12 +1,5 @@
-import { atom } from "jotai";
-
-export type PreviewFrame = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  lines: number;
-};
-
-export const sidebarHoveredPaneIdAtom = atom<string | null>(null);
-export const sidebarPreviewFrameAtom = atom<PreviewFrame | null>(null);
+export type { PreviewFrame } from "@/features/shared-session-ui/atoms/sidebarPreviewAtoms";
+export {
+  sidebarHoveredPaneIdAtom,
+  sidebarPreviewFrameAtom,
+} from "@/features/shared-session-ui/atoms/sidebarPreviewAtoms";

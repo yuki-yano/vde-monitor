@@ -147,6 +147,20 @@ describe("ScreenPanel", () => {
     expect(gitRow.textContent).toContain("73% context left");
   });
 
+  it("does not render git metrics when prompt context is missing", () => {
+    const state = buildState({
+      promptGitContext: null,
+      contextLeftLabel: "73% context left",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const gitRow = screen.getByTestId("prompt-git-context-row");
+    expect(gitRow.textContent).toContain("73% context left");
+    expect(gitRow.textContent).not.toContain("+—");
+    expect(gitRow.textContent).not.toContain("-—");
+  });
+
   it("shows worktree path as relative path with decorated status labels", () => {
     const state = buildState({
       worktreeSelectorEnabled: true,

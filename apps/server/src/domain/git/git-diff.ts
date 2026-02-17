@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { DiffFile, DiffFileStatus, DiffSummary, DiffSummaryFile } from "@vde-monitor/shared";
 
-import { setMapEntryWithLimit } from "./cache";
+import { setMapEntryWithLimit } from "../../cache";
 import { GIT_CACHE_TTL_MS, GIT_PATCH_MAX_BYTES, truncateTextByLength } from "./git-common";
 import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
 import { resolveGitRepoContext, shouldReuseGitCache } from "./git-query-context";

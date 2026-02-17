@@ -1,5 +1,5 @@
 import { setMapEntryWithLimit } from "../cache";
-import { runGit } from "../git-utils";
+import { runGit } from "../domain/git/git-utils";
 import { normalizeAbsolutePath } from "../path-normalization";
 
 const repoBranchCacheTtlMs = 3000;

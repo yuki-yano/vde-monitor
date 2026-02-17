@@ -3,8 +3,8 @@ import type { SessionDetail } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../../git-commits";
-import { fetchDiffFile, fetchDiffSummary } from "../../git-diff";
+import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../../domain/git/git-commits";
+import { fetchDiffFile, fetchDiffSummary } from "../../domain/git/git-diff";
 import { buildError } from "../helpers";
 import type { GitRouteDeps, RouteContext } from "./types";
 import { resolveRequestedWorktreePath } from "./worktree-utils";

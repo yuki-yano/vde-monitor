@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fetchDiffSummary } from "../../git-diff";
-import { runGit } from "../../git-utils";
+import { fetchDiffSummary } from "../../domain/git/git-diff";
+import { runGit } from "../../domain/git/git-utils";
 import { resolveRepoBranchCached } from "../../monitor/repo-branch";
 import { resolveVwWorktreeSnapshotCached } from "../../monitor/vw-worktree";
 import {
@@ -11,11 +11,11 @@ import {
   resolveWorktreePathValidationPayload,
 } from "./worktree-utils";
 
-vi.mock("../../git-diff", () => ({
+vi.mock("../../domain/git/git-diff", () => ({
   fetchDiffSummary: vi.fn(),
 }));
 
-vi.mock("../../git-utils", () => ({
+vi.mock("../../domain/git/git-utils", () => ({
   runGit: vi.fn(),
 }));
 

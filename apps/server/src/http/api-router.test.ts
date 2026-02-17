@@ -10,8 +10,8 @@ import {
 } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../git-commits";
-import { fetchDiffSummary } from "../git-diff";
+import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../domain/git/git-commits";
+import { fetchDiffSummary } from "../domain/git/git-diff";
 import type { createSessionMonitor } from "../monitor";
 import type { MultiplexerInputActions } from "../multiplexer/types";
 import { createSessionRegistry } from "../session-registry";
@@ -21,12 +21,12 @@ import {
   IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES,
 } from "./image-attachment";
 
-vi.mock("../git-diff", () => ({
+vi.mock("../domain/git/git-diff", () => ({
   fetchDiffSummary: vi.fn(),
   fetchDiffFile: vi.fn(),
 }));
 
-vi.mock("../git-commits", () => ({
+vi.mock("../domain/git/git-commits", () => ({
   fetchCommitLog: vi.fn(),
   fetchCommitDetail: vi.fn(),
   fetchCommitFile: vi.fn(),

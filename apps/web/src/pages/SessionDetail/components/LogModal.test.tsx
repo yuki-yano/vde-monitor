@@ -10,7 +10,7 @@ import { LogModal } from "./LogModal";
 
 let latestOnUserScrollStateChange: ((value: boolean) => void) | null = null;
 
-vi.mock("../hooks/useStableVirtuosoScroll", () => ({
+vi.mock("@/features/shared-session-ui/hooks/useStableVirtuosoScroll", () => ({
   useStableVirtuosoScroll: ({
     onUserScrollStateChange,
   }: {
