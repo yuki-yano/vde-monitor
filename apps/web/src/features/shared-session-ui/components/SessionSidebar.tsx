@@ -14,6 +14,7 @@ import { SessionSidebarMainSections } from "@/features/shared-session-ui/compone
 import { SessionSidebarPreviewPopover } from "@/features/shared-session-ui/components/SessionSidebarPreviewPopover";
 import { useSessionSidebarActions } from "@/features/shared-session-ui/hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "@/features/shared-session-ui/hooks/useSessionSidebarGroups";
+import { useSessionSidebarMainSectionsViewModel } from "@/features/shared-session-ui/hooks/useSessionSidebarMainSectionsViewModel";
 import { useSessionSidebarPreviewPopover } from "@/features/shared-session-ui/hooks/useSessionSidebarPreviewPopover";
 import { useSidebarPreview } from "@/features/shared-session-ui/hooks/useSidebarPreview";
 import { cn } from "@/lib/cn";
@@ -145,6 +146,32 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     },
     [handlePreviewSelect, handleSelectSession],
   );
+  const mainSectionsViewModel = useSessionSidebarMainSectionsViewModel({
+    totalSessions,
+    repoCount,
+    filter,
+    onFilterChange: handleFilterChange,
+    list: {
+      onListScroll: handleListScroll,
+      sidebarGroups,
+      nowMs,
+      currentPaneId,
+      focusPendingPaneIds,
+      launchPendingSessions,
+      launchConfig,
+      requestWorktrees,
+      onHoverStart: handleHoverStart,
+      onHoverEnd: handleHoverEnd,
+      onFocus: handleFocus,
+      onBlur: handleBlur,
+      onSelect: handleSelect,
+      onFocusPane: handleFocusPane,
+      onLaunchAgentInSession: handleLaunchAgentInSession,
+      onTouchSession: handleTouchPane,
+      onTouchRepoPin: handleTouchRepoPin,
+      registerItemRef,
+    },
+  });
   const previewPopover = useSessionSidebarPreviewPopover({
     preview,
     currentPaneId,
@@ -159,30 +186,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     >
       <SidebarBackdrop />
 
-      <SessionSidebarMainSections
-        totalSessions={totalSessions}
-        repoCount={repoCount}
-        filter={filter}
-        onFilterChange={handleFilterChange}
-        onListScroll={handleListScroll}
-        sidebarGroups={sidebarGroups}
-        nowMs={nowMs}
-        currentPaneId={currentPaneId}
-        focusPendingPaneIds={focusPendingPaneIds}
-        launchPendingSessions={launchPendingSessions}
-        launchConfig={launchConfig}
-        requestWorktrees={requestWorktrees}
-        onHoverStart={handleHoverStart}
-        onHoverEnd={handleHoverEnd}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onSelect={handleSelect}
-        onFocusPane={handleFocusPane}
-        onLaunchAgentInSession={handleLaunchAgentInSession}
-        onTouchSession={handleTouchPane}
-        onTouchRepoPin={handleTouchRepoPin}
-        registerItemRef={registerItemRef}
-      />
+      <SessionSidebarMainSections viewModel={mainSectionsViewModel} />
 
       {previewPopover && <SessionSidebarPreviewPopover {...previewPopover} />}
     </Card>

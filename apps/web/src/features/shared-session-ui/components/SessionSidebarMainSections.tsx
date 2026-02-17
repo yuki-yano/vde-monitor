@@ -1,14 +1,15 @@
-import type { LaunchConfig, WorktreeList } from "@vde-monitor/shared";
 import { memo } from "react";
 
 import { FilterToggleGroup, TagPill } from "@/components/ui";
+import type {
+  SessionSidebarListSectionViewModel,
+  SessionSidebarMainSectionsViewModel,
+} from "@/features/shared-session-ui/hooks/useSessionSidebarMainSectionsViewModel";
 import {
   SESSION_LIST_FILTER_VALUES,
   type SessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
-import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
-import type { SidebarRepoGroup } from "../hooks/useSessionSidebarGroups";
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
 
 type SessionSidebarHeaderProps = {
@@ -58,153 +59,52 @@ const SessionSidebarFilterSection = ({
 );
 
 type SessionSidebarListSectionProps = {
-  onListScroll: () => void;
-  sidebarGroups: SidebarRepoGroup[];
-  nowMs: number;
-  currentPaneId?: string | null;
-  focusPendingPaneIds: Set<string>;
-  launchPendingSessions: Set<string>;
-  launchConfig: LaunchConfig;
-  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
-  onHoverStart: (paneId: string) => void;
-  onHoverEnd: (paneId: string) => void;
-  onFocus: (paneId: string) => void;
-  onBlur: (paneId: string) => void;
-  onSelect: (paneId: string) => void;
-  onFocusPane: (paneId: string) => Promise<void> | void;
-  onLaunchAgentInSession: (
-    sessionName: string,
-    agent: "codex" | "claude",
-    options?: LaunchAgentRequestOptions,
-  ) => Promise<void> | void;
-  onTouchSession: (paneId: string) => void;
-  onTouchRepoPin: (repoRoot: string | null) => void;
-  registerItemRef: (paneId: string, node: HTMLDivElement | null) => void;
+  list: SessionSidebarListSectionViewModel;
 };
 
-const SessionSidebarListSection = ({
-  onListScroll,
-  sidebarGroups,
-  nowMs,
-  currentPaneId,
-  focusPendingPaneIds,
-  launchPendingSessions,
-  launchConfig,
-  requestWorktrees,
-  onHoverStart,
-  onHoverEnd,
-  onFocus,
-  onBlur,
-  onSelect,
-  onFocusPane,
-  onLaunchAgentInSession,
-  onTouchSession,
-  onTouchRepoPin,
-  registerItemRef,
-}: SessionSidebarListSectionProps) => (
+const SessionSidebarListSection = ({ list }: SessionSidebarListSectionProps) => (
   <div
     className="custom-scrollbar -mr-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-2"
-    onScroll={onListScroll}
+    onScroll={list.onListScroll}
   >
     <SessionSidebarGroupList
-      sidebarGroups={sidebarGroups}
-      nowMs={nowMs}
-      currentPaneId={currentPaneId}
-      focusPendingPaneIds={focusPendingPaneIds}
-      launchPendingSessions={launchPendingSessions}
-      launchConfig={launchConfig}
-      requestWorktrees={requestWorktrees}
-      onHoverStart={onHoverStart}
-      onHoverEnd={onHoverEnd}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      onSelect={onSelect}
-      onFocusPane={onFocusPane}
-      onLaunchAgentInSession={onLaunchAgentInSession}
-      onTouchSession={onTouchSession}
-      onTouchRepoPin={onTouchRepoPin}
-      registerItemRef={registerItemRef}
+      sidebarGroups={list.sidebarGroups}
+      nowMs={list.nowMs}
+      currentPaneId={list.currentPaneId}
+      focusPendingPaneIds={list.focusPendingPaneIds}
+      launchPendingSessions={list.launchPendingSessions}
+      launchConfig={list.launchConfig}
+      requestWorktrees={list.requestWorktrees}
+      onHoverStart={list.onHoverStart}
+      onHoverEnd={list.onHoverEnd}
+      onFocus={list.onFocus}
+      onBlur={list.onBlur}
+      onSelect={list.onSelect}
+      onFocusPane={list.onFocusPane}
+      onLaunchAgentInSession={list.onLaunchAgentInSession}
+      onTouchSession={list.onTouchSession}
+      onTouchRepoPin={list.onTouchRepoPin}
+      registerItemRef={list.registerItemRef}
     />
   </div>
 );
 
 type SessionSidebarMainSectionsProps = {
-  totalSessions: number;
-  repoCount: number;
-  filter: SessionListFilter;
-  onFilterChange: (next: string) => void;
-  onListScroll: () => void;
-  sidebarGroups: SidebarRepoGroup[];
-  nowMs: number;
-  currentPaneId?: string | null;
-  focusPendingPaneIds: Set<string>;
-  launchPendingSessions: Set<string>;
-  launchConfig: LaunchConfig;
-  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
-  onHoverStart: (paneId: string) => void;
-  onHoverEnd: (paneId: string) => void;
-  onFocus: (paneId: string) => void;
-  onBlur: (paneId: string) => void;
-  onSelect: (paneId: string) => void;
-  onFocusPane: (paneId: string) => Promise<void> | void;
-  onLaunchAgentInSession: (
-    sessionName: string,
-    agent: "codex" | "claude",
-    options?: LaunchAgentRequestOptions,
-  ) => Promise<void> | void;
-  onTouchSession: (paneId: string) => void;
-  onTouchRepoPin: (repoRoot: string | null) => void;
-  registerItemRef: (paneId: string, node: HTMLDivElement | null) => void;
+  viewModel: SessionSidebarMainSectionsViewModel;
 };
 
-export const SessionSidebarMainSections = ({
-  totalSessions,
-  repoCount,
-  filter,
-  onFilterChange,
-  onListScroll,
-  sidebarGroups,
-  nowMs,
-  currentPaneId,
-  focusPendingPaneIds,
-  launchPendingSessions,
-  launchConfig,
-  requestWorktrees,
-  onHoverStart,
-  onHoverEnd,
-  onFocus,
-  onBlur,
-  onSelect,
-  onFocusPane,
-  onLaunchAgentInSession,
-  onTouchSession,
-  onTouchRepoPin,
-  registerItemRef,
-}: SessionSidebarMainSectionsProps) => {
+export const SessionSidebarMainSections = ({ viewModel }: SessionSidebarMainSectionsProps) => {
   return (
     <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-5">
-      <SessionSidebarHeader totalSessions={totalSessions} repoCount={repoCount} />
-      <SessionSidebarFilterSection filter={filter} onFilterChange={onFilterChange} />
-      <SessionSidebarListSection
-        onListScroll={onListScroll}
-        sidebarGroups={sidebarGroups}
-        nowMs={nowMs}
-        currentPaneId={currentPaneId}
-        focusPendingPaneIds={focusPendingPaneIds}
-        launchPendingSessions={launchPendingSessions}
-        launchConfig={launchConfig}
-        requestWorktrees={requestWorktrees}
-        onHoverStart={onHoverStart}
-        onHoverEnd={onHoverEnd}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onSelect={onSelect}
-        onFocusPane={onFocusPane}
-        onLaunchAgentInSession={onLaunchAgentInSession}
-        onTouchSession={onTouchSession}
-        onTouchRepoPin={onTouchRepoPin}
-        registerItemRef={registerItemRef}
+      <SessionSidebarHeader
+        totalSessions={viewModel.header.totalSessions}
+        repoCount={viewModel.header.repoCount}
       />
+      <SessionSidebarFilterSection
+        filter={viewModel.filter.value}
+        onFilterChange={viewModel.filter.onChange}
+      />
+      <SessionSidebarListSection list={viewModel.list} />
     </div>
   );
 };
