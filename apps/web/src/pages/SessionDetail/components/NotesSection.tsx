@@ -341,7 +341,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
             size="sm"
             aria-label="Refresh notes"
             onClick={() => onRefresh()}
-            disabled={!repoRoot}
+            disabled={!repoRoot || notesLoading}
           >
             <RefreshCw className={cn("h-4 w-4", notesLoading && "animate-spin")} />
           </IconButton>
@@ -359,48 +359,54 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
         </div>
       </div>
 
-      {notesLoading ? <LoadingOverlay label="Loading notes..." blocking={false} /> : null}
+      <div
+        data-testid="notes-body"
+        className={cn("relative min-w-0 flex-1", notesLoading && "min-h-[120px]")}
+      >
+        {notesLoading ? <LoadingOverlay label="Loading notes..." blocking={false} /> : null}
 
-      {notesError ? (
-        <Callout tone="error" size="xs">
-          {notesError}
-        </Callout>
-      ) : null}
+        {notesError ? (
+          <Callout tone="error" size="xs">
+            {notesError}
+          </Callout>
+        ) : null}
 
-      {!repoRoot ? (
-        <Callout tone="warning" size="xs">
-          {`Repository root is unavailable for this session.`}
-        </Callout>
-      ) : (
-        <>
-          {notes.length === 0 ? (
-            <EmptyState
-              icon={<BookText className="text-latte-overlay1 h-6 w-6" />}
-              message="No notes yet"
-              iconWrapperClassName="bg-latte-surface1/50"
-            />
-          ) : (
-            <NotesSectionList
-              notes={notes}
-              openNoteIdSet={openNoteIdSet}
-              editingNoteId={editingNoteId}
-              editingBody={editingBody}
-              copiedNoteId={copiedNoteId}
-              savingNoteId={savingNoteId}
-              deletingNoteId={deletingNoteId}
-              editingTextareaRef={editingTextareaRef}
-              onToggleNoteOpen={toggleNoteOpen}
-              onCopyNote={handleCopyNote}
-              onOpenDeleteDialog={openDeleteDialog}
-              onBeginEdit={beginEdit}
-              onSetEditingBody={setEditingBody}
-              onFinishEdit={finishEdit}
-              formatPreviewBody={formatPreviewBody}
-              emptyNotePreview={EMPTY_NOTE_PREVIEW}
-            />
-          )}
-        </>
-      )}
+        {!repoRoot ? (
+          <Callout tone="warning" size="xs">
+            {`Repository root is unavailable for this session.`}
+          </Callout>
+        ) : (
+          <>
+            {!notesLoading && notes.length === 0 ? (
+              <EmptyState
+                icon={<BookText className="text-latte-overlay1 h-6 w-6" />}
+                message="No notes yet"
+                iconWrapperClassName="bg-latte-surface1/50"
+              />
+            ) : null}
+            {notes.length > 0 ? (
+              <NotesSectionList
+                notes={notes}
+                openNoteIdSet={openNoteIdSet}
+                editingNoteId={editingNoteId}
+                editingBody={editingBody}
+                copiedNoteId={copiedNoteId}
+                savingNoteId={savingNoteId}
+                deletingNoteId={deletingNoteId}
+                editingTextareaRef={editingTextareaRef}
+                onToggleNoteOpen={toggleNoteOpen}
+                onCopyNote={handleCopyNote}
+                onOpenDeleteDialog={openDeleteDialog}
+                onBeginEdit={beginEdit}
+                onSetEditingBody={setEditingBody}
+                onFinishEdit={finishEdit}
+                formatPreviewBody={formatPreviewBody}
+                emptyNotePreview={EMPTY_NOTE_PREVIEW}
+              />
+            ) : null}
+          </>
+        )}
+      </div>
 
       <NotesDeleteDialog
         notes={notes}

@@ -95,6 +95,33 @@ describe("NotesSection", () => {
     expect(onRefresh).toHaveBeenNthCalledWith(2, { silent: true });
   });
 
+  it("keeps header visible and scopes loading overlay to notes body", () => {
+    render(<NotesSection state={buildState({ notesLoading: true })} actions={buildActions()} />);
+
+    const refreshButton = screen.getByRole("button", {
+      name: "Refresh notes",
+    }) as HTMLButtonElement;
+    const notesBody = screen.getByTestId("notes-body");
+    const loading = screen.getByText("Loading notes...");
+
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeTruthy();
+    expect(refreshButton.disabled).toBe(true);
+    expect(notesBody.contains(loading)).toBe(true);
+    expect(screen.getByRole("button", { name: "Expand note note-1" })).toBeTruthy();
+  });
+
+  it("does not show empty state while loading notes", () => {
+    render(
+      <NotesSection
+        state={buildState({ notes: [], notesLoading: true })}
+        actions={buildActions()}
+      />,
+    );
+
+    expect(screen.getByText("Loading notes...")).toBeTruthy();
+    expect(screen.queryByText("No notes yet")).toBeNull();
+  });
+
   it("asks for confirmation dialog before deleting a note", async () => {
     const onDelete = vi.fn(async () => true);
     render(<NotesSection state={buildState()} actions={buildActions({ onDelete })} />);
