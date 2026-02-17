@@ -4,6 +4,7 @@ import { GitBranch, RefreshCw, X } from "lucide-react";
 import { IconButton } from "@/components/ui";
 
 import { WorktreeEntryList } from "./WorktreeEntryList";
+import { WorktreeStatusStack } from "./WorktreeStatusStack";
 
 type ScreenPanelWorktreeSelectorPanelProps = {
   entries: WorktreeListEntry[];
@@ -66,15 +67,11 @@ export const ScreenPanelWorktreeSelectorPanel = ({
         </span>
       </div>
       <div>
-        {showBlockingWorktreeLoading ? (
-          <p className="text-latte-subtext0 px-1 py-2 text-xs">Loading worktrees...</p>
-        ) : null}
-        {worktreeSelectorError ? (
-          <p className="text-latte-red px-1 py-2 text-xs">{worktreeSelectorError}</p>
-        ) : null}
-        {!showBlockingWorktreeLoading && !worktreeSelectorError && entries.length === 0 ? (
-          <p className="text-latte-subtext0 px-1 py-2 text-xs">No worktrees available.</p>
-        ) : null}
+        <WorktreeStatusStack
+          loading={worktreeSelectorLoading}
+          error={worktreeSelectorError}
+          entriesCount={entries.length}
+        />
         {!showBlockingWorktreeLoading && !worktreeSelectorError ? (
           <div className="custom-scrollbar max-h-[280px] space-y-1 overflow-y-auto pr-0.5">
             <WorktreeEntryList

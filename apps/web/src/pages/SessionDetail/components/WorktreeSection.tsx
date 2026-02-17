@@ -6,6 +6,7 @@ import { Button, Card, IconButton } from "@/components/ui";
 
 import { sortWorktreeEntriesByRepoRoot } from "./worktree-view-model";
 import { WorktreeEntryList } from "./WorktreeEntryList";
+import { WorktreeStatusStack } from "./WorktreeStatusStack";
 
 type WorktreeSectionState = {
   worktreeSelectorEnabled: boolean;
@@ -106,15 +107,11 @@ export const WorktreeSection = ({ state, actions }: WorktreeSectionProps) => {
         </div>
       ) : null}
 
-      {showBlockingWorktreeLoading ? (
-        <p className="text-latte-subtext0 px-1 py-2 text-xs">Loading worktrees...</p>
-      ) : null}
-      {worktreeSelectorError ? (
-        <p className="text-latte-red px-1 py-2 text-xs">{worktreeSelectorError}</p>
-      ) : null}
-      {!showBlockingWorktreeLoading && !worktreeSelectorError && worktreeEntries.length === 0 ? (
-        <p className="text-latte-subtext0 px-1 py-2 text-xs">No worktrees available.</p>
-      ) : null}
+      <WorktreeStatusStack
+        loading={worktreeSelectorLoading}
+        error={worktreeSelectorError}
+        entriesCount={worktreeEntries.length}
+      />
       {!showBlockingWorktreeLoading && !worktreeSelectorError ? (
         <div className="custom-scrollbar max-h-[360px] space-y-1 overflow-y-auto pr-0.5">
           <WorktreeEntryList
