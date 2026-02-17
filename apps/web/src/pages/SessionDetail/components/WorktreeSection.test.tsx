@@ -64,9 +64,13 @@ describe("WorktreeSection", () => {
     render(<WorktreeSection state={state} actions={actions} />);
 
     const prLink = screen.getByRole("link", { name: "Open pull request for feature/a" });
+    const fileChangeBadge = screen.getByText("A 1");
     expect(prLink.getAttribute("href")).toBe("https://github.com/acme/repo/pull/123");
     expect(prLink.getAttribute("target")).toBe("_blank");
     expect(prLink.getAttribute("rel")).toContain("noopener");
+    expect(
+      prLink.compareDocumentPosition(fileChangeBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
   });
 
   it("does not render PR link button when prUrl is missing", () => {
@@ -123,7 +127,7 @@ describe("WorktreeSection", () => {
     expect(screen.queryByRole("link", { name: /Open pull request for/ })).toBeNull();
   });
 
-  it("shows repo root badge before PR link in row header", () => {
+  it("shows repo root badge on the next line after branch label", () => {
     const state = buildState({
       worktreeEntries: [
         {
@@ -151,8 +155,9 @@ describe("WorktreeSection", () => {
 
     const repoRootBadge = screen.getByText("Repo Root");
     const prLink = screen.getByRole("link", { name: "Open pull request for main" });
+    expect(repoRootBadge.parentElement?.className).toContain("mt-1");
     expect(
-      repoRootBadge.compareDocumentPosition(prLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+      prLink.compareDocumentPosition(repoRootBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
   });
 });

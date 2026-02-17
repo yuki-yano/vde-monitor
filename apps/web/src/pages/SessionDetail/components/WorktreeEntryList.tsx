@@ -69,6 +69,7 @@ export const WorktreeEntryList = ({
     const entryBranchLabel = formatBranchLabel(entry.branch);
     const prStatus = resolveWorktreePrStatus(entry.prStatus ?? null);
     const prLinkUrl = shouldRenderPrLink ? resolveWorktreePrLinkUrl(entry) : null;
+    const isEntryDisabled = !onSelectVirtualWorktree && !prLinkUrl;
 
     return (
       <button
@@ -85,7 +86,7 @@ export const WorktreeEntryList = ({
           onSelectVirtualWorktree(entry.path);
           onAfterSelect?.();
         }}
-        disabled={!onSelectVirtualWorktree}
+        disabled={isEntryDisabled}
       >
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -97,17 +98,6 @@ export const WorktreeEntryList = ({
                 className="min-w-0 flex-1 text-left"
               />
             </span>
-            {isRepoRootPath ? (
-              <TagPill
-                tone="meta"
-                className={cn(
-                  "border-latte-blue/45 bg-latte-blue/10 text-latte-blue shrink-0 whitespace-nowrap px-1.5 py-[2px] font-semibold uppercase tracking-[0.08em]",
-                  pillTextClassName,
-                )}
-              >
-                Repo Root
-              </TagPill>
-            ) : null}
             {prLinkUrl ? (
               <a
                 href={prLinkUrl}
@@ -145,6 +135,19 @@ export const WorktreeEntryList = ({
               </span>
             </span>
           </span>
+          {isRepoRootPath ? (
+            <span className="mt-1 flex items-center gap-1">
+              <TagPill
+                tone="meta"
+                className={cn(
+                  "border-latte-blue/45 bg-latte-blue/10 text-latte-blue shrink-0 whitespace-nowrap px-1.5 py-[2px] font-semibold uppercase tracking-[0.08em]",
+                  pillTextClassName,
+                )}
+              >
+                Repo Root
+              </TagPill>
+            </span>
+          ) : null}
           {shouldShowRelativePath ? (
             <span className={relativePathClassName} title={entry.path}>
               {relativePath}

@@ -64,6 +64,7 @@ export const SessionSidebarItem = memo(
   }: SessionSidebarItemProps) => {
     const displayTitle = resolveSessionDisplayTitle(item);
     const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
+    const hasKnownAgent = isKnownAgent(item.agent);
     const showEditorState = isSessionEditorState(item);
     const statusMeta = showEditorState
       ? {
@@ -163,26 +164,30 @@ export const SessionSidebarItem = memo(
               {displayTitle}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {isKnownAgent(item.agent) && (
-              <Badge tone={agentToneFor(item.agent)} size="sm">
-                {agentLabelFor(item.agent)}
-              </Badge>
-            )}
-            <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-              <LastInputPill
-                tone={lastInputTone}
-                label={<Clock className="h-3 w-3" />}
-                srLabel="Last input"
-                value={formatRelativeTime(item.lastInputAt, nowMs)}
-                size="xs"
-                showDot={false}
-              />
-              <TagPill tone="meta" className="inline-flex max-w-[180px] items-center gap-1">
-                <GitBranch className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
-              </TagPill>
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+              {hasKnownAgent ? (
+                <Badge tone={agentToneFor(item.agent)} size="sm">
+                  {agentLabelFor(item.agent)}
+                </Badge>
+              ) : null}
+              {hasKnownAgent ? <span aria-hidden="true" className="min-w-0 flex-1" /> : null}
+              <div className="flex min-w-0 shrink-0 items-center">
+                <LastInputPill
+                  tone={lastInputTone}
+                  label={<Clock className="h-3 w-3" />}
+                  srLabel="Last input"
+                  value={formatRelativeTime(item.lastInputAt, nowMs)}
+                  size="xs"
+                  showDot={false}
+                />
+              </div>
             </div>
+            <span aria-hidden="true" className="basis-full" />
+            <TagPill tone="meta" className="inline-flex max-w-[220px] items-center gap-1">
+              <GitBranch className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
+            </TagPill>
           </div>
         </Link>
         {onTouchSession || onFocusPane ? (

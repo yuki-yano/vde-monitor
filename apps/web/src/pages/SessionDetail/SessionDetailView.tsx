@@ -55,6 +55,16 @@ type DetailSectionTabDefinition = {
   render: () => ReactNode;
 };
 
+const MOBILE_SECTION_TAB_GRID_POSITIONS = [
+  "col-start-1 row-start-1",
+  "col-start-2 row-start-1",
+  "col-start-3 row-start-1",
+  "col-start-4 row-start-1",
+  "col-start-1 row-start-2",
+  "col-start-2 row-start-2",
+  "col-start-3 row-start-2",
+] as const;
+
 const CONFIG_VALIDATION_ERROR_PATTERN = /invalid (?:project )?config(?: JSON)?: /i;
 
 const splitConnectionIssueLines = (connectionIssue: string | null) =>
@@ -174,6 +184,25 @@ export const SessionDetailView = ({
   const isSessionMissing = !session || !sessionHeaderProps;
   const isInitialSessionLoading = isSessionMissing && !meta.connected && !hasConnectionIssue;
   const shouldDelayMissingState = isSessionMissing && meta.connected && !hasConnectionIssue;
+  const worktreeSectionProps = {
+    state: {
+      worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
+      worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
+      worktreeSelectorError: screen.worktreeSelectorError ?? null,
+      worktreeEntries: screen.worktreeEntries ?? [],
+      worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
+      worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
+      actualWorktreePath: screen.actualWorktreePath ?? null,
+      virtualWorktreePath: screen.virtualWorktreePath ?? null,
+    },
+    actions: {
+      onRefreshWorktrees: () => {
+        void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
+      },
+      onSelectVirtualWorktree: screen.selectVirtualWorktree,
+      onClearVirtualWorktree: screen.clearVirtualWorktree,
+    },
+  };
   const mobileSectionTabs: DetailSectionTabDefinition[] = [
     {
       value: "keys",
@@ -201,6 +230,13 @@ export const SessionDetailView = ({
       render: () => <FileNavigatorSection {...fileNavigatorSectionProps} />,
     },
     {
+      value: "notes",
+      ariaLabel: "Notes panel",
+      label: "Notes",
+      icon: BookText,
+      render: () => <NotesSection {...notesSectionProps} />,
+    },
+    {
       value: "changes",
       ariaLabel: "Changes panel",
       label: "Changes",
@@ -219,34 +255,7 @@ export const SessionDetailView = ({
       ariaLabel: "Worktrees panel",
       label: "Worktrees",
       icon: GitBranch,
-      render: () => (
-        <WorktreeSection
-          state={{
-            worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
-            worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
-            worktreeSelectorError: screen.worktreeSelectorError ?? null,
-            worktreeEntries: screen.worktreeEntries ?? [],
-            worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
-            worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
-            actualWorktreePath: screen.actualWorktreePath ?? null,
-            virtualWorktreePath: screen.virtualWorktreePath ?? null,
-          }}
-          actions={{
-            onRefreshWorktrees: () => {
-              void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
-            },
-            onSelectVirtualWorktree: screen.selectVirtualWorktree,
-            onClearVirtualWorktree: screen.clearVirtualWorktree,
-          }}
-        />
-      ),
-    },
-    {
-      value: "notes",
-      ariaLabel: "Notes panel",
-      label: "Notes",
-      icon: BookText,
-      render: () => <NotesSection {...notesSectionProps} />,
+      render: () => <WorktreeSection {...worktreeSectionProps} />,
     },
   ];
   const selectedMobileSectionContent =
@@ -316,7 +325,7 @@ export const SessionDetailView = ({
                   aria-label="Session detail sections"
                   className="grid w-full grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >
-                  {mobileSectionTabs.map((tab) => {
+                  {mobileSectionTabs.map((tab, index) => {
                     const Icon = tab.icon;
                     return (
                       <TabsTrigger
@@ -324,9 +333,12 @@ export const SessionDetailView = ({
                         value={tab.value}
                         aria-label={tab.ariaLabel}
                         title={tab.label}
-                        className={
-                          sectionTabsIconOnly ? SECTION_TAB_ICON_ONLY_CLASS : SECTION_TAB_TEXT_CLASS
-                        }
+                        className={cn(
+                          sectionTabsIconOnly
+                            ? SECTION_TAB_ICON_ONLY_CLASS
+                            : SECTION_TAB_TEXT_CLASS,
+                          MOBILE_SECTION_TAB_GRID_POSITIONS[index] ?? "",
+                        )}
                       >
                         <Icon className="h-3.5 w-3.5 shrink-0" />
                         {!sectionTabsIconOnly ? (
@@ -397,6 +409,7 @@ export const SessionDetailView = ({
                   <DiffSection {...diffSectionProps} />
                   <FileNavigatorSection {...fileNavigatorSectionProps} />
                   <CommitSection {...commitSectionProps} />
+                  <WorktreeSection {...worktreeSectionProps} />
                 </div>
               </div>
             </>

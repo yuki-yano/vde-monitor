@@ -385,10 +385,26 @@ describe("SessionDetailView", () => {
     expect(screen.getByText("Changes")).toBeTruthy();
     expect(screen.getByText("File Navigator")).toBeTruthy();
     expect(screen.getByText("Commit Log")).toBeTruthy();
+    expect(screen.getByText("Worktrees")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Timeline panel" })).toBeNull();
     expect(screen.getByLabelText("Toggle session quick panel")).toBeTruthy();
     expect(document.title).toBe("Session Title - VDE Monitor");
+  });
+
+  it("places desktop worktree pane below commit log", () => {
+    const props = createViewProps({
+      meta: { session: createSessionDetail() },
+      timeline: { isMobile: false },
+      screen: { worktreeSelectorEnabled: true },
+    });
+    renderWithRouter(<SessionDetailView {...props} />);
+
+    const commitHeading = screen.getByRole("heading", { name: "Commit Log" });
+    const worktreeHeading = screen.getByRole("heading", { name: "Worktrees" });
+    expect(
+      commitHeading.compareDocumentPosition(worktreeHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
   });
 
   it("switches section by icon tabs and stores selected tab", () => {
@@ -438,6 +454,36 @@ describe("SessionDetailView", () => {
       "active",
     );
     expect(window.localStorage.getItem(storageKey)).toBe("notes");
+  });
+
+  it("lays out mobile section tabs in two rows with notes on first row", () => {
+    const session = createSessionDetail({ repoRoot: "/Users/test/repo-a", branch: "main" });
+    const props = createViewProps({
+      meta: { session },
+      timeline: { isMobile: true },
+    });
+    renderWithRouter(<SessionDetailView {...props} />);
+
+    expect(screen.getByRole("tab", { name: "Keys panel" }).className).toContain("row-start-1");
+    expect(screen.getByRole("tab", { name: "Keys panel" }).className).toContain("col-start-1");
+
+    expect(screen.getByRole("tab", { name: "Timeline panel" }).className).toContain("row-start-1");
+    expect(screen.getByRole("tab", { name: "Timeline panel" }).className).toContain("col-start-2");
+
+    expect(screen.getByRole("tab", { name: "Files panel" }).className).toContain("row-start-1");
+    expect(screen.getByRole("tab", { name: "Files panel" }).className).toContain("col-start-3");
+
+    expect(screen.getByRole("tab", { name: "Notes panel" }).className).toContain("row-start-1");
+    expect(screen.getByRole("tab", { name: "Notes panel" }).className).toContain("col-start-4");
+
+    expect(screen.getByRole("tab", { name: "Changes panel" }).className).toContain("row-start-2");
+    expect(screen.getByRole("tab", { name: "Changes panel" }).className).toContain("col-start-1");
+
+    expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("row-start-2");
+    expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("col-start-2");
+
+    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("row-start-2");
+    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("col-start-3");
   });
 
   it("restores last selected tab from localStorage", () => {

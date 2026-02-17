@@ -173,6 +173,40 @@ describe("SessionSidebar", () => {
     expect(screen.getAllByText("1 / 2 panes")).toHaveLength(2);
   });
 
+  it("renders agent/time row with branch on the next line", () => {
+    const session = createSessionDetail({
+      paneId: "pane-1",
+      title: "Codex Session",
+      agent: "codex",
+      branch: "feature/sidebar-layout",
+      lastInputAt: "2026-02-07T10:00:00.000Z",
+      windowIndex: 1,
+      sessionName: "alpha",
+    });
+    const state = buildState({
+      nowMs: Date.parse("2026-02-07T10:01:00.000Z"),
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo",
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
+
+    expect(screen.getByText("CODEX")).toBeTruthy();
+    const branchText = screen.getByText("feature/sidebar-layout");
+    const branchPill = branchText.parentElement;
+    expect(branchPill?.className).toContain("max-w-[220px]");
+    expect(branchPill?.className).not.toContain("basis-full");
+
+    const lastInputValue = screen.getByText("1m ago");
+    const lastInputPill = lastInputValue.closest("span.inline-flex");
+    expect(lastInputPill?.parentElement?.className).not.toContain("ml-auto");
+  });
+
   it("shows empty state when no agent sessions", () => {
     const sessionUnknown = createSessionDetail({
       paneId: "pane-3",
