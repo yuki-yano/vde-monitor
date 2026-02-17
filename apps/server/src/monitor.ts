@@ -4,7 +4,6 @@ import path from "node:path";
 
 import {
   type AgentMonitorConfig,
-  type RepoNote,
   type SessionStateTimelineRange,
 } from "@vde-monitor/shared";
 
@@ -20,6 +19,7 @@ import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
+import { createRepoNotesService } from "./repo-notes/service";
 import { createRepoNotesStore } from "./repo-notes/store";
 import { createSessionRegistry } from "./session-registry";
 import { restorePersistedState, saveState } from "./state-store";
@@ -70,6 +70,11 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
       repoNotes: repoNotes.serialize(),
     });
   };
+  const repoNotesService = createRepoNotesService({
+    registry,
+    repoNotes,
+    savePersistedState,
+  });
   const applyRestored = createRestoredSessionApplier(restored);
   const paneUpdateService = createPaneUpdateService({
     inspector,
@@ -189,60 +194,10 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     return stateTimeline.getRepoTimeline({ paneId, paneIds, range, limit });
   };
 
-  const resolveRepoRootFromPane = (paneId: string): string | null => {
-    const detail = registry.getDetail(paneId);
-    return detail?.repoRoot ?? null;
-  };
-
-  const getRepoNotes = (paneId: string): RepoNote[] | null => {
-    const repoRoot = resolveRepoRootFromPane(paneId);
-    if (!repoRoot) {
-      return null;
-    }
-    return repoNotes.list(repoRoot);
-  };
-
-  const createRepoNote = (
-    paneId: string,
-    input: { title?: string | null; body: string },
-  ): RepoNote | null => {
-    const repoRoot = resolveRepoRootFromPane(paneId);
-    if (!repoRoot) {
-      return null;
-    }
-    const note = repoNotes.create(repoRoot, input);
-    savePersistedState();
-    return note;
-  };
-
-  const updateRepoNote = (
-    paneId: string,
-    noteId: string,
-    input: { title?: string | null; body: string },
-  ): RepoNote | null => {
-    const repoRoot = resolveRepoRootFromPane(paneId);
-    if (!repoRoot) {
-      return null;
-    }
-    const note = repoNotes.update(repoRoot, noteId, input);
-    if (!note) {
-      return null;
-    }
-    savePersistedState();
-    return note;
-  };
-
-  const deleteRepoNote = (paneId: string, noteId: string): boolean | null => {
-    const repoRoot = resolveRepoRootFromPane(paneId);
-    if (!repoRoot) {
-      return null;
-    }
-    const removed = repoNotes.remove(repoRoot, noteId);
-    if (removed) {
-      savePersistedState();
-    }
-    return removed;
-  };
+  const getRepoNotes = repoNotesService.listByPane;
+  const createRepoNote = repoNotesService.createByPane;
+  const updateRepoNote = repoNotesService.updateByPane;
+  const deleteRepoNote = repoNotesService.deleteByPane;
 
   return {
     registry,
