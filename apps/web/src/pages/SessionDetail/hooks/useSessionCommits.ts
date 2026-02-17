@@ -9,7 +9,7 @@ import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { type CommitState, commitStateAtom, initialCommitState } from "../atoms/commitAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildCommitLogSignature } from "../sessionDetailUtils";
-import { createNextRequestId, isCurrentScopedRequest } from "./session-request-guard";
+import { runScopedRequest } from "./session-request-guard";
 
 type UseSessionCommitsParams = {
   paneId: string;
@@ -254,53 +254,34 @@ export const useSessionCommits = ({
     async (options?: { append?: boolean; force?: boolean }) => {
       if (!paneId) return;
       const targetScopeKey = requestScopeKey;
-      const requestId = createNextRequestId(commitLogRequestIdRef);
       const { append, force } = resolveCommitLogLoadOptions(options);
       dispatch({ type: "startLogLoad", append });
       dispatch({ type: "setCommitError", error: null });
-      try {
-        const skip = resolveCommitLogSkip(append, commitLogRef.current);
-        const log = await requestCommitLog(paneId, {
-          limit: commitPageSize,
-          skip,
-          force,
-          ...(worktreePath ? { worktreePath } : {}),
-        });
-        if (
-          !isCurrentScopedRequest({
-            requestIdRef: commitLogRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
-          return;
-        }
-        applyCommitLog(log, { append, updateSignature: !append });
-      } catch (err) {
-        if (
-          !isCurrentScopedRequest({
-            requestIdRef: commitLogRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
-          return;
-        }
-        dispatchCommitLogError(dispatch, append, err);
-      } finally {
-        if (
-          isCurrentScopedRequest({
-            requestIdRef: commitLogRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
-          dispatch({ type: "finishLogLoad", append });
-        }
-      }
+      await runScopedRequest({
+        requestIdRef: commitLogRequestIdRef,
+        activeScopeRef,
+        scopeKey: targetScopeKey,
+        run: () => {
+          const skip = resolveCommitLogSkip(append, commitLogRef.current);
+          return requestCommitLog(paneId, {
+            limit: commitPageSize,
+            skip,
+            force,
+            ...(worktreePath ? { worktreePath } : {}),
+          });
+        },
+        onSuccess: (log) => {
+          applyCommitLog(log, { append, updateSignature: !append });
+        },
+        onError: (err) => {
+          dispatchCommitLogError(dispatch, append, err);
+        },
+        onSettled: ({ isCurrent }) => {
+          if (isCurrent()) {
+            dispatch({ type: "finishLogLoad", append });
+          }
+        },
+      });
     },
     [
       applyCommitLog,
@@ -383,33 +364,26 @@ export const useSessionCommits = ({
   const pollCommitLog = useCallback(async () => {
     if (!paneId) return;
     const targetScopeKey = requestScopeKey;
-    const requestId = createNextRequestId(commitLogRequestIdRef);
-    try {
-      const log = await requestCommitLog(paneId, {
-        limit: commitPageSize,
-        skip: 0,
-        force: true,
-        ...(worktreePath ? { worktreePath } : {}),
-      });
-      if (
-        !isCurrentScopedRequest({
-          requestIdRef: commitLogRequestIdRef,
-          requestId,
-          activeScopeRef,
-          scopeKey: targetScopeKey,
-        })
-      ) {
-        return;
-      }
-      const signature = buildCommitLogSignature(log);
-      if (signature === commitSignatureRef.current) {
-        return;
-      }
-      dispatch({ type: "setCommitError", error: null });
-      applyCommitLog(log, { append: false, updateSignature: true });
-    } catch {
-      return;
-    }
+    await runScopedRequest({
+      requestIdRef: commitLogRequestIdRef,
+      activeScopeRef,
+      scopeKey: targetScopeKey,
+      run: () =>
+        requestCommitLog(paneId, {
+          limit: commitPageSize,
+          skip: 0,
+          force: true,
+          ...(worktreePath ? { worktreePath } : {}),
+        }),
+      onSuccess: (log) => {
+        const signature = buildCommitLogSignature(log);
+        if (signature === commitSignatureRef.current) {
+          return;
+        }
+        dispatch({ type: "setCommitError", error: null });
+        applyCommitLog(log, { append: false, updateSignature: true });
+      },
+    });
   }, [
     applyCommitLog,
     commitPageSize,

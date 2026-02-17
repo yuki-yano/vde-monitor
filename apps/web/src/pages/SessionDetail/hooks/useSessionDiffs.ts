@@ -17,7 +17,7 @@ import {
   diffSummaryAtom,
 } from "../atoms/diffAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySignature } from "../sessionDetailUtils";
-import { createNextRequestId, isCurrentScopedRequest } from "./session-request-guard";
+import { isCurrentScopedRequest, runScopedRequest } from "./session-request-guard";
 
 type UseSessionDiffsParams = {
   paneId: string;
@@ -154,49 +154,26 @@ export const useSessionDiffs = ({
   const loadDiffSummary = useCallback(async () => {
     if (!paneId) return;
     const targetScopeKey = requestScopeKey;
-    const requestId = createNextRequestId(summaryRequestIdRef);
     setDiffLoading(true);
     setDiffError(null);
-    try {
-      const summary = await requestDiffSummary(
-        paneId,
-        worktreePath ? { force: true, worktreePath } : { force: true },
-      );
-      if (
-        !isCurrentScopedRequest({
-          requestIdRef: summaryRequestIdRef,
-          requestId,
-          activeScopeRef,
-          scopeKey: targetScopeKey,
-        })
-      ) {
-        return;
-      }
-      await applyDiffSummary(summary, true);
-    } catch (err) {
-      if (
-        !isCurrentScopedRequest({
-          requestIdRef: summaryRequestIdRef,
-          requestId,
-          activeScopeRef,
-          scopeKey: targetScopeKey,
-        })
-      ) {
-        return;
-      }
-      setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffSummary));
-    } finally {
-      if (
-        isCurrentScopedRequest({
-          requestIdRef: summaryRequestIdRef,
-          requestId,
-          activeScopeRef,
-          scopeKey: targetScopeKey,
-        })
-      ) {
-        setDiffLoading(false);
-      }
-    }
+    await runScopedRequest({
+      requestIdRef: summaryRequestIdRef,
+      activeScopeRef,
+      scopeKey: targetScopeKey,
+      run: () =>
+        requestDiffSummary(paneId, worktreePath ? { force: true, worktreePath } : { force: true }),
+      onSuccess: async (summary) => {
+        await applyDiffSummary(summary, true);
+      },
+      onError: (err) => {
+        setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffSummary));
+      },
+      onSettled: ({ isCurrent }) => {
+        if (isCurrent()) {
+          setDiffLoading(false);
+        }
+      },
+    });
   }, [
     applyDiffSummary,
     paneId,
@@ -210,31 +187,21 @@ export const useSessionDiffs = ({
   const pollDiffSummary = useCallback(async () => {
     if (!paneId) return;
     const targetScopeKey = requestScopeKey;
-    const requestId = createNextRequestId(summaryRequestIdRef);
-    try {
-      const summary = await requestDiffSummary(
-        paneId,
-        worktreePath ? { force: true, worktreePath } : { force: true },
-      );
-      if (
-        !isCurrentScopedRequest({
-          requestIdRef: summaryRequestIdRef,
-          requestId,
-          activeScopeRef,
-          scopeKey: targetScopeKey,
-        })
-      ) {
-        return;
-      }
-      const signature = buildDiffSummarySignature(summary);
-      if (signature === diffSignatureRef.current) {
-        return;
-      }
-      setDiffError(null);
-      await applyDiffSummary(summary, true);
-    } catch {
-      return;
-    }
+    await runScopedRequest({
+      requestIdRef: summaryRequestIdRef,
+      activeScopeRef,
+      scopeKey: targetScopeKey,
+      run: () =>
+        requestDiffSummary(paneId, worktreePath ? { force: true, worktreePath } : { force: true }),
+      onSuccess: async (summary) => {
+        const signature = buildDiffSummarySignature(summary);
+        if (signature === diffSignatureRef.current) {
+          return;
+        }
+        setDiffError(null);
+        await applyDiffSummary(summary, true);
+      },
+    });
   }, [applyDiffSummary, paneId, requestDiffSummary, requestScopeKey, setDiffError, worktreePath]);
   const pollDiffSummaryTick = useCallback(() => {
     void pollDiffSummary();

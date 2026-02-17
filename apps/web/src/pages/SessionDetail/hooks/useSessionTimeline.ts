@@ -9,7 +9,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
-import { createNextRequestId, isCurrentPaneRequest } from "./session-request-guard";
+import { runPaneRequest } from "./session-request-guard";
 
 type UseSessionTimelineParams = {
   paneId: string;
@@ -62,44 +62,33 @@ export const useSessionTimeline = ({
         return;
       }
       const targetPaneId = paneId;
-      const requestId = createNextRequestId(timelineRequestIdRef);
       if (!silent) {
         pendingInteractiveLoadsRef.current += 1;
         setTimelineLoading(true);
       }
-      try {
-        const requestedScope =
-          timelineScope === "repo" && hasRepoTimeline ? ("repo" as const) : undefined;
-        const nextTimeline = await requestStateTimeline(targetPaneId, {
-          scope: requestedScope,
-          range: timelineRange,
-        });
-        if (
-          !isCurrentPaneRequest({
-            requestIdRef: timelineRequestIdRef,
-            requestId,
-            activePaneIdRef,
-            paneId: targetPaneId,
-          })
-        ) {
-          return;
-        }
-        setTimeline(nextTimeline);
-        setTimelineError(null);
-      } catch (err) {
-        if (
-          !isCurrentPaneRequest({
-            requestIdRef: timelineRequestIdRef,
-            requestId,
-            activePaneIdRef,
-            paneId: targetPaneId,
-          })
-        ) {
-          return;
-        }
-        setTimelineError(resolveTimelineError(err));
-      } finally {
-        if (!silent) {
+      await runPaneRequest({
+        requestIdRef: timelineRequestIdRef,
+        activePaneIdRef,
+        paneId: targetPaneId,
+        run: async () => {
+          const requestedScope =
+            timelineScope === "repo" && hasRepoTimeline ? ("repo" as const) : undefined;
+          return requestStateTimeline(targetPaneId, {
+            scope: requestedScope,
+            range: timelineRange,
+          });
+        },
+        onSuccess: (nextTimeline) => {
+          setTimeline(nextTimeline);
+          setTimelineError(null);
+        },
+        onError: (err) => {
+          setTimelineError(resolveTimelineError(err));
+        },
+        onSettled: () => {
+          if (silent) {
+            return;
+          }
           pendingInteractiveLoadsRef.current = Math.max(0, pendingInteractiveLoadsRef.current - 1);
           if (
             activePaneIdRef.current === targetPaneId &&
@@ -107,8 +96,8 @@ export const useSessionTimeline = ({
           ) {
             setTimelineLoading(false);
           }
-        }
-      }
+        },
+      });
     },
     [hasRepoTimeline, paneId, requestStateTimeline, timelineRange, timelineScope],
   );
