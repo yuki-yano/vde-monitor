@@ -1,11 +1,6 @@
 import { useMemo } from "react";
 
-import type { SessionDetailViewProps } from "../SessionDetailView";
-
-type SessionDetailViewShellSectionsInput = Pick<
-  SessionDetailViewProps,
-  "meta" | "sidebar" | "controls" | "logs" | "title" | "actions"
->;
+import type { SessionDetailViewShellSectionsInput } from "./session-detail-view-contract";
 
 export const useSessionDetailViewShellSectionProps = ({
   meta,

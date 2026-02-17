@@ -1,11 +1,6 @@
 import { useCallback, useMemo } from "react";
 
-import type { SessionDetailViewProps } from "../SessionDetailView";
-
-type SessionDetailViewDataSectionsInput = Pick<
-  SessionDetailViewProps,
-  "meta" | "timeline" | "screen" | "diffs" | "files" | "commits" | "notes"
->;
+import type { SessionDetailViewDataSectionsInput } from "./session-detail-view-contract";
 
 export const useSessionDetailViewDataSectionProps = ({
   meta,

@@ -1,12 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { sumFileStats } from "../sessionDetailUtils";
-import type { SessionDetailViewProps } from "../SessionDetailView";
-
-type SessionDetailViewExplorerSectionsInput = Pick<
-  SessionDetailViewProps,
-  "meta" | "sidebar" | "screen" | "controls" | "files" | "diffs"
->;
+import type { SessionDetailViewExplorerSectionsInput } from "./session-detail-view-contract";
 
 export const useSessionDetailViewExplorerSectionProps = ({
   meta,
