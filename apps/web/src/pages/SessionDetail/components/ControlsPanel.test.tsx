@@ -167,6 +167,22 @@ describe("ControlsPanel", () => {
     expect(button.disabled).toBe(true);
   });
 
+  it("disables key buttons when interactive is false", () => {
+    const onSendKey = vi.fn();
+    const state = buildState({ interactive: false });
+    const actions = buildActions({ onSendKey });
+    render(<ControlsPanel state={state} actions={actions} />);
+
+    const enterButton = screen.getByText("Enter").closest("button") as HTMLButtonElement;
+    const leftButton = screen.getByLabelText("Left") as HTMLButtonElement;
+    expect(enterButton.disabled).toBe(true);
+    expect(leftButton.disabled).toBe(true);
+
+    fireEvent.click(enterButton);
+    fireEvent.click(leftButton);
+    expect(onSendKey).not.toHaveBeenCalled();
+  });
+
   it("uploads pasted image from clipboard items and prevents default paste", () => {
     const onPickImage = vi.fn();
     const state = buildState();

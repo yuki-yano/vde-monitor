@@ -38,8 +38,24 @@ const isAbortError = (error: unknown) =>
       "name" in error &&
       (error as { name?: string }).name === "AbortError";
 
-export const resolveUnknownErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
+export const resolveUnknownErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.length > 0) {
+    return error;
+  }
+  if (
+    typeof error === "object" &&
+    error != null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string" &&
+    (error as { message: string }).message.length > 0
+  ) {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+};
 
 export const toErrorWithFallback = (error: unknown, fallback: string) =>
   error instanceof Error ? error : new Error(resolveUnknownErrorMessage(error, fallback));

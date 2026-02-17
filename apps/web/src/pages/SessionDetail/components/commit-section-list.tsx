@@ -1,6 +1,6 @@
 import type { CommitDetail, CommitFileDiff, CommitLog } from "@vde-monitor/shared";
 import { ArrowDown, Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
-import { memo, useRef } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, memo, useRef } from "react";
 
 import {
   Button,
@@ -60,7 +60,6 @@ type CommitExpandedSectionProps = {
   detail?: CommitDetail;
   loadingDetail: boolean;
   commitBody: string | null;
-  totals: ReturnType<typeof sumFileStats>;
   commitFileOpen: Record<string, boolean>;
   commitFileDetails: Record<string, CommitFileDiff>;
   commitFileLoading: Record<string, boolean>;
@@ -109,6 +108,9 @@ export type CommitLoadMoreButtonProps = {
   commitLoadingMore: boolean;
   onLoadMore: () => void;
 };
+
+const isKeyboardActivationKey = (event: ReactKeyboardEvent<HTMLElement>) =>
+  event.key === "Enter" || event.key === " ";
 
 const buildCommitFilesSection = ({
   commitHash,
@@ -208,12 +210,27 @@ const CommitFileRow = memo(
   }: CommitFileRowProps) => {
     const labelContainerRef = useRef<HTMLDivElement | null>(null);
     const statusLabel = formatDiffStatusLabel(file.status);
+    const toggleFile = () => {
+      onToggleCommitFile(commitHash, file.path);
+    };
+    const handleFileKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (!isKeyboardActivationKey(event)) {
+        return;
+      }
+      event.preventDefault();
+      toggleFile();
+    };
 
     return (
-      <div key={`${file.path}-${file.status}`} className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <div
-          onClick={() => onToggleCommitFile(commitHash, file.path)}
-          className="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+          role="button"
+          tabIndex={0}
+          aria-expanded={fileOpen}
+          aria-label={fileOpen ? `Collapse file diff ${file.path}` : `Expand file diff ${file.path}`}
+          onClick={toggleFile}
+          onKeyDown={handleFileKeyDown}
+          className="focus-visible:ring-latte-lavender/30 focus-visible:outline-none grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md focus-visible:ring-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <TagPill tone="status" className={cn(diffStatusClass(statusLabel), "shrink-0")}>
@@ -234,7 +251,7 @@ const CommitFileRow = memo(
           <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs">
             <span className="text-latte-green">+{additions}</span>
             <span className="text-latte-red">-{deletions}</span>
-            <span className="text-latte-overlay1">
+            <span className="text-latte-overlay1" aria-hidden="true">
               {fileOpen ? (
                 <ChevronUp className="h-3.5 w-3.5" />
               ) : (
@@ -305,7 +322,6 @@ const CommitExpandedSection = memo(
     detail,
     loadingDetail,
     commitBody,
-    totals,
     commitFileOpen,
     commitFileDetails,
     commitFileLoading,
@@ -317,6 +333,7 @@ const CommitExpandedSection = memo(
     if (loadingDetail) {
       return <p className="text-latte-subtext0 text-xs">Loading commit…</p>;
     }
+    const totals = sumFileStats(detail?.files);
     const commitFilesSection = buildCommitFilesSection({
       commitHash,
       detail,
@@ -367,12 +384,30 @@ const CommitItem = memo(
     onResolveFileReferenceCandidates,
   }: CommitItemProps) => {
     const commitBody = detail?.body ?? commit.body;
-    const totals = sumFileStats(detail?.files);
+    const toggleCommit = () => {
+      onToggleCommit(commit.hash);
+    };
+    const handleCommitKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) {
+        return;
+      }
+      if (!isKeyboardActivationKey(event)) {
+        return;
+      }
+      event.preventDefault();
+      toggleCommit();
+    };
+
     return (
       <InsetPanel>
         <div
-          className="flex w-full cursor-pointer flex-wrap items-start gap-2.5 px-2.5 py-1.5 sm:gap-3 sm:px-3 sm:py-2"
-          onClick={() => onToggleCommit(commit.hash)}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isOpen}
+          aria-label={isOpen ? `Collapse commit ${commit.shortHash}` : `Expand commit ${commit.shortHash}`}
+          className="focus-visible:ring-latte-lavender/30 focus-visible:outline-none flex w-full cursor-pointer flex-wrap items-start gap-2.5 rounded-md px-2.5 py-1.5 focus-visible:ring-2 sm:gap-3 sm:px-3 sm:py-2"
+          onClick={toggleCommit}
+          onKeyDown={handleCommitKeyDown}
         >
           <ChipButton
             type="button"
@@ -396,10 +431,7 @@ const CommitItem = memo(
                 {commit.authorName} · {formatTimestamp(commit.authoredAt)}
               </p>
             </div>
-            <span
-              className="text-latte-overlay1 ml-auto flex items-center self-center px-2"
-              aria-label={isOpen ? "Collapse commit" : "Expand commit"}
-            >
+            <span className="text-latte-overlay1 ml-auto flex items-center self-center px-2" aria-hidden="true">
               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </span>
           </div>
@@ -411,7 +443,6 @@ const CommitItem = memo(
               detail={detail}
               loadingDetail={loadingDetail}
               commitBody={commitBody}
-              totals={totals}
               commitFileOpen={commitFileOpen}
               commitFileDetails={commitFileDetails}
               commitFileLoading={commitFileLoading}

@@ -234,4 +234,20 @@ describe("ansi-text-utils", () => {
     const rowCount = (tbodyHtml.match(/<tr>/g) ?? []).length;
     expect(rowCount).toBe(3);
   });
+
+  it("does not treat prose as continuation for complete rows without trailing pipe", () => {
+    const lines = [
+      "| ID | Name |",
+      "|---|---|",
+      "| 1 | Alice",
+      "This is prose after table.",
+    ];
+    const normalized = normalizeMarkdownPipeTableLines(lines);
+
+    expect(normalized).toHaveLength(2);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain("Alice");
+    expect(html).not.toContain("This is prose after table.");
+    expect(normalized[1]).toBe("This is prose after table.");
+  });
 });

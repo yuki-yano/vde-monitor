@@ -52,7 +52,16 @@ type UseSessionDetailSectionTabsInput = {
 };
 
 export const useSessionDetailSectionTabs = ({ scope }: UseSessionDetailSectionTabsInput) => {
-  const sectionTabStorageKey = useMemo(() => buildDetailSectionTabStorageKey(scope), [scope]);
+  const repoRoot = scope?.repoRoot ?? null;
+  const branch = scope?.branch ?? null;
+  const sectionTabStorageKey = useMemo(
+    () =>
+      buildDetailSectionTabStorageKey({
+        repoRoot,
+        branch,
+      }),
+    [branch, repoRoot],
+  );
   const [sectionTabsListElement, setSectionTabsListElement] = useState<HTMLDivElement | null>(null);
   const [selectedSectionTabValue, setSelectedSectionTabValue] = useState<SectionTabValue>(() =>
     readStoredSectionTabValue(sectionTabStorageKey),
@@ -91,8 +100,9 @@ export const useSessionDetailSectionTabs = ({ scope }: UseSessionDetailSectionTa
     };
 
     const rafId = window.requestAnimationFrame(evaluateTabLabelVisibility);
+    let settleInnerRafId: number | null = null;
     const settleRafId = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(evaluateTabLabelVisibility);
+      settleInnerRafId = window.requestAnimationFrame(evaluateTabLabelVisibility);
     });
     const settleTimeoutId = window.setTimeout(evaluateTabLabelVisibility, 180);
     const resizeObserver =
@@ -116,6 +126,9 @@ export const useSessionDetailSectionTabs = ({ scope }: UseSessionDetailSectionTa
     return () => {
       window.cancelAnimationFrame(rafId);
       window.cancelAnimationFrame(settleRafId);
+      if (settleInnerRafId != null) {
+        window.cancelAnimationFrame(settleInnerRafId);
+      }
       window.clearTimeout(settleTimeoutId);
       resizeObserver?.disconnect();
       window.removeEventListener("resize", evaluateTabLabelVisibility);

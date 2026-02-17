@@ -8,7 +8,7 @@ import {
   Loader2,
   Send,
 } from "lucide-react";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, FormEvent, KeyboardEvent, ReactNode } from "react";
 
 import { Button, ModifierToggle, PillToggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -46,8 +46,8 @@ type KeyButtonProps = {
   ariaLabel?: string;
 };
 
-type ComposerPillProps = React.ComponentPropsWithoutRef<typeof PillToggle>;
-type ModifierKeyToggleProps = React.ComponentPropsWithoutRef<typeof ModifierToggle>;
+type ComposerPillProps = ComponentPropsWithoutRef<typeof PillToggle>;
+type ModifierKeyToggleProps = ComponentPropsWithoutRef<typeof ModifierToggle>;
 
 const isSendShortcut = (event: KeyboardEvent<HTMLTextAreaElement>) =>
   event.key === "Enter" && (event.ctrlKey || event.metaKey);
@@ -314,7 +314,12 @@ export const KeysSection = ({
               { label: "Backspace", key: "BSpace" },
               { label: "Enter", key: "Enter" },
             ].map((item) => (
-              <KeyButton key={item.key} label={item.label} onClick={() => onSendKey(item.key)} />
+              <KeyButton
+                key={item.key}
+                label={item.label}
+                onClick={() => onSendKey(item.key)}
+                disabled={!interactive}
+              />
             ))}
           </div>
         </div>
@@ -367,6 +372,7 @@ export const KeysSection = ({
                 label={item.label}
                 ariaLabel={item.ariaLabel}
                 onClick={() => onSendKey(item.key)}
+                disabled={!interactive}
               />
             ))}
           </div>

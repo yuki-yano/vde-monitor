@@ -201,24 +201,28 @@ export const ScreenPanelPromptContext = ({
               Virt
             </TagPill>
           ) : null}
-          {visibleFileChangeCategories.map((item) => (
-            <TagPill
-              key={item.key}
-              tone="meta"
-              className={cn(
-                item.className,
-                "shrink-0 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em]",
-              )}
-            >
-              {item.label} {item.value}
-            </TagPill>
-          ))}
-          <span className="text-latte-green shrink-0 text-[11px] font-semibold">
-            +{gitAdditionsLabel}
-          </span>
-          <span className="text-latte-red shrink-0 text-[11px] font-semibold">
-            -{gitDeletionsLabel}
-          </span>
+          {promptGitContext ? (
+            <>
+              {visibleFileChangeCategories.map((item) => (
+                <TagPill
+                  key={item.key}
+                  tone="meta"
+                  className={cn(
+                    item.className,
+                    "shrink-0 px-2 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em]",
+                  )}
+                >
+                  {item.label} {item.value}
+                </TagPill>
+              ))}
+              <span className="text-latte-green shrink-0 text-[11px] font-semibold">
+                +{gitAdditionsLabel}
+              </span>
+              <span className="text-latte-red shrink-0 text-[11px] font-semibold">
+                -{gitDeletionsLabel}
+              </span>
+            </>
+          ) : null}
         </div>
         {contextLeftLabel && !isContextInStatusRow ? (
           <span className="text-latte-subtext0 shrink-0 px-1 text-[12px] font-medium tracking-[0.14em]">

@@ -89,7 +89,8 @@ export const SessionSidebarGroupList = ({
                   <Pin className="h-3.5 w-3.5" />
                 </IconButton>
                 <TagPill tone="neutral" className="text-[9px]">
-                  {group.windowGroups.length} windows
+                  {group.windowGroups.length}{" "}
+                  {group.windowGroups.length === 1 ? "window" : "windows"}
                 </TagPill>
               </div>
             </div>

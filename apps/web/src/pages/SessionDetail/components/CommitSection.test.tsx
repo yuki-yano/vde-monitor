@@ -64,13 +64,18 @@ describe("CommitSection", () => {
     const actions = buildActions({ onToggleCommit, onToggleCommitFile });
     render(<CommitSection state={state} actions={actions} />);
 
-    const commitToggle = screen.getByLabelText("Collapse commit");
+    const commitToggle = screen.getByRole("button", { name: "Collapse commit abc123" });
     expect(commitToggle).toBeTruthy();
     expect(screen.getByText("Total changes")).toBeTruthy();
     fireEvent.click(screen.getByText("Initial commit"));
     expect(onToggleCommit).toHaveBeenCalledWith("abc123");
+    fireEvent.keyDown(commitToggle, { key: "Enter" });
+    expect(onToggleCommit).toHaveBeenCalledWith("abc123");
 
-    fireEvent.click(screen.getByText("index.ts"));
+    const fileToggle = screen.getByRole("button", { name: "Collapse file diff src/index.ts" });
+    fireEvent.click(fileToggle);
+    expect(onToggleCommitFile).toHaveBeenCalledWith("abc123", "src/index.ts");
+    fireEvent.keyDown(fileToggle, { key: " " });
     expect(onToggleCommitFile).toHaveBeenCalledWith("abc123", "src/index.ts");
   });
 

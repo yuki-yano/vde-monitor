@@ -71,7 +71,7 @@ export const runLaunchAgentCommand = async (args: ParsedArgs): Promise<number> =
     console.log(renderLaunchText(result));
     console.log(`requestId=${requestId}`);
   } else {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify({ ...result, requestId }, null, 2));
   }
 
   return resolveLaunchExitCode(result);

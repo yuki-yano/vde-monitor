@@ -304,6 +304,38 @@ const normalizeMarkdownRowContinuation = (plainLine: string) => {
   return withoutTrailing;
 };
 
+const hasClosingPipeAhead = ({
+  lines,
+  startIndex,
+  expectedColumns,
+}: {
+  lines: string[];
+  startIndex: number;
+  expectedColumns: number;
+}) => {
+  const lookaheadLimit = Math.min(lines.length, startIndex + 12);
+  let sawContinuationLine = false;
+  for (let index = startIndex; index < lookaheadLimit; index += 1) {
+    const plain = stripAnsi(lines[index] ?? "");
+    const trimmed = plain.trim();
+    if (trimmed.length === 0) {
+      return false;
+    }
+    if (parseMarkdownTableDelimiterRow(plain, expectedColumns)) {
+      return false;
+    }
+    const nextAsStandaloneRow = parseMarkdownTableRow(plain);
+    if (nextAsStandaloneRow && nextAsStandaloneRow.cells.length === expectedColumns) {
+      return sawContinuationLine;
+    }
+    if (/\|\s*$/.test(plain)) {
+      return true;
+    }
+    sawContinuationLine = true;
+  }
+  return false;
+};
+
 const parseMarkdownBodyRow = (
   lines: string[],
   startIndex: number,
@@ -346,7 +378,14 @@ const parseMarkdownBodyRow = (
 
   const cells = [...parsed.cells];
   let nextIndex = cursor + 1;
-  const allowTrailingContinuation = consumedLineCount > 1 || !firstLineHasTrailingPipe;
+  const allowTrailingContinuation =
+    consumedLineCount > 1 ||
+    (!firstLineHasTrailingPipe &&
+      hasClosingPipeAhead({
+        lines,
+        startIndex: cursor + 1,
+        expectedColumns,
+      }));
   if (!allowTrailingContinuation) {
     return { cells, nextIndex };
   }
