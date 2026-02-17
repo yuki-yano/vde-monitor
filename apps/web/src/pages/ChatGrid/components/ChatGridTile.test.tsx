@@ -102,6 +102,7 @@ describe("ChatGridTile", () => {
     );
 
     expect(screen.getByText("Session Title")).toBeTruthy();
+    expect(screen.getByText("session-1")).toBeTruthy();
     expect(screen.getByText("feature/chat-grid")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open detail" })).toBeTruthy();
     expect(screen.queryByLabelText("Refresh pane pane-1")).toBeNull();

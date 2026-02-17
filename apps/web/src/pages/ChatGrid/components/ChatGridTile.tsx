@@ -279,6 +279,9 @@ export const ChatGridTile = ({
           />
         </div>
         <div className="text-latte-subtext0 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <TagPill tone="meta" className="inline-flex max-w-[180px] items-center">
+            <span className="truncate font-mono">{session.sessionName}</span>
+          </TagPill>
           <TagPill tone="meta" className="inline-flex items-center gap-1">
             <GitBranch className="h-3 w-3" />
             <span>{formatBranchLabel(session.branch)}</span>

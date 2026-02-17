@@ -192,10 +192,9 @@ export const useChatGridVM = () => {
   }, []);
 
   const handleApplyCandidates = useCallback(() => {
-    const selectedPaneSet = new Set(selectedCandidatePaneIds);
-    const nextPaneIds = candidateItems
-      .map((session) => session.paneId)
-      .filter((paneId) => selectedPaneSet.has(paneId))
+    const candidatePaneIdSet = new Set(candidateItems.map((session) => session.paneId));
+    const nextPaneIds = selectedCandidatePaneIds
+      .filter((paneId) => candidatePaneIdSet.has(paneId))
       .slice(0, CHAT_GRID_MAX_PANE_COUNT);
 
     if (nextPaneIds.length < CHAT_GRID_MIN_PANE_COUNT) {
