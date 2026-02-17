@@ -13,13 +13,13 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, LoadingOverlay, Toolbar } from "@/components/ui";
-import { sanitizeLogCopyText } from "@/lib/clipboard";
-import { cn } from "@/lib/cn";
 import {
   logModalDisplayLinesAtom,
   logModalIsAtBottomAtom,
-} from "@/pages/SessionDetail/atoms/logAtoms";
-import { useStableVirtuosoScroll } from "@/pages/SessionDetail/hooks/useStableVirtuosoScroll";
+} from "@/features/shared-session-ui/atoms/logAtoms";
+import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
+import { sanitizeLogCopyText } from "@/lib/clipboard";
+import { cn } from "@/lib/cn";
 
 type LogModalState = {
   open: boolean;

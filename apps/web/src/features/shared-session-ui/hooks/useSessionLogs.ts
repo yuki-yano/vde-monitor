@@ -6,16 +6,16 @@ import type {
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 
-import { renderAnsiLines } from "@/lib/ansi";
-import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import type { Theme } from "@/lib/theme";
-import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 import {
   logModalOpenAtom,
   quickPanelOpenAtom,
   selectedPaneIdAtom,
-} from "@/pages/SessionDetail/atoms/logAtoms";
-import { useScreenCache } from "@/pages/SessionDetail/hooks/useScreenCache";
+} from "@/features/shared-session-ui/atoms/logAtoms";
+import { useScreenCache } from "@/features/shared-session-ui/hooks/useScreenCache";
+import { renderAnsiLines } from "@/lib/ansi";
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import type { Theme } from "@/lib/theme";
+import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 type UseSessionLogsParams = {
   connected: boolean;

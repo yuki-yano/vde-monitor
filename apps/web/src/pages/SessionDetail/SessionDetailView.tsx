@@ -1,6 +1,4 @@
-import { Link } from "@tanstack/react-router";
 import {
-  ArrowLeft,
   BookText,
   Clock,
   FileCheck,
@@ -8,7 +6,6 @@ import {
   GitBranch,
   GitCommitHorizontal,
   Keyboard,
-  Loader2,
   X,
 } from "lucide-react";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from "react";
@@ -29,45 +26,26 @@ import { LogModal } from "./components/LogModal";
 import { NotesSection } from "./components/NotesSection";
 import { QuickPanel } from "./components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
+import { SessionDetailMissingState } from "./components/SessionDetailMissingState";
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { StateTimelineSection } from "./components/StateTimelineSection";
 import { WorktreeSection } from "./components/WorktreeSection";
+import {
+  CLOSE_DETAIL_TAB_VALUE,
+  type DetailSectionTab,
+  SECTION_TAB_ICON_ONLY_CLASS,
+  SECTION_TAB_TEXT_CLASS,
+  useSessionDetailSectionTabs,
+} from "./hooks/useSessionDetailSectionTabs";
 import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 import { useSessionDetailViewExplorerSectionProps } from "./hooks/useSessionDetailViewExplorerSectionProps";
 import { useSessionDetailViewShellSectionProps } from "./hooks/useSessionDetailViewShellSectionProps";
-import { backLinkClass } from "./sessionDetailUtils";
 import type { SessionDetailVM } from "./useSessionDetailVM";
 
 export type SessionDetailViewProps = SessionDetailVM;
 
-const DETAIL_SECTION_TAB_VALUES = [
-  "keys",
-  "timeline",
-  "file",
-  "changes",
-  "commits",
-  "worktrees",
-  "notes",
-] as const;
-type DetailSectionTab = (typeof DETAIL_SECTION_TAB_VALUES)[number];
-
-const DETAIL_SECTION_TAB_STORAGE_KEY_PREFIX = "vde-monitor-session-detail-section-tab";
-const DEFAULT_DETAIL_SECTION_TAB: DetailSectionTab = "timeline";
-const DETAIL_SECTION_TAB_TEXT_MIN_WIDTH = 340;
-const CLOSE_DETAIL_TAB_VALUE = "__close__";
-type SectionTabValue = DetailSectionTab | typeof CLOSE_DETAIL_TAB_VALUE;
-const SECTION_TAB_ICON_ONLY_CLASS = "inline-flex h-8 items-center justify-center p-0 sm:h-9";
-const SECTION_TAB_TEXT_CLASS =
-  "inline-flex h-8 items-center justify-center gap-1 px-1.5 py-0.5 text-[10px] leading-tight sm:h-9 sm:gap-1.5 sm:px-2 sm:text-[11px]";
-const SECTION_TAB_STORAGE_REPO_FALLBACK = "__unknown_repo__";
-const SECTION_TAB_STORAGE_BRANCH_FALLBACK = "__no_branch__";
 const MISSING_SESSION_GRACE_MS = 1600;
-
-type SectionTabStorageScope = {
-  repoRoot?: null | string;
-  branch?: null | string;
-};
 
 type DetailSectionTabDefinition = {
   value: DetailSectionTab;
@@ -75,25 +53,6 @@ type DetailSectionTabDefinition = {
   label: string;
   icon: typeof Clock;
   render: () => ReactNode;
-};
-
-const isDetailSectionTab = (value: unknown): value is DetailSectionTab =>
-  typeof value === "string" && DETAIL_SECTION_TAB_VALUES.includes(value as DetailSectionTab);
-
-const isSectionTabValue = (value: unknown): value is SectionTabValue =>
-  value === CLOSE_DETAIL_TAB_VALUE || isDetailSectionTab(value);
-
-const buildDetailSectionTabStorageKey = (
-  scope: SectionTabStorageScope | null | undefined,
-): string =>
-  `${DETAIL_SECTION_TAB_STORAGE_KEY_PREFIX}:${encodeURIComponent(scope?.repoRoot ?? SECTION_TAB_STORAGE_REPO_FALLBACK)}:${encodeURIComponent(scope?.branch ?? SECTION_TAB_STORAGE_BRANCH_FALLBACK)}`;
-
-const readStoredSectionTabValue = (storageKey: string): SectionTabValue => {
-  if (typeof window === "undefined") {
-    return DEFAULT_DETAIL_SECTION_TAB;
-  }
-  const stored = window.localStorage.getItem(storageKey);
-  return isSectionTabValue(stored) ? stored : DEFAULT_DETAIL_SECTION_TAB;
 };
 
 const CONFIG_VALIDATION_ERROR_PATTERN = /invalid (?:project )?config(?: JSON)?: /i;
@@ -165,15 +124,14 @@ export const SessionDetailView = ({
     handleDetailSplitPointerDown,
   } = layout;
   const isMobileDetailLayout = timeline.isMobile;
-  const sectionTabStorageKey = useMemo(
-    () => buildDetailSectionTabStorageKey({ repoRoot: session?.repoRoot, branch: session?.branch }),
-    [session?.branch, session?.repoRoot],
-  );
-  const [sectionTabsListElement, setSectionTabsListElement] = useState<HTMLDivElement | null>(null);
-  const [selectedSectionTabValue, setSelectedSectionTabValue] = useState<SectionTabValue>(() =>
-    readStoredSectionTabValue(sectionTabStorageKey),
-  );
-  const [sectionTabsIconOnly, setSectionTabsIconOnly] = useState(false);
+  const {
+    selectedSectionTabValue,
+    sectionTabsIconOnly,
+    setSectionTabsListElement,
+    handleSectionTabChange,
+  } = useSessionDetailSectionTabs({
+    scope: { repoRoot: session?.repoRoot, branch: session?.branch },
+  });
   const [missingSessionGraceElapsed, setMissingSessionGraceElapsed] = useState(false);
   const { diffSectionProps, stateTimelineSectionProps, commitSectionProps, notesSectionProps } =
     useSessionDetailViewDataSectionProps({
@@ -293,70 +251,6 @@ export const SessionDetailView = ({
   ];
   const selectedMobileSectionContent =
     mobileSectionTabs.find((tab) => tab.value === selectedSectionTabValue)?.render() ?? null;
-  const handleSectionTabChange = (value: string) => {
-    if (!isSectionTabValue(value)) {
-      return;
-    }
-    setSelectedSectionTabValue(value);
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    setSelectedSectionTabValue(readStoredSectionTabValue(sectionTabStorageKey));
-  }, [sectionTabStorageKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(sectionTabStorageKey, selectedSectionTabValue);
-  }, [sectionTabStorageKey, selectedSectionTabValue]);
-
-  useEffect(() => {
-    const tabListElement = sectionTabsListElement;
-    if (!tabListElement) {
-      return;
-    }
-
-    const evaluateTabLabelVisibility = () => {
-      const nextIconOnly = tabListElement.clientWidth < DETAIL_SECTION_TAB_TEXT_MIN_WIDTH;
-      setSectionTabsIconOnly((previous) => (previous === nextIconOnly ? previous : nextIconOnly));
-    };
-
-    const rafId = window.requestAnimationFrame(evaluateTabLabelVisibility);
-    const settleRafId = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(evaluateTabLabelVisibility);
-    });
-    const settleTimeoutId = window.setTimeout(evaluateTabLabelVisibility, 180);
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(() => {
-            evaluateTabLabelVisibility();
-          });
-    resizeObserver?.observe(tabListElement);
-    window.addEventListener("resize", evaluateTabLabelVisibility);
-    const fontFaceSet =
-      typeof document !== "undefined" && "fonts" in document ? document.fonts : null;
-    const onFontLoadingDone = () => {
-      evaluateTabLabelVisibility();
-    };
-    fontFaceSet?.addEventListener("loadingdone", onFontLoadingDone);
-    fontFaceSet?.ready.then(() => {
-      evaluateTabLabelVisibility();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.cancelAnimationFrame(settleRafId);
-      window.clearTimeout(settleTimeoutId);
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", evaluateTabLabelVisibility);
-      fontFaceSet?.removeEventListener("loadingdone", onFontLoadingDone);
-    };
-  }, [sectionTabsListElement]);
 
   useEffect(() => {
     if (!shouldDelayMissingState) {
@@ -376,49 +270,13 @@ export const SessionDetailView = ({
 
   if (isSessionMissing) {
     const showMissingState = hasConnectionIssue || missingSessionGraceElapsed;
-    if (isInitialSessionLoading || !showMissingState) {
-      return (
-        <>
-          <title>{documentTitle}</title>
-          <div className="mx-auto flex max-w-2xl flex-col gap-4 px-2.5 py-4 sm:px-4 sm:py-6">
-            <Card>
-              <div className="text-latte-subtext0 flex items-center gap-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Loading session...</span>
-              </div>
-              <p className="text-latte-subtext1 mt-2 text-xs">Checking the latest session state.</p>
-              <Link to="/" search={backToListSearch} className={cn(backLinkClass, "mt-4")}>
-                <ArrowLeft className="h-4 w-4" />
-                Back to list
-              </Link>
-            </Card>
-          </div>
-        </>
-      );
-    }
-
     return (
-      <>
-        <title>{documentTitle}</title>
-        <div className="mx-auto flex max-w-2xl flex-col gap-4 px-2.5 py-4 sm:px-4 sm:py-6">
-          <Card>
-            <p className="text-latte-subtext0 text-sm">{missingSessionState.title}</p>
-            {missingSessionState.details.length > 0 ? (
-              <div className="mt-2 space-y-1">
-                {missingSessionState.details.map((detail, index) => (
-                  <p key={`${index}-${detail}`} className="text-latte-subtext1 break-all text-xs">
-                    {detail}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-            <Link to="/" search={backToListSearch} className={cn(backLinkClass, "mt-4")}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to list
-            </Link>
-          </Card>
-        </div>
-      </>
+      <SessionDetailMissingState
+        documentTitle={documentTitle}
+        backToListSearch={backToListSearch}
+        missingSessionState={missingSessionState}
+        loading={isInitialSessionLoading || !showMissingState}
+      />
     );
   }
 

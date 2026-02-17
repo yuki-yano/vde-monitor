@@ -1,5 +1,5 @@
 import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
-import { type SetStateAction, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -9,10 +9,7 @@ import { useSessionFilesFileModalActions } from "./useSessionFiles-file-modal-ac
 import { useSessionFilesLogLinkableActions } from "./useSessionFiles-log-linkable-actions";
 import { useSessionFilesLogResolveActions } from "./useSessionFiles-log-resolve-actions";
 import { useSessionFilesLogResolveSearch } from "./useSessionFiles-log-resolve-search";
-import {
-  type LogFileCandidateItem,
-  resetLogFileCandidateState as resetLogFileCandidateStateValue,
-} from "./useSessionFiles-log-resolve-state";
+import { resetLogFileCandidateState as resetLogFileCandidateStateValue } from "./useSessionFiles-log-resolve-state";
 import { useSessionFilesRequestActions } from "./useSessionFiles-request-actions";
 import { useSessionFilesSearchActions } from "./useSessionFiles-search-actions";
 import { useSessionFilesSearchEffects } from "./useSessionFiles-search-effects";
@@ -21,9 +18,9 @@ import { useSessionFilesTreeActions } from "./useSessionFiles-tree-actions";
 import { useSessionFilesTreeLoader } from "./useSessionFiles-tree-loader";
 import { useSessionFilesTreeRenderNodes } from "./useSessionFiles-tree-render-nodes";
 import { useSessionFilesTreeReveal } from "./useSessionFiles-tree-reveal";
+import { useSessionFilesUiSetters } from "./useSessionFiles-ui-setters";
 import {
   createInitialSessionFilesUiState,
-  createSessionFilesUiSetter,
   reduceSessionFilesUiState,
 } from "./useSessionFiles-ui-state-machine";
 
@@ -74,182 +71,30 @@ export const useSessionFiles = ({
     undefined,
     createInitialSessionFilesUiState,
   );
-  const setSelectedFilePath = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "selectedFilePath",
-      })(value),
-    [],
-  );
-  const setSearchQuery = useCallback(
-    (value: SetStateAction<string>) =>
-      createSessionFilesUiSetter<string>({
-        dispatch: dispatchUiState,
-        key: "searchQuery",
-      })(value),
-    [],
-  );
-  const setSearchResult = useCallback(
-    (value: SetStateAction<RepoFileSearchPage | null>) =>
-      createSessionFilesUiSetter<RepoFileSearchPage | null>({
-        dispatch: dispatchUiState,
-        key: "searchResult",
-      })(value),
-    [],
-  );
-  const setSearchLoading = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "searchLoading",
-      })(value),
-    [],
-  );
-  const setSearchError = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "searchError",
-      })(value),
-    [],
-  );
-  const setSearchActiveIndex = useCallback(
-    (value: SetStateAction<number>) =>
-      createSessionFilesUiSetter<number>({
-        dispatch: dispatchUiState,
-        key: "searchActiveIndex",
-      })(value),
-    [],
-  );
-  const setFileModalOpen = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "fileModalOpen",
-      })(value),
-    [],
-  );
-  const setFileModalPath = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "fileModalPath",
-      })(value),
-    [],
-  );
-  const setFileModalLoading = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "fileModalLoading",
-      })(value),
-    [],
-  );
-  const setFileModalError = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "fileModalError",
-      })(value),
-    [],
-  );
-  const setFileModalFile = useCallback(
-    (value: SetStateAction<RepoFileContent | null>) =>
-      createSessionFilesUiSetter<RepoFileContent | null>({
-        dispatch: dispatchUiState,
-        key: "fileModalFile",
-      })(value),
-    [],
-  );
-  const setFileModalMarkdownViewMode = useCallback(
-    (value: SetStateAction<"code" | "preview" | "diff">) =>
-      createSessionFilesUiSetter<"code" | "preview" | "diff">({
-        dispatch: dispatchUiState,
-        key: "fileModalMarkdownViewMode",
-      })(value),
-    [],
-  );
-  const setFileModalShowLineNumbers = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "fileModalShowLineNumbers",
-      })(value),
-    [],
-  );
-  const setFileModalCopiedPath = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "fileModalCopiedPath",
-      })(value),
-    [],
-  );
-  const setFileModalCopyError = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "fileModalCopyError",
-      })(value),
-    [],
-  );
-  const setFileModalHighlightLine = useCallback(
-    (value: SetStateAction<number | null>) =>
-      createSessionFilesUiSetter<number | null>({
-        dispatch: dispatchUiState,
-        key: "fileModalHighlightLine",
-      })(value),
-    [],
-  );
-  const setFileResolveError = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "fileResolveError",
-      })(value),
-    [],
-  );
-  const setLogFileCandidateModalOpen = useCallback(
-    (value: SetStateAction<boolean>) =>
-      createSessionFilesUiSetter<boolean>({
-        dispatch: dispatchUiState,
-        key: "logFileCandidateModalOpen",
-      })(value),
-    [],
-  );
-  const setLogFileCandidateReference = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "logFileCandidateReference",
-      })(value),
-    [],
-  );
-  const setLogFileCandidatePaneId = useCallback(
-    (value: SetStateAction<string | null>) =>
-      createSessionFilesUiSetter<string | null>({
-        dispatch: dispatchUiState,
-        key: "logFileCandidatePaneId",
-      })(value),
-    [],
-  );
-  const setLogFileCandidateLine = useCallback(
-    (value: SetStateAction<number | null>) =>
-      createSessionFilesUiSetter<number | null>({
-        dispatch: dispatchUiState,
-        key: "logFileCandidateLine",
-      })(value),
-    [],
-  );
-  const setLogFileCandidateItems = useCallback(
-    (value: SetStateAction<LogFileCandidateItem[]>) =>
-      createSessionFilesUiSetter<LogFileCandidateItem[]>({
-        dispatch: dispatchUiState,
-        key: "logFileCandidateItems",
-      })(value),
-    [],
-  );
+  const {
+    setSelectedFilePath,
+    setSearchQuery,
+    setSearchResult,
+    setSearchLoading,
+    setSearchError,
+    setSearchActiveIndex,
+    setFileModalOpen,
+    setFileModalPath,
+    setFileModalLoading,
+    setFileModalError,
+    setFileModalFile,
+    setFileModalMarkdownViewMode,
+    setFileModalShowLineNumbers,
+    setFileModalCopiedPath,
+    setFileModalCopyError,
+    setFileModalHighlightLine,
+    setFileResolveError,
+    setLogFileCandidateModalOpen,
+    setLogFileCandidateReference,
+    setLogFileCandidatePaneId,
+    setLogFileCandidateLine,
+    setLogFileCandidateItems,
+  } = useSessionFilesUiSetters(dispatchUiState);
 
   const {
     selectedFilePath,

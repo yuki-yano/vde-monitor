@@ -5,6 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["apps/web/src/*"],
+      "@vde-monitor/server": ["apps/server/src/index.ts"],
+      "@vde-monitor/server/*": ["apps/server/src/*"],
       "@vde-monitor/*": ["packages/*/src"]
     }
   },

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const resolveRepoRootMock = vi.fn();
 
-vi.mock("../git-utils", () => ({
+vi.mock("../domain/git/git-utils", () => ({
   resolveRepoRoot: resolveRepoRootMock,
 }));
 

@@ -8,14 +8,14 @@ import {
   resolveProjectConfigPath,
   resolveProjectConfigSearchBoundary,
   saveConfig,
-} from "./config-loader";
+} from "./infra/config/config-loader";
 import { ensureToken, generateToken, saveToken } from "./token-store";
 
 export {
   mergeConfigLayers,
   resolveProjectConfigPath,
   resolveProjectConfigSearchBoundary,
-} from "./config-loader";
+} from "./infra/config/config-loader";
 
 export const ensureConfig = (overrides?: Partial<AgentMonitorConfigFile>) => {
   const globalConfig = loadConfig();

@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSessionDetail } from "../test-helpers";
 import { SessionSidebar } from "./SessionSidebar";
 
-vi.mock("../hooks/useSidebarPreview", () => ({
+vi.mock("@/features/shared-session-ui/hooks/useSidebarPreview", () => ({
   useSidebarPreview: () => ({
     preview: null,
     handleHoverStart: vi.fn(),

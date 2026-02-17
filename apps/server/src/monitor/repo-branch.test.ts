@@ -15,7 +15,7 @@ const createDeferred = <T>() => {
   return { promise, resolve } as Deferred<T>;
 };
 
-vi.mock("../git-utils", () => ({
+vi.mock("../domain/git/git-utils", () => ({
   runGit: runGitMock,
 }));
 
