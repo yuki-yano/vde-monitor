@@ -24,6 +24,7 @@ const SYMBOL_ONLY_PATTERN = /^[^A-Za-z0-9]+$/;
 
 const LEADING_WRAPPERS = new Set(['"', "'", "`", "(", "[", "{", "<"]);
 const TRAILING_WRAPPERS = new Set(['"', "'", "`", ")", "]", "}", ">"]);
+const URL_TRAILING_PUNCTUATION = new Set([".", ",", ";", ":", "!", "?"]);
 const sharedParser = typeof DOMParser === "undefined" ? null : new DOMParser();
 
 const normalizeSlash = (value: string) => value.replace(/\\/g, "/");
@@ -279,6 +280,122 @@ const buildLinkifiedTextFragment = (
   };
 };
 
+const shouldTrimTrailingWrapper = (candidate: string, wrapper: string) => {
+  const count = (target: string) => [...candidate].filter((char) => char === target).length;
+  if (wrapper === ")") {
+    return count("(") < count(")");
+  }
+  if (wrapper === "]") {
+    return count("[") < count("]");
+  }
+  if (wrapper === "}") {
+    return count("{") < count("}");
+  }
+  if (wrapper === ">") {
+    return candidate.includes("<");
+  }
+  return true;
+};
+
+const resolveHttpUrlToken = (rawToken: string) => {
+  let startIndex = 0;
+  let endIndex = rawToken.length;
+
+  while (startIndex < endIndex && LEADING_WRAPPERS.has(rawToken[startIndex] ?? "")) {
+    startIndex += 1;
+  }
+
+  while (endIndex > startIndex) {
+    const trailing = rawToken[endIndex - 1] ?? "";
+    if (URL_TRAILING_PUNCTUATION.has(trailing)) {
+      endIndex -= 1;
+      continue;
+    }
+    if (!TRAILING_WRAPPERS.has(trailing)) {
+      break;
+    }
+    const candidate = rawToken.slice(startIndex, endIndex);
+    if (!shouldTrimTrailingWrapper(candidate, trailing)) {
+      break;
+    }
+    endIndex -= 1;
+  }
+
+  if (endIndex <= startIndex) {
+    return null;
+  }
+
+  const urlText = rawToken.slice(startIndex, endIndex);
+  if (!URL_PATTERN.test(urlText)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(urlText);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return {
+      prefix: rawToken.slice(0, startIndex),
+      suffix: rawToken.slice(endIndex),
+      urlText,
+      href: parsed.href,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const buildUrlLinkifiedTextFragment = (sourceText: string, document: Document) => {
+  const fragment = document.createDocumentFragment();
+  let hasReplacements = false;
+  let cursor = 0;
+
+  LOG_TOKEN_PATTERN.lastIndex = 0;
+  let match = LOG_TOKEN_PATTERN.exec(sourceText);
+  while (match) {
+    const rawToken = match[0];
+    const matchStart = match.index;
+    const matchEnd = matchStart + rawToken.length;
+    if (matchStart > cursor) {
+      fragment.append(sourceText.slice(cursor, matchStart));
+    }
+
+    const resolvedUrl = resolveHttpUrlToken(rawToken);
+    if (!resolvedUrl) {
+      fragment.append(rawToken);
+    } else {
+      if (resolvedUrl.prefix.length > 0) {
+        fragment.append(resolvedUrl.prefix);
+      }
+      const element = document.createElement("a");
+      element.textContent = resolvedUrl.urlText;
+      element.href = resolvedUrl.href;
+      element.target = "_blank";
+      element.rel = "noreferrer noopener";
+      element.dataset.vdeLogUrl = resolvedUrl.urlText;
+      element.className = "text-latte-lavender underline-offset-2 hover:underline";
+      fragment.append(element);
+      if (resolvedUrl.suffix.length > 0) {
+        fragment.append(resolvedUrl.suffix);
+      }
+      hasReplacements = true;
+    }
+
+    cursor = matchEnd;
+    match = LOG_TOKEN_PATTERN.exec(sourceText);
+  }
+
+  if (cursor < sourceText.length) {
+    fragment.append(sourceText.slice(cursor));
+  }
+
+  return {
+    hasReplacements,
+    fragment,
+  };
+};
+
 export const extractLogReferenceTokensFromLine = (lineHtml: string) => {
   if (!sharedParser) {
     return [];
@@ -330,6 +447,44 @@ export const linkifyLogLineFileReferences = (
       return;
     }
     const { hasReplacements, fragment } = buildLinkifiedTextFragment(rawText, document, options);
+    if (!hasReplacements) {
+      return;
+    }
+    textNode.replaceWith(fragment);
+  });
+
+  return container.innerHTML;
+};
+
+export const linkifyLogLineHttpUrls = (lineHtml: string) => {
+  if (!sharedParser) {
+    return lineHtml;
+  }
+  if (!lineHtml.includes("http://") && !lineHtml.includes("https://")) {
+    return lineHtml;
+  }
+  const document = sharedParser.parseFromString(`<div>${lineHtml}</div>`, "text/html");
+  const container = document.body.firstElementChild;
+  if (!container) {
+    return lineHtml;
+  }
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let currentNode = walker.nextNode();
+  while (currentNode) {
+    textNodes.push(currentNode as Text);
+    currentNode = walker.nextNode();
+  }
+
+  textNodes.forEach((textNode) => {
+    if (textNode.parentElement?.closest("a")) {
+      return;
+    }
+    const rawText = textNode.nodeValue ?? "";
+    if (rawText.length === 0) {
+      return;
+    }
+    const { hasReplacements, fragment } = buildUrlLinkifiedTextFragment(rawText, document);
     if (!hasReplacements) {
       return;
     }

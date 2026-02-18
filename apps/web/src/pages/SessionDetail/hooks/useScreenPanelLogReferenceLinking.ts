@@ -5,6 +5,7 @@ import type { ScreenMode } from "@/lib/screen-loading";
 import {
   extractLogReferenceTokensFromLine,
   linkifyLogLineFileReferences,
+  linkifyLogLineHttpUrls,
 } from "../log-file-reference";
 
 const VISIBLE_REFERENCE_LINE_PADDING = 20;
@@ -128,14 +129,27 @@ export const useScreenPanelLogReferenceLinking = ({
   }, [onResolveFileReferenceCandidates, referenceCandidateTokenSet, referenceCandidateTokens]);
 
   const linkifiedScreenLines = useMemo(() => {
-    if (mode !== "text" || linkableTokens.size === 0) {
+    if (mode !== "text") {
       return screenLines;
     }
-    return screenLines.map((line) =>
-      linkifyLogLineFileReferences(line, {
-        isLinkableToken: (rawToken) => linkableTokens.has(rawToken),
-      }),
-    );
+    if (
+      linkableTokens.size === 0 &&
+      screenLines.every((line) => !line.includes("http://") && !line.includes("https://"))
+    ) {
+      return screenLines;
+    }
+    return screenLines.map((line) => {
+      let linkifiedLine = line;
+      if (linkableTokens.size > 0) {
+        linkifiedLine = linkifyLogLineFileReferences(linkifiedLine, {
+          isLinkableToken: (rawToken) => linkableTokens.has(rawToken),
+        });
+      }
+      if (linkifiedLine.includes("http://") || linkifiedLine.includes("https://")) {
+        linkifiedLine = linkifyLogLineHttpUrls(linkifiedLine);
+      }
+      return linkifiedLine;
+    });
   }, [linkableTokens, mode, screenLines]);
 
   const handleScreenRangeChanged = useCallback(

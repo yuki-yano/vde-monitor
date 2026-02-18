@@ -15,6 +15,7 @@ import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMu
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
+import { linkifyLogLineHttpUrls } from "@/pages/SessionDetail/log-file-reference";
 
 type UseSessionLogsParams = {
   connected: boolean;
@@ -111,7 +112,13 @@ export const useSessionLogs = ({
       selectedSession?.agent === "codex" || selectedSession?.agent === "claude"
         ? selectedSession.agent
         : "unknown";
-    return renderAnsiLines(text, resolvedTheme, { agent, highlightCorrections });
+    const renderedLines = renderAnsiLines(text, resolvedTheme, { agent, highlightCorrections });
+    if (renderedLines.every((line) => !line.includes("http://") && !line.includes("https://"))) {
+      return renderedLines;
+    }
+    return renderedLines.map((line) =>
+      line.includes("http://") || line.includes("https://") ? linkifyLogLineHttpUrls(line) : line,
+    );
   }, [selectedLogEntry, resolvedTheme, selectedSession?.agent, highlightCorrections]);
 
   const selectedLogLoading = isPaneLoading(selectedPaneId, logLoading);

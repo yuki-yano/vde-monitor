@@ -5,6 +5,7 @@ import {
   extractLogReferenceLocation,
   extractLogReferenceTokensFromLine,
   linkifyLogLineFileReferences,
+  linkifyLogLineHttpUrls,
   normalizeLogReference,
 } from "./log-file-reference";
 
@@ -160,6 +161,45 @@ describe("linkifyLogLineFileReferences", () => {
     const secondClassList = new Set((second?.className ?? "").split(/\s+/).filter(Boolean));
     expect(firstClassList.has("text-latte-lavender")).toBe(false);
     expect(secondClassList.has("text-latte-lavender")).toBe(true);
+  });
+});
+
+describe("linkifyLogLineHttpUrls", () => {
+  it("linkifies http/https tokens into anchors", () => {
+    const html = linkifyLogLineHttpUrls(
+      "see https://example.com/docs and http://localhost:3000/path?q=1 for details",
+    );
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    const links = Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[data-vde-log-url]"));
+    expect(links.length).toBe(2);
+    expect(links[0]?.getAttribute("href")).toBe("https://example.com/docs");
+    expect(links[1]?.getAttribute("href")).toBe("http://localhost:3000/path?q=1");
+    expect(links.every((link) => link.getAttribute("target") === "_blank")).toBe(true);
+    expect(links.every((link) => link.getAttribute("rel") === "noreferrer noopener")).toBe(true);
+  });
+
+  it("keeps trailing punctuation and wrappers outside the anchor", () => {
+    const source = "visit (https://example.com/path_(x)), now.";
+    const html = linkifyLogLineHttpUrls(source);
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    const link = doc.querySelector<HTMLAnchorElement>("a[data-vde-log-url]");
+    expect(link?.textContent).toBe("https://example.com/path_(x)");
+    expect(doc.body.textContent).toBe(source);
+  });
+
+  it("does not linkify non-http protocols", () => {
+    const html = linkifyLogLineHttpUrls("ftp://example.com and mailto:test@example.com");
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    expect(doc.querySelector("a[data-vde-log-url]")).toBeNull();
+  });
+
+  it("does not nest anchors for existing links", () => {
+    const html = linkifyLogLineHttpUrls(
+      '<a href="https://example.com">https://example.com</a> and https://example.net',
+    );
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    expect(doc.querySelector("a a")).toBeNull();
+    expect(doc.querySelectorAll("a").length).toBe(2);
   });
 });
 

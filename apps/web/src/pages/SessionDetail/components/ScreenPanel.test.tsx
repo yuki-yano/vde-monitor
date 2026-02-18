@@ -977,6 +977,21 @@ describe("ScreenPanel", () => {
     });
   });
 
+  it("linkifies http/https URLs in screen lines", async () => {
+    const state = buildState({
+      screenLines: ["open https://example.com/docs for reference"],
+    });
+    const actions = buildActions({ onResolveFileReferenceCandidates: vi.fn(async () => []) });
+    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    await waitFor(() => {
+      const urlLink = container.querySelector<HTMLAnchorElement>("a[data-vde-log-url]");
+      expect(urlLink?.getAttribute("href")).toBe("https://example.com/docs");
+      expect(urlLink?.getAttribute("target")).toBe("_blank");
+      expect(urlLink?.getAttribute("rel")).toBe("noreferrer noopener");
+    });
+  });
+
   it("re-resolves candidates when resolver callback changes", async () => {
     const initialResolver = vi.fn(async () => []);
     const nextResolver = vi.fn(async (rawTokens: string[]) => rawTokens);

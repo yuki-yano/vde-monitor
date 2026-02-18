@@ -84,6 +84,48 @@ describe("useSessionLogs", () => {
     expect(requestScreen).toHaveBeenCalledWith(session.paneId, { mode: "text" });
   });
 
+  it("linkifies http/https URLs in selected log lines", async () => {
+    const session = createSessionDetail();
+    const requestScreen = vi.fn().mockResolvedValue({
+      ok: true,
+      paneId: session.paneId,
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "see https://example.com/docs\nplain line",
+    });
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionLogs({
+          connected: true,
+          connectionIssue: null,
+          sessions: [session],
+          requestScreen,
+          resolvedTheme: "latte",
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.openLogModal(session.paneId);
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedLogLines.length).toBe(2);
+    });
+
+    const doc = new DOMParser().parseFromString(
+      `<div>${result.current.selectedLogLines[0] ?? ""}</div>`,
+      "text/html",
+    );
+    const link = doc.querySelector<HTMLAnchorElement>("a[data-vde-log-url]");
+    expect(link?.getAttribute("href")).toBe("https://example.com/docs");
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
+    expect(result.current.selectedLogLines[1]).toBe("plain line");
+  });
+
   it("toggles quick panel state", () => {
     const session = createSessionDetail();
     const wrapper = createWrapper();
