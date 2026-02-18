@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
 import type { CompositionEvent, FormEvent, KeyboardEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

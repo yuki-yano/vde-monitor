@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 

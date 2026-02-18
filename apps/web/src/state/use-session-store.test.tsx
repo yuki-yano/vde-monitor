@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { createStore, Provider as JotaiProvider } from "jotai";

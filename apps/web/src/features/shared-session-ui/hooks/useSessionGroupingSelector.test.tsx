@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { renderHook } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";

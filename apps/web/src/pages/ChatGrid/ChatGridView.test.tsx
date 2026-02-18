@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";

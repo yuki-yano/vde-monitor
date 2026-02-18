@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { renderHook, waitFor } from "@testing-library/react";
 import type { CommitLog, DiffSummary, RepoNote, SessionStateTimeline } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { createStore, Provider as JotaiProvider } from "jotai";

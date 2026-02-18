@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 
+import { createNextSearchRequestId } from "./session-files-search-effect";
 import { useSessionFilesContextResetEffect } from "./useSessionFiles-context-reset-effect";
 import { useSessionFilesFileModalActions } from "./useSessionFiles-file-modal-actions";
 import { useSessionFilesLogLinkableActions } from "./useSessionFiles-log-linkable-actions";
@@ -18,7 +19,6 @@ import { useSessionFilesTreeActions } from "./useSessionFiles-tree-actions";
 import { useSessionFilesTreeLoader } from "./useSessionFiles-tree-loader";
 import { useSessionFilesTreeRenderNodes } from "./useSessionFiles-tree-render-nodes";
 import { useSessionFilesTreeReveal } from "./useSessionFiles-tree-reveal";
-import { createNextSearchRequestId } from "./session-files-search-effect";
 import { useSessionFilesUiSetters } from "./useSessionFiles-ui-setters";
 import {
   createInitialSessionFilesUiState,

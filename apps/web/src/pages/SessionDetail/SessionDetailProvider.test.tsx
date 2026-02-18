@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { render, screen, waitFor } from "@testing-library/react";
 import { createStore, Provider as JotaiProvider, useAtomValue } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import type { ReactNode } from "react";

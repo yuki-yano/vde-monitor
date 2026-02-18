@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ScreenResponse } from "@vde-monitor/shared";
 import { createStore, Provider as JotaiProvider } from "jotai";
