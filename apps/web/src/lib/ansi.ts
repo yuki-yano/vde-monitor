@@ -235,6 +235,41 @@ const normalizeCodexBackgrounds = (
   });
 };
 
+const claudeWriteSummaryPattern = /\bWrote\s+\d+\s+lines?\s+to\b/i;
+const claudeWriteLinePattern = /^(\s*)(\d+)(\s+)(.*)$/;
+
+const addClaudeWriteDiffMarker = (line: string) => {
+  const match = line.match(claudeWriteLinePattern);
+  if (!match) {
+    return null;
+  }
+  const [, leading = "", lineNo = "", separator = "", content = ""] = match;
+  if (content.startsWith("+") || content.startsWith("-")) {
+    return line;
+  }
+  const [lineSeparator = " ", ...indentChars] = separator;
+  const indentation = indentChars.join("");
+  return `${leading}${lineNo}${lineSeparator}+${indentation}${content}`;
+};
+
+const normalizeClaudeWriteToolLines = (plainLines: string[]) => {
+  const normalized = [...plainLines];
+  for (let index = 0; index < normalized.length; index += 1) {
+    if (!claudeWriteSummaryPattern.test(normalized[index] ?? "")) {
+      continue;
+    }
+    for (let cursor = index + 1; cursor < normalized.length; cursor += 1) {
+      const line = normalized[cursor] ?? "";
+      const converted = addClaudeWriteDiffMarker(line);
+      if (converted == null) {
+        break;
+      }
+      normalized[cursor] = converted;
+    }
+  }
+  return normalized;
+};
+
 const renderDefaultLines = (
   lines: string[],
   converter: AnsiToHtml,
@@ -262,8 +297,9 @@ const renderClaudeLines = (
   options: RenderAnsiOptions | undefined,
 ): string[] => {
   const plainLines = lines.map((line) => (isUnicodeTableHtmlLine(line) ? "" : stripAnsi(line)));
-  const diffMask = buildClaudeDiffMask(plainLines);
-  const maskedHtml = applyClaudeDiffMask(plainLines, diffMask);
+  const normalizedPlainLines = normalizeClaudeWriteToolLines(plainLines);
+  const diffMask = buildClaudeDiffMask(normalizedPlainLines);
+  const maskedHtml = applyClaudeDiffMask(normalizedPlainLines, diffMask);
   const rendered = lines.map((line, index) => {
     if (isUnicodeTableHtmlLine(line)) {
       return ensureLineContent(unwrapUnicodeTableHtmlLine(line));
@@ -272,7 +308,7 @@ const renderClaudeLines = (
       const html = convertAnsiLineToHtml(converter, line, theme, options);
       return ensureLineContent(html);
     }
-    const plainLine = plainLines[index] ?? "";
+    const plainLine = normalizedPlainLines[index] ?? "";
     const masked = maskedHtml[index] ?? renderClaudeDiffLine(plainLine);
     return ensureLineContent(masked);
   });

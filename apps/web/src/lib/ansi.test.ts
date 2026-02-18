@@ -156,6 +156,25 @@ describe("renderAnsiLines", () => {
     expect(lines[1]).not.toContain("text-latte-red");
   });
 
+  it("formats Claude Write output code lines as added diff lines", () => {
+    const text = [
+      "Write(ai/tmp/sample.ts)",
+      "└ Wrote 5 lines to ai/tmp/sample.ts",
+      "1 type User = {",
+      "2   id: number",
+      "3   name: string",
+      "4 }",
+      "5 ",
+      "... +3 lines (ctrl+o to expand)",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    expect(lines[2]).toContain('class="text-latte-green"');
+    expect(lines[2]).toContain(">+type User = {<");
+    expect(lines[3]).toContain(">+  id: number<");
+    expect(lines[6]).toContain(">+<");
+    expect(lines[7]).not.toContain('class="text-latte-green"');
+  });
+
   it("strips ANSI codes and escapes HTML in Claude diff rendering", () => {
     const text = "  10 +\u001b[31m<div>\u001b[0m";
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
