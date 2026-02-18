@@ -196,6 +196,12 @@ describe("renderAnsiLines", () => {
     expect(lines[0]).toMatch(/76,\s*79,\s*105|#4c4f69/);
   });
 
+  it("preserves leading spaces on colored Claude lines after contrast adjustment", () => {
+    const text = "    - \u001b[38;2;177;185;249mitem\u001b[39m";
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    expect(lines[0]).toContain("    - ");
+  });
+
   it("applies background padding only for codex", () => {
     const text = ["\u001b[41mfirst", "second"].join("\n");
     const codexLines = renderAnsiLines(text, "latte", { agent: "codex" });

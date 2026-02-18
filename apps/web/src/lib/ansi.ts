@@ -175,9 +175,17 @@ const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptio
   if (!needsLowContrastAdjust(html, theme, options)) {
     return html;
   }
+  const leadingWhitespace = html.match(/^\s+/)?.[0] ?? "";
+  const trailingWhitespace = html.match(/\s+$/)?.[0] ?? "";
+  const start = leadingWhitespace.length;
+  const end = html.length - trailingWhitespace.length;
+  const content = html.slice(start, Math.max(start, end));
+  if (content.length === 0) {
+    return html;
+  }
   const fallback = fallbackByTheme[theme];
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const doc = parser.parseFromString(content, "text/html");
   const nodes = Array.from(doc.querySelectorAll<HTMLElement>("[style]"));
   nodes.forEach((node) => {
     if (theme === "latte") {
@@ -186,7 +194,7 @@ const adjustLowContrast = (html: string, theme: Theme, options?: RenderAnsiOptio
     }
     adjustMochaNodeContrast(node, fallback);
   });
-  return doc.body.innerHTML;
+  return `${leadingWhitespace}${doc.body.innerHTML}${trailingWhitespace}`;
 };
 
 const convertAnsiLineToHtml = (
