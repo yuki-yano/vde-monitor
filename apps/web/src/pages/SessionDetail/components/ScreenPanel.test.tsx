@@ -174,6 +174,7 @@ describe("ScreenPanel", () => {
           lockReason: null,
           merged: false,
           prStatus: "open",
+          prUrl: "https://github.com/acme/repo/pull/123",
           ahead: 2,
           behind: 1,
           fileChanges: {
@@ -200,6 +201,14 @@ describe("ScreenPanel", () => {
     expect(within(selectorPanel).getByText("D 1")).toBeTruthy();
     expect(within(selectorPanel).getByText("+27")).toBeTruthy();
     expect(within(selectorPanel).getByText("-4")).toBeTruthy();
+    const prLink = within(selectorPanel).getByRole("link", {
+      name: "Open pull request for feature/worktree-a",
+    });
+    const fileChangeBadge = within(selectorPanel).getByText("A 2");
+    expect(prLink.getAttribute("href")).toBe("https://github.com/acme/repo/pull/123");
+    expect(
+      prLink.compareDocumentPosition(fileChangeBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
     const aheadBadge = within(selectorPanel).getByText("Ahead 2");
     const behindBadge = within(selectorPanel).getByText("Behind 1");
     const dirtyBadge = within(selectorPanel).getByText("Dirty Yes");

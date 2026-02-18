@@ -46,7 +46,6 @@ export const WorktreeEntryList = ({
     "text-latte-subtext0 block truncate font-mono",
     !isSelectorVariant && "text-xs",
   );
-  const shouldRenderPrLink = variant === "section";
 
   return entries.map((entry) => {
     const isVirtualSelected = entry.path === virtualWorktreePath;
@@ -68,7 +67,7 @@ export const WorktreeEntryList = ({
     const shouldShowAheadBehind = !isRepoRootPath && (hasAhead || hasBehind);
     const entryBranchLabel = formatBranchLabel(entry.branch);
     const prStatus = resolveWorktreePrStatus(entry.prStatus ?? null);
-    const prLinkUrl = shouldRenderPrLink ? resolveWorktreePrLinkUrl(entry) : null;
+    const prLinkUrl = resolveWorktreePrLinkUrl(entry);
     const isEntryDisabled = !onSelectVirtualWorktree && !prLinkUrl;
 
     return (
@@ -105,12 +104,14 @@ export const WorktreeEntryList = ({
                 rel="noopener noreferrer"
                 aria-label={`Open pull request for ${entryBranchLabel}`}
                 title="Open pull request on GitHub"
-                className="border-latte-surface2/70 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-text inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition"
+                className="focus-visible:ring-latte-lavender/30 group relative -m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2"
                 onClick={(event) => {
                   event.stopPropagation();
                 }}
               >
-                <Github className="h-3 w-3" />
+                <span className="border-latte-surface2/70 text-latte-subtext0 group-hover:border-latte-lavender/60 group-hover:text-latte-text inline-flex h-5 w-5 items-center justify-center rounded-full border transition">
+                  <Github className="h-3 w-3" />
+                </span>
               </a>
             ) : null}
             <span className="flex shrink-0 items-center gap-1">
