@@ -267,7 +267,8 @@ body::before {
 
 .vde-screen-line-smart {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .vde-smart-wrap-hang {

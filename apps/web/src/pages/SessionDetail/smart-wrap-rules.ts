@@ -21,7 +21,7 @@ const CLAUDE_TOOL_START_PATTERN = /^\s*⏺\s+(Read|Bash|Write|Update|Edit|MultiE
 const CLAUDE_TOOL_CONTINUATION_PATTERNS = [/^\s{2,}⎿\s+.*$/, /^\s{6,}\d+\s+.*$/, /^\s{6,}$/];
 const CODEX_LABEL_PATTERN = /^\s*(?:[│└├]\s*)?(Search|Read)\s+/;
 const CLAUDE_LABEL_PATTERN = /^\s*⏺\s+(Read|Bash|Write|Update|Edit|MultiEdit)\b/;
-const LIST_LONG_WORD_PATTERN = /^(\s*(?:[-*+]\s+|\d+[.)]\s+))(\S+)/;
+const LIST_LONG_WORD_PATTERN = /^(\s*(?:[-*+]\s+|\d+[.)]\s+|[›❯]\s+))(\S+)/;
 const GENERIC_INDENT_PATTERNS = [
   /^\s*(?:[-*+•]\s+|\d+[.)]\s+|[A-Za-z]\)\s+)/,
   /^\s*>\s+/,
@@ -197,12 +197,8 @@ export const resolveLabelIndent = (agent: SmartWrapAgent, text: string): number 
 };
 
 export const resolveListLongWord = (
-  agent: SmartWrapAgent,
   text: string,
 ): { indentCh: number; listPrefix: string } | null => {
-  if (agent !== "codex") {
-    return null;
-  }
   const match = text.match(LIST_LONG_WORD_PATTERN);
   if (!match) {
     return null;

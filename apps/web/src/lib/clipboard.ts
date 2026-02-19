@@ -1,4 +1,4 @@
-const zeroWidthPattern = /[\u200B\uFEFF]/g;
+const zeroWidthPattern = /[\u200B\uFEFF\u2060]/g;
 const nonBreakingSpacePattern = /\u00A0/g;
 
 const isFilteredControlCode = (code: number) => {

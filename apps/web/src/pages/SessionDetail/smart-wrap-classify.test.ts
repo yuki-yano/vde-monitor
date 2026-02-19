@@ -129,6 +129,32 @@ describe("classifySmartWrapLines", () => {
     });
   });
 
+  it("detects list long-word for unknown agent", () => {
+    const lines = [
+      "- /private/var/folders/20/st1j3f895hl7lb5thkpbfs680000gn/T/vde-monitor/attachments/%2512/mobile-20260219-031324-86676e55.png",
+      "line 2",
+    ];
+    const result = classifySmartWrapLines(lines, "unknown");
+    expect(result[0]).toEqual({
+      rule: "list-long-word",
+      indentCh: 2,
+      listPrefix: "- ",
+    });
+  });
+
+  it("detects long token after prompt marker", () => {
+    const lines = [
+      "› /private/var/folders/20/st1j3f895hl7lb5thkpbfs680000gn/T/vde-monitor/attachments/%2512/mobile-20260219-031324-86676e55.png",
+      "line 2",
+    ];
+    const result = classifySmartWrapLines(lines, "unknown");
+    expect(result[0]).toEqual({
+      rule: "list-long-word",
+      indentCh: 2,
+      listPrefix: "› ",
+    });
+  });
+
   it("keeps table preserve priority over label-indent", () => {
     const lines = ['<span class="vde-unicode-table-wrap">Search header</span>', "43% left"];
     const result = classifySmartWrapLines(lines, "codex");

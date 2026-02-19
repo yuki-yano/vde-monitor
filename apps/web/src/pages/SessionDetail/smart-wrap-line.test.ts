@@ -28,7 +28,7 @@ describe("decorateSmartWrapLine", () => {
     const classification = classifySmartWrapLines([line, "43% left"], "codex")[0]!;
     const decorated = decorateSmartWrapLine(line, classification);
     const node = parseLine(decorated.lineHtml);
-    expect(node?.textContent).toContain("-\u00A0supercalifragilisticexpialidocious");
+    expect(node?.textContent).toContain(`-${"\u2060\u00A0"}supercalifragilisticexpialidocious`);
   });
 
   it("applies non-break gap even when list prefix is split across html nodes", () => {
@@ -39,8 +39,20 @@ describe("decorateSmartWrapLine", () => {
     const node = parseLine(decorated.lineHtml);
     expect(classification.rule).toBe("list-long-word");
     expect(node?.textContent).toContain(
-      "-\u00A0apps/web/src/pages/SessionDetail/components/ScreenPanelViewport.tsx:19",
+      `-${"\u2060\u00A0"}apps/web/src/pages/SessionDetail/components/ScreenPanelViewport.tsx:19`,
     );
+  });
+
+  it("skips hanging indent for prompt-marker long token lines", () => {
+    const line =
+      "› /private/var/folders/20/st1j3f895hl7lb5thkpbfs680000gn/T/vde-monitor/attachments/%2512/mobile-20260219-034100-45f4ff93.png";
+    const classification = classifySmartWrapLines([line, "line 2"], "unknown")[0]!;
+    const decorated = decorateSmartWrapLine(line, classification);
+    const node = parseLine(decorated.lineHtml);
+    const wrapper = node?.querySelector(".vde-smart-wrap-hang");
+    expect(classification.rule).toBe("list-long-word");
+    expect(wrapper).toBeNull();
+    expect(node?.textContent).toContain("› /private/var/folders");
   });
 
   it("adds divider class for codex divider candidate", () => {

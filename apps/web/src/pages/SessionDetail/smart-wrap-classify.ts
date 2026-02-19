@@ -57,7 +57,7 @@ export const classifySmartWrapLines = (
     if (labelIndent != null) {
       return buildClassification("label-indent", { indentCh: labelIndent });
     }
-    const listLongWord = resolveListLongWord(agent, text);
+    const listLongWord = resolveListLongWord(text);
     if (listLongWord) {
       return buildClassification("list-long-word", {
         indentCh: listLongWord.indentCh,

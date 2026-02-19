@@ -8,6 +8,15 @@ export type SmartWrapDecoratedLine = {
 const sharedParser = typeof DOMParser === "undefined" ? null : new DOMParser();
 
 const HANGING_INDENT_RULES = new Set(["label-indent", "list-long-word", "generic-indent"]);
+const WORD_JOINER = "\u2060";
+const PROMPT_MARKER_PREFIX_PATTERN = /[›❯]\s+$/;
+
+const shouldInsertWordJoinerBeforeGap = (prefixBody: string) => prefixBody.endsWith("-");
+
+const shouldSkipHangingIndent = (classification: SmartWrapLineClassification) =>
+  classification.rule === "list-long-word" &&
+  classification.listPrefix != null &&
+  PROMPT_MARKER_PREFIX_PATTERN.test(classification.listPrefix);
 
 const replaceTrailingPrefixSpaceWithNbsp = (value: string) => {
   const match = value.match(/^(.*?)(\s+)$/);
@@ -19,7 +28,10 @@ const replaceTrailingPrefixSpaceWithNbsp = (value: string) => {
   if (trailingSpaces.length === 0) {
     return value;
   }
-  return `${prefixBody}\u00A0${trailingSpaces.slice(1)}`;
+  const gapPrefix = shouldInsertWordJoinerBeforeGap(prefixBody)
+    ? `${prefixBody}${WORD_JOINER}`
+    : prefixBody;
+  return `${gapPrefix}\u00A0${trailingSpaces.slice(1)}`;
 };
 
 const applyListLongWordNonBreakGap = (container: Element, listPrefix: string) => {
@@ -31,6 +43,7 @@ const applyListLongWordNonBreakGap = (container: Element, listPrefix: string) =>
   if (gapOffset < 0) {
     return;
   }
+  const shouldInsertWordJoiner = gapOffset > 0 && (textContent[gapOffset - 1] ?? "") === "-";
   const walker = container.ownerDocument.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let textOffset = 0;
   let currentNode = walker.nextNode();
@@ -41,8 +54,14 @@ const applyListLongWordNonBreakGap = (container: Element, listPrefix: string) =>
     if (gapOffset < nextTextOffset) {
       const gapOffsetInNode = gapOffset - textOffset;
       if (value[gapOffsetInNode] === " ") {
-        textNode.nodeValue =
-          `${value.slice(0, gapOffsetInNode)}\u00A0` + value.slice(gapOffsetInNode + 1);
+        if (shouldInsertWordJoiner) {
+          textNode.nodeValue =
+            `${value.slice(0, gapOffsetInNode)}${WORD_JOINER}\u00A0` +
+            value.slice(gapOffsetInNode + 1);
+        } else {
+          textNode.nodeValue =
+            `${value.slice(0, gapOffsetInNode)}\u00A0` + value.slice(gapOffsetInNode + 1);
+        }
       }
       return;
     }
@@ -116,7 +135,11 @@ export const decorateSmartWrapLine = (
     applyListLongWordNonBreakGap(container, classification.listPrefix);
   }
 
-  if (HANGING_INDENT_RULES.has(classification.rule) && classification.indentCh != null) {
+  if (
+    HANGING_INDENT_RULES.has(classification.rule) &&
+    classification.indentCh != null &&
+    !shouldSkipHangingIndent(classification)
+  ) {
     applyHangingIndentWrapper(container, classification.indentCh);
   }
 
