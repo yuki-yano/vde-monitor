@@ -132,14 +132,22 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
     keys: { $post: ApiRequest<{ param: PaneParam; json: SendKeysJson }, TRequestInit, TResponse> };
     raw: { $post: ApiRequest<{ param: PaneParam; json: SendRawJson }, TRequestInit, TResponse> };
   };
-  title: { $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }, TRequestInit, TResponse> };
+  title: {
+    $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }, TRequestInit, TResponse>;
+  };
   touch: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   attachments: {
     image: {
-      $post: ApiRequest<{ param: PaneParam; form: UploadImageForm<TFile> }, TRequestInit, TResponse>;
+      $post: ApiRequest<
+        { param: PaneParam; form: UploadImageForm<TFile> },
+        TRequestInit,
+        TResponse
+      >;
     };
   };
-  screen: { $post: ApiRequest<{ param: PaneParam; json: ScreenRequestJson }, TRequestInit, TResponse> };
+  screen: {
+    $post: ApiRequest<{ param: PaneParam; json: ScreenRequestJson }, TRequestInit, TResponse>;
+  };
   diff: {
     $get: ApiRequest<{ param: PaneParam; query: ForceQuery }, TRequestInit, TResponse>;
     file: { $get: ApiRequest<{ param: PaneParam; query: DiffFileQuery }, TRequestInit, TResponse> };
@@ -153,7 +161,9 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
       };
     };
   };
-  timeline: { $get: ApiRequest<{ param: PaneParam; query: TimelineQuery }, TRequestInit, TResponse> };
+  timeline: {
+    $get: ApiRequest<{ param: PaneParam; query: TimelineQuery }, TRequestInit, TResponse>;
+  };
   notes: {
     $get: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse>;
     $post: ApiRequest<{ param: PaneParam; json: RepoNotePayloadJson }, TRequestInit, TResponse>;
@@ -163,7 +173,9 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
     };
   };
   files: {
-    tree: { $get: ApiRequest<{ param: PaneParam; query: RepoFileTreeQuery }, TRequestInit, TResponse> };
+    tree: {
+      $get: ApiRequest<{ param: PaneParam; query: RepoFileTreeQuery }, TRequestInit, TResponse>;
+    };
     search: {
       $get: ApiRequest<{ param: PaneParam; query: RepoFileSearchQuery }, TRequestInit, TResponse>;
     };
