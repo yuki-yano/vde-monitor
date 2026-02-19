@@ -180,6 +180,22 @@ export const SessionDetailView = ({
     title,
     actions,
   });
+  const controlsPanelKeysSection = useMemo(
+    () => (
+      <Card className="p-3 sm:p-4">
+        <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
+      </Card>
+    ),
+    [controlsPanelProps],
+  );
+  const controlsPanelComposerSection = useMemo(
+    () => <ControlsPanel {...controlsPanelProps} showKeysSection={false} />,
+    [controlsPanelProps],
+  );
+  const controlsPanelAllSection = useMemo(
+    () => <ControlsPanel {...controlsPanelProps} />,
+    [controlsPanelProps],
+  );
   const hasConnectionIssue = splitConnectionIssueLines(meta.connectionIssue).length > 0;
   const isSessionMissing = !session || !sessionHeaderProps;
   const isInitialSessionLoading = isSessionMissing && !meta.connected && !hasConnectionIssue;
@@ -209,11 +225,7 @@ export const SessionDetailView = ({
       ariaLabel: "Keys panel",
       label: "Keys",
       icon: Keyboard,
-      render: () => (
-        <Card className="p-3 sm:p-4">
-          <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
-        </Card>
-      ),
+      render: () => controlsPanelKeysSection,
     },
     {
       value: "timeline",
@@ -319,10 +331,7 @@ export const SessionDetailView = ({
           <SessionHeader {...sessionHeaderProps} />
           {isMobileDetailLayout ? (
             <>
-              <ScreenPanel
-                {...screenPanelProps}
-                controls={<ControlsPanel {...controlsPanelProps} showKeysSection={false} />}
-              />
+              <ScreenPanel {...screenPanelProps} controls={controlsPanelComposerSection} />
 
               <Tabs value={selectedSectionTabValue} onValueChange={handleSectionTabChange}>
                 <TabsList
@@ -384,10 +393,7 @@ export const SessionDetailView = ({
                   }
                   style={is2xlUp ? { flexBasis: `${detailSplitRatio * 100}%` } : undefined}
                 >
-                  <ScreenPanel
-                    {...screenPanelProps}
-                    controls={<ControlsPanel {...controlsPanelProps} />}
-                  />
+                  <ScreenPanel {...screenPanelProps} controls={controlsPanelAllSection} />
                   <NotesSection {...notesSectionProps} />
                 </div>
 

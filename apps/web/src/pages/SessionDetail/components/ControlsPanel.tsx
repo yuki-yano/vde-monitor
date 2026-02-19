@@ -2,6 +2,7 @@ import {
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent,
+  memo,
   type RefObject,
   useCallback,
   useState,
@@ -19,7 +20,7 @@ import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTe
 
 import { KeysSection, resolveModifierDotClass } from "./controls-panel-ui";
 
-type ControlsPanelState = {
+export type ControlsPanelState = {
   interactive: boolean;
   isSendingText: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
@@ -30,7 +31,7 @@ type ControlsPanelState = {
   ctrlHeld: boolean;
 };
 
-type ControlsPanelActions = {
+export type ControlsPanelActions = {
   onSendText: () => void;
   onPickImage: (file: File) => void | Promise<void>;
   onToggleAutoEnter: () => void;
@@ -48,7 +49,7 @@ type ControlsPanelActions = {
   onRawCompositionEnd: (event: CompositionEvent<HTMLTextAreaElement>) => void;
 };
 
-type ControlsPanelProps = {
+export type ControlsPanelProps = {
   state: ControlsPanelState;
   actions: ControlsPanelActions;
   showComposerSection?: boolean;
@@ -58,7 +59,7 @@ type ControlsPanelProps = {
 const KILL_DIALOG_CONFIRM_BUTTON_CLASS =
   "border-latte-red/55 bg-latte-red/15 text-latte-red shadow-none hover:border-latte-red/75 hover:bg-latte-red/25";
 
-export const ControlsPanel = ({
+const ControlsPanelInner = ({
   state,
   actions,
   showComposerSection = true,
@@ -222,3 +223,7 @@ export const ControlsPanel = ({
     </>
   );
 };
+
+ControlsPanelInner.displayName = "ControlsPanel";
+
+export const ControlsPanel = memo(ControlsPanelInner);
