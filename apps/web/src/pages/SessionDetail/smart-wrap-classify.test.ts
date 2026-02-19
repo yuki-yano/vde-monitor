@@ -119,6 +119,53 @@ describe("classifySmartWrapLines", () => {
     ]);
   });
 
+  it("classifies codex startup banner lines as preserve block", () => {
+    const lines = [
+      "╭───────────────────────────────────────────────────────╮",
+      "│ >_ OpenAI Codex (v0.104.0)                            │",
+      "│ model:     gpt-5.3-codex xhigh   /model to change     │",
+      "│ directory: ~/repos/feature/tmux-launch-agent-window   │",
+      "╰───────────────────────────────────────────────────────╯",
+      "43% left",
+    ];
+    const result = classifySmartWrapLines(lines, "codex");
+    expect(result.map((item) => item.rule)).toEqual([
+      "startup-banner-block",
+      "startup-banner-block",
+      "startup-banner-block",
+      "startup-banner-block",
+      "startup-banner-block",
+      "statusline-preserve",
+    ]);
+  });
+
+  it("classifies claude startup banner lines as preserve block", () => {
+    const lines = [
+      "╭─── Claude Code v2.1.45 ───────────────────────────────╮",
+      "│ Welcome back Yano!                 │ Tips for getting started │",
+      "│ Sonnet 4.6 · Claude Max · account  │ /resume for more         │",
+      "╰────────────────────────────────────────────────────────╯",
+      "❯ ",
+    ];
+    const result = classifySmartWrapLines(lines, "claude");
+    expect(result.map((item) => item.rule)).toEqual([
+      "startup-banner-block",
+      "startup-banner-block",
+      "startup-banner-block",
+      "startup-banner-block",
+      "statusline-preserve",
+    ]);
+  });
+
+  it("does not treat broken startup banner fragments as preserve block", () => {
+    const lines = ["╭────────────╮", "broken line", "╰────────────╯", "43% left"];
+    const result = classifySmartWrapLines(lines, "codex");
+    expect(result[0]?.rule).toBe("default");
+    expect(result[1]?.rule).toBe("default");
+    expect(result[2]?.rule).toBe("default");
+    expect(result[3]?.rule).toBe("statusline-preserve");
+  });
+
   it("detects list long-word without filepath-specific dependency", () => {
     const lines = ["- supercalifragilisticexpialidocious token", "43% left"];
     const result = classifySmartWrapLines(lines, "codex");

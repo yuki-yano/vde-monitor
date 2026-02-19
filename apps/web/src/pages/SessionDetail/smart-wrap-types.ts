@@ -3,6 +3,7 @@ export type SmartWrapAgent = "codex" | "claude" | "unknown";
 export type SmartWrapLineRule =
   | "default"
   | "statusline-preserve"
+  | "startup-banner-block"
   | "claude-tool-block"
   | "codex-diff-block"
   | "table-preserve"

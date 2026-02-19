@@ -19,6 +19,9 @@ const CODEX_LABELED_DIVIDER_PATTERN = /^\s*[─━-]\s+Worked for\b.+[─━-]{8
 const MAX_CODEX_WRAPPED_FRAGMENT_LINES = 3;
 const CLAUDE_TOOL_START_PATTERN = /^\s*⏺\s+(Read|Bash|Write|Update|Edit|MultiEdit)\b.*$/;
 const CLAUDE_TOOL_CONTINUATION_PATTERNS = [/^\s{2,}⎿\s+.*$/, /^\s{6,}\d+\s+.*$/, /^\s{6,}$/];
+const STARTUP_BANNER_TOP_PATTERN = /^\s*╭.+╮\s*$/;
+const STARTUP_BANNER_BODY_PATTERN = /^\s*│.*│\s*$/;
+const STARTUP_BANNER_BOTTOM_PATTERN = /^\s*╰.+╯\s*$/;
 const CODEX_LABEL_PATTERN = /^\s*(?:[│└├]\s*)?(Search|Read)\s+/;
 const CLAUDE_LABEL_PATTERN = /^\s*⏺\s+(Read|Bash|Write|Update|Edit|MultiEdit)\b/;
 const LIST_LONG_WORD_PATTERN = /^(\s*(?:[-*+]\s+|\d+[.)]\s+|[›❯]\s+))(\S+)/;
@@ -52,6 +55,45 @@ const detectBlockLineSet = (
       nextIndex += 1;
     }
     index = nextIndex;
+  }
+  return result;
+};
+
+export const detectStartupBannerLineSet = (textLines: string[]) => {
+  const result = new Set<number>();
+  let index = 0;
+  while (index < textLines.length) {
+    const current = textLines[index] ?? "";
+    if (!STARTUP_BANNER_TOP_PATTERN.test(current)) {
+      index += 1;
+      continue;
+    }
+
+    const start = index;
+    let cursor = index + 1;
+    let isBannerBlock = false;
+
+    while (cursor < textLines.length) {
+      const candidate = textLines[cursor] ?? "";
+      if (STARTUP_BANNER_BOTTOM_PATTERN.test(candidate)) {
+        isBannerBlock = true;
+        break;
+      }
+      if (!STARTUP_BANNER_BODY_PATTERN.test(candidate)) {
+        break;
+      }
+      cursor += 1;
+    }
+
+    if (isBannerBlock) {
+      for (let lineIndex = start; lineIndex <= cursor; lineIndex += 1) {
+        result.add(lineIndex);
+      }
+      index = cursor + 1;
+      continue;
+    }
+
+    index = start + 1;
   }
   return result;
 };

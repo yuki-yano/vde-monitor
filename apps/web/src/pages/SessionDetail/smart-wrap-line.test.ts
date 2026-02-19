@@ -14,6 +14,18 @@ describe("decorateSmartWrapLine", () => {
     expect(decorated.className).toBe("vde-smart-wrap-preserve-row");
   });
 
+  it("adds preserve-row class for startup banner lines", () => {
+    const line = "╭───────────────────────────────╮";
+    const nextLine = "│ >_ OpenAI Codex (v0.104.0)    │";
+    const bottomLine = "╰───────────────────────────────╯";
+    const classification = classifySmartWrapLines(
+      [line, nextLine, bottomLine, "43% left"],
+      "codex",
+    )[0]!;
+    const decorated = decorateSmartWrapLine(line, classification);
+    expect(decorated.className).toBe("vde-smart-wrap-preserve-row");
+  });
+
   it("adds statusline class for codex/claude last line", () => {
     const codexClass = classifySmartWrapLines(["line", "43% left"], "codex")[1]!;
     const claudeClass = classifySmartWrapLines(["line", "❯ "], "claude")[1]!;

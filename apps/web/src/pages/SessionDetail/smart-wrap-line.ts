@@ -84,7 +84,7 @@ const resolveClassName = (classification: SmartWrapLineClassification): string =
   if (classification.rule === "statusline-preserve") {
     return "vde-smart-wrap-statusline";
   }
-  if (classification.rule === "table-preserve") {
+  if (classification.rule === "table-preserve" || classification.rule === "startup-banner-block") {
     return "vde-smart-wrap-preserve-row";
   }
   if (classification.rule === "divider-clip") {

@@ -1,6 +1,7 @@
 import {
   detectClaudeToolBlockLineSet,
   detectCodexDiffBlockLineSet,
+  detectStartupBannerLineSet,
   isTableLine,
   resolveDivider,
   resolveGenericIndent,
@@ -34,6 +35,10 @@ export const classifySmartWrapLines = (
     agent === "codex" ? detectCodexDiffBlockLineSet(textLines) : new Set<number>();
   const claudeToolBlockLineSet =
     agent === "claude" ? detectClaudeToolBlockLineSet(textLines) : new Set<number>();
+  const startupBannerLineSet =
+    agent === "codex" || agent === "claude"
+      ? detectStartupBannerLineSet(textLines)
+      : new Set<number>();
 
   return lineHtmlList.map((lineHtml, index) => {
     const text = textLines[index] ?? "";
@@ -46,6 +51,9 @@ export const classifySmartWrapLines = (
     }
     if (codexDiffBlockLineSet.has(index)) {
       return buildClassification("codex-diff-block");
+    }
+    if (startupBannerLineSet.has(index)) {
+      return buildClassification("startup-banner-block");
     }
     if (isTableLine(lineHtml)) {
       return buildClassification("table-preserve");
