@@ -12,4 +12,9 @@ describe("sanitizeLogCopyText", () => {
     const input = "line1\r\nline2\rline3\u200B";
     expect(sanitizeLogCopyText(input)).toBe("line1\nline2\nline3");
   });
+
+  it("normalizes non-breaking spaces", () => {
+    const input = "-\u00A0long-token";
+    expect(sanitizeLogCopyText(input)).toBe("- long-token");
+  });
 });

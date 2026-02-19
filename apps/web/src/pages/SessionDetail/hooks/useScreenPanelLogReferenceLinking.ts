@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import type { ScreenWrapMode } from "../atoms/screenAtoms";
 import {
   extractLogReferenceTokensFromLine,
   linkifyLogLineFileReferences,
@@ -10,18 +11,56 @@ import {
 
 const VISIBLE_REFERENCE_LINE_PADDING = 20;
 const FALLBACK_VISIBLE_REFERENCE_WINDOW = 120;
+const LINE_TOKEN_CACHE_LIMIT = 2000;
 
 type ScreenRange = { startIndex: number; endIndex: number };
 
 type UseScreenPanelLogReferenceLinkingArgs = {
   mode: ScreenMode;
+  effectiveWrapMode: ScreenWrapMode;
+  paneId: string;
+  sourceRepoRoot: string | null;
+  agent: "codex" | "claude" | "unknown";
   screenLines: string[];
   onResolveFileReferenceCandidates: (rawTokens: string[]) => Promise<string[]>;
   onRangeChanged: (range: ScreenRange) => void;
 };
 
+type ResolveContext = {
+  paneId: string;
+  sourceRepoRoot: string | null;
+  agent: "codex" | "claude" | "unknown";
+  effectiveWrapMode: ScreenWrapMode;
+  referenceCandidateTokens: string[];
+  resolver: (rawTokens: string[]) => Promise<string[]>;
+};
+
+const areStringArraysEqual = (left: string[], right: string[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const isSameResolveContext = (left: ResolveContext, right: ResolveContext) =>
+  left.paneId === right.paneId &&
+  left.sourceRepoRoot === right.sourceRepoRoot &&
+  left.agent === right.agent &&
+  left.effectiveWrapMode === right.effectiveWrapMode &&
+  left.resolver === right.resolver &&
+  areStringArraysEqual(left.referenceCandidateTokens, right.referenceCandidateTokens);
+
 export const useScreenPanelLogReferenceLinking = ({
   mode,
+  effectiveWrapMode,
+  paneId,
+  sourceRepoRoot,
+  agent,
   screenLines,
   onResolveFileReferenceCandidates,
   onRangeChanged,
@@ -29,6 +68,29 @@ export const useScreenPanelLogReferenceLinking = ({
   const [linkableTokens, setLinkableTokens] = useState<Set<string>>(new Set());
   const [visibleRange, setVisibleRange] = useState<ScreenRange | null>(null);
   const activeResolveCandidatesRequestIdRef = useRef(0);
+  const lastResolveContextRef = useRef<ResolveContext | null>(null);
+  const lineTokenCacheRef = useRef<Map<string, string[]>>(new Map());
+
+  const extractCachedTokensFromLine = useCallback((line: string) => {
+    const cache = lineTokenCacheRef.current;
+    const cached = cache.get(line);
+    if (cached) {
+      cache.delete(line);
+      cache.set(line, cached);
+      return cached;
+    }
+    const extracted = extractLogReferenceTokensFromLine(line);
+    cache.set(line, extracted);
+    if (cache.size > LINE_TOKEN_CACHE_LIMIT) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey != null) {
+        cache.delete(oldestKey);
+      }
+    }
+    return extracted;
+  }, []);
+
+  const visibleRangeForMemo = effectiveWrapMode === "smart" ? null : visibleRange;
 
   const referenceCandidateTokens = useMemo(() => {
     if (mode !== "text") {
@@ -42,20 +104,22 @@ export const useScreenPanelLogReferenceLinking = ({
     const maxIndex = screenLines.length - 1;
     const fallbackStart = Math.max(0, maxIndex - FALLBACK_VISIBLE_REFERENCE_WINDOW);
     const startIndex =
-      visibleRange == null
-        ? fallbackStart
-        : Math.max(0, visibleRange.startIndex - VISIBLE_REFERENCE_LINE_PADDING);
+      visibleRangeForMemo == null
+        ? effectiveWrapMode === "smart"
+          ? 0
+          : fallbackStart
+        : Math.max(0, visibleRangeForMemo.startIndex - VISIBLE_REFERENCE_LINE_PADDING);
     const endIndex =
-      visibleRange == null
+      visibleRangeForMemo == null
         ? maxIndex
-        : Math.min(maxIndex, visibleRange.endIndex + VISIBLE_REFERENCE_LINE_PADDING);
+        : Math.min(maxIndex, visibleRangeForMemo.endIndex + VISIBLE_REFERENCE_LINE_PADDING);
 
     for (let index = endIndex; index >= startIndex; index -= 1) {
       const line = screenLines[index];
       if (!line) {
         continue;
       }
-      const tokens = extractLogReferenceTokensFromLine(line);
+      const tokens = extractCachedTokensFromLine(line);
       const pathTokens: string[] = [];
       const filenameTokens: string[] = [];
       for (const token of tokens) {
@@ -74,7 +138,7 @@ export const useScreenPanelLogReferenceLinking = ({
       }
     }
     return ordered;
-  }, [mode, screenLines, visibleRange]);
+  }, [effectiveWrapMode, extractCachedTokensFromLine, mode, screenLines, visibleRangeForMemo]);
 
   const referenceCandidateTokenSet = useMemo(
     () => new Set(referenceCandidateTokens),
@@ -82,6 +146,23 @@ export const useScreenPanelLogReferenceLinking = ({
   );
 
   useEffect(() => {
+    const resolveContext: ResolveContext = {
+      paneId,
+      sourceRepoRoot,
+      agent,
+      effectiveWrapMode,
+      referenceCandidateTokens,
+      resolver: onResolveFileReferenceCandidates,
+    };
+    const previousResolveContext = lastResolveContextRef.current;
+    if (
+      previousResolveContext != null &&
+      isSameResolveContext(previousResolveContext, resolveContext)
+    ) {
+      return;
+    }
+    lastResolveContextRef.current = resolveContext;
+
     const requestId = activeResolveCandidatesRequestIdRef.current + 1;
     activeResolveCandidatesRequestIdRef.current = requestId;
 
@@ -113,6 +194,8 @@ export const useScreenPanelLogReferenceLinking = ({
         if (activeResolveCandidatesRequestIdRef.current !== requestId) {
           return;
         }
+        // Restore previous context so identical inputs can retry on the next render cycle.
+        lastResolveContextRef.current = previousResolveContext;
         setLinkableTokens((previous) => {
           const next = new Set<string>();
           previous.forEach((token) => {
@@ -126,7 +209,15 @@ export const useScreenPanelLogReferenceLinking = ({
           return next;
         });
       });
-  }, [onResolveFileReferenceCandidates, referenceCandidateTokenSet, referenceCandidateTokens]);
+  }, [
+    agent,
+    effectiveWrapMode,
+    onResolveFileReferenceCandidates,
+    paneId,
+    referenceCandidateTokenSet,
+    referenceCandidateTokens,
+    sourceRepoRoot,
+  ]);
 
   const linkifiedScreenLines = useMemo(() => {
     if (mode !== "text") {
@@ -154,10 +245,13 @@ export const useScreenPanelLogReferenceLinking = ({
 
   const handleScreenRangeChanged = useCallback(
     (range: ScreenRange) => {
+      if (screenLines.length === 0 || range.endIndex < range.startIndex) {
+        return;
+      }
       setVisibleRange(range);
       onRangeChanged(range);
     },
-    [onRangeChanged],
+    [onRangeChanged, screenLines.length],
   );
 
   return {

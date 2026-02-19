@@ -14,6 +14,9 @@ import {
 } from "./sessionDetailAtoms";
 
 export const screenModeAtom = atom<ScreenMode>("text");
+export type ScreenWrapMode = "off" | "smart";
+
+export const screenWrapModeAtom = atom<ScreenWrapMode>("off");
 export const screenModeLoadedAtom = atom({ text: false, image: false });
 export const screenAtBottomAtom = atom(true);
 export const screenForceFollowAtom = atom(false);

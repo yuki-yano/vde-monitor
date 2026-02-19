@@ -51,6 +51,7 @@ vi.mock("@/lib/use-split-ratio", () => ({
 vi.mock("./hooks/useSessionScreen", () => ({
   useSessionScreen: () => ({
     mode: "text",
+    wrapMode: "off",
     screenLines: ["line"],
     imageBase64: null,
     fallbackReason: null,
@@ -65,6 +66,7 @@ vi.mock("./hooks/useSessionScreen", () => ({
     refreshScreen: vi.fn(),
     scrollToBottom: vi.fn(),
     handleModeChange: vi.fn(),
+    toggleWrapMode: vi.fn(),
     virtuosoRef: { current: null },
     scrollerRef: { current: null },
   }),

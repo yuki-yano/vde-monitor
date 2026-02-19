@@ -115,6 +115,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
     },
     screen: {
       mode: "text",
+      wrapMode: "off",
       screenLines: [],
       imageBase64: null,
       fallbackReason: null,
@@ -128,6 +129,7 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       forceFollow: false,
       scrollToBottom: vi.fn(),
       handleModeChange: vi.fn(),
+      toggleWrapMode: vi.fn(),
       virtuosoRef: { current: null } as MutableRefObject<VirtuosoHandle | null>,
       scrollerRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
       handleRefreshScreen: vi.fn(),

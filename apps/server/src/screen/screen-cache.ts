@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { ScreenResponse } from "@vde-monitor/shared";
+import type { ScreenCaptureMeta, ScreenResponse } from "@vde-monitor/shared";
 
 import { nowIso } from "../http/helpers";
 import { buildScreenDeltas, shouldSendFull } from "../screen-diff";
@@ -18,6 +18,7 @@ type BuildTextResponseParams = {
   screen: string;
   alternateOn: boolean;
   truncated: boolean | null;
+  captureMeta?: ScreenCaptureMeta;
   cursor?: string;
   fallbackReason?: "image_failed" | "image_disabled";
 };
@@ -87,6 +88,7 @@ export const createScreenCache = (limit = 10): ScreenCache => {
     screen,
     alternateOn,
     truncated,
+    captureMeta,
     cursor,
     fallbackReason,
   }: BuildTextResponseParams): ScreenResponse => {
@@ -108,6 +110,7 @@ export const createScreenCache = (limit = 10): ScreenCache => {
       paneId,
       mode: "text",
       capturedAt: nowIso(),
+      captureMeta,
       lines: lineCount,
       truncated,
       alternateOn,

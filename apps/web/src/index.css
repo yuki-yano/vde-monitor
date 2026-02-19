@@ -265,6 +265,41 @@ body::before {
   text-align: right;
 }
 
+.vde-screen-line-smart {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.vde-smart-wrap-hang {
+  --vde-wrap-indent-ch: 0ch;
+
+  display: block;
+  padding-left: var(--vde-wrap-indent-ch);
+  text-indent: calc(var(--vde-wrap-indent-ch) * -1);
+  white-space: inherit;
+}
+
+.vde-smart-wrap-preserve-row,
+.vde-smart-wrap-statusline,
+.vde-smart-wrap-diff-block,
+.vde-smart-wrap-claude-block {
+  display: block;
+  min-width: max-content;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.vde-smart-wrap-divider {
+  max-width: 100%;
+  display: block;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
 @keyframes pulse-soft {
   0%,
   100% {

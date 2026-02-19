@@ -1,4 +1,9 @@
-import type { AgentMonitorConfig, ScreenResponse, SessionDetail } from "@vde-monitor/shared";
+import type {
+  AgentMonitorConfig,
+  ScreenCaptureMeta,
+  ScreenResponse,
+  SessionDetail,
+} from "@vde-monitor/shared";
 
 import { buildError, nowIso } from "../http/helpers";
 import type { createSessionMonitor } from "../monitor";
@@ -21,8 +26,60 @@ type ScreenResponseParams = {
   buildTextResponse: ScreenCache["buildTextResponse"];
 };
 
-const resolveJoinLines = (config: AgentMonitorConfig, target: SessionDetail) =>
-  config.screen.joinLines || target.agent === "claude";
+const resolveRequestedJoinLines = (config: AgentMonitorConfig) => config.screen.joinLines;
+
+const resolveCaptureBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] =>
+  config.multiplexer.backend === "tmux" || config.multiplexer.backend === "wezterm"
+    ? config.multiplexer.backend
+    : "unknown";
+
+const resolveAppliedJoinLines = ({
+  backend,
+  joinLinesRequested,
+}: {
+  backend: ScreenCaptureMeta["backend"];
+  joinLinesRequested: boolean;
+}) => (backend === "tmux" ? joinLinesRequested : false);
+
+const buildNoneCaptureMeta = (): ScreenCaptureMeta => ({
+  backend: "unknown",
+  lineModel: "none",
+  joinLinesApplied: null,
+  captureMethod: "none",
+});
+
+const buildTextCaptureMeta = ({
+  backend,
+  joinLinesApplied,
+}: {
+  backend: ScreenCaptureMeta["backend"];
+  joinLinesApplied: boolean;
+}): ScreenCaptureMeta => {
+  const lineModel =
+    backend === "tmux"
+      ? joinLinesApplied
+        ? "joined-physical"
+        : "physical"
+      : backend === "wezterm"
+        ? "physical"
+        : "none";
+  const captureMethod =
+    backend === "tmux" ? "tmux-capture-pane" : backend === "wezterm" ? "wezterm-get-text" : "none";
+
+  return {
+    backend,
+    lineModel,
+    joinLinesApplied,
+    captureMethod,
+  };
+};
+
+const buildImageCaptureMeta = (backend: ScreenCaptureMeta["backend"]): ScreenCaptureMeta => ({
+  backend,
+  lineModel: "none",
+  joinLinesApplied: null,
+  captureMethod: "terminal-image",
+});
 
 const resolveAltScreenMode = (config: AgentMonitorConfig, target: SessionDetail) => {
   if (isEditorCommand(target.currentCommand) || isEditorCommand(target.startCommand)) {
@@ -43,6 +100,10 @@ export const createScreenResponse = async ({
   buildTextResponse,
 }: ScreenResponseParams): Promise<ScreenResponse> => {
   const lineCount = Math.min(lines ?? config.screen.defaultLines, config.screen.maxLines);
+  const backend = resolveCaptureBackend(config);
+  const joinLinesRequested = resolveRequestedJoinLines(config);
+  const joinLinesApplied = resolveAppliedJoinLines({ backend, joinLinesRequested });
+  const textCaptureMeta = buildTextCaptureMeta({ backend, joinLinesApplied });
 
   const captureTextResponse = async (
     fallbackReason?: "image_failed" | "image_disabled",
@@ -52,7 +113,7 @@ export const createScreenResponse = async ({
       const text = await monitor.getScreenCapture().captureText({
         paneId: target.paneId,
         lines: lineCount,
-        joinLines: resolveJoinLines(config, target),
+        joinLines: joinLinesApplied,
         includeAnsi: config.screen.ansi,
         includeTruncated: config.screen.includeTruncated,
         altScreen: resolveAltScreenMode(config, target),
@@ -65,6 +126,7 @@ export const createScreenResponse = async ({
         screen: text.screen,
         alternateOn: text.alternateOn,
         truncated: text.truncated,
+        captureMeta: textCaptureMeta,
         cursor: applyCursor ? cursor : undefined,
         fallbackReason,
       });
@@ -74,6 +136,7 @@ export const createScreenResponse = async ({
         paneId: target.paneId,
         mode: "text",
         capturedAt: nowIso(),
+        captureMeta: buildNoneCaptureMeta(),
         error: buildError("INTERNAL", "screen capture failed"),
       };
     }
@@ -85,6 +148,7 @@ export const createScreenResponse = async ({
       paneId: target.paneId,
       mode: "text",
       capturedAt: nowIso(),
+      captureMeta: buildNoneCaptureMeta(),
       error: buildError("RATE_LIMIT", "rate limited"),
     };
   }
@@ -113,6 +177,7 @@ export const createScreenResponse = async ({
         paneId: target.paneId,
         mode: "image",
         capturedAt: nowIso(),
+        captureMeta: buildImageCaptureMeta(backend),
         imageBase64: imageResult.imageBase64,
         cropped: imageResult.cropped,
       };

@@ -21,6 +21,7 @@ import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import { useScreenFetch } from "./useScreenFetch";
 import { useScreenMode } from "./useScreenMode";
 import { useScreenScroll } from "./useScreenScroll";
+import { useScreenWrapMode } from "./useScreenWrapMode";
 
 type UseSessionScreenParams = {
   paneId: string;
@@ -45,6 +46,7 @@ export const useSessionScreen = ({
   const setScreenError = useSetAtom(screenErrorAtom);
   const screenLines = useAtomValue(screenLinesAtom);
   const mode = useAtomValue(screenModeAtom);
+  const { wrapMode, toggleWrapMode } = useScreenWrapMode();
 
   const isUserScrollingRef = useRef(false);
   const pendingScreenRef = useRef<string | null>(null);
@@ -157,6 +159,7 @@ export const useSessionScreen = ({
 
   return {
     mode,
+    wrapMode,
     screenLines,
     imageBase64,
     fallbackReason,
@@ -171,6 +174,7 @@ export const useSessionScreen = ({
     refreshScreen,
     scrollToBottom,
     handleModeChange,
+    toggleWrapMode,
     virtuosoRef,
     scrollerRef,
   };

@@ -62,6 +62,7 @@ export const useSessionDetailVM = (paneId: string) => {
   const {
     screen: {
       mode,
+      wrapMode,
       screenLines,
       imageBase64,
       fallbackReason,
@@ -75,6 +76,7 @@ export const useSessionDetailVM = (paneId: string) => {
       forceFollow,
       scrollToBottom,
       handleModeChange,
+      toggleWrapMode,
       virtuosoRef,
       scrollerRef,
     },
@@ -301,6 +303,7 @@ export const useSessionDetailVM = (paneId: string) => {
     },
     screen: {
       mode,
+      wrapMode,
       screenLines,
       imageBase64,
       fallbackReason,
@@ -314,6 +317,7 @@ export const useSessionDetailVM = (paneId: string) => {
       forceFollow,
       scrollToBottom,
       handleModeChange,
+      toggleWrapMode,
       virtuosoRef,
       scrollerRef,
       handleRefreshScreen,

@@ -15,7 +15,7 @@ vi.mock("../screen-service", () => ({
 }));
 
 describe("createScreenResponse", () => {
-  it("enables joinLines for claude sessions even when config is disabled", async () => {
+  it("follows config joinLines setting for claude sessions", async () => {
     const captureText = vi.fn(async () => ({
       screen: "hello",
       alternateOn: false,
@@ -50,12 +50,121 @@ describe("createScreenResponse", () => {
     });
 
     expect(response.ok).toBe(true);
+    expect(response.captureMeta).toMatchObject({
+      backend: "tmux",
+      lineModel: "physical",
+      joinLinesApplied: false,
+      captureMethod: "tmux-capture-pane",
+    });
+    expect(captureText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paneId: "%1",
+        lines: 5,
+        joinLines: false,
+        includeTruncated: false,
+      }),
+    );
+  });
+
+  it("reports joined-physical lineModel when tmux joinLines is enabled", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: null,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "%1",
+      paneTty: "tty1",
+      alternateOn: false,
+      agent: "codex",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+
+    const response = await createScreenResponse({
+      config: {
+        ...baseConfig,
+        screen: {
+          ...baseConfig.screen,
+          joinLines: true,
+        },
+      },
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.captureMeta).toMatchObject({
+      backend: "tmux",
+      lineModel: "joined-physical",
+      joinLinesApplied: true,
+      captureMethod: "tmux-capture-pane",
+    });
     expect(captureText).toHaveBeenCalledWith(
       expect.objectContaining({
         paneId: "%1",
         lines: 5,
         joinLines: true,
         includeTruncated: false,
+      }),
+    );
+  });
+
+  it("reports joinLinesApplied false for wezterm text capture", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: null,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "%1",
+      paneTty: "tty1",
+      alternateOn: false,
+      agent: "claude",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+
+    const response = await createScreenResponse({
+      config: {
+        ...baseConfig,
+        multiplexer: {
+          ...baseConfig.multiplexer,
+          backend: "wezterm",
+        },
+        screen: {
+          ...baseConfig.screen,
+          joinLines: true,
+        },
+      },
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.captureMeta).toMatchObject({
+      backend: "wezterm",
+      lineModel: "physical",
+      joinLinesApplied: false,
+      captureMethod: "wezterm-get-text",
+    });
+    expect(captureText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        joinLines: false,
       }),
     );
   });
@@ -166,6 +275,10 @@ describe("createScreenResponse", () => {
 
     expect(response.ok).toBe(false);
     expect(response.error?.code).toBe("RATE_LIMIT");
+    expect(response.captureMeta).toMatchObject({
+      captureMethod: "none",
+      lineModel: "none",
+    });
   });
 
   it("falls back to text when image mode is disabled", async () => {
@@ -186,6 +299,7 @@ describe("createScreenResponse", () => {
         screen: {
           ...baseConfig.screen,
           image: { ...baseConfig.screen.image, enabled: false },
+          joinLines: true,
         },
       },
       monitor,
@@ -200,6 +314,12 @@ describe("createScreenResponse", () => {
     expect(captureText).toHaveBeenCalled();
     expect(response.ok).toBe(true);
     expect(response.fallbackReason).toBe("image_disabled");
+    expect(response.captureMeta).toMatchObject({
+      backend: "tmux",
+      lineModel: "joined-physical",
+      joinLinesApplied: true,
+      captureMethod: "tmux-capture-pane",
+    });
   });
 
   it("captures image when multiplexer backend is wezterm", async () => {
@@ -247,6 +367,11 @@ describe("createScreenResponse", () => {
     expect(captureText).not.toHaveBeenCalled();
     expect(response.ok).toBe(true);
     expect(response.mode).toBe("image");
+    expect(response.captureMeta).toMatchObject({
+      backend: "wezterm",
+      captureMethod: "terminal-image",
+      lineModel: "none",
+    });
   });
 
   it("falls back to text when image capture fails", async () => {
@@ -265,7 +390,11 @@ describe("createScreenResponse", () => {
     const response = await createScreenResponse({
       config: {
         ...baseConfig,
-        screen: { ...baseConfig.screen, image: { ...baseConfig.screen.image, enabled: true } },
+        screen: {
+          ...baseConfig.screen,
+          image: { ...baseConfig.screen.image, enabled: true },
+          joinLines: true,
+        },
       },
       monitor,
       target,
@@ -279,6 +408,12 @@ describe("createScreenResponse", () => {
     expect(response.ok).toBe(true);
     expect(response.fallbackReason).toBe("image_failed");
     expect(response.mode).toBe("text");
+    expect(response.captureMeta).toMatchObject({
+      backend: "tmux",
+      lineModel: "joined-physical",
+      joinLinesApplied: true,
+      captureMethod: "tmux-capture-pane",
+    });
   });
 
   it("returns internal error when captureText throws", async () => {
@@ -302,5 +437,9 @@ describe("createScreenResponse", () => {
 
     expect(response.ok).toBe(false);
     expect(response.error?.code).toBe("INTERNAL");
+    expect(response.captureMeta).toMatchObject({
+      captureMethod: "none",
+      lineModel: "none",
+    });
   });
 });

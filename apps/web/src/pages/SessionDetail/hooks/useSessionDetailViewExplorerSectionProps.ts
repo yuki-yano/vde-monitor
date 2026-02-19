@@ -15,6 +15,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
   const { resolvedTheme } = sidebar;
   const {
     mode,
+    wrapMode,
     screenLines,
     imageBase64,
     fallbackReason,
@@ -28,6 +29,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
     forceFollow,
     scrollToBottom,
     handleModeChange,
+    toggleWrapMode,
     virtuosoRef,
     scrollerRef,
     handleRefreshScreen,
@@ -46,6 +48,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
     clearVirtualWorktree,
   } = screen;
   const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
+  const screenAgent = session?.agent ?? "unknown";
   const { diffSummary, diffError, diffFiles, diffLoadingFiles, ensureDiffFile } = diffs;
   const { rawMode, allowDangerKeys } = controls;
   const {
@@ -275,6 +278,10 @@ export const useSessionDetailViewExplorerSectionProps = ({
     () => ({
       state: {
         mode,
+        wrapMode,
+        paneId,
+        sourceRepoRoot,
+        agent: screenAgent,
         connectionIssue,
         fallbackReason,
         error,
@@ -302,6 +309,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
       },
       actions: {
         onModeChange: handleModeChange,
+        onToggleWrapMode: toggleWrapMode,
         onRefresh: handleRefreshScreen,
         onRefreshWorktrees: () => {
           void (handleRefreshWorktrees ?? handleRefreshScreen)();
@@ -317,6 +325,10 @@ export const useSessionDetailViewExplorerSectionProps = ({
     }),
     [
       mode,
+      wrapMode,
+      paneId,
+      sourceRepoRoot,
+      screenAgent,
       connectionIssue,
       fallbackReason,
       error,
@@ -349,6 +361,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
       handleUserScrollStateChange,
       selectVirtualWorktree,
       clearVirtualWorktree,
+      toggleWrapMode,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,
     ],

@@ -236,7 +236,7 @@ const normalizeCodexBackgrounds = (
 };
 
 const claudeWriteSummaryPattern = /\bWrote\s+\d+\s+lines?\s+to\b/i;
-const claudeWriteLinePattern = /^(\s*)(\d+)(\s+)(.*)$/;
+const claudeWriteLinePattern = /^(\s*)(\d+)(?:([ \t]+)(.*))?$/;
 
 const addClaudeWriteDiffMarker = (line: string) => {
   const match = line.match(claudeWriteLinePattern);
@@ -246,6 +246,9 @@ const addClaudeWriteDiffMarker = (line: string) => {
   const [, leading = "", lineNo = "", separator = "", content = ""] = match;
   if (content.startsWith("+") || content.startsWith("-")) {
     return line;
+  }
+  if (!separator) {
+    return `${leading}${lineNo} +`;
   }
   const [lineSeparator = " ", ...indentChars] = separator;
   const indentation = indentChars.join("");

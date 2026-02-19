@@ -303,11 +303,26 @@ export type ApiEnvelope<T> = T & {
   error?: ApiError;
 };
 
+export type ScreenCaptureMeta = {
+  backend: "tmux" | "wezterm" | "unknown";
+  // "logical" is reserved for future backends/modes that can return logical lines.
+  lineModel: "joined-physical" | "physical" | "logical" | "none";
+  joinLinesApplied: boolean | null;
+  // "wezterm-logical-lines" is reserved for future wezterm logical-line capture support.
+  captureMethod:
+    | "tmux-capture-pane"
+    | "wezterm-get-text"
+    | "wezterm-logical-lines"
+    | "terminal-image"
+    | "none";
+};
+
 export type ScreenResponse = {
   ok: boolean;
   paneId: string;
   mode: "text" | "image";
   capturedAt: string;
+  captureMeta?: ScreenCaptureMeta;
   cursor?: string;
   lines?: number;
   truncated?: boolean | null;

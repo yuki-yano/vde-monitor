@@ -6,6 +6,8 @@ import type { ScreenMode } from "@/lib/screen-loading";
 
 import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
 
+const FORCE_FOLLOW_FALLBACK_MS = 5000;
+
 type UseScreenScrollParams = {
   paneId: string;
   mode: ScreenMode;
@@ -32,7 +34,6 @@ export const useScreenScroll = ({
   const prevModeRef = useRef<ScreenMode>(mode);
   const prevPaneIdRef = useRef<string>(paneId);
   const snapToBottomRef = useRef(false);
-  const forceFollowFallbackMs = 5000;
 
   const stopForceFollow = useCallback(() => {
     setForceFollow(false);
@@ -44,9 +45,16 @@ export const useScreenScroll = ({
 
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "auto") => {
-      if (!virtuosoRef.current || screenLinesLength === 0) return false;
-      const index = screenLinesLength - 1;
-      virtuosoRef.current.scrollToIndex({ index, align: "end", behavior });
+      if (screenLinesLength === 0) return false;
+      const hasVirtuoso = Boolean(virtuosoRef.current);
+      const hasScroller = Boolean(scrollerRef.current);
+      if (!hasVirtuoso && !hasScroller) {
+        return false;
+      }
+      if (virtuosoRef.current) {
+        const index = screenLinesLength - 1;
+        virtuosoRef.current.scrollToIndex({ index, align: "end", behavior });
+      }
       if (isAtBottom) {
         stopForceFollow();
       } else {
@@ -56,17 +64,19 @@ export const useScreenScroll = ({
         }
         forceFollowTimerRef.current = window.setTimeout(() => {
           stopForceFollow();
-        }, forceFollowFallbackMs);
+        }, FORCE_FOLLOW_FALLBACK_MS);
       }
-      window.requestAnimationFrame(() => {
-        const scroller = scrollerRef.current;
-        if (scroller) {
-          scroller.scrollTo({ top: scroller.scrollHeight, left: 0, behavior });
-        }
-      });
+      if (!hasVirtuoso) {
+        window.requestAnimationFrame(() => {
+          const scroller = scrollerRef.current;
+          if (scroller != null) {
+            scroller.scrollTo({ top: scroller.scrollHeight, left: 0, behavior });
+          }
+        });
+      }
       return true;
     },
-    [forceFollowFallbackMs, isAtBottom, screenLinesLength, setForceFollow, stopForceFollow],
+    [isAtBottom, screenLinesLength, setForceFollow, stopForceFollow],
   );
 
   const handleAtBottomChange = useCallback(

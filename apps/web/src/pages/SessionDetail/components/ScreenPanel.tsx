@@ -1,5 +1,5 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
-import { FileText, Image, RefreshCw } from "lucide-react";
+import { FileText, Image, RefreshCw, TextWrap } from "lucide-react";
 import {
   forwardRef,
   type HTMLAttributes,
@@ -16,11 +16,13 @@ import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/c
 import { cn } from "@/lib/cn";
 import type { ScreenMode } from "@/lib/screen-loading";
 
+import type { ScreenWrapMode } from "../atoms/screenAtoms";
 import { usePromptContextLayout } from "../hooks/usePromptContextLayout";
 import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogReferenceLinking";
 import { useScreenPanelWorktreeSelector } from "../hooks/useScreenPanelWorktreeSelector";
 import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
 import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
+import { classifySmartWrapLines } from "../smart-wrap-classify";
 import { ScreenPanelPromptContext } from "./screen-panel-prompt-context";
 import { ScreenPanelViewport } from "./ScreenPanelViewport";
 import {
@@ -31,6 +33,10 @@ import {
 
 type ScreenPanelState = {
   mode: ScreenMode;
+  wrapMode: ScreenWrapMode;
+  paneId: string;
+  sourceRepoRoot: string | null;
+  agent: "codex" | "claude" | "unknown";
   connectionIssue: string | null;
   fallbackReason: string | null;
   error: string | null;
@@ -68,6 +74,7 @@ type ScreenPanelState = {
 
 type ScreenPanelActions = {
   onModeChange: (mode: ScreenMode) => void;
+  onToggleWrapMode: () => void;
   onRefresh: () => void;
   onRefreshWorktrees?: () => void;
   onAtBottomChange: (value: boolean) => void;
@@ -182,6 +189,10 @@ const RawModeIndicator = ({
 export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const {
     mode,
+    wrapMode,
+    paneId,
+    sourceRepoRoot,
+    agent,
     connectionIssue,
     fallbackReason,
     error,
@@ -209,6 +220,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   } = state;
   const {
     onModeChange,
+    onToggleWrapMode,
     onRefresh,
     onRefreshWorktrees,
     onAtBottomChange,
@@ -220,6 +232,8 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     onResolveFileReferenceCandidates,
   } = actions;
   const showError = shouldShowErrorMessage(error, connectionIssue);
+  const effectiveWrapMode: ScreenWrapMode =
+    mode === "text" && wrapMode === "smart" ? "smart" : "off";
   const pollingPauseMeta = pollingPauseReason ? pollingPauseLabelMap[pollingPauseReason] : null;
   const gitBranchLabel = formatBranchLabel(promptGitContext?.branch);
   const gitFileChanges = promptGitContext?.fileChanges;
@@ -272,13 +286,24 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   const { scrollerRef: stableScrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: screenLines,
     isAtBottom,
-    enabled: mode === "text",
+    enabled: mode === "text" && effectiveWrapMode === "off",
     scrollerRef,
     isUserScrolling: forceFollow,
     onUserScrollStateChange,
   });
+  const smartLineClassifications = useMemo(
+    () =>
+      mode === "text" && effectiveWrapMode === "smart"
+        ? classifySmartWrapLines(screenLines, agent)
+        : [],
+    [agent, effectiveWrapMode, mode, screenLines],
+  );
   const { linkifiedScreenLines, handleScreenRangeChanged } = useScreenPanelLogReferenceLinking({
     mode,
+    effectiveWrapMode,
+    paneId,
+    sourceRepoRoot,
+    agent,
     screenLines,
     onResolveFileReferenceCandidates,
     onRangeChanged: handleRangeChanged,
@@ -349,6 +374,17 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
         <div className="flex items-center gap-2">
           <RawModeIndicator rawMode={rawMode} allowDangerKeys={allowDangerKeys} />
           <Button
+            variant={wrapMode === "smart" ? "primary" : "ghost"}
+            size="sm"
+            className="h-[30px] px-2 text-[10px] font-semibold uppercase tracking-[0.24em]"
+            onClick={onToggleWrapMode}
+            disabled={mode === "image"}
+            aria-label="Toggle wrap mode"
+            aria-pressed={wrapMode === "smart"}
+          >
+            <TextWrap className="h-3.5 w-3.5" />
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] p-0"
@@ -377,15 +413,19 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
       )}
       <ScreenPanelViewport
         mode={mode}
+        effectiveWrapMode={effectiveWrapMode}
         imageBase64={imageBase64}
         isAtBottom={isAtBottom}
         isScreenLoading={isScreenLoading}
         screenLines={linkifiedScreenLines}
+        smartLineClassifications={smartLineClassifications}
         virtuosoRef={virtuosoRef}
+        scrollerRef={scrollerRef}
         onAtBottomChange={onAtBottomChange}
         onRangeChanged={handleScreenRangeChanged}
         VirtuosoScroller={VirtuosoScroller}
         onScrollToBottom={onScrollToBottom}
+        onUserScrollStateChange={onUserScrollStateChange}
         onResolveFileReference={handleResolveFileReference}
         onResolveFileReferenceKeyDown={handleResolveFileReferenceKeyDown}
       />

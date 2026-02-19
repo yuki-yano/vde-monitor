@@ -1,4 +1,5 @@
 const zeroWidthPattern = /[\u200B\uFEFF]/g;
+const nonBreakingSpacePattern = /\u00A0/g;
 
 const isFilteredControlCode = (code: number) => {
   const isC0Control = code <= 0x1f && code !== 0x09 && code !== 0x0a;
@@ -11,6 +12,7 @@ export const sanitizeLogCopyText = (value: string): string => {
   const normalized = value
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
+    .replace(nonBreakingSpacePattern, " ")
     .replace(zeroWidthPattern, "");
   let result = "";
   for (let index = 0; index < normalized.length; index += 1) {

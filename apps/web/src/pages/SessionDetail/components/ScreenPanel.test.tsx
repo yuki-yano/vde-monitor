@@ -26,6 +26,10 @@ describe("ScreenPanel", () => {
 
   const buildState = (overrides: Partial<ScreenPanelState> = {}): ScreenPanelState => ({
     mode: "text",
+    wrapMode: "off",
+    paneId: "pane-1",
+    sourceRepoRoot: "/repo",
+    agent: "codex",
     connectionIssue: null,
     fallbackReason: null,
     error: null,
@@ -64,6 +68,7 @@ describe("ScreenPanel", () => {
 
   const buildActions = (overrides: Partial<ScreenPanelActions> = {}): ScreenPanelActions => ({
     onModeChange: vi.fn(),
+    onToggleWrapMode: vi.fn(),
     onRefresh: vi.fn(),
     onAtBottomChange: vi.fn(),
     onScrollToBottom: vi.fn(),
@@ -80,6 +85,45 @@ describe("ScreenPanel", () => {
 
     expect(screen.getByText("Raw")).toBeTruthy();
     expect(screen.getByText("Unsafe")).toBeTruthy();
+  });
+
+  it("shows wrap button next to refresh", () => {
+    const state = buildState();
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
+    const refreshButton = screen.getByRole("button", { name: "Refresh screen" });
+    expect(smartButton).toBeTruthy();
+    expect(refreshButton).toBeTruthy();
+    expect(
+      smartButton.compareDocumentPosition(refreshButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("disables wrap button in image mode", () => {
+    const state = buildState({ mode: "image" });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
+    expect(smartButton.getAttribute("disabled")).not.toBeNull();
+  });
+
+  it("uses non-virtualized rendering path when smart wrap is enabled", () => {
+    const state = buildState({
+      wrapMode: "smart",
+      mode: "text",
+      screenLines: ["- supercalifragilisticexpialidocious token"],
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+    expect(screen.queryByTestId("virtuoso")).toBeNull();
+    expect(screen.getByText(/supercalifragilisticexpialidocious/)).toBeTruthy();
+    const smartScroller = screen.getByTestId("smart-screen-scroller");
+    expect(smartScroller.getAttribute("style")).toContain("60vh");
+    const smartLines = screen.getByTestId("smart-screen-lines");
+    expect(smartLines.className).toContain("w-full");
+    expect(smartLines.className).not.toContain("w-max");
   });
 
   it("renders fallback and error messages", () => {
@@ -1000,10 +1044,11 @@ describe("ScreenPanel", () => {
     });
   });
 
-  it("re-resolves candidates when resolver callback changes", async () => {
+  it("re-resolves candidates when context key changes", async () => {
     const initialResolver = vi.fn(async () => []);
     const nextResolver = vi.fn(async (rawTokens: string[]) => rawTokens);
     const state = buildState({
+      paneId: "pane-1",
       screenLines: ["src/main.ts:1"],
     });
     const actions = buildActions({ onResolveFileReferenceCandidates: initialResolver });
@@ -1018,7 +1063,7 @@ describe("ScreenPanel", () => {
 
     rerender(
       <ScreenPanel
-        state={state}
+        state={{ ...state, paneId: "pane-2" }}
         actions={buildActions({ onResolveFileReferenceCandidates: nextResolver })}
         controls={null}
       />,
@@ -1095,6 +1140,7 @@ describe("ScreenPanel", () => {
     const { container, rerender } = render(
       <ScreenPanel
         state={buildState({
+          paneId: "pane-1",
           screenLines: ["└ Read SessionDetailView.test.tsx, useSessionDetailVM.test.tsx"],
         })}
         actions={actions}
@@ -1114,6 +1160,7 @@ describe("ScreenPanel", () => {
     rerender(
       <ScreenPanel
         state={buildState({
+          paneId: "pane-2",
           screenLines: [
             "• Explored",
             "└ Read SessionDetailView.test.tsx, useSessionDetailVM.test.tsx",

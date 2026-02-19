@@ -159,20 +159,26 @@ describe("renderAnsiLines", () => {
   it("formats Claude Write output code lines as added diff lines", () => {
     const text = [
       "Write(ai/tmp/sample.ts)",
-      "└ Wrote 5 lines to ai/tmp/sample.ts",
+      "└ Wrote 9 lines to ai/tmp/sample.ts",
       "1 type User = {",
       "2   id: number",
       "3   name: string",
-      "4 }",
-      "5 ",
+      "4   email: string",
+      "5 }",
+      "6",
+      "7 const greet = (user: User): string => {",
+      "8   return `Hello, ${user.name}! Your email is ${user.email}.`",
+      "9 }",
       "... +3 lines (ctrl+o to expand)",
     ].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
     expect(lines[2]).toContain('class="text-latte-green"');
     expect(lines[2]).toContain(">+type User = {<");
     expect(lines[3]).toContain(">+  id: number<");
-    expect(lines[6]).toContain(">+<");
-    expect(lines[7]).not.toContain('class="text-latte-green"');
+    expect(lines[7]).toContain(">+<");
+    expect(lines[8]).toContain(">+const greet = (user: User): string =&gt; {<");
+    expect(lines[9]).toContain(">+  return `Hello, ${user.name}! Your email is ${user.email}.`<");
+    expect(lines[11]).not.toContain('class="text-latte-green"');
   });
 
   it("strips ANSI codes and escapes HTML in Claude diff rendering", () => {
