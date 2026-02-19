@@ -105,15 +105,70 @@ describe("ChatGridTile", () => {
         sendText={vi.fn(async () => ({ ok: true }))}
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
     expect(screen.getByText("Session Title")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit session title" })).toBeTruthy();
     expect(screen.getByText("session-1")).toBeTruthy();
     expect(screen.getByText("feature/chat-grid")).toBeTruthy();
     expect(screen.getByText("Window 1")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open detail" })).toBeTruthy();
     expect(screen.queryByLabelText("Refresh pane pane-1")).toBeNull();
+  });
+
+  it("edits and saves session title with Enter", async () => {
+    const updateSessionTitle = vi.fn(async () => undefined);
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession()}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+        sendText={vi.fn(async () => ({ ok: true }))}
+        sendKeys={vi.fn(async () => ({ ok: true }))}
+        sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={updateSessionTitle}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit session title" }));
+    const input = screen.getByRole("textbox", { name: "Custom session title" });
+    fireEvent.change(input, { target: { value: "Updated Title" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(updateSessionTitle).toHaveBeenCalledWith("pane-1", "Updated Title");
+    });
+  });
+
+  it("resets custom title", async () => {
+    const updateSessionTitle = vi.fn(async () => undefined);
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession({ customTitle: "Pinned Title" })}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+        sendText={vi.fn(async () => ({ ok: true }))}
+        sendKeys={vi.fn(async () => ({ ok: true }))}
+        sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={updateSessionTitle}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset session title" }));
+
+    await waitFor(() => {
+      expect(updateSessionTitle).toHaveBeenCalledWith("pane-1", null);
+    });
   });
 
   it("sends text through sendText when send is clicked", async () => {
@@ -130,6 +185,7 @@ describe("ChatGridTile", () => {
         sendText={sendText}
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -156,6 +212,7 @@ describe("ChatGridTile", () => {
         sendText={vi.fn(async () => ({ ok: true }))}
         sendKeys={sendKeys}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -180,6 +237,7 @@ describe("ChatGridTile", () => {
         sendText={vi.fn(async () => ({ ok: true }))}
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -199,6 +257,7 @@ describe("ChatGridTile", () => {
         sendText={vi.fn(async () => ({ ok: true }))}
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -218,6 +277,7 @@ describe("ChatGridTile", () => {
         sendText={vi.fn(async () => ({ ok: true }))}
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
+        updateSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 

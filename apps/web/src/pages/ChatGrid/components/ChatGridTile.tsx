@@ -7,24 +7,32 @@ import type {
   SessionSummary,
 } from "@vde-monitor/shared";
 import { defaultDangerKeys } from "@vde-monitor/shared";
-import { Clock, GitBranch } from "lucide-react";
+import { ArrowRight, Clock, GitBranch, X } from "lucide-react";
 import {
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
-import { Badge, Callout, Card, LastInputPill, TagPill } from "@/components/ui";
+import {
+  Badge,
+  Callout,
+  Card,
+  IconButton,
+  LastInputPill,
+  TagPill,
+  TextButton,
+} from "@/components/ui";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
 import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTextComposer";
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
 import {
-  resolveSessionDisplayTitle,
   resolveSessionStateLabel,
   resolveSessionStateTone,
 } from "@/features/shared-session-ui/model/session-display";
@@ -44,7 +52,10 @@ import {
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
 } from "@/pages/SessionDetail/log-file-reference";
-import { isDangerousText } from "@/pages/SessionDetail/sessionDetailUtils";
+import {
+  buildDefaultSessionTitle,
+  isDangerousText,
+} from "@/pages/SessionDetail/sessionDetailUtils";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -62,6 +73,7 @@ type ChatGridTileProps = {
   ) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
+  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
@@ -110,6 +122,7 @@ export const ChatGridTile = ({
   sendText,
   sendKeys,
   sendRaw,
+  updateSessionTitle,
   uploadImageAttachment,
 }: ChatGridTileProps) => {
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -122,8 +135,30 @@ export const ChatGridTile = ({
   const [rawMode, setRawMode] = useState(false);
   const [allowDangerKeys, setAllowDangerKeys] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState(session.customTitle ?? "");
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleSaving, setTitleSaving] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
-  const sessionTitle = resolveSessionDisplayTitle(session);
+  const sessionCustomTitle = session.customTitle ?? null;
+  const sessionDefaultTitle = buildDefaultSessionTitle(session);
+  const canResetAutoTitle =
+    sessionCustomTitle == null && session.title != null && session.title !== sessionDefaultTitle;
+  const canResetTitle = Boolean(sessionCustomTitle || canResetAutoTitle);
+  const sessionAutoTitle = session.title ?? session.sessionName ?? "";
+  const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
+
+  useEffect(() => {
+    setTitleEditing(false);
+    setTitleSaving(false);
+    setTitleError(null);
+    setTitleDraft(sessionCustomTitle ?? "");
+  }, [session.paneId, sessionCustomTitle]);
+
+  useEffect(() => {
+    if (titleEditing) return;
+    setTitleDraft(sessionCustomTitle ?? "");
+  }, [sessionCustomTitle, titleEditing]);
   const displayLines = useMemo(() => {
     if (screenLines.length > 0) {
       return screenLines.map((line) => {
@@ -264,6 +299,82 @@ export const ChatGridTile = ({
     [allowDangerKeys, ctrlHeld, rawMode, sendKeys, sendRaw, session.paneId, shiftHeld],
   );
 
+  const openTitleEditor = useCallback(() => {
+    setTitleError(null);
+    setTitleDraft(sessionCustomTitle ?? "");
+    setTitleEditing(true);
+  }, [sessionCustomTitle]);
+
+  const closeTitleEditor = useCallback(() => {
+    setTitleEditing(false);
+    setTitleError(null);
+    setTitleDraft(sessionCustomTitle ?? "");
+  }, [sessionCustomTitle]);
+
+  const handleTitleDraftChange = useCallback((value: string) => {
+    setTitleDraft(value);
+    setTitleError(null);
+  }, []);
+
+  const handleTitleSave = useCallback(async () => {
+    if (titleSaving) return;
+    const trimmed = titleDraft.trim();
+    if (trimmed.length > 80) {
+      setTitleError("Title must be 80 characters or less.");
+      return;
+    }
+
+    setTitleSaving(true);
+    try {
+      await updateSessionTitle(session.paneId, trimmed.length > 0 ? trimmed : null);
+      setTitleEditing(false);
+      setTitleError(null);
+    } catch (error) {
+      setTitleError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateTitle));
+    } finally {
+      setTitleSaving(false);
+    }
+  }, [session.paneId, titleDraft, titleSaving, updateSessionTitle]);
+
+  const handleTitleReset = useCallback(async () => {
+    if (titleSaving) return;
+    const nextTitle = session.customTitle ? null : buildDefaultSessionTitle(session);
+
+    setTitleSaving(true);
+    try {
+      await updateSessionTitle(session.paneId, nextTitle);
+      setTitleEditing(false);
+      setTitleDraft(nextTitle ?? "");
+      setTitleError(null);
+    } catch (error) {
+      setTitleError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateTitle));
+    } finally {
+      setTitleSaving(false);
+    }
+  }, [session, titleSaving, updateSessionTitle]);
+
+  const handleTitleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void handleTitleSave();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTitleEditor();
+      }
+    },
+    [closeTitleEditor, handleTitleSave],
+  );
+
+  const handleTitleBlur = useCallback(() => {
+    if (titleSaving) {
+      return;
+    }
+    closeTitleEditor();
+  }, [closeTitleEditor, titleSaving]);
+
   const currentComposerError = composerError ?? sendError;
   const callout =
     currentComposerError != null
@@ -277,14 +388,64 @@ export const ChatGridTile = ({
   return (
     <Card className="grid h-full min-h-[420px] grid-rows-[auto_minmax(0,1fr)] gap-2.5 p-3 sm:p-3.5">
       <header className="min-w-0 space-y-1">
-        <Link
-          to="/sessions/$paneId"
-          params={{ paneId: session.paneId }}
-          aria-label="Open detail"
-          className="font-display text-latte-text hover:text-latte-lavender block truncate text-[15px] font-semibold transition"
-        >
-          {sessionTitle}
-        </Link>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex min-w-0 items-center gap-1">
+              {titleEditing ? (
+                <input
+                  type="text"
+                  value={titleDraft}
+                  onChange={(event) => {
+                    handleTitleDraftChange(event.target.value);
+                  }}
+                  onKeyDown={handleTitleKeyDown}
+                  onBlur={handleTitleBlur}
+                  placeholder={sessionAutoTitle || "Untitled session"}
+                  maxLength={80}
+                  enterKeyHint="done"
+                  disabled={titleSaving}
+                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Custom session title"
+                  autoFocus
+                />
+              ) : (
+                <TextButton
+                  type="button"
+                  onClick={openTitleEditor}
+                  variant="title"
+                  className="hover:text-latte-lavender mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
+                  aria-label="Edit session title"
+                >
+                  {sessionDisplayTitle}
+                </TextButton>
+              )}
+              {canResetTitle && !titleEditing ? (
+                <IconButton
+                  type="button"
+                  onClick={() => void handleTitleReset()}
+                  disabled={titleSaving}
+                  variant="dangerOutline"
+                  size="xs"
+                  aria-label="Reset session title"
+                  title="Reset session title"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </IconButton>
+              ) : null}
+            </div>
+            {titleError ? <p className="text-latte-red text-xs">{titleError}</p> : null}
+          </div>
+          <div className="flex shrink-0 items-center">
+            <Link
+              to="/sessions/$paneId"
+              params={{ paneId: session.paneId }}
+              aria-label="Open detail"
+              className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge tone={resolveSessionStateTone(session)} size="sm">
             {resolveSessionStateLabel(session)}

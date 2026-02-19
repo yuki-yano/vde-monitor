@@ -32,6 +32,7 @@ type ChatGridBoardProps = {
   ) => Promise<CommandResponse>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
+  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
@@ -61,6 +62,7 @@ export const ChatGridBoard = ({
   sendText,
   sendKeys,
   sendRaw,
+  updateSessionTitle,
   uploadImageAttachment,
 }: ChatGridBoardProps) => {
   if (sessions.length === 0) {
@@ -106,6 +108,7 @@ export const ChatGridBoard = ({
             sendText={sendText}
             sendKeys={sendKeys}
             sendRaw={sendRaw}
+            updateSessionTitle={updateSessionTitle}
             uploadImageAttachment={uploadImageAttachment}
           />
         </div>

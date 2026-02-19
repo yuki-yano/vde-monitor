@@ -129,6 +129,7 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
   sendText: vi.fn(async () => ({ ok: true })),
   sendKeys: vi.fn(async () => ({ ok: true })),
   sendRaw: vi.fn(async () => ({ ok: true })),
+  updateSessionTitle: vi.fn(async () => undefined),
   ...overrides,
 });
 
