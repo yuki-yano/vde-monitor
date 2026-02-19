@@ -119,7 +119,14 @@ export const AnsiVirtualizedViewport = ({
   }, [lines.length, onScrollToBottom, virtuosoRef]);
 
   return (
-    <div className={className} onCopy={handleCopy}>
+    <div
+      role="log"
+      aria-label="Terminal output"
+      className={className}
+      onCopy={handleCopy}
+      onClick={onLineClick}
+      onKeyDown={onLineKeyDown}
+    >
       {loading && <LoadingOverlay label={loadingLabel} />}
       <Virtuoso
         ref={virtuosoRef}
@@ -135,13 +142,7 @@ export const AnsiVirtualizedViewport = ({
         className={viewportClassName}
         style={{ height }}
         itemContent={(_index, line) => (
-          <div
-            role="presentation"
-            className={lineClassName}
-            onClick={onLineClick}
-            onKeyDown={onLineKeyDown}
-            dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }}
-          />
+          <div className={lineClassName} dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }} />
         )}
       />
       {!isAtBottom && (

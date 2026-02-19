@@ -43,6 +43,33 @@ const resolveSegmentWidthPercent = (durationMs: number, totalDurationMs: number)
   return (durationMs / totalDurationMs) * 100;
 };
 
+const sanitizePreviewHtml = (value: string) => {
+  const html = value || "&#x200B;";
+  if (typeof DOMParser === "undefined") {
+    return html;
+  }
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const blockedElements = doc.body.querySelectorAll("script,style,iframe,object,embed");
+  blockedElements.forEach((element) => {
+    element.remove();
+  });
+  const elements = doc.body.querySelectorAll<HTMLElement>("*");
+  elements.forEach((element) => {
+    Array.from(element.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const valueLower = attribute.value.trim().toLowerCase();
+      if (name.startsWith("on")) {
+        element.removeAttribute(attribute.name);
+        return;
+      }
+      if ((name === "href" || name === "src") && valueLower.startsWith("javascript:")) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  });
+  return doc.body.innerHTML || "&#x200B;";
+};
+
 const SessionPreviewMeta = ({
   sessionName,
   windowIndex,
@@ -134,7 +161,7 @@ const SessionPreviewBody = ({
       lineCounts.set(line, count + 1);
       return {
         key: `preview-line-${line}-${count}`,
-        line,
+        line: sanitizePreviewHtml(line),
       };
     });
   }, [lines]);

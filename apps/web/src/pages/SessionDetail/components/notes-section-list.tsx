@@ -1,6 +1,6 @@
 import type { RepoNote } from "@vde-monitor/shared";
 import { Check, ChevronDown, ChevronRight, Copy, Trash2 } from "lucide-react";
-import type { RefObject } from "react";
+import { type RefObject, useMemo } from "react";
 
 import {
   Button,
@@ -189,7 +189,7 @@ export const NotesDeleteDialog = ({
   const deleteTargetPreview = deleteTargetNote
     ? buildDeleteTargetPreview(deleteTargetNote.body, emptyNotePreview)
     : null;
-  const deleteTargetPreviewRows = (() => {
+  const deleteTargetPreviewRows = useMemo(() => {
     if (!deleteTargetPreview) {
       return [];
     }
@@ -202,7 +202,7 @@ export const NotesDeleteDialog = ({
         line,
       };
     });
-  })();
+  }, [deleteTargetPreview]);
 
   return (
     <Dialog

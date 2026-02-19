@@ -5,8 +5,8 @@ import type {
   SessionStateTimelineScope,
 } from "./types";
 
-export type ApiClientRequestOptions = {
-  init?: RequestInit;
+export type ApiClientRequestOptions<TRequestInit = unknown> = {
+  init?: TRequestInit;
 };
 
 export type PaneParam = {
@@ -77,8 +77,8 @@ export type SessionTitleJson = {
   title: string | null;
 };
 
-export type UploadImageForm = {
-  image: File;
+export type UploadImageForm<TFile = unknown> = {
+  image: TFile;
 };
 
 export type TimelineQuery = {
@@ -112,59 +112,72 @@ export type RepoFileContentQuery = {
   worktreePath?: string;
 };
 
-type ApiRequest<TArgs> = (args: TArgs, options?: ApiClientRequestOptions) => Promise<Response>;
+type ApiRequest<TArgs, TRequestInit, TResponse> = (
+  args: TArgs,
+  options?: ApiClientRequestOptions<TRequestInit>,
+) => Promise<TResponse>;
 
-type ApiRootGetRequest = (options?: ApiClientRequestOptions) => Promise<Response>;
+type ApiRootGetRequest<TRequestInit, TResponse> = (
+  options?: ApiClientRequestOptions<TRequestInit>,
+) => Promise<TResponse>;
 
-type SessionApiClient = {
-  focus: { $post: ApiRequest<{ param: PaneParam }> };
+type SessionApiClient<TRequestInit, TResponse, TFile> = {
+  focus: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   kill: {
-    pane: { $post: ApiRequest<{ param: PaneParam }> };
-    window: { $post: ApiRequest<{ param: PaneParam }> };
+    pane: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
+    window: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   };
   send: {
-    text: { $post: ApiRequest<{ param: PaneParam; json: SendTextJson }> };
-    keys: { $post: ApiRequest<{ param: PaneParam; json: SendKeysJson }> };
-    raw: { $post: ApiRequest<{ param: PaneParam; json: SendRawJson }> };
+    text: { $post: ApiRequest<{ param: PaneParam; json: SendTextJson }, TRequestInit, TResponse> };
+    keys: { $post: ApiRequest<{ param: PaneParam; json: SendKeysJson }, TRequestInit, TResponse> };
+    raw: { $post: ApiRequest<{ param: PaneParam; json: SendRawJson }, TRequestInit, TResponse> };
   };
-  title: { $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }> };
-  touch: { $post: ApiRequest<{ param: PaneParam }> };
+  title: { $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }, TRequestInit, TResponse> };
+  touch: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   attachments: {
-    image: { $post: ApiRequest<{ param: PaneParam; form: UploadImageForm }> };
-  };
-  screen: { $post: ApiRequest<{ param: PaneParam; json: ScreenRequestJson }> };
-  diff: {
-    $get: ApiRequest<{ param: PaneParam; query: ForceQuery }>;
-    file: { $get: ApiRequest<{ param: PaneParam; query: DiffFileQuery }> };
-  };
-  commits: {
-    $get: ApiRequest<{ param: PaneParam; query: CommitLogQuery }>;
-    ":hash": {
-      $get: ApiRequest<{ param: PaneHashParam; query: ForceQuery }>;
-      file: { $get: ApiRequest<{ param: PaneHashParam; query: CommitFileQuery }> };
+    image: {
+      $post: ApiRequest<{ param: PaneParam; form: UploadImageForm<TFile> }, TRequestInit, TResponse>;
     };
   };
-  timeline: { $get: ApiRequest<{ param: PaneParam; query: TimelineQuery }> };
+  screen: { $post: ApiRequest<{ param: PaneParam; json: ScreenRequestJson }, TRequestInit, TResponse> };
+  diff: {
+    $get: ApiRequest<{ param: PaneParam; query: ForceQuery }, TRequestInit, TResponse>;
+    file: { $get: ApiRequest<{ param: PaneParam; query: DiffFileQuery }, TRequestInit, TResponse> };
+  };
+  commits: {
+    $get: ApiRequest<{ param: PaneParam; query: CommitLogQuery }, TRequestInit, TResponse>;
+    ":hash": {
+      $get: ApiRequest<{ param: PaneHashParam; query: ForceQuery }, TRequestInit, TResponse>;
+      file: {
+        $get: ApiRequest<{ param: PaneHashParam; query: CommitFileQuery }, TRequestInit, TResponse>;
+      };
+    };
+  };
+  timeline: { $get: ApiRequest<{ param: PaneParam; query: TimelineQuery }, TRequestInit, TResponse> };
   notes: {
-    $get: ApiRequest<{ param: PaneParam }>;
-    $post: ApiRequest<{ param: PaneParam; json: RepoNotePayloadJson }>;
+    $get: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse>;
+    $post: ApiRequest<{ param: PaneParam; json: RepoNotePayloadJson }, TRequestInit, TResponse>;
     ":noteId": {
-      $put: ApiRequest<{ param: NoteIdParam; json: RepoNotePayloadJson }>;
-      $delete: ApiRequest<{ param: NoteIdParam }>;
+      $put: ApiRequest<{ param: NoteIdParam; json: RepoNotePayloadJson }, TRequestInit, TResponse>;
+      $delete: ApiRequest<{ param: NoteIdParam }, TRequestInit, TResponse>;
     };
   };
   files: {
-    tree: { $get: ApiRequest<{ param: PaneParam; query: RepoFileTreeQuery }> };
-    search: { $get: ApiRequest<{ param: PaneParam; query: RepoFileSearchQuery }> };
-    content: { $get: ApiRequest<{ param: PaneParam; query: RepoFileContentQuery }> };
+    tree: { $get: ApiRequest<{ param: PaneParam; query: RepoFileTreeQuery }, TRequestInit, TResponse> };
+    search: {
+      $get: ApiRequest<{ param: PaneParam; query: RepoFileSearchQuery }, TRequestInit, TResponse>;
+    };
+    content: {
+      $get: ApiRequest<{ param: PaneParam; query: RepoFileContentQuery }, TRequestInit, TResponse>;
+    };
   };
-  worktrees: { $get: ApiRequest<{ param: PaneParam }> };
+  worktrees: { $get: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
 };
 
-export type ApiClientContract = {
+export type ApiClientContract<TRequestInit = unknown, TResponse = unknown, TFile = unknown> = {
   sessions: {
-    $get: ApiRootGetRequest;
-    launch: { $post: ApiRequest<{ json: LaunchAgentJson }> };
-    ":paneId": SessionApiClient;
+    $get: ApiRootGetRequest<TRequestInit, TResponse>;
+    launch: { $post: ApiRequest<{ json: LaunchAgentJson }, TRequestInit, TResponse> };
+    ":paneId": SessionApiClient<TRequestInit, TResponse, TFile>;
   };
 };

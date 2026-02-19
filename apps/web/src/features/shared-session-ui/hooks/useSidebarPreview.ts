@@ -1,5 +1,6 @@
 import type {
   HighlightCorrectionConfig,
+  ScreenResponse,
   SessionStateTimeline,
   SessionSummary,
 } from "@vde-monitor/shared";
@@ -50,7 +51,7 @@ type UseSidebarPreviewParams = {
   requestScreen: (
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
-  ) => Promise<import("@vde-monitor/shared").ScreenResponse>;
+  ) => Promise<ScreenResponse>;
   resolvedTheme: Theme;
   highlightCorrections?: HighlightCorrectionConfig;
 };
