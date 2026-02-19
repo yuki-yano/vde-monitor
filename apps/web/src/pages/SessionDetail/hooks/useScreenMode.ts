@@ -33,6 +33,7 @@ export const useScreenMode = ({
   }, [modeLoaded]);
 
   useEffect(() => {
+    modeLoadedRef.current = initialModeLoaded;
     setMode("text");
     setModeLoaded(initialModeLoaded);
   }, [paneId, setMode, setModeLoaded]);

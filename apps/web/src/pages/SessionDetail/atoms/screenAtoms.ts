@@ -31,11 +31,16 @@ export const screenLinesAtom = atom((get) => {
   if (mode !== "text") {
     return [];
   }
+
   const text = get(screenTextAtom);
   const screenLoading = get(screenLoadingAtom);
-  if (text.length === 0 && screenLoading.loading && screenLoading.mode === "text") {
+  const modeLoaded = get(screenModeLoadedAtom);
+  const isTextLoading = screenLoading.loading && screenLoading.mode === "text";
+
+  if (text.length === 0 && (isTextLoading || !modeLoaded.text)) {
     return [];
   }
+
   const theme = get(resolvedThemeAtom);
   const session = get(currentSessionAtom);
   const agent =

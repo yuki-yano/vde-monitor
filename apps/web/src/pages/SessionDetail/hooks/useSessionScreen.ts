@@ -63,7 +63,7 @@ export const useSessionScreen = ({
     [setScreenLoadingState],
   );
 
-  const { modeLoadedRef, handleModeChange, markModeLoaded } = useScreenMode({
+  const { modeLoaded, modeLoadedRef, handleModeChange, markModeLoaded } = useScreenMode({
     connected,
     paneId,
     dispatchScreenLoading,
@@ -126,7 +126,10 @@ export const useSessionScreen = ({
     onModeLoaded: markModeLoaded,
   });
 
-  const isScreenLoading = screenLoadingState.loading && screenLoadingState.mode === mode;
+  const hasBlockingScreenError = error != null && error !== DISCONNECTED_MESSAGE;
+  const isInitialModeLoading = !connectionIssue && !hasBlockingScreenError && !modeLoaded[mode];
+  const isScreenLoading =
+    (screenLoadingState.loading && screenLoadingState.mode === mode) || isInitialModeLoading;
 
   useEffect(() => {
     setScreenLoadingState(initialScreenLoadingState);

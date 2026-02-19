@@ -59,6 +59,25 @@ describe("useSessionScreen", () => {
     await waitFor(() => {
       expect(result.current.error).toBe("Disconnected. Reconnecting...");
     });
+
+    expect(result.current.isScreenLoading).toBe(true);
+  });
+
+  it("shows loading before first response arrives", () => {
+    const requestScreen = vi.fn().mockImplementation(() => new Promise<never>(() => {}));
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionScreen({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.isScreenLoading).toBe(true);
   });
 
   it("loads screen lines when connected", async () => {
