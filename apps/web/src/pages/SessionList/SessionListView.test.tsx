@@ -676,7 +676,7 @@ describe("SessionListView", () => {
 
   it("renders error cause below 500 status in connectionIssue callout", () => {
     const cause =
-      "invalid config: /tmp/.vde/monitor/config.json activity.pollIntervalMs Invalid input: expected number, received string";
+      "invalid config: /tmp/.vde/monitor/config.yml activity.pollIntervalMs Invalid input: expected number, received string";
     const props = createViewProps({
       connectionIssue: `Request failed (500)\nError cause: ${cause}`,
     });

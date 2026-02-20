@@ -10,6 +10,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@vde-monitor/shared": "workspace:*"
+    "@vde-monitor/shared": "workspace:*",
+    "yaml": "^2.8.1"
   }
 }

@@ -10,6 +10,7 @@ import {
   resolveConfigDir,
   resolveMonitorServerKey,
 } from "@vde-monitor/shared";
+import YAML from "yaml";
 
 type HookPayload = Record<string, unknown>;
 
@@ -41,6 +42,8 @@ type HookServerConfig = {
   tmuxSocketPath: string | null;
   weztermTarget: string | null;
 };
+
+const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
 
 const readStdin = (): string => {
   try {
@@ -85,11 +88,64 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
   return null;
 };
 
-const loadConfig = (): HookServerConfig | null => {
-  const configPath = path.join(resolveConfigDir(), "config.json");
+const isMissingFileError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeCode = (error as { code?: unknown }).code;
+  return maybeCode === "ENOENT" || error.message.includes("ENOENT");
+};
+
+const buildReadError = (prefix: string, configPath: string) => {
+  return new Error(`${prefix}: ${configPath}`);
+};
+
+const resolveConfigPath = () => {
+  const configDir = resolveConfigDir();
+  let firstNonRegularError: Error | null = null;
+  for (const basename of CONFIG_FILE_BASENAMES) {
+    const candidatePath = path.join(configDir, basename);
+    try {
+      const stats = fs.statSync(candidatePath);
+      if (stats.isFile()) {
+        return candidatePath;
+      }
+      if (!firstNonRegularError) {
+        firstNonRegularError = buildReadError(
+          "config path exists but is not a regular file",
+          candidatePath,
+        );
+      }
+      continue;
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        continue;
+      }
+      throw buildReadError("failed to read config", candidatePath);
+    }
+  }
+  if (firstNonRegularError) {
+    throw firstNonRegularError;
+  }
+  return null;
+};
+
+const parseConfig = (raw: string, configPath: string) => {
+  const ext = path.extname(configPath).toLowerCase();
+  if (ext === ".json") {
+    return JSON.parse(raw);
+  }
+  return YAML.parse(raw);
+};
+
+export const loadConfig = (): HookServerConfig | null => {
+  const configPath = resolveConfigPath();
+  if (!configPath) {
+    return null;
+  }
   try {
     const raw = fs.readFileSync(configPath, "utf8");
-    return parseHookServerConfig(JSON.parse(raw));
+    return parseHookServerConfig(parseConfig(raw, configPath));
   } catch {
     return null;
   }

@@ -50,6 +50,7 @@
     "execa": "^9.6.0",
     "hono": "^4.11.4",
     "qrcode-terminal": "^0.12.0",
+    "yaml": "^2.8.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {

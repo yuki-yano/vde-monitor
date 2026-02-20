@@ -281,7 +281,7 @@ describe("createApiRouter", () => {
   it("returns config validation cause when request handler throws invalid config error", async () => {
     const { api } = createTestContext();
     const cause =
-      "invalid config: /tmp/.vde/monitor/config.json activity.pollIntervalMs Invalid input: expected number, received string";
+      "invalid config: /tmp/.vde/monitor/config.yml activity.pollIntervalMs Invalid input: expected number, received string";
     api.get("/__test/config-validation-error", () => {
       throw new Error(cause);
     });

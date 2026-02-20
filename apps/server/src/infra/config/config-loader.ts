@@ -3,15 +3,28 @@ import path from "node:path";
 
 import type { AgentMonitorConfigFile, AgentMonitorConfigOverride } from "@vde-monitor/shared";
 import { configOverrideSchema, configSchema, resolveConfigDir } from "@vde-monitor/shared";
+import YAML from "yaml";
 
-const PROJECT_CONFIG_RELATIVE_PATH = path.join(".vde", "monitor", "config.json");
+const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
+const DEFAULT_CONFIG_FILE_BASENAME = "config.yml";
+const PROJECT_CONFIG_RELATIVE_DIR = path.join(".vde", "monitor");
 
 const getConfigDir = () => {
   return resolveConfigDir();
 };
 
-const getConfigPath = () => {
-  return path.join(getConfigDir(), "config.json");
+const getConfigPaths = () => {
+  return CONFIG_FILE_BASENAMES.map((basename) => path.join(getConfigDir(), basename));
+};
+
+const getDefaultConfigPath = () => {
+  return path.join(getConfigDir(), DEFAULT_CONFIG_FILE_BASENAME);
+};
+
+const getProjectConfigCandidatePaths = (basePath: string) => {
+  return CONFIG_FILE_BASENAMES.map((basename) =>
+    path.join(basePath, PROJECT_CONFIG_RELATIVE_DIR, basename),
+  );
 };
 
 const ensureDir = (dir: string) => {
@@ -74,22 +87,82 @@ export const resolveProjectConfigSearchBoundary = ({ cwd }: { cwd: string }) => 
   return startPath;
 };
 
-const resolveFileIfExists = (targetPath: string) => {
+const buildReadError = ({
+  targetPath,
+  readErrorPrefix,
+  nonRegularFileErrorPrefix,
+}: {
+  targetPath: string;
+  readErrorPrefix: string;
+  nonRegularFileErrorPrefix?: string;
+}) => {
+  if (nonRegularFileErrorPrefix) {
+    return new Error(`${nonRegularFileErrorPrefix}: ${targetPath}`);
+  }
+  return new Error(`${readErrorPrefix}: ${targetPath}`);
+};
+
+const resolveFileIfExists = ({
+  targetPath,
+  readErrorPrefix,
+  nonRegularFileErrorPrefix,
+}: {
+  targetPath: string;
+  readErrorPrefix: string;
+  nonRegularFileErrorPrefix?: string;
+}) => {
   try {
     const stats = fs.statSync(targetPath);
     if (!stats.isFile()) {
-      throw new Error(`project config path exists but is not a regular file: ${targetPath}`);
+      return {
+        path: null,
+        nonRegularError: buildReadError({ targetPath, readErrorPrefix, nonRegularFileErrorPrefix }),
+      };
     }
-    return targetPath;
+    return { path: targetPath, nonRegularError: null };
   } catch (error) {
     if (isMissingFileError(error)) {
-      return null;
+      return { path: null, nonRegularError: null };
     }
-    if (error instanceof Error && error.message.includes("project config path exists")) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith(`${readErrorPrefix}:`) ||
+        (nonRegularFileErrorPrefix != null &&
+          error.message.startsWith(`${nonRegularFileErrorPrefix}:`)))
+    ) {
       throw error;
     }
-    throw new Error(`failed to read project config: ${targetPath}`);
+    throw new Error(`${readErrorPrefix}: ${targetPath}`);
   }
+};
+
+const resolveFirstExistingPath = ({
+  candidatePaths,
+  readErrorPrefix,
+  nonRegularFileErrorPrefix,
+}: {
+  candidatePaths: string[];
+  readErrorPrefix: string;
+  nonRegularFileErrorPrefix?: string;
+}) => {
+  let firstNonRegularError: Error | null = null;
+  for (const candidatePath of candidatePaths) {
+    const { path: resolvedPath, nonRegularError } = resolveFileIfExists({
+      targetPath: candidatePath,
+      readErrorPrefix,
+      nonRegularFileErrorPrefix,
+    });
+    if (resolvedPath) {
+      return resolvedPath;
+    }
+    if (!firstNonRegularError && nonRegularError) {
+      firstNonRegularError = nonRegularError;
+    }
+  }
+  if (firstNonRegularError) {
+    throw firstNonRegularError;
+  }
+  return null;
 };
 
 export const resolveProjectConfigPath = ({
@@ -107,8 +180,11 @@ export const resolveProjectConfigPath = ({
 
   let currentPath = startPath;
   while (true) {
-    const candidatePath = path.join(currentPath, PROJECT_CONFIG_RELATIVE_PATH);
-    const resolvedPath = resolveFileIfExists(candidatePath);
+    const resolvedPath = resolveFirstExistingPath({
+      candidatePaths: getProjectConfigCandidatePaths(currentPath),
+      readErrorPrefix: "failed to read project config",
+      nonRegularFileErrorPrefix: "project config path exists but is not a regular file",
+    });
     if (resolvedPath) {
       return resolvedPath;
     }
@@ -134,11 +210,20 @@ export const loadProjectConfigOverride = (
     throw new Error(`failed to read project config: ${projectConfigPath}`);
   }
 
+  const ext = path.extname(projectConfigPath).toLowerCase();
   let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    throw new Error(`invalid project config JSON: ${projectConfigPath}`);
+  if (ext === ".json") {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw new Error(`invalid project config JSON: ${projectConfigPath}`);
+    }
+  } else {
+    try {
+      json = YAML.parse(raw);
+    } catch {
+      throw new Error(`invalid project config: ${projectConfigPath} failed to parse YAML`);
+    }
   }
 
   const parsed = configOverrideSchema.safeParse(json);
@@ -211,7 +296,13 @@ export const mergeConfigLayers = ({
 };
 
 export const loadConfig = (): AgentMonitorConfigFile | null => {
-  const configPath = getConfigPath();
+  const configPath = resolveFirstExistingPath({
+    candidatePaths: getConfigPaths(),
+    readErrorPrefix: "failed to read config",
+  });
+  if (configPath == null) {
+    return null;
+  }
   let raw: string;
   try {
     raw = fs.readFileSync(configPath, "utf8");
@@ -222,11 +313,20 @@ export const loadConfig = (): AgentMonitorConfigFile | null => {
     throw new Error(`failed to read config: ${configPath}`);
   }
 
+  const ext = path.extname(configPath).toLowerCase();
   let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    throw new Error(`invalid config JSON: ${configPath}`);
+  if (ext === ".json") {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw new Error(`invalid config JSON: ${configPath}`);
+    }
+  } else {
+    try {
+      json = YAML.parse(raw);
+    } catch {
+      throw new Error(`invalid config: ${configPath} failed to parse YAML`);
+    }
   }
 
   const parsed = configSchema.safeParse(json);
@@ -242,5 +342,7 @@ export const loadConfig = (): AgentMonitorConfigFile | null => {
 export const saveConfig = (config: AgentMonitorConfigFile) => {
   const dir = getConfigDir();
   ensureDir(dir);
-  writeFileSafe(getConfigPath(), `${JSON.stringify(config, null, 2)}\n`);
+  const serialized = YAML.stringify(config);
+  const normalized = serialized.endsWith("\n") ? serialized : `${serialized}\n`;
+  writeFileSafe(getDefaultConfigPath(), normalized);
 };

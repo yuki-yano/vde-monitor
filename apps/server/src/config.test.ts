@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { defaultConfig } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import YAML from "yaml";
 
 const mocks = vi.hoisted(() => ({
   randomBytes: vi.fn((size: number) => Buffer.alloc(size, 0xab)),
@@ -54,7 +55,7 @@ import {
   rotateToken,
 } from "./config";
 
-const configPath = path.resolve("/mock/config/config.json");
+const configPath = path.resolve("/mock/config/config.yml");
 const tokenPath = path.resolve("/mock/home/.vde-monitor/token.json");
 
 const fileContents = new Map<string, string>();
@@ -89,7 +90,8 @@ const setFile = (targetPath: string, content: string) => {
 };
 
 const setConfigFile = (config: unknown) => {
-  setFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const serialized = YAML.stringify(config);
+  setFile(configPath, serialized.endsWith("\n") ? serialized : `${serialized}\n`);
 };
 
 const setTokenFile = (token: string) => {
@@ -214,12 +216,51 @@ describe("resolveProjectConfigSearchBoundary", () => {
 
 describe("resolveProjectConfigPath", () => {
   it("stops searching at repository root boundary", () => {
-    setProjectConfigFile("/mock/.vde/monitor/config.json", { port: 19000 });
+    setProjectConfigFile("/mock/.vde/monitor/config.yml", { port: 19000 });
     const resolved = resolveProjectConfigPath({
       cwd: "/mock/repo/apps/server",
       boundaryDir: "/mock/repo",
     });
     expect(resolved).toBeNull();
+  });
+
+  it("prefers project config.yml over config.json in the same directory", () => {
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yml", { port: 12000 });
+    const resolved = resolveProjectConfigPath({
+      cwd: "/mock/repo/apps/server",
+      boundaryDir: "/mock/repo",
+    });
+    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.yml"));
+  });
+
+  it("falls back to project config.json when yaml files are missing", () => {
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
+    const resolved = resolveProjectConfigPath({
+      cwd: "/mock/repo/apps/server",
+      boundaryDir: "/mock/repo",
+    });
+    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.json"));
+  });
+
+  it("prefers project config.yaml over config.json when config.yml is missing", () => {
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yaml", { port: 18000 });
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
+    const resolved = resolveProjectConfigPath({
+      cwd: "/mock/repo/apps/server",
+      boundaryDir: "/mock/repo",
+    });
+    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.yaml"));
+  });
+
+  it("falls back to project config.json when config.yml is not a regular file", () => {
+    setDirectory("/mock/repo/apps/.vde/monitor/config.yml");
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
+    const resolved = resolveProjectConfigPath({
+      cwd: "/mock/repo/apps/server",
+      boundaryDir: "/mock/repo",
+    });
+    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.json"));
   });
 });
 
@@ -263,7 +304,7 @@ describe("ensureConfig", () => {
     expect(result.port).toBe(defaultConfig.port);
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
-    expect(JSON.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
       ...defaultConfig,
       bind: "0.0.0.0",
     });
@@ -304,6 +345,102 @@ describe("ensureConfig", () => {
     expect(writtenPaths).toEqual([tokenPath]);
   });
 
+  it("loads legacy global config.json when yaml files are missing", () => {
+    setFile(
+      "/mock/config/config.json",
+      `${JSON.stringify(
+        {
+          ...defaultConfig,
+          port: 10081,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.port).toBe(10081);
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("prefers global config.yml over config.json when both files exist", () => {
+    setConfigFile({
+      ...defaultConfig,
+      port: 10082,
+    });
+    setFile(
+      "/mock/config/config.json",
+      `${JSON.stringify(
+        {
+          ...defaultConfig,
+          port: 10083,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.port).toBe(10082);
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("prefers global config.yaml over config.json when config.yml is missing", () => {
+    setFile(
+      "/mock/config/config.yaml",
+      `${YAML.stringify({
+        ...defaultConfig,
+        port: 10085,
+      })}`,
+    );
+    setFile(
+      "/mock/config/config.json",
+      `${JSON.stringify(
+        {
+          ...defaultConfig,
+          port: 10086,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.port).toBe(10085);
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("falls back to global config.json when config.yml is not a regular file", () => {
+    setDirectory("/mock/config/config.yml");
+    setFile(
+      "/mock/config/config.json",
+      `${JSON.stringify(
+        {
+          ...defaultConfig,
+          port: 10084,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.port).toBe(10084);
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
   it("applies CLI > project > global > default precedence", () => {
     setConfigFile({
       ...defaultConfig,
@@ -324,7 +461,7 @@ describe("ensureConfig", () => {
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web/src"));
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", {
+    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yml", {
       port: 12000,
       rateLimit: {
         send: {
@@ -356,7 +493,7 @@ describe("ensureConfig", () => {
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web"));
-    setProjectConfigFile("/mock/.vde/monitor/config.json", {
+    setProjectConfigFile("/mock/.vde/monitor/config.yml", {
       port: 19000,
     });
 
@@ -371,7 +508,7 @@ describe("ensureConfig", () => {
     });
     setTokenFile("existing-token");
     cwdSpy?.mockReturnValue(path.resolve("/mock/no-repo/work/subdir"));
-    setProjectConfigFile("/mock/no-repo/work/.vde/monitor/config.json", {
+    setProjectConfigFile("/mock/no-repo/work/.vde/monitor/config.yml", {
       port: 19000,
     });
 
@@ -396,7 +533,7 @@ describe("ensureConfig", () => {
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setProjectConfigFile("/mock/repo/.vde/monitor/config.json", {
+    setProjectConfigFile("/mock/repo/.vde/monitor/config.yml", {
       fileNavigator: {
         includeIgnoredPaths: ["!dist/**"],
       },
@@ -410,7 +547,7 @@ describe("ensureConfig", () => {
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setDirectory("/mock/repo/.vde/monitor/config.json");
+    setDirectory("/mock/repo/.vde/monitor/config.yml");
 
     expect(() => ensureConfig()).toThrow(/project config path exists but is not a regular file/);
   });

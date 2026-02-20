@@ -167,16 +167,20 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 
 グローバル設定ファイル:
 
-- `$XDG_CONFIG_HOME/vde/monitor/config.json`
-- フォールバック: `~/.config/vde/monitor/config.json`
+- `$XDG_CONFIG_HOME/vde/monitor/config.yml`
+- フォールバック: `~/.config/vde/monitor/config.yml`
 
 プロジェクトローカル上書き:
 
-- `<repo-root>/.vde/monitor/config.json`
+- `<repo-root>/.vde/monitor/config.yml`
 
 優先順位:
 
 - `CLI args > project-local override > global config > defaults`
+
+設定ファイル探索順（global / project-local 共通）:
+
+- `config.yml > config.yaml > config.json`
 
 プロジェクト設定の探索:
 
@@ -192,50 +196,40 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 
 最小構成のグローバル設定例:
 
-```json
-{
-  "bind": "127.0.0.1",
-  "port": 11080,
-  "allowedOrigins": [],
-  "rateLimit": {
-    "send": { "windowMs": 1000, "max": 10 },
-    "screen": { "windowMs": 1000, "max": 10 },
-    "raw": { "windowMs": 1000, "max": 200 }
-  },
-  "screen": {
-    "mode": "text",
-    "image": {
-      "enabled": true,
-      "backend": "terminal",
-      "format": "png",
-      "cropPane": true,
-      "timeoutMs": 5000
-    }
-  },
-  "multiplexer": {
-    "backend": "tmux",
-    "wezterm": {
-      "cliPath": "wezterm",
-      "target": "auto"
-    }
-  },
-  "tmux": {
-    "socketName": null,
-    "socketPath": null,
-    "primaryClient": null
-  }
-}
+```yaml
+bind: 127.0.0.1
+port: 11080
+allowedOrigins: []
+rateLimit:
+  send: { windowMs: 1000, max: 10 }
+  screen: { windowMs: 1000, max: 10 }
+  raw: { windowMs: 1000, max: 200 }
+screen:
+  mode: text
+  image:
+    enabled: true
+    backend: terminal
+    format: png
+    cropPane: true
+    timeoutMs: 5000
+multiplexer:
+  backend: tmux
+  wezterm:
+    cliPath: wezterm
+    target: auto
+tmux:
+  socketName: null
+  socketPath: null
+  primaryClient: null
 ```
 
-プロジェクトローカル上書き例（`<repo-root>/.vde/monitor/config.json`）:
+プロジェクトローカル上書き例（`<repo-root>/.vde/monitor/config.yml`）:
 
-```json
-{
-  "fileNavigator": {
-    "includeIgnoredPaths": ["ai/**"],
-    "autoExpandMatchLimit": 150
-  }
-}
+```yaml
+fileNavigator:
+  includeIgnoredPaths:
+    - ai/**
+  autoExpandMatchLimit: 150
 ```
 
 対応 multiplexer backend:
