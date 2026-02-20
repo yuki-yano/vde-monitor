@@ -22,11 +22,11 @@ jobs:
           node-version: 22.12.0
           registry-url: "https://registry.npmjs.org"
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Use pnpm
-        run: corepack prepare pnpm@10.28.2 --activate
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+          run_install: false
 
       - name: Get pnpm store directory
         id: pnpm-store

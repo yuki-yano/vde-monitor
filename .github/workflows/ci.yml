@@ -15,11 +15,11 @@ jobs:
         with:
           node-version: 22.12.0
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Use pnpm
-        run: corepack prepare pnpm@10.28.2 --activate
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+          run_install: false
 
       - name: Get pnpm store directory
         id: pnpm-store
