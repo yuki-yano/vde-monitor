@@ -2,6 +2,9 @@
 
 Monitor tmux/WezTerm coding sessions from a browser with a single CLI.
 It is designed for Codex CLI / Claude Code workflows and optimized for quick checks and control from both desktop and mobile devices.
+Mobile application-grade UI/UX is a first-class goal, with touch-friendly controls and compact layouts prioritized for small screens.
+
+Japanese version: [`README.ja.md`](README.ja.md)
 
 ## What you can do
 
@@ -12,20 +15,23 @@ It is designed for Codex CLI / Claude Code workflows and optimized for quick che
 - Track session/repo timeline and activity history across restarts
 - Inspect Git diff/commits and keep repo-scoped notes while monitoring
 - Launch Codex/Claude agents into tmux sessions
+- Switch worktree context per session when reviewing timeline, diffs, commits, and files ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
 
 ## Main features
 
 - Session List: grouped by repository/window with quick status checks, search/filter, and pin
 - Session Detail: live screen view (text/image), follow mode, and input composer (text/keys/raw)
 - Timeline and context: state timeline, repo notes, git diff/commits, and file browsing
+- Worktree context: inspect timeline/git/files against a selected worktree without leaving the session ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
 - Agent operations: launch Codex/Claude into tmux sessions from CLI/UI
 - Multi-pane monitoring: desktop-oriented Chat Grid for side-by-side pane tracking
-- Mobile usage: core monitor and control flow works from mobile device browsers
+- Mobile-first UI/UX: primary monitor/control flows are treated as first-class for phone browsers
 
 ## Requirements
 
 - Node.js `24+`
 - tmux `2.0+` or WezTerm with `wezterm cli`
+- Worktree integration requires [`vde-worktree`](https://github.com/yuki-yano/vde-worktree) CLI (`vw`) and is unavailable when `vw` snapshot cannot be resolved
 - macOS-only features (image capture / pane focus) require `osascript`
 - On macOS, Screen Recording and Accessibility permissions may be required
 
@@ -78,7 +84,7 @@ Typical flow:
    - `--public` only on trusted networks
 3. Open the URL on your mobile device and control sessions from `SessionDetail`.
 
-For PWA push notification testing on mobile, use Tailscale HTTPS:
+For Tailscale HTTPS access:
 
 1. Start with Tailscale + HTTPS mode (example): `vde-monitor --tailscale --https` (or `pnpm dev -- --tailscale --https`).
 2. Run `tailscale serve --bg <printed-web-port>`.
@@ -118,7 +124,7 @@ Notes:
 - `--tailscale` without `--public` binds to the Tailscale IP
 - `--public --tailscale` binds to `0.0.0.0` and prints a Tailscale URL
 - `--https` only takes effect when used with `--tailscale` (otherwise standard HTTP guidance is shown)
-- Push notification checks require HTTPS (`tailscale serve` / `tailscale funnel`), HTTP on Tailscale IP is not enough
+- For HTTPS on Tailscale, use `tailscale serve` or `tailscale funnel`; plain Tailscale IP HTTP is not HTTPS
 
 ### Launch agent in tmux session
 

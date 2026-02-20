@@ -11,7 +11,12 @@ import {
 } from "./app/serve/serve-command";
 import { toErrorMessage } from "./errors";
 
-export { buildAccessUrl, buildTailscaleHttpsAccessUrl, ensureBackendAvailable, runLaunchAgentCommand };
+export {
+  buildAccessUrl,
+  buildTailscaleHttpsAccessUrl,
+  ensureBackendAvailable,
+  runLaunchAgentCommand,
+};
 
 export const main = async () => {
   const args = parseArgs();
