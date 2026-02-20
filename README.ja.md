@@ -29,7 +29,7 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 
 ## 要件
 
-- Node.js `24+`
+- Node.js `22.12+`
 - tmux `2.0+` または `wezterm cli` が使える WezTerm
 - worktree 連携は [`vde-worktree`](https://github.com/yuki-yano/vde-worktree) CLI（`vw`）前提で、`vw` の snapshot が取れない場合は利用不可
 - macOS 専用機能（画像キャプチャ / pane フォーカス）は `osascript` が必要
