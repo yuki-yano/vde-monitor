@@ -38,15 +38,28 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 ## インストール
 
 ```bash
+npx vde-monitor@latest
+```
+
+またはグローバルインストール:
+
+```bash
 npm install -g vde-monitor
 ```
 
 ## クイックスタート
 
-実行:
+用途に応じて次のいずれかを実行:
 
 ```bash
-vde-monitor
+# ローカル端末のみからアクセス（デフォルト）
+npx vde-monitor@latest
+
+# 信頼できるプライベート LAN に公開（0.0.0.0 で待ち受け）
+npx vde-monitor@latest --public
+
+# Tailscale 端末からアクセス（Tailscale URL を表示）
+npx vde-monitor@latest --tailscale
 ```
 
 起動時に次のような URL が表示されます:
@@ -78,7 +91,7 @@ vde-monitor: http://localhost:11080/#token=...
 
 一般的な流れ:
 
-1. ホストマシンで `vde-monitor` を起動
+1. ホストマシンで `npx vde-monitor@latest` を起動
 2. 表示された URL を安全な経路で公開
    - 利用可能なら `--tailscale` を推奨
    - `--public` は信頼ネットワークのみ
@@ -86,7 +99,7 @@ vde-monitor: http://localhost:11080/#token=...
 
 モバイル端末で HTTPS アクセスする場合（Tailscale）:
 
-1. Tailscale + HTTPS モードで起動（例: `vde-monitor --tailscale --https` または `pnpm dev -- --tailscale --https`）
+1. Tailscale + HTTPS モードで起動（例: `npx vde-monitor@latest --tailscale --https`）
 2. `tailscale serve --bg <printed-web-port>` を実行
 3. `https://<device>.<tailnet>.ts.net/#token=...` を開く（`http://100.x.x.x/...` ではなく）
 4. `tailscale serve status` で状態を確認
@@ -96,7 +109,7 @@ vde-monitor: http://localhost:11080/#token=...
 ### サーバー起動
 
 ```bash
-vde-monitor [options]
+npx vde-monitor@latest [options]
 ```
 
 主なオプション:
@@ -129,7 +142,7 @@ vde-monitor [options]
 ### tmux セッションでエージェント起動
 
 ```bash
-vde-monitor tmux launch-agent --session <name> --agent <codex|claude> [options]
+npx vde-monitor@latest tmux launch-agent --session <name> --agent <codex|claude> [options]
 ```
 
 主なオプション:
@@ -145,9 +158,9 @@ vde-monitor tmux launch-agent --session <name> --agent <codex|claude> [options]
 ### ユーティリティ
 
 ```bash
-vde-monitor token rotate
-vde-monitor claude hooks print
-vde-monitor-hook <HookEventName>
+npx vde-monitor@latest token rotate
+npx vde-monitor@latest claude hooks print
+npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 ```
 
 ## 設定
@@ -292,7 +305,7 @@ pnpm build
   - socket / target オプション（`--socket-name`, `--socket-path`, `--multiplexer`）を確認
 - URL は開けるが API が失敗する:
   - URL hash の token（`#token=...`）を確認
-  - `vde-monitor token rotate` で token を再発行
+  - `npx vde-monitor@latest token rotate` で token を再発行
 - モバイル端末から接続できない:
   - ネットワーク経路（SSH forward / Tailscale / LAN）を再確認
   - 適切なハードニングなしでパブリック公開しない

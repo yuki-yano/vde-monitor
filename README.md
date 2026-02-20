@@ -38,15 +38,28 @@ Japanese version: [`README.ja.md`](README.ja.md)
 ## Install
 
 ```bash
+npx vde-monitor@latest
+```
+
+or install globally:
+
+```bash
 npm install -g vde-monitor
 ```
 
 ## Quick start
 
-Run:
+Run one of the following:
 
 ```bash
-vde-monitor
+# Local access only (default)
+npx vde-monitor@latest
+
+# Expose on trusted private LAN (bind to 0.0.0.0)
+npx vde-monitor@latest --public
+
+# Access from Tailscale devices (prints Tailscale URL)
+npx vde-monitor@latest --tailscale
 ```
 
 Startup prints a URL like:
@@ -78,7 +91,7 @@ Recommended access methods:
 
 Typical flow:
 
-1. Start `vde-monitor` on your host machine.
+1. Start `npx vde-monitor@latest` on your host machine.
 2. Expose the printed URL safely:
    - `--tailscale` is recommended when available
    - `--public` only on trusted networks
@@ -86,7 +99,7 @@ Typical flow:
 
 For Tailscale HTTPS access:
 
-1. Start with Tailscale + HTTPS mode (example): `vde-monitor --tailscale --https` (or `pnpm dev -- --tailscale --https`).
+1. Start with Tailscale + HTTPS mode (example): `npx vde-monitor@latest --tailscale --https`.
 2. Run `tailscale serve --bg <printed-web-port>`.
 3. Open `https://<device>.<tailnet>.ts.net/#token=...` (not the plain `http://100.x.x.x/...` URL).
 4. Verify with `tailscale serve status`.
@@ -96,7 +109,7 @@ For Tailscale HTTPS access:
 ### Start server
 
 ```bash
-vde-monitor [options]
+npx vde-monitor@latest [options]
 ```
 
 Common options:
@@ -129,7 +142,7 @@ Notes:
 ### Launch agent in tmux session
 
 ```bash
-vde-monitor tmux launch-agent --session <name> --agent <codex|claude> [options]
+npx vde-monitor@latest tmux launch-agent --session <name> --agent <codex|claude> [options]
 ```
 
 Common options:
@@ -145,9 +158,9 @@ Common options:
 ### Utility commands
 
 ```bash
-vde-monitor token rotate
-vde-monitor claude hooks print
-vde-monitor-hook <HookEventName>
+npx vde-monitor@latest token rotate
+npx vde-monitor@latest claude hooks print
+npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 ```
 
 ## Configuration
@@ -292,7 +305,7 @@ pnpm build
   - verify socket/target options (`--socket-name`, `--socket-path`, `--multiplexer`)
 - URL opens but API fails:
   - check token in URL hash (`#token=...`)
-  - rotate token with `vde-monitor token rotate`
+  - rotate token with `npx vde-monitor@latest token rotate`
 - Mobile device cannot connect:
   - re-check network path (SSH forward / Tailscale / LAN)
   - avoid exposing to public internet without hardening
