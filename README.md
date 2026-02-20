@@ -100,9 +100,12 @@ Typical flow:
 For Tailscale HTTPS access:
 
 1. Start with Tailscale + HTTPS mode (example): `npx vde-monitor@latest --tailscale --https`.
-2. Run `tailscale serve --bg <printed-web-port>`.
-3. Open `https://<device>.<tailnet>.ts.net/#token=...` (not the plain `http://100.x.x.x/...` URL).
-4. Verify with `tailscale serve status`.
+2. On startup, answer `Run tailscale serve now? [y/N]`.
+   - `y` / `yes`: runs `tailscale serve --bg <printed-web-port>` automatically.
+   - default `N`: skips auto setup and prints manual recovery command.
+3. If existing `tailscale serve` settings are already present, vde-monitor does not overwrite them and prints guidance instead.
+4. Open `https://<device>.<tailnet>.ts.net/#token=...` (not the plain `http://100.x.x.x/...` URL).
+5. Verify with `tailscale serve status`.
 
 ## Useful commands
 
@@ -137,6 +140,8 @@ Notes:
 - `--tailscale` without `--public` binds to the Tailscale IP
 - `--public --tailscale` binds to `0.0.0.0` and prints a Tailscale URL
 - `--https` only takes effect when used with `--tailscale` (otherwise standard HTTP guidance is shown)
+- `--tailscale --https` asks before auto-running `tailscale serve --bg <port>` (default `N`)
+- Existing `tailscale serve` settings are never auto-overwritten
 - For HTTPS on Tailscale, use `tailscale serve` or `tailscale funnel`; plain Tailscale IP HTTP is not HTTPS
 
 ### Launch agent in tmux session
@@ -217,6 +222,11 @@ multiplexer:
   wezterm:
     cliPath: wezterm
     target: auto
+notifications:
+  pushEnabled: true
+  enabledEventTypes:
+    - pane.waiting_permission
+    - pane.task_completed
 tmux:
   socketName: null
   socketPath: null

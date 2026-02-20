@@ -46,6 +46,14 @@ export const useSessionDetailViewExplorerSectionProps = ({
     virtualWorktreePath = null,
     selectVirtualWorktree,
     clearVirtualWorktree,
+    notificationStatus = "idle",
+    notificationPushEnabled = true,
+    notificationSubscribed = false,
+    notificationPaneEnabled = false,
+    notificationErrorMessage = null,
+    requestNotificationPermission,
+    disableNotifications,
+    togglePaneNotification,
   } = screen;
   const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
   const screenAgent = session?.agent ?? "unknown";
@@ -306,6 +314,11 @@ export const useSessionDetailViewExplorerSectionProps = ({
         worktreeBaseBranch,
         actualWorktreePath,
         virtualWorktreePath,
+        notificationStatus,
+        notificationPushEnabled,
+        notificationSubscribed,
+        notificationPaneEnabled,
+        notificationErrorMessage,
       },
       actions: {
         onModeChange: handleModeChange,
@@ -319,6 +332,15 @@ export const useSessionDetailViewExplorerSectionProps = ({
         onUserScrollStateChange: handleUserScrollStateChange,
         onSelectVirtualWorktree: selectVirtualWorktree,
         onClearVirtualWorktree: clearVirtualWorktree,
+        onRequestNotificationPermission: () => {
+          void requestNotificationPermission?.();
+        },
+        onDisableNotifications: () => {
+          void disableNotifications?.();
+        },
+        onTogglePaneNotification: () => {
+          void togglePaneNotification?.();
+        },
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
       },
@@ -353,6 +375,11 @@ export const useSessionDetailViewExplorerSectionProps = ({
       worktreeBaseBranch,
       actualWorktreePath,
       virtualWorktreePath,
+      notificationStatus,
+      notificationPushEnabled,
+      notificationSubscribed,
+      notificationPaneEnabled,
+      notificationErrorMessage,
       handleModeChange,
       handleRefreshScreen,
       handleRefreshWorktrees,
@@ -361,6 +388,9 @@ export const useSessionDetailViewExplorerSectionProps = ({
       handleUserScrollStateChange,
       selectVirtualWorktree,
       clearVirtualWorktree,
+      requestNotificationPermission,
+      disableNotifications,
+      togglePaneNotification,
       toggleWrapMode,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,

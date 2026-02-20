@@ -137,6 +137,10 @@ export const defaultConfig: AgentMonitorConfigFile = {
       claude: { options: [] },
     },
   },
+  notifications: {
+    pushEnabled: true,
+    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
+  },
   fileNavigator: {
     includeIgnoredPaths: [],
     autoExpandMatchLimit: 100,

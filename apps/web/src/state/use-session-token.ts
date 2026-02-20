@@ -82,7 +82,7 @@ const readStoredApiBaseUrl = () => {
 };
 
 export const useSessionToken = () => {
-  const [token, setToken] = useState<string | null>(() => {
+  const [token, setTokenState] = useState<string | null>(() => {
     return localStorage.getItem(TOKEN_KEY);
   });
   const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(() => readStoredApiBaseUrl());
@@ -94,12 +94,23 @@ export const useSessionToken = () => {
       hasApiDirective,
     } = readSessionAccessFromUrl();
     if (urlToken && urlToken !== token) {
-      setToken(urlToken);
+      setTokenState(urlToken);
     }
     if (hasApiDirective && urlApiBaseUrl !== apiBaseUrl) {
       setApiBaseUrl(urlApiBaseUrl);
     }
   }, [apiBaseUrl, token]);
+
+  const setToken = (nextToken: string | null) => {
+    const trimmed = nextToken?.trim() ?? "";
+    if (trimmed.length === 0) {
+      localStorage.removeItem(TOKEN_KEY);
+      setTokenState(null);
+      return;
+    }
+    localStorage.setItem(TOKEN_KEY, trimmed);
+    setTokenState(trimmed);
+  };
 
   return { token, setToken, apiBaseUrl };
 };

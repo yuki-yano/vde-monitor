@@ -1,5 +1,7 @@
 import type {
   AllowedKey,
+  NotificationSubscriptionRevokeJson,
+  NotificationSubscriptionUpsertJson,
   RawItem,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
@@ -19,6 +21,10 @@ export type PaneHashParam = PaneParam & {
 
 export type NoteIdParam = PaneParam & {
   noteId: string;
+};
+
+export type SubscriptionIdParam = {
+  subscriptionId: string;
 };
 
 export type ForceQuery = {
@@ -186,10 +192,24 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
   worktrees: { $get: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
 };
 
+type NotificationApiClient<TRequestInit, TResponse> = {
+  settings: { $get: ApiRootGetRequest<TRequestInit, TResponse> };
+  subscriptions: {
+    $post: ApiRequest<{ json: NotificationSubscriptionUpsertJson }, TRequestInit, TResponse>;
+    revoke: {
+      $post: ApiRequest<{ json: NotificationSubscriptionRevokeJson }, TRequestInit, TResponse>;
+    };
+    ":subscriptionId": {
+      $delete: ApiRequest<{ param: SubscriptionIdParam }, TRequestInit, TResponse>;
+    };
+  };
+};
+
 export type ApiClientContract<TRequestInit = unknown, TResponse = unknown, TFile = unknown> = {
   sessions: {
     $get: ApiRootGetRequest<TRequestInit, TResponse>;
     launch: { $post: ApiRequest<{ json: LaunchAgentJson }, TRequestInit, TResponse> };
     ":paneId": SessionApiClient<TRequestInit, TResponse, TFile>;
   };
+  notifications: NotificationApiClient<TRequestInit, TResponse>;
 };

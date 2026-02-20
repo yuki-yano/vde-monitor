@@ -9,6 +9,9 @@ import {
   imageAttachmentSchema,
   launchAgentRequestSchema,
   launchCommandResponseSchema,
+  notificationSubscriptionRevokeSchema,
+  notificationSubscriptionUpsertSchema,
+  pushEventTypeSchema,
   screenResponseSchema,
   sessionStateSchema,
   wsClientMessageSchema,
@@ -18,6 +21,107 @@ import {
 describe("sessionStateSchema", () => {
   it("rejects DONE state", () => {
     const result = sessionStateSchema.safeParse("DONE");
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("pushEventTypeSchema", () => {
+  it("accepts known push event types", () => {
+    const values = [
+      "pane.waiting_permission",
+      "pane.task_completed",
+      "pane.error",
+      "pane.long_waiting_permission",
+    ] as const;
+    values.forEach((value) => {
+      expect(pushEventTypeSchema.safeParse(value).success).toBe(true);
+    });
+  });
+
+  it("rejects unknown push event types", () => {
+    expect(pushEventTypeSchema.safeParse("pane.unknown").success).toBe(false);
+  });
+});
+
+describe("notification subscription schemas", () => {
+  it("accepts upsert payload with global event setting (null)", () => {
+    const result = notificationSubscriptionUpsertSchema.safeParse({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: {
+          p256dh: "abc_DEF-123",
+          auth: "xyz_DEF-456",
+        },
+      },
+      scope: {
+        paneIds: ["%1"],
+        eventTypes: null,
+      },
+      client: {
+        platform: "ios",
+        standalone: true,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts upsert payload when push keys include base64 padding", () => {
+    const result = notificationSubscriptionUpsertSchema.safeParse({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: {
+          p256dh: "abc_DEF-123==",
+          auth: "xyz_DEF-456=",
+        },
+      },
+      scope: {
+        paneIds: ["%1"],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts upsert payload when expirationTime is omitted", () => {
+    const result = notificationSubscriptionUpsertSchema.safeParse({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        keys: {
+          p256dh: "abc_DEF-123",
+          auth: "xyz_DEF-456",
+        },
+      },
+      scope: {
+        paneIds: ["%1"],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects upsert payload with empty eventTypes", () => {
+    const result = notificationSubscriptionUpsertSchema.safeParse({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: {
+          p256dh: "abc_DEF-123",
+          auth: "xyz_DEF-456",
+        },
+      },
+      scope: {
+        eventTypes: [],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires at least one key in revoke payload", () => {
+    const result = notificationSubscriptionRevokeSchema.safeParse({});
     expect(result.success).toBe(false);
   });
 });
@@ -530,6 +634,39 @@ describe("launch schemas", () => {
 });
 
 describe("configSchema", () => {
+  it("fills default notifications config when missing", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      notifications: undefined,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.notifications).toEqual(defaultConfig.notifications);
+    }
+  });
+
+  it("rejects empty notifications.enabledEventTypes", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      notifications: {
+        ...defaultConfig.notifications,
+        enabledEventTypes: [],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects unsupported notifications.enabledEventTypes", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      notifications: {
+        ...defaultConfig.notifications,
+        enabledEventTypes: ["pane.error"],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("fills default includeTruncated when missing", () => {
     const screen = { ...defaultConfig.screen };
     delete (screen as { includeTruncated?: boolean }).includeTruncated;
@@ -891,6 +1028,25 @@ describe("configOverrideSchema", () => {
         send: {
           unknownNested: 1,
         },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts notifications override", () => {
+    const result = configOverrideSchema.safeParse({
+      notifications: {
+        pushEnabled: false,
+        enabledEventTypes: ["pane.task_completed"],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects notifications override with unsupported events", () => {
+    const result = configOverrideSchema.safeParse({
+      notifications: {
+        enabledEventTypes: ["pane.error"],
       },
     });
     expect(result.success).toBe(false);

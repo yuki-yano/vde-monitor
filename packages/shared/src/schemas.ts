@@ -24,9 +24,79 @@ export const apiErrorSchema = z.object({
     "TMUX_UNAVAILABLE",
     "WEZTERM_UNAVAILABLE",
     "RATE_LIMIT",
+    "PUSH_DISABLED",
     "INTERNAL",
   ]),
   message: z.string(),
+});
+
+const pushEventTypeValues = [
+  "pane.waiting_permission",
+  "pane.task_completed",
+  "pane.error",
+  "pane.long_waiting_permission",
+] as const;
+const configPushEventTypeValues = ["pane.waiting_permission", "pane.task_completed"] as const;
+const base64UrlPattern = /^[A-Za-z0-9_-]+={0,2}$/;
+
+export const pushEventTypeSchema = z.enum(pushEventTypeValues);
+const configPushEventTypeSchema = z.enum(configPushEventTypeValues);
+
+export const pushSubscriptionJsonSchema = z.object({
+  endpoint: z.string().url().max(2048),
+  expirationTime: z.number().nullable().optional(),
+  keys: z.object({
+    p256dh: z.string().min(1).max(512).regex(base64UrlPattern),
+    auth: z.string().min(1).max(512).regex(base64UrlPattern),
+  }),
+});
+
+export const notificationSubscriptionScopeSchema = z.object({
+  paneIds: z.array(z.string()).optional(),
+  eventTypes: z.union([z.array(pushEventTypeSchema).min(1), z.null()]).optional(),
+});
+
+export const notificationClientInfoSchema = z.object({
+  platform: z.enum(["ios", "android", "desktop", "unknown"]).optional(),
+  standalone: z.boolean().optional(),
+  userAgent: z.string().max(2048).optional(),
+});
+
+export const notificationSubscriptionUpsertSchema = z
+  .object({
+    deviceId: z.string().trim().min(1).max(128),
+    subscription: pushSubscriptionJsonSchema,
+    scope: notificationSubscriptionScopeSchema.optional(),
+    client: notificationClientInfoSchema.optional(),
+  })
+  .strict();
+
+export const notificationSubscriptionRevokeSchema = z
+  .object({
+    subscriptionId: z.string().trim().min(1).max(128).optional(),
+    endpoint: z.string().url().max(2048).optional(),
+    deviceId: z.string().trim().min(1).max(128).optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Boolean(
+        (value.subscriptionId && value.subscriptionId.length > 0) ||
+        (value.endpoint && value.endpoint.length > 0) ||
+        (value.deviceId && value.deviceId.length > 0),
+      ),
+    {
+      message: "subscriptionId, endpoint, or deviceId is required",
+      path: ["subscriptionId"],
+    },
+  );
+
+export const notificationSettingsSchema = z.object({
+  pushEnabled: z.boolean(),
+  vapidPublicKey: z.string().min(1),
+  supportedEvents: z.array(pushEventTypeSchema).min(1),
+  enabledEventTypes: z.array(pushEventTypeSchema).min(1),
+  requireStandaloneOnIOS: z.boolean(),
 });
 
 const screenDeltaSchema = z.object({
@@ -355,6 +425,19 @@ const clientConfigSchema = z.object({
   }),
 });
 
+const notificationsConfigSchema = z
+  .object({
+    pushEnabled: z.boolean().default(true),
+    enabledEventTypes: z
+      .array(configPushEventTypeSchema)
+      .min(1)
+      .default(["pane.waiting_permission", "pane.task_completed"]),
+  })
+  .default({
+    pushEnabled: true,
+    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
+  });
+
 const serverHealthSchema = z.object({
   version: z.string(),
   clientConfig: clientConfigSchema.optional(),
@@ -506,6 +589,7 @@ export const configSchema = z.object({
       claude: { options: [] },
     },
   }),
+  notifications: notificationsConfigSchema,
   fileNavigator: z
     .object({
       includeIgnoredPaths: z.array(includeIgnoredPatternSchema).default([]),
@@ -600,6 +684,10 @@ export const configOverrideSchema = strictObject({
         options: z.array(launchOptionSchema).max(32).optional(),
       }).optional(),
     }).optional(),
+  }).optional(),
+  notifications: strictObject({
+    pushEnabled: z.boolean().optional(),
+    enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
   }).optional(),
   fileNavigator: strictObject({
     includeIgnoredPaths: z.array(includeIgnoredPatternSchema).optional(),

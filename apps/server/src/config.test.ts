@@ -302,6 +302,7 @@ describe("ensureConfig", () => {
 
     expect(result.bind).toBe("0.0.0.0");
     expect(result.port).toBe(defaultConfig.port);
+    expect(result.notifications).toEqual(defaultConfig.notifications);
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
     expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
@@ -558,6 +559,30 @@ describe("ensureConfig", () => {
       fileNavigator: {
         ...defaultConfig.fileNavigator,
         includeIgnoredPaths: ["!dist/**"],
+      },
+    });
+
+    expect(() => ensureConfig()).toThrow(/invalid config/);
+  });
+
+  it("throws when notifications.enabledEventTypes is empty", () => {
+    setConfigFile({
+      ...defaultConfig,
+      notifications: {
+        ...defaultConfig.notifications,
+        enabledEventTypes: [],
+      },
+    });
+
+    expect(() => ensureConfig()).toThrow(/invalid config/);
+  });
+
+  it("throws when notifications.enabledEventTypes has unsupported events", () => {
+    setConfigFile({
+      ...defaultConfig,
+      notifications: {
+        ...defaultConfig.notifications,
+        enabledEventTypes: ["pane.error"],
       },
     });
 

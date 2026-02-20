@@ -100,9 +100,12 @@ vde-monitor: http://localhost:11080/#token=...
 モバイル端末で HTTPS アクセスする場合（Tailscale）:
 
 1. Tailscale + HTTPS モードで起動（例: `npx vde-monitor@latest --tailscale --https`）
-2. `tailscale serve --bg <printed-web-port>` を実行
-3. `https://<device>.<tailnet>.ts.net/#token=...` を開く（`http://100.x.x.x/...` ではなく）
-4. `tailscale serve status` で状態を確認
+2. 起動時の `Run tailscale serve now? [y/N]` に応答
+   - `y` / `yes`: `tailscale serve --bg <printed-web-port>` を自動実行
+   - 既定の `N`: 自動実行せず、手動復旧コマンドを表示
+3. 既存の `tailscale serve` 設定がある場合は上書きせず、案内のみ表示
+4. `https://<device>.<tailnet>.ts.net/#token=...` を開く（`http://100.x.x.x/...` ではなく）
+5. `tailscale serve status` で状態を確認
 
 ## 便利なコマンド
 
@@ -137,6 +140,8 @@ npx vde-monitor@latest [options]
 - `--tailscale` 単体では Tailscale IP に bind
 - `--public --tailscale` では `0.0.0.0` に bind しつつ Tailscale URL を表示
 - `--https` は `--tailscale` 併用時のみ有効（それ以外は通常の HTTP 案内）
+- `--tailscale --https` では `tailscale serve --bg <port>` の自動実行前に確認プロンプトを表示（既定 `N`）
+- 既存の `tailscale serve` 設定は自動で上書きしない
 - Tailscale 経由で HTTPS を使う場合は `tailscale serve` / `tailscale funnel` を使用（Tailscale IP の HTTP は HTTPS ではない）
 
 ### tmux セッションでエージェント起動
@@ -217,6 +222,11 @@ multiplexer:
   wezterm:
     cliPath: wezterm
     target: auto
+notifications:
+  pushEnabled: true
+  enabledEventTypes:
+    - pane.waiting_permission
+    - pane.task_completed
 tmux:
   socketName: null
   socketPath: null

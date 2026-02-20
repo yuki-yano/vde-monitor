@@ -54,6 +54,19 @@ vi.mock("@/state/theme-context", () => ({
   }),
 }));
 
+vi.mock("@/features/notifications/use-push-notifications", () => ({
+  usePushNotifications: () => ({
+    status: "idle",
+    pushEnabled: true,
+    isSubscribed: false,
+    isPaneEnabled: false,
+    errorMessage: null,
+    requestPermissionAndSubscribe: vi.fn(async () => undefined),
+    disableNotifications: vi.fn(async () => undefined),
+    togglePaneEnabled: vi.fn(async () => undefined),
+  }),
+}));
+
 vi.mock("@/lib/session-group", () => ({
   buildSessionGroups: vi.fn(() => sessionGroups),
 }));
