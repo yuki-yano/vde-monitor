@@ -234,6 +234,40 @@ describe("classifySmartWrapLines", () => {
     expect(result[1]?.rule).toBe("statusline-preserve");
   });
 
+  it("classifies trailing multiline claude statusline after prompt divider", () => {
+    const lines = [
+      "✻ Worked for 39s",
+      "────────────────────────────────────────────────────────",
+      "❯ ",
+      "────────────────────────────────────────────────────────",
+      "  [Opus 4.6 | Max] │ dotfiles git:(main*)",
+      "  Context ███░░░░░░░░ 25% │ Usage █░░░░░░░░░░ 5%",
+      "  3 MCPs",
+      "  ✓ Bash ×11 | ✓ Read ×6 | ✓ Write ×2 | ✓ Edit ×1",
+      "  ⏵⏵ bypass permissions on (shift+tab to cycle) · 15 files +40 -23",
+    ];
+    const result = classifySmartWrapLines(lines, "claude");
+    expect(result.map((item) => item.rule)).toEqual([
+      "default",
+      "divider-clip",
+      "statusline-preserve",
+      "divider-clip",
+      "statusline-preserve",
+      "statusline-preserve",
+      "statusline-preserve",
+      "statusline-preserve",
+      "statusline-preserve",
+    ]);
+  });
+
+  it("does not mark prompt line when trailing divider statusline block is absent", () => {
+    const lines = ["❯ run tests", "plain output", "tail"];
+    const result = classifySmartWrapLines(lines, "claude");
+    expect(result[0]?.rule).toBe("default");
+    expect(result[1]?.rule).toBe("default");
+    expect(result[2]?.rule).toBe("statusline-preserve");
+  });
+
   it("does not mark last line for unknown agent", () => {
     const lines = ["line 1", "line 2"];
     const result = classifySmartWrapLines(lines, "unknown");

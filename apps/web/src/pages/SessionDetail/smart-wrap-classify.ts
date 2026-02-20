@@ -1,4 +1,5 @@
 import {
+  detectClaudeStatuslineLineSet,
   detectClaudeToolBlockLineSet,
   detectCodexDiffBlockLineSet,
   detectStartupBannerLineSet,
@@ -29,6 +30,8 @@ export const classifySmartWrapLines = (
   const textLines = lineHtmlList.map((lineHtml) => extractTextContentFromHtml(lineHtml));
   const codexDiffBlockLineSet =
     agent === "codex" ? detectCodexDiffBlockLineSet(textLines) : new Set<number>();
+  const claudeStatuslineLineSet =
+    agent === "claude" ? detectClaudeStatuslineLineSet(textLines) : new Set<number>();
   const claudeToolBlockLineSet =
     agent === "claude" ? detectClaudeToolBlockLineSet(textLines) : new Set<number>();
   const startupBannerLineSet =
@@ -39,6 +42,9 @@ export const classifySmartWrapLines = (
   return lineHtmlList.map((lineHtml, index) => {
     const text = textLines[index] ?? "";
     const isLastLine = index === lineHtmlList.length - 1;
+    if (claudeStatuslineLineSet.has(index)) {
+      return buildClassification("statusline-preserve");
+    }
     if (isLastLine && (agent === "codex" || agent === "claude")) {
       return buildClassification("statusline-preserve");
     }

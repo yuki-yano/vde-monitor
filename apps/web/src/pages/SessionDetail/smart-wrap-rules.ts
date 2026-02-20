@@ -1,9 +1,12 @@
+import { isPromptStartLine } from "@vde-monitor/shared";
+
 import { countCh, isBlankLikeLine, matchesAny } from "./smart-wrap-text";
 import type { SmartWrapAgent } from "./smart-wrap-types";
 
 const LIST_LONG_WORD_THRESHOLD_CH = 12;
 const MIN_INDENT_CH = 2;
 const MAX_INDENT_CH = 24;
+const MAX_CLAUDE_STATUSLINE_TAIL_LINES = 8;
 const CODEX_DIFF_START_PATTERNS = [
   /^\s*•\s+(Edited|Added|Deleted|Renamed)\s+.+\(\+\d+\s+-\d+\)\s*$/,
   /^\s*•\s+(Edited|Added|Deleted|Renamed)\s+.+\(\+\d+\)\s*$/,
@@ -115,6 +118,63 @@ const isCodexDivider = (text: string) => {
 const isClaudeDivider = (text: string) => {
   const trimmed = text.trim();
   return /^─{20,}$/.test(trimmed) || /^[╭╰]─{10,}[╮╯]$/.test(trimmed);
+};
+
+const findTrailingClaudePromptLineIndex = (textLines: string[]) => {
+  if (textLines.length === 0) {
+    return -1;
+  }
+  const minIndex = Math.max(0, textLines.length - (MAX_CLAUDE_STATUSLINE_TAIL_LINES + 3));
+  for (let index = textLines.length - 1; index >= minIndex; index -= 1) {
+    if (isPromptStartLine(textLines[index] ?? "", "claude")) {
+      return index;
+    }
+  }
+  return -1;
+};
+
+export const detectClaudeStatuslineLineSet = (textLines: string[]) => {
+  const result = new Set<number>();
+  const lastIndex = textLines.length - 1;
+  if (lastIndex < 0) {
+    return result;
+  }
+
+  if (isPromptStartLine(textLines[lastIndex] ?? "", "claude")) {
+    result.add(lastIndex);
+    return result;
+  }
+
+  const promptIndex = findTrailingClaudePromptLineIndex(textLines);
+  if (promptIndex < 0 || promptIndex >= lastIndex) {
+    return result;
+  }
+
+  let dividerIndex = -1;
+  for (let index = promptIndex + 1; index <= lastIndex; index += 1) {
+    const line = textLines[index] ?? "";
+    if (isBlankLikeLine(line)) {
+      continue;
+    }
+    if (isClaudeDivider(line)) {
+      dividerIndex = index;
+    }
+    break;
+  }
+  if (dividerIndex < 0 || dividerIndex >= lastIndex) {
+    return result;
+  }
+
+  const tailLineCount = lastIndex - dividerIndex;
+  if (tailLineCount > MAX_CLAUDE_STATUSLINE_TAIL_LINES) {
+    return result;
+  }
+
+  result.add(promptIndex);
+  for (let index = dividerIndex + 1; index <= lastIndex; index += 1) {
+    result.add(index);
+  }
+  return result;
 };
 
 const resolveCodexLabelIndent = (text: string): number | null => {
