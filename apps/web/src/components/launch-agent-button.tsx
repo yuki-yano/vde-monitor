@@ -23,7 +23,11 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatPath, isVwManagedWorktreePath } from "@/lib/session-format";
-import type { LaunchAgentHandler } from "@/state/launch-agent-options";
+import {
+  isFailedLaunchResponse,
+  type LaunchAgentHandler,
+  type LaunchAgentRequestOptions,
+} from "@/state/launch-agent-options";
 
 const parseAgentOptions = (value: string) =>
   value.split(/\r?\n/).filter((line) => line.trim().length > 0);
@@ -246,13 +250,7 @@ export const LaunchAgentButton = ({
       }
     }
 
-    const launchOptions: {
-      cwd?: string;
-      agentOptions?: string[];
-      worktreePath?: string;
-      worktreeBranch?: string;
-      worktreeCreateIfMissing?: boolean;
-    } = {};
+    const launchOptions: LaunchAgentRequestOptions = {};
     if (parsedOptions) {
       launchOptions.agentOptions = parsedOptions;
     }
@@ -283,12 +281,7 @@ export const LaunchAgentButton = ({
     setSubmitting(true);
     try {
       const launchResult = await onLaunchAgentInSession(sessionName, launchAgent, launchOptions);
-      if (
-        launchResult &&
-        typeof launchResult === "object" &&
-        "ok" in launchResult &&
-        launchResult.ok === false
-      ) {
+      if (isFailedLaunchResponse(launchResult)) {
         setSubmitError(launchResult.error?.message ?? "Failed to launch the agent.");
         return;
       }

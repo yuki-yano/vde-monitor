@@ -172,6 +172,10 @@ Common options:
 --output <json|text>
 ```
 
+Behavior notes:
+
+- Resume/move relaunch interrupts the source pane process before sending the new command. If send fails after interrupt, the pane can remain stopped and requires a manual retry.
+
 ### Utility commands
 
 ```bash

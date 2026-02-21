@@ -12,7 +12,7 @@ import { setMapEntryWithLimit } from "../../../cache";
 import { toErrorMessage } from "../../../errors";
 import { buildError } from "../../helpers";
 import type { SessionRouteDeps } from "../types";
-import { resolveLaunchResumePlan } from "./launch-resume-planner";
+import { resolveLaunchResumePlan, resolveRequestedResumePolicy } from "./launch-resume-planner";
 import { launchRequestSchema } from "./shared";
 
 const LAUNCH_IDEMPOTENCY_TTL_MS = 60_000;
@@ -91,22 +91,6 @@ export const createLaunchRoute = ({
     return normalized && normalized.length > 0 ? normalized : null;
   };
 
-  const resolveEffectiveResumePolicy = (
-    body: LaunchRequestBody,
-    resumeRequested: boolean,
-  ): LaunchResumePolicy | null => {
-    if (!resumeRequested) {
-      return null;
-    }
-    if (body.resumePolicy) {
-      return body.resumePolicy;
-    }
-    if (normalizeResumeText(body.resumeSessionId)) {
-      return "required";
-    }
-    return "best_effort";
-  };
-
   const toLaunchIdempotencyPayload = (
     body: LaunchRequestBody,
     effectiveResumePolicy: LaunchResumePolicy | null,
@@ -133,44 +117,47 @@ export const createLaunchRoute = ({
     failureReason: "unsupported",
   });
 
+  const createRequestedResumeMeta = (
+    policy: LaunchResumePolicy | null,
+  ): LaunchResumeMeta | null => {
+    if (!policy) {
+      return null;
+    }
+    return {
+      requested: true,
+      reused: false,
+      sessionId: null,
+      source: null,
+      confidence: "none",
+      policy,
+    };
+  };
+
+  const attachResumeMeta = (
+    response: LaunchCommandResponse,
+    resume: LaunchResumeMeta | null,
+  ): LaunchCommandResponse => {
+    if (!resume) {
+      return response;
+    }
+    return { ...response, resume };
+  };
+
   const executeLaunchAgentCommand = async (
     body: LaunchRequestBody,
     limiterKey: string,
   ): Promise<LaunchCommandResponse> => {
-    const resumeRequested = Boolean(
-      normalizeResumeText(body.resumeSessionId) || normalizeResumeText(body.resumeFromPaneId),
-    );
-    const effectiveResumePolicy = resolveEffectiveResumePolicy(body, resumeRequested);
-
-    const resumePlan = await resolveLaunchResumePlan({
-      requestAgent: body.agent,
+    const requestedResumePolicy = resolveRequestedResumePolicy({
+      resumePolicy: body.resumePolicy,
       resumeSessionId: body.resumeSessionId,
       resumeFromPaneId: body.resumeFromPaneId,
-      resumePolicy: effectiveResumePolicy ?? undefined,
-      getPaneDetail: (paneId) => monitor.registry.getDetail(paneId),
     });
-
-    if (resumePlan.requested && config.multiplexer.backend !== "tmux") {
-      return {
-        ok: false,
-        error: buildError("TMUX_UNAVAILABLE", "launch-agent requires tmux backend"),
-        rollback: { attempted: false, ok: true },
-        resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy),
-      };
-    }
-    if (resumePlan.requested && resumePlan.error) {
-      return {
-        ok: false,
-        error: resumePlan.error,
-        rollback: { attempted: false, ok: true },
-        resume: resumePlan.meta,
-      };
-    }
+    const requestedResumeMeta = createRequestedResumeMeta(requestedResumePolicy);
 
     pruneLaunchIdempotency();
     const cacheKey = `${body.sessionName}:${body.requestId}`;
     const payloadFingerprint = JSON.stringify(
-      toLaunchIdempotencyPayload(body, effectiveResumePolicy),
+      toLaunchIdempotencyPayload(body, requestedResumePolicy),
     );
     const nowMs = Date.now();
     const cached = launchIdempotency.get(cacheKey);
@@ -179,7 +166,7 @@ export const createLaunchRoute = ({
         return launchResponseWithRollback(
           "INVALID_PAYLOAD",
           "requestId payload mismatch",
-          resumePlan.meta,
+          requestedResumeMeta,
         );
       }
       if (!cached.settled || cached.wasSuccessful) {
@@ -188,10 +175,6 @@ export const createLaunchRoute = ({
       launchIdempotency.delete(cacheKey);
     } else if (cached) {
       launchIdempotency.delete(cacheKey);
-    }
-
-    if (!sendLimiter(limiterKey)) {
-      return launchResponseWithRollback("RATE_LIMIT", "rate limited", resumePlan.meta);
     }
 
     const entry: {
@@ -205,8 +188,45 @@ export const createLaunchRoute = ({
       payloadFingerprint,
       settled: false,
       wasSuccessful: false,
-      promise: actions
-        .launchAgentInSession({
+      promise: Promise.resolve({
+        ok: false as const,
+        error: buildError("INTERNAL", "launch command initialization failed"),
+        rollback: { attempted: false, ok: true },
+      } as LaunchCommandResponse),
+    };
+    entry.promise = (async (): Promise<LaunchCommandResponse> => {
+      let resumeMetaForError = requestedResumeMeta;
+      try {
+        const resumePlan = await resolveLaunchResumePlan({
+          requestAgent: body.agent,
+          resumeSessionId: body.resumeSessionId,
+          resumeFromPaneId: body.resumeFromPaneId,
+          resumePolicy: body.resumePolicy,
+          getPaneDetail: (paneId) => monitor.registry.getDetail(paneId),
+        });
+        resumeMetaForError = resumePlan.meta;
+
+        if (resumePlan.requested && config.multiplexer.backend !== "tmux") {
+          return {
+            ok: false as const,
+            error: buildError("TMUX_UNAVAILABLE", "launch-agent requires tmux backend"),
+            rollback: { attempted: false, ok: true },
+            resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy),
+          };
+        }
+        if (resumePlan.requested && resumePlan.error) {
+          return {
+            ok: false as const,
+            error: resumePlan.error,
+            rollback: { attempted: false, ok: true },
+            resume: resumePlan.meta,
+          };
+        }
+        if (!sendLimiter(limiterKey)) {
+          return launchResponseWithRollback("RATE_LIMIT", "rate limited", resumePlan.meta);
+        }
+
+        const response = await actions.launchAgentInSession({
           sessionName: body.sessionName,
           agent: body.agent,
           windowName: body.windowName,
@@ -217,32 +237,23 @@ export const createLaunchRoute = ({
           worktreeCreateIfMissing: body.worktreeCreateIfMissing,
           resumeSessionId: resumePlan.resolvedSessionId ?? undefined,
           resumeFromPaneId: body.resumeFromPaneId,
-          resumePolicy: effectiveResumePolicy ?? undefined,
-        })
-        .then((response) => {
-          const isUnsupported = !response.ok && response.error.code === "TMUX_UNAVAILABLE";
-          const withResumeMeta =
-            resumePlan.requested && isUnsupported
-              ? { ...response, resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy) }
-              : resumePlan.requested
-                ? { ...response, resume: resumePlan.meta }
-                : response;
-          entry.settled = true;
-          entry.wasSuccessful = withResumeMeta.ok;
-          if (!withResumeMeta.ok) {
-            launchIdempotency.delete(cacheKey);
-          }
-          return withResumeMeta;
-        })
-        .catch((error) => {
-          launchIdempotency.delete(cacheKey);
-          return launchResponseWithRollback(
-            "INTERNAL",
-            toErrorMessage(error, "launch command failed"),
-            resumePlan.meta,
-          );
-        }),
-    };
+        });
+        return attachResumeMeta(response, resumePlan.requested ? resumePlan.meta : null);
+      } catch (error) {
+        return launchResponseWithRollback(
+          "INTERNAL",
+          toErrorMessage(error, "launch command failed"),
+          resumeMetaForError,
+        );
+      }
+    })().then((response) => {
+      entry.settled = true;
+      entry.wasSuccessful = response.ok;
+      if (!response.ok) {
+        launchIdempotency.delete(cacheKey);
+      }
+      return response;
+    });
 
     setMapEntryWithLimit(launchIdempotency, cacheKey, entry, LAUNCH_IDEMPOTENCY_MAX_ENTRIES);
     return entry.promise;

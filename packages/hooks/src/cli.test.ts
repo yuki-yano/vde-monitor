@@ -86,4 +86,27 @@ describe("hooks cli helpers", () => {
       fs.rmSync(baseDir, { recursive: true, force: true });
     }
   });
+
+  it("falls back to legacy claude cwd encoding when transcript file exists there", () => {
+    const uniqueSuffix = `${Date.now()}-${process.pid}`;
+    const cwd = `/tmp/worktree/my.app-${uniqueSuffix}`;
+    const sessionId = "legacy-session";
+    const legacyEncoded = cwd.replace(/[/.]/g, "-");
+    const legacyPath = path.join(
+      os.homedir(),
+      ".claude",
+      "projects",
+      legacyEncoded,
+      `${sessionId}.jsonl`,
+    );
+    fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
+    fs.writeFileSync(legacyPath, "", "utf8");
+
+    try {
+      expect(resolveTranscriptPath(cwd, sessionId)).toBe(legacyPath);
+    } finally {
+      fs.rmSync(legacyPath, { force: true });
+      fs.rmSync(path.dirname(legacyPath), { recursive: true, force: true });
+    }
+  });
 });

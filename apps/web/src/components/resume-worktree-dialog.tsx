@@ -16,7 +16,11 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { isVwManagedWorktreePath } from "@/lib/session-format";
-import type { LaunchAgentHandler } from "@/state/launch-agent-options";
+import {
+  isFailedLaunchResponse,
+  type LaunchAgentHandler,
+  type LaunchAgentRequestOptions,
+} from "@/state/launch-agent-options";
 
 const parseAgentOptions = (value: string) =>
   value.split(/\r?\n/).filter((line) => line.trim().length > 0);
@@ -184,15 +188,16 @@ export const ResumeWorktreeDialog = ({
       }
     }
 
-    const launchOptions: {
-      cwd?: string;
-      agentOptions?: string[];
-      worktreePath?: string;
-      worktreeBranch?: string;
-      worktreeCreateIfMissing?: boolean;
-      resumeSessionId?: string;
-      resumeFromPaneId?: string;
-    } = {};
+    const launchOptions: Pick<
+      LaunchAgentRequestOptions,
+      | "cwd"
+      | "agentOptions"
+      | "worktreePath"
+      | "worktreeBranch"
+      | "worktreeCreateIfMissing"
+      | "resumeSessionId"
+      | "resumeFromPaneId"
+    > = {};
     if (parsedOptions) {
       launchOptions.agentOptions = parsedOptions;
     }
@@ -221,12 +226,7 @@ export const ResumeWorktreeDialog = ({
     setSubmitting(true);
     try {
       const launchResult = await onLaunchAgentInSession(sessionName, inheritedAgent, launchOptions);
-      if (
-        launchResult &&
-        typeof launchResult === "object" &&
-        "ok" in launchResult &&
-        launchResult.ok === false
-      ) {
+      if (isFailedLaunchResponse(launchResult)) {
         const requiredReason = launchResult.resume?.failureReason;
         setSubmitError(
           (requiredReason ? REQUIRED_REASON_MESSAGE[requiredReason] : null) ??

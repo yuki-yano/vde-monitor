@@ -12,7 +12,7 @@ import type { ActionResult } from "./action-results";
 
 const LAUNCH_VERIFY_INTERVAL_MS = 200;
 const LAUNCH_VERIFY_MAX_ATTEMPTS = 5;
-const AGENT_TERMINATE_WAIT_MS = 180;
+const AGENT_TERMINATE_WAIT_MS = 500;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const isTmuxTargetMissing = (message: string) =>
@@ -23,6 +23,7 @@ const isTmuxTargetMissing = (message: string) =>
 export const quoteShellValue = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 
 type PaneCommandResult = { ok: true; command: string | null } | { ok: false; error: ApiError };
+type ShellFragment = string;
 
 const readPaneCurrentCommand = async ({
   adapter,
@@ -159,7 +160,7 @@ const resolveAgentPidFromPaneTree = async ({
   const stack = [panePid];
   while (stack.length > 0) {
     const currentPid = stack.pop();
-    if (!currentPid) {
+    if (currentPid == null) {
       continue;
     }
     const children = childrenByParent.get(currentPid) ?? [];
@@ -179,6 +180,35 @@ const resolveAgentPidFromPaneTree = async ({
     .sort((a, b) => b.pid - a.pid);
 
   return agentCandidates[0]?.pid ?? null;
+};
+
+const readProcessCommandByPid = async (pid: number): Promise<string | null> => {
+  if (pid <= 0) {
+    return null;
+  }
+  let resolved: Awaited<ReturnType<typeof execa>>;
+  try {
+    resolved = await execa("ps", ["-p", String(pid), "-o", "comm="], {
+      reject: false,
+      timeout: 2000,
+      maxBuffer: 100_000,
+    });
+  } catch {
+    return null;
+  }
+  if (resolved.exitCode !== 0) {
+    return null;
+  }
+  const stdout = typeof resolved.stdout === "string" ? resolved.stdout : "";
+  if (!stdout) {
+    return null;
+  }
+  const command =
+    stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? null;
+  return command;
 };
 
 const terminateAgentProcessIfRunning = async ({
@@ -228,6 +258,10 @@ const terminateAgentProcessIfRunning = async ({
   if (afterTerm.command !== agent) {
     return null;
   }
+  const afterTermAgentCommand = await readProcessCommandByPid(agentPid);
+  if (afterTermAgentCommand !== agent) {
+    return null;
+  }
 
   try {
     process.kill(agentPid, "SIGKILL");
@@ -244,7 +278,11 @@ const terminateAgentProcessIfRunning = async ({
   if (!afterKill.ok) {
     return afterKill.error;
   }
-  if (afterKill.command === agent) {
+  if (afterKill.command !== agent) {
+    return null;
+  }
+  const afterKillAgentCommand = await readProcessCommandByPid(agentPid);
+  if (afterKillAgentCommand === agent) {
     return buildError("INTERNAL", `failed to terminate existing ${agent} process`);
   }
   return null;
@@ -258,7 +296,8 @@ export const buildLaunchCommandLine = ({
   alwaysPrefixCwd = false,
 }: {
   agent: LaunchAgent;
-  options: string[];
+  // Each option must already be a validated shell fragment.
+  options: ShellFragment[];
   resumeSessionId?: string;
   finalCwd?: string;
   alwaysPrefixCwd?: boolean;

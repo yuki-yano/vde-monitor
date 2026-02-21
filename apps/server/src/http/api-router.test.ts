@@ -646,7 +646,6 @@ describe("createApiRouter", () => {
       worktreeCreateIfMissing: undefined,
       resumeSessionId: undefined,
       resumeFromPaneId: undefined,
-      resumePolicy: undefined,
     });
   });
 
@@ -676,7 +675,6 @@ describe("createApiRouter", () => {
       worktreeCreateIfMissing: true,
       resumeSessionId: undefined,
       resumeFromPaneId: undefined,
-      resumePolicy: undefined,
     });
   });
 
@@ -749,7 +747,6 @@ describe("createApiRouter", () => {
       expect.objectContaining({
         resumeSessionId: undefined,
         resumeFromPaneId: "%missing",
-        resumePolicy: "best_effort",
       }),
     );
   });

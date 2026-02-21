@@ -30,6 +30,9 @@ type ScoredCandidate = {
   score: number;
   confidence: ResumeResolveConfidence;
 };
+const FIRST_JSON_LINE_MAX_BYTES = 64 * 1024;
+const FIRST_JSON_LINE_CHUNK_BYTES = 4096;
+const LSOF_PID_BATCH_SIZE = 256;
 
 const scoreByEventTime = (fileMtimeMs: number, lastEventAt: string | null): number => {
   if (!lastEventAt) {
@@ -79,9 +82,33 @@ const chooseBestCandidate = (
 };
 
 const readFirstJsonLine = async (filePath: string): Promise<Record<string, unknown> | null> => {
+  let fileHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   try {
-    const raw = await fs.readFile(filePath, "utf8");
-    const firstLine = raw.split(/\r?\n/, 1)[0];
+    fileHandle = await fs.open(filePath, "r");
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+
+    while (totalBytes < FIRST_JSON_LINE_MAX_BYTES) {
+      const nextChunkBytes = Math.min(
+        FIRST_JSON_LINE_CHUNK_BYTES,
+        FIRST_JSON_LINE_MAX_BYTES - totalBytes,
+      );
+      const chunkBuffer = Buffer.allocUnsafe(nextChunkBytes);
+      const { bytesRead } = await fileHandle.read(chunkBuffer, 0, nextChunkBytes, null);
+      if (bytesRead <= 0) {
+        break;
+      }
+      const chunk = chunkBuffer.subarray(0, bytesRead);
+      totalBytes += bytesRead;
+      const newlineIndex = chunk.indexOf(0x0a);
+      if (newlineIndex >= 0) {
+        chunks.push(chunk.subarray(0, newlineIndex));
+        break;
+      }
+      chunks.push(chunk);
+    }
+
+    const firstLine = Buffer.concat(chunks).toString("utf8").replace(/\r$/, "");
     if (!firstLine) {
       return null;
     }
@@ -92,10 +119,19 @@ const readFirstJsonLine = async (filePath: string): Promise<Record<string, unkno
     return parsed as Record<string, unknown>;
   } catch {
     return null;
+  } finally {
+    await fileHandle?.close().catch(() => undefined);
   }
 };
 
-const encodeClaudeProjectDir = (cwd: string) => cwd.replace(/[/.]/g, "-");
+const encodeClaudeProjectDir = (cwd: string) => cwd.replace(/\//g, "-");
+const encodeClaudeProjectDirLegacy = (cwd: string) => cwd.replace(/[/.]/g, "-");
+
+const resolveClaudeProjectDirNames = (cwd: string) => {
+  const primary = encodeClaudeProjectDir(cwd);
+  const legacy = encodeClaudeProjectDirLegacy(cwd);
+  return primary === legacy ? [primary] : [primary, legacy];
+};
 
 const resolveClaudeSessionFromHistory = async (
   pane: SessionDetail,
@@ -104,19 +140,22 @@ const resolveClaudeSessionFromHistory = async (
   if (!normalizedCwd) {
     return { ok: false, reason: "invalid_input", agent: "claude" };
   }
-  const projectDir = path.join(
-    os.homedir(),
-    ".claude",
-    "projects",
-    encodeClaudeProjectDir(normalizedCwd),
+  const files = new Set<string>();
+  const projectDirs = resolveClaudeProjectDirNames(normalizedCwd).map((encodedDir) =>
+    path.join(os.homedir(), ".claude", "projects", encodedDir),
   );
-  let files: string[] = [];
-  try {
-    const dirEntries = await fs.readdir(projectDir, { withFileTypes: true });
-    files = dirEntries
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
-      .map((entry) => path.join(projectDir, entry.name));
-  } catch {
+  for (const projectDir of projectDirs) {
+    try {
+      const dirEntries = await fs.readdir(projectDir, { withFileTypes: true });
+      dirEntries
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
+        .map((entry) => path.join(projectDir, entry.name))
+        .forEach((filePath) => files.add(filePath));
+    } catch {
+      // ignore missing/invalid project dir and continue with other encodings
+    }
+  }
+  if (files.size === 0) {
     return { ok: false, reason: "not_found", agent: "claude" };
   }
 
@@ -207,7 +246,7 @@ const loadDescendantPids = async (rootPid: number): Promise<number[]> => {
   const stack = [rootPid];
   while (stack.length > 0) {
     const current = stack.pop();
-    if (!current) {
+    if (current == null) {
       continue;
     }
     const children = childrenByParent.get(current) ?? [];
@@ -220,6 +259,16 @@ const loadDescendantPids = async (rootPid: number): Promise<number[]> => {
     }
   }
   return Array.from(descendants);
+};
+
+const isCommandNotFoundError = (error: unknown, command: string) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("enoent") || message.includes(`${command.toLowerCase()}: command not found`)
+  );
 };
 
 const parseCodexSessionFilePath = (line: string): string | null => {
@@ -245,22 +294,39 @@ const resolveCodexSessionCandidates = async (pane: SessionDetail): Promise<Score
   if (pids.length === 0) {
     return [];
   }
-  const lsofArgs = ["-Fn", ...pids.flatMap((pid) => ["-p", String(pid)])];
-  const opened = await execa("lsof", lsofArgs, {
-    reject: false,
-    timeout: 3000,
-    maxBuffer: 4_000_000,
-  });
-  if (opened.exitCode !== 0) {
+  const files = new Set<string>();
+  for (let offset = 0; offset < pids.length; offset += LSOF_PID_BATCH_SIZE) {
+    const pidBatch = pids.slice(offset, offset + LSOF_PID_BATCH_SIZE);
+    if (pidBatch.length === 0) {
+      continue;
+    }
+    const lsofArgs = ["-Fn", ...pidBatch.flatMap((pid) => ["-p", String(pid)])];
+    let opened: Awaited<ReturnType<typeof execa>>;
+    try {
+      opened = await execa("lsof", lsofArgs, {
+        reject: false,
+        timeout: 3000,
+        maxBuffer: 4_000_000,
+      });
+    } catch (error) {
+      if (isCommandNotFoundError(error, "lsof")) {
+        return [];
+      }
+      continue;
+    }
+    const stdout = typeof opened.stdout === "string" ? opened.stdout : "";
+    if (!stdout.trim()) {
+      continue;
+    }
+    stdout
+      .split(/\r?\n/)
+      .map((line) => parseCodexSessionFilePath(line))
+      .filter((filePath): filePath is string => Boolean(filePath))
+      .forEach((filePath) => files.add(filePath));
+  }
+  if (files.size === 0) {
     return [];
   }
-
-  const files = new Set<string>();
-  opened.stdout
-    .split(/\r?\n/)
-    .map((line) => parseCodexSessionFilePath(line))
-    .filter((filePath): filePath is string => Boolean(filePath))
-    .forEach((filePath) => files.add(filePath));
 
   const normalizedCwd = normalizeAbsolutePath(pane.currentPath);
   const candidatesById = new Map<string, ScoredCandidate>();

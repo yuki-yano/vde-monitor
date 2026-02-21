@@ -172,6 +172,10 @@ npx vde-monitor@latest tmux launch-agent --session <name> --agent <codex|claude>
 --output <json|text>
 ```
 
+挙動メモ:
+
+- Resume/Move の再起動では、先に source pane 側の既存プロセスを停止してから新しいコマンドを送信します。停止後の送信に失敗した場合、pane が停止状態のままになり手動リトライが必要です。
+
 ### ユーティリティ
 
 ```bash

@@ -54,7 +54,7 @@ const readStdin = (): string => {
 };
 
 const encodeClaudeCwd = (cwd: string): string => {
-  return cwd.replace(/[/.]/g, "-");
+  return cwd.replace(/\//g, "-");
 };
 
 export const resolveTranscriptPath = (
@@ -64,8 +64,15 @@ export const resolveTranscriptPath = (
   if (!cwd || !sessionId) {
     return null;
   }
-  const encoded = encodeClaudeCwd(cwd);
-  return path.join(os.homedir(), ".claude", "projects", encoded, `${sessionId}.jsonl`);
+  const primaryEncoded = encodeClaudeCwd(cwd);
+  const legacyEncoded = cwd.replace(/[/.]/g, "-");
+  const encodedCandidates =
+    primaryEncoded === legacyEncoded ? [primaryEncoded] : [primaryEncoded, legacyEncoded];
+  const resolvedEncoded =
+    encodedCandidates.find((encoded) =>
+      fs.existsSync(path.join(os.homedir(), ".claude", "projects", encoded, `${sessionId}.jsonl`)),
+    ) ?? primaryEncoded;
+  return path.join(os.homedir(), ".claude", "projects", resolvedEncoded, `${sessionId}.jsonl`);
 };
 
 const ensureDir = (dir: string) => {
@@ -248,7 +255,11 @@ const toCanonicalFileUrlFromModuleUrl = (moduleUrl: string) => {
   try {
     return pathToFileURL(fs.realpathSync(fileURLToPath(moduleUrl))).href;
   } catch {
-    return pathToFileURL(fileURLToPath(moduleUrl)).href;
+    try {
+      return pathToFileURL(fileURLToPath(moduleUrl)).href;
+    } catch {
+      return moduleUrl;
+    }
   }
 };
 

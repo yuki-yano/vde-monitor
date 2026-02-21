@@ -123,13 +123,20 @@ type LaunchResumePlan =
       error: null | ReturnType<typeof buildError>;
     };
 
-const resolveEffectivePolicy = ({
+export const resolveRequestedResumePolicy = ({
   resumePolicy,
-  hasManual,
+  resumeSessionId,
+  resumeFromPaneId,
 }: {
   resumePolicy?: LaunchResumePolicy;
-  hasManual: boolean;
-}): LaunchResumePolicy => {
+  resumeSessionId?: string;
+  resumeFromPaneId?: string;
+}): LaunchResumePolicy | null => {
+  const hasManual = Boolean(resumeSessionId?.trim());
+  const hasPane = Boolean(resumeFromPaneId?.trim());
+  if (!hasManual && !hasPane) {
+    return null;
+  }
   if (resumePolicy) {
     return resumePolicy;
   }
@@ -152,10 +159,12 @@ export const resolveLaunchResumePlan = async ({
   resumePolicy?: LaunchResumePolicy;
   getPaneDetail: (paneId: string) => SessionDetail | null;
 }): Promise<LaunchResumePlan> => {
-  const hasManual = Boolean(resumeSessionId?.trim());
-  const hasPane = Boolean(resumeFromPaneId?.trim());
-  const requested = hasManual || hasPane;
-  if (!requested) {
+  const effectivePolicy = resolveRequestedResumePolicy({
+    resumePolicy,
+    resumeSessionId,
+    resumeFromPaneId,
+  });
+  if (!effectivePolicy) {
     return {
       requested: false,
       effectivePolicy: null,
@@ -165,10 +174,8 @@ export const resolveLaunchResumePlan = async ({
     };
   }
 
-  const effectivePolicy = resolveEffectivePolicy({
-    resumePolicy,
-    hasManual,
-  });
+  const hasManual = Boolean(resumeSessionId?.trim());
+  const hasPane = Boolean(resumeFromPaneId?.trim());
   const manualResult = hasManual ? resolveManualSession(resumeSessionId) : null;
   if (manualResult?.ok) {
     return {
@@ -196,6 +203,7 @@ export const resolveLaunchResumePlan = async ({
     };
   }
 
+  // In best_effort mode, an empty/invalid manual id should fall through to pane-based resolution.
   if (hasPane) {
     const paneResult = await resolvePaneSession({
       resumeFromPaneId,

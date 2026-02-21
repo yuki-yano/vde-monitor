@@ -453,12 +453,7 @@ export type LaunchResumeMeta = {
   source: "manual" | "hook" | "lsof" | "history" | null;
   confidence: "high" | "medium" | "low" | "none";
   policy: LaunchResumePolicy | null;
-  fallbackReason?:
-    | "not_found"
-    | "ambiguous"
-    | "unsupported"
-    | "invalid_input"
-    | "policy_best_effort";
+  fallbackReason?: "not_found" | "ambiguous" | "unsupported" | "invalid_input";
   failureReason?: "not_found" | "ambiguous" | "unsupported" | "invalid_input";
 };
 

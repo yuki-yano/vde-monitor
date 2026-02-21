@@ -11,10 +11,10 @@ export type PaneRuntimeState = {
   lastEventAt: string | null;
   lastMessage: string | null;
   lastInputAt: string | null;
-  agentSessionId?: string | null;
-  agentSessionSource?: "hook" | "lsof" | "history" | null;
-  agentSessionConfidence?: "high" | "medium" | "low" | null;
-  agentSessionObservedAt?: string | null;
+  agentSessionId: string | null;
+  agentSessionSource: "hook" | "lsof" | "history" | null;
+  agentSessionConfidence: "high" | "medium" | "low" | null;
+  agentSessionObservedAt: string | null;
   externalInputCursorBytes: number | null;
   externalInputSignature: string | null;
   externalInputLastDetectedAt: string | null;

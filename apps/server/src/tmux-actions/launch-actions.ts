@@ -76,7 +76,6 @@ export const createLaunchActions = ({
     worktreeCreateIfMissing,
     resumeSessionId,
     resumeFromPaneId,
-    resumePolicy: _resumePolicy,
   }: {
     sessionName: string;
     agent: LaunchAgent;
@@ -89,7 +88,6 @@ export const createLaunchActions = ({
     worktreeCreateIfMissing?: boolean;
     resumeSessionId?: string;
     resumeFromPaneId?: string;
-    resumePolicy?: "required" | "best_effort";
   }): Promise<LaunchResult> => {
     const normalizedSessionName = sessionName.trim();
     if (!normalizedSessionName) {
@@ -117,7 +115,6 @@ export const createLaunchActions = ({
     const normalizedWorktreeCreateIfMissing = worktreeCreateIfMissing === true;
     const normalizedResumeSessionId = normalizeOptionalText(resumeSessionId);
     const normalizedResumeFromPaneId = normalizeOptionalText(resumeFromPaneId);
-    void _resumePolicy;
     if (
       normalizedResumeSessionId &&
       (normalizedResumeSessionId.length > 256 || containsNulOrLineBreak(normalizedResumeSessionId))
@@ -176,6 +173,10 @@ export const createLaunchActions = ({
       });
       if (snapshotCwd.ok) {
         resumeCommandCwd = snapshotCwd.cwd;
+      } else {
+        console.warn(
+          `[vde-monitor] failed to resolve snapshot cwd for resume: session=${normalizedSessionName} agent=${agent} error=${snapshotCwd.error.message}`,
+        );
       }
     }
 
@@ -222,6 +223,9 @@ export const createLaunchActions = ({
         forceShellCwdPrefix: true,
       });
       if (!sendResult.ok) {
+        console.warn(
+          `[vde-monitor] relaunch send failed after interrupt: session=${normalizedSessionName} pane=${target.paneId} window=${target.windowId}:${target.windowName} agent=${agent} error=${sendResult.error.message}`,
+        );
         return launchError(sendResult.error, defaultLaunchRollback());
       }
 
@@ -254,11 +258,13 @@ export const createLaunchActions = ({
       return launchError(resolvedWindowName.error, defaultLaunchRollback());
     }
 
+    const detachedWindowCwd =
+      finalCwd ?? (normalizedResumeSessionId && !normalizedCwd ? resumeCommandCwd : undefined);
     const created = await createDetachedWindow({
       adapter,
       sessionName: normalizedSessionName,
       windowName: resolvedWindowName.windowName,
-      cwd: finalCwd,
+      cwd: detachedWindowCwd,
     });
     if (!created.ok) {
       return launchError(created.error, defaultLaunchRollback());

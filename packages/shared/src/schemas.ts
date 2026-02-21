@@ -265,9 +265,7 @@ export const launchResumeMetaSchema = z.object({
   source: z.enum(["manual", "hook", "lsof", "history"]).nullable(),
   confidence: z.enum(["high", "medium", "low", "none"]),
   policy: launchResumePolicySchema.nullable(),
-  fallbackReason: z
-    .enum(["not_found", "ambiguous", "unsupported", "invalid_input", "policy_best_effort"])
-    .optional(),
+  fallbackReason: z.enum(["not_found", "ambiguous", "unsupported", "invalid_input"]).optional(),
   failureReason: z.enum(["not_found", "ambiguous", "unsupported", "invalid_input"]).optional(),
 });
 
