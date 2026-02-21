@@ -11,10 +11,10 @@ describe("buildTailscaleServeProxyTarget", () => {
   it("builds an HTTP upstream target from host and port", () => {
     expect(
       buildTailscaleServeProxyTarget({
-        displayHost: "100.102.60.85",
+        proxyHost: "127.0.0.1",
         displayPort: 11080,
       }),
-    ).toBe("http://100.102.60.85:11080");
+    ).toBe("http://127.0.0.1:11080");
   });
 });
 

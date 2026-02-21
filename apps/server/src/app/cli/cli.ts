@@ -154,15 +154,20 @@ const resolveBindHost = ({
   bindFlag,
   publicBind,
   tailscaleIP,
+  tailscaleHttps,
   configBind,
 }: {
   bindFlag: string | null;
   publicBind: boolean;
   tailscaleIP: string | null;
+  tailscaleHttps: boolean;
   configBind: AgentMonitorConfig["bind"];
 }) => {
   if (bindFlag) {
     return bindFlag;
+  }
+  if (tailscaleHttps) {
+    return "127.0.0.1";
   }
   if (publicBind) {
     return "0.0.0.0";
@@ -205,6 +210,8 @@ export const resolveHosts = ({
   const bindFlag = parseBind(args.bind);
   const publicBind = args.public === true;
   const tailscale = args.tailscale === true;
+  const https = args.https === true;
+  const tailscaleHttps = tailscale && https;
 
   if (bindFlag && tailscale) {
     throw new Error("--bind and --tailscale cannot be used together.");
@@ -215,6 +222,7 @@ export const resolveHosts = ({
     bindFlag,
     publicBind,
     tailscaleIP,
+    tailscaleHttps,
     configBind,
   });
   const displayHost = resolveDisplayHost({

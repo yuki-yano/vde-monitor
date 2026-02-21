@@ -84,12 +84,12 @@ export const buildTailscaleHttpsAccessUrl = ({
 };
 
 export const buildTailscaleServeProxyTarget = ({
-  displayHost,
+  proxyHost,
   displayPort,
 }: {
-  displayHost: string;
+  proxyHost: string;
   displayPort: number;
-}) => `http://${displayHost}:${displayPort}`;
+}) => `http://${proxyHost}:${displayPort}`;
 
 export const buildTailscaleServeCommand = (proxyTarget: string) =>
   `tailscale serve --bg ${proxyTarget}`;
@@ -423,7 +423,7 @@ export const runServe = async (args: ParsedArgs) => {
 
   if (useTailscaleHttps) {
     const expectedProxyTarget = buildTailscaleServeProxyTarget({
-      displayHost,
+      proxyHost: host,
       displayPort,
     });
     const manualCommand = buildTailscaleServeCommand(expectedProxyTarget);

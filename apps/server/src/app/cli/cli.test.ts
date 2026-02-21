@@ -84,6 +84,11 @@ describe("resolveHosts", () => {
     expect(result).toEqual({ bindHost: "100.64.0.1", displayHost: "100.64.0.1" });
   });
 
+  it("binds to localhost while keeping tailscale display host in tailscale+https mode", () => {
+    const result = resolveHosts({ ...baseOptions, args: parseArgs(["--tailscale", "--https"]) });
+    expect(result).toEqual({ bindHost: "127.0.0.1", displayHost: "100.64.0.1" });
+  });
+
   it("prints tailscale URL while binding to 0.0.0.0 when public + tailscale", () => {
     const result = resolveHosts({
       ...baseOptions,
