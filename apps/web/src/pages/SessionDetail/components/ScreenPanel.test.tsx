@@ -241,6 +241,18 @@ describe("ScreenPanel", () => {
     ).not.toBe(0);
   });
 
+  it("hides resume/move button when worktree selector is disabled", () => {
+    const state = buildState({
+      sourceSession: buildSourceSession(),
+      worktreeSelectorEnabled: false,
+      worktreeRepoRoot: "/repo",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.queryByRole("button", { name: "Resume or move to worktree" })).toBeNull();
+  });
+
   it("hides notification toggle for iOS browser install-required state", () => {
     const state = buildState({
       notificationStatus: "needs-ios-install",

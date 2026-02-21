@@ -324,9 +324,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
   );
   const showPaneNotificationToggle = notificationStatus !== "needs-ios-install";
   const showResumeWorktreeButton =
-    Boolean(sourceSession) &&
-    Boolean(onLaunchAgentInSession) &&
-    (worktreeSelectorEnabled || Boolean(worktreeRepoRoot));
+    Boolean(sourceSession) && Boolean(onLaunchAgentInSession) && worktreeSelectorEnabled;
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const paneNotificationClickHandler = notificationSubscribed
     ? onTogglePaneNotification
