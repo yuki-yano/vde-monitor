@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   type AgentMonitorConfigFile,
@@ -233,12 +233,33 @@ const appendEvent = (event: HookEvent) => {
   fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, "utf8");
 };
 
-const isMainModule = () => {
-  const mainPath = process.argv[1];
+const toCanonicalFileUrlFromPath = (targetPath: string) => {
+  try {
+    return pathToFileURL(fs.realpathSync(targetPath)).href;
+  } catch {
+    return pathToFileURL(path.resolve(targetPath)).href;
+  }
+};
+
+const toCanonicalFileUrlFromModuleUrl = (moduleUrl: string) => {
+  if (!moduleUrl.startsWith("file:")) {
+    return moduleUrl;
+  }
+  try {
+    return pathToFileURL(fs.realpathSync(fileURLToPath(moduleUrl))).href;
+  } catch {
+    return pathToFileURL(fileURLToPath(moduleUrl)).href;
+  }
+};
+
+export const isMainModule = (
+  mainPath: string | undefined = process.argv[1],
+  moduleUrl = import.meta.url,
+) => {
   if (!mainPath) {
     return false;
   }
-  return import.meta.url === pathToFileURL(mainPath).href;
+  return toCanonicalFileUrlFromModuleUrl(moduleUrl) === toCanonicalFileUrlFromPath(mainPath);
 };
 
 const main = () => {

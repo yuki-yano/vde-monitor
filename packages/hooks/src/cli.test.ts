@@ -1,11 +1,14 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import {
   buildHookEvent,
   extractPayloadFields,
+  isMainModule,
   resolveHookServerKey,
   resolveTranscriptPath,
 } from "./cli";
@@ -68,5 +71,19 @@ describe("hooks cli helpers", () => {
         weztermTarget: " dev ",
       }),
     ).toBe("wezterm-dev");
+  });
+
+  it("treats symlink entrypoint as main module", () => {
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "vde-monitor-hooks-"));
+    try {
+      const realPath = path.join(baseDir, "hook-real.mjs");
+      const symlinkPath = path.join(baseDir, "hook-link.mjs");
+      fs.writeFileSync(realPath, "export {};\n", "utf8");
+      fs.symlinkSync(realPath, symlinkPath);
+
+      expect(isMainModule(symlinkPath, pathToFileURL(realPath).href)).toBe(true);
+    } finally {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    }
   });
 });
