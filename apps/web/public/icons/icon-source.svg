@@ -17,7 +17,7 @@
       </feMerge>
     </filter>
     <filter id="spark-glow">
-      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feGaussianBlur stdDeviation="12" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -29,61 +29,52 @@
   <rect width="512" height="512" rx="96" fill="url(#bg5)"/>
 
   <!-- Main terminal frame -->
-  <rect x="56" y="56" width="400" height="400" rx="24" fill="#0d0d1a" stroke="#3a3a5c" stroke-width="2.5"/>
+  <rect x="48" y="48" width="416" height="416" rx="28" fill="#0d0d1a" stroke="#4a4a6c" stroke-width="5"/>
 
   <!-- Top bar -->
-  <rect x="56" y="56" width="400" height="40" rx="24" fill="#1a1a30"/>
-  <rect x="56" y="72" width="400" height="24" fill="#1a1a30"/>
-  <circle cx="88" cy="76" r="7" fill="#ff5f57" opacity="0.8"/>
-  <circle cx="112" cy="76" r="7" fill="#febc2e" opacity="0.8"/>
-  <circle cx="136" cy="76" r="7" fill="#28c840" opacity="0.8"/>
+  <rect x="48" y="48" width="416" height="52" rx="28" fill="#1e1e38"/>
+  <rect x="48" y="72" width="416" height="28" fill="#1e1e38"/>
+  <circle cx="88" cy="76" r="10" fill="#ff5f57" opacity="0.9"/>
+  <circle cx="118" cy="76" r="10" fill="#febc2e" opacity="0.9"/>
+  <circle cx="148" cy="76" r="10" fill="#28c840" opacity="0.9"/>
 
   <!-- Vertical split line -->
-  <line x1="272" y1="108" x2="272" y2="444" stroke="#3a3a5c" stroke-width="2"/>
+  <line x1="268" y1="112" x2="268" y2="452" stroke="#5a5a7c" stroke-width="4"/>
 
   <!-- Horizontal split line (right side only) -->
-  <line x1="272" y1="276" x2="444" y2="276" stroke="#3a3a5c" stroke-width="2"/>
+  <line x1="268" y1="282" x2="452" y2="282" stroke="#5a5a7c" stroke-width="4"/>
 
-  <!-- Left pane - text lines -->
-  <rect x="80" y="124" width="120" height="4" rx="2" fill="#8888aa" opacity="0.3"/>
-  <rect x="80" y="140" width="80" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="80" y="156" width="150" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="80" y="172" width="100" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="80" y="188" width="140" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="80" y="204" width="60" height="4" rx="2" fill="#8888aa" opacity="0.3"/>
-  <rect x="80" y="220" width="130" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="80" y="236" width="90" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="80" y="252" width="160" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="80" y="268" width="110" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="80" y="284" width="70" height="4" rx="2" fill="#8888aa" opacity="0.3"/>
-  <rect x="80" y="300" width="140" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="80" y="316" width="100" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="80" y="332" width="130" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
+  <!-- Left pane - text lines (thicker, higher opacity, fewer lines) -->
+  <rect x="76" y="130" width="140" height="10" rx="5" fill="#8888bb" opacity="0.5"/>
+  <rect x="76" y="156" width="100" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
+  <rect x="76" y="182" width="160" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
+  <rect x="76" y="208" width="110" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
+  <rect x="76" y="234" width="150" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
+  <rect x="76" y="260" width="80" height="10" rx="5" fill="#8888bb" opacity="0.5"/>
+  <rect x="76" y="286" width="140" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
+  <rect x="76" y="312" width="120" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
+  <rect x="76" y="338" width="160" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
+  <rect x="76" y="364" width="90" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
 
   <!-- Right top pane - text lines -->
-  <rect x="296" y="124" width="100" height="4" rx="2" fill="#8888aa" opacity="0.3"/>
-  <rect x="296" y="140" width="70" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="296" y="156" width="120" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
-  <rect x="296" y="172" width="90" height="4" rx="2" fill="#8888aa" opacity="0.25"/>
-  <rect x="296" y="188" width="110" height="4" rx="2" fill="#8888aa" opacity="0.2"/>
+  <rect x="294" y="130" width="120" height="10" rx="5" fill="#8888bb" opacity="0.5"/>
+  <rect x="294" y="156" width="80" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
+  <rect x="294" y="182" width="130" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
+  <rect x="294" y="208" width="100" height="10" rx="5" fill="#8888bb" opacity="0.45"/>
+  <rect x="294" y="234" width="110" height="10" rx="5" fill="#8888bb" opacity="0.4"/>
 
-  <!-- Right bottom pane - text lines (AI active pane) -->
-  <rect x="296" y="296" width="110" height="4" rx="2" fill="#c084fc" opacity="0.4"/>
-  <rect x="296" y="312" width="80" height="4" rx="2" fill="#c084fc" opacity="0.35"/>
-  <rect x="296" y="328" width="130" height="4" rx="2" fill="#c084fc" opacity="0.3"/>
-  <rect x="296" y="344" width="100" height="4" rx="2" fill="#c084fc" opacity="0.35"/>
-  <rect x="296" y="360" width="60" height="4" rx="2" fill="#c084fc" opacity="0.3"/>
+  <!-- Right bottom pane - AI active pane text lines -->
+  <rect x="294" y="302" width="120" height="10" rx="5" fill="#c084fc" opacity="0.6"/>
+  <rect x="294" y="328" width="90" height="10" rx="5" fill="#c084fc" opacity="0.55"/>
+  <rect x="294" y="354" width="130" height="10" rx="5" fill="#c084fc" opacity="0.5"/>
+  <rect x="294" y="380" width="100" height="10" rx="5" fill="#c084fc" opacity="0.55"/>
 
-  <!-- AI Spark/Star in the active pane -->
-  <g filter="url(#spark-glow)" transform="translate(390, 400)">
-    <!-- 4-point star -->
-    <path d="M0,-28 L6,-6 L28,0 L6,6 L0,28 L-6,6 L-28,0 L-6,-6 Z" fill="url(#spark-grad)" opacity="0.95"/>
-    <!-- Small secondary sparkles -->
-    <path d="M-20,-22 L-18,-18 L-14,-20 L-18,-16 L-20,-12 L-22,-16 L-26,-14 L-22,-18 Z" fill="#fbbf24" opacity="0.7"/>
-    <path d="M22,-16 L23,-13 L26,-14 L23,-12 L22,-9 L21,-12 L18,-11 L21,-13 Z" fill="#e0b0ff" opacity="0.6"/>
-    <path d="M16,18 L17,20 L20,19 L17,21 L16,24 L15,21 L12,22 L15,20 Z" fill="#fbbf24" opacity="0.5"/>
+  <!-- AI Spark/Star - larger and bolder -->
+  <g filter="url(#spark-glow)" transform="translate(400, 410)">
+    <!-- 4-point star (larger) -->
+    <path d="M0,-36 L8,-8 L36,0 L8,8 L0,36 L-8,8 L-36,0 L-8,-8 Z" fill="url(#spark-grad)" opacity="1"/>
+    <!-- Secondary sparkles (larger) -->
+    <path d="M-26,-28 L-22,-22 L-16,-26 L-22,-18 L-26,-12 L-30,-18 L-36,-14 L-30,-22 Z" fill="#fbbf24" opacity="0.85"/>
+    <path d="M28,-22 L30,-16 L36,-18 L30,-14 L28,-8 L26,-14 L20,-12 L26,-16 Z" fill="#e0b0ff" opacity="0.75"/>
   </g>
-
-  <!-- Subtle "AI" label near spark -->
-  <text x="374" y="426" font-family="monospace" font-size="10" fill="#c084fc" opacity="0.5">AI</text>
 </svg>
