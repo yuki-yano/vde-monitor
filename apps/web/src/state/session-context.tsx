@@ -28,12 +28,20 @@ import { createStore, Provider as JotaiProvider, useAtomValue, useSetAtom } from
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import {
+  buildNotificationSessionTitleFingerprint,
+  syncLocalNotificationSessionTitles,
+  toNotificationSessionTitleEntries,
+} from "@/lib/notification-session-title-store";
+
 import { defaultLaunchConfig, type LaunchAgentRequestOptions } from "./launch-agent-options";
 import {
   type SessionConnectionStatus,
   sessionFileNavigatorConfigAtom,
   sessionHighlightCorrectionsAtom,
   sessionLaunchConfigAtom,
+  sessionWorkspaceTabsDisplayModeAtom,
 } from "./session-state-atoms";
 import { useSessionApi } from "./use-session-api";
 import { useSessionConnectionState } from "./use-session-connection-state";
@@ -43,6 +51,8 @@ import { useSessionToken } from "./use-session-token";
 
 type SessionContextValue = {
   token: string | null;
+  apiBaseUrl: string | null;
+  authError: string | null;
   sessions: SessionSummary[];
   connected: boolean;
   connectionStatus: SessionConnectionStatus;
@@ -50,6 +60,7 @@ type SessionContextValue = {
   highlightCorrections: HighlightCorrectionConfig;
   fileNavigatorConfig: ClientFileNavigatorConfig;
   launchConfig: LaunchConfig;
+  setToken: (token: string | null) => void;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
@@ -141,7 +152,7 @@ type SessionContextValue = {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 const SessionRuntime = ({ children }: { children: ReactNode }) => {
-  const { token, apiBaseUrl } = useSessionToken();
+  const { token, setToken, apiBaseUrl } = useSessionToken();
   const { sessions, setSessions, updateSession, removeSession, getSessionDetail } =
     useSessionStore();
   const highlightCorrections = useAtomValue(sessionHighlightCorrectionsAtom);
@@ -149,6 +160,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const launchConfig = useAtomValue(sessionLaunchConfigAtom);
   const setHighlightCorrections = useSetAtom(sessionHighlightCorrectionsAtom);
   const setFileNavigatorConfig = useSetAtom(sessionFileNavigatorConfigAtom);
+  const setWorkspaceTabsDisplayMode = useSetAtom(sessionWorkspaceTabsDisplayModeAtom);
   const setLaunchConfig = useSetAtom(sessionLaunchConfigAtom);
   const {
     connectionIssue,
@@ -169,6 +181,12 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   );
 
   const hasToken = Boolean(token);
+  const authError = !hasToken
+    ? API_ERROR_MESSAGES.missingToken
+    : connectionIssue != null && /unauthorized/i.test(connectionIssue)
+      ? connectionIssue
+      : null;
+  const notificationTitleFingerprintRef = useRef<string>("");
 
   const {
     refreshSessions: refreshSessionsApi,
@@ -206,6 +224,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     onSessionRemoved: removeSession,
     onHighlightCorrections: applyHighlightCorrections,
     onFileNavigatorConfig: setFileNavigatorConfig,
+    onWorkspaceTabsDisplayMode: setWorkspaceTabsDisplayMode,
     onLaunchConfig: setLaunchConfig,
   });
 
@@ -229,11 +248,27 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     setFileNavigatorConfig({ autoExpandMatchLimit: 100 });
+    setWorkspaceTabsDisplayMode("all");
     setLaunchConfig(defaultLaunchConfig);
-  }, [setFileNavigatorConfig, setLaunchConfig, token]);
+  }, [setFileNavigatorConfig, setLaunchConfig, setWorkspaceTabsDisplayMode, token]);
+
+  useEffect(() => {
+    if (!hasToken) {
+      notificationTitleFingerprintRef.current = "";
+      return;
+    }
+    const nextEntries = toNotificationSessionTitleEntries(sessions);
+    const nextFingerprint = buildNotificationSessionTitleFingerprint(nextEntries);
+    if (notificationTitleFingerprintRef.current === nextFingerprint) {
+      return;
+    }
+    notificationTitleFingerprintRef.current = nextFingerprint;
+    void syncLocalNotificationSessionTitles(nextEntries).catch(() => undefined);
+  }, [hasToken, sessions]);
 
   const sessionApi = useMemo(
     () => ({
+      setToken,
       reconnect,
       refreshSessions,
       requestWorktrees,
@@ -263,6 +298,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       deleteRepoNote,
     }),
     [
+      setToken,
       reconnect,
       refreshSessions,
       requestWorktrees,
@@ -296,6 +332,8 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const contextValue = useMemo<SessionContextValue>(
     () => ({
       token,
+      apiBaseUrl,
+      authError,
       sessions,
       connected,
       connectionStatus,
@@ -308,6 +346,8 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     }),
     [
       token,
+      apiBaseUrl,
+      authError,
       sessions,
       connected,
       connectionStatus,

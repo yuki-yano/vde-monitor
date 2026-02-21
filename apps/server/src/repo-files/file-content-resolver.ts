@@ -93,7 +93,9 @@ const isBinaryContent = (sample: Buffer) => {
   }
   try {
     const decoder = new TextDecoder("utf-8", { fatal: true });
-    decoder.decode(sample);
+    // Sample bytes may end in the middle of a UTF-8 sequence.
+    // `stream: true` validates complete sequences while tolerating an incomplete trailing tail.
+    decoder.decode(sample, { stream: true });
     return false;
   } catch {
     return true;

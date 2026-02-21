@@ -68,6 +68,10 @@ describe("ScreenPanel", () => {
     worktreeBaseBranch: null,
     actualWorktreePath: null,
     virtualWorktreePath: null,
+    notificationStatus: "idle",
+    notificationPushEnabled: true,
+    notificationSubscribed: false,
+    notificationPaneEnabled: false,
     ...overrides,
   });
 
@@ -78,6 +82,8 @@ describe("ScreenPanel", () => {
     onAtBottomChange: vi.fn(),
     onScrollToBottom: vi.fn(),
     onUserScrollStateChange: vi.fn(),
+    onRequestNotificationPermission: vi.fn(),
+    onTogglePaneNotification: vi.fn(),
     onResolveFileReference: vi.fn(async () => undefined),
     onResolveFileReferenceCandidates: vi.fn(async (rawTokens: string[]) => rawTokens),
     ...overrides,
@@ -104,6 +110,114 @@ describe("ScreenPanel", () => {
     expect(
       smartButton.compareDocumentPosition(refreshButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
+  });
+
+  it("shows notification toggle for unknown agent sessions", () => {
+    const state = buildState({
+      agent: "unknown",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByRole("button", { name: /notification/i })).toBeTruthy();
+  });
+
+  it("keeps notification toggle default off", () => {
+    const state = buildState({
+      notificationPushEnabled: true,
+      notificationSubscribed: true,
+      notificationPaneEnabled: false,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const toggleButton = screen.getByRole("button", { name: "Toggle session notification" });
+    expect(toggleButton.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("uses enable action when unsubscribed", () => {
+    const state = buildState({
+      notificationPushEnabled: true,
+      notificationSubscribed: false,
+      notificationPaneEnabled: false,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const toggleButton = screen.getByRole("button", { name: "Enable push notifications" });
+    fireEvent.click(toggleButton);
+    expect(actions.onRequestNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(actions.onTogglePaneNotification).not.toHaveBeenCalled();
+    expect(toggleButton.getAttribute("aria-pressed")).toBeNull();
+  });
+
+  it("places notification toggle to the left of smart wrap button", () => {
+    const state = buildState({
+      notificationPushEnabled: true,
+      notificationSubscribed: true,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const notificationButton = screen.getByRole("button", { name: "Toggle session notification" });
+    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
+    expect(
+      notificationButton.compareDocumentPosition(smartButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("hides notification toggle for iOS browser install-required state", () => {
+    const state = buildState({
+      notificationStatus: "needs-ios-install",
+      notificationPushEnabled: true,
+      notificationSubscribed: false,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.queryByRole("button", { name: "Toggle session notification" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Toggle wrap mode" })).toBeTruthy();
+  });
+
+  it("disables notification toggle when handler is missing", () => {
+    const state = buildState({
+      notificationPushEnabled: true,
+      notificationSubscribed: true,
+    });
+    const actions = buildActions({
+      onTogglePaneNotification: undefined,
+    });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const toggleButton = screen.getByRole("button", { name: "Toggle session notification" });
+    expect(toggleButton.getAttribute("disabled")).not.toBeNull();
+  });
+
+  it("disables notification toggle when enable handler is missing", () => {
+    const state = buildState({
+      notificationPushEnabled: true,
+      notificationSubscribed: false,
+    });
+    const actions = buildActions({
+      onRequestNotificationPermission: undefined,
+    });
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const toggleButton = screen.getByRole("button", { name: "Enable push notifications" });
+    expect(toggleButton.getAttribute("disabled")).not.toBeNull();
+  });
+
+  it("disables notification toggle when notification permission is denied", () => {
+    const state = buildState({
+      notificationStatus: "denied",
+      notificationPushEnabled: true,
+      notificationSubscribed: false,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const toggleButton = screen.getByRole("button", { name: "Enable push notifications" });
+    expect(toggleButton.getAttribute("disabled")).not.toBeNull();
   });
 
   it("disables wrap button in image mode", () => {

@@ -6,6 +6,7 @@ import type {
 } from "@vde-monitor/shared";
 
 import { toErrorMessage } from "../errors";
+import type { SessionTransitionEvent } from "../notifications/types";
 import { mapWithConcurrencyLimitSettled } from "./concurrency";
 import type { PaneLogManager } from "./pane-log-manager";
 import { processPane } from "./pane-processor";
@@ -70,6 +71,7 @@ type CreatePaneUpdateServiceArgs = {
   stateTimeline: TimelineStoreLike;
   logActivity: LogActivityLike;
   savePersistedState: () => void;
+  onStateTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
 };
 
 const resolveTimelineSource = (reason: string): SessionStateTimelineSource => {
@@ -103,6 +105,7 @@ export const createPaneUpdateService = ({
   stateTimeline,
   logActivity,
   savePersistedState,
+  onStateTransition,
 }: CreatePaneUpdateServiceArgs) => {
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
@@ -248,13 +251,31 @@ export const createPaneUpdateService = ({
         existing.state !== detail.state ||
         existing.stateReason !== detail.stateReason
       ) {
+        const transitionSource = resolveTimelineSource(detail.stateReason);
         stateTimeline.record({
           paneId: detail.paneId,
           state: detail.state,
           reason: detail.stateReason,
           at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
-          source: resolveTimelineSource(detail.stateReason),
+          source: transitionSource,
         });
+        if (onStateTransition) {
+          const transitionEvent: SessionTransitionEvent = {
+            paneId: detail.paneId,
+            previous: existing,
+            next: detail,
+            at:
+              detail.lastEventAt ??
+              detail.lastOutputAt ??
+              detail.lastInputAt ??
+              new Date().toISOString(),
+            source: transitionSource,
+          };
+          void Promise.resolve(onStateTransition(transitionEvent)).catch((error) => {
+            const message = toErrorMessage(error, "failed to dispatch notification event");
+            console.warn(`[vde-monitor] ${message}`);
+          });
+        }
       }
       registry.update(detail);
     }

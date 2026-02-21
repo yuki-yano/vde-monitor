@@ -55,6 +55,31 @@ describe("file content resolver", () => {
     }
   });
 
+  it("does not misclassify utf-8 text when sample ends mid-character", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-utf8-edge-"));
+    try {
+      await mkdir(path.join(repoRoot, "tmp"), { recursive: true });
+      const content = `${"a".repeat(8_191)}あ`;
+      await writeFile(path.join(repoRoot, "tmp", "edge.md"), content);
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "tmp/edge.md",
+        maxBytes: 20_000,
+      });
+
+      expect(result).toMatchObject({
+        path: "tmp/edge.md",
+        isBinary: false,
+        truncated: false,
+        languageHint: "markdown",
+      });
+      expect(result.content).toBe(content);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects non-file paths", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-dir-"));
     try {

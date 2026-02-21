@@ -26,6 +26,7 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 - エージェント操作: CLI / UI から tmux セッションへ Codex / Claude を起動
 - マルチ pane 監視: デスクトップ向け Chat Grid で並列監視
 - モバイル UI/UX 優先: 主要な監視・操作フローをスマホブラウザの一次体験として設計
+- PWA Push 通知: セッション単位トグル（既定OFF）と設定ファイルの全体ON/OFFに対応
 
 ## 要件
 
@@ -100,9 +101,17 @@ vde-monitor: http://localhost:11080/#token=...
 モバイル端末で HTTPS アクセスする場合（Tailscale）:
 
 1. Tailscale + HTTPS モードで起動（例: `npx vde-monitor@latest --tailscale --https`）
-2. `tailscale serve --bg <printed-web-port>` を実行
-3. `https://<device>.<tailnet>.ts.net/#token=...` を開く（`http://100.x.x.x/...` ではなく）
-4. `tailscale serve status` で状態を確認
+2. 起動時の `Run tailscale serve now? [y/N]` に応答
+   - `y` / `yes`: `tailscale serve --bg <printed-web-port>` を自動実行
+   - 既定の `N`: 自動実行せず、手動復旧コマンドを表示
+3. 既存の `tailscale serve` 設定がある場合は上書きせず、案内のみ表示
+4. `https://<device>.<tailnet>.ts.net/#token=...` を開く（`http://100.x.x.x/...` ではなく）
+5. `tailscale serve status` で状態を確認
+
+iOS の補足:
+
+- iOS の Web Push はホーム画面に追加したスタンドアロンPWAでのみ利用可能
+- iOS の通常 Safari タブではセッション通知トグルは表示されない
 
 ## 便利なコマンド
 
@@ -137,6 +146,8 @@ npx vde-monitor@latest [options]
 - `--tailscale` 単体では Tailscale IP に bind
 - `--public --tailscale` では `0.0.0.0` に bind しつつ Tailscale URL を表示
 - `--https` は `--tailscale` 併用時のみ有効（それ以外は通常の HTTP 案内）
+- `--tailscale --https` では `tailscale serve --bg <port>` の自動実行前に確認プロンプトを表示（既定 `N`）
+- 既存の `tailscale serve` 設定は自動で上書きしない
 - Tailscale 経由で HTTPS を使う場合は `tailscale serve` / `tailscale funnel` を使用（Tailscale IP の HTTP は HTTPS ではない）
 
 ### tmux セッションでエージェント起動
@@ -194,6 +205,22 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `includeIgnoredPaths` に一致したものだけ表示
 - tree/search/content と log file-reference 解決に適用
 
+`notifications` の方針:
+
+- `notifications.pushEnabled`: Push 通知配信の全体スイッチ
+  - `false` の場合、サーバーは新規購読upsertを拒否
+  - クライアントは次回 settings 同期で無効状態へ遷移
+- `notifications.enabledEventTypes`: 全体イベントフィルタ
+  - 指定可能値: `pane.waiting_permission`, `pane.task_completed`
+  - 指定する場合は空配列不可
+
+`workspaceTabs.displayMode` の方針:
+
+- `all`（既定）: モバイルの workspace tabs をブラウザ/PWAの両方で表示
+- `pwa`: モバイルの workspace tabs をインストール済みPWAでのみ表示
+- `none`: モバイルの workspace tabs を無効化
+- displayMode に関係なく tabs はモバイル幅（`max-width: 767px`）でのみ表示
+
 最小構成のグローバル設定例:
 
 ```yaml
@@ -217,6 +244,13 @@ multiplexer:
   wezterm:
     cliPath: wezterm
     target: auto
+notifications:
+  pushEnabled: true
+  enabledEventTypes:
+    - pane.waiting_permission
+    - pane.task_completed
+workspaceTabs:
+  displayMode: all
 tmux:
   socketName: null
   socketPath: null
@@ -248,6 +282,8 @@ fileNavigator:
 
 - Token: `~/.vde-monitor/token.json`
 - セッション / タイムライン永続化: `~/.vde-monitor/state.json`
+- Push VAPID鍵: `~/.vde-monitor/push-vapid.json`
+- Push購読情報: `~/.vde-monitor/notifications.json`
 - Hook イベントログ: `~/.vde-monitor/events/<server-key>/claude.jsonl`
 - アップロード画像添付: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 

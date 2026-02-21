@@ -10,6 +10,7 @@ import {
   LaunchConfig,
   ScreenResponse,
   SessionSummary,
+  WorkspaceTabsDisplayMode,
 } from "@vde-monitor/shared";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -356,6 +357,7 @@ type RefreshSessionsParams = {
   onConnectionIssue: OnConnectionIssue;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
+  onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
 };
 
@@ -366,6 +368,7 @@ export const refreshSessions = async ({
   onConnectionIssue,
   onHighlightCorrections,
   onFileNavigatorConfig,
+  onWorkspaceTabsDisplayMode,
   onLaunchConfig,
 }: RefreshSessionsParams): Promise<RefreshSessionsResult> => {
   if (!token) {
@@ -382,6 +385,7 @@ export const refreshSessions = async ({
       onSessions,
       onHighlightCorrections,
       onFileNavigatorConfig,
+      onWorkspaceTabsDisplayMode,
       onLaunchConfig,
       onConnectionIssue,
     });

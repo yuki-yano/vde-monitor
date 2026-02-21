@@ -26,6 +26,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 - Agent operations: launch Codex/Claude into tmux sessions from CLI/UI
 - Multi-pane monitoring: desktop-oriented Chat Grid for side-by-side pane tracking
 - Mobile-first UI/UX: primary monitor/control flows are treated as first-class for phone browsers
+- PWA push notifications: per-session notification toggle (default off) plus global config-level enable/disable
 
 ## Requirements
 
@@ -100,9 +101,17 @@ Typical flow:
 For Tailscale HTTPS access:
 
 1. Start with Tailscale + HTTPS mode (example): `npx vde-monitor@latest --tailscale --https`.
-2. Run `tailscale serve --bg <printed-web-port>`.
-3. Open `https://<device>.<tailnet>.ts.net/#token=...` (not the plain `http://100.x.x.x/...` URL).
-4. Verify with `tailscale serve status`.
+2. On startup, answer `Run tailscale serve now? [y/N]`.
+   - `y` / `yes`: runs `tailscale serve --bg <printed-web-port>` automatically.
+   - default `N`: skips auto setup and prints manual recovery command.
+3. If existing `tailscale serve` settings are already present, vde-monitor does not overwrite them and prints guidance instead.
+4. Open `https://<device>.<tailnet>.ts.net/#token=...` (not the plain `http://100.x.x.x/...` URL).
+5. Verify with `tailscale serve status`.
+
+Notes for iOS:
+
+- Web Push on iOS requires an installed Home Screen web app (standalone PWA mode).
+- In regular Safari tabs on iOS, the session notification toggle is hidden.
 
 ## Useful commands
 
@@ -137,6 +146,8 @@ Notes:
 - `--tailscale` without `--public` binds to the Tailscale IP
 - `--public --tailscale` binds to `0.0.0.0` and prints a Tailscale URL
 - `--https` only takes effect when used with `--tailscale` (otherwise standard HTTP guidance is shown)
+- `--tailscale --https` asks before auto-running `tailscale serve --bg <port>` (default `N`)
+- Existing `tailscale serve` settings are never auto-overwritten
 - For HTTPS on Tailscale, use `tailscale serve` or `tailscale funnel`; plain Tailscale IP HTTP is not HTTPS
 
 ### Launch agent in tmux session
@@ -194,6 +205,22 @@ Project config discovery:
 - ignored paths become visible only when matching `includeIgnoredPaths`
 - applies to tree/search/content and log file-reference resolution
 
+`notifications` policy:
+
+- `notifications.pushEnabled`: global master switch for push notification delivery
+  - when `false`, the server rejects new subscription upserts
+  - clients switch to disabled state on the next settings sync
+- `notifications.enabledEventTypes`: global event filter
+  - allowed values: `pane.waiting_permission`, `pane.task_completed`
+  - must be non-empty when provided
+
+`workspaceTabs.displayMode` policy:
+
+- `all` (default): show mobile workspace tabs in both browser and installed PWA
+- `pwa`: show mobile workspace tabs only in installed PWA mode
+- `none`: disable mobile workspace tabs
+- tabs are mobile-only (`max-width: 767px`) regardless of display mode
+
 Minimal global config example:
 
 ```yaml
@@ -217,6 +244,13 @@ multiplexer:
   wezterm:
     cliPath: wezterm
     target: auto
+notifications:
+  pushEnabled: true
+  enabledEventTypes:
+    - pane.waiting_permission
+    - pane.task_completed
+workspaceTabs:
+  displayMode: all
 tmux:
   socketName: null
   socketPath: null
@@ -248,6 +282,8 @@ Supported image backends:
 
 - Token: `~/.vde-monitor/token.json`
 - Session/timeline persistence: `~/.vde-monitor/state.json`
+- Push VAPID keys: `~/.vde-monitor/push-vapid.json`
+- Push subscriptions: `~/.vde-monitor/notifications.json`
 - Hook event logs: `~/.vde-monitor/events/<server-key>/claude.jsonl`
 - Uploaded image attachments: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 

@@ -8,4 +8,5 @@ export * from "./prompt-start";
 export * from "./schemas";
 export * from "./screen-capture";
 export * from "./types";
+export * from "./utils";
 export * from "./xdg";

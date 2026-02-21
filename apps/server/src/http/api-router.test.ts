@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   type AgentMonitorConfig,
   defaultConfig,
+  type NotificationSettings,
   type RepoNote,
   type SessionDetail,
 } from "@vde-monitor/shared";
@@ -14,6 +15,7 @@ import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../domain/gi
 import { fetchDiffSummary } from "../domain/git/git-diff";
 import type { createSessionMonitor } from "../monitor";
 import type { MultiplexerInputActions } from "../multiplexer/types";
+import type { NotificationService } from "../notifications/service";
 import { createSessionRegistry } from "../session-registry";
 import { createApiRouter } from "./api-router";
 import {
@@ -169,7 +171,27 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
       rollback: { attempted: false, ok: true },
     })),
   } as unknown as MultiplexerInputActions;
-  const api = createApiRouter({ config, monitor, actions });
+  const settings: NotificationSettings = {
+    pushEnabled: true,
+    vapidPublicKey: "test-vapid",
+    supportedEvents: ["pane.waiting_permission", "pane.task_completed"],
+    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
+    requireStandaloneOnIOS: true,
+  };
+  const notificationService = {
+    getSettings: vi.fn(() => settings),
+    upsertSubscription: vi.fn(() => ({
+      subscriptionId: "sub-1",
+      created: true,
+      savedAt: "2026-02-20T00:00:00.000Z",
+    })),
+    removeSubscription: vi.fn(() => true),
+    revokeSubscriptions: vi.fn(() => 0),
+    removeAllSubscriptions: vi.fn(() => 0),
+    dispatchTransition: vi.fn(async () => undefined),
+    getSupportedEvents: vi.fn(() => ["pane.waiting_permission", "pane.task_completed"]),
+  } as unknown as NotificationService;
+  const api = createApiRouter({ config, monitor, actions, notificationService });
   return {
     api,
     config,
@@ -255,6 +277,7 @@ describe("createApiRouter", () => {
     expect(data.clientConfig.fileNavigator.autoExpandMatchLimit).toBe(
       config.fileNavigator.autoExpandMatchLimit,
     );
+    expect(data.clientConfig.workspaceTabs.displayMode).toBe(config.workspaceTabs.displayMode);
     expect(data.clientConfig.launch).toEqual(config.launch);
   });
 

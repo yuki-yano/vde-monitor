@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { upsertLocalNotificationSessionTitle } from "@/lib/notification-session-title-store";
 
 import {
   titleDraftAtom,
@@ -72,6 +73,11 @@ export const useSessionTitleEditor = ({
     setTitleSaving(true);
     try {
       await updateSessionTitle(session.paneId, trimmed.length > 0 ? trimmed : null);
+      const nextLocalTitle = trimmed.length > 0 ? trimmed : (session.title ?? session.sessionName);
+      void upsertLocalNotificationSessionTitle({
+        paneId: session.paneId,
+        title: nextLocalTitle,
+      }).catch(() => undefined);
       setTitleEditing(false);
       setTitleError(null);
     } catch (err) {
@@ -98,6 +104,11 @@ export const useSessionTitleEditor = ({
     setTitleSaving(true);
     try {
       await updateSessionTitle(session.paneId, nextTitle);
+      const nextLocalTitle = nextTitle ?? session.title ?? session.sessionName;
+      void upsertLocalNotificationSessionTitle({
+        paneId: session.paneId,
+        title: nextLocalTitle,
+      }).catch(() => undefined);
       setTitleEditing(false);
       setTitleDraft(nextTitle ?? "");
       setTitleError(null);

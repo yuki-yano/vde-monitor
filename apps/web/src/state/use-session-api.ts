@@ -8,6 +8,7 @@ import {
   type LaunchConfig,
   type ScreenResponse,
   type SessionSummary,
+  type WorkspaceTabsDisplayMode,
 } from "@vde-monitor/shared";
 import { useCallback, useMemo, useRef } from "react";
 
@@ -40,6 +41,7 @@ type UseSessionApiParams = {
   onSessionRemoved: (paneId: string) => void;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
+  onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
 };
 
@@ -58,6 +60,7 @@ export const useSessionApi = ({
   onSessionRemoved,
   onHighlightCorrections,
   onFileNavigatorConfig,
+  onWorkspaceTabsDisplayMode,
   onLaunchConfig,
 }: UseSessionApiParams) => {
   const ensureToken = useCallback(() => {
@@ -108,6 +111,7 @@ export const useSessionApi = ({
       onConnectionIssue,
       onHighlightCorrections,
       onFileNavigatorConfig,
+      onWorkspaceTabsDisplayMode,
       onLaunchConfig,
     });
   }, [
@@ -116,6 +120,7 @@ export const useSessionApi = ({
     onFileNavigatorConfig,
     onHighlightCorrections,
     onLaunchConfig,
+    onWorkspaceTabsDisplayMode,
     onSessions,
     token,
   ]);

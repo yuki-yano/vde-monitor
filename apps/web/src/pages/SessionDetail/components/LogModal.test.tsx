@@ -1,13 +1,35 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { logModalDisplayLinesAtom, logModalIsAtBottomAtom } from "../atoms/logAtoms";
 import { createSessionDetail } from "../test-helpers";
 import { LogModal } from "./LogModal";
 
 let latestOnUserScrollStateChange: ((value: boolean) => void) | null = null;
+const mockUseWorkspaceTabs = vi.hoisted(
+  () =>
+    ({
+      enabled: false as boolean,
+      activeTabId: "system:sessions",
+      tabs: [],
+      openSessionTab: vi.fn<(paneId: string) => void>(),
+      activateTab: vi.fn<(tabId: string) => void>(),
+      closeTab: vi.fn<(tabId: string) => void>(),
+      reorderTabs: vi.fn<(activeTabId: string, overTabId: string) => void>(),
+      reorderTabsByClosableOrder: vi.fn<(orderedClosableTabIds: string[]) => void>(),
+    }) satisfies {
+      enabled: boolean;
+      activeTabId: string;
+      tabs: unknown[];
+      openSessionTab: (paneId: string) => void;
+      activateTab: (tabId: string) => void;
+      closeTab: (tabId: string) => void;
+      reorderTabs: (activeTabId: string, overTabId: string) => void;
+      reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
+    },
+);
 
 vi.mock("@/features/shared-session-ui/hooks/useStableVirtuosoScroll", () => ({
   useStableVirtuosoScroll: ({
@@ -44,6 +66,10 @@ vi.mock("react-virtuoso", () => ({
   ),
 }));
 
+vi.mock("@/features/pwa-tabs/context/workspace-tabs-context", () => ({
+  useWorkspaceTabs: () => mockUseWorkspaceTabs,
+}));
+
 describe("LogModal", () => {
   type LogModalState = Parameters<typeof LogModal>[0]["state"];
   type LogModalActions = Parameters<typeof LogModal>[0]["actions"];
@@ -71,6 +97,18 @@ describe("LogModal", () => {
     onOpenHere: vi.fn(),
     onOpenNewTab: vi.fn(),
     ...overrides,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseWorkspaceTabs.enabled = false;
+    mockUseWorkspaceTabs.activeTabId = "system:sessions";
+    mockUseWorkspaceTabs.tabs = [];
+    mockUseWorkspaceTabs.openSessionTab = vi.fn();
+    mockUseWorkspaceTabs.activateTab = vi.fn();
+    mockUseWorkspaceTabs.closeTab = vi.fn();
+    mockUseWorkspaceTabs.reorderTabs = vi.fn();
+    mockUseWorkspaceTabs.reorderTabsByClosableOrder = vi.fn();
   });
 
   it("returns null when closed", () => {
@@ -166,5 +204,15 @@ describe("LogModal", () => {
     });
 
     expect(screen.getByText("line2")).toBeTruthy();
+  });
+
+  it("uses workspace tab label when pwa tabs are enabled", () => {
+    mockUseWorkspaceTabs.enabled = true;
+    const state = buildState({ open: true, session: createSessionDetail(), logLines: ["line1"] });
+    const actions = buildActions();
+    const wrapper = createWrapper();
+    render(<LogModal state={state} actions={actions} />, { wrapper });
+
+    expect(screen.getByLabelText("Open in workspace tab")).toBeTruthy();
   });
 });

@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { CommandResponse } from "@vde-monitor/shared";
 import { useCallback } from "react";
 
+import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 type UseSessionDetailActionsParams = {
@@ -24,15 +25,20 @@ export const useSessionDetailActions = ({
   setScreenError,
 }: UseSessionDetailActionsParams) => {
   const navigate = useNavigate();
+  const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
 
   const handleOpenPaneInNewWindow = useCallback(
     (targetPaneId: string) => {
       closeQuickPanel();
       closeLogModal();
+      if (pwaTabsEnabled) {
+        openSessionTab(targetPaneId);
+        return;
+      }
       const encoded = encodeURIComponent(targetPaneId);
       window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
     },
-    [closeLogModal, closeQuickPanel],
+    [closeLogModal, closeQuickPanel, openSessionTab, pwaTabsEnabled],
   );
 
   const handleOpenInNewTab = useCallback(() => {

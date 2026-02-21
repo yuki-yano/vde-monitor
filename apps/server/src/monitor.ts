@@ -16,6 +16,7 @@ import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "./multiplexer/types";
+import type { SessionTransitionEvent } from "./notifications/types";
 import { createRepoNotesService } from "./repo-notes/service";
 import { createRepoNotesStore } from "./repo-notes/store";
 import { createSessionRegistry } from "./session-registry";
@@ -24,7 +25,15 @@ import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
 
-export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentMonitorConfig) => {
+type CreateSessionMonitorOptions = {
+  onSessionTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
+};
+
+export const createSessionMonitor = (
+  runtime: MultiplexerRuntime,
+  config: AgentMonitorConfig,
+  options: CreateSessionMonitorOptions = {},
+) => {
   configureVwGhRefreshIntervalMs(config.activity.vwGhRefreshIntervalMs);
 
   const inspector = runtime.inspector;
@@ -86,6 +95,7 @@ export const createSessionMonitor = (runtime: MultiplexerRuntime, config: AgentM
     stateTimeline,
     logActivity,
     savePersistedState,
+    onStateTransition: options.onSessionTransition,
   });
   const markPaneViewed = paneUpdateService.markPaneViewed;
   const updateFromPanes = paneUpdateService.updateFromPanes;

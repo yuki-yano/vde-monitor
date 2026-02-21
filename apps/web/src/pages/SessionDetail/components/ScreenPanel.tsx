@@ -1,5 +1,5 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
-import { FileText, Image, RefreshCw, TextWrap } from "lucide-react";
+import { Bell, BellOff, FileText, Image, RefreshCw, TextWrap } from "lucide-react";
 import {
   forwardRef,
   type HTMLAttributes,
@@ -13,6 +13,7 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/components/ui";
+import type { PushUiStatus } from "@/features/notifications/use-push-notifications";
 import { cn } from "@/lib/cn";
 import type { ScreenMode } from "@/lib/screen-loading";
 
@@ -70,6 +71,10 @@ type ScreenPanelState = {
   worktreeBaseBranch: string | null;
   actualWorktreePath: string | null;
   virtualWorktreePath: string | null;
+  notificationStatus: PushUiStatus;
+  notificationPushEnabled: boolean;
+  notificationSubscribed: boolean;
+  notificationPaneEnabled: boolean;
 };
 
 type ScreenPanelActions = {
@@ -82,6 +87,8 @@ type ScreenPanelActions = {
   onUserScrollStateChange: (value: boolean) => void;
   onSelectVirtualWorktree?: (path: string) => void;
   onClearVirtualWorktree?: () => void;
+  onRequestNotificationPermission?: () => void;
+  onTogglePaneNotification?: () => void;
   onResolveFileReference: (rawToken: string) => Promise<void>;
   onResolveFileReferenceCandidates: (rawTokens: string[]) => Promise<string[]>;
 };
@@ -217,6 +224,10 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     worktreeBaseBranch,
     actualWorktreePath,
     virtualWorktreePath,
+    notificationStatus,
+    notificationPushEnabled,
+    notificationSubscribed,
+    notificationPaneEnabled,
   } = state;
   const {
     onModeChange,
@@ -228,6 +239,8 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     onUserScrollStateChange,
     onSelectVirtualWorktree,
     onClearVirtualWorktree,
+    onRequestNotificationPermission,
+    onTogglePaneNotification,
     onResolveFileReference,
     onResolveFileReferenceCandidates,
   } = actions;
@@ -298,6 +311,13 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
         : [],
     [agent, effectiveWrapMode, mode, screenLines],
   );
+  const showPaneNotificationToggle = notificationStatus !== "needs-ios-install";
+  const paneNotificationClickHandler = notificationSubscribed
+    ? onTogglePaneNotification
+    : onRequestNotificationPermission;
+  const paneNotificationAriaLabel = notificationSubscribed
+    ? "Toggle session notification"
+    : "Enable push notifications";
   const { linkifiedScreenLines, handleScreenRangeChanged } = useScreenPanelLogReferenceLinking({
     mode,
     effectiveWrapMode,
@@ -373,6 +393,27 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
         <div className="flex items-center gap-2">{screenModeTabs(mode, onModeChange)}</div>
         <div className="flex items-center gap-2">
           <RawModeIndicator rawMode={rawMode} allowDangerKeys={allowDangerKeys} />
+          {showPaneNotificationToggle ? (
+            <Button
+              variant={notificationPaneEnabled ? "primary" : "ghost"}
+              size="sm"
+              className="h-[30px] w-[30px] p-0"
+              onClick={paneNotificationClickHandler ?? undefined}
+              disabled={
+                !notificationPushEnabled ||
+                !paneNotificationClickHandler ||
+                notificationStatus === "denied"
+              }
+              aria-label={paneNotificationAriaLabel}
+              aria-pressed={notificationSubscribed ? notificationPaneEnabled : undefined}
+            >
+              {notificationPaneEnabled ? (
+                <Bell className="h-3.5 w-3.5" />
+              ) : (
+                <BellOff className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          ) : null}
           <Button
             variant={wrapMode === "smart" ? "primary" : "ghost"}
             size="sm"

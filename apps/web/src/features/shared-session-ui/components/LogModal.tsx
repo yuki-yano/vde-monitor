@@ -5,6 +5,7 @@ import { forwardRef, type HTMLAttributes, useCallback, useEffect, useMemo, useRe
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, Toolbar } from "@/components/ui";
+import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import {
   logModalDisplayLinesAtom,
   logModalIsAtBottomAtom,
@@ -37,6 +38,7 @@ type LogModalProps = {
 export const LogModal = ({ state, actions }: LogModalProps) => {
   const { open, session, logLines, loading, error } = state;
   const { onClose, onOpenHere, onOpenNewTab } = actions;
+  const { enabled: pwaTabsEnabled } = useWorkspaceTabs();
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useAtom(logModalIsAtBottomAtom);
   const [displayLines, setDisplayLines] = useAtom(logModalDisplayLinesAtom);
@@ -173,7 +175,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
                 variant="ghost"
                 size="sm"
                 onClick={onOpenNewTab}
-                aria-label="Open in new tab"
+                aria-label={pwaTabsEnabled ? "Open in workspace tab" : "Open in new tab"}
                 className="border-latte-lavender/40 text-latte-lavender hover:border-latte-lavender/60 hover:bg-latte-lavender/10 h-7 w-7 p-0"
               >
                 <ExternalLink className="h-4 w-4" />

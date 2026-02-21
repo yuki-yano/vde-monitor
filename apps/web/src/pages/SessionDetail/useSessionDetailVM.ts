@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 
+import { usePushNotifications } from "@/features/notifications/use-push-notifications";
+
 import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
@@ -14,6 +16,8 @@ import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
 export const useSessionDetailVM = (paneId: string) => {
+  const pushNotifications = usePushNotifications({ paneId });
+
   const {
     sessions,
     connected,
@@ -337,6 +341,12 @@ export const useSessionDetailVM = (paneId: string) => {
       virtualWorktreePath: virtualWorktree.virtualWorktreePath,
       selectVirtualWorktree: virtualWorktree.selectVirtualWorktree,
       clearVirtualWorktree: virtualWorktree.clearVirtualWorktree,
+      notificationStatus: pushNotifications.status,
+      notificationPushEnabled: pushNotifications.pushEnabled,
+      notificationSubscribed: pushNotifications.isSubscribed,
+      notificationPaneEnabled: pushNotifications.isPaneEnabled,
+      requestNotificationPermission: pushNotifications.requestPermissionAndSubscribe,
+      togglePaneNotification: pushNotifications.togglePaneEnabled,
     },
     controls: {
       interactive: connectionStatus !== "disconnected",

@@ -1,15 +1,84 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useSessionDetailActions } from "./useSessionDetailActions";
 
 const navigateMock = vi.hoisted(() => vi.fn());
+const mockUseWorkspaceTabs = vi.hoisted(
+  () =>
+    ({
+      enabled: false as boolean,
+      activeTabId: "system:sessions",
+      tabs: [],
+      openSessionTab: vi.fn<(paneId: string) => void>(),
+      activateTab: vi.fn<(tabId: string) => void>(),
+      closeTab: vi.fn<(tabId: string) => void>(),
+      reorderTabs: vi.fn<(activeTabId: string, overTabId: string) => void>(),
+      reorderTabsByClosableOrder: vi.fn<(orderedClosableTabIds: string[]) => void>(),
+    }) satisfies {
+      enabled: boolean;
+      activeTabId: string;
+      tabs: unknown[];
+      openSessionTab: (paneId: string) => void;
+      activateTab: (tabId: string) => void;
+      closeTab: (tabId: string) => void;
+      reorderTabs: (activeTabId: string, overTabId: string) => void;
+      reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
+    },
+);
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
 }));
 
+vi.mock("@/features/pwa-tabs/context/workspace-tabs-context", () => ({
+  useWorkspaceTabs: () => mockUseWorkspaceTabs,
+}));
+
 describe("useSessionDetailActions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseWorkspaceTabs.enabled = false;
+    mockUseWorkspaceTabs.activeTabId = "system:sessions";
+    mockUseWorkspaceTabs.tabs = [];
+    mockUseWorkspaceTabs.openSessionTab = vi.fn();
+    mockUseWorkspaceTabs.activateTab = vi.fn();
+    mockUseWorkspaceTabs.closeTab = vi.fn();
+    mockUseWorkspaceTabs.reorderTabs = vi.fn();
+    mockUseWorkspaceTabs.reorderTabsByClosableOrder = vi.fn();
+  });
+
+  it("uses workspace tab open when pwa tabs are enabled", () => {
+    const closeQuickPanel = vi.fn();
+    const closeLogModal = vi.fn();
+    const openSessionTab = vi.fn();
+    mockUseWorkspaceTabs.enabled = true;
+    mockUseWorkspaceTabs.openSessionTab = openSessionTab;
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { result } = renderHook(() =>
+      useSessionDetailActions({
+        paneId: "pane-current",
+        selectedPaneId: "pane target/1",
+        closeQuickPanel,
+        closeLogModal,
+        touchSession: vi.fn(async () => undefined),
+        focusPane: vi.fn(async () => ({ ok: true })),
+        setScreenError: vi.fn(),
+      }),
+    );
+
+    act(() => {
+      result.current.handleOpenInNewTab();
+    });
+
+    expect(closeQuickPanel).toHaveBeenCalledTimes(1);
+    expect(closeLogModal).toHaveBeenCalledTimes(1);
+    expect(openSessionTab).toHaveBeenCalledWith("pane target/1");
+    expect(openSpy).not.toHaveBeenCalled();
+
+    openSpy.mockRestore();
+  });
+
   it("closes quick panel and log modal before opening target pane in new window", () => {
     const closeQuickPanel = vi.fn();
     const closeLogModal = vi.fn();

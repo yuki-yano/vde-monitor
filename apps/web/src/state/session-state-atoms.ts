@@ -20,6 +20,7 @@ import type {
   SessionStateTimeline,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
+  WorkspaceTabsDisplayMode,
   WorktreeList,
 } from "@vde-monitor/shared";
 import { atom } from "jotai";
@@ -134,6 +135,7 @@ export const sessionHighlightCorrectionsAtom = atom<HighlightCorrectionConfig>({
 export const sessionFileNavigatorConfigAtom = atom<ClientFileNavigatorConfig>({
   autoExpandMatchLimit: 100,
 });
+export const sessionWorkspaceTabsDisplayModeAtom = atom<WorkspaceTabsDisplayMode>("all");
 export const sessionLaunchConfigAtom = atom<LaunchConfig>(defaultLaunchConfig);
 export const sessionApiAtom = atom<SessionApi>({
   reconnect: throwMissingSessionProvider,

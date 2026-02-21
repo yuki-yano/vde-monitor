@@ -39,6 +39,9 @@ export const createSessionRoutes = ({
           fileNavigator: {
             autoExpandMatchLimit: config.fileNavigator.autoExpandMatchLimit,
           },
+          workspaceTabs: {
+            displayMode: config.workspaceTabs.displayMode,
+          },
           launch: config.launch,
         },
       });

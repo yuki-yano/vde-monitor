@@ -146,6 +146,12 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       virtualWorktreePath: null,
       selectVirtualWorktree: vi.fn(),
       clearVirtualWorktree: vi.fn(),
+      notificationStatus: "idle",
+      notificationPushEnabled: true,
+      notificationSubscribed: false,
+      notificationPaneEnabled: false,
+      requestNotificationPermission: vi.fn(async () => undefined),
+      togglePaneNotification: vi.fn(async () => undefined),
     },
     controls: {
       interactive: true,

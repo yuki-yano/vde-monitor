@@ -379,6 +379,15 @@ body::before {
   background: transparent;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .vde-shiki-with-line-numbers code {
   counter-reset: vde-line-number;
   display: block;

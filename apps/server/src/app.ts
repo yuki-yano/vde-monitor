@@ -11,6 +11,7 @@ import { createApiRouter } from "./http/api-router";
 import { buildError, isOriginAllowed, requireAuth } from "./http/helpers";
 import type { createSessionMonitor } from "./monitor";
 import type { MultiplexerInputActions } from "./multiplexer/types";
+import type { NotificationService } from "./notifications/service";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 
@@ -18,12 +19,13 @@ type AppContext = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
+  notificationService: NotificationService;
 };
 
-export const createApp = ({ config, monitor, actions }: AppContext) => {
+export const createApp = ({ config, monitor, actions, notificationService }: AppContext) => {
   const app = new Hono();
 
-  const api = createApiRouter({ config, monitor, actions });
+  const api = createApiRouter({ config, monitor, actions, notificationService });
   app.route("/api", api);
 
   app.use("/api/admin/*", async (c, next) => {
@@ -40,6 +42,7 @@ export const createApp = ({ config, monitor, actions }: AppContext) => {
   app.post("/api/admin/token/rotate", (c) => {
     const next = rotateToken();
     config.token = next.token;
+    notificationService.removeAllSubscriptions();
     return c.json({ token: next.token });
   });
 

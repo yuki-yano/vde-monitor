@@ -5,6 +5,14 @@ export type SessionStateValue =
   | "SHELL"
   | "UNKNOWN";
 
+export type PushEventType =
+  | "pane.waiting_permission"
+  | "pane.task_completed"
+  | "pane.error"
+  | "pane.long_waiting_permission";
+
+export type ConfigPushEventType = "pane.waiting_permission" | "pane.task_completed";
+
 export type AllowedKey =
   | "Enter"
   | "Escape"
@@ -292,6 +300,7 @@ export type ApiErrorCode =
   | "TMUX_UNAVAILABLE"
   | "WEZTERM_UNAVAILABLE"
   | "RATE_LIMIT"
+  | "PUSH_DISABLED"
   | "INTERNAL";
 
 export type ApiError = {
@@ -301,6 +310,47 @@ export type ApiError = {
 
 export type ApiEnvelope<T> = T & {
   error?: ApiError;
+};
+
+export type PushSubscriptionJson = {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
+
+export type NotificationSubscriptionScope = {
+  paneIds?: string[];
+  eventTypes?: PushEventType[] | null;
+};
+
+export type NotificationClientInfo = {
+  platform?: "ios" | "android" | "desktop" | "unknown";
+  standalone?: boolean;
+  userAgent?: string;
+};
+
+export type NotificationSubscriptionUpsertJson = {
+  deviceId: string;
+  subscription: PushSubscriptionJson;
+  scope?: NotificationSubscriptionScope;
+  client?: NotificationClientInfo;
+};
+
+export type NotificationSubscriptionRevokeJson = {
+  subscriptionId?: string;
+  endpoint?: string;
+  deviceId?: string;
+};
+
+export type NotificationSettings = {
+  pushEnabled: boolean;
+  vapidPublicKey: string;
+  supportedEvents: PushEventType[];
+  enabledEventTypes: ConfigPushEventType[];
+  requireStandaloneOnIOS: boolean;
 };
 
 export type ScreenCaptureMeta = {
@@ -461,9 +511,16 @@ export type ClientFileNavigatorConfig = {
   autoExpandMatchLimit: number;
 };
 
+export type WorkspaceTabsDisplayMode = "all" | "pwa" | "none";
+
+export type ClientWorkspaceTabsConfig = {
+  displayMode: WorkspaceTabsDisplayMode;
+};
+
 export type ClientConfig = {
   screen: ClientScreenConfig;
   fileNavigator: ClientFileNavigatorConfig;
+  workspaceTabs: ClientWorkspaceTabsConfig;
   launch: LaunchConfig;
 };
 
@@ -531,6 +588,13 @@ export type AgentMonitorConfigBase = {
     };
   };
   launch: LaunchConfig;
+  notifications: {
+    pushEnabled: boolean;
+    enabledEventTypes: ConfigPushEventType[];
+  };
+  workspaceTabs: {
+    displayMode: WorkspaceTabsDisplayMode;
+  };
   fileNavigator: FileNavigatorConfig;
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
 };

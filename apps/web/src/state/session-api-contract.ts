@@ -46,6 +46,12 @@ const assertApiClientContract: (value: unknown) => asserts value is ApiClientCon
   if (!paneRoutes || !isRecord(paneRoutes.screen) || !hasMethod(paneRoutes.screen, "$post")) {
     throw new Error("Invalid API client: missing pane screen route.");
   }
+  if (!isRecord(value.notifications) || !isRecord(value.notifications.settings)) {
+    throw new Error("Invalid API client: missing notifications routes.");
+  }
+  if (!hasMethod(value.notifications.settings, "$get")) {
+    throw new Error("Invalid API client: missing notifications settings route.");
+  }
 };
 
 export const createApiClient = (

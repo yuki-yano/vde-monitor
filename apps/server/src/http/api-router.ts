@@ -4,11 +4,13 @@ import { Hono } from "hono";
 import { createCommandResponse } from "../command/command-response";
 import { createRateLimiter } from "../limits/rate-limit";
 import type { MultiplexerInputActions } from "../multiplexer/types";
+import type { NotificationService } from "../notifications/service";
 import { createScreenCache } from "../screen/screen-cache";
 import { buildError, isOriginAllowed, requireAuth } from "./helpers";
 import { IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES } from "./image-attachment";
 import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
+import { createNotificationRoutes } from "./routes/notification-routes";
 import { createSessionRoutes } from "./routes/session-routes";
 import type { CommandPayload, HeaderContext, Monitor, RouteContext } from "./routes/types";
 
@@ -16,6 +18,7 @@ type ApiContext = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
+  notificationService: NotificationService;
 };
 
 const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
@@ -60,7 +63,7 @@ const applyCorsHeaders = (
   c.header("Vary", mergeVary(c.res.headers.get("Vary"), "Origin"));
 };
 
-export const createApiRouter = ({ config, monitor, actions }: ApiContext) => {
+export const createApiRouter = ({ config, monitor, actions, notificationService }: ApiContext) => {
   const api = new Hono();
   api.onError((error, c) => {
     const configValidationErrorCause = resolveConfigValidationErrorCause(error);
@@ -198,8 +201,14 @@ export const createApiRouter = ({ config, monitor, actions }: ApiContext) => {
       config,
     }),
   );
+  const withNotificationRoutes = withFileRoutes.route(
+    "/",
+    createNotificationRoutes({
+      notificationService,
+    }),
+  );
 
-  return withFileRoutes;
+  return withNotificationRoutes;
 };
 
 export type ApiAppType = ReturnType<typeof createApiRouter>;

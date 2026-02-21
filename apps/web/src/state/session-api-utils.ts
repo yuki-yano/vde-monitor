@@ -7,6 +7,7 @@ import type {
   LaunchConfig,
   ScreenResponse,
   SessionSummary,
+  WorkspaceTabsDisplayMode,
 } from "@vde-monitor/shared";
 import { encodePaneId } from "@vde-monitor/shared";
 
@@ -195,6 +196,7 @@ export const applyRefreshSessionsSuccess = ({
   onSessions,
   onHighlightCorrections,
   onFileNavigatorConfig,
+  onWorkspaceTabsDisplayMode,
   onLaunchConfig,
   onConnectionIssue,
 }: {
@@ -203,6 +205,7 @@ export const applyRefreshSessionsSuccess = ({
   onSessions: (sessions: SessionSummary[]) => void;
   onHighlightCorrections: (config: HighlightCorrectionConfig) => void;
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
+  onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
   onConnectionIssue: (message: string | null) => void;
 }): RefreshSessionsResult => {
@@ -214,6 +217,10 @@ export const applyRefreshSessionsSuccess = ({
   const nextFileNavigator = data.clientConfig?.fileNavigator;
   if (nextFileNavigator) {
     onFileNavigatorConfig(nextFileNavigator);
+  }
+  const nextWorkspaceTabs = data.clientConfig?.workspaceTabs?.displayMode;
+  if (nextWorkspaceTabs && onWorkspaceTabsDisplayMode) {
+    onWorkspaceTabsDisplayMode(nextWorkspaceTabs);
   }
   const nextLaunchConfig = data.clientConfig?.launch;
   if (nextLaunchConfig && onLaunchConfig) {

@@ -1,6 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import { useSessionGroupingSelector } from "@/features/shared-session-ui/hooks/useSessionGroupingSelector";
 import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessionListPins";
 import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
@@ -56,6 +57,7 @@ export const useSessionListVM = () => {
   const filter = isSessionListFilter(search.filter) ? search.filter : DEFAULT_SESSION_LIST_FILTER;
   const searchQuery = normalizeSessionListSearchQuery(search.q);
   const navigate = useNavigate({ from: "/" });
+  const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
   const { resolvedTheme } = useTheme();
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
@@ -104,10 +106,14 @@ export const useSessionListVM = () => {
     (targetPaneId: string) => {
       closeQuickPanel();
       closeLogModal();
+      if (pwaTabsEnabled) {
+        openSessionTab(targetPaneId);
+        return;
+      }
       const encoded = encodeURIComponent(targetPaneId);
       window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
     },
-    [closeLogModal, closeQuickPanel],
+    [closeLogModal, closeQuickPanel, openSessionTab, pwaTabsEnabled],
   );
 
   const handleOpenInNewTab = useCallback(() => {

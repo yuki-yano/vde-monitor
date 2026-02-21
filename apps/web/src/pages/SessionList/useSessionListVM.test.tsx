@@ -49,6 +49,28 @@ const mockUseSessionLogs = vi.hoisted(
       closeQuickPanel: () => void;
     },
 );
+const mockUseWorkspaceTabs = vi.hoisted(
+  () =>
+    ({
+      enabled: false as boolean,
+      activeTabId: "system:sessions",
+      tabs: [],
+      openSessionTab: vi.fn<(paneId: string) => void>(),
+      activateTab: vi.fn<(tabId: string) => void>(),
+      closeTab: vi.fn<(tabId: string) => void>(),
+      reorderTabs: vi.fn<(activeTabId: string, overTabId: string) => void>(),
+      reorderTabsByClosableOrder: vi.fn<(orderedClosableTabIds: string[]) => void>(),
+    }) satisfies {
+      enabled: boolean;
+      activeTabId: string;
+      tabs: unknown[];
+      openSessionTab: (paneId: string) => void;
+      activateTab: (tabId: string) => void;
+      closeTab: (tabId: string) => void;
+      reorderTabs: (activeTabId: string, overTabId: string) => void;
+      reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
+    },
+);
 
 vi.mock("@/state/session-context", () => ({
   useSessions: () => mockUseSessions(),
@@ -71,6 +93,10 @@ vi.mock("@/lib/use-sidebar-width", () => ({
 
 vi.mock("@/features/shared-session-ui/hooks/useSessionLogs", () => ({
   useSessionLogs: () => mockUseSessionLogs,
+}));
+
+vi.mock("@/features/pwa-tabs/context/workspace-tabs-context", () => ({
+  useWorkspaceTabs: () => mockUseWorkspaceTabs,
 }));
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
@@ -224,6 +250,14 @@ describe("useSessionListVM", () => {
     mockUseSessionLogs.closeLogModal = vi.fn();
     mockUseSessionLogs.toggleQuickPanel = vi.fn();
     mockUseSessionLogs.closeQuickPanel = vi.fn();
+    mockUseWorkspaceTabs.enabled = false;
+    mockUseWorkspaceTabs.activeTabId = "system:sessions";
+    mockUseWorkspaceTabs.tabs = [];
+    mockUseWorkspaceTabs.openSessionTab = vi.fn();
+    mockUseWorkspaceTabs.activateTab = vi.fn();
+    mockUseWorkspaceTabs.closeTab = vi.fn();
+    mockUseWorkspaceTabs.reorderTabs = vi.fn();
+    mockUseWorkspaceTabs.reorderTabsByClosableOrder = vi.fn();
     mockUseSessions.mockReturnValue({
       sessions: [],
       connected: true,
@@ -500,6 +534,27 @@ describe("useSessionListVM", () => {
       "_blank",
       "noopener,noreferrer",
     );
+    openSpy.mockRestore();
+  });
+
+  it("opens workspace tab instead of window when pwa tabs are enabled", async () => {
+    const closeQuickPanel = vi.fn();
+    const closeLogModal = vi.fn();
+    mockUseSessionLogs.selectedPaneId = "pane target/1";
+    mockUseSessionLogs.closeQuickPanel = closeQuickPanel;
+    mockUseSessionLogs.closeLogModal = closeLogModal;
+    mockUseWorkspaceTabs.enabled = true;
+    const openSessionTab = vi.fn();
+    mockUseWorkspaceTabs.openSessionTab = openSessionTab;
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    await renderWithRouter(["/"]);
+    fireEvent.click(screen.getByRole("button", { name: "open-new-tab" }));
+
+    expect(closeQuickPanel).toHaveBeenCalledTimes(1);
+    expect(closeLogModal).toHaveBeenCalledTimes(1);
+    expect(openSessionTab).toHaveBeenCalledWith("pane target/1");
+    expect(openSpy).not.toHaveBeenCalled();
     openSpy.mockRestore();
   });
 

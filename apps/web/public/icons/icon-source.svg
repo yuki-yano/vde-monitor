@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f0f20"/>
+      <stop offset="100%" stop-color="#1a1a35"/>
+    </linearGradient>
+    <linearGradient id="spark-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="40%" stop-color="#e0b0ff"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="ai-pane-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a1a40"/>
+      <stop offset="100%" stop-color="#1a1030"/>
+    </linearGradient>
+    <filter id="spark-glow">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feComposite in="blur" in2="blur" operator="over" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg5)"/>
+
+  <!-- Main terminal frame -->
+  <rect x="36" y="36" width="440" height="440" rx="32" fill="#0a0a16" stroke="#4a4a70" stroke-width="6"/>
+
+  <!-- Top bar (taller) -->
+  <rect x="36" y="36" width="440" height="72" rx="32" fill="#1e1e38"/>
+  <rect x="36" y="68" width="440" height="40" fill="#1e1e38"/>
+  <circle cx="82" cy="76" r="14" fill="#ff5f57"/>
+  <circle cx="120" cy="76" r="14" fill="#febc2e"/>
+  <circle cx="158" cy="76" r="14" fill="#28c840"/>
+
+  <!-- Vertical split line -->
+  <line x1="260" y1="120" x2="260" y2="464" stroke="#5a5a88" stroke-width="6"/>
+
+  <!-- Horizontal split line (right side) -->
+  <line x1="260" y1="292" x2="464" y2="292" stroke="#5a5a88" stroke-width="6"/>
+
+  <!-- AI active pane background glow -->
+  <rect x="263" y="295" width="201" height="169" rx="6" fill="url(#ai-pane-bg)"/>
+  <rect x="263" y="295" width="201" height="169" rx="6" fill="none" stroke="#a855f7" stroke-width="3" opacity="0.45"/>
+
+  <!-- Left pane - text lines (thicker, fewer, wider spacing) -->
+  <rect x="68" y="136" width="148" height="14" rx="7" fill="#7878a8" opacity="0.55"/>
+  <rect x="68" y="172" width="104" height="14" rx="7" fill="#7878a8" opacity="0.45"/>
+  <rect x="68" y="208" width="164" height="14" rx="7" fill="#7878a8" opacity="0.5"/>
+  <rect x="68" y="244" width="120" height="14" rx="7" fill="#7878a8" opacity="0.45"/>
+  <rect x="68" y="280" width="148" height="14" rx="7" fill="#7878a8" opacity="0.5"/>
+  <rect x="68" y="316" width="88" height="14" rx="7" fill="#7878a8" opacity="0.55"/>
+  <rect x="68" y="352" width="140" height="14" rx="7" fill="#7878a8" opacity="0.45"/>
+
+  <!-- Right top pane - text lines -->
+  <rect x="290" y="136" width="132" height="14" rx="7" fill="#7878a8" opacity="0.5"/>
+  <rect x="290" y="172" width="88" height="14" rx="7" fill="#7878a8" opacity="0.45"/>
+  <rect x="290" y="208" width="148" height="14" rx="7" fill="#7878a8" opacity="0.5"/>
+  <rect x="290" y="244" width="108" height="14" rx="7" fill="#7878a8" opacity="0.45"/>
+
+  <!-- Right bottom pane - AI active text lines -->
+  <rect x="290" y="316" width="136" height="14" rx="7" fill="#c084fc" opacity="0.7"/>
+  <rect x="290" y="352" width="96" height="14" rx="7" fill="#c084fc" opacity="0.6"/>
+  <rect x="290" y="388" width="148" height="14" rx="7" fill="#c084fc" opacity="0.65"/>
+
+  <!-- AI Spark/Star -->
+  <g filter="url(#spark-glow)" transform="translate(414, 424)">
+    <path d="M0,-44 L10,-10 L44,0 L10,10 L0,44 L-10,10 L-44,0 L-10,-10 Z" fill="url(#spark-grad)"/>
+    <path d="M-30,-34 L-25,-26 L-18,-32 L-25,-22 L-30,-14 L-35,-22 L-42,-18 L-35,-26 Z" fill="#fbbf24" opacity="0.9"/>
+    <path d="M32,-26 L35,-18 L42,-22 L35,-16 L32,-8 L29,-16 L22,-14 L29,-18 Z" fill="#e0b0ff" opacity="0.8"/>
+    <path d="M18,22 L20,28 L26,25 L20,30 L18,36 L16,30 L10,33 L16,28 Z" fill="#fbbf24" opacity="0.7"/>
+  </g>
+</svg>

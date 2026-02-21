@@ -46,6 +46,12 @@ export const useSessionDetailViewExplorerSectionProps = ({
     virtualWorktreePath = null,
     selectVirtualWorktree,
     clearVirtualWorktree,
+    notificationStatus = "idle",
+    notificationPushEnabled = true,
+    notificationSubscribed = false,
+    notificationPaneEnabled = false,
+    requestNotificationPermission,
+    togglePaneNotification,
   } = screen;
   const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
   const screenAgent = session?.agent ?? "unknown";
@@ -306,6 +312,10 @@ export const useSessionDetailViewExplorerSectionProps = ({
         worktreeBaseBranch,
         actualWorktreePath,
         virtualWorktreePath,
+        notificationStatus,
+        notificationPushEnabled,
+        notificationSubscribed,
+        notificationPaneEnabled,
       },
       actions: {
         onModeChange: handleModeChange,
@@ -319,6 +329,12 @@ export const useSessionDetailViewExplorerSectionProps = ({
         onUserScrollStateChange: handleUserScrollStateChange,
         onSelectVirtualWorktree: selectVirtualWorktree,
         onClearVirtualWorktree: clearVirtualWorktree,
+        onRequestNotificationPermission: () => {
+          void requestNotificationPermission?.();
+        },
+        onTogglePaneNotification: () => {
+          void togglePaneNotification?.();
+        },
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
       },
@@ -353,6 +369,10 @@ export const useSessionDetailViewExplorerSectionProps = ({
       worktreeBaseBranch,
       actualWorktreePath,
       virtualWorktreePath,
+      notificationStatus,
+      notificationPushEnabled,
+      notificationSubscribed,
+      notificationPaneEnabled,
       handleModeChange,
       handleRefreshScreen,
       handleRefreshWorktrees,
@@ -361,6 +381,8 @@ export const useSessionDetailViewExplorerSectionProps = ({
       handleUserScrollStateChange,
       selectVirtualWorktree,
       clearVirtualWorktree,
+      requestNotificationPermission,
+      togglePaneNotification,
       toggleWrapMode,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,

@@ -91,7 +91,7 @@ export const defaultConfig: AgentMonitorConfigFile = {
   activity: {
     pollIntervalMs: 1000,
     vwGhRefreshIntervalMs: 30_000,
-    runningThresholdMs: 15000,
+    runningThresholdMs: 5000,
     inactiveThresholdMs: 60000,
   },
   hooks: {
@@ -136,6 +136,13 @@ export const defaultConfig: AgentMonitorConfigFile = {
       codex: { options: [] },
       claude: { options: [] },
     },
+  },
+  notifications: {
+    pushEnabled: true,
+    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
+  },
+  workspaceTabs: {
+    displayMode: "all",
   },
   fileNavigator: {
     includeIgnoredPaths: [],
