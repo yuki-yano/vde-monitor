@@ -13,7 +13,6 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/components/ui";
-import { NotificationPermissionBanner } from "@/features/notifications/NotificationPermissionBanner";
 import type { PushUiStatus } from "@/features/notifications/use-push-notifications";
 import { cn } from "@/lib/cn";
 import type { ScreenMode } from "@/lib/screen-loading";
@@ -231,7 +230,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     notificationPushEnabled,
     notificationSubscribed,
     notificationPaneEnabled,
-    notificationErrorMessage,
   } = state;
   const {
     onModeChange,
@@ -243,8 +241,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     onUserScrollStateChange,
     onSelectVirtualWorktree,
     onClearVirtualWorktree,
-    onRequestNotificationPermission,
-    onDisableNotifications,
     onTogglePaneNotification,
     onResolveFileReference,
     onResolveFileReferenceCandidates,
@@ -432,19 +428,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
           </Button>
         </div>
       </Toolbar>
-      <NotificationPermissionBanner
-        status={notificationStatus}
-        pushEnabled={notificationPushEnabled}
-        isSubscribed={notificationSubscribed}
-        paneEnabled={notificationPaneEnabled}
-        errorMessage={notificationErrorMessage}
-        onRequestPermission={() => {
-          onRequestNotificationPermission?.();
-        }}
-        onDisable={() => {
-          onDisableNotifications?.();
-        }}
-      />
       {fallbackReason && (
         <Callout tone="warning" size="xs">
           Image fallback: {fallbackReason}
