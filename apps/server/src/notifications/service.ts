@@ -96,6 +96,11 @@ export const createNotificationService = ({
 
 export type NotificationService = ReturnType<typeof createNotificationService>;
 
+/**
+ * CLI utility for token-rotation flows.
+ * This creates an isolated store instance and mutates the persisted subscription file directly.
+ * Running service processes keep their own in-memory state and are not synchronized by this call.
+ */
 export const removeAllNotificationSubscriptions = () => {
   const store = createNotificationSubscriptionStore();
   return store.removeAll();

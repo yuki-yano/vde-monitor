@@ -43,6 +43,38 @@ describe("workspace-tabs model", () => {
     expect(closed.state.activeTabId).toBe("session:b");
   });
 
+  it("accepts explicit timestamp when ensuring fallback sessions tab on close", () => {
+    const closed = closeWorkspaceTab(
+      {
+        activeTabId: "session:a",
+        tabs: [
+          {
+            id: "session:a",
+            kind: "session",
+            paneId: "a",
+            systemRoute: null,
+            closable: true,
+            lastActivatedAt: 10,
+          },
+        ],
+      },
+      "session:a",
+      1234,
+    );
+
+    expect(closed.changed).toBe(true);
+    expect(closed.state.tabs).toEqual([
+      {
+        id: SYSTEM_SESSIONS_TAB_ID,
+        kind: "system",
+        paneId: null,
+        systemRoute: "sessions",
+        closable: false,
+        lastActivatedAt: 1234,
+      },
+    ]);
+  });
+
   it("reorders closable tabs without moving fixed sessions tab", () => {
     let state = createInitialWorkspaceTabsState(0);
     state = syncWorkspaceTabsWithPathname(state, "/sessions/a", 1);

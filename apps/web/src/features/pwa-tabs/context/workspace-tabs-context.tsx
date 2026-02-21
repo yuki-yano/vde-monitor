@@ -197,7 +197,7 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       let shouldNavigate = false;
       let nextActiveTab: WorkspaceTab | null = null;
       setTabsState((previous) => {
-        const closed = closeWorkspaceTab(previous, tabId);
+        const closed = closeWorkspaceTab(previous, tabId, Date.now());
         if (!closed.changed) {
           return previous;
         }

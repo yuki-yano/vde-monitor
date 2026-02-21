@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -70,18 +71,33 @@ const isPersistedVapid = (value: unknown): value is PersistedVapid => {
 
 export const createVapidStore = (options: StoreOptions = {}) => {
   const filePath = options.filePath ?? getDefaultVapidPath();
+  const fileDirectoryPath = path.dirname(filePath);
   const now = options.now ?? (() => new Date().toISOString());
   const resolveSubject = options.resolveSubject ?? resolveDefaultSubject;
 
   const ensureDir = () => {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    fs.mkdirSync(fileDirectoryPath, { recursive: true, mode: 0o700 });
   };
 
   const writeFileSafe = (raw: string) => {
-    fs.writeFileSync(filePath, raw, {
-      encoding: "utf8",
-      mode: 0o600,
-    });
+    const tempFilePath = path.join(
+      fileDirectoryPath,
+      `${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`,
+    );
+    try {
+      fs.writeFileSync(tempFilePath, raw, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      fs.renameSync(tempFilePath, filePath);
+    } catch (error) {
+      try {
+        fs.rmSync(tempFilePath, { force: true });
+      } catch {
+        // ignore
+      }
+      throw error;
+    }
     try {
       fs.chmodSync(filePath, 0o600);
     } catch {

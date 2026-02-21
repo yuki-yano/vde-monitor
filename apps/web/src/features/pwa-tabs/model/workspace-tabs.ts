@@ -215,6 +215,7 @@ export const activateWorkspaceTab = (
 export const closeWorkspaceTab = (
   state: WorkspaceTabsState,
   tabId: string,
+  now = Date.now(),
 ): {
   changed: boolean;
   state: WorkspaceTabsState;
@@ -228,12 +229,12 @@ export const closeWorkspaceTab = (
   }
   const remainingTabs = ensureSessionsTab(
     state.tabs.filter((tab) => tab.id !== tabId),
-    Date.now(),
+    now,
   );
   if (remainingTabs.length === 0) {
     return {
       changed: true,
-      state: createInitialWorkspaceTabsState(Date.now()),
+      state: createInitialWorkspaceTabsState(now),
     };
   }
   let activeTabId = state.activeTabId;

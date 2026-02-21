@@ -150,6 +150,16 @@ export const createNotificationDispatcher = ({
   const lastFingerprintBySubscriptionId = new Map<string, string>();
   const lastSentAtByPaneEventBySubscriptionId = new Map<string, number>();
   const consecutiveFailureCountBySubscriptionId = new Map<string, number>();
+  const cleanupSubscriptionCache = (subscriptionId: string) => {
+    lastFingerprintBySubscriptionId.delete(subscriptionId);
+    consecutiveFailureCountBySubscriptionId.delete(subscriptionId);
+    const cooldownKeyPrefix = `${subscriptionId}:`;
+    Array.from(lastSentAtByPaneEventBySubscriptionId.keys()).forEach((key) => {
+      if (key.startsWith(cooldownKeyPrefix)) {
+        lastSentAtByPaneEventBySubscriptionId.delete(key);
+      }
+    });
+  };
 
   const dispatchTransition = async (event: SessionTransitionEvent) => {
     const eventType = resolveTransitionEventType(event);
@@ -226,7 +236,7 @@ export const createNotificationDispatcher = ({
             if (isExpiredEndpointError(error)) {
               subscriptionStore.removeById(subscription.id);
               localExpiredCount += 1;
-              consecutiveFailureCountBySubscriptionId.delete(subscription.id);
+              cleanupSubscriptionCache(subscription.id);
               logger.log(
                 `[vde-monitor][push] event=${eventType} paneId=${event.paneId} subscriptionId=${subscription.id} attempt=${attempt} result=expired`,
               );

@@ -319,6 +319,88 @@ describe("createNotificationDispatcher", () => {
     expect(store.list()).toHaveLength(0);
   });
 
+  it("cleans subscription caches when expired subscription is removed", async () => {
+    const config = {
+      ...defaultConfig,
+      token: "token",
+      notifications: {
+        pushEnabled: true,
+        enabledEventTypes: [
+          "pane.waiting_permission",
+          "pane.task_completed",
+        ] as ConfigPushEventType[],
+      },
+    };
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempStorePath(),
+      createId: () => "sub-1",
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+    const sendNotification = vi
+      .fn(async () => undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce({ statusCode: 410 })
+      .mockResolvedValueOnce(undefined);
+    let currentNowMs = 1000;
+    const dispatcher = createNotificationDispatcher({
+      config,
+      subscriptionStore: store,
+      sendNotification,
+      cooldownMs: 10_000,
+      now: () => "2026-02-20T00:00:01.000Z",
+      nowMs: () => currentNowMs,
+      sleep: async () => undefined,
+      logger: { log: vi.fn(), warn: vi.fn() },
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(createDetail("RUNNING", "poll"), {
+        ...createDetail("WAITING_PERMISSION", "poll"),
+        lastEventAt: "2026-02-20T00:00:01.000Z",
+      }),
+    );
+
+    currentNowMs = 12_000;
+    await dispatcher.dispatchTransition(
+      createTransition(createDetail("RUNNING", "poll"), {
+        ...createDetail("WAITING_PERMISSION", "poll"),
+        lastEventAt: "2026-02-20T00:00:12.000Z",
+      }),
+    );
+    expect(store.list()).toHaveLength(0);
+
+    store.upsert({
+      deviceId: "device-2",
+      subscription: {
+        endpoint: "https://push.example/sub/2",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+
+    currentNowMs = 13_000;
+    await dispatcher.dispatchTransition(
+      createTransition(createDetail("RUNNING", "poll"), {
+        ...createDetail("WAITING_PERMISSION", "poll"),
+        lastEventAt: "2026-02-20T00:00:01.000Z",
+      }),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(3);
+  });
+
   it("skips transitions from restore source and first observation", async () => {
     const config = {
       ...defaultConfig,

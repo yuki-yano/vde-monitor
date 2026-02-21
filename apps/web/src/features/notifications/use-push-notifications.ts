@@ -126,11 +126,18 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
   const [status, setStatus] = useState<PushUiStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [enabledPaneIds, setEnabledPaneIds] = useState<string[]>(() => readEnabledPaneIds());
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(() =>
+  const subscriptionIdRef = useRef<string | null>(
     localStorage.getItem(SUBSCRIPTION_ID_STORAGE_KEY),
+  );
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(
+    () => subscriptionIdRef.current,
   );
   const [isSubscribed, setIsSubscribed] = useState(false);
   const deviceIdRef = useRef<string>(readOrCreateDeviceId());
+
+  useEffect(() => {
+    subscriptionIdRef.current = subscriptionId;
+  }, [subscriptionId]);
 
   const apiBasePath = useMemo(() => {
     const normalized = apiBaseUrl?.trim();
@@ -181,6 +188,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
       const data = (await response.json()) as { subscriptionId?: string };
       if (data.subscriptionId) {
         localStorage.setItem(SUBSCRIPTION_ID_STORAGE_KEY, data.subscriptionId);
+        subscriptionIdRef.current = data.subscriptionId;
         setSubscriptionId(data.subscriptionId);
       }
       setErrorMessage(null);
@@ -196,7 +204,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         return;
       }
       const currentSubscriptionId =
-        subscriptionId ?? localStorage.getItem(SUBSCRIPTION_ID_STORAGE_KEY);
+        subscriptionIdRef.current ?? localStorage.getItem(SUBSCRIPTION_ID_STORAGE_KEY);
       if (currentSubscriptionId) {
         await fetch(
           `${apiBasePath}/notifications/subscriptions/${encodeURIComponent(currentSubscriptionId)}`,
@@ -221,23 +229,36 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         }),
       });
     },
-    [apiBasePath, subscriptionId, token],
+    [apiBasePath, token],
   );
 
   const disableNotifications = useCallback(async () => {
     if (!("serviceWorker" in navigator)) {
+      localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
+      subscriptionIdRef.current = null;
+      setSubscriptionId(null);
       setIsSubscribed(false);
       setStatus("idle");
       return;
     }
-    const registration = await navigator.serviceWorker.ready;
-    const current = await registration.pushManager.getSubscription();
-    await revokeServerSubscription(current?.endpoint);
-    await current?.unsubscribe();
-    localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
-    setSubscriptionId(null);
-    setIsSubscribed(false);
-    setStatus("idle");
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const current = await registration.pushManager.getSubscription();
+      try {
+        await revokeServerSubscription(current?.endpoint);
+      } catch {
+        // best-effort server revoke
+      }
+      await current?.unsubscribe();
+    } catch {
+      // continue local cleanup
+    } finally {
+      localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
+      subscriptionIdRef.current = null;
+      setSubscriptionId(null);
+      setIsSubscribed(false);
+      setStatus("idle");
+    }
   }, [revokeServerSubscription]);
 
   const syncCurrentSubscription = useCallback(
