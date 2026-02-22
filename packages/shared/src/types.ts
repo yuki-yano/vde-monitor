@@ -487,7 +487,6 @@ export type UsageProviderSnapshot = {
   providerLabel: string;
   accountLabel: string | null;
   planLabel: string | null;
-  email: string | null;
   windows: UsageMetricWindow[];
   billing: UsageBilling;
   capabilities: UsageProviderCapabilities;

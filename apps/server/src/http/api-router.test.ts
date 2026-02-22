@@ -75,7 +75,6 @@ const buildUsageProviderSnapshot = (
   providerLabel: providerId === "codex" ? "Codex" : "Claude",
   accountLabel: null,
   planLabel: null,
-  email: null,
   windows: [
     {
       id: "session",

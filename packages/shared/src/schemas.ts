@@ -439,7 +439,6 @@ export const usageProviderSnapshotSchema = z.object({
   providerLabel: z.string(),
   accountLabel: z.string().nullable(),
   planLabel: z.string().nullable(),
-  email: z.string().nullable(),
   windows: z.array(usageMetricWindowSchema),
   billing: usageBillingSchema,
   capabilities: usageProviderCapabilitiesSchema,

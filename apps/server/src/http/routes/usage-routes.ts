@@ -51,6 +51,50 @@ const applyRefreshRateLimit = ({
   );
 };
 
+type UsageProviderRouteContext = HeaderContext & {
+  req: HeaderContext["req"] & {
+    valid: (target: "query") => z.infer<typeof usageProviderQuerySchema>;
+  };
+  json: (body: unknown, status?: number) => Response;
+};
+
+const handleProviderUsage = async ({
+  c,
+  providerId,
+  usageDashboardService,
+  getLimiterKey,
+  refreshLimiter,
+}: {
+  c: UsageProviderRouteContext;
+  providerId: "codex" | "claude";
+  usageDashboardService: UsageDashboardService;
+  getLimiterKey: GetLimiterKey;
+  refreshLimiter: (key: string) => boolean;
+}) => {
+  const forceRefresh = isRefreshRequested(c.req.valid("query").refresh);
+  const rateLimitResponse = applyRefreshRateLimit({
+    c,
+    forceRefresh,
+    getLimiterKey,
+    refreshLimiter,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  try {
+    const provider = await usageDashboardService.getProviderSnapshot(providerId, {
+      forceRefresh,
+    });
+    return c.json({
+      provider,
+      fetchedAt: nowIso(),
+    });
+  } catch {
+    return c.json({ error: buildError("INTERNAL", `failed to load ${providerId} usage`) }, 500);
+  }
+};
+
 export const createUsageRoutes = ({
   monitor,
   usageDashboardService,
@@ -86,52 +130,24 @@ export const createUsageRoutes = ({
         return c.json({ error: buildError("INTERNAL", "failed to load usage dashboard") }, 500);
       }
     })
-    .get("/codex/usage", zValidator("query", usageProviderQuerySchema), async (c) => {
-      const forceRefresh = isRefreshRequested(c.req.valid("query").refresh);
-      const rateLimitResponse = applyRefreshRateLimit({
+    .get("/codex/usage", zValidator("query", usageProviderQuerySchema), (c) =>
+      handleProviderUsage({
         c,
-        forceRefresh,
+        providerId: "codex",
+        usageDashboardService,
         getLimiterKey,
         refreshLimiter,
-      });
-      if (rateLimitResponse) {
-        return rateLimitResponse;
-      }
-
-      try {
-        const provider = await usageDashboardService.getProviderSnapshot("codex", { forceRefresh });
-        return c.json({
-          provider,
-          fetchedAt: nowIso(),
-        });
-      } catch {
-        return c.json({ error: buildError("INTERNAL", "failed to load codex usage") }, 500);
-      }
-    })
-    .get("/claude/usage", zValidator("query", usageProviderQuerySchema), async (c) => {
-      const forceRefresh = isRefreshRequested(c.req.valid("query").refresh);
-      const rateLimitResponse = applyRefreshRateLimit({
+      }),
+    )
+    .get("/claude/usage", zValidator("query", usageProviderQuerySchema), (c) =>
+      handleProviderUsage({
         c,
-        forceRefresh,
+        providerId: "claude",
+        usageDashboardService,
         getLimiterKey,
         refreshLimiter,
-      });
-      if (rateLimitResponse) {
-        return rateLimitResponse;
-      }
-
-      try {
-        const provider = await usageDashboardService.getProviderSnapshot("claude", {
-          forceRefresh,
-        });
-        return c.json({
-          provider,
-          fetchedAt: nowIso(),
-        });
-      } catch {
-        return c.json({ error: buildError("INTERNAL", "failed to load claude usage") }, 500);
-      }
-    })
+      }),
+    )
     .get("/usage/state-timeline", zValidator("query", usageTimelineQuerySchema), (c) => {
       const query = c.req.valid("query");
       const range = resolveGlobalTimelineRange(query.range);
