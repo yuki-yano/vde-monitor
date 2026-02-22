@@ -279,14 +279,14 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-3 md:p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1.5 sm:p-3 md:p-6">
       <button
         type="button"
         aria-label="Close file content modal backdrop"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <Card className="border-latte-lavender/25 bg-latte-mantle/95 shadow-modal relative z-10 flex h-[min(92dvh,920px)] min-h-0 w-[min(1160px,calc(100vw-0.75rem))] flex-col gap-2 overflow-hidden rounded-3xl border-2 p-2.5 ring-1 ring-inset ring-white/10 sm:w-[min(1160px,calc(100vw-1.5rem))] sm:p-4 md:p-5">
+      <Card className="border-latte-lavender/25 bg-latte-mantle/95 shadow-modal relative z-10 flex h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5rem),860px)] min-h-0 w-[min(1160px,calc(100vw-0.75rem))] flex-col gap-2 overflow-hidden rounded-3xl border-2 p-2.5 ring-1 ring-inset ring-white/10 sm:h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5.5rem),860px)] sm:w-[min(1160px,calc(100vw-1.5rem))] sm:p-4 md:h-[min(92dvh,920px)] md:p-5">
         <div className="flex min-w-0 items-start gap-2 rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 md:px-3.5">
           <div className="min-w-0 flex-1">
             {activePath.length > 0 ? (
