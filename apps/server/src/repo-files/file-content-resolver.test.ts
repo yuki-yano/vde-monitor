@@ -50,6 +50,62 @@ describe("file content resolver", () => {
         languageHint: null,
         content: null,
       });
+      expect(result.imagePreview).toBeNull();
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns inline preview payload for supported image formats", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-"));
+    const imageBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
+    try {
+      await mkdir(path.join(repoRoot, "assets"), { recursive: true });
+      await writeFile(
+        path.join(repoRoot, "assets", "pixel.png"),
+        Buffer.from(imageBase64, "base64"),
+      );
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "assets/pixel.png",
+        maxBytes: 1024,
+      });
+
+      expect(result).toMatchObject({
+        path: "assets/pixel.png",
+        isBinary: true,
+        truncated: false,
+        languageHint: null,
+        content: null,
+      });
+      expect(result.imagePreview).toEqual({
+        mimeType: "image/png",
+        base64: imageBase64,
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("does not include image preview when image exceeds maxBytes", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-limit-"));
+    const imageBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
+    try {
+      await mkdir(path.join(repoRoot, "assets"), { recursive: true });
+      const imageBuffer = Buffer.from(imageBase64, "base64");
+      await writeFile(path.join(repoRoot, "assets", "pixel.png"), imageBuffer);
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "assets/pixel.png",
+        maxBytes: imageBuffer.length - 1,
+      });
+
+      expect(result.isBinary).toBe(true);
+      expect(result.imagePreview).toBeNull();
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }

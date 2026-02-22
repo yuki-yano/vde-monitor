@@ -128,6 +128,33 @@ describe("FileContentModal", () => {
     expect(screen.getByText("Binary file preview is not available.")).toBeTruthy();
   });
 
+  it("renders image preview when binary image preview data is available", () => {
+    render(
+      <FileContentModal
+        state={createState({
+          path: "assets/logo.png",
+          file: {
+            path: "assets/logo.png",
+            sizeBytes: 8,
+            isBinary: true,
+            truncated: false,
+            languageHint: null,
+            content: null,
+            imagePreview: {
+              mimeType: "image/png",
+              base64: "iVBORw0KGgo=",
+            },
+          },
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    const image = screen.getByRole("img", { name: "Preview of assets/logo.png" });
+    expect(image.getAttribute("src")).toContain("data:image/png;base64,iVBORw0KGgo=");
+    expect(screen.queryByText("Binary file preview is not available.")).toBeNull();
+  });
+
   it("calls copy action from copy button", () => {
     const onCopyPath = vi.fn(async () => undefined);
     render(<FileContentModal state={createState()} actions={createActions({ onCopyPath })} />);

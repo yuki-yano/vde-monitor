@@ -95,6 +95,9 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
   const effectiveLanguage = file?.languageHint ?? (markdownEnabled ? "markdown" : null);
   const resolvedViewMode =
     markdownViewMode === "diff" && !diffAvailable ? "code" : markdownViewMode;
+  const imagePreview = file?.imagePreview ?? null;
+  const imagePreviewSrc =
+    imagePreview == null ? null : `data:${imagePreview.mimeType};base64,${imagePreview.base64}`;
   const showViewTabs = markdownEnabled || diffAvailable;
 
   useEffect(() => {
@@ -382,7 +385,26 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
             </div>
           ) : null}
 
-          {!loading && !error && file?.isBinary && resolvedViewMode !== "diff" ? (
+          {!loading &&
+          !error &&
+          file?.isBinary &&
+          imagePreviewSrc &&
+          resolvedViewMode !== "diff" ? (
+            <div className="flex h-full items-center justify-center p-2 sm:p-4">
+              <img
+                src={imagePreviewSrc}
+                alt={`Preview of ${activePath || "image file"}`}
+                className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+
+          {!loading &&
+          !error &&
+          file?.isBinary &&
+          !imagePreviewSrc &&
+          resolvedViewMode !== "diff" ? (
             <div className="p-3 sm:p-4">
               <Callout tone="warning" size="xs">
                 Binary file preview is not available.

@@ -1525,6 +1525,45 @@ describe("createApiRouter", () => {
     }
   });
 
+  it("returns inline preview for supported binary image files", async () => {
+    const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-image-"));
+    const imageBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
+    try {
+      await mkdir(path.join(tmpRoot, "assets"), { recursive: true });
+      await writeFile(path.join(tmpRoot, ".gitignore"), "");
+      await writeFile(
+        path.join(tmpRoot, "assets", "pixel.png"),
+        Buffer.from(imageBase64, "base64"),
+      );
+
+      const { api, monitor, detail } = createTestContext();
+      monitor.registry.update({
+        ...detail,
+        repoRoot: tmpRoot,
+        currentPath: tmpRoot,
+      });
+
+      const res = await api.request(
+        "/sessions/pane-1/files/content?path=assets/pixel.png&maxBytes=1024",
+        {
+          headers: authHeaders,
+        },
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.file.path).toBe("assets/pixel.png");
+      expect(data.file.isBinary).toBe(true);
+      expect(data.file.content).toBeNull();
+      expect(data.file.imagePreview).toEqual({
+        mimeType: "image/png",
+        base64: imageBase64,
+      });
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
   it("returns FORBIDDEN_PATH when content target is ignored and not overridden", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-policy-"));
     try {

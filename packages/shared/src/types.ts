@@ -242,6 +242,13 @@ export type RepoFileLanguageHint =
   | "dockerfile"
   | "text";
 
+export type RepoFileImagePreviewMimeType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+export type RepoFileImagePreview = {
+  mimeType: RepoFileImagePreviewMimeType;
+  base64: string;
+};
+
 export type RepoFileContent = {
   path: string;
   sizeBytes: number;
@@ -249,6 +256,7 @@ export type RepoFileContent = {
   truncated: boolean;
   languageHint: RepoFileLanguageHint | null;
   content: string | null;
+  imagePreview?: RepoFileImagePreview | null;
 };
 
 export type WorktreePrStatus = "none" | "open" | "merged" | "closed_unmerged" | "unknown";

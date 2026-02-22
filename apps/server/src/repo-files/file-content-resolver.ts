@@ -1,12 +1,24 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type { RepoFileContent, RepoFileLanguageHint } from "@vde-monitor/shared";
+import type {
+  RepoFileContent,
+  RepoFileImagePreview,
+  RepoFileImagePreviewMimeType,
+  RepoFileLanguageHint,
+} from "@vde-monitor/shared";
 
 import { resolveRepoAbsolutePath } from "./path-guard";
 import { createServiceError, isNotFoundError, isReadablePermissionError } from "./service-context";
 
 const BINARY_SAMPLE_BYTES = 8_192;
+const imagePreviewMimeTypeByExtension: Record<string, RepoFileImagePreviewMimeType> = {
+  ".gif": "image/gif",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
 
 const assertNoSymlinkInTargetPath = async ({
   repoRoot,
@@ -139,6 +151,11 @@ const resolveLanguageHint = (targetPath: string): RepoFileLanguageHint => {
   return "text";
 };
 
+const resolveImagePreviewMimeType = (targetPath: string): RepoFileImagePreviewMimeType | null => {
+  const extension = path.posix.extname(targetPath.toLowerCase());
+  return imagePreviewMimeTypeByExtension[extension] ?? null;
+};
+
 type ResolveFileContentInput = {
   repoRoot: string;
   normalizedPath: string;
@@ -178,6 +195,19 @@ export const resolveFileContent = async ({
   });
   const isBinary = isBinaryContent(sample);
   if (isBinary) {
+    const imagePreviewMimeType = resolveImagePreviewMimeType(normalizedPath);
+    let imagePreview: RepoFileImagePreview | null = null;
+    if (imagePreviewMimeType && stats.size <= maxBytes) {
+      const imageBuffer = await readFileSlice({
+        absolutePath,
+        byteLength: stats.size,
+      });
+      imagePreview = {
+        mimeType: imagePreviewMimeType,
+        base64: imageBuffer.toString("base64"),
+      };
+    }
+
     return {
       path: normalizedPath,
       sizeBytes: stats.size,
@@ -185,6 +215,7 @@ export const resolveFileContent = async ({
       truncated: false,
       languageHint: null,
       content: null,
+      imagePreview,
     } satisfies RepoFileContent;
   }
 
