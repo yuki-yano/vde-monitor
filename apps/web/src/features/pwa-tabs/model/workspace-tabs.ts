@@ -4,8 +4,9 @@ export const WORKSPACE_TABS_MAX_COUNT = 10;
 
 export const SYSTEM_SESSIONS_TAB_ID = "system:sessions";
 export const SYSTEM_CHAT_GRID_TAB_ID = "system:chat-grid";
+export const SYSTEM_USAGE_TAB_ID = "system:usage";
 
-type WorkspaceSystemRoute = "sessions" | "chat-grid";
+type WorkspaceSystemRoute = "sessions" | "chat-grid" | "usage";
 
 export type WorkspaceTab = {
   id: string;
@@ -35,7 +36,7 @@ type PersistedWorkspaceTabs = {
 };
 
 const isWorkspaceSystemRoute = (value: unknown): value is WorkspaceSystemRoute =>
-  value === "sessions" || value === "chat-grid";
+  value === "sessions" || value === "chat-grid" || value === "usage";
 
 const createSessionsTab = (now: number): WorkspaceTab => ({
   id: SYSTEM_SESSIONS_TAB_ID,
@@ -51,6 +52,15 @@ const createChatGridTab = (now: number): WorkspaceTab => ({
   kind: "system",
   paneId: null,
   systemRoute: "chat-grid",
+  closable: true,
+  lastActivatedAt: now,
+});
+
+const createUsageTab = (now: number): WorkspaceTab => ({
+  id: SYSTEM_USAGE_TAB_ID,
+  kind: "system",
+  paneId: null,
+  systemRoute: "usage",
   closable: true,
   lastActivatedAt: now,
 });
@@ -121,6 +131,9 @@ const normalizeActiveTabId = (tabs: WorkspaceTab[], activeTabId: string): string
 export const resolveWorkspaceTabByPathname = (pathname: string, now: number): WorkspaceTab => {
   if (pathname === "/chat-grid") {
     return createChatGridTab(now);
+  }
+  if (pathname === "/usage") {
+    return createUsageTab(now);
   }
   const paneId = decodePaneIdFromPathname(pathname);
   if (paneId != null) {
@@ -417,6 +430,9 @@ export const deserializeWorkspaceTabsState = (
 export const resolveWorkspaceTabPath = (tab: WorkspaceTab): string => {
   if (tab.id === SYSTEM_CHAT_GRID_TAB_ID) {
     return "/chat-grid";
+  }
+  if (tab.id === SYSTEM_USAGE_TAB_ID) {
+    return "/usage";
   }
   if (tab.kind === "session" && tab.paneId != null) {
     return `/sessions/${encodeURIComponent(tab.paneId)}`;

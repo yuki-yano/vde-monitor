@@ -2,6 +2,7 @@ import type { AgentMonitorConfig, SessionDetail } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
 import { createCommandResponse } from "../command/command-response";
+import { createUsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import { createRateLimiter } from "../limits/rate-limit";
 import type { MultiplexerInputActions } from "../multiplexer/types";
 import type { NotificationService } from "../notifications/service";
@@ -13,12 +14,14 @@ import { createGitRoutes } from "./routes/git-routes";
 import { createNotificationRoutes } from "./routes/notification-routes";
 import { createSessionRoutes } from "./routes/session-routes";
 import type { CommandPayload, HeaderContext, Monitor, RouteContext } from "./routes/types";
+import { createUsageRoutes } from "./routes/usage-routes";
 
 type ApiContext = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
   notificationService: NotificationService;
+  usageDashboardService?: ReturnType<typeof createUsageDashboardService>;
 };
 
 const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
@@ -63,7 +66,13 @@ const applyCorsHeaders = (
   c.header("Vary", mergeVary(c.res.headers.get("Vary"), "Origin"));
 };
 
-export const createApiRouter = ({ config, monitor, actions, notificationService }: ApiContext) => {
+export const createApiRouter = ({
+  config,
+  monitor,
+  actions,
+  notificationService,
+  usageDashboardService,
+}: ApiContext) => {
   const api = new Hono();
   api.onError((error, c) => {
     const configValidationErrorCause = resolveConfigValidationErrorCause(error);
@@ -84,7 +93,9 @@ export const createApiRouter = ({ config, monitor, actions, notificationService 
     config.rateLimit.screen.max,
   );
   const rawLimiter = createRateLimiter(config.rateLimit.raw.windowMs, config.rateLimit.raw.max);
+  const usageRefreshLimiter = createRateLimiter(5_000, 1);
   const screenCache = createScreenCache();
+  const dashboardService = usageDashboardService ?? createUsageDashboardService();
 
   const getLimiterKey = (c: HeaderContext) => {
     const auth = c.req.header("authorization") ?? c.req.header("Authorization");
@@ -207,8 +218,17 @@ export const createApiRouter = ({ config, monitor, actions, notificationService 
       notificationService,
     }),
   );
+  const withUsageRoutes = withNotificationRoutes.route(
+    "/",
+    createUsageRoutes({
+      monitor,
+      usageDashboardService: dashboardService,
+      getLimiterKey,
+      refreshLimiter: usageRefreshLimiter,
+    }),
+  );
 
-  return withNotificationRoutes;
+  return withUsageRoutes;
 };
 
 export type ApiAppType = ReturnType<typeof createApiRouter>;

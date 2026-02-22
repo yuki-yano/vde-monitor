@@ -119,6 +119,7 @@ export const SessionListView = ({
   onSearchQueryChange,
   onRefresh,
   onOpenChatGrid,
+  onOpenUsage,
   onSidebarResizeStart,
   quickPanelOpen,
   logModalOpen,
@@ -282,6 +283,7 @@ export const SessionListView = ({
             onSearchQueryChange={onSearchQueryChange}
             onRefresh={onRefresh}
             onOpenChatGrid={onOpenChatGrid}
+            onOpenUsage={onOpenUsage}
           />
           {screenError ? (
             <div

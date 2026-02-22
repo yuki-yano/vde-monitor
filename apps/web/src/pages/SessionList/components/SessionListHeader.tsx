@@ -1,4 +1,4 @@
-import { LayoutGrid, RefreshCw, Search, X } from "lucide-react";
+import { BarChart3, LayoutGrid, RefreshCw, Search, X } from "lucide-react";
 import { type ChangeEvent, type MouseEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -20,6 +20,7 @@ type SessionListHeaderProps = {
   onSearchQueryChange: (value: string) => void;
   onRefresh: () => void;
   onOpenChatGrid: () => void;
+  onOpenUsage: () => void;
 };
 
 const SEARCH_INPUT_DEBOUNCE_MS = 180;
@@ -161,6 +162,7 @@ export const SessionListHeader = ({
   onSearchQueryChange,
   onRefresh,
   onOpenChatGrid,
+  onOpenUsage,
 }: SessionListHeaderProps) => {
   const connectionIssueLines = connectionIssue
     ? connectionIssue
@@ -194,12 +196,32 @@ export const SessionListHeader = ({
               variant="ghost"
               size="sm"
               className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.14em] md:inline-flex"
+              onClick={onOpenUsage}
+            >
+              Usage
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.14em] md:inline-flex"
               onClick={onOpenChatGrid}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Chat Grid
             </Button>
             <ConnectionStatusPill status={connectionStatus} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 md:hidden"
+              onClick={onOpenUsage}
+              aria-label="Usage"
+              title="Usage"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -22,6 +22,7 @@ const HeaderHarness = () => {
       onSearchQueryChange={setQuery}
       onRefresh={vi.fn()}
       onOpenChatGrid={vi.fn()}
+      onOpenUsage={vi.fn()}
     />
   );
 };
@@ -65,6 +66,7 @@ describe("SessionListHeader focus regression", () => {
         onSearchQueryChange={onSearchQueryChange}
         onRefresh={vi.fn()}
         onOpenChatGrid={vi.fn()}
+        onOpenUsage={vi.fn()}
       />,
     );
 
@@ -91,6 +93,7 @@ describe("SessionListHeader focus regression", () => {
         onSearchQueryChange={onSearchQueryChange}
         onRefresh={vi.fn()}
         onOpenChatGrid={vi.fn()}
+        onOpenUsage={vi.fn()}
       />,
     );
 

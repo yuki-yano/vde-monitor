@@ -2,6 +2,8 @@ import type {
   HighlightCorrectionConfig,
   ScreenResponse,
   SessionStateTimeline,
+  SessionStateTimelineRange,
+  SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
@@ -43,8 +45,8 @@ type UseSidebarPreviewParams = {
   requestStateTimeline?: (
     paneId: string,
     options?: {
-      scope?: "pane" | "repo";
-      range?: "15m" | "1h" | "3h" | "6h" | "24h";
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
       limit?: number;
     },
   ) => Promise<SessionStateTimeline>;

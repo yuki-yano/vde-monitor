@@ -8,11 +8,13 @@ import {
   type NotificationSettings,
   type RepoNote,
   type SessionDetail,
+  type UsageProviderSnapshot,
 } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../domain/git/git-commits";
 import { fetchDiffSummary } from "../domain/git/git-diff";
+import type { UsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import type { createSessionMonitor } from "../monitor";
 import type { MultiplexerInputActions } from "../multiplexer/types";
 import type { NotificationService } from "../notifications/service";
@@ -65,6 +67,68 @@ const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDet
   ...overrides,
 });
 
+const buildUsageProviderSnapshot = (
+  providerId: "codex" | "claude",
+  overrides: Partial<UsageProviderSnapshot> = {},
+): UsageProviderSnapshot => ({
+  providerId,
+  providerLabel: providerId === "codex" ? "Codex" : "Claude",
+  accountLabel: null,
+  planLabel: null,
+  windows: [
+    {
+      id: "session",
+      title: "Session",
+      utilizationPercent: 10,
+      windowDurationMs: 300 * 60 * 1000,
+      resetsAt: "2026-02-22T18:00:00.000Z",
+      pace: {
+        elapsedPercent: 20,
+        projectedEndUtilizationPercent: 50,
+        paceMarginPercent: 50,
+        status: "margin",
+      },
+    },
+    {
+      id: "weekly",
+      title: "Weekly",
+      utilizationPercent: 55,
+      windowDurationMs: 10_080 * 60 * 1000,
+      resetsAt: "2026-02-24T10:00:00.000Z",
+      pace: {
+        elapsedPercent: 70,
+        projectedEndUtilizationPercent: 78,
+        paceMarginPercent: 22,
+        status: "margin",
+      },
+    },
+  ],
+  billing: {
+    creditsLeft: null,
+    creditsUnit: null,
+    extraUsageUsedUsd: null,
+    extraUsageLimitUsd: null,
+    costTodayUsd: null,
+    costTodayTokens: null,
+    costLast30DaysUsd: null,
+    costLast30DaysTokens: null,
+  },
+  capabilities: {
+    session: true,
+    weekly: true,
+    pace: true,
+    modelWindows: false,
+    credits: false,
+    extraUsage: false,
+    cost: false,
+  },
+  status: "ok",
+  issues: [],
+  fetchedAt: "2026-02-22T10:00:00.000Z",
+  staleAt: "2026-02-22T10:03:00.000Z",
+  ...overrides,
+});
+
 const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) => {
   const config: AgentMonitorConfig = { ...defaultConfig, token: "token", ...configOverrides };
   const registry = createSessionRegistry();
@@ -93,6 +157,20 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     paneId: detail.paneId,
     now: new Date(0).toISOString(),
     range: "1h",
+    items: [],
+    totalsMs: {
+      RUNNING: 0,
+      WAITING_INPUT: 0,
+      WAITING_PERMISSION: 0,
+      SHELL: 0,
+      UNKNOWN: 0,
+    },
+    current: null,
+  }));
+  const getGlobalStateTimeline = vi.fn(() => ({
+    paneId: "global",
+    now: new Date(0).toISOString(),
+    range: "7d",
     items: [],
     totalsMs: {
       RUNNING: 0,
@@ -132,6 +210,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     getScreenCapture: () => ({ captureText }),
     getStateTimeline,
     getRepoStateTimeline,
+    getGlobalStateTimeline,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
@@ -191,7 +270,26 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     dispatchTransition: vi.fn(async () => undefined),
     getSupportedEvents: vi.fn(() => ["pane.waiting_permission", "pane.task_completed"]),
   } as unknown as NotificationService;
-  const api = createApiRouter({ config, monitor, actions, notificationService });
+  const codexProviderSnapshot = buildUsageProviderSnapshot("codex");
+  const claudeProviderSnapshot = buildUsageProviderSnapshot("claude");
+  const getDashboard = vi.fn(async () => ({
+    providers: [codexProviderSnapshot, claudeProviderSnapshot],
+    fetchedAt: "2026-02-22T10:00:00.000Z",
+  }));
+  const getProviderSnapshot = vi.fn(async (providerId: "codex" | "claude") =>
+    providerId === "codex" ? codexProviderSnapshot : claudeProviderSnapshot,
+  );
+  const usageDashboardService = {
+    getDashboard,
+    getProviderSnapshot,
+  } as unknown as UsageDashboardService;
+  const api = createApiRouter({
+    config,
+    monitor,
+    actions,
+    notificationService,
+    usageDashboardService,
+  });
   return {
     api,
     config,
@@ -200,10 +298,13 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     detail,
     getStateTimeline,
     getRepoStateTimeline,
+    getGlobalStateTimeline,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
+    getDashboard,
+    getProviderSnapshot,
   };
 };
 
@@ -332,14 +433,14 @@ describe("createApiRouter", () => {
     expect(await res.text()).toBe("Internal Server Error");
   });
 
-  it("accepts extended timeline range values", async () => {
+  it("accepts 7d timeline range values", async () => {
     const { api, getStateTimeline } = createTestContext();
-    const res = await api.request("/sessions/pane-1/timeline?range=24h&limit=20", {
+    const res = await api.request("/sessions/pane-1/timeline?range=7d&limit=20", {
       headers: authHeaders,
     });
 
     expect(res.status).toBe(200);
-    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "24h", 20);
+    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "7d", 20);
   });
 
   it("forwards undefined limit when query limit is omitted", async () => {
@@ -373,6 +474,70 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error.code).toBe("INVALID_PAYLOAD");
+  });
+
+  it("returns usage dashboard snapshots", async () => {
+    const { api, getDashboard } = createTestContext();
+    const res = await api.request("/usage/dashboard?provider=codex", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getDashboard).toHaveBeenCalledWith({
+      provider: "codex",
+      forceRefresh: false,
+    });
+    const data = await res.json();
+    expect(Array.isArray(data.providers)).toBe(true);
+    expect(data.providers[0]?.providerId).toBe("codex");
+  });
+
+  it("rejects unsupported usage dashboard provider values", async () => {
+    const { api, getDashboard } = createTestContext();
+    const res = await api.request("/usage/dashboard?provider=cursor", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(400);
+    expect(getDashboard).not.toHaveBeenCalled();
+  });
+
+  it("applies refresh throttle on usage dashboard", async () => {
+    const { api } = createTestContext();
+    const first = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(first.status).toBe(200);
+
+    const second = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(second.status).toBe(429);
+    const body = await second.json();
+    expect(body.error.code).toBe("RATE_LIMIT");
+  });
+
+  it("returns global usage state timeline with 3d range", async () => {
+    const { api, getGlobalStateTimeline } = createTestContext();
+    const res = await api.request("/usage/state-timeline?range=3d&limit=25", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d", 25);
+    const data = await res.json();
+    expect(data.timeline.paneId).toBe("global");
+  });
+
+  it("returns codex provider snapshot endpoint", async () => {
+    const { api, getProviderSnapshot } = createTestContext();
+    const res = await api.request("/codex/usage", {
+      headers: authHeaders,
+    });
+    expect(res.status).toBe(200);
+    expect(getProviderSnapshot).toHaveBeenCalledWith("codex", { forceRefresh: false });
+    const data = await res.json();
+    expect(data.provider.providerId).toBe("codex");
   });
 
   it("lists repo notes for the pane repository", async () => {

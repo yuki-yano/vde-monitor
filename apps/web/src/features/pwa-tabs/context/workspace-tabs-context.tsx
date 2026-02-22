@@ -24,6 +24,8 @@ import {
   resolveWorkspaceTabPath,
   serializeWorkspaceTabsState,
   syncWorkspaceTabsWithPathname,
+  SYSTEM_CHAT_GRID_TAB_ID,
+  SYSTEM_USAGE_TAB_ID,
   WORKSPACE_TABS_STORAGE_KEY,
   type WorkspaceTab,
   type WorkspaceTabsState,
@@ -101,8 +103,12 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
         });
         return;
       }
-      if (tab.id === "system:chat-grid") {
+      if (tab.id === SYSTEM_CHAT_GRID_TAB_ID) {
         void navigate({ to: "/chat-grid" });
+        return;
+      }
+      if (tab.id === SYSTEM_USAGE_TAB_ID) {
+        void navigate({ to: "/usage" });
         return;
       }
       void navigate({ href: "/" });

@@ -408,7 +408,7 @@ export type ScreenDelta = {
   insertLines: string[];
 };
 
-export type SessionStateTimelineRange = "15m" | "1h" | "3h" | "6h" | "24h";
+export type SessionStateTimelineRange = "15m" | "1h" | "3h" | "6h" | "24h" | "3d" | "7d";
 export type SessionStateTimelineScope = "pane" | "repo";
 
 export type SessionStateTimelineSource = "poll" | "hook" | "restore";
@@ -431,6 +431,81 @@ export type SessionStateTimeline = {
   items: SessionStateTimelineItem[];
   totalsMs: Record<SessionStateValue, number>;
   current: SessionStateTimelineItem | null;
+};
+
+export type UsageProviderId = "claude" | "codex" | "cursor" | "gemini" | "unknown";
+
+export type UsageMetricWindowId = "session" | "weekly" | "model" | "extra";
+
+export type UsagePaceStatus = "margin" | "balanced" | "over" | "unknown";
+
+export type UsageMetricWindow = {
+  id: UsageMetricWindowId;
+  title: string;
+  utilizationPercent: number | null;
+  windowDurationMs: number | null;
+  resetsAt: string | null;
+  pace: {
+    elapsedPercent: number | null;
+    projectedEndUtilizationPercent: number | null;
+    paceMarginPercent: number | null;
+    status: UsagePaceStatus;
+  };
+};
+
+export type UsageBilling = {
+  creditsLeft: number | null;
+  creditsUnit: "tokens" | "credits" | null;
+  extraUsageUsedUsd: number | null;
+  extraUsageLimitUsd: number | null;
+  costTodayUsd: number | null;
+  costTodayTokens: number | null;
+  costLast30DaysUsd: number | null;
+  costLast30DaysTokens: number | null;
+};
+
+export type UsageProviderCapabilities = {
+  session: boolean;
+  weekly: boolean;
+  pace: boolean;
+  modelWindows: boolean;
+  credits: boolean;
+  extraUsage: boolean;
+  cost: boolean;
+};
+
+export type UsageProviderStatus = "ok" | "degraded" | "error";
+
+export type UsageIssue = {
+  code: string;
+  message: string;
+  severity: "warning" | "error";
+};
+
+export type UsageProviderSnapshot = {
+  providerId: UsageProviderId;
+  providerLabel: string;
+  accountLabel: string | null;
+  planLabel: string | null;
+  windows: UsageMetricWindow[];
+  billing: UsageBilling;
+  capabilities: UsageProviderCapabilities;
+  status: UsageProviderStatus;
+  issues: UsageIssue[];
+  fetchedAt: string;
+  staleAt: string;
+};
+
+export type UsageDashboardResponse = {
+  providers: UsageProviderSnapshot[];
+  fetchedAt: string;
+};
+
+export type UsageGlobalTimelineResponse = {
+  timeline: SessionStateTimeline;
+  paneCount: number;
+  activePaneCount: number;
+  fetchedAt: string;
 };
 
 export type CommandResponse = {

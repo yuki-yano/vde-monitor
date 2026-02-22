@@ -363,7 +363,7 @@ export const sessionDetailSchema = sessionSummarySchema.extend({
   panePid: z.number().nullable(),
 });
 
-export const sessionStateTimelineRangeSchema = z.enum(["15m", "1h", "3h", "6h", "24h"]);
+export const sessionStateTimelineRangeSchema = z.enum(["15m", "1h", "3h", "6h", "24h", "3d", "7d"]);
 export const sessionStateTimelineScopeSchema = z.enum(["pane", "repo"]);
 
 export const sessionStateTimelineSourceSchema = z.enum(["poll", "hook", "restore"]);
@@ -386,6 +386,78 @@ export const sessionStateTimelineSchema = z.object({
   items: z.array(sessionStateTimelineItemSchema),
   totalsMs: z.record(sessionStateSchema, z.number()),
   current: sessionStateTimelineItemSchema.nullable(),
+});
+
+export const usageProviderIdSchema = z.enum(["claude", "codex", "cursor", "gemini", "unknown"]);
+export const usageMetricWindowIdSchema = z.enum(["session", "weekly", "model", "extra"]);
+export const usagePaceStatusSchema = z.enum(["margin", "balanced", "over", "unknown"]);
+export const usageProviderStatusSchema = z.enum(["ok", "degraded", "error"]);
+
+export const usageMetricWindowSchema = z.object({
+  id: usageMetricWindowIdSchema,
+  title: z.string(),
+  utilizationPercent: z.number().nullable(),
+  windowDurationMs: z.number().nullable(),
+  resetsAt: z.string().nullable(),
+  pace: z.object({
+    elapsedPercent: z.number().nullable(),
+    projectedEndUtilizationPercent: z.number().nullable(),
+    paceMarginPercent: z.number().nullable(),
+    status: usagePaceStatusSchema,
+  }),
+});
+
+export const usageBillingSchema = z.object({
+  creditsLeft: z.number().nullable(),
+  creditsUnit: z.enum(["tokens", "credits"]).nullable(),
+  extraUsageUsedUsd: z.number().nullable(),
+  extraUsageLimitUsd: z.number().nullable(),
+  costTodayUsd: z.number().nullable(),
+  costTodayTokens: z.number().nullable(),
+  costLast30DaysUsd: z.number().nullable(),
+  costLast30DaysTokens: z.number().nullable(),
+});
+
+export const usageProviderCapabilitiesSchema = z.object({
+  session: z.boolean(),
+  weekly: z.boolean(),
+  pace: z.boolean(),
+  modelWindows: z.boolean(),
+  credits: z.boolean(),
+  extraUsage: z.boolean(),
+  cost: z.boolean(),
+});
+
+export const usageIssueSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  severity: z.enum(["warning", "error"]),
+});
+
+export const usageProviderSnapshotSchema = z.object({
+  providerId: usageProviderIdSchema,
+  providerLabel: z.string(),
+  accountLabel: z.string().nullable(),
+  planLabel: z.string().nullable(),
+  windows: z.array(usageMetricWindowSchema),
+  billing: usageBillingSchema,
+  capabilities: usageProviderCapabilitiesSchema,
+  status: usageProviderStatusSchema,
+  issues: z.array(usageIssueSchema),
+  fetchedAt: z.string(),
+  staleAt: z.string(),
+});
+
+export const usageDashboardResponseSchema = z.object({
+  providers: z.array(usageProviderSnapshotSchema),
+  fetchedAt: z.string(),
+});
+
+export const usageGlobalTimelineResponseSchema = z.object({
+  timeline: sessionStateTimelineSchema,
+  paneCount: z.number().int().min(0),
+  activePaneCount: z.number().int().min(0),
+  fetchedAt: z.string(),
 });
 
 const highlightCorrectionSchema = z.object({

@@ -142,6 +142,33 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 60 * 1000);
   });
 
+  it("retains enough history for 7d range by default", () => {
+    const clock = nowAt;
+    clock.set("2026-02-13T12:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%7d",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-07T12:00:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%7d",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-12T00:00:00.000Z",
+      source: "hook",
+    });
+
+    const timeline = store.getTimeline({ paneId: "%7d", range: "7d" });
+
+    expect(timeline.items).toHaveLength(2);
+    expect(timeline.items[0]?.state).toBe("RUNNING");
+    expect(timeline.items[1]?.state).toBe("WAITING_INPUT");
+  });
+
   it("uses range-aware default limit for pane timeline", () => {
     const clock = nowAt;
     clock.set("2026-02-06T03:00:00.000Z");
@@ -219,6 +246,31 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.RUNNING).toBe(5 * 60 * 1000);
     expect(timeline.totalsMs.WAITING_PERMISSION).toBe(15 * 60 * 1000);
     expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 1000);
+  });
+
+  it("supports custom aggregate reason and id prefix", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T00:30:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%global-a",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T00:00:00.000Z",
+      source: "hook",
+    });
+
+    const timeline = store.getRepoTimeline({
+      paneId: "global",
+      paneIds: ["%global-a"],
+      range: "1h",
+      aggregateReason: "global:aggregate",
+      itemIdPrefix: "global",
+    });
+
+    expect(timeline.items[0]?.id.startsWith("global:global")).toBe(true);
+    expect(timeline.items[0]?.reason).toBe("global:aggregate");
   });
 
   it("uses range-aware default limit for repo timeline", () => {

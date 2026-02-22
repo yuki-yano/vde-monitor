@@ -37,6 +37,7 @@ import {
 import {
   SYSTEM_CHAT_GRID_TAB_ID,
   SYSTEM_SESSIONS_TAB_ID,
+  SYSTEM_USAGE_TAB_ID,
   type WorkspaceTab,
 } from "../model/workspace-tabs";
 
@@ -430,6 +431,9 @@ export const PwaWorkspaceTabs = () => {
     }
     if (tab.id === SYSTEM_CHAT_GRID_TAB_ID) {
       return "G";
+    }
+    if (tab.id === SYSTEM_USAGE_TAB_ID) {
+      return "U";
     }
     if (tab.kind === "session" && tab.paneId != null) {
       const session = sessionByPaneId.get(tab.paneId);

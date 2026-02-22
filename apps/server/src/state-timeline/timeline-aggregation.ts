@@ -83,12 +83,14 @@ export const aggregateRepoTimelineSegments = ({
   nowMs,
   resolveDominantState,
   resolveDominantSource,
+  aggregateReason = "repo:aggregate",
 }: {
   intervals: TimelineInterval[];
   boundaries: number[];
   nowMs: number;
   resolveDominantState: (states: SessionStateValue[]) => SessionStateValue;
   resolveDominantSource: (sources: SessionStateTimelineSource[]) => SessionStateTimelineSource;
+  aggregateReason?: string;
 }) => {
   const segments: AggregateRepoTimelineSegment[] = [];
   for (let index = 0; index < boundaries.length - 1; index += 1) {
@@ -131,7 +133,7 @@ export const aggregateRepoTimelineSegments = ({
       endedAtMs: segmentEndMs,
       isOpen,
       source: dominantSource,
-      reason: "repo:aggregate",
+      reason: aggregateReason,
     });
   }
   return segments;

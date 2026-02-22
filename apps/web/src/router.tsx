@@ -13,6 +13,7 @@ import {
 import { SessionDetailPage } from "./pages/SessionDetail";
 import { SessionListPage } from "./pages/SessionList";
 import { normalizeSessionListSearchQuery } from "./pages/SessionList/sessionListSearch";
+import { UsageDashboardPage } from "./pages/UsageDashboard";
 
 const rootRoute = createRootRoute({
   component: App,
@@ -52,7 +53,18 @@ const chatGridRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, sessionDetailRoute, chatGridRoute]);
+const usageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/usage",
+  component: UsageDashboardPage,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  sessionDetailRoute,
+  chatGridRoute,
+  usageRoute,
+]);
 
 export const router = createRouter({
   routeTree,

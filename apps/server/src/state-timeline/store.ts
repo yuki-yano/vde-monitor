@@ -18,9 +18,11 @@ const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "3h": 3 * 60 * 60 * 1000,
   "6h": 6 * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
+  "3d": 3 * 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
 };
 
-const DEFAULT_RETENTION_MS = RANGE_MS["24h"];
+const DEFAULT_RETENTION_MS = RANGE_MS["7d"];
 const DEFAULT_MAX_ITEMS_PER_PANE = 1000;
 const MAX_TIMELINE_ITEMS = 10_000;
 const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
@@ -29,6 +31,8 @@ const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "3h": 700,
   "6h": 1_500,
   "24h": 5_000,
+  "3d": 7_000,
+  "7d": 10_000,
 };
 
 type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs">;
@@ -65,6 +69,8 @@ type GetRepoTimelineInput = {
   paneIds: string[];
   range?: SessionStateTimelineRange;
   limit?: number;
+  aggregateReason?: string;
+  itemIdPrefix?: string;
 };
 
 const toIso = (ms: number) => new Date(ms).toISOString();
@@ -291,6 +297,8 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     paneIds,
     range = "1h",
     limit,
+    aggregateReason = "repo:aggregate",
+    itemIdPrefix = "repo",
   }: GetRepoTimelineInput): SessionStateTimeline => {
     const nowMs = now().getTime();
     const nowIso = toIso(nowMs);
@@ -336,6 +344,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       nowMs,
       resolveDominantState,
       resolveDominantSource,
+      aggregateReason,
     });
 
     const items = segments
@@ -343,7 +352,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
         const durationMs = Math.max(0, segment.endedAtMs - segment.startedAtMs);
         totals[segment.state] += durationMs;
         return {
-          id: `repo:${paneId}:${segment.startedAtMs}:${index}`,
+          id: `${itemIdPrefix}:${paneId}:${segment.startedAtMs}:${index}`,
           paneId,
           state: segment.state,
           reason: segment.reason,

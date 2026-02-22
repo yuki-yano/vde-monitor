@@ -205,6 +205,18 @@ export const createSessionMonitor = (
     return stateTimeline.getRepoTimeline({ paneId, paneIds, range, limit });
   };
 
+  const getGlobalStateTimeline = (range: SessionStateTimelineRange = "1h", limit?: number) => {
+    const paneIds = registry.values().map((session) => session.paneId);
+    return stateTimeline.getRepoTimeline({
+      paneId: "global",
+      paneIds,
+      range,
+      limit,
+      aggregateReason: "global:aggregate",
+      itemIdPrefix: "global",
+    });
+  };
+
   const getRepoNotes = repoNotesService.listByPane;
   const createRepoNote = repoNotesService.createByPane;
   const updateRepoNote = repoNotesService.updateByPane;
@@ -218,6 +230,7 @@ export const createSessionMonitor = (
     getScreenCapture,
     getStateTimeline,
     getRepoStateTimeline,
+    getGlobalStateTimeline,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
