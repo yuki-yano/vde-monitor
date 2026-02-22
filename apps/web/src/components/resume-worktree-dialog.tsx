@@ -95,6 +95,7 @@ export const ResumeWorktreeDialog = ({
     () => worktreeEntries.filter((entry) => isVwManagedWorktreePath(entry.path)),
     [worktreeEntries],
   );
+  const hasManagedWorktrees = managedWorktrees.length > 0;
 
   const launchOptionsDefaultText = useMemo(
     () => (launchConfig.agents[inheritedAgent]?.options ?? []).join("\n"),
@@ -245,7 +246,7 @@ export const ResumeWorktreeDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[calc(env(safe-area-inset-top)_+_4rem)] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_5rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-0 flex-col overflow-hidden sm:top-[50%] sm:max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] sm:w-[min(760px,calc(100vw-1.5rem))] sm:translate-y-[-50%]">
+      <DialogContent className="top-[50%] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] flex-col overflow-hidden sm:w-[min(760px,calc(100vw-1.5rem))]">
         <DialogHeader>
           <DialogTitle>Resume / Move Worktree</DialogTitle>
           <DialogDescription>
@@ -349,7 +350,7 @@ export const ResumeWorktreeDialog = ({
               <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
                 <div className="space-y-3">
                   <p className="text-latte-subtext1 text-xs">Select existing vw worktree.</p>
-                  {managedWorktrees.length > 0 ? (
+                  {hasManagedWorktrees ? (
                     <SettingRadioGroup
                       ariaLabel="Existing worktrees"
                       name={`resume-worktree-${sessionName}`}
@@ -391,10 +392,10 @@ export const ResumeWorktreeDialog = ({
             <button
               type="submit"
               className={cn(
-                "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 rounded-md border px-2.5 py-1.5 text-xs font-semibold",
+                "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-latte-blue/15",
                 className,
               )}
-              disabled={submitting}
+              disabled={submitting || !hasManagedWorktrees}
             >
               <span className="inline-flex items-center gap-1.5">
                 <GitBranch className="h-3.5 w-3.5" />

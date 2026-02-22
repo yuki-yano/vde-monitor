@@ -307,7 +307,7 @@ export const LaunchAgentButton = ({
         Launch Agent
       </button>
       <Dialog open={open} onOpenChange={(nextOpen) => (nextOpen ? setOpen(true) : closeModal())}>
-        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[min(760px,calc(100vw-1rem))] max-w-none overflow-y-auto sm:max-h-[calc(100dvh-1.5rem)] sm:w-[min(760px,calc(100vw-1.5rem))]">
+        <DialogContent className="top-[50%] z-[110] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-y-auto sm:w-[min(760px,calc(100vw-1.5rem))]">
           <DialogHeader>
             <DialogTitle>Launch Agent</DialogTitle>
             <DialogDescription>

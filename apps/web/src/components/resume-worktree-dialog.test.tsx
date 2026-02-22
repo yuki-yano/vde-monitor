@@ -178,4 +178,27 @@ describe("ResumeWorktreeDialog", () => {
       ).toBeTruthy();
     });
   });
+
+  it("disables resume submit when no existing vw worktree is available", () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession()}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    const submitButton = screen.getByRole("button", { name: "Resume / Move" }) as HTMLButtonElement;
+    expect(submitButton.disabled).toBe(true);
+
+    fireEvent.click(submitButton);
+    expect(onLaunchAgentInSession).not.toHaveBeenCalled();
+  });
 });
