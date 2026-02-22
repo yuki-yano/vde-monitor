@@ -17,7 +17,11 @@ import {
   type CodexRateLimitSnapshot,
   fetchCodexRateLimits,
 } from "../codex-usage/codex-usage-service";
-import { UsageProviderError, type UsageProviderErrorCode } from "./usage-error";
+import {
+  USAGE_PROVIDER_ERROR_CODES,
+  UsageProviderError,
+  type UsageProviderErrorCode,
+} from "./usage-error";
 
 const SUPPORTED_PROVIDERS = ["codex", "claude"] as const;
 type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number];
@@ -51,6 +55,8 @@ type CodexWindowCandidate = {
 
 const isSupportedProvider = (value: UsageProviderId | undefined): value is SupportedProviderId =>
   value === "codex" || value === "claude";
+
+const KNOWN_ERROR_CODES = new Set<string>(USAGE_PROVIDER_ERROR_CODES);
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -464,24 +470,17 @@ const emptyErrorSnapshot = ({
 });
 
 const normalizeProviderId = (provider: UsageProviderId | undefined): SupportedProviderId[] => {
+  if (provider == null) {
+    return [...SUPPORTED_PROVIDERS];
+  }
   if (isSupportedProvider(provider)) {
     return [provider];
   }
-  return [...SUPPORTED_PROVIDERS];
+  return [];
 };
 
 const normalizeErrorCode = (code: string): UsageProviderErrorCode =>
-  [
-    "TOKEN_NOT_FOUND",
-    "TOKEN_INVALID",
-    "UPSTREAM_UNAVAILABLE",
-    "UNSUPPORTED_RESPONSE",
-    "INTERNAL",
-    "GLOBAL_TIMELINE_UNAVAILABLE",
-    "CODEX_APP_SERVER_UNAVAILABLE",
-  ].includes(code)
-    ? (code as UsageProviderErrorCode)
-    : "INTERNAL";
+  KNOWN_ERROR_CODES.has(code) ? (code as UsageProviderErrorCode) : "INTERNAL";
 
 export type UsageDashboardService = {
   getDashboard: (options?: {

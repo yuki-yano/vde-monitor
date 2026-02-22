@@ -217,7 +217,7 @@ export const SessionListHeader = ({
               size="sm"
               className="h-7 w-7 p-0 md:hidden"
               onClick={onOpenUsage}
-              aria-label="Open Usage Dashboard"
+              aria-label="Usage"
               title="Usage"
             >
               <BarChart3 className="h-3.5 w-3.5" />

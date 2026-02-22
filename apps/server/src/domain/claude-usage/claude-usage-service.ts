@@ -214,7 +214,7 @@ export const fetchClaudeOauthUsage = async ({
     if (response.status === 401 || response.status === 403) {
       throw new UsageProviderError(
         "TOKEN_INVALID",
-        "Claude token is invalid or expired. Run claude login again.",
+        "Claude token is invalid or expired. Run claude login again or update CLAUDE_CODE_OAUTH_TOKEN.",
       );
     }
     if (!response.ok) {

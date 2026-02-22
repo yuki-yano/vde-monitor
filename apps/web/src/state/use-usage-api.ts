@@ -32,7 +32,6 @@ type RequestUsageDashboardOptions = {
 type RequestUsageGlobalTimelineOptions = {
   range?: SessionStateTimelineRange;
   limit?: number;
-  refresh?: boolean;
 };
 
 const DEFAULT_TIMELINE_RANGE: SessionStateTimelineRange = "1h";
@@ -110,9 +109,6 @@ export const useUsageApi = ({ token, apiBaseUrl }: UseUsageApiParams) => {
       query.set("range", options.range ?? DEFAULT_TIMELINE_RANGE);
       if (options.limit != null) {
         query.set("limit", String(Math.max(1, Math.floor(options.limit))));
-      }
-      if (options.refresh) {
-        query.set("refresh", "1");
       }
       const request = fetch(buildApiPath(apiBasePath, "/usage/state-timeline", query), {
         headers: {

@@ -2,6 +2,7 @@ import {
   allowedKeySchema,
   launchAgentRequestSchema,
   type SessionStateTimelineRange,
+  sessionStateTimelineRangeSchema,
   type SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 import { z } from "zod";
@@ -10,7 +11,7 @@ import type { Monitor, ResolvePane, RouteContext } from "../types";
 
 export const timelineQuerySchema = z.object({
   scope: z.enum(["pane", "repo"]).optional(),
-  range: z.enum(["15m", "1h", "3h", "6h", "24h"]).optional(),
+  range: sessionStateTimelineRangeSchema.optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
@@ -75,12 +76,9 @@ export const resolveLatestSessionResponse = (monitor: Monitor, pane: ResolvedPan
   session: monitor.registry.getDetail(pane.paneId) ?? pane.detail,
 });
 
-export const resolveTimelineRange = (range: string | undefined): SessionStateTimelineRange => {
-  if (range === "15m" || range === "1h" || range === "3h" || range === "6h" || range === "24h") {
-    return range;
-  }
-  return "1h";
-};
+export const resolveTimelineRange = (
+  range: SessionStateTimelineRange | undefined,
+): SessionStateTimelineRange => range ?? "1h";
 
 export const resolveTimelineScope = (scope: string | undefined): SessionStateTimelineScope => {
   if (scope === "repo") {

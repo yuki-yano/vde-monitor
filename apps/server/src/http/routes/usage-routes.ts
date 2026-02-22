@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import type { UsageProviderId } from "@vde-monitor/shared";
+import { sessionStateTimelineRangeSchema } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -8,12 +8,12 @@ import { buildError, nowIso } from "../helpers";
 import type { GetLimiterKey, HeaderContext, Monitor } from "./types";
 
 const usageDashboardQuerySchema = z.object({
-  provider: z.enum(["codex", "claude", "cursor", "gemini", "unknown"]).optional(),
+  provider: z.enum(["codex", "claude"]).optional(),
   refresh: z.string().optional(),
 });
 
 const usageTimelineQuerySchema = z.object({
-  range: z.enum(["15m", "1h", "3h", "6h", "24h", "3d", "7d"]).optional(),
+  range: sessionStateTimelineRangeSchema.optional(),
   limit: z.coerce.number().int().min(1).max(10_000).optional(),
 });
 
@@ -23,20 +23,9 @@ const usageProviderQuerySchema = z.object({
 
 const isRefreshRequested = (refresh: string | undefined) => refresh === "1";
 
-const resolveGlobalTimelineRange = (range: string | undefined) => {
-  if (
-    range === "15m" ||
-    range === "1h" ||
-    range === "3h" ||
-    range === "6h" ||
-    range === "24h" ||
-    range === "3d" ||
-    range === "7d"
-  ) {
-    return range;
-  }
-  return "1h";
-};
+const resolveGlobalTimelineRange = (
+  range: z.infer<typeof sessionStateTimelineRangeSchema> | undefined,
+) => range ?? "1h";
 
 const applyRefreshRateLimit = ({
   c,
@@ -89,7 +78,7 @@ export const createUsageRoutes = ({
 
       try {
         const dashboard = await usageDashboardService.getDashboard({
-          provider: query.provider as UsageProviderId | undefined,
+          provider: query.provider,
           forceRefresh,
         });
         return c.json(dashboard);

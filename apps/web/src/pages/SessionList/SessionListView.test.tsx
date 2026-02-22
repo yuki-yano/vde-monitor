@@ -353,7 +353,8 @@ describe("SessionListView", () => {
     const props = createViewProps({ onOpenUsage });
     renderWithRouter(<SessionListView {...props} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Usage" }));
+    const usageButton = screen.getAllByRole("button", { name: "Usage" })[0]!;
+    fireEvent.click(usageButton);
     expect(onOpenUsage).toHaveBeenCalledTimes(1);
   });
 

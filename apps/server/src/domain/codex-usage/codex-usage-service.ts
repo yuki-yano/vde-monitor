@@ -165,12 +165,18 @@ export const fetchCodexRateLimits = async ({
     const initRequestId = randomRequestId("init");
     const readRequestId = randomRequestId("rate-limits");
 
+    // Stdin may emit EPIPE after child exit; keep it handled to avoid process crashes.
+    processHandle.stdin.on("error", () => {});
+
     const cleanup = () => {
       reader.close();
-      processHandle.stdin.end();
+      if (!processHandle.stdin.destroyed) {
+        processHandle.stdin.end();
+      }
       processHandle.removeAllListeners();
       processHandle.stdout.removeAllListeners();
       processHandle.stderr.removeAllListeners();
+      processHandle.stdin.removeAllListeners();
     };
 
     const fail = (error: Error) => {
@@ -196,6 +202,9 @@ export const fetchCodexRateLimits = async ({
     };
 
     const writeMessage = (message: Record<string, unknown>) => {
+      if (settled || processHandle.stdin.destroyed || !processHandle.stdin.writable) {
+        return;
+      }
       processHandle.stdin.write(`${JSON.stringify(message)}\n`);
     };
 
@@ -252,8 +261,12 @@ export const fetchCodexRateLimits = async ({
           );
           return;
         }
-        writeMessage({ method: "initialized" });
         writeMessage({
+          jsonrpc: "2.0",
+          method: "initialized",
+        });
+        writeMessage({
+          jsonrpc: "2.0",
           id: readRequestId,
           method: "account/rateLimits/read",
           params: null,
@@ -283,6 +296,7 @@ export const fetchCodexRateLimits = async ({
     });
 
     writeMessage({
+      jsonrpc: "2.0",
       id: initRequestId,
       method: "initialize",
       params: {

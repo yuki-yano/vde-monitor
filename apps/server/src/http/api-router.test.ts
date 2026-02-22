@@ -434,14 +434,14 @@ describe("createApiRouter", () => {
     expect(await res.text()).toBe("Internal Server Error");
   });
 
-  it("accepts extended timeline range values", async () => {
+  it("accepts 7d timeline range values", async () => {
     const { api, getStateTimeline } = createTestContext();
-    const res = await api.request("/sessions/pane-1/timeline?range=24h&limit=20", {
+    const res = await api.request("/sessions/pane-1/timeline?range=7d&limit=20", {
       headers: authHeaders,
     });
 
     expect(res.status).toBe(200);
-    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "24h", 20);
+    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "7d", 20);
   });
 
   it("forwards undefined limit when query limit is omitted", async () => {
@@ -491,6 +491,16 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(Array.isArray(data.providers)).toBe(true);
     expect(data.providers[0]?.providerId).toBe("codex");
+  });
+
+  it("rejects unsupported usage dashboard provider values", async () => {
+    const { api, getDashboard } = createTestContext();
+    const res = await api.request("/usage/dashboard?provider=cursor", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(400);
+    expect(getDashboard).not.toHaveBeenCalled();
   });
 
   it("applies refresh throttle on usage dashboard", async () => {

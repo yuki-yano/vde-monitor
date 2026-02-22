@@ -539,9 +539,9 @@ export const UsageDashboardView = ({
             <section>
               <h2 className="font-display text-latte-text text-xl font-semibold">Issues</h2>
               <div className="mt-3 space-y-2">
-                {providerIssues.map(({ providerLabel, issue }) => (
+                {providerIssues.map(({ providerLabel, issue }, index) => (
                   <Callout
-                    key={`${providerLabel}-${issue.code}-${issue.message}`}
+                    key={`${providerLabel}-${issue.code}-${issue.message}-${index}`}
                     tone={issue.severity === "error" ? "error" : "warning"}
                     size="sm"
                   >

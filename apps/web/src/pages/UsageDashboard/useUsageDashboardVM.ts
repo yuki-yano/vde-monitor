@@ -3,7 +3,7 @@ import type {
   UsageDashboardResponse,
   UsageGlobalTimelineResponse,
 } from "@vde-monitor/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { useNowMs } from "@/lib/use-now-ms";
@@ -31,6 +31,9 @@ export const useUsageDashboardVM = () => {
   const [timelineRange, setTimelineRange] =
     useState<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
   const [compactTimeline, setCompactTimeline] = useState(true);
+  const dashboardRequestIdRef = useRef(0);
+  const timelineRequestIdRef = useRef(0);
+  const timelineRangeRef = useRef<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
   const nowMs = useNowMs(30_000);
 
   const canRequest = Boolean(token);
@@ -43,6 +46,7 @@ export const useUsageDashboardVM = () => {
       forceRefresh?: boolean;
       silent?: boolean;
     } = {}) => {
+      const requestId = ++dashboardRequestIdRef.current;
       if (!canRequest) {
         setDashboard(null);
         setDashboardError(API_ERROR_MESSAGES.missingToken);
@@ -53,12 +57,18 @@ export const useUsageDashboardVM = () => {
       }
       try {
         const next = await requestUsageDashboard({ refresh: forceRefresh });
+        if (requestId !== dashboardRequestIdRef.current) {
+          return;
+        }
         setDashboard(next);
         setDashboardError(null);
       } catch (error) {
+        if (requestId !== dashboardRequestIdRef.current) {
+          return;
+        }
         setDashboardError(resolveErrorMessage(error, API_ERROR_MESSAGES.usageDashboard));
       } finally {
-        if (!silent) {
+        if (!silent && requestId === dashboardRequestIdRef.current) {
           setDashboardLoading(false);
         }
       }
@@ -68,44 +78,52 @@ export const useUsageDashboardVM = () => {
 
   const loadTimeline = useCallback(
     async ({
-      forceRefresh = false,
       silent = false,
       range,
     }: {
-      forceRefresh?: boolean;
       silent?: boolean;
       range?: SessionStateTimelineRange;
     } = {}) => {
+      const requestId = ++timelineRequestIdRef.current;
       if (!canRequest) {
         setTimeline(null);
         setTimelineError(API_ERROR_MESSAGES.missingToken);
         return;
       }
-      const nextRange = range ?? timelineRange;
+      const nextRange = range ?? timelineRangeRef.current;
       if (!silent) {
         setTimelineLoading(true);
       }
       try {
         const next = await requestUsageGlobalTimeline({
           range: nextRange,
-          refresh: forceRefresh,
         });
+        if (requestId !== timelineRequestIdRef.current) {
+          return;
+        }
         setTimeline(next);
         setTimelineError(null);
       } catch (error) {
+        if (requestId !== timelineRequestIdRef.current) {
+          return;
+        }
         setTimelineError(resolveErrorMessage(error, API_ERROR_MESSAGES.usageGlobalTimeline));
       } finally {
-        if (!silent) {
+        if (!silent && requestId === timelineRequestIdRef.current) {
           setTimelineLoading(false);
         }
       }
     },
-    [canRequest, requestUsageGlobalTimeline, resolveErrorMessage, timelineRange],
+    [canRequest, requestUsageGlobalTimeline, resolveErrorMessage],
   );
 
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    timelineRangeRef.current = timelineRange;
+  }, [timelineRange]);
 
   useEffect(() => {
     void loadTimeline({ range: timelineRange });
@@ -142,7 +160,7 @@ export const useUsageDashboardVM = () => {
   const refreshAll = useCallback(() => {
     void Promise.all([
       loadDashboard({ forceRefresh: true }),
-      loadTimeline({ forceRefresh: true, range: timelineRange }),
+      loadTimeline({ range: timelineRange }),
     ]);
   }, [loadDashboard, loadTimeline, timelineRange]);
 
