@@ -168,6 +168,146 @@ const formatTokens = (value: number | null) => {
 
 const formatTokenCount = (value: number) => tokenFormatter.format(Math.round(value));
 
+type BillingBreakdownGranularity = "daily" | "weekly" | "monthly";
+type BillingBreakdownRow = UsageProviderSnapshot["billing"]["dailyBreakdown"][number];
+type BillingBreakdownAggregate = {
+  date: string;
+  modelIds: Set<string>;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  totalTokens: number;
+  usdSum: number;
+  startMs: number;
+  hasUsd: boolean;
+};
+
+const parseUtcDay = (value: string): Date | null => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+};
+
+const formatUtcDay = (date: Date) => {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const resolveWeekStartUtc = (date: Date) => {
+  const shifted = new Date(date);
+  const weekday = (shifted.getUTCDay() + 6) % 7;
+  shifted.setUTCDate(shifted.getUTCDate() - weekday);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return shifted;
+};
+
+const resolveBreakdownBucket = (
+  dateText: string,
+  granularity: BillingBreakdownGranularity,
+): { key: string; label: string; startMs: number } | null => {
+  const parsed = parseUtcDay(dateText);
+  if (!parsed) {
+    return null;
+  }
+  if (granularity === "daily") {
+    return {
+      key: dateText,
+      label: dateText,
+      startMs: parsed.getTime(),
+    };
+  }
+  if (granularity === "weekly") {
+    const start = resolveWeekStartUtc(parsed);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    const startText = formatUtcDay(start);
+    const endText = formatUtcDay(end);
+    return {
+      key: startText,
+      label: `${startText} - ${endText}`,
+      startMs: start.getTime(),
+    };
+  }
+  const monthKey = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1));
+  return {
+    key: monthKey,
+    label: monthKey,
+    startMs: monthStart.getTime(),
+  };
+};
+
+const aggregateBillingBreakdownRows = (
+  rows: BillingBreakdownRow[],
+  granularity: BillingBreakdownGranularity,
+): BillingBreakdownRow[] => {
+  const map = new Map<string, BillingBreakdownAggregate>();
+  for (const row of rows) {
+    const bucket = resolveBreakdownBucket(row.date, granularity);
+    if (!bucket) {
+      continue;
+    }
+    const target =
+      map.get(bucket.key) ??
+      (() => {
+        const created: BillingBreakdownAggregate = {
+          date: bucket.label,
+          modelIds: new Set<string>(),
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+          totalTokens: 0,
+          usdSum: 0,
+          startMs: bucket.startMs,
+          hasUsd: false,
+        };
+        map.set(bucket.key, created);
+        return created;
+      })();
+
+    row.modelIds.forEach((modelId) => target.modelIds.add(modelId));
+    target.inputTokens += row.inputTokens;
+    target.outputTokens += row.outputTokens;
+    target.cacheCreationInputTokens += row.cacheCreationInputTokens;
+    target.cacheReadInputTokens += row.cacheReadInputTokens;
+    target.totalTokens += row.totalTokens;
+    if (row.usd != null) {
+      target.usdSum += row.usd;
+      target.hasUsd = true;
+    }
+  }
+
+  return Array.from(map.values())
+    .sort((left, right) => left.startMs - right.startMs)
+    .map((entry) => ({
+      date: entry.date,
+      modelIds: Array.from(entry.modelIds).sort(),
+      inputTokens: entry.inputTokens,
+      outputTokens: entry.outputTokens,
+      cacheCreationInputTokens: entry.cacheCreationInputTokens,
+      cacheReadInputTokens: entry.cacheReadInputTokens,
+      totalTokens: entry.totalTokens,
+      usd: entry.hasUsd ? entry.usdSum : null,
+    }));
+};
+
 const resolveModelStrategyLabel = (
   strategy: UsageProviderSnapshot["billing"]["modelBreakdown"][number]["resolveStrategy"],
 ) => {
@@ -351,8 +491,10 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
 
 const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }) => {
   const [open, setOpen] = useState(false);
-  const rows = provider.billing.dailyBreakdown;
-  if (rows.length === 0) {
+  const [granularity, setGranularity] = useState<BillingBreakdownGranularity>("daily");
+  const sourceRows = provider.billing.dailyBreakdown;
+  const rows = aggregateBillingBreakdownRows(sourceRows, granularity);
+  if (sourceRows.length === 0) {
     return null;
   }
 
@@ -391,7 +533,7 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
         aria-expanded={open}
       >
         <span className="text-latte-text text-xs font-semibold">
-          Daily breakdown (last 30 days)
+          Usage breakdown (last 30 days)
         </span>
         {open ? (
           <ChevronUp className="text-latte-subtext0 h-3.5 w-3.5 shrink-0" />
@@ -401,15 +543,44 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
       </button>
       {open ? (
         <div className="border-latte-surface2/70 border-t">
+          <div className="border-latte-surface2/70 bg-latte-base/50 flex flex-wrap items-center gap-1.5 border-b px-2.5 py-1.5">
+            {(["daily", "weekly", "monthly"] as const).map((option) => {
+              const active = granularity === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  className={cn(
+                    "rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition-colors",
+                    active
+                      ? "border-latte-lavender/65 bg-latte-lavender/18 text-latte-lavender"
+                      : "border-latte-surface2/70 bg-latte-base/70 text-latte-subtext0 hover:border-latte-overlay1 hover:text-latte-text",
+                  )}
+                  onClick={() => {
+                    setGranularity(option);
+                  }}
+                  aria-pressed={active}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
           <div className="max-w-full overflow-x-auto">
             <table className="w-full min-w-[820px] text-[11px]">
               <thead>
                 <tr className="border-latte-surface2/70 bg-latte-base/55 border-b text-left">
                   <th scope="col" className="text-latte-subtext1 px-2.5 py-1.5 font-medium">
-                    Date
+                    {granularity === "daily" ? "Date" : "Period"}
                   </th>
                   <th scope="col" className="text-latte-subtext1 px-2.5 py-1.5 font-medium">
                     Models
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Cost (USD)
                   </th>
                   <th
                     scope="col"
@@ -441,12 +612,6 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                   >
                     Total Tokens
                   </th>
-                  <th
-                    scope="col"
-                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
-                  >
-                    Cost (USD)
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -467,6 +632,9 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                       )}
                     </td>
                     <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatUsd(row.usd)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
                       {formatTokenCount(row.inputTokens)}
                     </td>
                     <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
@@ -481,9 +649,6 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                     <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
                       {formatTokenCount(row.totalTokens)}
                     </td>
-                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
-                      {formatUsd(row.usd)}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -493,6 +658,9 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                     Total
                   </th>
                   <td className="text-latte-subtext0 px-2.5 py-1.5">-</td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {total.hasUsd ? formatUsd(total.usd) : "Not available"}
+                  </td>
                   <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
                     {formatTokenCount(total.inputTokens)}
                   </td>
@@ -507,9 +675,6 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                   </td>
                   <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
                     {formatTokenCount(total.totalTokens)}
-                  </td>
-                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
-                    {total.hasUsd ? formatUsd(total.usd) : "Not available"}
                   </td>
                 </tr>
               </tfoot>
