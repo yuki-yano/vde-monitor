@@ -528,6 +528,7 @@ export type LaunchVerification = {
 };
 
 export type LaunchResumePolicy = "required" | "best_effort";
+export type LaunchResumeTarget = "pane" | "window";
 
 export type LaunchResumeMeta = {
   requested: boolean;

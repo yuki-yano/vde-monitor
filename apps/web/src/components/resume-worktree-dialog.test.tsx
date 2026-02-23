@@ -36,6 +36,16 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
 });
 
 describe("ResumeWorktreeDialog", () => {
+  const managedWorktreeEntry = {
+    path: "/repo/.worktree/feature/current",
+    branch: "feature/current",
+    dirty: false,
+    locked: false,
+    lockOwner: null,
+    lockReason: null,
+    merged: false,
+  } as const;
+
   it("submits existing worktree resume request with source pane defaults", async () => {
     const onLaunchAgentInSession = vi.fn(async () => undefined);
 
@@ -46,17 +56,7 @@ describe("ResumeWorktreeDialog", () => {
         sessionName="dev-main"
         sourceSession={buildSession()}
         launchConfig={defaultLaunchConfig}
-        worktreeEntries={[
-          {
-            path: "/repo/.worktree/feature/current",
-            branch: "feature/current",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: false,
-          },
-        ]}
+        worktreeEntries={[managedWorktreeEntry]}
         worktreeRepoRoot="/repo"
         onLaunchAgentInSession={onLaunchAgentInSession}
       />,
@@ -98,17 +98,7 @@ describe("ResumeWorktreeDialog", () => {
         sessionName="dev-main"
         sourceSession={buildSession()}
         launchConfig={defaultLaunchConfig}
-        worktreeEntries={[
-          {
-            path: "/repo/.worktree/feature/current",
-            branch: "feature/current",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: false,
-          },
-        ]}
+        worktreeEntries={[managedWorktreeEntry]}
         worktreeRepoRoot="/repo"
         onLaunchAgentInSession={onLaunchAgentInSession}
       />,
@@ -141,17 +131,7 @@ describe("ResumeWorktreeDialog", () => {
           agent: "claude",
         })}
         launchConfig={defaultLaunchConfig}
-        worktreeEntries={[
-          {
-            path: "/repo/.worktree/feature/current",
-            branch: "feature/current",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: false,
-          },
-        ]}
+        worktreeEntries={[managedWorktreeEntry]}
         worktreeRepoRoot="/repo"
         onLaunchAgentInSession={onLaunchAgentInSession}
       />,
@@ -198,17 +178,7 @@ describe("ResumeWorktreeDialog", () => {
         sessionName="dev-main"
         sourceSession={buildSession()}
         launchConfig={defaultLaunchConfig}
-        worktreeEntries={[
-          {
-            path: "/repo/.worktree/feature/current",
-            branch: "feature/current",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: false,
-          },
-        ]}
+        worktreeEntries={[managedWorktreeEntry]}
         worktreeRepoRoot="/repo"
         onLaunchAgentInSession={onLaunchAgentInSession}
       />,
@@ -222,6 +192,73 @@ describe("ResumeWorktreeDialog", () => {
           "Multiple candidate sessions matched. Specify Session ID override or narrow Source Pane.",
         ),
       ).toBeTruthy();
+    });
+  });
+
+  it("hides existing session fields when launching codex in a new window", async () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession()}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[managedWorktreeEntry]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /New window/i }));
+    expect(screen.queryByLabelText("Source Pane")).toBeNull();
+    expect(screen.queryByLabelText("Session ID override")).toBeNull();
+    expect(screen.getByText(/used internally as the stop target/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
+
+    await waitFor(() => {
+      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "codex", {
+        worktreePath: "/repo/.worktree/feature/current",
+        worktreeBranch: "feature/current",
+        resumeFromPaneId: "pane-1",
+        resumeTarget: "window",
+      });
+    });
+  });
+
+  it("hides claude existing session details when launching in a new window", async () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession({
+          agent: "claude",
+        })}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[managedWorktreeEntry]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /New window/i }));
+    expect(screen.queryByText("Claude keeps using the same pane for this action.")).toBeNull();
+    expect(screen.getByText(/claude --resume <session-id> '!cd <worktree>'/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
+
+    await waitFor(() => {
+      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "claude", {
+        worktreePath: "/repo/.worktree/feature/current",
+        worktreeBranch: "feature/current",
+        resumeFromPaneId: "pane-1",
+        resumeTarget: "window",
+      });
     });
   });
 

@@ -31,6 +31,7 @@ type LaunchIdempotencyPayload = {
   resumeSessionId: string | null;
   resumeFromPaneId: string | null;
   effectiveResumePolicy: LaunchResumePolicy | null;
+  resumeTarget: "pane" | "window" | null;
 };
 
 export const createLaunchRoute = ({
@@ -105,6 +106,7 @@ export const createLaunchRoute = ({
     resumeSessionId: normalizeResumeText(body.resumeSessionId),
     resumeFromPaneId: normalizeResumeText(body.resumeFromPaneId),
     effectiveResumePolicy,
+    resumeTarget: body.resumeTarget ?? null,
   });
 
   const createUnsupportedResumeMeta = (policy: LaunchResumePolicy | null): LaunchResumeMeta => ({
@@ -237,6 +239,7 @@ export const createLaunchRoute = ({
           worktreeCreateIfMissing: body.worktreeCreateIfMissing,
           resumeSessionId: resumePlan.resolvedSessionId ?? undefined,
           resumeFromPaneId: body.resumeFromPaneId,
+          ...(body.resumeTarget ? { resumeTarget: body.resumeTarget } : {}),
         });
         return attachResumeMeta(response, resumePlan.requested ? resumePlan.meta : null);
       } catch (error) {

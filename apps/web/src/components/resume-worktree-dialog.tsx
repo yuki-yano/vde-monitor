@@ -48,6 +48,7 @@ const toRepoRelativePath = (targetPath: string, repoRoot: string | null) => {
 };
 
 const launchAgentLabels = { codex: "Codex", claude: "Claude" } as const;
+const launchLocationLabels = { pane: "Current pane", window: "New window" } as const;
 
 const REQUIRED_REASON_MESSAGE: Record<string, string> = {
   not_found:
@@ -91,6 +92,7 @@ export const ResumeWorktreeDialog = ({
   const [overrideAgentOptions, setOverrideAgentOptions] = useState(false);
   const [agentOptionsText, setAgentOptionsText] = useState("");
   const [selectedWorktreePath, setSelectedWorktreePath] = useState("");
+  const [resumeTarget, setResumeTarget] = useState<"pane" | "window">("pane");
   const [sourcePaneId, setSourcePaneId] = useState("");
   const [sessionIdOverride, setSessionIdOverride] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -104,6 +106,7 @@ export const ResumeWorktreeDialog = ({
     [worktreeEntries],
   );
   const hasManagedWorktrees = managedWorktrees.length > 0;
+  const hasSourcePane = sourceSession.paneId.trim().length > 0;
 
   const launchOptionsDefaultText = useMemo(
     () => (launchConfig.agents[inheritedAgent]?.options ?? []).join("\n"),
@@ -132,6 +135,7 @@ export const ResumeWorktreeDialog = ({
         managedWorktrees[0]?.path ??
         "",
     );
+    setResumeTarget("pane");
     setSourcePaneId(sourceSession.paneId);
     setSessionIdOverride("");
     setSubmitError(null);
@@ -206,6 +210,7 @@ export const ResumeWorktreeDialog = ({
       | "worktreeCreateIfMissing"
       | "resumeSessionId"
       | "resumeFromPaneId"
+      | "resumeTarget"
     > = {};
     if (parsedOptions) {
       launchOptions.agentOptions = parsedOptions;
@@ -220,12 +225,15 @@ export const ResumeWorktreeDialog = ({
       launchOptions.worktreeBranch = selectedWorktree.branch;
     }
 
-    if (isClaudeAgent) {
-      const normalizedSourcePaneId = sourceSession.paneId.trim();
-      if (!normalizedSourcePaneId) {
-        setSubmitError("Failed to resolve source pane.");
-        return;
-      }
+    const normalizedSourcePaneId = sourceSession.paneId.trim();
+    if (!normalizedSourcePaneId) {
+      setSubmitError("Failed to resolve source pane.");
+      return;
+    }
+    if (resumeTarget === "window") {
+      launchOptions.resumeTarget = "window";
+      launchOptions.resumeFromPaneId = normalizedSourcePaneId;
+    } else if (isClaudeAgent) {
       launchOptions.resumeFromPaneId = normalizedSourcePaneId;
     } else {
       const normalizedPaneId = sourcePaneId.trim();
@@ -330,64 +338,120 @@ export const ResumeWorktreeDialog = ({
               </div>
             ) : null}
 
-            {isClaudeAgent ? (
-              <div className="space-y-2">
-                <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                  Existing Session
-                </p>
-                <div className="border-latte-surface2/80 bg-latte-base/55 space-y-2 rounded-2xl border p-3">
-                  <p className="text-latte-subtext0 text-xs">
-                    Claude keeps using the same pane for this action.
-                  </p>
-                  <p className="text-latte-subtext1 text-xs">
-                    The agent is not restarted. vde-monitor sends{" "}
-                    <span className="font-mono">!cd &lt;worktree&gt;</span> to move the worktree.
-                  </p>
-                  <p className="text-latte-subtext1 text-xs">
-                    Session ID override is not required.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                  Existing Session
-                </p>
-                <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
-                  <p className="text-latte-subtext0 text-xs">
-                    Existing session reuse is always enabled for this action.
-                  </p>
-                  <label className="space-y-1 text-xs">
-                    <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
-                      Source Pane
-                    </span>
-                    <ZoomSafeInput
-                      value={sourcePaneId}
-                      onChange={(event) => setSourcePaneId(event.target.value)}
-                      placeholder={sourceSession.paneId}
-                      aria-label="Source Pane"
-                      className="font-mono"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs">
-                    <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
-                      Session ID Override
-                    </span>
-                    <ZoomSafeInput
-                      value={sessionIdOverride}
-                      onChange={(event) => setSessionIdOverride(event.target.value)}
-                      placeholder="Optional"
-                      aria-label="Session ID override"
-                      className="font-mono"
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
               <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
                 Launch Location
+              </p>
+              <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
+                <SettingRadioGroup
+                  ariaLabel="Launch location"
+                  name={`resume-target-${sessionName}`}
+                  value={resumeTarget}
+                  onValueChange={(value) => setResumeTarget(value)}
+                  options={[
+                    {
+                      value: "pane",
+                      label: launchLocationLabels.pane,
+                      description: "Reuse the current pane.",
+                    },
+                    {
+                      value: "window",
+                      label: launchLocationLabels.window,
+                      description: hasSourcePane
+                        ? "Stop current pane agent, then relaunch in a new tmux window."
+                        : "Source pane is unavailable for this session.",
+                      disabled: !hasSourcePane,
+                    },
+                  ]}
+                />
+                {resumeTarget === "window" ? (
+                  <div className="border-latte-surface2/80 bg-latte-base/60 space-y-1.5 rounded-xl border border-dashed px-3 py-2">
+                    <p className="text-latte-subtext1 text-xs">
+                      Source pane <span className="font-mono">{sourceSession.paneId}</span> is used
+                      internally as the stop target.
+                    </p>
+                    <p className="text-latte-subtext1 text-xs">
+                      {isClaudeAgent ? (
+                        <>
+                          Launch command:{" "}
+                          <span className="font-mono">
+                            claude --resume &lt;session-id&gt; '!cd &lt;worktree&gt;'
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Launch command:{" "}
+                          <span className="font-mono">
+                            cd &lt;worktree&gt; && codex resume &lt;session-id&gt;
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {resumeTarget === "pane" ? (
+              isClaudeAgent ? (
+                <div className="space-y-2">
+                  <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                    Existing Session
+                  </p>
+                  <div className="border-latte-surface2/80 bg-latte-base/55 space-y-2 rounded-2xl border p-3">
+                    <p className="text-latte-subtext0 text-xs">
+                      Claude keeps using the same pane for this action.
+                    </p>
+                    <p className="text-latte-subtext1 text-xs">
+                      The agent is not restarted. vde-monitor sends{" "}
+                      <span className="font-mono">!cd &lt;worktree&gt;</span> to move the worktree.
+                    </p>
+                    <p className="text-latte-subtext1 text-xs">
+                      Session ID override is not required.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                    Existing Session
+                  </p>
+                  <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
+                    <p className="text-latte-subtext0 text-xs">
+                      Existing session reuse is always enabled for this action.
+                    </p>
+                    <label className="space-y-1 text-xs">
+                      <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
+                        Source Pane
+                      </span>
+                      <ZoomSafeInput
+                        value={sourcePaneId}
+                        onChange={(event) => setSourcePaneId(event.target.value)}
+                        placeholder={sourceSession.paneId}
+                        aria-label="Source Pane"
+                        className="font-mono"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs">
+                      <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
+                        Session ID Override
+                      </span>
+                      <ZoomSafeInput
+                        value={sessionIdOverride}
+                        onChange={(event) => setSessionIdOverride(event.target.value)}
+                        placeholder="Optional"
+                        aria-label="Session ID override"
+                        className="font-mono"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )
+            ) : null}
+
+            <div className="space-y-2">
+              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                Target Worktree
               </p>
               <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
                 <div className="space-y-3">

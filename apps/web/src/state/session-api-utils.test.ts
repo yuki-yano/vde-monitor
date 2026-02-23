@@ -229,6 +229,7 @@ describe("session-api-utils", () => {
         worktreeCreateIfMissing: true,
         resumeFromPaneId: "%12",
         resumePolicy: "best_effort",
+        resumeTarget: "window",
       }),
     ).toEqual({
       sessionName: "dev-main",
@@ -238,6 +239,7 @@ describe("session-api-utils", () => {
       worktreeCreateIfMissing: true,
       resumeFromPaneId: "%12",
       resumePolicy: "best_effort",
+      resumeTarget: "window",
     });
     expect(() =>
       buildLaunchAgentJson({
@@ -264,6 +266,15 @@ describe("session-api-utils", () => {
         resumePolicy: "required",
       }),
     ).toThrow("resumePolicy requires resumeSessionId or resumeFromPaneId");
+    expect(() =>
+      buildLaunchAgentJson({
+        sessionName: "dev-main",
+        agent: "codex",
+        requestId: "req-4c",
+        resumeSessionId: "sess-1",
+        resumeTarget: "window",
+      }),
+    ).toThrow("resumeFromPaneId is required when resumeTarget is window");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
     expect(buildUploadImageForm(file)).toEqual({ image: file });
 

@@ -4,6 +4,7 @@ import type {
   LaunchAgent,
   LaunchAgentResult,
   LaunchCommandResponse,
+  LaunchResumeTarget,
   LaunchRollback,
 } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
@@ -14,6 +15,7 @@ import {
   assertSessionExists,
   createDetachedWindow,
   interruptPaneForRelaunch,
+  quoteShellValue,
   resolveExistingPaneLaunchTarget,
   resolveUniqueWindowName,
   rollbackCreatedWindow,
@@ -77,6 +79,7 @@ export const createLaunchActions = ({
     worktreeCreateIfMissing,
     resumeSessionId,
     resumeFromPaneId,
+    resumeTarget,
   }: {
     sessionName: string;
     agent: LaunchAgent;
@@ -89,6 +92,7 @@ export const createLaunchActions = ({
     worktreeCreateIfMissing?: boolean;
     resumeSessionId?: string;
     resumeFromPaneId?: string;
+    resumeTarget?: LaunchResumeTarget;
   }): Promise<LaunchResult> => {
     const normalizedSessionName = sessionName.trim();
     if (!normalizedSessionName) {
@@ -116,6 +120,8 @@ export const createLaunchActions = ({
     const normalizedWorktreeCreateIfMissing = worktreeCreateIfMissing === true;
     const normalizedResumeSessionId = normalizeOptionalText(resumeSessionId);
     const normalizedResumeFromPaneId = normalizeOptionalText(resumeFromPaneId);
+    const normalizedResumeTarget: LaunchResumeTarget =
+      resumeTarget === "window" ? "window" : "pane";
     if (
       normalizedResumeSessionId &&
       (normalizedResumeSessionId.length > 256 || containsNulOrLineBreak(normalizedResumeSessionId))
@@ -131,6 +137,15 @@ export const createLaunchActions = ({
     ) {
       return launchError(
         buildError("INVALID_PAYLOAD", "resumeFromPaneId contains an invalid value"),
+        defaultLaunchRollback(),
+      );
+    }
+    if (normalizedResumeTarget === "window" && !normalizedResumeFromPaneId) {
+      return launchError(
+        buildError(
+          "INVALID_PAYLOAD",
+          "resumeFromPaneId is required when resumeTarget is set to window",
+        ),
         defaultLaunchRollback(),
       );
     }
@@ -191,6 +206,12 @@ export const createLaunchActions = ({
       return launchError(resolvedOptionsError, defaultLaunchRollback());
     }
 
+    let sourceTarget: {
+      windowId: string;
+      windowIndex: number;
+      windowName: string;
+      paneId: string;
+    } | null = null;
     if (normalizedResumeFromPaneId) {
       const target = await resolveExistingPaneLaunchTarget({
         adapter,
@@ -199,11 +220,14 @@ export const createLaunchActions = ({
       if (!target.ok) {
         return launchError(target.error, defaultLaunchRollback());
       }
+      sourceTarget = target;
+    }
 
+    if (sourceTarget && normalizedResumeTarget === "pane") {
       if (agent === "claude" && resumeCommandCwd) {
         const sendResult = await sendClaudeWorktreeCdCommand({
           adapter,
-          paneId: target.paneId,
+          paneId: sourceTarget.paneId,
           worktreePath: resumeCommandCwd,
           exitCopyModeIfNeeded,
           sendEnterKey,
@@ -211,24 +235,24 @@ export const createLaunchActions = ({
         });
         if (!sendResult.ok) {
           console.warn(
-            `[vde-monitor] claude worktree move send failed: session=${normalizedSessionName} pane=${target.paneId} window=${target.windowId}:${target.windowName} error=${sendResult.error.message}`,
+            `[vde-monitor] claude worktree move send failed: session=${normalizedSessionName} pane=${sourceTarget.paneId} window=${sourceTarget.windowId}:${sourceTarget.windowName} error=${sendResult.error.message}`,
           );
           return launchError(sendResult.error, defaultLaunchRollback());
         }
 
         const verification = await verifyLaunch({
           adapter,
-          paneId: target.paneId,
+          paneId: sourceTarget.paneId,
           agent,
         });
 
         return launchSuccess({
           sessionName: normalizedSessionName,
           agent,
-          windowId: target.windowId,
-          windowIndex: target.windowIndex,
-          windowName: target.windowName,
-          paneId: target.paneId,
+          windowId: sourceTarget.windowId,
+          windowIndex: sourceTarget.windowIndex,
+          windowName: sourceTarget.windowName,
+          paneId: sourceTarget.paneId,
           launchedCommand: agent,
           resolvedOptions,
           verification,
@@ -237,7 +261,7 @@ export const createLaunchActions = ({
 
       const interruptError = await interruptPaneForRelaunch({
         adapter,
-        paneId: target.paneId,
+        paneId: sourceTarget.paneId,
         agent,
         exitCopyModeIfNeeded,
       });
@@ -247,7 +271,7 @@ export const createLaunchActions = ({
 
       const sendResult = await sendLaunchCommand({
         adapter,
-        paneId: target.paneId,
+        paneId: sourceTarget.paneId,
         agent,
         options: resolvedOptions,
         resumeSessionId: normalizedResumeSessionId,
@@ -260,28 +284,40 @@ export const createLaunchActions = ({
       });
       if (!sendResult.ok) {
         console.warn(
-          `[vde-monitor] relaunch send failed after interrupt: session=${normalizedSessionName} pane=${target.paneId} window=${target.windowId}:${target.windowName} agent=${agent} error=${sendResult.error.message}`,
+          `[vde-monitor] relaunch send failed after interrupt: session=${normalizedSessionName} pane=${sourceTarget.paneId} window=${sourceTarget.windowId}:${sourceTarget.windowName} agent=${agent} error=${sendResult.error.message}`,
         );
         return launchError(sendResult.error, defaultLaunchRollback());
       }
 
       const verification = await verifyLaunch({
         adapter,
-        paneId: target.paneId,
+        paneId: sourceTarget.paneId,
         agent,
       });
 
       return launchSuccess({
         sessionName: normalizedSessionName,
         agent,
-        windowId: target.windowId,
-        windowIndex: target.windowIndex,
-        windowName: target.windowName,
-        paneId: target.paneId,
+        windowId: sourceTarget.windowId,
+        windowIndex: sourceTarget.windowIndex,
+        windowName: sourceTarget.windowName,
+        paneId: sourceTarget.paneId,
         launchedCommand: agent,
         resolvedOptions,
         verification,
       });
+    }
+
+    if (sourceTarget && normalizedResumeTarget === "window") {
+      const interruptError = await interruptPaneForRelaunch({
+        adapter,
+        paneId: sourceTarget.paneId,
+        agent,
+        exitCopyModeIfNeeded,
+      });
+      if (interruptError) {
+        return launchError(interruptError, defaultLaunchRollback());
+      }
     }
 
     const resolvedWindowName = await resolveUniqueWindowName({
@@ -306,13 +342,21 @@ export const createLaunchActions = ({
       return launchError(created.error, defaultLaunchRollback());
     }
 
+    const newWindowResumePrompt =
+      normalizedResumeTarget === "window" &&
+      agent === "claude" &&
+      normalizedResumeSessionId &&
+      resumeCommandCwd
+        ? `!cd ${quoteShellValue(resumeCommandCwd)}`
+        : undefined;
     const sendResult = await sendLaunchCommand({
       adapter,
       paneId: created.paneId,
       agent,
       options: resolvedOptions,
       resumeSessionId: normalizedResumeSessionId,
-      finalCwd: resumeCommandCwd,
+      resumePrompt: newWindowResumePrompt,
+      finalCwd: newWindowResumePrompt ? undefined : resumeCommandCwd,
       exitCopyModeIfNeeded,
       sendEnterKey,
       internalError,

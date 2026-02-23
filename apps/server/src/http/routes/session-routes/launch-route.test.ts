@@ -152,4 +152,58 @@ describe("createLaunchRoute", () => {
     expect(json.command.resume?.source).toBe("manual");
     expect(json.command.resume?.failureReason).toBeUndefined();
   });
+
+  it("forwards resumeTarget to launch action when provided", async () => {
+    const launchAgentInSession = vi.fn(async () => ({
+      ok: true as const,
+      result: {
+        sessionName: "dev",
+        agent: "claude" as const,
+        windowId: "@3",
+        windowIndex: 3,
+        windowName: "claude-work",
+        paneId: "%20",
+        launchedCommand: "claude" as const,
+        resolvedOptions: [],
+        verification: {
+          status: "verified" as const,
+          observedCommand: "claude",
+          attempts: 1,
+        },
+      },
+      rollback: { attempted: false, ok: true },
+    }));
+
+    const app = createLaunchRoute({
+      config: {
+        multiplexer: { backend: "tmux" },
+      } as unknown as AgentMonitorConfig,
+      monitor: {
+        registry: { getDetail: () => buildPane({ agentSessionId: "sess-1" }) },
+      } as unknown as SessionRouteDeps["monitor"],
+      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
+      sendLimiter: () => true,
+      getLimiterKey: () => "limiter-key",
+    });
+
+    const res = await app.request("/sessions/launch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionName: "dev",
+        agent: "claude",
+        requestId: "req-3",
+        resumeFromPaneId: "%13",
+        resumeTarget: "window",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(launchAgentInSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resumeFromPaneId: "%13",
+        resumeTarget: "window",
+      }),
+    );
+  });
 });

@@ -151,6 +151,7 @@ export const createSessionActionRequests = ({
               resumeSessionId: options?.resumeSessionId,
               resumeFromPaneId: options?.resumeFromPaneId,
               resumePolicy: options?.resumePolicy,
+              resumeTarget: options?.resumeTarget,
             }),
           },
           { init: { signal } },

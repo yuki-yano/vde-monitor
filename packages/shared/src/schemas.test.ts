@@ -608,8 +608,20 @@ describe("launch schemas", () => {
       resumeSessionId: "sess-1",
       resumeFromPaneId: "%12",
       resumePolicy: "best_effort",
+      resumeTarget: "window",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects window resume target without source pane", () => {
+    const result = launchAgentRequestSchema.safeParse({
+      sessionName: "dev-main",
+      agent: "codex",
+      requestId: "req-1",
+      resumeSessionId: "sess-1",
+      resumeTarget: "window",
+    });
+    expect(result.success).toBe(false);
   });
 
   it("rejects launch request windowName with control characters", () => {

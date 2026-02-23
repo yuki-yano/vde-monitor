@@ -10,6 +10,7 @@ export type LaunchAgentRequestOptions = {
   resumeSessionId?: string;
   resumeFromPaneId?: string;
   resumePolicy?: "required" | "best_effort";
+  resumeTarget?: "pane" | "window";
 };
 
 export type LaunchAgentHandler = (

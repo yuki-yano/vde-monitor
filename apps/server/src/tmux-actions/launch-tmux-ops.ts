@@ -292,6 +292,7 @@ export const buildLaunchCommandLine = ({
   agent,
   options,
   resumeSessionId,
+  resumePrompt,
   finalCwd,
   alwaysPrefixCwd = false,
 }: {
@@ -299,6 +300,7 @@ export const buildLaunchCommandLine = ({
   // Each option must already be a validated shell fragment.
   options: ShellFragment[];
   resumeSessionId?: string;
+  resumePrompt?: string;
   finalCwd?: string;
   alwaysPrefixCwd?: boolean;
 }) => {
@@ -313,7 +315,11 @@ export const buildLaunchCommandLine = ({
   const quotedSessionId = quoteShellValue(resumeSessionId);
   const resumeBase =
     agent === "codex" ? `codex resume ${quotedSessionId}` : `claude --resume ${quotedSessionId}`;
-  const resumeCommand = optionsSuffix.length > 0 ? `${resumeBase} ${optionsSuffix}` : resumeBase;
+  const resumeWithOptions =
+    optionsSuffix.length > 0 ? `${resumeBase} ${optionsSuffix}` : resumeBase;
+  const resumeCommand = resumePrompt
+    ? `${resumeWithOptions} ${quoteShellValue(resumePrompt)}`
+    : resumeWithOptions;
   if (!finalCwd) {
     return resumeCommand;
   }
@@ -514,6 +520,7 @@ export const sendLaunchCommand = async ({
   agent,
   options,
   resumeSessionId,
+  resumePrompt,
   finalCwd,
   exitCopyModeIfNeeded,
   sendEnterKey,
@@ -526,6 +533,7 @@ export const sendLaunchCommand = async ({
   agent: LaunchAgent;
   options: string[];
   resumeSessionId?: string;
+  resumePrompt?: string;
   finalCwd?: string;
   exitCopyModeIfNeeded: (paneId: string) => Promise<void>;
   sendEnterKey: (paneId: string) => Promise<ActionResult>;
@@ -540,6 +548,7 @@ export const sendLaunchCommand = async ({
     agent,
     options,
     resumeSessionId,
+    resumePrompt,
     finalCwd,
     alwaysPrefixCwd: forceShellCwdPrefix,
   });

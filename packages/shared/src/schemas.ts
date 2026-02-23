@@ -150,6 +150,7 @@ export const commandResponseSchema = z.object({
 
 export const launchAgentSchema = z.enum(["codex", "claude"]);
 export const launchResumePolicySchema = z.enum(["required", "best_effort"]);
+export const launchResumeTargetSchema = z.enum(["pane", "window"]);
 
 const containsNulOrLineBreak = (value: string) =>
   value.includes("\0") || value.includes("\r") || value.includes("\n") || value.includes("\t");
@@ -179,6 +180,7 @@ export const launchAgentRequestSchema = z
     resumeSessionId: z.string().trim().min(1).max(256).optional(),
     resumeFromPaneId: z.string().trim().min(1).max(64).optional(),
     resumePolicy: launchResumePolicySchema.optional(),
+    resumeTarget: launchResumeTargetSchema.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -230,6 +232,13 @@ export const launchAgentRequestSchema = z
         code: "custom",
         path: ["resumePolicy"],
         message: "resumePolicy requires resumeSessionId or resumeFromPaneId",
+      });
+    }
+    if (value.resumeTarget === "window" && !value.resumeFromPaneId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["resumeFromPaneId"],
+        message: "resumeFromPaneId is required when resumeTarget is window",
       });
     }
   });

@@ -80,6 +80,7 @@ export type LaunchAgentJson = {
   resumeSessionId?: string;
   resumeFromPaneId?: string;
   resumePolicy?: "required" | "best_effort";
+  resumeTarget?: "pane" | "window";
 };
 
 export type SessionTitleJson = {

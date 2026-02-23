@@ -4,6 +4,7 @@ import type {
   LaunchAgent,
   LaunchAgentResult,
   LaunchResumePolicy,
+  LaunchResumeTarget,
   LaunchRollback,
   LaunchVerification,
   PaneMeta,
@@ -40,6 +41,7 @@ export type LaunchAgentInSessionInput = {
   resumeSessionId?: string;
   resumeFromPaneId?: string;
   resumePolicy?: LaunchResumePolicy;
+  resumeTarget?: LaunchResumeTarget;
 };
 
 export type MultiplexerLaunchRollback = LaunchRollback;
