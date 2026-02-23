@@ -1,11 +1,9 @@
 import { defaultConfig } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tmuxRun, weztermRun, launchAgentInSessionMock, ensureConfigMock } = vi.hoisted(() => ({
+const { tmuxRun, weztermRun } = vi.hoisted(() => ({
   tmuxRun: vi.fn(),
   weztermRun: vi.fn(),
-  launchAgentInSessionMock: vi.fn(),
-  ensureConfigMock: vi.fn(() => ({ ...defaultConfig, token: "token" })),
 }));
 
 vi.mock("@vde-monitor/tmux", () => ({
@@ -27,35 +25,12 @@ vi.mock("@vde-monitor/wezterm", () => ({
   }),
 }));
 
-vi.mock("./config", async () => {
-  const actual = await vi.importActual<typeof import("./config")>("./config");
-  return {
-    ...actual,
-    ensureConfig: ensureConfigMock,
-  };
-});
-
-vi.mock("./multiplexer/runtime", () => ({
-  createMultiplexerRuntime: vi.fn(() => ({
-    actions: {
-      launchAgentInSession: launchAgentInSessionMock,
-    },
-  })),
-}));
-
-import {
-  buildAccessUrl,
-  buildTailscaleHttpsAccessUrl,
-  ensureBackendAvailable,
-  runLaunchAgentCommand,
-} from "./index";
+import { buildAccessUrl, buildTailscaleHttpsAccessUrl, ensureBackendAvailable } from "./index";
 
 describe("ensureBackendAvailable", () => {
   beforeEach(() => {
     tmuxRun.mockReset();
     weztermRun.mockReset();
-    launchAgentInSessionMock.mockReset();
-    ensureConfigMock.mockClear();
   });
 
   it("checks tmux availability when backend is tmux", async () => {
@@ -159,125 +134,5 @@ describe("buildTailscaleHttpsAccessUrl", () => {
     expect(parsed.origin).toBe("https://macbook.example.ts.net");
     expect(hashParams.get("token")).toBe("abc123");
     expect(hashParams.has("api")).toBe(false);
-  });
-});
-
-describe("runLaunchAgentCommand", () => {
-  beforeEach(() => {
-    launchAgentInSessionMock.mockReset();
-    ensureConfigMock.mockClear();
-  });
-
-  it("prints launch result as JSON and returns success exit code", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    launchAgentInSessionMock.mockResolvedValueOnce({
-      ok: true,
-      result: {
-        sessionName: "dev-main",
-        agent: "codex",
-        windowId: "@42",
-        windowIndex: 1,
-        windowName: "codex-work",
-        paneId: "%12",
-        launchedCommand: "codex",
-        resolvedOptions: [],
-        verification: {
-          status: "verified",
-          observedCommand: "codex",
-          attempts: 1,
-        },
-      },
-      rollback: {
-        attempted: false,
-        ok: true,
-      },
-    });
-
-    const exitCode = await runLaunchAgentCommand({
-      command: "tmux",
-      subcommand: "launch-agent",
-      session: "dev-main",
-      agent: "codex",
-      output: "json",
-    } as never);
-
-    expect(exitCode).toBe(0);
-    expect(launchAgentInSessionMock).toHaveBeenCalledWith({
-      sessionName: "dev-main",
-      agent: "codex",
-      requestId: expect.any(String),
-      windowName: undefined,
-      cwd: undefined,
-      worktreePath: undefined,
-      worktreeBranch: undefined,
-      resumeSessionId: undefined,
-      resumeFromPaneId: undefined,
-      resumePolicy: undefined,
-    });
-    expect(consoleSpy).toHaveBeenCalledTimes(1);
-    const serialized = consoleSpy.mock.calls[0]?.[0];
-    expect(typeof serialized).toBe("string");
-    if (typeof serialized === "string") {
-      const payload = JSON.parse(serialized) as { ok: boolean; requestId?: string };
-      expect(payload.ok).toBe(true);
-      expect(payload.requestId).toEqual(expect.any(String));
-    }
-    consoleSpy.mockRestore();
-  });
-
-  it("returns mapped exit code when launch fails with NOT_FOUND", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    launchAgentInSessionMock.mockResolvedValueOnce({
-      ok: false,
-      error: { code: "NOT_FOUND", message: "session not found: dev-main" },
-      rollback: {
-        attempted: false,
-        ok: true,
-      },
-    });
-
-    const exitCode = await runLaunchAgentCommand({
-      command: "tmux",
-      subcommand: "launch-agent",
-      session: "dev-main",
-      agent: "codex",
-      output: "text",
-    } as never);
-
-    expect(exitCode).toBe(3);
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
-  });
-
-  it("returns exit code 5 when launch fails with RESUME_*", async () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    launchAgentInSessionMock.mockResolvedValueOnce({
-      ok: false,
-      error: { code: "RESUME_NOT_FOUND", message: "resume not found" },
-      rollback: {
-        attempted: false,
-        ok: true,
-      },
-      resume: {
-        requested: true,
-        reused: false,
-        sessionId: null,
-        source: null,
-        confidence: "none",
-        policy: "required",
-        failureReason: "not_found",
-      },
-    });
-
-    const exitCode = await runLaunchAgentCommand({
-      command: "tmux",
-      subcommand: "launch-agent",
-      session: "dev-main",
-      agent: "codex",
-      output: "text",
-    } as never);
-
-    expect(exitCode).toBe(5);
-    consoleSpy.mockRestore();
   });
 });

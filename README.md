@@ -22,7 +22,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 ## Main features
 
 - Session List: grouped by repository/window with quick status checks, search/filter, and pin
-- Session Detail: live screen view (text/image), follow mode, and input composer (text/keys/raw)
+- Session Detail: live screen view (text/image), timeline, notes, diff, commits, file navigator, worktree context switch, and input composer (text/keys/raw/image attachment)
 - Timeline and context: state timeline, repo notes, git diff/commits, and file browsing
 - Worktree context: inspect timeline/git/files against a selected worktree without leaving the session ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
 - Agent operations: launch Codex/Claude, or resume/move an existing session into another worktree context
@@ -84,6 +84,33 @@ When terminal height allows, a QR code is also printed for quick access from ano
    - key input
    - raw input
 4. Use timeline, notes, diff, and commits tabs to inspect progress in context.
+
+## UI workflows
+
+### Session Detail (single-session deep dive)
+
+- Desktop layout: Screen + Notes on the left, Diff / Files / Commits / Worktree panels on the right.
+- Mobile layout: the same sections are available via section tabs under the screen panel.
+- Typical use:
+  1. Monitor the current terminal state in the screen panel.
+  2. Capture decisions and TODOs in Notes while reviewing.
+  3. Validate changes through Diff and Commits, then inspect source files in File Navigator.
+  4. Switch Worktree context to compare another branch/worktree view without leaving the session.
+  5. Send follow-up prompts with text/keys/raw, and attach an image when needed.
+
+### Chat Grid (parallel monitoring)
+
+- Track multiple panes side by side in one board.
+- Use candidate selection to add/remove monitored panes quickly.
+- Refresh all tiles and send inputs per tile to compare multi-agent progress in real time.
+- Useful when running parallel experiments or reviewing several repos/windows at once.
+
+### Usage Dashboard (capacity and cost checks)
+
+- Compare Codex and Claude provider snapshots in one view.
+- Use Global State Timeline (range + compact mode) to identify waiting-heavy periods.
+- Review issues/warnings surfaced by providers, then jump back to Session List for action.
+- Useful for deciding when to rebalance active sessions or reduce costly runs.
 
 ## Mobile device usage
 
@@ -157,22 +184,6 @@ Notes:
 - `--tailscale --https` asks before auto-running `tailscale serve --bg <port>` (default `N`)
 - Existing `tailscale serve` settings are never auto-overwritten
 - For HTTPS on Tailscale, use `tailscale serve` or `tailscale funnel`; plain Tailscale IP HTTP is not HTTPS
-
-### Launch agent in tmux session
-
-```bash
-npx vde-monitor@latest tmux launch-agent --session <name> --agent <codex|claude> [options]
-```
-
-Common options:
-
-```text
---window-name <name>
---cwd <path>
---worktree-path <path>
---worktree-branch <name>
---output <json|text>
-```
 
 ### Utility commands
 

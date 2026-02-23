@@ -22,10 +22,10 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 ## 主な機能
 
 - Session List: リポジトリ / ウィンドウ単位でグルーピングし、状態確認・検索 / フィルタ・ピン留めが可能
-- Session Detail: ライブスクリーン表示（text/image）、追従モード、入力コンポーザー（text/keys/raw）
+- Session Detail: ライブスクリーン表示（text/image）、タイムライン、ノート、diff、commits、ファイルナビゲーション、worktree 文脈切替、入力コンポーザー（text/keys/raw/画像添付）
 - タイムラインと文脈情報: 状態タイムライン、repo notes、git diff / commits、ファイル閲覧
 - worktree 文脈切替: セッションを維持したまま、選択した worktree を基準に timeline / git / files を確認（[`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` が必要）
-- エージェント操作: CLI / UI から Codex / Claude の起動、または既存セッションの再開/移動
+- エージェント操作: UI から Codex / Claude の起動、または既存セッションの再開/移動
 - マルチ pane 監視: デスクトップ向け Chat Grid で並列監視
 - モバイル UI/UX 優先: 主要な監視・操作フローをスマホブラウザの一次体験として設計
 - PWA Push 通知: セッション単位トグル（既定OFF）と設定ファイルの全体ON/OFFに対応
@@ -84,6 +84,33 @@ vde-monitor: http://localhost:11080/#token=...
    - key input
    - raw input
 4. timeline / notes / diff / commits タブで文脈情報を確認する
+
+## UIワークフロー
+
+### Session Detail（単一セッションを深掘り）
+
+- デスクトップ: 左側に Screen + Notes、右側に Diff / Files / Commits / Worktree を配置。
+- モバイル: 画面下のセクションタブから同じ情報へ切り替え可能。
+- 典型的な使い方:
+  1. Screen パネルで現在の実行状態を監視する。
+  2. Notes に判断メモや TODO を残す。
+  3. Diff / Commits で変更を確認し、File Navigator で対象ファイルを読む。
+  4. Worktree 文脈を切り替えて、別ブランチ視点を同一セッション内で確認する。
+  5. text/keys/raw を送信し、必要に応じて画像を添付して追加入力する。
+
+### Chat Grid（並列監視）
+
+- 複数 pane をタイル表示して同時監視。
+- 候補選択モーダルで監視対象を素早く追加/削除。
+- 全タイル更新とタイル単位入力で、複数エージェントの進捗を同時比較。
+- 並列実験や複数リポジトリ/ウィンドウのレビュー時に有効。
+
+### Usage Dashboard（容量・コスト確認）
+
+- Codex / Claude の利用状況を同一画面で比較。
+- Global State Timeline（範囲切替 + Compact）で待機時間の偏りを把握。
+- provider の issue / warning を確認して、必要に応じて Session List に戻って調整。
+- セッション配分の見直しや高コスト実行の抑制判断に有効。
 
 ## モバイル端末での利用
 
@@ -157,22 +184,6 @@ npx vde-monitor@latest [options]
 - `--tailscale --https` では `tailscale serve --bg <port>` の自動実行前に確認プロンプトを表示（既定 `N`）
 - 既存の `tailscale serve` 設定は自動で上書きしない
 - Tailscale 経由で HTTPS を使う場合は `tailscale serve` / `tailscale funnel` を使用（Tailscale IP の HTTP は HTTPS ではない）
-
-### tmux セッションでエージェント起動
-
-```bash
-npx vde-monitor@latest tmux launch-agent --session <name> --agent <codex|claude> [options]
-```
-
-主なオプション:
-
-```text
---window-name <name>
---cwd <path>
---worktree-path <path>
---worktree-branch <name>
---output <json|text>
-```
 
 ### ユーティリティ
 
