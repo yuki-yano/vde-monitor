@@ -129,6 +129,52 @@ describe("ResumeWorktreeDialog", () => {
     });
   });
 
+  it("hides existing session inputs for claude and submits with source pane", async () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession({
+          agent: "claude",
+        })}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[
+          {
+            path: "/repo/.worktree/feature/current",
+            branch: "feature/current",
+            dirty: false,
+            locked: false,
+            lockOwner: null,
+            lockReason: null,
+            merged: false,
+          },
+        ]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Source Pane")).toBeNull();
+    expect(screen.queryByLabelText("Session ID override")).toBeNull();
+    expect(screen.queryByText("Agent Options")).toBeNull();
+    expect(screen.queryByText("Current agent:")).toBeNull();
+    expect(screen.getByText("Claude keeps using the same pane for this action.")).toBeTruthy();
+    expect(screen.getByText("Session ID override is not required.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
+
+    await waitFor(() => {
+      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "claude", {
+        worktreePath: "/repo/.worktree/feature/current",
+        worktreeBranch: "feature/current",
+        resumeFromPaneId: "pane-1",
+      });
+    });
+  });
+
   it("shows required failure reason from resume metadata", async () => {
     const onLaunchAgentInSession = vi.fn(async () => ({
       ok: false as const,
