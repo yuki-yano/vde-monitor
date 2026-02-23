@@ -45,6 +45,15 @@ describe("ResumeWorktreeDialog", () => {
     lockReason: null,
     merged: false,
   } as const;
+  const repoRootEntry = {
+    path: "/repo",
+    branch: "main",
+    dirty: false,
+    locked: false,
+    lockOwner: null,
+    lockReason: null,
+    merged: false,
+  } as const;
 
   it("submits existing worktree resume request with source pane defaults", async () => {
     const onLaunchAgentInSession = vi.fn(async () => undefined);
@@ -68,7 +77,7 @@ describe("ResumeWorktreeDialog", () => {
     expect(screen.queryByRole("checkbox", { name: "Use vw worktree" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Existing" })).toBeNull();
     expect(screen.queryByRole("button", { name: "New" })).toBeNull();
-    expect(screen.getByText("Select existing vw worktree.")).toBeTruthy();
+    expect(screen.getByText("Select existing vw worktree or repo root.")).toBeTruthy();
     expect(screen.queryByText(/repo root:/)).toBeNull();
     expect(screen.queryByRole("radio", { name: /Best effort/i })).toBeNull();
     expect(screen.queryByRole("radio", { name: /Required/i })).toBeNull();
@@ -260,6 +269,60 @@ describe("ResumeWorktreeDialog", () => {
         resumeTarget: "window",
       });
     });
+  });
+
+  it("submits repo root as target worktree", async () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession({
+          branch: "main",
+          worktreePath: "/repo",
+        })}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[managedWorktreeEntry, repoRootEntry]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    expect(screen.getByText("Current target:")).toBeTruthy();
+    expect(screen.getAllByText("repo root (main)").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
+
+    await waitFor(() => {
+      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "codex", {
+        worktreePath: "/repo",
+        worktreeBranch: "main",
+        resumeFromPaneId: "pane-1",
+      });
+    });
+  });
+
+  it("shows repo root at the top of target worktree options", () => {
+    const onLaunchAgentInSession = vi.fn(async () => undefined);
+
+    render(
+      <ResumeWorktreeDialog
+        open={true}
+        onOpenChange={() => undefined}
+        sessionName="dev-main"
+        sourceSession={buildSession()}
+        launchConfig={defaultLaunchConfig}
+        worktreeEntries={[managedWorktreeEntry, repoRootEntry]}
+        worktreeRepoRoot="/repo"
+        onLaunchAgentInSession={onLaunchAgentInSession}
+      />,
+    );
+
+    const radios = screen.getAllByRole("radio");
+    expect(radios[0]?.closest("label")?.textContent).toContain("repo root (main)");
+    expect(screen.getByText("path: .")).toBeTruthy();
   });
 
   it("disables resume submit when no existing vw worktree is available", () => {

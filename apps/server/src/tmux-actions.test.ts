@@ -584,6 +584,13 @@ describe("createTmuxActions.launchAgentInSession", () => {
         if (
           args[0] === "display-message" &&
           args.length >= 5 &&
+          args[4] === "#{pane_current_path}"
+        ) {
+          return { stdout: "/repo/current\n", stderr: "", exitCode: 0 };
+        }
+        if (
+          args[0] === "display-message" &&
+          args.length >= 5 &&
           args[4] === "#{pane_current_command}"
         ) {
           paneCommandQueryCount += 1;
@@ -641,6 +648,9 @@ describe("createTmuxActions.launchAgentInSession", () => {
       expect(result.ok).toBe(true);
       expect(killSpy).toHaveBeenCalledWith(8800, "SIGTERM");
       expect(adapter.run.mock.calls.some((call) => call[0]?.[0] === "new-window")).toBe(true);
+      const newWindowCall = adapter.run.mock.calls.find((call) => call[0]?.[0] === "new-window");
+      expect(newWindowCall).toBeDefined();
+      expect(newWindowCall?.[0]).toEqual(expect.arrayContaining(["-c", "/repo/current"]));
       expect(adapter.run).toHaveBeenCalledWith([
         "send-keys",
         "-l",
@@ -841,6 +851,13 @@ describe("createTmuxActions.launchAgentInSession", () => {
         if (
           args[0] === "display-message" &&
           args.length >= 5 &&
+          args[4] === "#{pane_current_path}"
+        ) {
+          return { stdout: "/repo/current\n", stderr: "", exitCode: 0 };
+        }
+        if (
+          args[0] === "display-message" &&
+          args.length >= 5 &&
           args[4] === "#{pane_current_command}"
         ) {
           paneCommandQueryCount += 1;
@@ -898,6 +915,9 @@ describe("createTmuxActions.launchAgentInSession", () => {
       expect(result.ok).toBe(true);
       expect(killSpy).toHaveBeenCalledWith(8801, "SIGTERM");
       expect(adapter.run.mock.calls.some((call) => call[0]?.[0] === "new-window")).toBe(true);
+      const newWindowCall = adapter.run.mock.calls.find((call) => call[0]?.[0] === "new-window");
+      expect(newWindowCall).toBeDefined();
+      expect(newWindowCall?.[0]).toEqual(expect.arrayContaining(["-c", "/repo/current"]));
       const launchCommandCall = adapter.run.mock.calls.find(
         (call) =>
           call[0]?.[0] === "send-keys" &&

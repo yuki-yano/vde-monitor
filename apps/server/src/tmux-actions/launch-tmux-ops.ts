@@ -23,6 +23,7 @@ const isTmuxTargetMissing = (message: string) =>
 export const quoteShellValue = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 
 type PaneCommandResult = { ok: true; command: string | null } | { ok: false; error: ApiError };
+type PaneCurrentPathResult = { ok: true; cwd: string } | { ok: false; error: ApiError };
 type ShellFragment = string;
 
 const readPaneCurrentCommand = async ({
@@ -497,6 +498,58 @@ export const resolveExistingPaneLaunchTarget = async ({
     windowName,
     paneId: resolvedPaneId,
   };
+};
+
+export const resolvePaneCurrentPath = async ({
+  adapter,
+  paneId,
+}: {
+  adapter: TmuxAdapter;
+  paneId: string;
+}): Promise<PaneCurrentPathResult> => {
+  const viaDisplay = await adapter.run([
+    "display-message",
+    "-p",
+    "-t",
+    paneId,
+    "#{pane_current_path}",
+  ]);
+  if (viaDisplay.exitCode === 0) {
+    const displayPath =
+      viaDisplay.stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? null;
+    if (displayPath) {
+      return { ok: true, cwd: displayPath };
+    }
+  } else {
+    const message = viaDisplay.stderr || "failed to resolve pane current path";
+    if (isTmuxTargetMissing(message)) {
+      return { ok: false, error: buildError("INVALID_PANE", message) };
+    }
+  }
+
+  const viaList = await adapter.run(["list-panes", "-t", paneId, "-F", "#{pane_current_path}"]);
+  if (viaList.exitCode !== 0) {
+    const message = viaList.stderr || "failed to resolve pane current path";
+    return {
+      ok: false,
+      error: buildError(isTmuxTargetMissing(message) ? "INVALID_PANE" : "INTERNAL", message),
+    };
+  }
+  const resolvedPath =
+    viaList.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? null;
+  if (!resolvedPath) {
+    return {
+      ok: false,
+      error: buildError("INTERNAL", "failed to resolve pane current path"),
+    };
+  }
+  return { ok: true, cwd: resolvedPath };
 };
 
 export const interruptPaneForRelaunch = async ({

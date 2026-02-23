@@ -17,6 +17,7 @@ import {
   interruptPaneForRelaunch,
   quoteShellValue,
   resolveExistingPaneLaunchTarget,
+  resolvePaneCurrentPath,
   resolveUniqueWindowName,
   rollbackCreatedWindow,
   sendClaudeWorktreeCdCommand,
@@ -212,6 +213,7 @@ export const createLaunchActions = ({
       windowName: string;
       paneId: string;
     } | null = null;
+    let resumeWindowBaseCwd: string | undefined;
     if (normalizedResumeFromPaneId) {
       const target = await resolveExistingPaneLaunchTarget({
         adapter,
@@ -309,6 +311,15 @@ export const createLaunchActions = ({
     }
 
     if (sourceTarget && normalizedResumeTarget === "window") {
+      const sourcePaneCurrentPath = await resolvePaneCurrentPath({
+        adapter,
+        paneId: sourceTarget.paneId,
+      });
+      if (!sourcePaneCurrentPath.ok) {
+        return launchError(sourcePaneCurrentPath.error, defaultLaunchRollback());
+      }
+      resumeWindowBaseCwd = sourcePaneCurrentPath.cwd;
+
       const interruptError = await interruptPaneForRelaunch({
         adapter,
         paneId: sourceTarget.paneId,
@@ -331,7 +342,10 @@ export const createLaunchActions = ({
     }
 
     const detachedWindowCwd =
-      finalCwd ?? (normalizedResumeSessionId && !normalizedCwd ? resumeCommandCwd : undefined);
+      normalizedResumeTarget === "window"
+        ? resumeWindowBaseCwd
+        : (finalCwd ??
+          (normalizedResumeSessionId && !normalizedCwd ? resumeCommandCwd : undefined));
     const created = await createDetachedWindow({
       adapter,
       sessionName: normalizedSessionName,

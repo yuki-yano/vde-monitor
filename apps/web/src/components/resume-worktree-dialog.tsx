@@ -48,6 +48,21 @@ const toRepoRelativePath = (targetPath: string, repoRoot: string | null) => {
   return normalizedTarget;
 };
 
+const isRepoRootPath = (targetPath: string, repoRoot: string | null) => {
+  if (!repoRoot) {
+    return false;
+  }
+  return normalizePathForDisplay(targetPath) === normalizePathForDisplay(repoRoot);
+};
+
+const formatRepoRootLabel = (branch: string | null | undefined) => {
+  const normalizedBranch = branch?.trim();
+  if (normalizedBranch) {
+    return `repo root (${normalizedBranch})`;
+  }
+  return "repo root";
+};
+
 const launchAgentLabels = { codex: "Codex", claude: "Claude" } as const;
 const launchLocationLabels = { pane: "Current Pane", window: "New Window" } as const;
 
@@ -102,11 +117,20 @@ export const ResumeWorktreeDialog = ({
   const inheritedAgent: "codex" | "claude" = sourceSession.agent === "claude" ? "claude" : "codex";
   const isClaudeAgent = inheritedAgent === "claude";
 
-  const managedWorktrees = useMemo(
-    () => worktreeEntries.filter((entry) => isVwManagedWorktreePath(entry.path)),
-    [worktreeEntries],
-  );
-  const hasManagedWorktrees = managedWorktrees.length > 0;
+  const targetWorktrees = useMemo(() => {
+    const filtered = worktreeEntries.filter(
+      (entry) =>
+        isVwManagedWorktreePath(entry.path) || isRepoRootPath(entry.path, worktreeRepoRoot),
+    );
+    const repoRootEntries = filtered.filter((entry) =>
+      isRepoRootPath(entry.path, worktreeRepoRoot),
+    );
+    const nonRepoRootEntries = filtered.filter(
+      (entry) => !isRepoRootPath(entry.path, worktreeRepoRoot),
+    );
+    return [...repoRootEntries, ...nonRepoRootEntries];
+  }, [worktreeEntries, worktreeRepoRoot]);
+  const hasTargetWorktrees = targetWorktrees.length > 0;
   const hasSourcePane = sourceSession.paneId.trim().length > 0;
 
   const launchOptionsDefaultText = useMemo(
@@ -132,19 +156,19 @@ export const ResumeWorktreeDialog = ({
     setOverrideAgentOptions(false);
     setAgentOptionsText(launchOptionsDefaultText);
     setSelectedWorktreePath(
-      managedWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
-        managedWorktrees[0]?.path ??
+      targetWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
+        targetWorktrees[0]?.path ??
         "",
     );
     setResumeTarget("pane");
     setSourcePaneId(sourceSession.paneId);
     setSessionIdOverride("");
     setSubmitError(null);
-  }, [launchOptionsDefaultText, managedWorktrees, open, sourceSession]);
+  }, [launchOptionsDefaultText, open, sourceSession, targetWorktrees]);
 
   const selectedWorktree = useMemo(
-    () => managedWorktrees.find((entry) => entry.path === selectedWorktreePath) ?? null,
-    [managedWorktrees, selectedWorktreePath],
+    () => targetWorktrees.find((entry) => entry.path === selectedWorktreePath) ?? null,
+    [selectedWorktreePath, targetWorktrees],
   );
 
   const selectedWorktreeRelativePath = useMemo(() => {
@@ -154,36 +178,44 @@ export const ResumeWorktreeDialog = ({
     return toRepoRelativePath(selectedWorktree.path, worktreeRepoRoot);
   }, [selectedWorktree, worktreeRepoRoot]);
 
-  const existingWorktreeOptions = useMemo(
-    () =>
-      managedWorktrees.map((entry) => {
-        const relativePath = toRepoRelativePath(entry.path, worktreeRepoRoot);
-        return {
-          value: entry.path,
-          label: entry.branch?.trim().length ? entry.branch : relativePath,
-          labelClassName: "normal-case tracking-normal font-mono",
-          description: relativePath,
-          title: entry.path,
-          descriptionClassName: "font-mono text-[10px]",
-        };
-      }),
-    [managedWorktrees, worktreeRepoRoot],
-  );
+  const existingWorktreeOptions = useMemo(() => {
+    return targetWorktrees.map((entry) => {
+      const relativePath = toRepoRelativePath(entry.path, worktreeRepoRoot);
+      const repoRootTarget = isRepoRootPath(entry.path, worktreeRepoRoot);
+      return {
+        value: entry.path,
+        label: repoRootTarget
+          ? formatRepoRootLabel(entry.branch)
+          : entry.branch?.trim().length
+            ? entry.branch
+            : relativePath,
+        labelClassName: "normal-case tracking-normal font-mono",
+        description: repoRootTarget ? `path: ${relativePath}` : relativePath,
+        title: entry.path,
+        descriptionClassName: "font-mono text-[10px]",
+      };
+    });
+  }, [targetWorktrees, worktreeRepoRoot]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    if (managedWorktrees.length === 0) {
-      if (selectedWorktreePath !== "") {
-        setSelectedWorktreePath("");
+    setSelectedWorktreePath((currentPath) => {
+      if (targetWorktrees.length === 0) {
+        return "";
       }
-      return;
-    }
-    if (!managedWorktrees.some((entry) => entry.path === selectedWorktreePath)) {
-      setSelectedWorktreePath(managedWorktrees[0]?.path ?? "");
-    }
-  }, [managedWorktrees, open, selectedWorktreePath]);
+      if (targetWorktrees.some((entry) => entry.path === currentPath)) {
+        return currentPath;
+      }
+      const defaultWorktreePath = sourceSession.worktreePath?.trim();
+      return (
+        targetWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
+        targetWorktrees[0]?.path ??
+        ""
+      );
+    });
+  }, [open, sourceSession.worktreePath, targetWorktrees]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -218,7 +250,7 @@ export const ResumeWorktreeDialog = ({
     }
 
     if (!selectedWorktree) {
-      setSubmitError("No existing vw worktree found.");
+      setSubmitError("No target worktree found.");
       return;
     }
     launchOptions.worktreePath = selectedWorktree.path;
@@ -453,8 +485,10 @@ export const ResumeWorktreeDialog = ({
               </p>
               <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
                 <div className="space-y-3">
-                  <p className="text-latte-subtext1 text-xs">Select existing vw worktree.</p>
-                  {hasManagedWorktrees ? (
+                  <p className="text-latte-subtext1 text-xs">
+                    Select existing vw worktree or repo root.
+                  </p>
+                  {hasTargetWorktrees ? (
                     <SettingRadioGroup
                       ariaLabel="Existing worktrees"
                       name={`resume-worktree-${sessionName}`}
@@ -465,15 +499,19 @@ export const ResumeWorktreeDialog = ({
                       options={existingWorktreeOptions}
                     />
                   ) : (
-                    <p className="text-latte-subtext1 text-xs">No existing vw worktree found.</p>
+                    <p className="text-latte-subtext1 text-xs">
+                      No existing vw worktree or repo root found.
+                    </p>
                   )}
                   {selectedWorktree ? (
                     <p className="text-latte-subtext0 text-xs">
                       Current target:{" "}
                       <span className="font-mono">
-                        {selectedWorktree.branch ??
-                          selectedWorktreeRelativePath ??
-                          selectedWorktree.path}
+                        {isRepoRootPath(selectedWorktree.path, worktreeRepoRoot)
+                          ? formatRepoRootLabel(selectedWorktree.branch)
+                          : (selectedWorktree.branch ??
+                            selectedWorktreeRelativePath ??
+                            selectedWorktree.path)}
                       </span>
                     </p>
                   ) : null}
@@ -499,7 +537,7 @@ export const ResumeWorktreeDialog = ({
                 "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 disabled:hover:bg-latte-blue/15 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
                 className,
               )}
-              disabled={submitting || !hasManagedWorktrees}
+              disabled={submitting || !hasTargetWorktrees}
             >
               <span className="inline-flex items-center gap-1.5">
                 <GitBranch className="h-3.5 w-3.5" />
