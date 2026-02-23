@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   LoadingOverlay,
+  PillToggle,
   SettingRadioGroup,
   ZoomSafeInput,
   ZoomSafeTextarea,
@@ -48,7 +49,7 @@ const toRepoRelativePath = (targetPath: string, repoRoot: string | null) => {
 };
 
 const launchAgentLabels = { codex: "Codex", claude: "Claude" } as const;
-const launchLocationLabels = { pane: "Current pane", window: "New window" } as const;
+const launchLocationLabels = { pane: "Current Pane", window: "New Window" } as const;
 
 const REQUIRED_REASON_MESSAGE: Record<string, string> = {
   not_found:
@@ -343,51 +344,48 @@ export const ResumeWorktreeDialog = ({
                 Launch Location
               </p>
               <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
-                <SettingRadioGroup
-                  ariaLabel="Launch location"
-                  name={`resume-target-${sessionName}`}
-                  value={resumeTarget}
-                  onValueChange={(value) => setResumeTarget(value)}
-                  options={[
-                    {
-                      value: "pane",
-                      label: launchLocationLabels.pane,
-                      description: "Reuse the current pane.",
-                    },
-                    {
-                      value: "window",
-                      label: launchLocationLabels.window,
-                      description: hasSourcePane
-                        ? "Stop current pane agent, then relaunch in a new tmux window."
-                        : "Source pane is unavailable for this session.",
-                      disabled: !hasSourcePane,
-                    },
-                  ]}
-                />
+                <div className="flex items-center gap-2">
+                  <PillToggle
+                    type="button"
+                    active={resumeTarget === "pane"}
+                    onClick={() => setResumeTarget("pane")}
+                  >
+                    {launchLocationLabels.pane}
+                  </PillToggle>
+                  <PillToggle
+                    type="button"
+                    active={resumeTarget === "window"}
+                    onClick={() => setResumeTarget("window")}
+                    disabled={!hasSourcePane}
+                  >
+                    {launchLocationLabels.window}
+                  </PillToggle>
+                </div>
+                {!hasSourcePane ? (
+                  <p className="text-latte-subtext1 text-xs">
+                    Source pane is unavailable for this session.
+                  </p>
+                ) : null}
                 {resumeTarget === "window" ? (
-                  <div className="border-latte-surface2/80 bg-latte-base/60 space-y-1.5 rounded-xl border border-dashed px-3 py-2">
-                    <p className="text-latte-subtext1 text-xs">
-                      Source pane <span className="font-mono">{sourceSession.paneId}</span> is used
-                      internally as the stop target.
-                    </p>
-                    <p className="text-latte-subtext1 text-xs">
-                      {isClaudeAgent ? (
-                        <>
-                          Launch command:{" "}
-                          <span className="font-mono">
-                            claude --resume &lt;session-id&gt; '!cd &lt;worktree&gt;'
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          Launch command:{" "}
-                          <span className="font-mono">
-                            cd &lt;worktree&gt; && codex resume &lt;session-id&gt;
-                          </span>
-                        </>
-                      )}
-                    </p>
-                  </div>
+                  <p className="text-latte-subtext1 text-xs">
+                    {isClaudeAgent ? (
+                      <>
+                        Source pane agent is stopped, then{" "}
+                        <span className="font-mono">
+                          claude --resume &lt;session-id&gt; '!cd &lt;worktree&gt;'
+                        </span>{" "}
+                        runs in a new window.
+                      </>
+                    ) : (
+                      <>
+                        Source pane agent is stopped, then{" "}
+                        <span className="font-mono">
+                          cd &lt;worktree&gt; && codex resume &lt;session-id&gt;
+                        </span>{" "}
+                        runs in a new window.
+                      </>
+                    )}
+                  </p>
                 ) : null}
               </div>
             </div>

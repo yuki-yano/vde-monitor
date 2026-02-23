@@ -211,10 +211,10 @@ describe("ResumeWorktreeDialog", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("radio", { name: /New window/i }));
+    fireEvent.click(screen.getByRole("button", { name: "New Window" }));
     expect(screen.queryByLabelText("Source Pane")).toBeNull();
     expect(screen.queryByLabelText("Session ID override")).toBeNull();
-    expect(screen.getByText(/used internally as the stop target/i)).toBeTruthy();
+    expect(screen.getByText(/Source pane agent is stopped/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
 
@@ -246,7 +246,7 @@ describe("ResumeWorktreeDialog", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("radio", { name: /New window/i }));
+    fireEvent.click(screen.getByRole("button", { name: "New Window" }));
     expect(screen.queryByText("Claude keeps using the same pane for this action.")).toBeNull();
     expect(screen.getByText(/claude --resume <session-id> '!cd <worktree>'/i)).toBeTruthy();
 
