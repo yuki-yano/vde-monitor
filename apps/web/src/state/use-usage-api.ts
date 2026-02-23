@@ -4,10 +4,12 @@ import type {
   UsageDashboardResponse,
   UsageGlobalTimelineResponse,
   UsageProviderId,
+  UsageProviderSnapshot,
 } from "@vde-monitor/shared";
 import {
   usageDashboardResponseSchema,
   usageGlobalTimelineResponseSchema,
+  usageProviderSnapshotSchema,
 } from "@vde-monitor/shared";
 import { useCallback, useMemo } from "react";
 
@@ -26,6 +28,11 @@ type UseUsageApiParams = {
 
 type RequestUsageDashboardOptions = {
   provider?: UsageProviderId;
+  refresh?: boolean;
+};
+
+type RequestUsageProviderBillingOptions = {
+  provider: "codex" | "claude";
   refresh?: boolean;
 };
 
@@ -143,13 +150,60 @@ export const useUsageApi = ({ token, apiBaseUrl }: UseUsageApiParams) => {
     [apiBasePath, ensureToken, token],
   );
 
+  const requestUsageProviderBilling = useCallback(
+    async (options: RequestUsageProviderBillingOptions): Promise<UsageProviderSnapshot> => {
+      ensureToken();
+      const query = new URLSearchParams();
+      query.set("provider", options.provider);
+      if (options.refresh) {
+        query.set("refresh", "1");
+      }
+      const request = fetch(buildApiPath(apiBasePath, "/usage/billing", query), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      try {
+        const { res, data } = await requestJson<{ provider?: unknown } | ApiEnvelope<unknown>>(
+          request,
+        );
+        if (!res.ok) {
+          throw new Error(
+            extractErrorMessage(
+              res,
+              (data as ApiEnvelope<unknown> | null) ?? null,
+              API_ERROR_MESSAGES.usageProviderBilling,
+              {
+                includeStatus: true,
+              },
+            ),
+          );
+        }
+        const provider =
+          data && typeof data === "object" && "provider" in data
+            ? (data as { provider?: unknown }).provider
+            : undefined;
+        const parsed = usageProviderSnapshotSchema.safeParse(provider);
+        if (!parsed.success) {
+          throw new Error(API_ERROR_MESSAGES.invalidResponse);
+        }
+        return parsed.data;
+      } catch (error) {
+        throw toErrorWithFallback(error, API_ERROR_MESSAGES.usageProviderBilling);
+      }
+    },
+    [apiBasePath, ensureToken, token],
+  );
+
   return useMemo(
     () => ({
       requestUsageDashboard,
+      requestUsageProviderBilling,
       requestUsageGlobalTimeline,
       resolveErrorMessage: (error: unknown, fallback: string) =>
         resolveUnknownErrorMessage(error, fallback),
     }),
-    [requestUsageDashboard, requestUsageGlobalTimeline],
+    [requestUsageDashboard, requestUsageGlobalTimeline, requestUsageProviderBilling],
   );
 };

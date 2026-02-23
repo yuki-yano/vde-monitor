@@ -16,7 +16,6 @@ import {
   Callout,
   GlowCard,
   PanelSection,
-  Spinner,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -168,20 +167,6 @@ const formatTokens = (value: number | null) => {
 };
 
 const formatTokenCount = (value: number) => tokenFormatter.format(Math.round(value));
-
-const hasBillingData = (provider: UsageProviderSnapshot) =>
-  provider.billing.costTodayUsd != null ||
-  provider.billing.costTodayTokens != null ||
-  provider.billing.costLast30DaysUsd != null ||
-  provider.billing.costLast30DaysTokens != null ||
-  provider.billing.modelBreakdown.length > 0 ||
-  provider.billing.dailyBreakdown.length > 0 ||
-  provider.billing.meta.source !== "unavailable" ||
-  provider.billing.meta.sourceLabel != null ||
-  provider.billing.meta.updatedAt != null ||
-  provider.billing.meta.reasonCode != null ||
-  provider.billing.meta.reasonMessage != null ||
-  provider.billing.meta.confidence != null;
 
 const resolveModelStrategyLabel = (
   strategy: UsageProviderSnapshot["billing"]["modelBreakdown"][number]["resolveStrategy"],
@@ -577,15 +562,15 @@ const ProviderQuotaSection = ({
   title,
   provider,
   nowMs,
-  loading,
+  providerLoading,
+  billingLoading,
 }: {
   title: string;
   provider: UsageProviderSnapshot | null;
   nowMs: number;
-  loading: boolean;
+  providerLoading: boolean;
+  billingLoading: boolean;
 }) => {
-  const billingLoading = provider != null && loading && !hasBillingData(provider);
-
   return (
     <GlowCard contentClassName="gap-3">
       <section>
@@ -610,7 +595,10 @@ const ProviderQuotaSection = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-display text-latte-text text-base font-semibold">Billing</p>
                 {billingLoading ? (
-                  <TagPill tone="meta">Loading</TagPill>
+                  <TagPill tone="meta">
+                    <span className="bg-latte-subtext0 mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
+                    Loading
+                  </TagPill>
                 ) : (
                   <TagPill tone={resolveCostSourceTone(provider.billing.meta.source)}>
                     {resolveCostSourceLabel(provider.billing.meta.source)}
@@ -620,39 +608,57 @@ const ProviderQuotaSection = ({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
                   <p className="text-latte-subtext0 text-[11px]">Today</p>
-                  <p className="text-latte-text text-sm font-semibold">
-                    {formatUsd(provider.billing.costTodayUsd)}
-                  </p>
-                  <p className="text-latte-subtext0 text-xs">
-                    {formatTokens(provider.billing.costTodayTokens)}
-                  </p>
+                  {billingLoading ? (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="bg-latte-surface2/80 h-3.5 w-20 animate-pulse rounded" />
+                      <div className="bg-latte-surface1/80 h-2.5 w-16 animate-pulse rounded" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-latte-text text-sm font-semibold">
+                        {formatUsd(provider.billing.costTodayUsd)}
+                      </p>
+                      <p className="text-latte-subtext0 text-xs">
+                        {formatTokens(provider.billing.costTodayTokens)}
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
                   <p className="text-latte-subtext0 text-[11px]">Last 30 days</p>
-                  <p className="text-latte-text text-sm font-semibold">
-                    {formatUsd(provider.billing.costLast30DaysUsd)}
-                  </p>
-                  <p className="text-latte-subtext0 text-xs">
-                    {formatTokens(provider.billing.costLast30DaysTokens)}
-                  </p>
+                  {billingLoading ? (
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="bg-latte-surface2/80 h-3.5 w-24 animate-pulse rounded" />
+                      <div className="bg-latte-surface1/80 h-2.5 w-20 animate-pulse rounded" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-latte-text text-sm font-semibold">
+                        {formatUsd(provider.billing.costLast30DaysUsd)}
+                      </p>
+                      <p className="text-latte-subtext0 text-xs">
+                        {formatTokens(provider.billing.costLast30DaysTokens)}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-              <BillingModelMapping provider={provider} />
-              <BillingDailyBreakdown provider={provider} />
-              {provider.billing.meta.sourceLabel ? (
+              {!billingLoading ? <BillingModelMapping provider={provider} /> : null}
+              {!billingLoading ? <BillingDailyBreakdown provider={provider} /> : null}
+              {!billingLoading && provider.billing.meta.sourceLabel ? (
                 <p className="text-latte-subtext0 text-xs">
                   Source: {provider.billing.meta.sourceLabel}
                 </p>
               ) : null}
-              {provider.billing.meta.updatedAt ? (
+              {!billingLoading && provider.billing.meta.updatedAt ? (
                 <p className="text-latte-subtext0 text-xs">
                   Updated: {formatDateTime(provider.billing.meta.updatedAt)}
                 </p>
               ) : null}
               {billingLoading ? (
                 <div className="border-latte-surface2/70 bg-latte-base/45 flex items-center gap-2 rounded-xl border px-2.5 py-1.5">
-                  <div className="bg-latte-subtext0 h-2 w-2 animate-pulse rounded-full" />
-                  <p className="text-latte-subtext0 text-xs">Loading billing data...</p>
+                  <div className="bg-latte-subtext0 h-1.5 w-1.5 animate-pulse rounded-full" />
+                  <p className="text-latte-subtext0 text-xs">Syncing billing data...</p>
                 </div>
               ) : provider.billing.meta.source === "unavailable" ? (
                 <Callout tone="warning" size="xs">
@@ -661,13 +667,15 @@ const ProviderQuotaSection = ({
               ) : null}
             </div>
           ) : null}
-          {!provider && loading ? (
-            <div className="border-latte-surface2/70 bg-latte-base/40 flex items-center gap-2 rounded-2xl border px-3 py-2.5">
-              <Spinner size="sm" />
-              <p className="text-latte-subtext0 text-sm">Loading provider data...</p>
+          {!provider && providerLoading ? (
+            <div className="border-latte-surface2/70 bg-latte-base/35 space-y-2 rounded-2xl border px-3 py-2.5">
+              <div className="bg-latte-surface2/80 h-3 w-20 animate-pulse rounded" />
+              <div className="bg-latte-surface1/80 h-2.5 w-full animate-pulse rounded" />
+              <div className="bg-latte-surface1/70 h-2.5 w-5/6 animate-pulse rounded" />
+              <p className="text-latte-subtext0 text-xs">Loading provider data...</p>
             </div>
           ) : null}
-          {!provider && !loading ? (
+          {!provider && !providerLoading ? (
             <Callout tone="warning" size="sm">
               Provider data is not available right now.
             </Callout>
@@ -718,6 +726,7 @@ const timelineRangeTabs = (
 export const UsageDashboardView = ({
   dashboard,
   dashboardLoading,
+  billingLoadingByProvider,
   dashboardError,
   timeline,
   timelineLoading,
@@ -806,13 +815,15 @@ export const UsageDashboardView = ({
             title="Codex"
             provider={codexProvider}
             nowMs={nowMs}
-            loading={dashboardLoading}
+            providerLoading={dashboardLoading}
+            billingLoading={billingLoadingByProvider.codex}
           />
           <ProviderQuotaSection
             title="Claude"
             provider={claudeProvider}
             nowMs={nowMs}
-            loading={dashboardLoading}
+            providerLoading={dashboardLoading}
+            billingLoading={billingLoadingByProvider.claude}
           />
         </div>
 

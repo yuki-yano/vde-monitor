@@ -2,6 +2,7 @@ import type {
   SessionStateTimelineRange,
   UsageDashboardResponse,
   UsageGlobalTimelineResponse,
+  UsageIssue,
 } from "@vde-monitor/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -12,15 +13,66 @@ import { useSessions } from "@/state/session-context";
 import { useUsageApi } from "@/state/use-usage-api";
 
 const DASHBOARD_POLL_INTERVAL_MS = 30_000;
+const BILLING_POLL_INTERVAL_MS = 180_000;
 const TIMELINE_POLL_INTERVAL_MS = 15_000;
 const TIMELINE_DEFAULT_RANGE: SessionStateTimelineRange = "24h";
+type BillingProviderId = "codex" | "claude";
+const FALLBACK_BILLING_PROVIDERS: BillingProviderId[] = ["codex", "claude"];
+
+const isBillingProviderId = (providerId: string): providerId is BillingProviderId =>
+  providerId === "codex" || providerId === "claude";
+
+const mergeIssues = (current: UsageIssue[], next: UsageIssue[]): UsageIssue[] => {
+  if (next.length === 0) {
+    return current;
+  }
+  const merged = [...current];
+  for (const issue of next) {
+    if (!merged.some((item) => item.code === issue.code && item.message === issue.message)) {
+      merged.push(issue);
+    }
+  }
+  return merged;
+};
+
+const mergeDashboardCore = (
+  current: UsageDashboardResponse | null,
+  next: UsageDashboardResponse,
+): UsageDashboardResponse => {
+  if (!current) {
+    return next;
+  }
+  const currentByProvider = new Map(
+    current.providers.map((provider) => [provider.providerId, provider] as const),
+  );
+  return {
+    ...next,
+    providers: next.providers.map((provider) => {
+      const existing = currentByProvider.get(provider.providerId);
+      if (!existing) {
+        return provider;
+      }
+      return {
+        ...provider,
+        billing: existing.billing,
+        capabilities: {
+          ...provider.capabilities,
+          cost: existing.capabilities.cost,
+        },
+        issues: mergeIssues(provider.issues, existing.issues),
+      };
+    }),
+  };
+};
 
 export const useUsageDashboardVM = () => {
   const { token, apiBaseUrl } = useSessions();
-  const { requestUsageDashboard, requestUsageGlobalTimeline, resolveErrorMessage } = useUsageApi({
-    token,
-    apiBaseUrl,
-  });
+  const {
+    requestUsageDashboard,
+    requestUsageProviderBilling,
+    requestUsageGlobalTimeline,
+    resolveErrorMessage,
+  } = useUsageApi({ token, apiBaseUrl });
 
   const [dashboard, setDashboard] = useState<UsageDashboardResponse | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -31,25 +83,166 @@ export const useUsageDashboardVM = () => {
   const [timelineRange, setTimelineRange] =
     useState<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
   const [compactTimeline, setCompactTimeline] = useState(true);
+  const [billingLoadingByProvider, setBillingLoadingByProvider] = useState<
+    Record<BillingProviderId, boolean>
+  >({
+    codex: false,
+    claude: false,
+  });
   const dashboardRequestIdRef = useRef(0);
+  const initialBillingRequestedRef = useRef(false);
+  const billingRequestIdRef = useRef<Record<BillingProviderId, number>>({
+    codex: 0,
+    claude: 0,
+  });
+  const dashboardBillingProvidersRef = useRef<BillingProviderId[]>(FALLBACK_BILLING_PROVIDERS);
   const timelineRequestIdRef = useRef(0);
   const timelineRangeRef = useRef<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
   const nowMs = useNowMs(30_000);
 
   const canRequest = Boolean(token);
 
+  const loadProviderBilling = useCallback(
+    async ({
+      provider,
+      forceRefresh = false,
+    }: {
+      provider: BillingProviderId;
+      forceRefresh?: boolean;
+    }) => {
+      const requestId = ++billingRequestIdRef.current[provider];
+      if (!canRequest) {
+        return;
+      }
+      setBillingLoadingByProvider((current) => ({
+        ...current,
+        [provider]: true,
+      }));
+      try {
+        const billingSnapshot = await requestUsageProviderBilling({
+          provider,
+          refresh: forceRefresh,
+        });
+        if (requestId !== billingRequestIdRef.current[provider]) {
+          return;
+        }
+        setDashboard((current) => {
+          if (!current) {
+            return current;
+          }
+          return {
+            ...current,
+            providers: current.providers.map((item) => {
+              if (item.providerId !== provider) {
+                return item;
+              }
+              return {
+                ...item,
+                billing: billingSnapshot.billing,
+                capabilities: {
+                  ...item.capabilities,
+                  cost: billingSnapshot.capabilities.cost,
+                },
+                issues: mergeIssues(item.issues, billingSnapshot.issues),
+              };
+            }),
+          };
+        });
+      } catch (error) {
+        if (requestId !== billingRequestIdRef.current[provider]) {
+          return;
+        }
+        const reasonMessage = resolveErrorMessage(error, API_ERROR_MESSAGES.usageProviderBilling);
+        const issue: UsageIssue = {
+          code: "COST_SOURCE_UNAVAILABLE",
+          message: reasonMessage,
+          severity: "warning",
+        };
+        setDashboard((current) => {
+          if (!current) {
+            return current;
+          }
+          return {
+            ...current,
+            providers: current.providers.map((item) => {
+              if (item.providerId !== provider) {
+                return item;
+              }
+              return {
+                ...item,
+                billing: {
+                  ...item.billing,
+                  meta: {
+                    source: "unavailable",
+                    sourceLabel: item.billing.meta.sourceLabel,
+                    confidence: null,
+                    updatedAt: new Date().toISOString(),
+                    reasonCode: issue.code,
+                    reasonMessage: issue.message,
+                  },
+                  modelBreakdown: [],
+                  dailyBreakdown: [],
+                },
+                issues: mergeIssues(item.issues, [issue]),
+              };
+            }),
+          };
+        });
+      } finally {
+        if (requestId === billingRequestIdRef.current[provider]) {
+          setBillingLoadingByProvider((current) => ({
+            ...current,
+            [provider]: false,
+          }));
+        }
+      }
+    },
+    [canRequest, requestUsageProviderBilling, resolveErrorMessage],
+  );
+
+  const loadAllProviderBilling = useCallback(
+    async ({
+      providers,
+      forceRefresh = false,
+    }: {
+      providers?: BillingProviderId[];
+      forceRefresh?: boolean;
+    } = {}) => {
+      const targets = providers ?? dashboardBillingProvidersRef.current;
+      if (targets.length === 0) {
+        return;
+      }
+      await Promise.all(
+        targets.map((provider) =>
+          loadProviderBilling({
+            provider,
+            forceRefresh,
+          }),
+        ),
+      );
+    },
+    [loadProviderBilling],
+  );
+
   const loadDashboard = useCallback(
     async ({
       forceRefresh = false,
       silent = false,
+      withBilling = true,
     }: {
       forceRefresh?: boolean;
       silent?: boolean;
+      withBilling?: boolean;
     } = {}) => {
       const requestId = ++dashboardRequestIdRef.current;
       if (!canRequest) {
         setDashboard(null);
         setDashboardError(API_ERROR_MESSAGES.missingToken);
+        initialBillingRequestedRef.current = false;
+        setBillingLoadingByProvider({
+          codex: false,
+          claude: false,
+        });
         return;
       }
       if (!silent) {
@@ -62,8 +255,21 @@ export const useUsageDashboardVM = () => {
         if (requestId !== dashboardRequestIdRef.current) {
           return;
         }
-        setDashboard(next);
+        setDashboard((current) => mergeDashboardCore(current, next));
         setDashboardError(null);
+        const billingProviders = next.providers
+          .map((provider) => provider.providerId)
+          .filter(isBillingProviderId);
+        dashboardBillingProvidersRef.current =
+          billingProviders.length > 0 ? billingProviders : FALLBACK_BILLING_PROVIDERS;
+        const shouldLoadBilling = withBilling || !initialBillingRequestedRef.current;
+        if (shouldLoadBilling) {
+          initialBillingRequestedRef.current = true;
+          void loadAllProviderBilling({
+            providers: dashboardBillingProvidersRef.current,
+            forceRefresh,
+          });
+        }
       } catch (error) {
         if (requestId !== dashboardRequestIdRef.current) {
           return;
@@ -75,7 +281,7 @@ export const useUsageDashboardVM = () => {
         }
       }
     },
-    [canRequest, requestUsageDashboard, resolveErrorMessage],
+    [canRequest, loadAllProviderBilling, requestUsageDashboard, resolveErrorMessage],
   );
 
   const loadTimeline = useCallback(
@@ -141,10 +347,21 @@ export const useUsageDashboardVM = () => {
     enabled: canRequest,
     intervalMs: DASHBOARD_POLL_INTERVAL_MS,
     onTick: () => {
-      void loadDashboard({ silent: true });
+      void loadDashboard({ silent: true, withBilling: false });
     },
     onResume: () => {
-      void loadDashboard({ silent: true });
+      void loadDashboard({ silent: true, withBilling: false });
+    },
+  });
+
+  useVisibilityPolling({
+    enabled: canRequest,
+    intervalMs: BILLING_POLL_INTERVAL_MS,
+    onTick: () => {
+      void loadAllProviderBilling();
+    },
+    onResume: () => {
+      void loadAllProviderBilling();
     },
   });
 
@@ -161,7 +378,7 @@ export const useUsageDashboardVM = () => {
 
   const refreshAll = useCallback(() => {
     void Promise.all([
-      loadDashboard({ forceRefresh: true }),
+      loadDashboard({ forceRefresh: true, withBilling: true }),
       loadTimeline({ range: timelineRange }),
     ]);
   }, [loadDashboard, loadTimeline, timelineRange]);
@@ -169,6 +386,7 @@ export const useUsageDashboardVM = () => {
   return {
     dashboard,
     dashboardLoading,
+    billingLoadingByProvider,
     dashboardError,
     timeline,
     timelineLoading,

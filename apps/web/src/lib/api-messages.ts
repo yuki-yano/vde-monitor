@@ -25,6 +25,7 @@ export const API_ERROR_MESSAGES = {
   commitFile: "Failed to load commit file",
   timeline: "Failed to load state timeline",
   usageDashboard: "Failed to load usage dashboard",
+  usageProviderBilling: "Failed to load provider billing",
   usageGlobalTimeline: "Failed to load global usage timeline",
   repoNotes: "Failed to load repository notes",
   createRepoNote: "Failed to create repository note",

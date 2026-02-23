@@ -19,9 +19,31 @@ const usageTimelineQuerySchema = z.object({
 
 const usageProviderQuerySchema = z.object({
   refresh: z.string().optional(),
+  includeWindows: z.string().optional(),
+});
+
+const usageBillingQuerySchema = z.object({
+  provider: z.enum(["codex", "claude"]),
+  refresh: z.string().optional(),
 });
 
 const isRefreshRequested = (refresh: string | undefined) => refresh === "1";
+
+const isFeatureEnabled = (value: string | undefined, defaultEnabled = true) => {
+  if (value == null) {
+    return defaultEnabled;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return defaultEnabled;
+  }
+  return !(
+    normalized === "0" ||
+    normalized === "false" ||
+    normalized === "off" ||
+    normalized === "no"
+  );
+};
 
 const resolveGlobalTimelineRange = (
   range: z.infer<typeof sessionStateTimelineRangeSchema> | undefined,
@@ -58,6 +80,13 @@ type UsageProviderRouteContext = HeaderContext & {
   json: (body: unknown, status?: number) => Response;
 };
 
+type UsageBillingRouteContext = HeaderContext & {
+  req: HeaderContext["req"] & {
+    valid: (target: "query") => z.infer<typeof usageBillingQuerySchema>;
+  };
+  json: (body: unknown, status?: number) => Response;
+};
+
 const handleProviderUsage = async ({
   c,
   providerId,
@@ -83,8 +112,10 @@ const handleProviderUsage = async ({
   }
 
   try {
+    const query = c.req.valid("query");
     const provider = await usageDashboardService.getProviderSnapshot(providerId, {
       forceRefresh,
+      includeWindows: isFeatureEnabled(query.includeWindows, true),
     });
     return c.json({
       provider,
@@ -92,6 +123,42 @@ const handleProviderUsage = async ({
     });
   } catch {
     return c.json({ error: buildError("INTERNAL", `failed to load ${providerId} usage`) }, 500);
+  }
+};
+
+const handleProviderBilling = async ({
+  c,
+  usageDashboardService,
+  getLimiterKey,
+  refreshLimiter,
+}: {
+  c: UsageBillingRouteContext;
+  usageDashboardService: UsageDashboardService;
+  getLimiterKey: GetLimiterKey;
+  refreshLimiter: (key: string) => boolean;
+}) => {
+  const query = c.req.valid("query");
+  const forceRefresh = isRefreshRequested(query.refresh);
+  const rateLimitResponse = applyRefreshRateLimit({
+    c,
+    forceRefresh,
+    getLimiterKey,
+    refreshLimiter,
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+  try {
+    const provider = await usageDashboardService.getProviderSnapshot(query.provider, {
+      forceRefresh,
+      includeWindows: false,
+    });
+    return c.json({
+      provider,
+      fetchedAt: nowIso(),
+    });
+  } catch {
+    return c.json({ error: buildError("INTERNAL", "failed to load usage billing") }, 500);
   }
 };
 
@@ -143,6 +210,14 @@ export const createUsageRoutes = ({
       handleProviderUsage({
         c,
         providerId: "claude",
+        usageDashboardService,
+        getLimiterKey,
+        refreshLimiter,
+      }),
+    )
+    .get("/usage/billing", zValidator("query", usageBillingQuerySchema), (c) =>
+      handleProviderBilling({
+        c,
         usageDashboardService,
         getLimiterKey,
         refreshLimiter,

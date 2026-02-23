@@ -547,9 +547,24 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(200);
     expect(getProviderSnapshot).toHaveBeenCalledWith("codex", {
       forceRefresh: false,
+      includeWindows: true,
     });
     const data = await res.json();
     expect(data.provider.providerId).toBe("codex");
+  });
+
+  it("returns provider billing endpoint", async () => {
+    const { api, getProviderSnapshot } = createTestContext();
+    const res = await api.request("/usage/billing?provider=claude", {
+      headers: authHeaders,
+    });
+    expect(res.status).toBe(200);
+    expect(getProviderSnapshot).toHaveBeenCalledWith("claude", {
+      forceRefresh: false,
+      includeWindows: false,
+    });
+    const data = await res.json();
+    expect(data.provider.providerId).toBe("claude");
   });
 
   it("lists repo notes for the pane repository", async () => {
