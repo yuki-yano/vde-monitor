@@ -1,9 +1,11 @@
 import type {
   UsageBilling,
+  UsageBillingMeta,
   UsageDashboardResponse,
   UsageIssue,
   UsageMetricWindow,
   UsagePaceStatus,
+  UsagePricingConfig,
   UsageProviderCapabilities,
   UsageProviderId,
   UsageProviderSnapshot,
@@ -17,6 +19,7 @@ import {
   type CodexRateLimitSnapshot,
   fetchCodexRateLimits,
 } from "../codex-usage/codex-usage-service";
+import type { UsageCostProvider } from "../usage-cost/types";
 import {
   USAGE_PROVIDER_ERROR_CODES,
   UsageProviderError,
@@ -38,6 +41,8 @@ type UsageDashboardServiceOptions = {
   backoffMs?: number;
   providerTimeoutMs?: number;
   paceBalancedThresholdPercent?: number;
+  costProvider?: UsageCostProvider;
+  pricingConfig?: UsagePricingConfig;
 };
 
 type CacheEntry = {
@@ -45,6 +50,7 @@ type CacheEntry = {
   expiresAtMs: number;
   backoffUntilMs: number;
   failureCount: number;
+  hasCost: boolean;
 };
 
 type CodexWindowCandidate = {
@@ -62,6 +68,15 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 const roundOne = (value: number) => Math.round(value * 10) / 10;
 
+const emptyBillingMeta = (): UsageBillingMeta => ({
+  source: "unavailable",
+  sourceLabel: null,
+  confidence: null,
+  updatedAt: null,
+  reasonCode: null,
+  reasonMessage: null,
+});
+
 const emptyBilling = (): UsageBilling => ({
   creditsLeft: null,
   creditsUnit: null,
@@ -71,6 +86,9 @@ const emptyBilling = (): UsageBilling => ({
   costTodayTokens: null,
   costLast30DaysUsd: null,
   costLast30DaysTokens: null,
+  meta: emptyBillingMeta(),
+  modelBreakdown: [],
+  dailyBreakdown: [],
 });
 
 const baseCapabilities = (providerId: SupportedProviderId): UsageProviderCapabilities => {
@@ -483,11 +501,13 @@ export type UsageDashboardService = {
   getDashboard: (options?: {
     provider?: UsageProviderId;
     forceRefresh?: boolean;
+    includeCost?: boolean;
   }) => Promise<UsageDashboardResponse>;
   getProviderSnapshot: (
     providerId: SupportedProviderId,
     options?: {
       forceRefresh?: boolean;
+      includeCost?: boolean;
     },
   ) => Promise<UsageProviderSnapshot>;
 };
@@ -500,7 +520,97 @@ export const createUsageDashboardService = (
   const providerTimeoutMs = options.providerTimeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
   const balancedThresholdPercent =
     options.paceBalancedThresholdPercent ?? DEFAULT_PACE_BALANCED_THRESHOLD_PERCENT;
+  const costProvider = options.costProvider;
+  const pricingConfig = options.pricingConfig;
   const cache = new Map<SupportedProviderId, CacheEntry>();
+
+  const enrichSnapshotWithCost = async ({
+    snapshot,
+    providerId,
+    now,
+  }: {
+    snapshot: UsageSnapshotCore;
+    providerId: SupportedProviderId;
+    now: Date;
+  }): Promise<UsageSnapshotCore> => {
+    const providerPricingEnabled = pricingConfig?.providers[providerId].enabled === true;
+    if (!costProvider) {
+      return {
+        ...snapshot,
+        capabilities: {
+          ...snapshot.capabilities,
+          cost: providerPricingEnabled,
+        },
+      };
+    }
+
+    try {
+      const cost = await costProvider.getProviderCost({
+        providerId,
+        now,
+      });
+      let issues = snapshot.issues;
+      if (providerPricingEnabled && cost.source === "unavailable" && cost.reasonMessage) {
+        issues = appendIssue(issues, {
+          code: cost.reasonCode ?? "COST_SOURCE_UNAVAILABLE",
+          message: cost.reasonMessage,
+          severity: "warning",
+        });
+      }
+      return {
+        ...snapshot,
+        billing: {
+          ...snapshot.billing,
+          costTodayUsd: cost.today.usd,
+          costTodayTokens: cost.today.tokens,
+          costLast30DaysUsd: cost.last30days.usd,
+          costLast30DaysTokens: cost.last30days.tokens,
+          meta: {
+            source: cost.source,
+            sourceLabel: cost.sourceLabel,
+            confidence: cost.confidence,
+            updatedAt: cost.updatedAt,
+            reasonCode: cost.reasonCode,
+            reasonMessage: cost.reasonMessage,
+          },
+          modelBreakdown: cost.modelBreakdown,
+          dailyBreakdown: cost.dailyBreakdown,
+        },
+        capabilities: {
+          ...snapshot.capabilities,
+          cost: cost.source !== "unavailable" || providerPricingEnabled,
+        },
+        issues,
+      };
+    } catch {
+      const fallbackIssue: UsageIssue = {
+        code: "COST_SOURCE_UNAVAILABLE",
+        message: "Cost data source failed",
+        severity: "warning",
+      };
+      return {
+        ...snapshot,
+        billing: {
+          ...snapshot.billing,
+          meta: {
+            source: "unavailable",
+            sourceLabel: null,
+            confidence: null,
+            updatedAt: now.toISOString(),
+            reasonCode: fallbackIssue.code,
+            reasonMessage: fallbackIssue.message,
+          },
+          modelBreakdown: [],
+          dailyBreakdown: [],
+        },
+        capabilities: {
+          ...snapshot.capabilities,
+          cost: providerPricingEnabled,
+        },
+        issues: appendIssue(snapshot.issues, fallbackIssue),
+      };
+    }
+  };
 
   const fetchSnapshotCore = async (
     providerId: SupportedProviderId,
@@ -526,13 +636,19 @@ export const createUsageDashboardService = (
   ) => {
     const nowMs = Date.now();
     const forceRefresh = providerOptions.forceRefresh === true;
+    const includeCost = providerOptions.includeCost !== false;
     const cached = cache.get(providerId);
 
-    if (!forceRefresh && cached && nowMs < cached.expiresAtMs) {
+    if (!forceRefresh && cached && nowMs < cached.expiresAtMs && (!includeCost || cached.hasCost)) {
       return cached.snapshot;
     }
 
-    if (!forceRefresh && cached && nowMs < cached.backoffUntilMs) {
+    if (
+      !forceRefresh &&
+      cached &&
+      nowMs < cached.backoffUntilMs &&
+      (!includeCost || cached.hasCost)
+    ) {
       return withStatusIssue(
         cached.snapshot,
         {
@@ -546,12 +662,20 @@ export const createUsageDashboardService = (
 
     try {
       const freshCore = await fetchSnapshotCore(providerId, nowMs);
-      const fresh = withTimestamps(freshCore, nowMs, cacheTtlMs);
+      const nextSnapshotCore = includeCost
+        ? await enrichSnapshotWithCost({
+            snapshot: freshCore,
+            providerId,
+            now: new Date(nowMs),
+          })
+        : freshCore;
+      const fresh = withTimestamps(nextSnapshotCore, nowMs, cacheTtlMs);
       cache.set(providerId, {
         snapshot: fresh,
         expiresAtMs: nowMs + cacheTtlMs,
         backoffUntilMs: 0,
         failureCount: 0,
+        hasCost: includeCost,
       });
       return fresh;
     } catch (error) {
@@ -563,6 +687,7 @@ export const createUsageDashboardService = (
           expiresAtMs: cached.expiresAtMs,
           backoffUntilMs: nowMs + backoffMs,
           failureCount: cached.failureCount + 1,
+          hasCost: cached.hasCost,
         });
         return degraded;
       }
@@ -581,6 +706,7 @@ export const createUsageDashboardService = (
         expiresAtMs: nowMs + Math.min(cacheTtlMs, 30_000),
         backoffUntilMs: nowMs + backoffMs,
         failureCount: 1,
+        hasCost: false,
       });
       return failedSnapshot;
     }
@@ -588,10 +714,12 @@ export const createUsageDashboardService = (
 
   const getDashboard: UsageDashboardService["getDashboard"] = async (dashboardOptions = {}) => {
     const providerIds = normalizeProviderId(dashboardOptions.provider);
+    const includeCost = dashboardOptions.includeCost !== false;
     const providers = await Promise.all(
       providerIds.map((providerId) =>
         getProviderSnapshot(providerId, {
           forceRefresh: dashboardOptions.forceRefresh,
+          includeCost,
         }),
       ),
     );

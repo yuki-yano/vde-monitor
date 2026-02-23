@@ -27,6 +27,7 @@ type UseUsageApiParams = {
 type RequestUsageDashboardOptions = {
   provider?: UsageProviderId;
   refresh?: boolean;
+  includeCost?: boolean;
 };
 
 type RequestUsageGlobalTimelineOptions = {
@@ -65,6 +66,9 @@ export const useUsageApi = ({ token, apiBaseUrl }: UseUsageApiParams) => {
       }
       if (options.refresh) {
         query.set("refresh", "1");
+      }
+      if (options.includeCost === false) {
+        query.set("includeCost", "0");
       }
       const request = fetch(buildApiPath(apiBasePath, "/usage/dashboard", query), {
         headers: {

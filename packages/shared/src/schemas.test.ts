@@ -15,6 +15,7 @@ import {
   pushEventTypeSchema,
   screenResponseSchema,
   sessionStateSchema,
+  usageBillingSchema,
   wsClientMessageSchema,
   wsServerMessageSchema,
 } from "./schemas";
@@ -723,6 +724,75 @@ describe("launch schemas", () => {
 });
 
 describe("configSchema", () => {
+  it("accepts usageBilling meta and modelBreakdown", () => {
+    const result = usageBillingSchema.safeParse({
+      creditsLeft: null,
+      creditsUnit: null,
+      extraUsageUsedUsd: null,
+      extraUsageLimitUsd: null,
+      costTodayUsd: 1.23,
+      costTodayTokens: 456,
+      costLast30DaysUsd: 12.34,
+      costLast30DaysTokens: 7890,
+      meta: {
+        source: "actual",
+        sourceLabel: "LiteLLM",
+        confidence: "high",
+        updatedAt: "2026-02-23T00:00:00.000Z",
+        reasonCode: null,
+        reasonMessage: null,
+      },
+      modelBreakdown: [
+        {
+          modelId: "gpt-5.3-codex",
+          modelLabel: "GPT-5.3 Codex",
+          resolvedModelId: "gpt-5.2-codex",
+          resolveStrategy: "fallback",
+          tokens: 7890,
+          usd: 12.34,
+          source: "estimated",
+        },
+      ],
+      dailyBreakdown: [
+        {
+          date: "2026-02-23",
+          modelIds: ["gpt-5.3-codex"],
+          inputTokens: 120,
+          outputTokens: 34,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 22,
+          totalTokens: 154,
+          usd: 0.12,
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects usageBilling with invalid source value", () => {
+    const result = usageBillingSchema.safeParse({
+      creditsLeft: null,
+      creditsUnit: null,
+      extraUsageUsedUsd: null,
+      extraUsageLimitUsd: null,
+      costTodayUsd: null,
+      costTodayTokens: null,
+      costLast30DaysUsd: null,
+      costLast30DaysTokens: null,
+      meta: {
+        source: "unknown",
+        sourceLabel: null,
+        confidence: null,
+        updatedAt: null,
+        reasonCode: null,
+        reasonMessage: null,
+      },
+      modelBreakdown: [],
+      dailyBreakdown: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("fills default notifications config when missing", () => {
     const result = configSchema.safeParse({
       ...defaultConfig,
@@ -742,6 +812,17 @@ describe("configSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.workspaceTabs).toEqual(defaultConfig.workspaceTabs);
+    }
+  });
+
+  it("fills default usagePricing config when missing", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      usagePricing: undefined,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.usagePricing).toEqual(defaultConfig.usagePricing);
     }
   });
 
@@ -1045,6 +1126,59 @@ describe("configSchema", () => {
       fileNavigator: {
         includeIgnoredPaths: ["../dist/**"],
         autoExpandMatchLimit: 100,
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts usagePricing provider config", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      usagePricing: {
+        currency: "USD",
+        providers: {
+          codex: {
+            enabled: true,
+            defaultPricePer1kTokensUsd: null,
+            models: [
+              {
+                modelId: "gpt-5.3-codex",
+                label: "GPT-5.3 Codex",
+                inputPer1kUsd: 0.00125,
+                outputPer1kUsd: 0.01,
+              },
+            ],
+          },
+          claude: {
+            enabled: false,
+            defaultPricePer1kTokensUsd: null,
+            models: [],
+          },
+        },
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects usagePricing with negative model price", () => {
+    const result = configSchema.safeParse({
+      ...defaultConfig,
+      usagePricing: {
+        ...defaultConfig.usagePricing,
+        providers: {
+          ...defaultConfig.usagePricing.providers,
+          claude: {
+            ...defaultConfig.usagePricing.providers.claude,
+            models: [
+              {
+                modelId: "claude-sonnet-4-6",
+                label: "Claude Sonnet 4.6",
+                inputPer1kUsd: -0.001,
+                outputPer1kUsd: 0.002,
+              },
+            ],
+          },
+        },
       },
     });
     expect(result.success).toBe(false);

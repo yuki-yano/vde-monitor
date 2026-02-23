@@ -401,6 +401,8 @@ export const usageProviderIdSchema = z.enum(["claude", "codex", "cursor", "gemin
 export const usageMetricWindowIdSchema = z.enum(["session", "weekly", "model", "extra"]);
 export const usagePaceStatusSchema = z.enum(["margin", "balanced", "over", "unknown"]);
 export const usageProviderStatusSchema = z.enum(["ok", "degraded", "error"]);
+export const usageCostDataSourceSchema = z.enum(["actual", "estimated", "unavailable"]);
+export const usageCostConfidenceSchema = z.enum(["high", "medium", "low"]).nullable();
 
 export const usageMetricWindowSchema = z.object({
   id: usageMetricWindowIdSchema,
@@ -416,6 +418,36 @@ export const usageMetricWindowSchema = z.object({
   }),
 });
 
+export const usageBillingMetaSchema = z.object({
+  source: usageCostDataSourceSchema,
+  sourceLabel: z.string().nullable(),
+  confidence: usageCostConfidenceSchema,
+  updatedAt: z.string().nullable(),
+  reasonCode: z.string().nullable(),
+  reasonMessage: z.string().nullable(),
+});
+
+export const usageModelCostItemSchema = z.object({
+  modelId: z.string(),
+  modelLabel: z.string(),
+  resolvedModelId: z.string(),
+  resolveStrategy: z.enum(["exact", "prefix", "alias", "fallback"]),
+  tokens: z.number().nullable(),
+  usd: z.number().nullable(),
+  source: usageCostDataSourceSchema,
+});
+
+export const usageDailyCostItemSchema = z.object({
+  date: z.string(),
+  modelIds: z.array(z.string()),
+  inputTokens: z.number().nonnegative(),
+  outputTokens: z.number().nonnegative(),
+  cacheCreationInputTokens: z.number().nonnegative(),
+  cacheReadInputTokens: z.number().nonnegative(),
+  totalTokens: z.number().nonnegative(),
+  usd: z.number().nullable(),
+});
+
 export const usageBillingSchema = z.object({
   creditsLeft: z.number().nullable(),
   creditsUnit: z.enum(["tokens", "credits"]).nullable(),
@@ -425,6 +457,9 @@ export const usageBillingSchema = z.object({
   costTodayTokens: z.number().nullable(),
   costLast30DaysUsd: z.number().nullable(),
   costLast30DaysTokens: z.number().nullable(),
+  meta: usageBillingMetaSchema,
+  modelBreakdown: z.array(usageModelCostItemSchema),
+  dailyBreakdown: z.array(usageDailyCostItemSchema),
 });
 
 export const usageProviderCapabilitiesSchema = z.object({
@@ -572,6 +607,45 @@ const notificationsConfigSchema = z
     pushEnabled: true,
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
   });
+
+const usagePricingNullableNumberSchema = z.number().nonnegative().nullable();
+
+export const usagePricingModelRuleSchema = z.object({
+  modelId: z.string().trim().min(1),
+  label: z.string().trim().min(1),
+  inputPer1kUsd: usagePricingNullableNumberSchema,
+  outputPer1kUsd: usagePricingNullableNumberSchema,
+});
+
+export const usagePricingProviderRuleSchema = z.object({
+  enabled: z.boolean(),
+  defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema,
+  models: z.array(usagePricingModelRuleSchema),
+});
+
+export const usagePricingConfigSchema = z.object({
+  currency: z.literal("USD"),
+  providers: z.object({
+    codex: usagePricingProviderRuleSchema,
+    claude: usagePricingProviderRuleSchema,
+  }),
+});
+
+const defaultUsagePricingConfig: z.input<typeof usagePricingConfigSchema> = {
+  currency: "USD",
+  providers: {
+    codex: {
+      enabled: true,
+      defaultPricePer1kTokensUsd: null,
+      models: [],
+    },
+    claude: {
+      enabled: true,
+      defaultPricePer1kTokensUsd: null,
+      models: [],
+    },
+  },
+};
 
 const serverHealthSchema = z.object({
   version: z.string(),
@@ -725,6 +799,7 @@ export const configSchema = z.object({
     },
   }),
   notifications: notificationsConfigSchema,
+  usagePricing: usagePricingConfigSchema.default(defaultUsagePricingConfig),
   workspaceTabs: z
     .object({
       displayMode: z.preprocess(
@@ -833,6 +908,21 @@ export const configOverrideSchema = strictObject({
   notifications: strictObject({
     pushEnabled: z.boolean().optional(),
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
+  }).optional(),
+  usagePricing: strictObject({
+    currency: z.literal("USD").optional(),
+    providers: strictObject({
+      codex: strictObject({
+        enabled: z.boolean().optional(),
+        defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema.optional(),
+        models: z.array(usagePricingModelRuleSchema).optional(),
+      }).optional(),
+      claude: strictObject({
+        enabled: z.boolean().optional(),
+        defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema.optional(),
+        models: z.array(usagePricingModelRuleSchema).optional(),
+      }).optional(),
+    }).optional(),
   }).optional(),
   workspaceTabs: strictObject({
     displayMode: z

@@ -6,6 +6,7 @@ export const USAGE_PROVIDER_ERROR_CODES = [
   "INTERNAL",
   "GLOBAL_TIMELINE_UNAVAILABLE",
   "CODEX_APP_SERVER_UNAVAILABLE",
+  "PRICING_CACHE_TOO_OLD",
 ] as const;
 
 export type UsageProviderErrorCode = (typeof USAGE_PROVIDER_ERROR_CODES)[number];

@@ -141,6 +141,21 @@ export const defaultConfig: AgentMonitorConfigFile = {
     pushEnabled: true,
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
   },
+  usagePricing: {
+    currency: "USD",
+    providers: {
+      codex: {
+        enabled: true,
+        defaultPricePer1kTokensUsd: null,
+        models: [],
+      },
+      claude: {
+        enabled: true,
+        defaultPricePer1kTokensUsd: null,
+        models: [],
+      },
+    },
+  },
   workspaceTabs: {
     displayMode: "all",
   },

@@ -453,6 +453,39 @@ export type UsageMetricWindow = {
   };
 };
 
+export type UsageCostDataSource = "actual" | "estimated" | "unavailable";
+export type UsageCostConfidence = "high" | "medium" | "low" | null;
+
+export type UsageBillingMeta = {
+  source: UsageCostDataSource;
+  sourceLabel: string | null;
+  confidence: UsageCostConfidence;
+  updatedAt: string | null;
+  reasonCode: string | null;
+  reasonMessage: string | null;
+};
+
+export type UsageModelCostItem = {
+  modelId: string;
+  modelLabel: string;
+  resolvedModelId: string;
+  resolveStrategy: "exact" | "prefix" | "alias" | "fallback";
+  tokens: number | null;
+  usd: number | null;
+  source: UsageCostDataSource;
+};
+
+export type UsageDailyCostItem = {
+  date: string;
+  modelIds: string[];
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  totalTokens: number;
+  usd: number | null;
+};
+
 export type UsageBilling = {
   creditsLeft: number | null;
   creditsUnit: "tokens" | "credits" | null;
@@ -462,6 +495,9 @@ export type UsageBilling = {
   costTodayTokens: number | null;
   costLast30DaysUsd: number | null;
   costLast30DaysTokens: number | null;
+  meta: UsageBillingMeta;
+  modelBreakdown: UsageModelCostItem[];
+  dailyBreakdown: UsageDailyCostItem[];
 };
 
 export type UsageProviderCapabilities = {
@@ -645,6 +681,24 @@ export type LaunchConfig = {
   };
 };
 
+export type UsagePricingModelRule = {
+  modelId: string;
+  label: string;
+  inputPer1kUsd: number | null;
+  outputPer1kUsd: number | null;
+};
+
+export type UsagePricingProviderRule = {
+  enabled: boolean;
+  defaultPricePer1kTokensUsd: number | null;
+  models: UsagePricingModelRule[];
+};
+
+export type UsagePricingConfig = {
+  currency: "USD";
+  providers: Record<"codex" | "claude", UsagePricingProviderRule>;
+};
+
 export type AgentMonitorConfigBase = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
@@ -697,6 +751,7 @@ export type AgentMonitorConfigBase = {
     pushEnabled: boolean;
     enabledEventTypes: ConfigPushEventType[];
   };
+  usagePricing: UsagePricingConfig;
   workspaceTabs: {
     displayMode: WorkspaceTabsDisplayMode;
   };

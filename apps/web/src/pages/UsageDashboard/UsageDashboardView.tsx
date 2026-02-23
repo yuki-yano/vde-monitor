@@ -6,8 +6,8 @@ import type {
   UsageMetricWindow,
   UsageProviderSnapshot,
 } from "@vde-monitor/shared";
-import { ArrowLeft, RefreshCw } from "lucide-react";
-import { useMemo } from "react";
+import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -16,6 +16,7 @@ import {
   Callout,
   GlowCard,
   PanelSection,
+  Spinner,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -53,6 +54,17 @@ const BUFFER_BALANCED_THRESHOLD = 1;
 
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 const roundOne = (value: number) => Math.round(value * 10) / 10;
+
+const usdFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const tokenFormatter = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 0,
+});
 
 const formatPercent = (value: number | null, signed = false) => {
   if (value == null) {
@@ -139,6 +151,73 @@ const formatDateTime = (iso: string | null | undefined) => {
     return "Not available";
   }
   return new Date(parsed).toLocaleString();
+};
+
+const formatUsd = (value: number | null) => {
+  if (value == null) {
+    return "Not available";
+  }
+  return usdFormatter.format(value);
+};
+
+const formatTokens = (value: number | null) => {
+  if (value == null) {
+    return "Not available";
+  }
+  return `${tokenFormatter.format(Math.round(value))} tokens`;
+};
+
+const formatTokenCount = (value: number) => tokenFormatter.format(Math.round(value));
+
+const hasBillingData = (provider: UsageProviderSnapshot) =>
+  provider.billing.costTodayUsd != null ||
+  provider.billing.costTodayTokens != null ||
+  provider.billing.costLast30DaysUsd != null ||
+  provider.billing.costLast30DaysTokens != null ||
+  provider.billing.modelBreakdown.length > 0 ||
+  provider.billing.dailyBreakdown.length > 0 ||
+  provider.billing.meta.source !== "unavailable" ||
+  provider.billing.meta.sourceLabel != null ||
+  provider.billing.meta.updatedAt != null ||
+  provider.billing.meta.reasonCode != null ||
+  provider.billing.meta.reasonMessage != null ||
+  provider.billing.meta.confidence != null;
+
+const resolveModelStrategyLabel = (
+  strategy: UsageProviderSnapshot["billing"]["modelBreakdown"][number]["resolveStrategy"],
+) => {
+  if (strategy === "exact") {
+    return "Exact";
+  }
+  if (strategy === "prefix") {
+    return "Prefix";
+  }
+  if (strategy === "alias") {
+    return "Alias";
+  }
+  return "Fallback";
+};
+
+const resolveCostSourceLabel = (source: UsageProviderSnapshot["billing"]["meta"]["source"]) => {
+  if (source === "actual") {
+    return "Actual";
+  }
+  if (source === "estimated") {
+    return "Estimated";
+  }
+  return "Unavailable";
+};
+
+const resolveCostSourceTone = (
+  source: UsageProviderSnapshot["billing"]["meta"]["source"],
+): "danger" | "meta" | "neutral" => {
+  if (source === "actual") {
+    return "neutral";
+  }
+  if (source === "estimated") {
+    return "meta";
+  }
+  return "danger";
 };
 
 const resolveUsageColor = (utilizationPercent: number | null) => {
@@ -285,47 +364,324 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
   );
 };
 
+const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }) => {
+  const [open, setOpen] = useState(false);
+  const rows = provider.billing.dailyBreakdown;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const total = rows.reduce(
+    (acc, row) => {
+      acc.inputTokens += row.inputTokens;
+      acc.outputTokens += row.outputTokens;
+      acc.cacheCreationInputTokens += row.cacheCreationInputTokens;
+      acc.cacheReadInputTokens += row.cacheReadInputTokens;
+      acc.totalTokens += row.totalTokens;
+      if (row.usd != null) {
+        acc.usd += row.usd;
+        acc.hasUsd = true;
+      }
+      return acc;
+    },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      totalTokens: 0,
+      usd: 0,
+      hasUsd: false,
+    },
+  );
+
+  return (
+    <div className="border-latte-surface2/70 bg-latte-base/40 rounded-xl border">
+      <button
+        type="button"
+        className="hover:bg-latte-base/65 flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left transition-colors"
+        onClick={() => {
+          setOpen((current) => !current);
+        }}
+        aria-expanded={open}
+      >
+        <span className="text-latte-text text-xs font-semibold">
+          Daily breakdown (last 30 days)
+        </span>
+        {open ? (
+          <ChevronUp className="text-latte-subtext0 h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <ChevronDown className="text-latte-subtext0 h-3.5 w-3.5 shrink-0" />
+        )}
+      </button>
+      {open ? (
+        <div className="border-latte-surface2/70 border-t">
+          <div className="max-w-full overflow-x-auto">
+            <table className="w-full min-w-[820px] text-[11px]">
+              <thead>
+                <tr className="border-latte-surface2/70 bg-latte-base/55 border-b text-left">
+                  <th scope="col" className="text-latte-subtext1 px-2.5 py-1.5 font-medium">
+                    Date
+                  </th>
+                  <th scope="col" className="text-latte-subtext1 px-2.5 py-1.5 font-medium">
+                    Models
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Input
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Output
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Cache Create
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Cache Read
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Total Tokens
+                  </th>
+                  <th
+                    scope="col"
+                    className="text-latte-subtext1 px-2.5 py-1.5 text-right font-medium"
+                  >
+                    Cost (USD)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.date} className="border-latte-surface2/40 border-b align-top">
+                    <td className="text-latte-text px-2.5 py-1.5 tabular-nums">{row.date}</td>
+                    <td className="px-2.5 py-1.5">
+                      {row.modelIds.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {row.modelIds.map((modelId) => (
+                            <span key={`${row.date}:${modelId}`} className="text-latte-subtext0">
+                              - {modelId}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-latte-subtext0">-</span>
+                      )}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatTokenCount(row.inputTokens)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatTokenCount(row.outputTokens)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatTokenCount(row.cacheCreationInputTokens)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatTokenCount(row.cacheReadInputTokens)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatTokenCount(row.totalTokens)}
+                    </td>
+                    <td className="text-latte-text px-2.5 py-1.5 text-right tabular-nums">
+                      {formatUsd(row.usd)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-latte-base/55">
+                  <th scope="row" className="text-latte-text px-2.5 py-1.5 text-left font-semibold">
+                    Total
+                  </th>
+                  <td className="text-latte-subtext0 px-2.5 py-1.5">-</td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {formatTokenCount(total.inputTokens)}
+                  </td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {formatTokenCount(total.outputTokens)}
+                  </td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {formatTokenCount(total.cacheCreationInputTokens)}
+                  </td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {formatTokenCount(total.cacheReadInputTokens)}
+                  </td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {formatTokenCount(total.totalTokens)}
+                  </td>
+                  <td className="text-latte-text px-2.5 py-1.5 text-right font-semibold tabular-nums">
+                    {total.hasUsd ? formatUsd(total.usd) : "Not available"}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const BillingModelMapping = ({ provider }: { provider: UsageProviderSnapshot }) => {
+  const rows = provider.billing.modelBreakdown;
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="border-latte-surface2/70 bg-latte-base/40 space-y-1.5 rounded-xl border px-2.5 py-2">
+      <p className="text-latte-subtext1 text-[11px] font-semibold">Model pricing mapping</p>
+      <div className="space-y-1.5">
+        {rows.map((row) => {
+          const mappedLabel =
+            row.modelId === row.resolvedModelId
+              ? row.modelId
+              : `${row.modelId} -> ${row.resolvedModelId}`;
+          return (
+            <div
+              key={`${row.modelId}:${row.resolvedModelId}:${row.resolveStrategy}`}
+              className="border-latte-surface2/60 bg-latte-base/55 flex flex-wrap items-center justify-between gap-1.5 rounded-lg border px-2 py-1.5"
+            >
+              <div className="min-w-0">
+                <p className="text-latte-text truncate text-[11px]">{mappedLabel}</p>
+                <p className="text-latte-subtext0 text-[10px]">
+                  {formatTokenCount(row.tokens ?? 0)} tokens / {formatUsd(row.usd)}
+                </p>
+              </div>
+              <TagPill tone={row.resolveStrategy === "exact" ? "neutral" : "meta"}>
+                {resolveModelStrategyLabel(row.resolveStrategy)}
+              </TagPill>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const ProviderQuotaSection = ({
   title,
   provider,
   nowMs,
+  loading,
 }: {
   title: string;
   provider: UsageProviderSnapshot | null;
   nowMs: number;
-}) => (
-  <GlowCard contentClassName="gap-3">
-    <section>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-latte-text text-xl font-semibold">{title}</h2>
-        {provider?.status === "degraded" ? (
-          <TagPill tone="meta">Degraded</TagPill>
-        ) : provider?.status === "error" ? (
-          <TagPill tone="danger">Error</TagPill>
-        ) : null}
-      </div>
-      <div className="mt-3 space-y-2.5">
-        {provider?.windows.map((metric) => (
-          <UsageMetricRow
-            key={`${provider.providerId}-${metric.id}-${metric.title}`}
-            metric={metric}
-            nowMs={nowMs}
-          />
-        ))}
-        {!provider ? (
-          <Callout tone="warning" size="sm">
-            Provider data is not available right now.
-          </Callout>
-        ) : null}
-        {provider && provider.windows.length === 0 ? (
-          <Callout tone="warning" size="sm">
-            Usage windows are not available for this provider right now.
-          </Callout>
-        ) : null}
-      </div>
-    </section>
-  </GlowCard>
-);
+  loading: boolean;
+}) => {
+  const billingLoading = provider != null && loading && !hasBillingData(provider);
+
+  return (
+    <GlowCard contentClassName="gap-3">
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-latte-text text-xl font-semibold">{title}</h2>
+          {provider?.status === "degraded" ? (
+            <TagPill tone="meta">Degraded</TagPill>
+          ) : provider?.status === "error" ? (
+            <TagPill tone="danger">Error</TagPill>
+          ) : null}
+        </div>
+        <div className="mt-3 space-y-2.5">
+          {provider?.windows.map((metric) => (
+            <UsageMetricRow
+              key={`${provider.providerId}-${metric.id}-${metric.title}`}
+              metric={metric}
+              nowMs={nowMs}
+            />
+          ))}
+          {provider ? (
+            <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-2 rounded-2xl border px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-display text-latte-text text-base font-semibold">Billing</p>
+                {billingLoading ? (
+                  <TagPill tone="meta">Loading</TagPill>
+                ) : (
+                  <TagPill tone={resolveCostSourceTone(provider.billing.meta.source)}>
+                    {resolveCostSourceLabel(provider.billing.meta.source)}
+                  </TagPill>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
+                  <p className="text-latte-subtext0 text-[11px]">Today</p>
+                  <p className="text-latte-text text-sm font-semibold">
+                    {formatUsd(provider.billing.costTodayUsd)}
+                  </p>
+                  <p className="text-latte-subtext0 text-xs">
+                    {formatTokens(provider.billing.costTodayTokens)}
+                  </p>
+                </div>
+                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
+                  <p className="text-latte-subtext0 text-[11px]">Last 30 days</p>
+                  <p className="text-latte-text text-sm font-semibold">
+                    {formatUsd(provider.billing.costLast30DaysUsd)}
+                  </p>
+                  <p className="text-latte-subtext0 text-xs">
+                    {formatTokens(provider.billing.costLast30DaysTokens)}
+                  </p>
+                </div>
+              </div>
+              <BillingModelMapping provider={provider} />
+              <BillingDailyBreakdown provider={provider} />
+              {provider.billing.meta.sourceLabel ? (
+                <p className="text-latte-subtext0 text-xs">
+                  Source: {provider.billing.meta.sourceLabel}
+                </p>
+              ) : null}
+              {provider.billing.meta.updatedAt ? (
+                <p className="text-latte-subtext0 text-xs">
+                  Updated: {formatDateTime(provider.billing.meta.updatedAt)}
+                </p>
+              ) : null}
+              {billingLoading ? (
+                <div className="border-latte-surface2/70 bg-latte-base/45 flex items-center gap-2 rounded-xl border px-2.5 py-1.5">
+                  <div className="bg-latte-subtext0 h-2 w-2 animate-pulse rounded-full" />
+                  <p className="text-latte-subtext0 text-xs">Loading billing data...</p>
+                </div>
+              ) : provider.billing.meta.source === "unavailable" ? (
+                <Callout tone="warning" size="xs">
+                  {provider.billing.meta.reasonMessage ?? "Not available for this provider yet."}
+                </Callout>
+              ) : null}
+            </div>
+          ) : null}
+          {!provider && loading ? (
+            <div className="border-latte-surface2/70 bg-latte-base/40 flex items-center gap-2 rounded-2xl border px-3 py-2.5">
+              <Spinner size="sm" />
+              <p className="text-latte-subtext0 text-sm">Loading provider data...</p>
+            </div>
+          ) : null}
+          {!provider && !loading ? (
+            <Callout tone="warning" size="sm">
+              Provider data is not available right now.
+            </Callout>
+          ) : null}
+          {provider && provider.windows.length === 0 ? (
+            <Callout tone="warning" size="sm">
+              Usage windows are not available for this provider right now.
+            </Callout>
+          ) : null}
+        </div>
+      </section>
+    </GlowCard>
+  );
+};
 
 const timelineRangeTabs = (
   timelineRange: SessionStateTimelineRange,
@@ -446,8 +802,18 @@ export const UsageDashboardView = ({
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ProviderQuotaSection title="Codex" provider={codexProvider} nowMs={nowMs} />
-          <ProviderQuotaSection title="Claude" provider={claudeProvider} nowMs={nowMs} />
+          <ProviderQuotaSection
+            title="Codex"
+            provider={codexProvider}
+            nowMs={nowMs}
+            loading={dashboardLoading}
+          />
+          <ProviderQuotaSection
+            title="Claude"
+            provider={claudeProvider}
+            nowMs={nowMs}
+            loading={dashboardLoading}
+          />
         </div>
 
         <GlowCard contentClassName="gap-3">

@@ -2,6 +2,10 @@ import type { AgentMonitorConfig, SessionDetail } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
 import { createCommandResponse } from "../command/command-response";
+import { ClaudeTranscriptTokenSource } from "../domain/usage-cost/claude-transcript-token-source";
+import { CodexSessionTokenSource } from "../domain/usage-cost/codex-session-token-source";
+import { createUsageCostProvider } from "../domain/usage-cost/cost-provider";
+import { LiteLLMPricingSource } from "../domain/usage-cost/litellm-pricing-source";
 import { createUsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import { createRateLimiter } from "../limits/rate-limit";
 import type { MultiplexerInputActions } from "../multiplexer/types";
@@ -95,7 +99,19 @@ export const createApiRouter = ({
   const rawLimiter = createRateLimiter(config.rateLimit.raw.windowMs, config.rateLimit.raw.max);
   const usageRefreshLimiter = createRateLimiter(5_000, 1);
   const screenCache = createScreenCache();
-  const dashboardService = usageDashboardService ?? createUsageDashboardService();
+  const dashboardService =
+    usageDashboardService ??
+    createUsageDashboardService({
+      pricingConfig: config.usagePricing,
+      costProvider: createUsageCostProvider({
+        pricingConfig: config.usagePricing,
+        pricingSource: new LiteLLMPricingSource(),
+        tokenSources: {
+          codex: new CodexSessionTokenSource(),
+          claude: new ClaudeTranscriptTokenSource(),
+        },
+      }),
+    });
 
   const getLimiterKey = (c: HeaderContext) => {
     const auth = c.req.header("authorization") ?? c.req.header("Authorization");
