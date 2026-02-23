@@ -267,6 +267,24 @@ export const closeWorkspaceTab = (
   };
 };
 
+export const dismissWorkspaceSessionTabByPaneId = (
+  state: WorkspaceTabsState,
+  paneId: string,
+  now = Date.now(),
+): {
+  changed: boolean;
+  state: WorkspaceTabsState;
+} => {
+  const targetTab = state.tabs.find((tab) => tab.kind === "session" && tab.paneId === paneId);
+  if (!targetTab) {
+    return {
+      changed: false,
+      state,
+    };
+  }
+  return closeWorkspaceTab(state, targetTab.id, now);
+};
+
 const arrayMove = <T>(items: T[], from: number, to: number): T[] => {
   if (from === to) {
     return items;

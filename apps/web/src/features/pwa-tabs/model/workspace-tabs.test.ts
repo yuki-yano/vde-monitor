@@ -5,6 +5,7 @@ import {
   closeWorkspaceTab,
   createInitialWorkspaceTabsState,
   deserializeWorkspaceTabsState,
+  dismissWorkspaceSessionTabByPaneId,
   reorderWorkspaceTabs,
   reorderWorkspaceTabsByClosableOrder,
   serializeWorkspaceTabsState,
@@ -73,6 +74,20 @@ describe("workspace-tabs model", () => {
         lastActivatedAt: 1234,
       },
     ]);
+  });
+
+  it("dismisses a session tab by pane id", () => {
+    let state = createInitialWorkspaceTabsState(0);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/a", 1);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/b", 2);
+
+    const dismissed = dismissWorkspaceSessionTabByPaneId(state, "a", 999);
+    expect(dismissed.changed).toBe(true);
+    expect(dismissed.state.tabs.map((tab) => tab.id)).toEqual([
+      SYSTEM_SESSIONS_TAB_ID,
+      "session:b",
+    ]);
+    expect(dismissed.state.activeTabId).toBe("session:b");
   });
 
   it("reorders closable tabs without moving fixed sessions tab", () => {

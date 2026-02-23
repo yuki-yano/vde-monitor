@@ -13,6 +13,7 @@ const mockUseWorkspaceTabs = vi.hoisted(
       openSessionTab: vi.fn<(paneId: string) => void>(),
       activateTab: vi.fn<(tabId: string) => void>(),
       closeTab: vi.fn<(tabId: string) => void>(),
+      dismissSessionTab: vi.fn<(paneId: string) => void>(),
       reorderTabs: vi.fn<(activeTabId: string, overTabId: string) => void>(),
       reorderTabsByClosableOrder: vi.fn<(orderedClosableTabIds: string[]) => void>(),
     }) satisfies {
@@ -22,6 +23,7 @@ const mockUseWorkspaceTabs = vi.hoisted(
       openSessionTab: (paneId: string) => void;
       activateTab: (tabId: string) => void;
       closeTab: (tabId: string) => void;
+      dismissSessionTab: (paneId: string) => void;
       reorderTabs: (activeTabId: string, overTabId: string) => void;
       reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
     },
@@ -44,6 +46,7 @@ describe("useSessionDetailActions", () => {
     mockUseWorkspaceTabs.openSessionTab = vi.fn();
     mockUseWorkspaceTabs.activateTab = vi.fn();
     mockUseWorkspaceTabs.closeTab = vi.fn();
+    mockUseWorkspaceTabs.dismissSessionTab = vi.fn();
     mockUseWorkspaceTabs.reorderTabs = vi.fn();
     mockUseWorkspaceTabs.reorderTabsByClosableOrder = vi.fn();
   });
@@ -161,5 +164,36 @@ describe("useSessionDetailActions", () => {
     expect(closeLogOrder).toBeLessThan(openOrder);
 
     openSpy.mockRestore();
+  });
+
+  it("navigates to launched pane and dismisses source tab when resume uses new window", () => {
+    const closeQuickPanel = vi.fn();
+    const closeLogModal = vi.fn();
+    const dismissSessionTab = vi.fn();
+    mockUseWorkspaceTabs.enabled = true;
+    mockUseWorkspaceTabs.dismissSessionTab = dismissSessionTab;
+    const { result } = renderHook(() =>
+      useSessionDetailActions({
+        paneId: "pane-current",
+        selectedPaneId: null,
+        closeQuickPanel,
+        closeLogModal,
+        touchSession: vi.fn(async () => undefined),
+        focusPane: vi.fn(async () => ({ ok: true })),
+        setScreenError: vi.fn(),
+      }),
+    );
+
+    act(() => {
+      result.current.handleOpenPaneAfterResumeWindow("pane-next", "pane-current");
+    });
+
+    expect(closeQuickPanel).toHaveBeenCalledTimes(1);
+    expect(closeLogModal).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/sessions/$paneId",
+      params: { paneId: "pane-next" },
+    });
+    expect(dismissSessionTab).toHaveBeenCalledWith("pane-current");
   });
 });

@@ -17,6 +17,7 @@ const mockUseWorkspaceTabs = vi.hoisted(
       openSessionTab: vi.fn<(paneId: string) => void>(),
       activateTab: vi.fn<(tabId: string) => void>(),
       closeTab: vi.fn<(tabId: string) => void>(),
+      dismissSessionTab: vi.fn<(paneId: string) => void>(),
       reorderTabs: vi.fn<(activeTabId: string, overTabId: string) => void>(),
       reorderTabsByClosableOrder: vi.fn<(orderedClosableTabIds: string[]) => void>(),
     }) satisfies {
@@ -26,6 +27,7 @@ const mockUseWorkspaceTabs = vi.hoisted(
       openSessionTab: (paneId: string) => void;
       activateTab: (tabId: string) => void;
       closeTab: (tabId: string) => void;
+      dismissSessionTab: (paneId: string) => void;
       reorderTabs: (activeTabId: string, overTabId: string) => void;
       reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
     },
@@ -107,6 +109,7 @@ describe("LogModal", () => {
     mockUseWorkspaceTabs.openSessionTab = vi.fn();
     mockUseWorkspaceTabs.activateTab = vi.fn();
     mockUseWorkspaceTabs.closeTab = vi.fn();
+    mockUseWorkspaceTabs.dismissSessionTab = vi.fn();
     mockUseWorkspaceTabs.reorderTabs = vi.fn();
     mockUseWorkspaceTabs.reorderTabsByClosableOrder = vi.fn();
   });

@@ -19,6 +19,7 @@ import {
   closeWorkspaceTab,
   createInitialWorkspaceTabsState,
   deserializeWorkspaceTabsState,
+  dismissWorkspaceSessionTabByPaneId,
   reorderWorkspaceTabs,
   reorderWorkspaceTabsByClosableOrder,
   resolveWorkspaceTabPath,
@@ -43,6 +44,7 @@ type WorkspaceTabsContextValue = {
   openSessionTab: (paneId: string) => void;
   activateTab: (tabId: string) => void;
   closeTab: (tabId: string) => void;
+  dismissSessionTab: (paneId: string) => void;
   reorderTabs: (activeTabId: string, overTabId: string) => void;
   reorderTabsByClosableOrder: (orderedClosableTabIds: string[]) => void;
 };
@@ -55,6 +57,7 @@ const WORKSPACE_TABS_FALLBACK: WorkspaceTabsContextValue = {
   openSessionTab: () => undefined,
   activateTab: () => undefined,
   closeTab: () => undefined,
+  dismissSessionTab: () => undefined,
   reorderTabs: () => undefined,
   reorderTabsByClosableOrder: () => undefined,
 };
@@ -221,6 +224,30 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
     [enabled, navigateToWorkspaceTab, pathname],
   );
 
+  const dismissSessionTab = useCallback(
+    (paneId: string) => {
+      if (!enabled) {
+        return;
+      }
+      const normalizedPaneId = paneId.trim();
+      if (normalizedPaneId.length === 0) {
+        return;
+      }
+      setTabsState((previous) => {
+        const dismissed = dismissWorkspaceSessionTabByPaneId(
+          previous,
+          normalizedPaneId,
+          Date.now(),
+        );
+        if (!dismissed.changed) {
+          return previous;
+        }
+        return dismissed.state;
+      });
+    },
+    [enabled],
+  );
+
   const reorderTabs = useCallback(
     (activeTabId: string, overTabId: string) => {
       if (!enabled) {
@@ -251,12 +278,14 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       openSessionTab,
       activateTab,
       closeTab,
+      dismissSessionTab,
       reorderTabs,
       reorderTabsByClosableOrder,
     }),
     [
       activateTab,
       closeTab,
+      dismissSessionTab,
       enabled,
       openSessionTab,
       reorderTabs,

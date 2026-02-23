@@ -25,7 +25,7 @@ export const useSessionDetailActions = ({
   setScreenError,
 }: UseSessionDetailActionsParams) => {
   const navigate = useNavigate();
-  const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
+  const { enabled: pwaTabsEnabled, openSessionTab, dismissSessionTab } = useWorkspaceTabs();
 
   const handleOpenPaneInNewWindow = useCallback(
     (targetPaneId: string) => {
@@ -76,6 +76,18 @@ export const useSessionDetailActions = ({
     [closeLogModal, closeQuickPanel, navigate],
   );
 
+  const handleOpenPaneAfterResumeWindow = useCallback(
+    (targetPaneId: string, sourcePaneId: string) => {
+      closeQuickPanel();
+      navigate({ to: "/sessions/$paneId", params: { paneId: targetPaneId } });
+      closeLogModal();
+      if (pwaTabsEnabled && sourcePaneId !== targetPaneId) {
+        dismissSessionTab(sourcePaneId);
+      }
+    },
+    [closeLogModal, closeQuickPanel, dismissSessionTab, navigate, pwaTabsEnabled],
+  );
+
   const handleOpenHere = useCallback(() => {
     if (!selectedPaneId) return;
     handleOpenPaneHere(selectedPaneId);
@@ -88,6 +100,7 @@ export const useSessionDetailActions = ({
     handleTouchPane,
     handleFocusPane,
     handleOpenPaneHere,
+    handleOpenPaneAfterResumeWindow,
     handleOpenHere,
   };
 };
