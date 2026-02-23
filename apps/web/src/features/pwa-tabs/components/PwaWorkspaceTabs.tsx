@@ -128,6 +128,22 @@ const resolveSessionGroupMeta = (
   };
 };
 
+const sortWorkspaceTabGroups = (groups: WorkspaceTabGroup[]) =>
+  groups
+    .map((group, index) => ({ group, index }))
+    .sort((left, right) => {
+      const leftIsSystem = left.group.key === "system";
+      const rightIsSystem = right.group.key === "system";
+      if (leftIsSystem && !rightIsSystem) {
+        return -1;
+      }
+      if (!leftIsSystem && rightIsSystem) {
+        return 1;
+      }
+      return left.index - right.index;
+    })
+    .map((entry) => entry.group);
+
 const SortableTabItem = ({
   tab,
   tabSortableId,
@@ -422,7 +438,7 @@ export const PwaWorkspaceTabs = () => {
         tabs: [tab],
       });
     });
-    return [...groups.values()];
+    return sortWorkspaceTabGroups([...groups.values()]);
   }, [closableTabs, sessionByPaneId, sessionGroupLabelByName]);
 
   const resolveTabLabel = (tab: WorkspaceTab) => {
