@@ -4,10 +4,10 @@ type SessionChangeListener = (session: SessionSummary) => void;
 type SessionRemovedListener = (paneId: string) => void;
 
 const toSummary = (detail: SessionDetail): SessionSummary => {
-  const { startCommand: _startCommand, panePid: _panePid, ...summary } = detail;
-  void _startCommand;
-  void _panePid;
-  return summary;
+  const summary = { ...detail } as Partial<SessionDetail>;
+  delete summary.startCommand;
+  delete summary.panePid;
+  return summary as SessionSummary;
 };
 
 export const createSessionRegistry = () => {

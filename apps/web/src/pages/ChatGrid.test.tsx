@@ -7,12 +7,7 @@ import { ChatGridPage } from "./ChatGrid";
 const viewModel = vi.hoisted(() => ({ meta: { connected: true } }));
 const viewSpy = vi.fn();
 const mockUseChatGridVM = vi.hoisted(() => vi.fn(() => viewModel));
-const mockUseMediaQuery = vi.hoisted(() =>
-  vi.fn((query: string) => {
-    void query;
-    return false;
-  }),
-);
+const mockUseMediaQuery = vi.hoisted(() => vi.fn<(query: string) => boolean>(() => false));
 
 vi.mock("./ChatGrid/useChatGridVM", () => ({
   useChatGridVM: () => mockUseChatGridVM(),

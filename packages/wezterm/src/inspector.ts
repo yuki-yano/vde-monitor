@@ -243,11 +243,7 @@ export const createInspector = (adapter: WeztermAdapter, deps: InspectorDeps = {
     return toPaneMetaList(panes, focusedPaneIds, paneActivityByPaneId, windowActivityByWindowIndex);
   };
 
-  const readUserOption = async (paneId: string, key: string): Promise<string | null> => {
-    void paneId;
-    void key;
-    return Promise.resolve(null);
-  };
+  const readUserOption: (paneId: string, key: string) => Promise<string | null> = async () => null;
 
   return {
     listPanes,

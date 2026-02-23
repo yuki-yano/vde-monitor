@@ -71,11 +71,10 @@ export const ShikiCodeBlock = ({
         }
         setHtml(result.html);
       })
-      .catch((cause) => {
+      .catch(() => {
         if (!alive) {
           return;
         }
-        void cause;
         setError("Failed to initialize syntax highlighting. Showing plain text.");
       });
     return () => {

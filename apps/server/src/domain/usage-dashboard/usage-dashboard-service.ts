@@ -501,10 +501,10 @@ const emptyErrorSnapshot = ({
 });
 
 const toSnapshotCore = (snapshot: UsageProviderSnapshot): UsageSnapshotCore => {
-  const { fetchedAt, staleAt, ...core } = snapshot;
-  void fetchedAt;
-  void staleAt;
-  return core;
+  const core = { ...snapshot } as Partial<UsageProviderSnapshot>;
+  delete core.fetchedAt;
+  delete core.staleAt;
+  return core as UsageSnapshotCore;
 };
 
 const normalizeProviderId = (provider: UsageProviderId | undefined): SupportedProviderId[] => {

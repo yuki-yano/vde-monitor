@@ -64,6 +64,12 @@ export default [
           ].join(", "),
           message: "Use == null or != null for nullish comparisons.",
         },
+        {
+          selector:
+            "ExpressionStatement > UnaryExpression[operator='void'][argument.type='Identifier']",
+          message:
+            "Do not use `void` with bare identifiers. Remove or refactor the unused variable instead.",
+        },
       ],
       "prefer-arrow/prefer-arrow-functions": [
         "error",
