@@ -1,7 +1,6 @@
 import type { UsagePricingConfig } from "@vde-monitor/shared";
 
 import type {
-  ModelPriceLookupResult,
   ModelPriceQuote,
   ProviderCostResult,
   ResolveStrategy,
@@ -44,8 +43,6 @@ const createUnavailable = (input?: {
   dailyBreakdown: input?.dailyBreakdown ?? [],
 });
 
-const toPerToken = (per1k: number | null) => (per1k == null ? null : per1k / 1000);
-
 const roundUsd = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
 
 const calculateCounterCost = (usage: UsageTokenCounters, quote: ModelPriceQuote) => {
@@ -67,53 +64,6 @@ type MutableDailyCostRow = {
   cacheReadInputTokens: number;
   totalTokens: number;
   usd: number;
-};
-
-const resolveConfiguredQuote = ({
-  providerId,
-  modelId,
-  pricingConfig,
-  now,
-}: {
-  providerId: SupportedUsageCostProviderId;
-  modelId: string;
-  pricingConfig: UsagePricingConfig;
-  now: Date;
-}): ModelPriceLookupResult | null => {
-  const rules = pricingConfig.providers[providerId].models;
-  const rule = rules.find((item) => item.modelId === modelId);
-  if (!rule) {
-    return null;
-  }
-  const inputCostPerToken = toPerToken(rule.inputPer1kUsd);
-  const outputCostPerToken = toPerToken(rule.outputPer1kUsd);
-  const hasPrice = inputCostPerToken != null || outputCostPerToken != null;
-  if (!hasPrice) {
-    return {
-      ok: false,
-      sourceLabel: "Config usagePricing",
-      updatedAt: now.toISOString(),
-      reasonCode: "MODEL_PRICE_MISSING",
-      reasonMessage: "Model price is unavailable in config usagePricing",
-      stale: false,
-    };
-  }
-  return {
-    ok: true,
-    quote: {
-      modelId,
-      resolvedModelId: modelId,
-      strategy: "exact",
-      inputCostPerToken,
-      outputCostPerToken,
-      cacheReadInputCostPerToken: inputCostPerToken,
-      cacheCreationInputCostPerToken: inputCostPerToken,
-      hasPrice: true,
-      sourceLabel: "Config usagePricing",
-      updatedAt: now.toISOString(),
-      stale: false,
-    },
-  };
 };
 
 export const createUsageCostProvider = (options: UsageCostProviderOptions): UsageCostProvider => {
@@ -156,19 +106,11 @@ export const createUsageCostProvider = (options: UsageCostProviderOptions): Usag
     const failedReasons = new Set<string>();
 
     for (const modelUsage of tokenUsage.models) {
-      const configuredQuote = resolveConfiguredQuote({
+      const lookupResult = await options.pricingSource.lookupModelPrice({
         providerId,
         modelId: modelUsage.modelId,
-        pricingConfig: options.pricingConfig,
         now,
       });
-      const lookupResult =
-        configuredQuote ??
-        (await options.pricingSource.lookupModelPrice({
-          providerId,
-          modelId: modelUsage.modelId,
-          now,
-        }));
 
       if (!lookupResult.ok) {
         failedReasons.add(lookupResult.reasonCode);

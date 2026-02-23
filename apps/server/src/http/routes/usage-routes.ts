@@ -10,7 +10,6 @@ import type { GetLimiterKey, HeaderContext, Monitor } from "./types";
 const usageDashboardQuerySchema = z.object({
   provider: z.enum(["codex", "claude"]).optional(),
   refresh: z.string().optional(),
-  includeCost: z.enum(["0", "1"]).optional(),
 });
 
 const usageTimelineQuerySchema = z.object({
@@ -20,11 +19,9 @@ const usageTimelineQuerySchema = z.object({
 
 const usageProviderQuerySchema = z.object({
   refresh: z.string().optional(),
-  includeCost: z.enum(["0", "1"]).optional(),
 });
 
 const isRefreshRequested = (refresh: string | undefined) => refresh === "1";
-const isCostIncluded = (includeCost: string | undefined) => includeCost !== "0";
 
 const resolveGlobalTimelineRange = (
   range: z.infer<typeof sessionStateTimelineRangeSchema> | undefined,
@@ -75,7 +72,6 @@ const handleProviderUsage = async ({
   refreshLimiter: (key: string) => boolean;
 }) => {
   const forceRefresh = isRefreshRequested(c.req.valid("query").refresh);
-  const includeCost = isCostIncluded(c.req.valid("query").includeCost);
   const rateLimitResponse = applyRefreshRateLimit({
     c,
     forceRefresh,
@@ -89,7 +85,6 @@ const handleProviderUsage = async ({
   try {
     const provider = await usageDashboardService.getProviderSnapshot(providerId, {
       forceRefresh,
-      includeCost,
     });
     return c.json({
       provider,
@@ -115,7 +110,6 @@ export const createUsageRoutes = ({
     .get("/usage/dashboard", zValidator("query", usageDashboardQuerySchema), async (c) => {
       const query = c.req.valid("query");
       const forceRefresh = isRefreshRequested(query.refresh);
-      const includeCost = isCostIncluded(query.includeCost);
       const rateLimitResponse = applyRefreshRateLimit({
         c,
         forceRefresh,
@@ -130,7 +124,6 @@ export const createUsageRoutes = ({
         const dashboard = await usageDashboardService.getDashboard({
           provider: query.provider,
           forceRefresh,
-          includeCost,
         });
         return c.json(dashboard);
       } catch {

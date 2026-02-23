@@ -681,17 +681,8 @@ export type LaunchConfig = {
   };
 };
 
-export type UsagePricingModelRule = {
-  modelId: string;
-  label: string;
-  inputPer1kUsd: number | null;
-  outputPer1kUsd: number | null;
-};
-
 export type UsagePricingProviderRule = {
   enabled: boolean;
-  defaultPricePer1kTokensUsd: number | null;
-  models: UsagePricingModelRule[];
 };
 
 export type UsagePricingConfig = {

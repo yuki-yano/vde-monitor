@@ -1139,20 +1139,9 @@ describe("configSchema", () => {
         providers: {
           codex: {
             enabled: true,
-            defaultPricePer1kTokensUsd: null,
-            models: [
-              {
-                modelId: "gpt-5.3-codex",
-                label: "GPT-5.3 Codex",
-                inputPer1kUsd: 0.00125,
-                outputPer1kUsd: 0.01,
-              },
-            ],
           },
           claude: {
             enabled: false,
-            defaultPricePer1kTokensUsd: null,
-            models: [],
           },
         },
       },
@@ -1160,7 +1149,7 @@ describe("configSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects usagePricing with negative model price", () => {
+  it("drops unexpected usagePricing provider fields", () => {
     const result = configSchema.safeParse({
       ...defaultConfig,
       usagePricing: {
@@ -1169,19 +1158,16 @@ describe("configSchema", () => {
           ...defaultConfig.usagePricing.providers,
           claude: {
             ...defaultConfig.usagePricing.providers.claude,
-            models: [
-              {
-                modelId: "claude-sonnet-4-6",
-                label: "Claude Sonnet 4.6",
-                inputPer1kUsd: -0.001,
-                outputPer1kUsd: 0.002,
-              },
-            ],
+            models: [],
           },
         },
       },
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect("models" in result.data.usagePricing.providers.claude).toBe(false);
   });
 });
 

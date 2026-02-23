@@ -13,12 +13,10 @@ const createPricingConfig = () => ({
     codex: {
       ...defaultConfig.usagePricing.providers.codex,
       enabled: true,
-      models: [],
     },
     claude: {
       ...defaultConfig.usagePricing.providers.claude,
       enabled: true,
-      models: [],
     },
   },
 });

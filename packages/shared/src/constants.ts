@@ -146,13 +146,9 @@ export const defaultConfig: AgentMonitorConfigFile = {
     providers: {
       codex: {
         enabled: true,
-        defaultPricePer1kTokensUsd: null,
-        models: [],
       },
       claude: {
         enabled: true,
-        defaultPricePer1kTokensUsd: null,
-        models: [],
       },
     },
   },

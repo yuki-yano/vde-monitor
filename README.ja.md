@@ -17,6 +17,7 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 - tmux セッションへ Codex / Claude エージェントを起動
 - 既存の Codex / Claude セッションを source pane で再開し、別の `vw` worktree 文脈へ移動
 - Session Detail で worktree 文脈を切り替え、同一セッションのまま timeline / diff / commits / files を確認（[`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` が必要）
+- Usage Dashboard でプロバイダ単位の制限ペースと課金推移を確認
 
 ## 主な機能
 
@@ -28,6 +29,7 @@ Codex CLI / Claude Code ワークフロー向けに設計されており、デ�
 - マルチ pane 監視: デスクトップ向け Chat Grid で並列監視
 - モバイル UI/UX 優先: 主要な監視・操作フローをスマホブラウザの一次体験として設計
 - PWA Push 通知: セッション単位トグル（既定OFF）と設定ファイルの全体ON/OFFに対応
+- Usage Dashboard: プロバイダ単位の session/weekly ペースと token/USD 集計表示
 
 ## 要件
 
@@ -227,6 +229,12 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `none`: モバイルの workspace tabs を無効化
 - displayMode に関係なく tabs はモバイル幅（`max-width: 767px`）でのみ表示
 
+`usagePricing`（Usage Dashboard の billing/cost）の方針:
+
+- `usagePricing.currency`: 現在は `USD` 固定（既定値: `USD`）
+- `usagePricing.providers.codex.enabled`: Codex のコスト計算を有効化（既定値: `true`）
+- `usagePricing.providers.claude.enabled`: Claude のコスト計算を有効化（既定値: `true`）
+
 最小構成のグローバル設定例:
 
 ```yaml
@@ -255,6 +263,13 @@ notifications:
   enabledEventTypes:
     - pane.waiting_permission
     - pane.task_completed
+usagePricing:
+  currency: USD
+  providers:
+    codex:
+      enabled: true
+    claude:
+      enabled: true
 workspaceTabs:
   displayMode: all
 tmux:

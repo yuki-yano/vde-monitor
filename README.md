@@ -17,6 +17,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 - Launch Codex/Claude agents into tmux sessions
 - Resume existing Codex/Claude sessions on a source pane and move context to another `vw` worktree (when available)
 - Switch worktree context per session when reviewing timeline, diffs, commits, and files ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
+- Open Usage Dashboard to monitor provider limits pace and billing trends
 
 ## Main features
 
@@ -28,6 +29,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 - Multi-pane monitoring: desktop-oriented Chat Grid for side-by-side pane tracking
 - Mobile-first UI/UX: primary monitor/control flows are treated as first-class for phone browsers
 - PWA push notifications: per-session notification toggle (default off) plus global config-level enable/disable
+- Usage Dashboard: provider-level session/weekly pace plus token/USD billing summary
 
 ## Requirements
 
@@ -227,6 +229,12 @@ Project config discovery:
 - `none`: disable mobile workspace tabs
 - tabs are mobile-only (`max-width: 767px`) regardless of display mode
 
+`usagePricing` (Usage Dashboard billing/cost) policy:
+
+- `usagePricing.currency`: currently fixed to `USD` (default: `USD`)
+- `usagePricing.providers.codex.enabled`: enable cost calculation for Codex (default: `true`)
+- `usagePricing.providers.claude.enabled`: enable cost calculation for Claude (default: `true`)
+
 Minimal global config example:
 
 ```yaml
@@ -255,6 +263,13 @@ notifications:
   enabledEventTypes:
     - pane.waiting_permission
     - pane.task_completed
+usagePricing:
+  currency: USD
+  providers:
+    codex:
+      enabled: true
+    claude:
+      enabled: true
 workspaceTabs:
   displayMode: all
 tmux:

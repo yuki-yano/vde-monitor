@@ -608,19 +608,8 @@ const notificationsConfigSchema = z
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
   });
 
-const usagePricingNullableNumberSchema = z.number().nonnegative().nullable();
-
-export const usagePricingModelRuleSchema = z.object({
-  modelId: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  inputPer1kUsd: usagePricingNullableNumberSchema,
-  outputPer1kUsd: usagePricingNullableNumberSchema,
-});
-
 export const usagePricingProviderRuleSchema = z.object({
   enabled: z.boolean(),
-  defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema,
-  models: z.array(usagePricingModelRuleSchema),
 });
 
 export const usagePricingConfigSchema = z.object({
@@ -636,13 +625,9 @@ const defaultUsagePricingConfig: z.input<typeof usagePricingConfigSchema> = {
   providers: {
     codex: {
       enabled: true,
-      defaultPricePer1kTokensUsd: null,
-      models: [],
     },
     claude: {
       enabled: true,
-      defaultPricePer1kTokensUsd: null,
-      models: [],
     },
   },
 };
@@ -914,13 +899,9 @@ export const configOverrideSchema = strictObject({
     providers: strictObject({
       codex: strictObject({
         enabled: z.boolean().optional(),
-        defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema.optional(),
-        models: z.array(usagePricingModelRuleSchema).optional(),
       }).optional(),
       claude: strictObject({
         enabled: z.boolean().optional(),
-        defaultPricePer1kTokensUsd: usagePricingNullableNumberSchema.optional(),
-        models: z.array(usagePricingModelRuleSchema).optional(),
       }).optional(),
     }).optional(),
   }).optional(),

@@ -496,7 +496,6 @@ describe("createApiRouter", () => {
     expect(getDashboard).toHaveBeenCalledWith({
       provider: "codex",
       forceRefresh: false,
-      includeCost: true,
     });
     const data = await res.json();
     expect(Array.isArray(data.providers)).toBe(true);
@@ -548,24 +547,9 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(200);
     expect(getProviderSnapshot).toHaveBeenCalledWith("codex", {
       forceRefresh: false,
-      includeCost: true,
     });
     const data = await res.json();
     expect(data.provider.providerId).toBe("codex");
-  });
-
-  it("passes includeCost=0 to usage dashboard service", async () => {
-    const { api, getDashboard } = createTestContext();
-    const res = await api.request("/usage/dashboard?provider=codex&includeCost=0", {
-      headers: authHeaders,
-    });
-
-    expect(res.status).toBe(200);
-    expect(getDashboard).toHaveBeenCalledWith({
-      provider: "codex",
-      forceRefresh: false,
-      includeCost: false,
-    });
   });
 
   it("lists repo notes for the pane repository", async () => {

@@ -50,7 +50,6 @@ type CacheEntry = {
   expiresAtMs: number;
   backoffUntilMs: number;
   failureCount: number;
-  hasCost: boolean;
 };
 
 type CodexWindowCandidate = {
@@ -501,13 +500,11 @@ export type UsageDashboardService = {
   getDashboard: (options?: {
     provider?: UsageProviderId;
     forceRefresh?: boolean;
-    includeCost?: boolean;
   }) => Promise<UsageDashboardResponse>;
   getProviderSnapshot: (
     providerId: SupportedProviderId,
     options?: {
       forceRefresh?: boolean;
-      includeCost?: boolean;
     },
   ) => Promise<UsageProviderSnapshot>;
 };
@@ -636,19 +633,13 @@ export const createUsageDashboardService = (
   ) => {
     const nowMs = Date.now();
     const forceRefresh = providerOptions.forceRefresh === true;
-    const includeCost = providerOptions.includeCost !== false;
     const cached = cache.get(providerId);
 
-    if (!forceRefresh && cached && nowMs < cached.expiresAtMs && (!includeCost || cached.hasCost)) {
+    if (!forceRefresh && cached && nowMs < cached.expiresAtMs) {
       return cached.snapshot;
     }
 
-    if (
-      !forceRefresh &&
-      cached &&
-      nowMs < cached.backoffUntilMs &&
-      (!includeCost || cached.hasCost)
-    ) {
+    if (!forceRefresh && cached && nowMs < cached.backoffUntilMs) {
       return withStatusIssue(
         cached.snapshot,
         {
@@ -662,20 +653,17 @@ export const createUsageDashboardService = (
 
     try {
       const freshCore = await fetchSnapshotCore(providerId, nowMs);
-      const nextSnapshotCore = includeCost
-        ? await enrichSnapshotWithCost({
-            snapshot: freshCore,
-            providerId,
-            now: new Date(nowMs),
-          })
-        : freshCore;
+      const nextSnapshotCore = await enrichSnapshotWithCost({
+        snapshot: freshCore,
+        providerId,
+        now: new Date(nowMs),
+      });
       const fresh = withTimestamps(nextSnapshotCore, nowMs, cacheTtlMs);
       cache.set(providerId, {
         snapshot: fresh,
         expiresAtMs: nowMs + cacheTtlMs,
         backoffUntilMs: 0,
         failureCount: 0,
-        hasCost: includeCost,
       });
       return fresh;
     } catch (error) {
@@ -687,7 +675,6 @@ export const createUsageDashboardService = (
           expiresAtMs: cached.expiresAtMs,
           backoffUntilMs: nowMs + backoffMs,
           failureCount: cached.failureCount + 1,
-          hasCost: cached.hasCost,
         });
         return degraded;
       }
@@ -706,7 +693,6 @@ export const createUsageDashboardService = (
         expiresAtMs: nowMs + Math.min(cacheTtlMs, 30_000),
         backoffUntilMs: nowMs + backoffMs,
         failureCount: 1,
-        hasCost: false,
       });
       return failedSnapshot;
     }
@@ -714,12 +700,10 @@ export const createUsageDashboardService = (
 
   const getDashboard: UsageDashboardService["getDashboard"] = async (dashboardOptions = {}) => {
     const providerIds = normalizeProviderId(dashboardOptions.provider);
-    const includeCost = dashboardOptions.includeCost !== false;
     const providers = await Promise.all(
       providerIds.map((providerId) =>
         getProviderSnapshot(providerId, {
           forceRefresh: dashboardOptions.forceRefresh,
-          includeCost,
         }),
       ),
     );
