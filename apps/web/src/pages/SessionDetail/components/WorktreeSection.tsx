@@ -113,7 +113,7 @@ export const WorktreeSection = ({ state, actions }: WorktreeSectionProps) => {
         entriesCount={worktreeEntries.length}
       />
       {!showBlockingWorktreeLoading && !worktreeSelectorError ? (
-        <div className="custom-scrollbar max-h-[360px] space-y-1 overflow-y-auto pr-0.5">
+        <div className="space-y-1">
           <WorktreeEntryList
             entries={displayedWorktreeEntries}
             worktreeRepoRoot={worktreeRepoRoot}

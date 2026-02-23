@@ -57,6 +57,16 @@ describe("WorktreeSection", () => {
     expect(actions.onRefreshWorktrees).toHaveBeenCalledTimes(1);
   });
 
+  it("renders worktree list without internal scroll container", () => {
+    const state = buildState();
+    const actions = buildActions();
+    render(<WorktreeSection state={state} actions={actions} />);
+
+    const section = screen.getByTestId("worktree-section");
+    expect(section.querySelector('[class*="overflow-y-auto"]')).toBeNull();
+    expect(section.querySelector('[class*="max-h-"]')).toBeNull();
+  });
+
   it("renders PR link button next to branch when prUrl is available", () => {
     const state = buildState();
     const actions = buildActions();
