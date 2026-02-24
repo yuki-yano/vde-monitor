@@ -1,11 +1,11 @@
 import type {
   UsageBilling,
   UsageBillingMeta,
+  UsageConfig,
   UsageDashboardResponse,
   UsageIssue,
   UsageMetricWindow,
   UsagePaceStatus,
-  UsagePricingConfig,
   UsageProviderCapabilities,
   UsageProviderId,
   UsageProviderSnapshot,
@@ -44,7 +44,7 @@ type UsageDashboardServiceOptions = {
   providerTimeoutMs?: number;
   paceBalancedThresholdPercent?: number;
   costProvider?: UsageCostProvider;
-  pricingConfig?: UsagePricingConfig;
+  usageConfig?: UsageConfig;
 };
 
 type CoreCacheEntry = {
@@ -538,9 +538,33 @@ export const createUsageDashboardService = (
   const balancedThresholdPercent =
     options.paceBalancedThresholdPercent ?? DEFAULT_PACE_BALANCED_THRESHOLD_PERCENT;
   const costProvider = options.costProvider;
-  const pricingConfig = options.pricingConfig;
+  const usageConfig = options.usageConfig;
   const coreCache = new Map<SupportedProviderId, CoreCacheEntry>();
   const billingCache = new Map<SupportedProviderId, BillingCacheEntry>();
+  const isSessionEnabled = (providerId: SupportedProviderId) =>
+    usageConfig?.session.providers[providerId].enabled !== false;
+  const isPricingEnabled = (providerId: SupportedProviderId) =>
+    usageConfig?.pricing.providers[providerId].enabled !== false;
+
+  const applySessionVisibility = ({
+    snapshot,
+    providerId,
+  }: {
+    snapshot: UsageProviderSnapshot;
+    providerId: SupportedProviderId;
+  }): UsageProviderSnapshot => {
+    if (isSessionEnabled(providerId)) {
+      return snapshot;
+    }
+    return {
+      ...snapshot,
+      windows: snapshot.windows.filter((window) => window.id !== "session"),
+      capabilities: {
+        ...snapshot.capabilities,
+        session: false,
+      },
+    };
+  };
 
   const applyCostResultToSnapshot = ({
     snapshot,
@@ -551,7 +575,7 @@ export const createUsageDashboardService = (
     providerId: SupportedProviderId;
     cost: ProviderCostResult;
   }): UsageSnapshotCore => {
-    const providerPricingEnabled = pricingConfig?.providers[providerId].enabled === true;
+    const providerPricingEnabled = isPricingEnabled(providerId);
     let issues = snapshot.issues;
     if (providerPricingEnabled && cost.source === "unavailable" && cost.reasonMessage) {
       issues = appendIssue(issues, {
@@ -598,7 +622,7 @@ export const createUsageDashboardService = (
     now: Date;
     forceRefresh?: boolean;
   }): Promise<UsageSnapshotCore> => {
-    const providerPricingEnabled = pricingConfig?.providers[providerId].enabled === true;
+    const providerPricingEnabled = isPricingEnabled(providerId);
     if (!costProvider) {
       return {
         ...snapshot,
@@ -778,14 +802,15 @@ export const createUsageDashboardService = (
       fetchedAt: coreSnapshot.fetchedAt,
       staleAt: coreSnapshot.staleAt,
     };
+    const visibleSnapshot = applySessionVisibility({ snapshot, providerId });
 
     if (!includeWindows) {
       return {
-        ...snapshot,
+        ...visibleSnapshot,
         windows: [],
       };
     }
-    return snapshot;
+    return visibleSnapshot;
   };
 
   const getDashboard: UsageDashboardService["getDashboard"] = async (dashboardOptions = {}) => {
@@ -797,8 +822,14 @@ export const createUsageDashboardService = (
         }),
       ),
     );
+    const visibleProviders = providers.map((provider) =>
+      applySessionVisibility({
+        snapshot: provider,
+        providerId: provider.providerId as SupportedProviderId,
+      }),
+    );
     return {
-      providers,
+      providers: visibleProviders,
       fetchedAt: new Date().toISOString(),
     };
   };

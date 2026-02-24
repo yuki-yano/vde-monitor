@@ -9,6 +9,7 @@ const cliArgDefinitions = {
   command: { type: "positional", required: false },
   subcommand: { type: "positional", required: false },
   subcommand2: { type: "positional", required: false },
+  dryRun: { type: "boolean" },
   bind: { type: "string" },
   public: { type: "boolean" },
   tailscale: { type: "boolean" },

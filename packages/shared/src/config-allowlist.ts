@@ -98,13 +98,25 @@ export const userConfigAllowlist = {
     pushEnabled: true,
     enabledEventTypes: true,
   },
-  usagePricing: {
-    providers: {
-      codex: {
-        enabled: true,
+  usage: {
+    session: {
+      providers: {
+        codex: {
+          enabled: true,
+        },
+        claude: {
+          enabled: true,
+        },
       },
-      claude: {
-        enabled: true,
+    },
+    pricing: {
+      providers: {
+        codex: {
+          enabled: true,
+        },
+        claude: {
+          enabled: true,
+        },
       },
     },
   },
@@ -140,16 +152,6 @@ export const generatedConfigTemplateAllowlist = {
       },
       claude: {
         options: true,
-      },
-    },
-  },
-  usagePricing: {
-    providers: {
-      codex: {
-        enabled: true,
-      },
-      claude: {
-        enabled: true,
       },
     },
   },

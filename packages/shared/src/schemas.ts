@@ -602,22 +602,41 @@ const notificationsConfigSchema = strictObject({
   enabledEventTypes: z.array(configPushEventTypeSchema).min(1),
 });
 
-export const usagePricingProviderRuleSchema = z.object({
+export const usageProviderRuleSchema = z.object({
   enabled: z.boolean(),
 });
 
-export const usagePricingConfigSchema = z.object({
-  currency: z.literal("USD"),
+export const usageSessionConfigSchema = z.object({
   providers: z.object({
-    codex: usagePricingProviderRuleSchema,
-    claude: usagePricingProviderRuleSchema,
+    codex: usageProviderRuleSchema,
+    claude: usageProviderRuleSchema,
   }),
 });
 
-const resolvedUsagePricingConfigSchema = strictObject({
-  providers: strictObject({
-    codex: usagePricingProviderRuleSchema,
-    claude: usagePricingProviderRuleSchema,
+export const usagePricingConfigSchema = z.object({
+  providers: z.object({
+    codex: usageProviderRuleSchema,
+    claude: usageProviderRuleSchema,
+  }),
+});
+
+export const usageConfigSchema = z.object({
+  session: usageSessionConfigSchema,
+  pricing: usagePricingConfigSchema,
+});
+
+const resolvedUsageConfigSchema = strictObject({
+  session: strictObject({
+    providers: strictObject({
+      codex: usageProviderRuleSchema,
+      claude: usageProviderRuleSchema,
+    }),
+  }),
+  pricing: strictObject({
+    providers: strictObject({
+      codex: usageProviderRuleSchema,
+      claude: usageProviderRuleSchema,
+    }),
   }),
 });
 
@@ -748,7 +767,7 @@ export const configSchema = strictObject({
   multiplexer: multiplexerConfigSchema,
   launch: launchConfigSchema,
   notifications: notificationsConfigSchema,
-  usagePricing: resolvedUsagePricingConfigSchema,
+  usage: resolvedUsageConfigSchema,
   workspaceTabs: workspaceTabsConfigSchema,
   fileNavigator: fileNavigatorConfigSchema,
   tmux: tmuxConfigSchema,
@@ -766,16 +785,6 @@ export const generatedConfigTemplateSchema = strictObject({
   dangerKeys: z.array(z.string()),
   dangerCommandPatterns: z.array(z.string()),
   launch: launchConfigSchema,
-  usagePricing: strictObject({
-    providers: strictObject({
-      codex: strictObject({
-        enabled: z.boolean(),
-      }),
-      claude: strictObject({
-        enabled: z.boolean(),
-      }),
-    }),
-  }),
   workspaceTabs: workspaceTabsConfigSchema,
 });
 
@@ -820,13 +829,25 @@ export const configOverrideSchema = strictObject({
     pushEnabled: z.boolean().optional(),
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
   }).optional(),
-  usagePricing: strictObject({
-    providers: strictObject({
-      codex: strictObject({
-        enabled: z.boolean().optional(),
+  usage: strictObject({
+    session: strictObject({
+      providers: strictObject({
+        codex: strictObject({
+          enabled: z.boolean().optional(),
+        }).optional(),
+        claude: strictObject({
+          enabled: z.boolean().optional(),
+        }).optional(),
       }).optional(),
-      claude: strictObject({
-        enabled: z.boolean().optional(),
+    }).optional(),
+    pricing: strictObject({
+      providers: strictObject({
+        codex: strictObject({
+          enabled: z.boolean().optional(),
+        }).optional(),
+        claude: strictObject({
+          enabled: z.boolean().optional(),
+        }).optional(),
       }).optional(),
     }).optional(),
   }).optional(),

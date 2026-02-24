@@ -736,6 +736,12 @@ const ProviderQuotaSection = ({
   providerLoading: boolean;
   billingLoading: boolean;
 }) => {
+  const visibleWindows =
+    provider?.capabilities.session === false
+      ? provider.windows.filter((metric) => metric.id !== "session")
+      : (provider?.windows ?? []);
+  const providerKey = provider?.providerId ?? title.toLowerCase();
+
   return (
     <GlowCard contentClassName="gap-3">
       <section>
@@ -748,9 +754,9 @@ const ProviderQuotaSection = ({
           ) : null}
         </div>
         <div className="mt-3 space-y-2.5">
-          {provider?.windows.map((metric) => (
+          {visibleWindows.map((metric) => (
             <UsageMetricRow
-              key={`${provider.providerId}-${metric.id}-${metric.title}`}
+              key={`${providerKey}-${metric.id}-${metric.title}`}
               metric={metric}
               nowMs={nowMs}
             />
@@ -845,7 +851,7 @@ const ProviderQuotaSection = ({
               Provider data is not available right now.
             </Callout>
           ) : null}
-          {provider && provider.windows.length === 0 ? (
+          {provider && visibleWindows.length === 0 ? (
             <Callout tone="warning" size="sm">
               Usage windows are not available for this provider right now.
             </Callout>

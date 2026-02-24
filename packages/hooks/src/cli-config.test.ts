@@ -219,12 +219,6 @@ describe("hooks config loading", () => {
             claude: { options: [] },
           },
         },
-        usagePricing: {
-          providers: {
-            codex: { enabled: true },
-            claude: { enabled: true },
-          },
-        },
         workspaceTabs: { displayMode: "all" },
       }),
     );
@@ -260,12 +254,6 @@ describe("hooks config loading", () => {
           agents: {
             codex: { options: [] },
             claude: { options: [] },
-          },
-        },
-        usagePricing: {
-          providers: {
-            codex: { enabled: true },
-            claude: { enabled: true },
           },
         },
         workspaceTabs: { displayMode: "all" },

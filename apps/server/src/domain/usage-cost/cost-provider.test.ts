@@ -7,15 +7,14 @@ import type { UsagePricingSource, UsageTokenSource } from "./types";
 const baseNow = new Date("2026-02-23T00:00:00.000Z");
 
 const createPricingConfig = () => ({
-  currency: "USD" as const,
   providers: {
-    ...configDefaults.usagePricing.providers,
+    ...configDefaults.usage.pricing.providers,
     codex: {
-      ...configDefaults.usagePricing.providers.codex,
+      ...configDefaults.usage.pricing.providers.codex,
       enabled: true,
     },
     claude: {
-      ...configDefaults.usagePricing.providers.claude,
+      ...configDefaults.usage.pricing.providers.claude,
       enabled: true,
     },
   },

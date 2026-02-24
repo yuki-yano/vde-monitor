@@ -188,10 +188,21 @@ npx vde-monitor@latest [options]
 ### ユーティリティ
 
 ```bash
+npx vde-monitor@latest config init
+npx vde-monitor@latest config regenerate
+npx vde-monitor@latest config check
+npx vde-monitor@latest config prune
+npx vde-monitor@latest config prune --dry-run
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 ```
+
+- `config init`: グローバル設定ファイルが存在しない場合のみ、初期の自動生成設定を作成
+- `config regenerate`: 既存のグローバル設定を、必須テンプレートで上書き再生成
+- `config check`: グローバル設定を検証（parse/schema/必須生成キー/未使用キー）
+- `config prune`: グローバル設定の未使用キーを削除し、`config.yml`（YAML）として再書き込み
+- `config prune --dry-run`: ファイル更新せず、削除対象キーのみ表示
 
 ## 設定
 
@@ -218,91 +229,49 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - git ルート（`.git`）まで親ディレクトリを遡って探索し、そこで停止
 - リポジトリ外では現在ディレクトリのみを確認
 
-`fileNavigator.includeIgnoredPaths` の方針:
+自動生成される必須設定（`config.yml`）:
 
-- ignore 対象はデフォルトで非表示
-- `includeIgnoredPaths` に一致したものだけ表示
-- tree/search/content と log file-reference 解決に適用
+| キー                           | 既定値                     | 意味                                                                                   |
+| ------------------------------ | -------------------------- | -------------------------------------------------------------------------------------- |
+| `multiplexer.backend`          | `tmux`                     | マルチプレクサ backend（`tmux` / `wezterm`）                                           |
+| `screen.image.backend`         | `terminal`                 | macOS での画像キャプチャ backend（`alacritty`/`terminal`/`iterm`/`wezterm`/`ghostty`） |
+| `dangerKeys`                   | `["C-c","C-d","C-z"]`      | 危険キーとしてブロックするキー                                                         |
+| `dangerCommandPatterns`        | 既存デフォルト正規表現配列 | 危険コマンド検知に使う正規表現パターン                                                 |
+| `launch.agents.codex.options`  | `[]`                       | Codex 起動時に付与する既定オプション                                                   |
+| `launch.agents.claude.options` | `[]`                       | Claude 起動時に付与する既定オプション                                                  |
+| `workspaceTabs.displayMode`    | `all`                      | モバイル Workspace Tabs 表示方針（`all`/`pwa`/`none`）                                 |
 
-`notifications` の方針:
+設定可能だが任意の設定（未指定時はランタイム既定値を使用）:
 
-- `notifications.pushEnabled`: Push 通知配信の全体スイッチ
-  - `false` の場合、サーバーは新規購読upsertを拒否
-  - クライアントは次回 settings 同期で無効状態へ遷移
-- `notifications.enabledEventTypes`: 全体イベントフィルタ
-  - 指定可能値: `pane.waiting_permission`, `pane.task_completed`
-  - 指定する場合は空配列不可
+| キー                                     | 既定値                                              |
+| ---------------------------------------- | --------------------------------------------------- |
+| `bind`                                   | `127.0.0.1`                                         |
+| `port`                                   | `11080`                                             |
+| `allowedOrigins`                         | `[]`                                                |
+| `activity.pollIntervalMs`                | `1000`                                              |
+| `activity.runningThresholdMs`            | `5000`                                              |
+| `screen.maxLines`                        | `2000`                                              |
+| `screen.highlightCorrection.codex`       | `true`                                              |
+| `screen.highlightCorrection.claude`      | `true`                                              |
+| `multiplexer.wezterm.cliPath`            | `wezterm`                                           |
+| `multiplexer.wezterm.target`             | `auto`                                              |
+| `notifications.pushEnabled`              | `true`                                              |
+| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
+| `usage.session.providers.codex.enabled`  | `true`                                              |
+| `usage.session.providers.claude.enabled` | `true`                                              |
+| `usage.pricing.providers.codex.enabled`  | `true`                                              |
+| `usage.pricing.providers.claude.enabled` | `true`                                              |
+| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
+| `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
+| `tmux.socketName`                        | `null`                                              |
+| `tmux.socketPath`                        | `null`                                              |
+| `tmux.primaryClient`                     | `null`                                              |
 
-`workspaceTabs.displayMode` の方針:
+補足:
 
-- `all`（既定）: モバイルの workspace tabs をブラウザ/PWAの両方で表示
-- `pwa`: モバイルの workspace tabs をインストール済みPWAでのみ表示
-- `none`: モバイルの workspace tabs を無効化
-- displayMode に関係なく tabs はモバイル幅（`max-width: 767px`）でのみ表示
-
-`usagePricing`（Usage Dashboard の billing/cost）の方針:
-
-- `usagePricing.currency`: 現在は `USD` 固定（既定値: `USD`）
-- `usagePricing.providers.codex.enabled`: Codex のコスト計算を有効化（既定値: `true`）
-- `usagePricing.providers.claude.enabled`: Claude のコスト計算を有効化（既定値: `true`）
-
-最小構成のグローバル設定例:
-
-```yaml
-bind: 127.0.0.1
-port: 11080
-allowedOrigins: []
-rateLimit:
-  send: { windowMs: 1000, max: 10 }
-  screen: { windowMs: 1000, max: 10 }
-  raw: { windowMs: 1000, max: 200 }
-screen:
-  mode: text
-  image:
-    enabled: true
-    backend: terminal
-    format: png
-    cropPane: true
-    timeoutMs: 5000
-multiplexer:
-  backend: tmux
-  wezterm:
-    cliPath: wezterm
-    target: auto
-notifications:
-  pushEnabled: true
-  enabledEventTypes:
-    - pane.waiting_permission
-    - pane.task_completed
-usagePricing:
-  currency: USD
-  providers:
-    codex:
-      enabled: true
-    claude:
-      enabled: true
-workspaceTabs:
-  displayMode: all
-tmux:
-  socketName: null
-  socketPath: null
-  primaryClient: null
-```
-
-プロジェクトローカル上書き例（`<repo-root>/.vde/monitor/config.yml`）:
-
-```yaml
-fileNavigator:
-  includeIgnoredPaths:
-    - ai/**
-  autoExpandMatchLimit: 150
-```
-
-対応 multiplexer backend:
-`tmux`, `wezterm`
-
-対応 image backend:
-`alacritty`, `terminal`, `iterm`, `wezterm`, `ghostty`
+- `config check` / `config prune` はグローバル設定のみを対象にします。
+- `config check` は問題が1件でもあると終了コード `1` で終了します（未使用キーを含む）。
+- `config prune` は YAML を `config.yml` に書き込みます。入力が `config.json` の場合、成功後に削除されます。
 
 ## プラットフォーム挙動
 

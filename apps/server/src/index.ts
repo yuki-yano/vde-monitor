@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { parseArgs } from "./app/cli/cli";
 import { printHooksSnippet } from "./app/commands/print-hooks-snippet";
+import { runConfigCheckCommand } from "./app/commands/run-config-check-command";
 import { runConfigInitCommand } from "./app/commands/run-config-init-command";
+import { runConfigPruneCommand } from "./app/commands/run-config-prune-command";
 import { runConfigRegenerateCommand } from "./app/commands/run-config-regenerate-command";
 import { runTokenRotateCommand } from "./app/commands/run-token-rotate-command";
 import {
@@ -30,6 +32,14 @@ export const main = async () => {
   }
   if (args.command === "config" && args.subcommand === "init") {
     runConfigInitCommand();
+    return;
+  }
+  if (args.command === "config" && args.subcommand === "check") {
+    runConfigCheckCommand();
+    return;
+  }
+  if (args.command === "config" && args.subcommand === "prune") {
+    runConfigPruneCommand({ dryRun: args.dryRun === true });
     return;
   }
 

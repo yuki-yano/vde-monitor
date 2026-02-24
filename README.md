@@ -190,6 +190,9 @@ Notes:
 ```bash
 npx vde-monitor@latest config init
 npx vde-monitor@latest config regenerate
+npx vde-monitor@latest config check
+npx vde-monitor@latest config prune
+npx vde-monitor@latest config prune --dry-run
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
@@ -197,6 +200,9 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 
 - `config init`: create initial generated config only when no global config file exists
 - `config regenerate`: overwrite existing global config with regenerated required template
+- `config check`: validate global config (parse/schema/required generated keys/unused keys)
+- `config prune`: remove unused keys from global config and rewrite as `config.yml` (YAML)
+- `config prune --dry-run`: show removable keys without updating files
 
 ## Configuration
 
@@ -225,39 +231,47 @@ Project config discovery:
 
 Auto-generated required settings (`config.yml`):
 
-| Key                                     | Default                     | Meaning                                                 |
-| --------------------------------------- | --------------------------- | ------------------------------------------------------- |
-| `multiplexer.backend`                   | `tmux`                      | Multiplexer backend (`tmux` or `wezterm`)               |
-| `screen.image.backend`                  | `terminal`                  | Image capture backend on macOS                          |
-| `dangerKeys`                            | `["C-c","C-d","C-z"]`       | Blocked danger keys                                     |
-| `dangerCommandPatterns`                 | existing default regex list | Regex list for dangerous command detection              |
-| `launch.agents.codex.options`           | `[]`                        | Default options for Codex launch                        |
-| `launch.agents.claude.options`          | `[]`                        | Default options for Claude launch                       |
-| `usagePricing.providers.codex.enabled`  | `true`                      | Enable Codex cost calculation                           |
-| `usagePricing.providers.claude.enabled` | `true`                      | Enable Claude cost calculation                          |
-| `workspaceTabs.displayMode`             | `all`                       | Mobile workspace tabs display mode (`all`/`pwa`/`none`) |
+| Key                            | Default                     | Meaning                                                                             |
+| ------------------------------ | --------------------------- | ----------------------------------------------------------------------------------- |
+| `multiplexer.backend`          | `tmux`                      | Multiplexer backend (`tmux` or `wezterm`)                                           |
+| `screen.image.backend`         | `terminal`                  | Image capture backend on macOS (`alacritty`/`terminal`/`iterm`/`wezterm`/`ghostty`) |
+| `dangerKeys`                   | `["C-c","C-d","C-z"]`       | Blocked danger keys                                                                 |
+| `dangerCommandPatterns`        | existing default regex list | Regex list for dangerous command detection                                          |
+| `launch.agents.codex.options`  | `[]`                        | Default options for Codex launch                                                    |
+| `launch.agents.claude.options` | `[]`                        | Default options for Claude launch                                                   |
+| `workspaceTabs.displayMode`    | `all`                       | Mobile workspace tabs display mode (`all`/`pwa`/`none`)                             |
 
 Configurable but optional settings (if omitted, runtime defaults are used):
 
-| Key                                  | Default                                             |
-| ------------------------------------ | --------------------------------------------------- |
-| `bind`                               | `127.0.0.1`                                         |
-| `port`                               | `11080`                                             |
-| `allowedOrigins`                     | `[]`                                                |
-| `activity.pollIntervalMs`            | `1000`                                              |
-| `activity.runningThresholdMs`        | `5000`                                              |
-| `screen.maxLines`                    | `2000`                                              |
-| `screen.highlightCorrection.codex`   | `true`                                              |
-| `screen.highlightCorrection.claude`  | `true`                                              |
-| `multiplexer.wezterm.cliPath`        | `wezterm`                                           |
-| `multiplexer.wezterm.target`         | `auto`                                              |
-| `notifications.pushEnabled`          | `true`                                              |
-| `notifications.enabledEventTypes`    | `["pane.waiting_permission","pane.task_completed"]` |
-| `fileNavigator.includeIgnoredPaths`  | `[]`                                                |
-| `fileNavigator.autoExpandMatchLimit` | `100`                                               |
-| `tmux.socketName`                    | `null`                                              |
-| `tmux.socketPath`                    | `null`                                              |
-| `tmux.primaryClient`                 | `null`                                              |
+| Key                                      | Default                                             |
+| ---------------------------------------- | --------------------------------------------------- |
+| `bind`                                   | `127.0.0.1`                                         |
+| `port`                                   | `11080`                                             |
+| `allowedOrigins`                         | `[]`                                                |
+| `activity.pollIntervalMs`                | `1000`                                              |
+| `activity.runningThresholdMs`            | `5000`                                              |
+| `screen.maxLines`                        | `2000`                                              |
+| `screen.highlightCorrection.codex`       | `true`                                              |
+| `screen.highlightCorrection.claude`      | `true`                                              |
+| `multiplexer.wezterm.cliPath`            | `wezterm`                                           |
+| `multiplexer.wezterm.target`             | `auto`                                              |
+| `notifications.pushEnabled`              | `true`                                              |
+| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
+| `usage.session.providers.codex.enabled`  | `true`                                              |
+| `usage.session.providers.claude.enabled` | `true`                                              |
+| `usage.pricing.providers.codex.enabled`  | `true`                                              |
+| `usage.pricing.providers.claude.enabled` | `true`                                              |
+| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
+| `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
+| `tmux.socketName`                        | `null`                                              |
+| `tmux.socketPath`                        | `null`                                              |
+| `tmux.primaryClient`                     | `null`                                              |
+
+Notes:
+
+- `config check` / `config prune` target global config only.
+- `config check` exits with code `1` when any issue is found (including unused keys).
+- `config prune` writes YAML to `config.yml`; when source is `config.json`, it is removed after successful write.
 
 ## Platform behavior
 

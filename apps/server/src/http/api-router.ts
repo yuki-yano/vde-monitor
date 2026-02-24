@@ -96,14 +96,11 @@ export const createApiRouter = ({
   const rawLimiter = createRateLimiter(1000, 200);
   const usageRefreshLimiter = createRateLimiter(5_000, 1);
   const screenCache = createScreenCache();
-  const pricingConfig = {
-    currency: "USD" as const,
-    providers: config.usagePricing.providers,
-  };
+  const pricingConfig = config.usage.pricing;
   const dashboardService =
     usageDashboardService ??
     createUsageDashboardService({
-      pricingConfig,
+      usageConfig: config.usage,
       costProvider: createUsageCostProvider({
         pricingConfig,
         pricingSource: new LiteLLMPricingSource(),

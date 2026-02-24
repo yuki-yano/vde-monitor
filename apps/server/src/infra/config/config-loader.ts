@@ -15,6 +15,7 @@ import {
   pickGeneratedConfigTemplateAllowlist,
   pickUserConfigAllowlist,
   resolveConfigDir,
+  userConfigAllowlist,
 } from "@vde-monitor/shared";
 import YAML from "yaml";
 
@@ -73,6 +74,30 @@ const collectMissingAllowlistLeafPaths = (
   return missingPaths;
 };
 
+const collectExtraAllowlistLeafPaths = (
+  source: unknown,
+  allowlist: AllowlistNode,
+  prefix: string[] = [],
+): string[] => {
+  if (!isPlainObject(source) || allowlist === true) {
+    return [];
+  }
+  const extras: string[] = [];
+  for (const [key, nestedValue] of Object.entries(source)) {
+    const nextAllowlist = allowlist[key];
+    const nextPrefix = [...prefix, key];
+    if (nextAllowlist == null) {
+      extras.push(nextPrefix.join("."));
+      continue;
+    }
+    if (nextAllowlist === true) {
+      continue;
+    }
+    extras.push(...collectExtraAllowlistLeafPaths(nestedValue, nextAllowlist, nextPrefix));
+  }
+  return extras;
+};
+
 const createMissingRequiredKeysError = ({
   configPath,
   missingKeys,
@@ -114,12 +139,28 @@ const ensureDir = (dir: string) => {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 };
 
-const writeFileSafe = (filePath: string, data: string) => {
-  fs.writeFileSync(filePath, data, { encoding: "utf8", mode: 0o600 });
+const resolveAtomicTempPath = (filePath: string) => {
+  const randomToken = Math.random().toString(36).slice(2, 10);
+  return `${filePath}.tmp-${process.pid}-${Date.now()}-${randomToken}`;
+};
+
+const writeFileAtomic = (filePath: string, data: string) => {
+  const tempPath = resolveAtomicTempPath(filePath);
+  fs.writeFileSync(tempPath, data, { encoding: "utf8", mode: 0o600 });
   try {
-    fs.chmodSync(filePath, 0o600);
+    fs.chmodSync(tempPath, 0o600);
   } catch {
     // ignore
+  }
+  try {
+    fs.renameSync(tempPath, filePath);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      // ignore cleanup errors
+    }
+    throw error;
   }
 };
 
@@ -394,6 +435,202 @@ const parseConfigFile = ({ raw, configPath }: { raw: string; configPath: string 
   }
 };
 
+type ValidatedUserConfig =
+  | {
+      success: true;
+      value: UserConfigReadable;
+    }
+  | {
+      success: false;
+      pathLabel: string;
+      detail: string;
+    };
+
+const validateUserConfigSafe = (value: unknown): ValidatedUserConfig => {
+  const picked = pickUserConfigAllowlist(value);
+  const parsed = configOverrideSchema.safeParse(picked);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return {
+      success: false,
+      pathLabel: issue?.path?.join(".") ?? "unknown",
+      detail: issue?.message ?? "validation failed",
+    };
+  }
+  return {
+    success: true,
+    value: parsed.data,
+  };
+};
+
+const loadGlobalConfigDocument = (configPath: string) => {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(configPath, "utf8");
+  } catch {
+    throw new Error(`failed to read config: ${configPath}`);
+  }
+  return parseConfigFile({ raw, configPath });
+};
+
+export type ConfigCheckIssue = {
+  type: "parse" | "schema" | "missing-required-generated-key" | "extra-key";
+  message: string;
+  path?: string;
+};
+
+export type GlobalConfigCheckResult =
+  | {
+      ok: false;
+      configPath: null;
+      issues: [];
+    }
+  | {
+      ok: boolean;
+      configPath: string;
+      issues: ConfigCheckIssue[];
+    };
+
+export const checkGlobalConfig = (): GlobalConfigCheckResult => {
+  const configPath = resolveGlobalConfigPath();
+  if (configPath == null) {
+    return {
+      ok: false,
+      configPath: null,
+      issues: [],
+    };
+  }
+
+  let json: unknown;
+  try {
+    json = loadGlobalConfigDocument(configPath);
+  } catch (error) {
+    return {
+      ok: false,
+      configPath,
+      issues: [
+        {
+          type: "parse",
+          message: error instanceof Error ? error.message : "failed to parse config",
+        },
+      ],
+    };
+  }
+
+  const issues: ConfigCheckIssue[] = [];
+  const validatedUserConfig = validateUserConfigSafe(json);
+  if (!validatedUserConfig.success) {
+    issues.push({
+      type: "schema",
+      path: validatedUserConfig.pathLabel,
+      message: `invalid config: ${validatedUserConfig.pathLabel} ${validatedUserConfig.detail}`,
+    });
+  }
+
+  const missingGeneratedKeys = collectMissingAllowlistLeafPaths(
+    json,
+    generatedConfigTemplateAllowlist,
+  );
+  for (const missingKey of missingGeneratedKeys) {
+    issues.push({
+      type: "missing-required-generated-key",
+      path: missingKey,
+      message: `missing required generated key: ${missingKey}`,
+    });
+  }
+
+  const extraKeys = collectExtraAllowlistLeafPaths(json, userConfigAllowlist);
+  for (const extraKey of extraKeys) {
+    issues.push({
+      type: "extra-key",
+      path: extraKey,
+      message: `unused key: ${extraKey}`,
+    });
+  }
+
+  return {
+    ok: issues.length === 0,
+    configPath,
+    issues,
+  };
+};
+
+export type GlobalConfigPruneResult = {
+  inputPath: string;
+  outputPath: string;
+  dryRun: boolean;
+  removedKeys: string[];
+  removedLegacyJson: boolean;
+};
+
+export const pruneGlobalConfig = ({
+  dryRun = false,
+}: {
+  dryRun?: boolean;
+} = {}): GlobalConfigPruneResult => {
+  const inputPath = resolveGlobalConfigPath();
+  if (inputPath == null) {
+    throw new Error("global config is missing. Run `vde-monitor config init` first.");
+  }
+
+  let json: unknown;
+  try {
+    json = loadGlobalConfigDocument(inputPath);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "failed to parse config";
+    throw new Error(`${reason}\nRun \`vde-monitor config regenerate\` to overwrite the config.`);
+  }
+
+  const validatedUserConfig = validateUserConfigSafe(json);
+  if (!validatedUserConfig.success) {
+    throw new Error(
+      [
+        `invalid config: ${validatedUserConfig.pathLabel} ${validatedUserConfig.detail}`,
+        "Run `vde-monitor config regenerate` to overwrite the config.",
+      ].join("\n"),
+    );
+  }
+
+  try {
+    validateRequiredGeneratedKeys({ value: json, configPath: inputPath });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("config is missing required generated keys");
+  }
+
+  const removedKeys = collectExtraAllowlistLeafPaths(json, userConfigAllowlist);
+  const outputPath = getDefaultConfigPath();
+  const serialized = YAML.stringify(validatedUserConfig.value);
+  const normalized = serialized.endsWith("\n") ? serialized : `${serialized}\n`;
+
+  let removedLegacyJson = false;
+  if (!dryRun) {
+    ensureDir(getConfigDir());
+    writeFileAtomic(outputPath, normalized);
+    if (
+      path.extname(inputPath).toLowerCase() === ".json" &&
+      path.resolve(inputPath) !== path.resolve(outputPath)
+    ) {
+      try {
+        fs.unlinkSync(inputPath);
+      } catch {
+        throw new Error(`failed to remove legacy config JSON: ${inputPath}`);
+      }
+      removedLegacyJson = true;
+    }
+  }
+
+  return {
+    inputPath,
+    outputPath,
+    dryRun,
+    removedKeys,
+    removedLegacyJson,
+  };
+};
+
 export const mergeConfigLayers = ({
   globalConfig,
   projectOverride,
@@ -467,6 +704,6 @@ export const saveConfig = (config: GeneratedConfigTemplate) => {
   const serialized = YAML.stringify(parsed.data);
   const normalized = serialized.endsWith("\n") ? serialized : `${serialized}\n`;
   const outputPath = getDefaultConfigPath();
-  writeFileSafe(outputPath, normalized);
+  writeFileAtomic(outputPath, normalized);
   return outputPath;
 };

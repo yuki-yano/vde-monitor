@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   randomBytes: vi.fn((size: number) => Buffer.alloc(size, 0xab)),
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  unlinkSync: vi.fn(),
   mkdirSync: vi.fn(),
   chmodSync: vi.fn(),
   statSync: vi.fn(),
@@ -31,12 +33,16 @@ vi.mock("node:fs", () => ({
   default: {
     readFileSync: mocks.readFileSync,
     writeFileSync: mocks.writeFileSync,
+    renameSync: mocks.renameSync,
+    unlinkSync: mocks.unlinkSync,
     mkdirSync: mocks.mkdirSync,
     chmodSync: mocks.chmodSync,
     statSync: mocks.statSync,
   },
   readFileSync: mocks.readFileSync,
   writeFileSync: mocks.writeFileSync,
+  renameSync: mocks.renameSync,
+  unlinkSync: mocks.unlinkSync,
   mkdirSync: mocks.mkdirSync,
   chmodSync: mocks.chmodSync,
   statSync: mocks.statSync,
@@ -55,9 +61,12 @@ import {
   resolveProjectConfigPath,
   resolveProjectConfigSearchBoundary,
   rotateToken,
+  runConfigCheck,
+  runConfigPrune,
 } from "./config";
 
 const configPath = path.resolve("/mock/config/config.yml");
+const legacyJsonConfigPath = path.resolve("/mock/config/config.json");
 const tokenPath = path.resolve("/mock/home/.vde-monitor/token.json");
 
 const fileContents = new Map<string, string>();
@@ -96,6 +105,10 @@ const setConfigFile = (config: unknown) => {
   setFile(configPath, serialized.endsWith("\n") ? serialized : `${serialized}\n`);
 };
 
+const setLegacyJsonConfigFile = (config: unknown) => {
+  setFile(legacyJsonConfigPath, `${JSON.stringify(config, null, 2)}\n`);
+};
+
 const setTokenFile = (token: string) => {
   setFile(tokenPath, `${JSON.stringify({ token }, null, 2)}\n`);
 };
@@ -120,9 +133,6 @@ const expectedGeneratedTemplate = {
   dangerKeys: ["C-c", "C-d", "C-z"],
   dangerCommandPatterns: configDefaults.dangerCommandPatterns,
   launch: configDefaults.launch,
-  usagePricing: {
-    providers: configDefaults.usagePricing.providers,
-  },
   workspaceTabs: {
     displayMode: "all",
   },
@@ -160,6 +170,32 @@ beforeEach(() => {
     const resolved = path.resolve(targetPath);
     writtenContents.set(resolved, data);
     setFile(resolved, data);
+  });
+
+  mocks.renameSync.mockImplementation((fromPath: unknown, toPath: unknown) => {
+    if (typeof fromPath !== "string" || typeof toPath !== "string") {
+      throw new Error("unexpected rename args");
+    }
+    const resolvedFrom = path.resolve(fromPath);
+    const resolvedTo = path.resolve(toPath);
+    const raw = fileContents.get(resolvedFrom);
+    if (raw == null) {
+      throw createFsError("ENOENT", resolvedFrom);
+    }
+    fileContents.delete(resolvedFrom);
+    setFile(resolvedTo, raw);
+    writtenContents.set(resolvedTo, raw);
+  });
+
+  mocks.unlinkSync.mockImplementation((targetPath: unknown) => {
+    if (typeof targetPath !== "string") {
+      throw new Error("unexpected unlink args");
+    }
+    const resolved = path.resolve(targetPath);
+    if (!fileContents.has(resolved)) {
+      throw createFsError("ENOENT", resolved);
+    }
+    fileContents.delete(resolved);
   });
 
   mocks.mkdirSync.mockImplementation((targetPath: unknown) => {
@@ -300,6 +336,7 @@ describe("ensureConfig", () => {
     expect(result.bind).toBe("0.0.0.0");
     expect(result.port).toBe(configDefaults.port);
     expect(result.notifications).toEqual(configDefaults.notifications);
+    expect(result.usage).toEqual(configDefaults.usage);
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
     expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
@@ -313,7 +350,6 @@ describe("ensureConfig", () => {
       dangerKeys: ["C-c", "C-d", "C-z"],
       dangerCommandPatterns: configDefaults.dangerCommandPatterns,
       launch: configDefaults.launch,
-      usagePricing: { providers: configDefaults.usagePricing.providers },
       workspaceTabs: { displayMode: "all" },
     });
 
@@ -420,7 +456,6 @@ describe("ensureConfig", () => {
       screen: { image: { backend: "wezterm" } },
       dangerKeys: ["C-c", "C-d", "C-z"],
       launch: configDefaults.launch,
-      usagePricing: { providers: configDefaults.usagePricing.providers },
     });
 
     expect(() => ensureConfig()).toThrowError(
@@ -438,7 +473,6 @@ describe("regenerateConfig", () => {
       multiplexer: { backend: "wezterm" },
       dangerKeys: ["C-c", "C-d", "C-z"],
       launch: configDefaults.launch,
-      usagePricing: { providers: configDefaults.usagePricing.providers },
       workspaceTabs: { displayMode: "all" },
     });
 
@@ -454,8 +488,8 @@ describe("regenerateConfig", () => {
       multiplexer: { backend: "wezterm" },
     });
 
-    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
-    expect(writtenPaths).toEqual([configPath]);
+    expect(mocks.renameSync).toHaveBeenCalledTimes(1);
+    expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(configPath);
   });
 
   it("ignores project override while regenerating global config", () => {
@@ -478,8 +512,8 @@ describe("initConfig", () => {
     expect(result).toEqual({ created: true, configPath });
     expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
 
-    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
-    expect(writtenPaths).toEqual([configPath]);
+    expect(mocks.renameSync).toHaveBeenCalledTimes(1);
+    expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(configPath);
   });
 
   it("does not overwrite when config already exists", () => {
@@ -519,5 +553,112 @@ describe("rotateToken", () => {
     const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
     expect(writtenPaths).toEqual([tokenPath]);
     expect(mocks.randomBytes).toHaveBeenCalled();
+  });
+});
+
+describe("runConfigCheck", () => {
+  it("returns missing status when global config does not exist", () => {
+    const result = runConfigCheck();
+
+    expect(result.ok).toBe(false);
+    expect(result.configPath).toBeNull();
+    expect(result.issues).toEqual([]);
+  });
+
+  it("detects extra keys", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      logs: {
+        retainRotations: 99,
+      },
+    });
+
+    const result = runConfigCheck();
+
+    expect(result.ok).toBe(false);
+    expect(result.configPath).toBe(configPath);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "extra-key",
+          path: "logs",
+        }),
+      ]),
+    );
+  });
+
+  it("passes when config has no issues", () => {
+    setConfigFile(expectedGeneratedTemplate);
+
+    const result = runConfigCheck();
+
+    expect(result.ok).toBe(true);
+    expect(result.configPath).toBe(configPath);
+    expect(result.issues).toEqual([]);
+  });
+});
+
+describe("runConfigPrune", () => {
+  it("throws guidance when global config is missing", () => {
+    expect(() => runConfigPrune()).toThrow(/vde-monitor config init/);
+  });
+
+  it("removes extra keys and writes YAML to config.yml", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      logs: {
+        retainRotations: 99,
+      },
+    });
+
+    const result = runConfigPrune();
+
+    expect(result.outputPath).toBe(configPath);
+    expect(result.removedKeys).toEqual(["logs"]);
+    const parsedSaved = YAML.parse(fileContents.get(configPath) ?? "{}");
+    expect(parsedSaved.logs).toBeUndefined();
+    expect(parsedSaved.workspaceTabs.displayMode).toBe("all");
+  });
+
+  it("supports dry-run without file update", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      logs: {
+        retainRotations: 99,
+      },
+    });
+    const before = fileContents.get(configPath);
+
+    const result = runConfigPrune({ dryRun: true });
+
+    expect(result.dryRun).toBe(true);
+    expect(result.removedKeys).toEqual(["logs"]);
+    expect(fileContents.get(configPath)).toBe(before);
+    expect(mocks.renameSync).not.toHaveBeenCalled();
+  });
+
+  it("rewrites legacy config.json as config.yml and deletes config.json", () => {
+    setLegacyJsonConfigFile({
+      ...expectedGeneratedTemplate,
+      logs: {
+        retainRotations: 99,
+      },
+    });
+
+    const result = runConfigPrune();
+
+    expect(result.inputPath).toBe(legacyJsonConfigPath);
+    expect(result.outputPath).toBe(configPath);
+    expect(result.removedLegacyJson).toBe(true);
+    expect(fileContents.has(legacyJsonConfigPath)).toBe(false);
+    expect(fileContents.has(configPath)).toBe(true);
+    expect(mocks.unlinkSync).toHaveBeenCalledWith(legacyJsonConfigPath);
+  });
+
+  it("fails and suggests regenerate when config parse fails", () => {
+    setFile(configPath, "{");
+
+    expect(() => runConfigPrune()).toThrow(/vde-monitor config regenerate/);
+    expect(mocks.renameSync).not.toHaveBeenCalled();
   });
 });

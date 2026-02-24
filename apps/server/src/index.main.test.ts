@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   runServe: vi.fn(),
   runTokenRotateCommand: vi.fn(),
   runConfigInitCommand: vi.fn(),
+  runConfigCheckCommand: vi.fn(),
+  runConfigPruneCommand: vi.fn(),
   runConfigRegenerateCommand: vi.fn(),
   printHooksSnippet: vi.fn(),
 }));
@@ -19,6 +21,14 @@ vi.mock("./app/commands/print-hooks-snippet", () => ({
 
 vi.mock("./app/commands/run-config-init-command", () => ({
   runConfigInitCommand: mocks.runConfigInitCommand,
+}));
+
+vi.mock("./app/commands/run-config-check-command", () => ({
+  runConfigCheckCommand: mocks.runConfigCheckCommand,
+}));
+
+vi.mock("./app/commands/run-config-prune-command", () => ({
+  runConfigPruneCommand: mocks.runConfigPruneCommand,
 }));
 
 vi.mock("./app/commands/run-config-regenerate-command", () => ({
@@ -44,6 +54,8 @@ describe("main command routing", () => {
     mocks.runServe.mockReset();
     mocks.runTokenRotateCommand.mockReset();
     mocks.runConfigInitCommand.mockReset();
+    mocks.runConfigCheckCommand.mockReset();
+    mocks.runConfigPruneCommand.mockReset();
     mocks.runConfigRegenerateCommand.mockReset();
     mocks.printHooksSnippet.mockReset();
     mocks.runServe.mockResolvedValue(undefined);
@@ -72,6 +84,32 @@ describe("main command routing", () => {
 
     expect(mocks.runConfigRegenerateCommand).toHaveBeenCalledTimes(1);
     expect(mocks.runConfigInitCommand).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
+  });
+
+  it("runs config check subcommand", async () => {
+    mocks.parseArgs.mockReturnValue({
+      command: "config",
+      subcommand: "check",
+    });
+
+    await main();
+
+    expect(mocks.runConfigCheckCommand).toHaveBeenCalledTimes(1);
+    expect(mocks.runConfigPruneCommand).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
+  });
+
+  it("runs config prune subcommand with --dry-run", async () => {
+    mocks.parseArgs.mockReturnValue({
+      command: "config",
+      subcommand: "prune",
+      dryRun: true,
+    });
+
+    await main();
+
+    expect(mocks.runConfigPruneCommand).toHaveBeenCalledWith({ dryRun: true });
     expect(mocks.runServe).not.toHaveBeenCalled();
   });
 

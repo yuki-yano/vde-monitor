@@ -2,9 +2,11 @@ import type { UserConfigReadable } from "@vde-monitor/shared";
 
 import {
   buildGeneratedConfigTemplate,
+  checkGlobalConfig,
   loadConfig,
   loadProjectConfigOverride,
   mergeConfigLayers,
+  pruneGlobalConfig,
   resolveGlobalConfigPath,
   resolveProjectConfigPath,
   resolveProjectConfigSearchBoundary,
@@ -95,3 +97,8 @@ export const rotateToken = () => {
   saveToken(token);
   return { ...config, token };
 };
+
+export const runConfigCheck = () => checkGlobalConfig();
+
+export const runConfigPrune = ({ dryRun = false }: { dryRun?: boolean } = {}) =>
+  pruneGlobalConfig({ dryRun });

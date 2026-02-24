@@ -57,6 +57,14 @@ describe("parseArgs", () => {
     expect(result.port).toBe("-1");
   });
 
+  it("parses --dry-run flag", () => {
+    const result = parseArgs(["config", "prune", "--dry-run"]);
+
+    expect(result.command).toBe("config");
+    expect(result.subcommand).toBe("prune");
+    expect(result.dryRun).toBe(true);
+  });
+
   it("rejects invalid enum values", () => {
     expect(() => parseArgs(["--multiplexer", "foo"])).toThrow(/Invalid value for argument/);
     expect(() => parseArgs(["--backend", "foo"])).toThrow(/Invalid value for argument/);

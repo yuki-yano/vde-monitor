@@ -681,17 +681,21 @@ export type LaunchConfig = {
   };
 };
 
-export type UsagePricingProviderRule = {
+export type UsageProviderRuleConfig = {
   enabled: boolean;
 };
 
-export type UsagePricingConfig = {
-  currency: "USD";
-  providers: Record<"codex" | "claude", UsagePricingProviderRule>;
+export type UsageSessionConfig = {
+  providers: Record<"codex" | "claude", UsageProviderRuleConfig>;
 };
 
-export type ResolvedUsagePricingConfig = {
-  providers: Record<"codex" | "claude", UsagePricingProviderRule>;
+export type UsagePricingConfig = {
+  providers: Record<"codex" | "claude", UsageProviderRuleConfig>;
+};
+
+export type UsageConfig = {
+  session: UsageSessionConfig;
+  pricing: UsagePricingConfig;
 };
 
 export type ResolvedConfig = {
@@ -723,7 +727,7 @@ export type ResolvedConfig = {
     pushEnabled: boolean;
     enabledEventTypes: ConfigPushEventType[];
   };
-  usagePricing: ResolvedUsagePricingConfig;
+  usage: UsageConfig;
   workspaceTabs: {
     displayMode: WorkspaceTabsDisplayMode;
   };
@@ -749,9 +753,6 @@ export type GeneratedConfigTemplate = {
   dangerKeys: string[];
   dangerCommandPatterns: string[];
   launch: LaunchConfig;
-  usagePricing: {
-    providers: ResolvedUsagePricingConfig["providers"];
-  };
   workspaceTabs: {
     displayMode: WorkspaceTabsDisplayMode;
   };

@@ -38,13 +38,25 @@ export const configDefaults: ResolvedConfig = {
     pushEnabled: true,
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
   },
-  usagePricing: {
-    providers: {
-      codex: {
-        enabled: true,
+  usage: {
+    session: {
+      providers: {
+        codex: {
+          enabled: true,
+        },
+        claude: {
+          enabled: true,
+        },
       },
-      claude: {
-        enabled: true,
+    },
+    pricing: {
+      providers: {
+        codex: {
+          enabled: true,
+        },
+        claude: {
+          enabled: true,
+        },
       },
     },
   },

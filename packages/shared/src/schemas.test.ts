@@ -108,19 +108,32 @@ describe("configOverrideSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("accepts partial usage override", () => {
+    const result = configOverrideSchema.safeParse({
+      usage: {
+        session: {
+          providers: {
+            codex: {
+              enabled: false,
+            },
+          },
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("generatedConfigTemplateSchema", () => {
-  it("accepts required 9-key template", () => {
+  it("accepts required generated template", () => {
     const result = generatedConfigTemplateSchema.safeParse({
       multiplexer: { backend: "tmux" },
       screen: { image: { backend: "terminal" } },
       dangerKeys: ["C-c", "C-d", "C-z"],
       dangerCommandPatterns: configDefaults.dangerCommandPatterns,
       launch: configDefaults.launch,
-      usagePricing: {
-        providers: configDefaults.usagePricing.providers,
-      },
       workspaceTabs: { displayMode: "all" },
     });
 
@@ -134,9 +147,6 @@ describe("generatedConfigTemplateSchema", () => {
       dangerKeys: ["C-c", "C-d", "C-z"],
       dangerCommandPatterns: configDefaults.dangerCommandPatterns,
       launch: configDefaults.launch,
-      usagePricing: {
-        providers: configDefaults.usagePricing.providers,
-      },
       workspaceTabs: { displayMode: "all" },
       bind: "127.0.0.1",
     });
