@@ -1,7 +1,7 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { http, HttpResponse, server } from "@/test/msw/server";
+import { HttpResponse, http, server } from "@/test/msw/server";
 
 import { SessionProvider, useSessions } from "./session-context";
 

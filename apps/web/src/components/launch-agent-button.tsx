@@ -24,9 +24,9 @@ import {
 import { cn } from "@/lib/cn";
 import { formatPath, isVwManagedWorktreePath } from "@/lib/session-format";
 import {
-  isFailedLaunchResponse,
   type LaunchAgentHandler,
   type LaunchAgentRequestOptions,
+  isFailedLaunchResponse,
 } from "@/state/launch-agent-options";
 
 const parseAgentOptions = (value: string) =>

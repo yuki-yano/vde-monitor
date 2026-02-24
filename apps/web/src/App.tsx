@@ -5,8 +5,8 @@ import { Spinner } from "@/components/ui";
 import { AuthGate } from "@/features/auth/AuthGate";
 import { PwaWorkspaceTabs } from "@/features/pwa-tabs/components/PwaWorkspaceTabs";
 import {
-  useWorkspaceTabs,
   WorkspaceTabsProvider,
+  useWorkspaceTabs,
 } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import {
   isIosPwaPullToRefreshEnabled,

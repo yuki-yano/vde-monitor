@@ -6,10 +6,10 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
 
 import {
+  type ScreenCacheEntry,
   getScreenCacheAtom,
   getScreenCacheErrorAtom,
   getScreenCacheLoadingAtom,
-  type ScreenCacheEntry,
 } from "../atoms/screenCacheAtoms";
 
 const DISCONNECTED_MESSAGE = "Disconnected. Reconnecting...";

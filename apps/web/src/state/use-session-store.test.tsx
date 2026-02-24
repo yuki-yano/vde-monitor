@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { createStore, Provider as JotaiProvider } from "jotai";
+import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 

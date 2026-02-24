@@ -25,7 +25,7 @@ import type {
 } from "@vde-monitor/shared";
 import { atom } from "jotai";
 
-import { defaultLaunchConfig, type LaunchAgentRequestOptions } from "./launch-agent-options";
+import { type LaunchAgentRequestOptions, defaultLaunchConfig } from "./launch-agent-options";
 
 export type SessionConnectionStatus = "healthy" | "degraded" | "disconnected";
 

@@ -2,8 +2,8 @@ import {
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent,
-  memo,
   type RefObject,
+  memo,
   useCallback,
   useState,
 } from "react";

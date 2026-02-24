@@ -1,9 +1,9 @@
 import {
   type AgentMonitorConfig,
+  type RawItem,
   allowedKeys,
   compileDangerPatterns,
   isDangerousCommand,
-  type RawItem,
 } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 

@@ -6,8 +6,8 @@ import { createLaunchRoute } from "./session-routes/launch-route";
 import { createNotesRoutes } from "./session-routes/notes-routes";
 import { createScreenRoutes } from "./session-routes/screen-routes";
 import {
-  createWithPane,
   type ResolvedPane,
+  createWithPane,
   resolveLatestSessionResponse,
 } from "./session-routes/shared";
 import type { SessionRouteDeps } from "./types";

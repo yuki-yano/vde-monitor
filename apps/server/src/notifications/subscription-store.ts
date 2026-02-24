@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  type PushEventType,
   dedupeStrings,
   isObject,
-  type PushEventType,
   pushEventTypeValues,
 } from "@vde-monitor/shared";
 

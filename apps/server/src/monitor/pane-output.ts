@@ -3,8 +3,8 @@ import fs from "node:fs/promises";
 import { resolveActivityTimestamp } from "../activity-resolver";
 import { toErrorMessage } from "../errors";
 import {
-  detectExternalInputFromLogDelta,
   type ExternalInputDetectResult,
+  detectExternalInputFromLogDelta,
 } from "./external-input-detector";
 import { type PaneRuntimeState, updateInputAt, updateOutputAt } from "./pane-state";
 

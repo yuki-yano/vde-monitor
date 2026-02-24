@@ -3,7 +3,7 @@ import { Hono } from "hono";
 
 import { buildError } from "../../helpers";
 import type { Monitor } from "../types";
-import { normalizeNoteTitle, notePayloadSchema, type WithPane } from "./shared";
+import { type WithPane, normalizeNoteTitle, notePayloadSchema } from "./shared";
 
 export const createNotesRoutes = ({
   monitor,

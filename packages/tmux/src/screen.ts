@@ -1,7 +1,7 @@
 import {
-  isEditorCommand,
   type TextCaptureOptions,
   type TextCaptureResult,
+  isEditorCommand,
 } from "@vde-monitor/shared";
 
 import type { TmuxAdapter } from "./adapter";

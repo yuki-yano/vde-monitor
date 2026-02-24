@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { createStore, Provider as JotaiProvider, useAtomValue } from "jotai";
+import { Provider as JotaiProvider, createStore, useAtomValue } from "jotai";
 import { describe, expect, it } from "vitest";
 
 import { connectedAtom, sessionApiAtom } from "./atoms/sessionDetailAtoms";

@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { createFileVisibilityPolicy, type FileVisibilityPolicy } from "./file-visibility-policy";
+import { type FileVisibilityPolicy, createFileVisibilityPolicy } from "./file-visibility-policy";
 import { resolveRepoAbsolutePath } from "./path-guard";
 import { createServiceError, isNotFoundError, isReadablePermissionError } from "./service-context";
 

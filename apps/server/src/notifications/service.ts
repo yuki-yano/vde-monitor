@@ -5,18 +5,18 @@ import type {
 } from "@vde-monitor/shared";
 import webpush from "web-push";
 
-import { createNotificationDispatcher, type NotificationDispatcher } from "./dispatcher";
+import { type NotificationDispatcher, createNotificationDispatcher } from "./dispatcher";
 import {
-  createNotificationSubscriptionStore,
   type NotificationSubscriptionStore,
+  createNotificationSubscriptionStore,
 } from "./subscription-store";
 import {
   REQUIRE_STANDALONE_ON_IOS,
-  type SessionTransitionEvent,
   SUPPORTED_PUSH_EVENTS,
+  type SessionTransitionEvent,
   type UpsertNotificationSubscriptionInput,
 } from "./types";
-import { createVapidStore, type VapidStore } from "./vapid-store";
+import { type VapidStore, createVapidStore } from "./vapid-store";
 
 type CreateNotificationServiceOptions = {
   config: AgentMonitorConfig;

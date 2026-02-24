@@ -2,10 +2,10 @@ import type { SessionSummary } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
 import {
-  matchesSessionListFilter,
   type SessionListFilter,
+  matchesSessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
-import { buildSessionGroups, type SessionGroup } from "@/lib/session-group";
+import { type SessionGroup, buildSessionGroups } from "@/lib/session-group";
 
 type SessionSearchPredicate = (session: SessionSummary, searchQuery: string) => boolean;
 

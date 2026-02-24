@@ -9,10 +9,10 @@ import { resolveFileContent } from "./file-content-resolver";
 import { normalizeRepoRelativePath } from "./path-guard";
 import { createSearchIndexResolver } from "./search-index-resolver";
 import {
+  type RepoFileServiceError,
   createServiceError,
   ensureRepoRootAvailable,
   normalizeFileContentPath,
-  type RepoFileServiceError,
   toServiceError,
   validateMaxBytes,
 } from "./service-context";

@@ -2,8 +2,8 @@ import type { SessionSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
 import {
-  forwardRef,
   type HTMLAttributes,
+  forwardRef,
   useCallback,
   useEffect,
   useLayoutEffect,

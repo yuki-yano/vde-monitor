@@ -16,8 +16,8 @@ import {
   resolveSessionDisplayTitle,
 } from "@/features/shared-session-ui/model/session-display";
 import {
-  buildSessionWindowGroups,
   type SessionWindowGroup,
+  buildSessionWindowGroups,
 } from "@/features/shared-session-ui/model/session-window-group";
 import { cn } from "@/lib/cn";
 import { isPwaDisplayMode } from "@/lib/pwa-display-mode";

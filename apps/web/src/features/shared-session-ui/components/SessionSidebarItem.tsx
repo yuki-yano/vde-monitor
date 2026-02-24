@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { Clock, GitBranch, Pin, SquareTerminal } from "lucide-react";
-import { memo, type MouseEvent, useCallback } from "react";
+import { type MouseEvent, memo, useCallback } from "react";
 
 import { Badge, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import {

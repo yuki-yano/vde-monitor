@@ -26,10 +26,10 @@ import {
 } from "./session-api-request-executors";
 import { createSessionScreenRequest } from "./session-api-screen-request";
 import {
+  type RefreshSessionsResult,
   buildPaneHashParam,
   buildPaneNoteParam,
   buildPaneParam,
-  type RefreshSessionsResult,
 } from "./session-api-utils";
 
 type UseSessionApiParams = {

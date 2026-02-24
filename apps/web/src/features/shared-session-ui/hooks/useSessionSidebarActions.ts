@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from "react";
 
 import {
   DEFAULT_SESSION_LIST_FILTER,
-  isSessionListFilter,
   type SessionListFilter,
+  isSessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
 import type { LaunchAgentHandler } from "@/state/launch-agent-options";
 

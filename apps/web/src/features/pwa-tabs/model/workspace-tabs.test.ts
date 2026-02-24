@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SYSTEM_SESSIONS_TAB_ID,
+  WORKSPACE_TABS_MAX_COUNT,
   activateWorkspaceTab,
   closeWorkspaceTab,
   createInitialWorkspaceTabsState,
@@ -10,8 +12,6 @@ import {
   reorderWorkspaceTabsByClosableOrder,
   serializeWorkspaceTabsState,
   syncWorkspaceTabsWithPathname,
-  SYSTEM_SESSIONS_TAB_ID,
-  WORKSPACE_TABS_MAX_COUNT,
 } from "./workspace-tabs";
 
 describe("workspace-tabs model", () => {

@@ -1,6 +1,6 @@
 import { markPaneFocus } from "../activity-suppressor";
 import { cropPaneBounds } from "./crop";
-import { resolveBackendApp, type TerminalBackend } from "./macos-app";
+import { type TerminalBackend, resolveBackendApp } from "./macos-app";
 import { focusTerminalApp, isAppRunning, runAppleScript } from "./macos-applescript";
 import {
   type Bounds,
@@ -9,9 +9,9 @@ import {
   parseBoundsSet,
 } from "./macos-bounds";
 import { captureRegion } from "./macos-screencapture";
-import { focusTmuxPane, getPaneGeometry, type TmuxOptions } from "./tmux-geometry";
+import { type TmuxOptions, focusTmuxPane, getPaneGeometry } from "./tmux-geometry";
 import { isValidTty } from "./tty";
-import { focusWeztermPane, getWeztermPaneGeometry, type WeztermOptions } from "./wezterm-geometry";
+import { type WeztermOptions, focusWeztermPane, getWeztermPaneGeometry } from "./wezterm-geometry";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

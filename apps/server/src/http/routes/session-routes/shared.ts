@@ -1,9 +1,9 @@
 import {
+  type SessionStateTimelineRange,
+  type SessionStateTimelineScope,
   allowedKeySchema,
   launchAgentRequestSchema,
-  type SessionStateTimelineRange,
   sessionStateTimelineRangeSchema,
-  type SessionStateTimelineScope,
 } from "@vde-monitor/shared";
 import { z } from "zod";
 

@@ -5,7 +5,7 @@ import path from "node:path";
 import { type AgentMonitorConfig, type SessionStateTimelineRange } from "@vde-monitor/shared";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
-import { handleHookLine, type HookEventContext } from "./monitor/hook-tailer";
+import { type HookEventContext, handleHookLine } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
 import {
   createRestoredSessionApplier,
