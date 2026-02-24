@@ -927,12 +927,6 @@ export const UsageDashboardView = ({
     dashboard?.providers.find((provider) => provider.providerId === "codex") ?? null;
   const claudeProvider =
     dashboard?.providers.find((provider) => provider.providerId === "claude") ?? null;
-  const providerIssues = (dashboard?.providers ?? []).flatMap((provider) =>
-    provider.issues.map((issue) => ({
-      providerLabel: provider.providerLabel,
-      issue,
-    })),
-  );
   const backToListSearch = { filter: readStoredSessionListFilter() };
 
   return (
@@ -1082,24 +1076,6 @@ export const UsageDashboardView = ({
           </section>
         </GlowCard>
 
-        {providerIssues.length ? (
-          <GlowCard contentClassName="gap-3">
-            <section>
-              <h2 className="font-display text-latte-text text-xl font-semibold">Issues</h2>
-              <div className="mt-3 space-y-2">
-                {providerIssues.map(({ providerLabel, issue }, index) => (
-                  <Callout
-                    key={`${providerLabel}-${issue.code}-${issue.message}-${index}`}
-                    tone={issue.severity === "error" ? "error" : "warning"}
-                    size="sm"
-                  >
-                    {providerLabel}: {issue.message}
-                  </Callout>
-                ))}
-              </div>
-            </section>
-          </GlowCard>
-        ) : null}
       </div>
     </main>
   );

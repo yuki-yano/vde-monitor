@@ -42,6 +42,25 @@ const codexRateLimitsResponse = {
   rateLimitsByLimitId: null,
 };
 
+const createCostResult = (updatedAt: string) => ({
+  today: {
+    usd: 1.2,
+    tokens: 1200,
+  },
+  last30days: {
+    usd: 12.3,
+    tokens: 12300,
+  },
+  source: "exact" as const,
+  sourceLabel: "test-source",
+  confidence: "high" as const,
+  updatedAt,
+  reasonCode: null,
+  reasonMessage: null,
+  modelBreakdown: [],
+  dailyBreakdown: [],
+});
+
 describe("createUsageDashboardService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,5 +115,34 @@ describe("createUsageDashboardService", () => {
 
     expect(provider.windows.some((window) => window.id === "session")).toBe(true);
     expect(provider.capabilities.session).toBe(true);
+  });
+
+  it("keeps codex billing cache for 10 minutes by default", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
+      const getProviderCost = vi
+        .fn()
+        .mockResolvedValue(createCostResult("2026-02-24T00:00:00.000Z"));
+      const service = createUsageDashboardService({
+        usageConfig: configDefaults.usage,
+        costProvider: {
+          getProviderCost,
+        },
+      });
+
+      await service.getProviderSnapshot("codex");
+      expect(getProviderCost).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(new Date("2026-02-24T00:05:00.000Z"));
+      await service.getProviderSnapshot("codex");
+      expect(getProviderCost).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(new Date("2026-02-24T00:10:01.000Z"));
+      await service.getProviderSnapshot("codex");
+      expect(getProviderCost).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

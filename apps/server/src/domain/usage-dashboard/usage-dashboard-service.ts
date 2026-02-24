@@ -31,6 +31,7 @@ type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number];
 
 const DEFAULT_CACHE_TTL_MS = 180_000;
 const DEFAULT_BILLING_CACHE_TTL_MS = 180_000;
+const CODEX_BILLING_CACHE_TTL_MS = 600_000;
 const DEFAULT_BACKOFF_MS = 30_000;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 5_000;
 const DEFAULT_PACE_BALANCED_THRESHOLD_PERCENT = 10;
@@ -532,7 +533,7 @@ export const createUsageDashboardService = (
   options: UsageDashboardServiceOptions = {},
 ): UsageDashboardService => {
   const cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-  const billingCacheTtlMs = options.billingCacheTtlMs ?? DEFAULT_BILLING_CACHE_TTL_MS;
+  const billingCacheTtlMs = options.billingCacheTtlMs;
   const backoffMs = options.backoffMs ?? DEFAULT_BACKOFF_MS;
   const providerTimeoutMs = options.providerTimeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
   const balancedThresholdPercent =
@@ -545,6 +546,9 @@ export const createUsageDashboardService = (
     usageConfig?.session.providers[providerId].enabled !== false;
   const isPricingEnabled = (providerId: SupportedProviderId) =>
     usageConfig?.pricing.providers[providerId].enabled !== false;
+  const resolveBillingCacheTtlMs = (providerId: SupportedProviderId) =>
+    billingCacheTtlMs ??
+    (providerId === "codex" ? CODEX_BILLING_CACHE_TTL_MS : DEFAULT_BILLING_CACHE_TTL_MS);
 
   const applySessionVisibility = ({
     snapshot,
@@ -623,6 +627,7 @@ export const createUsageDashboardService = (
     forceRefresh?: boolean;
   }): Promise<UsageSnapshotCore> => {
     const providerPricingEnabled = isPricingEnabled(providerId);
+    const providerBillingCacheTtlMs = resolveBillingCacheTtlMs(providerId);
     if (!costProvider) {
       return {
         ...snapshot,
@@ -650,7 +655,7 @@ export const createUsageDashboardService = (
       });
       billingCache.set(providerId, {
         result: cost,
-        expiresAtMs: nowMs + billingCacheTtlMs,
+        expiresAtMs: nowMs + providerBillingCacheTtlMs,
       });
       return applyCostResultToSnapshot({
         snapshot,
@@ -683,7 +688,7 @@ export const createUsageDashboardService = (
       };
       billingCache.set(providerId, {
         result: fallbackCost,
-        expiresAtMs: nowMs + billingCacheTtlMs,
+        expiresAtMs: nowMs + providerBillingCacheTtlMs,
       });
       const costApplied = applyCostResultToSnapshot({
         snapshot,
