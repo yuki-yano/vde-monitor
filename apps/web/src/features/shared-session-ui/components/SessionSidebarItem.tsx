@@ -31,6 +31,10 @@ const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> 
 };
 
 const sidebarEditorSessionBorderClass = "border-latte-maroon/55";
+const isMacDesktopPlatform = () =>
+  typeof navigator !== "undefined" &&
+  /^Mac/i.test(navigator.platform) &&
+  navigator.maxTouchPoints <= 1;
 
 type SessionSidebarItemProps = {
   item: SessionSummary;
@@ -78,6 +82,8 @@ export const SessionSidebarItem = memo(
       ? sidebarEditorSessionBorderClass
       : sidebarSessionBorderClassByState[item.state];
     const StatusIcon = statusMeta.icon;
+    const canFocusPane = onFocusPane != null && isMacDesktopPlatform();
+    const hasActionButtons = onTouchSession != null || canFocusPane;
 
     const handleRef = useCallback(
       (node: HTMLDivElement | null) => {
@@ -187,7 +193,7 @@ export const SessionSidebarItem = memo(
             </TagPill>
           </div>
         </Link>
-        {onTouchSession || onFocusPane ? (
+        {hasActionButtons ? (
           <div className="flex shrink-0 flex-col items-center gap-1.5">
             {onTouchSession ? (
               <IconButton
@@ -202,7 +208,7 @@ export const SessionSidebarItem = memo(
                 <Pin className="h-4 w-4" />
               </IconButton>
             ) : null}
-            {onFocusPane ? (
+            {canFocusPane ? (
               <IconButton
                 type="button"
                 size="md"

@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSessionDetail } from "../test-helpers";
 import { SessionSidebar } from "./SessionSidebar";
@@ -108,9 +108,31 @@ describe("SessionSidebar", () => {
     onSelectSession: vi.fn(),
     ...overrides,
   });
+  const platformDescriptor = Object.getOwnPropertyDescriptor(navigator, "platform");
+  const maxTouchPointsDescriptor = Object.getOwnPropertyDescriptor(navigator, "maxTouchPoints");
+
+  const setNavigatorPlatform = (platform: string, maxTouchPoints: number) => {
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: platform,
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      configurable: true,
+      value: maxTouchPoints,
+    });
+  };
 
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  afterAll(() => {
+    if (platformDescriptor) {
+      Object.defineProperty(navigator, "platform", platformDescriptor);
+    }
+    if (maxTouchPointsDescriptor) {
+      Object.defineProperty(navigator, "maxTouchPoints", maxTouchPointsDescriptor);
+    }
   });
 
   it("filters non-agent sessions and groups by window", () => {
@@ -387,6 +409,7 @@ describe("SessionSidebar", () => {
   });
 
   it("calls onFocusPane without triggering session selection", () => {
+    setNavigatorPlatform("MacIntel", 0);
     const sessionOne = createSessionDetail({
       paneId: "pane-1",
       title: "Codex Session",
@@ -414,6 +437,30 @@ describe("SessionSidebar", () => {
 
     expect(onFocusPane).toHaveBeenCalledWith("pane-1");
     expect(onSelectSession).not.toHaveBeenCalled();
+  });
+
+  it("hides focus button on non-mac platforms", () => {
+    setNavigatorPlatform("Win32", 0);
+    const sessionOne = createSessionDetail({
+      paneId: "pane-1",
+      title: "Codex Session",
+      agent: "codex",
+      windowIndex: 1,
+      sessionName: "alpha",
+    });
+    const state = buildState({
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo",
+          sessions: [sessionOne],
+          lastInputAt: sessionOne.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={{ onFocusPane: vi.fn() }} />);
+
+    expect(screen.queryByRole("button", { name: "Focus terminal pane" })).toBeNull();
   });
 
   it("calls onTouchSession without triggering session selection", () => {
