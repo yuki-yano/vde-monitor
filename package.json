@@ -40,8 +40,10 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "test:diff": "pnpm exec vitest related --run --passWithNoTests $(bash scripts/list-diff-related-files.sh)",
     "test:run": "vitest run",
     "ci": "concurrently -n format,typecheck,lint,test -p \"{name}\" --pad-prefix --kill-others-on-fail \"pnpm run format:check\" \"pnpm run typecheck\" \"pnpm run lint\" \"pnpm run test\"",
+    "ci:diff": "concurrently -n format,typecheck,lint -p \"{name}\" --pad-prefix --kill-others-on-fail \"pnpm run format:check\" \"pnpm run typecheck\" \"pnpm run lint\" && pnpm run test:diff",
     "ci:fix": "pnpm run format && pnpm run typecheck && pnpm run lint:fix && pnpm run test"
   },
   "dependencies": {
