@@ -1,9 +1,9 @@
 import {
   type AllowedKey,
   type CommandResponse,
-  defaultDangerKeys,
   type ImageAttachment,
   type RawItem,
+  defaultDangerKeys,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";

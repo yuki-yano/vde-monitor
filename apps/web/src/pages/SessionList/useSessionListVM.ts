@@ -7,8 +7,8 @@ import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessio
 import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 import {
   DEFAULT_SESSION_LIST_FILTER,
-  isSessionListFilter,
   SESSION_LIST_FILTER_VALUES,
+  isSessionListFilter,
   storeSessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";

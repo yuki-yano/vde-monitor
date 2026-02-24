@@ -1,8 +1,8 @@
 import {
   type CommitLog,
-  defaultDangerCommandPatterns,
   type DiffSummary,
   type SessionSummary,
+  defaultDangerCommandPatterns,
 } from "@vde-monitor/shared";
 
 import { stripAnsi } from "@/lib/ansi-text-utils";

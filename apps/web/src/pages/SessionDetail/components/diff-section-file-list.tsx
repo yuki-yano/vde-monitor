@@ -13,11 +13,11 @@ import {
 import { cn } from "@/lib/cn";
 
 import {
+  MAX_DIFF_LINES,
+  PREVIEW_DIFF_LINES,
   diffStatusClass,
   formatDiffCount,
   formatDiffStatusLabel,
-  MAX_DIFF_LINES,
-  PREVIEW_DIFF_LINES,
 } from "../sessionDetailUtils";
 import { DiffPatch } from "./DiffPatch";
 

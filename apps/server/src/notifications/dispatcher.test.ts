@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { configDefaults, type ConfigPushEventType, type SessionDetail } from "@vde-monitor/shared";
+import { type ConfigPushEventType, type SessionDetail, configDefaults } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createNotificationDispatcher } from "./dispatcher";

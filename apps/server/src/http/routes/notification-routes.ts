@@ -1,9 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import {
+  type PushEventType,
   dedupeStrings,
   notificationSubscriptionRevokeSchema,
   notificationSubscriptionUpsertSchema,
-  type PushEventType,
 } from "@vde-monitor/shared";
 import { Hono } from "hono";
 

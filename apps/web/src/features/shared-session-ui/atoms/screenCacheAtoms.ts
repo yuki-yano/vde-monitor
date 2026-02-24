@@ -1,4 +1,4 @@
-import { atom, type PrimitiveAtom } from "jotai";
+import { type PrimitiveAtom, atom } from "jotai";
 
 export type ScreenCacheEntry = {
   screen: string;

@@ -3,8 +3,8 @@ import { useMemo } from "react";
 
 import type { SessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import {
-  buildSessionWindowGroups,
   type SessionWindowGroup,
+  buildSessionWindowGroups,
 } from "@/features/shared-session-ui/model/session-window-group";
 import type { SessionGroup } from "@/lib/session-group";
 

@@ -1,12 +1,12 @@
 import type { LaunchConfig, SessionSummary, WorktreeListEntry } from "@vde-monitor/shared";
 import { Bell, BellOff, FileText, GitBranch, Image, RefreshCw, TextWrap } from "lucide-react";
 import {
-  forwardRef,
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type RefObject,
+  forwardRef,
   useCallback,
   useMemo,
   useState,

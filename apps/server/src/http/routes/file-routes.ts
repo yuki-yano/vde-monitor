@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { createRepoFileService, type RepoFileServiceError } from "../../repo-files/service";
+import { type RepoFileServiceError, createRepoFileService } from "../../repo-files/service";
 import { buildError } from "../helpers";
 import type { FileRouteDeps } from "./types";
 import { resolveRequestedWorktreePath } from "./worktree-utils";

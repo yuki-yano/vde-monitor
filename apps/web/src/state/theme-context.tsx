@@ -1,11 +1,11 @@
-import { createContext, type ReactNode, useContext, useLayoutEffect, useState } from "react";
+import { type ReactNode, createContext, useContext, useLayoutEffect, useState } from "react";
 
 import {
+  THEME_STORAGE_KEY,
+  type Theme,
+  type ThemePreference,
   isThemePreference,
   resolveTheme,
-  type Theme,
-  THEME_STORAGE_KEY,
-  type ThemePreference,
 } from "@/lib/theme";
 
 type ThemeContextValue = {

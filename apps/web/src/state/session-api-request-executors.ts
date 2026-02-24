@@ -5,12 +5,12 @@ import {
   CommandResponse,
   HighlightCorrectionConfig,
   ImageAttachment,
-  imageAttachmentSchema,
   LaunchCommandResponse,
   LaunchConfig,
   ScreenResponse,
   SessionSummary,
   WorkspaceTabsDisplayMode,
+  imageAttachmentSchema,
 } from "@vde-monitor/shared";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -22,12 +22,12 @@ import {
 } from "@/lib/api-utils";
 
 import {
+  type RefreshSessionsResult,
+  type SessionsResponseEnvelope,
   applyRefreshSessionsFailure,
   applyRefreshSessionsSuccess,
   buildScreenErrorResponse,
-  type RefreshSessionsResult,
   resolveUnknownErrorMessage,
-  type SessionsResponseEnvelope,
 } from "./session-api-utils";
 
 type EnsureToken = () => void;

@@ -2,8 +2,8 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import type { WorkspaceTabsDisplayMode } from "@vde-monitor/shared";
 import { useAtomValue } from "jotai";
 import {
-  createContext,
   type PropsWithChildren,
+  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -11,10 +11,15 @@ import {
   useState,
 } from "react";
 
-import { isPwaDisplayMode, PWA_DISPLAY_MODE_QUERIES } from "@/lib/pwa-display-mode";
+import { PWA_DISPLAY_MODE_QUERIES, isPwaDisplayMode } from "@/lib/pwa-display-mode";
 import { sessionWorkspaceTabsDisplayModeAtom } from "@/state/session-state-atoms";
 
 import {
+  SYSTEM_CHAT_GRID_TAB_ID,
+  SYSTEM_USAGE_TAB_ID,
+  WORKSPACE_TABS_STORAGE_KEY,
+  type WorkspaceTab,
+  type WorkspaceTabsState,
   activateWorkspaceTab,
   closeWorkspaceTab,
   createInitialWorkspaceTabsState,
@@ -25,16 +30,11 @@ import {
   resolveWorkspaceTabPath,
   serializeWorkspaceTabsState,
   syncWorkspaceTabsWithPathname,
-  SYSTEM_CHAT_GRID_TAB_ID,
-  SYSTEM_USAGE_TAB_ID,
-  WORKSPACE_TABS_STORAGE_KEY,
-  type WorkspaceTab,
-  type WorkspaceTabsState,
 } from "../model/workspace-tabs";
 import {
+  WORKSPACE_TABS_MOBILE_MEDIA_QUERY,
   isWorkspaceTabsMobileViewport,
   resolveWorkspaceTabsEnabled,
-  WORKSPACE_TABS_MOBILE_MEDIA_QUERY,
 } from "../model/workspace-tabs-visibility";
 
 type WorkspaceTabsContextValue = {

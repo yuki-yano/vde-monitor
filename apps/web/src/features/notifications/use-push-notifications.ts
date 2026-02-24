@@ -1,4 +1,4 @@
-import { dedupeStrings, type NotificationSettings } from "@vde-monitor/shared";
+import { type NotificationSettings, dedupeStrings } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useSessions } from "@/state/session-context";

@@ -1,9 +1,9 @@
 import { atom } from "jotai";
 
 import {
-  initialScreenLoadingState,
   type ScreenLoadingState,
   type ScreenMode,
+  initialScreenLoadingState,
 } from "@/lib/screen-loading";
 
 export const screenModeAtom = atom<ScreenMode>("text");

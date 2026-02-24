@@ -1,6 +1,6 @@
 import {
-  sessionApiAtom as sharedSessionApiAtom,
   sessionConnectedAtom as sharedConnectedAtom,
+  sessionApiAtom as sharedSessionApiAtom,
 } from "@/state/session-state-atoms";
 
 export const connectedAtom = sharedConnectedAtom;

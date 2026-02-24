@@ -4,9 +4,9 @@ import { startTransition, useCallback, useEffect, useMemo, useRef } from "react"
 
 import { renderAnsiLines } from "@/lib/ansi";
 import {
+  type ScreenMode,
   initialScreenLoadingState,
   screenLoadingReducer,
-  type ScreenMode,
 } from "@/lib/screen-loading";
 import type { Theme } from "@/lib/theme";
 

@@ -1,4 +1,4 @@
-import { decorateSmartWrapLine, type SmartWrapDecoratedLine } from "./smart-wrap-line";
+import { type SmartWrapDecoratedLine, decorateSmartWrapLine } from "./smart-wrap-line";
 import type { SmartWrapLineClassification } from "./smart-wrap-types";
 
 const defaultClassification: SmartWrapLineClassification = {

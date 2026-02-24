@@ -10,7 +10,7 @@ import { formatRelativeTime, getLastInputTone } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
-import { buildSessionWindowGroups, type SessionWindowGroup } from "../session-window-group";
+import { type SessionWindowGroup, buildSessionWindowGroups } from "../session-window-group";
 import { formatRepoName, formatRepoPath } from "../sessionListFormat";
 import { SessionWindowSection } from "./SessionWindowSection";
 

@@ -1,5 +1,4 @@
 import {
-  closestCenter,
   type CollisionDetection,
   DndContext,
   type DragEndEvent,
@@ -10,16 +9,17 @@ import {
   MeasuringStrategy,
   MouseSensor,
   TouchSensor,
+  closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
   type AnimateLayoutChanges,
+  SortableContext,
   arrayMove,
   defaultAnimateLayoutChanges,
   horizontalListSortingStrategy,
   rectSortingStrategy,
-  SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
 } from "@dnd-kit/sortable";

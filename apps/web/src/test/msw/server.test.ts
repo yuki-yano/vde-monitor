@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { http, HttpResponse, server } from "./server";
+import { HttpResponse, http, server } from "./server";
 
 describe("msw server", () => {
   it("intercepts fetch requests", async () => {

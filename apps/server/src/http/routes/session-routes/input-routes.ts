@@ -7,11 +7,11 @@ import { createSendTextIdempotencyExecutor } from "../../send-text-idempotency";
 import type { ExecuteCommand, Monitor, ResolveTitleUpdate, SessionRouteDeps } from "../types";
 import {
   type ResolvedPane,
+  type WithPane,
   sendKeysSchema,
   sendRawSchema,
   sendTextSchema,
   titleSchema,
-  type WithPane,
 } from "./shared";
 
 export const createInputRoutes = ({

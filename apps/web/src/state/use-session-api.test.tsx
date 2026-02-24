@@ -3,7 +3,7 @@ import type { CommitLog, DiffSummary, RepoNote, SessionStateTimeline } from "@vd
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { http, HttpResponse, server } from "@/test/msw/server";
+import { HttpResponse, http, server } from "@/test/msw/server";
 
 import { useSessionApi } from "./use-session-api";
 
@@ -11,7 +11,7 @@ const API_BASE_URL = "http://127.0.0.1:11081/api";
 
 const pathToUrl = (path: string) => `${API_BASE_URL}${path}`;
 
-const createDeferred = <T = void,>() => {
+const createDeferred = <T = void>() => {
   let resolve: ((value: T) => void) | null = null;
   const promise = new Promise<T>((nextResolve) => {
     resolve = nextResolve;

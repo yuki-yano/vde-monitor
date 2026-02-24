@@ -17,7 +17,7 @@ import { cn } from "@/lib/cn";
 
 import { diffExpandedAtom } from "../atoms/diffAtoms";
 import { formatBranchLabel, formatPath, sumFileStats } from "../sessionDetailUtils";
-import { buildRenderedPatches, DiffFileList, updateExpandedDiffs } from "./diff-section-file-list";
+import { DiffFileList, buildRenderedPatches, updateExpandedDiffs } from "./diff-section-file-list";
 
 type DiffSectionState = {
   diffSummary: DiffSummary | null;

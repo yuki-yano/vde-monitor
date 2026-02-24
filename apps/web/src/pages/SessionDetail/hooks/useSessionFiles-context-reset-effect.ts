@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 
 import {
-  resetSessionFilesRefs,
   type ResetSessionFilesRefsInput,
-  resetSessionFilesState,
   type ResetSessionFilesStateInput,
+  resetSessionFilesRefs,
+  resetSessionFilesState,
 } from "./session-files-reset";
 
 type UseSessionFilesContextResetEffectArgs = {

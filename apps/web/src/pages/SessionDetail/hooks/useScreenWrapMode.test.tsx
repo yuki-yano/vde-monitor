@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { createStore, Provider as JotaiProvider } from "jotai";
+import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 

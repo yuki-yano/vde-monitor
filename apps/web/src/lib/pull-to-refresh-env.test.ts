@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type PullToRefreshEnvironment,
   isIosLikeDevice,
   isIosPwaPullToRefreshEnabled,
-  type PullToRefreshEnvironment,
 } from "./pull-to-refresh-env";
 
 const buildEnvironment = (

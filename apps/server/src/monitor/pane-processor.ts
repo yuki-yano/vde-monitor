@@ -3,7 +3,7 @@ import type { AgentMonitorConfig, PaneMeta, SessionDetail } from "@vde-monitor/s
 import { resolvePaneContext } from "./pane-context-resolver";
 import { buildPaneDetail } from "./pane-detail-builder";
 import type { PaneLogManager } from "./pane-log-manager";
-import { observePane, type PaneObservationDeps, type PaneStateStore } from "./pane-observation";
+import { type PaneObservationDeps, type PaneStateStore, observePane } from "./pane-observation";
 import type { ResolvedWorktreeStatus } from "./vw-worktree";
 
 type PaneProcessorDeps = PaneObservationDeps;

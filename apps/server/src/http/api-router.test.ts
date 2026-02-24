@@ -4,11 +4,11 @@ import path from "node:path";
 
 import {
   type AgentMonitorConfig,
-  configDefaults,
   type NotificationSettings,
   type RepoNote,
   type SessionDetail,
   type UsageProviderSnapshot,
+  configDefaults,
 } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

@@ -20,9 +20,9 @@ import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import {
-  initialScreenFetchLifecycleState,
   type ScreenFetchLifecycleAction,
   type ScreenFetchLifecycleAttempt,
+  initialScreenFetchLifecycleState,
   screenFetchLifecycleReducer,
 } from "./screen-fetch-lifecycle";
 import { useScreenPollingPauseReason } from "./useScreenPollingPauseReason";

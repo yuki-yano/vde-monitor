@@ -1,8 +1,8 @@
 import {
   type AgentMonitorConfig,
-  configDefaults,
   type PaneMeta,
   type SessionDetail,
+  configDefaults,
 } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 

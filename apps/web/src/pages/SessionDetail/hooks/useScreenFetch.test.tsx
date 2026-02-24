@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ScreenResponse } from "@vde-monitor/shared";
-import { createStore, Provider as JotaiProvider } from "jotai";
+import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

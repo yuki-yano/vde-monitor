@@ -1,7 +1,7 @@
 import { type RepoFileSearchPage } from "@vde-monitor/shared";
 import { FileSearch, Folder, FolderOpen, Loader2, RefreshCw, X } from "lucide-react";
 import { type KeyboardEvent, memo } from "react";
-import { defaultStyles, FileIcon } from "react-file-icon";
+import { FileIcon, defaultStyles } from "react-file-icon";
 
 import { Button, Callout, EmptyState, Input, InsetPanel, RowButton } from "@/components/ui";
 import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSectionShell";

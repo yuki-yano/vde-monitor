@@ -24,7 +24,7 @@ import type {
   SessionSummary,
   WorktreeList,
 } from "@vde-monitor/shared";
-import { createStore, Provider as JotaiProvider, useAtomValue, useSetAtom } from "jotai";
+import { Provider as JotaiProvider, createStore, useAtomValue, useSetAtom } from "jotai";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
@@ -35,7 +35,7 @@ import {
   toNotificationSessionTitleEntries,
 } from "@/lib/notification-session-title-store";
 
-import { defaultLaunchConfig, type LaunchAgentRequestOptions } from "./launch-agent-options";
+import { type LaunchAgentRequestOptions, defaultLaunchConfig } from "./launch-agent-options";
 import {
   type SessionConnectionStatus,
   sessionFileNavigatorConfigAtom,

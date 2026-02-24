@@ -1,4 +1,4 @@
-import { type CSSProperties, forwardRef, type TextareaHTMLAttributes } from "react";
+import { type CSSProperties, type TextareaHTMLAttributes, forwardRef } from "react";
 
 import { IOS_ZOOM_SAFE_FIELD_STYLE } from "@/lib/ios-zoom-safe-textarea";
 

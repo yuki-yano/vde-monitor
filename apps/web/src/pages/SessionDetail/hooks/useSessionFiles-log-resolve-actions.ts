@@ -2,9 +2,9 @@ import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback 
 
 import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
 import {
+  type LogFileCandidateItem,
   initializeLogResolveRequest,
   isCurrentLogResolveRequest,
-  type LogFileCandidateItem,
   openLogFileCandidateModalState,
   setLogResolveErrorIfCurrent,
 } from "./useSessionFiles-log-resolve-state";

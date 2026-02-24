@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isPwaDisplayMode, PWA_DISPLAY_MODE_QUERIES } from "./pwa-display-mode";
+import { PWA_DISPLAY_MODE_QUERIES, isPwaDisplayMode } from "./pwa-display-mode";
 
 const originalMatchMedia = window.matchMedia;
 const originalStandalone = (navigator as Navigator & { standalone?: boolean }).standalone;
