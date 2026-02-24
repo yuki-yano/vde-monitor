@@ -125,6 +125,11 @@ const fillPromptHighlightMask = (
   isPromptStart: boolean[],
   lineHasContent: boolean[],
 ) => {
+  const leading = start - 1;
+  if (leading >= 0 && !isPromptStart[leading] && !lineHasContent[leading]) {
+    highlightMask[leading] = true;
+  }
+
   let lastContent = -1;
   for (let index = start; index < endExclusive; index += 1) {
     if (isPromptStart[index] || lineHasContent[index]) {

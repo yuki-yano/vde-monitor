@@ -254,6 +254,24 @@ describe("renderAnsiLines", () => {
     expect(lines[2]).not.toContain("background-color");
   });
 
+  it("keeps codex prompt padding for one leading empty line", () => {
+    const text = ["", "\u001b[41m\u203A first\u001b[0m", "", "output"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[0]).toContain("background-color");
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+    expect(lines[3]).not.toContain("background-color");
+  });
+
+  it("does not bleed codex prompt padding into non-empty leading lines", () => {
+    const text = ["intro", "\u001b[41m\u203A first\u001b[0m", "", "output"].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+    expect(lines[0]).not.toContain("background-color");
+    expect(lines[1]).toContain("background-color");
+    expect(lines[2]).toContain("background-color");
+    expect(lines[3]).not.toContain("background-color");
+  });
+
   it("keeps codex prompt padding across consecutive empty lines in a block", () => {
     const text = ["\u001b[41m\u203A first\u001b[0m", "", "", "\u001b[41m  second\u001b[0m"].join(
       "\n",
