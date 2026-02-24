@@ -1,5 +1,3 @@
-import type { AgentMonitorConfigFile } from "./types";
-
 export const allowedKeys = [
   "Enter",
   "Escape",
@@ -64,7 +62,7 @@ export const allowedKeys = [
   "F12",
 ] as const;
 
-export const defaultDangerKeys = ["C-c", "C-d", "C-z", "C-\\", "F12"];
+export const defaultDangerKeys = ["C-c", "C-d", "C-z"];
 
 export const defaultDangerCommandPatterns = [
   "rm\\s+(-rf?|--recursive)",
@@ -76,92 +74,3 @@ export const defaultDangerCommandPatterns = [
   "curl.*\\|\\s*(ba)?sh",
   "wget.*\\|\\s*(ba)?sh",
 ];
-
-export const defaultConfig: AgentMonitorConfigFile = {
-  bind: "127.0.0.1",
-  port: 11080,
-  allowedOrigins: [],
-  rateLimit: {
-    send: { windowMs: 1000, max: 10 },
-    screen: { windowMs: 1000, max: 10 },
-    raw: { windowMs: 1000, max: 200 },
-  },
-  dangerKeys: [...defaultDangerKeys],
-  dangerCommandPatterns: [...defaultDangerCommandPatterns],
-  activity: {
-    pollIntervalMs: 1000,
-    vwGhRefreshIntervalMs: 30_000,
-    runningThresholdMs: 5000,
-    inactiveThresholdMs: 60000,
-  },
-  hooks: {
-    ttyCacheTtlMs: 60000,
-    ttyCacheMax: 200,
-  },
-  input: { maxTextLength: 2000, enterKey: "C-m", enterDelayMs: 100 },
-  screen: {
-    mode: "text",
-    defaultLines: 2000,
-    maxLines: 2000,
-    includeTruncated: false,
-    joinLines: false,
-    ansi: true,
-    altScreen: "auto",
-    highlightCorrection: {
-      codex: true,
-      claude: true,
-    },
-    image: {
-      enabled: true,
-      backend: "terminal",
-      format: "png",
-      cropPane: true,
-      timeoutMs: 5000,
-    },
-  },
-  logs: {
-    maxPaneLogBytes: 2_000_000,
-    maxEventLogBytes: 2_000_000,
-    retainRotations: 5,
-  },
-  multiplexer: {
-    backend: "tmux",
-    wezterm: {
-      cliPath: "wezterm",
-      target: "auto",
-    },
-  },
-  launch: {
-    agents: {
-      codex: { options: [] },
-      claude: { options: [] },
-    },
-  },
-  notifications: {
-    pushEnabled: true,
-    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
-  },
-  usagePricing: {
-    currency: "USD",
-    providers: {
-      codex: {
-        enabled: true,
-      },
-      claude: {
-        enabled: true,
-      },
-    },
-  },
-  workspaceTabs: {
-    displayMode: "all",
-  },
-  fileNavigator: {
-    includeIgnoredPaths: [],
-    autoExpandMatchLimit: 100,
-  },
-  tmux: {
-    socketName: null,
-    socketPath: null,
-    primaryClient: null,
-  },
-};

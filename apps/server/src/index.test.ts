@@ -1,4 +1,4 @@
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { tmuxRun, weztermRun } = vi.hoisted(() => ({
@@ -39,10 +39,10 @@ describe("ensureBackendAvailable", () => {
       .mockResolvedValueOnce({ stdout: "main: 1 windows", stderr: "", exitCode: 0 });
 
     await ensureBackendAvailable({
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       multiplexer: {
-        ...defaultConfig.multiplexer,
+        ...configDefaults.multiplexer,
         backend: "tmux",
       },
     });
@@ -56,10 +56,10 @@ describe("ensureBackendAvailable", () => {
     weztermRun.mockResolvedValueOnce({ stdout: "[]", stderr: "", exitCode: 0 });
 
     await ensureBackendAvailable({
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       multiplexer: {
-        ...defaultConfig.multiplexer,
+        ...configDefaults.multiplexer,
         backend: "wezterm",
       },
     });
@@ -77,10 +77,10 @@ describe("ensureBackendAvailable", () => {
 
     await expect(
       ensureBackendAvailable({
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
         multiplexer: {
-          ...defaultConfig.multiplexer,
+          ...configDefaults.multiplexer,
           backend: "wezterm",
         },
       }),

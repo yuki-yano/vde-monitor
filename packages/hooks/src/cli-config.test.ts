@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "yaml";
 
@@ -101,7 +101,7 @@ describe("hooks config loading", () => {
     setFile(
       "/mock/config/config.yml",
       YAML.stringify({
-        ...defaultConfig,
+        ...configDefaults,
         multiplexer: {
           backend: "wezterm",
           wezterm: {
@@ -115,7 +115,7 @@ describe("hooks config loading", () => {
       "/mock/config/config.json",
       `${JSON.stringify(
         {
-          ...defaultConfig,
+          ...configDefaults,
           multiplexer: {
             backend: "tmux",
             wezterm: {
@@ -131,8 +131,8 @@ describe("hooks config loading", () => {
 
     expect(loadConfig()).toEqual({
       multiplexerBackend: "wezterm",
-      tmuxSocketName: defaultConfig.tmux.socketName,
-      tmuxSocketPath: defaultConfig.tmux.socketPath,
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yml-target",
     });
   });
@@ -141,7 +141,7 @@ describe("hooks config loading", () => {
     setFile(
       "/mock/config/config.yaml",
       YAML.stringify({
-        ...defaultConfig,
+        ...configDefaults,
         multiplexer: {
           backend: "wezterm",
           wezterm: {
@@ -155,7 +155,7 @@ describe("hooks config loading", () => {
       "/mock/config/config.json",
       `${JSON.stringify(
         {
-          ...defaultConfig,
+          ...configDefaults,
           multiplexer: {
             backend: "tmux",
             wezterm: {
@@ -171,8 +171,8 @@ describe("hooks config loading", () => {
 
     expect(loadConfig()).toEqual({
       multiplexerBackend: "wezterm",
-      tmuxSocketName: defaultConfig.tmux.socketName,
-      tmuxSocketPath: defaultConfig.tmux.socketPath,
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yaml-target",
     });
   });
@@ -183,7 +183,7 @@ describe("hooks config loading", () => {
       "/mock/config/config.json",
       `${JSON.stringify(
         {
-          ...defaultConfig,
+          ...configDefaults,
           multiplexer: {
             backend: "tmux",
             wezterm: {
@@ -199,9 +199,94 @@ describe("hooks config loading", () => {
 
     expect(loadConfig()).toEqual({
       multiplexerBackend: "tmux",
-      tmuxSocketName: defaultConfig.tmux.socketName,
-      tmuxSocketPath: defaultConfig.tmux.socketPath,
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "json-target",
+    });
+  });
+
+  it("loads minimal generated config and falls back optional values to defaults", () => {
+    setFile(
+      "/mock/config/config.yml",
+      YAML.stringify({
+        multiplexer: { backend: "wezterm" },
+        screen: { image: { backend: "terminal" } },
+        dangerKeys: ["C-c", "C-d", "C-z"],
+        dangerCommandPatterns: configDefaults.dangerCommandPatterns,
+        launch: {
+          agents: {
+            codex: { options: [] },
+            claude: { options: [] },
+          },
+        },
+        usagePricing: {
+          providers: {
+            codex: { enabled: true },
+            claude: { enabled: true },
+          },
+        },
+        workspaceTabs: { displayMode: "all" },
+      }),
+    );
+
+    expect(loadConfig()).toEqual({
+      multiplexerBackend: "wezterm",
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
+      weztermTarget: configDefaults.multiplexer.wezterm.target,
+    });
+  });
+
+  it("ignores unknown keys and still resolves hook server config", () => {
+    setFile(
+      "/mock/config/config.yml",
+      YAML.stringify({
+        multiplexer: {
+          backend: "tmux",
+          wezterm: {
+            target: "custom-target",
+          },
+        },
+        screen: {
+          image: {
+            backend: "terminal",
+            enabled: false,
+          },
+          defaultLines: 999,
+        },
+        dangerKeys: ["C-c", "C-d", "C-z"],
+        dangerCommandPatterns: configDefaults.dangerCommandPatterns,
+        launch: {
+          agents: {
+            codex: { options: [] },
+            claude: { options: [] },
+          },
+        },
+        usagePricing: {
+          providers: {
+            codex: { enabled: true },
+            claude: { enabled: true },
+          },
+        },
+        workspaceTabs: { displayMode: "all" },
+        tmux: {
+          socketName: "sock",
+          socketPath: "/tmp/tmux.sock",
+        },
+        logs: {
+          retainRotations: 999,
+        },
+        input: {
+          maxTextLength: 99999,
+        },
+      }),
+    );
+
+    expect(loadConfig()).toEqual({
+      multiplexerBackend: "tmux",
+      tmuxSocketName: "sock",
+      tmuxSocketPath: "/tmp/tmux.sock",
+      weztermTarget: "custom-target",
     });
   });
 });

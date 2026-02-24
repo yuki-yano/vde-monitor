@@ -2,7 +2,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
-import { defaultConfig, type RawItem } from "@vde-monitor/shared";
+import { configDefaults, type RawItem } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createWeztermActions } from "./actions";
@@ -41,7 +41,7 @@ describe("createWeztermActions", () => {
         run,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -61,7 +61,7 @@ describe("createWeztermActions", () => {
     ]);
   });
 
-  it("waits enterDelayMs before sending enter", async () => {
+  it("waits fixed enter delay before sending enter", async () => {
     vi.useFakeTimers();
     const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
 
@@ -70,12 +70,8 @@ describe("createWeztermActions", () => {
         run,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
-        input: {
-          ...defaultConfig.input,
-          enterDelayMs: 120,
-        },
       },
     );
 
@@ -83,7 +79,7 @@ describe("createWeztermActions", () => {
     await Promise.resolve();
     expect(run).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(120);
+    await vi.advanceTimersByTimeAsync(100);
     const result = await promise;
 
     expect(result.ok).toBe(true);
@@ -107,7 +103,7 @@ describe("createWeztermActions", () => {
         run,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -123,7 +119,7 @@ describe("createWeztermActions", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 
@@ -144,7 +140,7 @@ describe("createWeztermActions", () => {
       })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 
@@ -179,7 +175,7 @@ describe("createWeztermActions", () => {
         spawnProxy: () => child,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -214,7 +210,7 @@ describe("createWeztermActions", () => {
         spawnProxy: () => child,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -238,7 +234,7 @@ describe("createWeztermActions", () => {
         spawnProxy: () => child,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -263,7 +259,7 @@ describe("createWeztermActions", () => {
         run,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -301,7 +297,7 @@ describe("createWeztermActions", () => {
         spawnProxy: () => child,
       },
       {
-        ...defaultConfig,
+        ...configDefaults,
         token: "token",
       },
     );
@@ -322,7 +318,7 @@ describe("createWeztermActions", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 
@@ -341,7 +337,7 @@ describe("createWeztermActions", () => {
       })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 
@@ -356,7 +352,7 @@ describe("createWeztermActions", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 
@@ -371,7 +367,7 @@ describe("createWeztermActions", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const actions = createWeztermActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
     });
 

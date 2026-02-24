@@ -204,7 +204,7 @@ export const observePane = async (
     paneState,
     isAgentPane: isAgent,
     logPath,
-    inactiveThresholdMs: config.activity.inactiveThresholdMs,
+    inactiveThresholdMs: 60000,
     deps: {
       captureFingerprint: capturePaneFingerprint,
       fingerprintIntervalMs: FINGERPRINT_CAPTURE_INTERVAL_MS,

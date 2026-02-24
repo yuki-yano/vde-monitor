@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { parseArgs } from "./app/cli/cli";
 import { printHooksSnippet } from "./app/commands/print-hooks-snippet";
+import { runConfigInitCommand } from "./app/commands/run-config-init-command";
+import { runConfigRegenerateCommand } from "./app/commands/run-config-regenerate-command";
 import { runTokenRotateCommand } from "./app/commands/run-token-rotate-command";
 import {
   buildAccessUrl,
@@ -20,6 +22,14 @@ export const main = async () => {
   }
   if (args.command === "claude" && args.subcommand === "hooks" && args.subcommand2 === "print") {
     printHooksSnippet();
+    return;
+  }
+  if (args.command === "config" && args.subcommand === "regenerate") {
+    runConfigRegenerateCommand();
+    return;
+  }
+  if (args.command === "config" && args.subcommand === "init") {
+    runConfigInitCommand();
     return;
   }
 

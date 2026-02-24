@@ -31,13 +31,14 @@ export const createSendActions = ({
 
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const allowedKeySet: ReadonlySet<string> = new Set(allowedKeys);
-  const enterKey = config.input.enterKey || "C-m";
-  const enterDelayMs = config.input.enterDelayMs ?? 0;
+  const enterKey = "C-m";
+  const enterDelayMs = 100;
+  const maxTextLength = 2000;
   const bracketedPaste = (value: string) => `\u001b[200~${value}\u001b[201~`;
   const normalizeText = (value: string) => value.replace(/\r\n/g, "\n");
 
   const ensureTextLength = (value: string) => {
-    if (value.length > config.input.maxTextLength) {
+    if (value.length > maxTextLength) {
       return invalidPayload("text too long");
     }
     return null;
@@ -60,7 +61,7 @@ export const createSendActions = ({
   };
 
   const validateCombinedText = (paneId: string, combined: string) => {
-    if (combined.length > config.input.maxTextLength) {
+    if (combined.length > maxTextLength) {
       pendingCommands.delete(paneId);
       return invalidPayload("text too long");
     }

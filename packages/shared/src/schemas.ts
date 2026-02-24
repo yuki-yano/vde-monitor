@@ -504,9 +504,11 @@ export const usageGlobalTimelineResponseSchema = z.object({
   fetchedAt: z.string(),
 });
 
-const highlightCorrectionSchema = z.object({
-  codex: z.boolean().default(true),
-  claude: z.boolean().default(true),
+const strictObject = <TShape extends z.ZodRawShape>(shape: TShape) => z.object(shape).strict();
+
+const highlightCorrectionSchema = strictObject({
+  codex: z.boolean(),
+  claude: z.boolean(),
 });
 
 const windowsDrivePrefixPattern = /^[a-zA-Z]:[\\/]/;
@@ -595,18 +597,10 @@ const clientConfigSchema = z.object({
   launch: launchConfigSchema,
 });
 
-const notificationsConfigSchema = z
-  .object({
-    pushEnabled: z.boolean().default(true),
-    enabledEventTypes: z
-      .array(configPushEventTypeSchema)
-      .min(1)
-      .default(["pane.waiting_permission", "pane.task_completed"]),
-  })
-  .default({
-    pushEnabled: true,
-    enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
-  });
+const notificationsConfigSchema = strictObject({
+  pushEnabled: z.boolean(),
+  enabledEventTypes: z.array(configPushEventTypeSchema).min(1),
+});
 
 export const usagePricingProviderRuleSchema = z.object({
   enabled: z.boolean(),
@@ -620,17 +614,12 @@ export const usagePricingConfigSchema = z.object({
   }),
 });
 
-const defaultUsagePricingConfig: z.input<typeof usagePricingConfigSchema> = {
-  currency: "USD",
-  providers: {
-    codex: {
-      enabled: true,
-    },
-    claude: {
-      enabled: true,
-    },
-  },
-};
+const resolvedUsagePricingConfigSchema = strictObject({
+  providers: strictObject({
+    codex: usagePricingProviderRuleSchema,
+    claude: usagePricingProviderRuleSchema,
+  }),
+});
 
 const serverHealthSchema = z.object({
   version: z.string(),
@@ -709,169 +698,106 @@ export const claudeHookEventSchema = z.object({
   payload: z.object({ raw: z.string() }),
 });
 
-export const configSchema = z.object({
-  bind: z.enum(["127.0.0.1", "0.0.0.0"]),
-  port: z.number(),
-  allowedOrigins: z.array(z.string()),
-  rateLimit: z.object({
-    send: z.object({ windowMs: z.number(), max: z.number() }),
-    screen: z.object({ windowMs: z.number(), max: z.number() }),
-    raw: z.object({ windowMs: z.number(), max: z.number() }).default({ windowMs: 1000, max: 200 }),
-  }),
-  dangerKeys: z.array(z.string()),
-  dangerCommandPatterns: z.array(z.string()),
-  activity: z.object({
-    pollIntervalMs: z.number(),
-    vwGhRefreshIntervalMs: z.number(),
-    runningThresholdMs: z.number(),
-    inactiveThresholdMs: z.number(),
-  }),
-  hooks: z.object({
-    ttyCacheTtlMs: z.number(),
-    ttyCacheMax: z.number(),
-  }),
-  input: z.object({
-    maxTextLength: z.number(),
-    enterKey: z.string().default("C-m"),
-    enterDelayMs: z.number().default(100),
-  }),
-  screen: z.object({
-    mode: z.enum(["text", "image"]),
-    defaultLines: z.number(),
-    maxLines: z.number(),
-    includeTruncated: z.boolean().default(false),
-    joinLines: z.boolean(),
-    ansi: z.boolean().default(true),
-    altScreen: z.enum(["auto", "on", "off"]),
-    highlightCorrection: highlightCorrectionSchema.default({ codex: true, claude: true }),
-    image: z.object({
-      enabled: z.boolean(),
-      backend: z.enum(["alacritty", "terminal", "iterm", "wezterm", "ghostty"]),
-      format: z.enum(["png"]),
-      cropPane: z.boolean(),
-      timeoutMs: z.number(),
-    }),
-  }),
-  logs: z.object({
-    maxPaneLogBytes: z.number(),
-    maxEventLogBytes: z.number(),
-    retainRotations: z.number(),
-  }),
-  multiplexer: z
-    .object({
-      backend: z.enum(["tmux", "wezterm"]).default("tmux"),
-      wezterm: z
-        .object({
-          cliPath: z.string().default("wezterm"),
-          target: z.string().nullable().default("auto"),
-        })
-        .default({
-          cliPath: "wezterm",
-          target: "auto",
-        }),
-    })
-    .default({
-      backend: "tmux",
-      wezterm: {
-        cliPath: "wezterm",
-        target: "auto",
-      },
-    }),
-  launch: launchConfigSchema.default({
-    agents: {
-      codex: { options: [] },
-      claude: { options: [] },
-    },
-  }),
-  notifications: notificationsConfigSchema,
-  usagePricing: usagePricingConfigSchema.default(defaultUsagePricingConfig),
-  workspaceTabs: z
-    .object({
-      displayMode: z.preprocess(
-        (value) => (typeof value === "string" ? value.toLowerCase() : value),
-        z.enum(["all", "pwa", "none"]),
-      ),
-    })
-    .default({
-      displayMode: "all",
-    }),
-  fileNavigator: z
-    .object({
-      includeIgnoredPaths: z.array(includeIgnoredPatternSchema).default([]),
-      autoExpandMatchLimit: z.number().int().min(1).max(500).default(100),
-    })
-    .default({
-      includeIgnoredPaths: [],
-      autoExpandMatchLimit: 100,
-    }),
-  tmux: z.object({
-    socketName: z.string().nullable(),
-    socketPath: z.string().nullable(),
-    primaryClient: z.string().nullable(),
+const workspaceTabsDisplayModeSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.toLowerCase() : value),
+  z.enum(["all", "pwa", "none"]),
+);
+
+const multiplexerConfigSchema = strictObject({
+  backend: z.enum(["tmux", "wezterm"]),
+  wezterm: strictObject({
+    cliPath: z.string(),
+    target: z.string().nullable(),
   }),
 });
 
-const strictObject = <TShape extends z.ZodRawShape>(shape: TShape) => z.object(shape).strict();
+const screenConfigSchema = strictObject({
+  maxLines: z.number(),
+  highlightCorrection: highlightCorrectionSchema,
+  image: strictObject({
+    backend: z.enum(["alacritty", "terminal", "iterm", "wezterm", "ghostty"]),
+  }),
+});
+
+const tmuxConfigSchema = strictObject({
+  socketName: z.string().nullable(),
+  socketPath: z.string().nullable(),
+  primaryClient: z.string().nullable(),
+});
+
+const workspaceTabsConfigSchema = strictObject({
+  displayMode: workspaceTabsDisplayModeSchema,
+});
+
+const fileNavigatorConfigSchema = strictObject({
+  includeIgnoredPaths: z.array(includeIgnoredPatternSchema),
+  autoExpandMatchLimit: z.number().int().min(1).max(500),
+});
+
+export const configSchema = strictObject({
+  bind: z.enum(["127.0.0.1", "0.0.0.0"]),
+  port: z.number(),
+  allowedOrigins: z.array(z.string()),
+  dangerKeys: z.array(z.string()),
+  dangerCommandPatterns: z.array(z.string()),
+  activity: strictObject({
+    pollIntervalMs: z.number(),
+    runningThresholdMs: z.number(),
+  }),
+  screen: screenConfigSchema,
+  multiplexer: multiplexerConfigSchema,
+  launch: launchConfigSchema,
+  notifications: notificationsConfigSchema,
+  usagePricing: resolvedUsagePricingConfigSchema,
+  workspaceTabs: workspaceTabsConfigSchema,
+  fileNavigator: fileNavigatorConfigSchema,
+  tmux: tmuxConfigSchema,
+});
+
+export const generatedConfigTemplateSchema = strictObject({
+  multiplexer: strictObject({
+    backend: z.enum(["tmux", "wezterm"]),
+  }),
+  screen: strictObject({
+    image: strictObject({
+      backend: z.enum(["alacritty", "terminal", "iterm", "wezterm", "ghostty"]),
+    }),
+  }),
+  dangerKeys: z.array(z.string()),
+  dangerCommandPatterns: z.array(z.string()),
+  launch: launchConfigSchema,
+  usagePricing: strictObject({
+    providers: strictObject({
+      codex: strictObject({
+        enabled: z.boolean(),
+      }),
+      claude: strictObject({
+        enabled: z.boolean(),
+      }),
+    }),
+  }),
+  workspaceTabs: workspaceTabsConfigSchema,
+});
 
 export const configOverrideSchema = strictObject({
   bind: z.enum(["127.0.0.1", "0.0.0.0"]).optional(),
   port: z.number().optional(),
   allowedOrigins: z.array(z.string()).optional(),
-  rateLimit: strictObject({
-    send: strictObject({
-      windowMs: z.number().optional(),
-      max: z.number().optional(),
-    }).optional(),
-    screen: strictObject({
-      windowMs: z.number().optional(),
-      max: z.number().optional(),
-    }).optional(),
-    raw: strictObject({
-      windowMs: z.number().optional(),
-      max: z.number().optional(),
-    }).optional(),
-  }).optional(),
   dangerKeys: z.array(z.string()).optional(),
   dangerCommandPatterns: z.array(z.string()).optional(),
   activity: strictObject({
     pollIntervalMs: z.number().optional(),
-    vwGhRefreshIntervalMs: z.number().optional(),
     runningThresholdMs: z.number().optional(),
-    inactiveThresholdMs: z.number().optional(),
-  }).optional(),
-  hooks: strictObject({
-    ttyCacheTtlMs: z.number().optional(),
-    ttyCacheMax: z.number().optional(),
-  }).optional(),
-  input: strictObject({
-    maxTextLength: z.number().optional(),
-    enterKey: z.string().optional(),
-    enterDelayMs: z.number().optional(),
   }).optional(),
   screen: strictObject({
-    mode: z.enum(["text", "image"]).optional(),
-    defaultLines: z.number().optional(),
     maxLines: z.number().optional(),
-    includeTruncated: z.boolean().optional(),
-    joinLines: z.boolean().optional(),
-    ansi: z.boolean().optional(),
-    altScreen: z.enum(["auto", "on", "off"]).optional(),
     highlightCorrection: strictObject({
       codex: z.boolean().optional(),
       claude: z.boolean().optional(),
     }).optional(),
     image: strictObject({
-      enabled: z.boolean().optional(),
       backend: z.enum(["alacritty", "terminal", "iterm", "wezterm", "ghostty"]).optional(),
-      format: z.enum(["png"]).optional(),
-      cropPane: z.boolean().optional(),
-      timeoutMs: z.number().optional(),
     }).optional(),
-  }).optional(),
-  logs: strictObject({
-    maxPaneLogBytes: z.number().optional(),
-    maxEventLogBytes: z.number().optional(),
-    retainRotations: z.number().optional(),
   }).optional(),
   multiplexer: strictObject({
     backend: z.enum(["tmux", "wezterm"]).optional(),
@@ -895,7 +821,6 @@ export const configOverrideSchema = strictObject({
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
   }).optional(),
   usagePricing: strictObject({
-    currency: z.literal("USD").optional(),
     providers: strictObject({
       codex: strictObject({
         enabled: z.boolean().optional(),
@@ -906,12 +831,7 @@ export const configOverrideSchema = strictObject({
     }).optional(),
   }).optional(),
   workspaceTabs: strictObject({
-    displayMode: z
-      .preprocess(
-        (value) => (typeof value === "string" ? value.toLowerCase() : value),
-        z.enum(["all", "pwa", "none"]),
-      )
-      .optional(),
+    displayMode: workspaceTabsDisplayModeSchema.optional(),
   }).optional(),
   fileNavigator: strictObject({
     includeIgnoredPaths: z.array(includeIgnoredPatternSchema).optional(),
@@ -923,5 +843,6 @@ export const configOverrideSchema = strictObject({
     primaryClient: z.string().nullable().optional(),
   }).optional(),
 });
+export const userConfigSchema = configOverrideSchema;
 
 export type AgentMonitorConfigOverride = z.infer<typeof configOverrideSchema>;

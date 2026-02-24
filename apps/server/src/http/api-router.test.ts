@@ -4,7 +4,7 @@ import path from "node:path";
 
 import {
   type AgentMonitorConfig,
-  defaultConfig,
+  configDefaults,
   type NotificationSettings,
   type RepoNote,
   type SessionDetail,
@@ -140,7 +140,7 @@ const buildUsageProviderSnapshot = (
 });
 
 const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) => {
-  const config: AgentMonitorConfig = { ...defaultConfig, token: "token", ...configOverrides };
+  const config: AgentMonitorConfig = { ...configDefaults, token: "token", ...configOverrides };
   const registry = createSessionRegistry();
   const detail = createSessionDetail();
   registry.update(detail);
@@ -714,26 +714,26 @@ describe("createApiRouter", () => {
   });
 
   it("returns rate limit error on repeated screen requests", async () => {
-    const { api } = createTestContext({
-      rateLimit: { ...defaultConfig.rateLimit, screen: { windowMs: 1000, max: 1 } },
-    });
+    const { api } = createTestContext();
     const payload = JSON.stringify({ mode: "text", lines: 5 });
     const headers = { ...authHeaders, "content-type": "application/json" };
-    const first = await api.request("/sessions/pane-1/screen", {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await api.request("/sessions/pane-1/screen", {
+        method: "POST",
+        headers,
+        body: payload,
+      });
+      const data = await response.json();
+      expect(data.screen.ok).toBe(true);
+    }
+    const limited = await api.request("/sessions/pane-1/screen", {
       method: "POST",
       headers,
       body: payload,
     });
-    const second = await api.request("/sessions/pane-1/screen", {
-      method: "POST",
-      headers,
-      body: payload,
-    });
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.screen.ok).toBe(true);
-    expect(secondData.screen.ok).toBe(false);
-    expect(secondData.screen.error.code).toBe("RATE_LIMIT");
+    const limitedData = await limited.json();
+    expect(limitedData.screen.ok).toBe(false);
+    expect(limitedData.screen.error.code).toBe("RATE_LIMIT");
   });
 
   it("marks pane as viewed on screen request", async () => {
@@ -946,7 +946,7 @@ describe("createApiRouter", () => {
   it("returns TMUX_UNAVAILABLE with resume unsupported metadata on non-tmux backend", async () => {
     const { api, actions } = createTestContext({
       multiplexer: {
-        ...defaultConfig.multiplexer,
+        ...configDefaults.multiplexer,
         backend: "wezterm",
       },
     });
@@ -1067,9 +1067,7 @@ describe("createApiRouter", () => {
   });
 
   it("replays cached launch response before rate-limit check", async () => {
-    const { api, actions } = createTestContext({
-      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
-    });
+    const { api, actions } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
     const payload = JSON.stringify({
       sessionName: "dev-main",
@@ -1167,36 +1165,35 @@ describe("createApiRouter", () => {
   });
 
   it("returns rate limit error on repeated launch requests", async () => {
-    const { api, actions } = createTestContext({
-      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
-    });
+    const { api, actions } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
-    const first = await api.request("/sessions/launch", {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await api.request("/sessions/launch", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          sessionName: "dev-main",
+          agent: "codex",
+          requestId: `launch-rate-limit-${attempt}`,
+        }),
+      });
+      const data = await response.json();
+      expect(data.command.ok).toBe(true);
+    }
+    const limited = await api.request("/sessions/launch", {
       method: "POST",
       headers,
       body: JSON.stringify({
         sessionName: "dev-main",
         agent: "codex",
-        requestId: "launch-rate-limit-1",
+        requestId: "launch-rate-limit-overflow",
       }),
     });
-    const second = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        sessionName: "dev-main",
-        agent: "codex",
-        requestId: "launch-rate-limit-2",
-      }),
-    });
-
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.command.ok).toBe(true);
-    expect(secondData.command.ok).toBe(false);
-    expect(secondData.command.error.code).toBe("RATE_LIMIT");
-    expect(secondData.command.rollback).toEqual({ attempted: false, ok: true });
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    const limitedData = await limited.json();
+    expect(limitedData.command.ok).toBe(false);
+    expect(limitedData.command.error.code).toBe("RATE_LIMIT");
+    expect(limitedData.command.rollback).toEqual({ attempted: false, ok: true });
+    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(10);
   });
 
   it("returns launch command errors from actions", async () => {
@@ -1265,7 +1262,7 @@ describe("createApiRouter", () => {
   it("focuses pane for wezterm backend as well", async () => {
     const { api } = createTestContext({
       multiplexer: {
-        ...defaultConfig.multiplexer,
+        ...configDefaults.multiplexer,
         backend: "wezterm",
       },
     });
@@ -1280,45 +1277,43 @@ describe("createApiRouter", () => {
   });
 
   it("returns rate limit error on repeated focus requests", async () => {
-    const { api, actions } = createTestContext({
-      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
-    });
-    const first = await api.request("/sessions/pane-1/focus", {
+    const { api, actions } = createTestContext();
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await api.request("/sessions/pane-1/focus", {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await response.json();
+      expect(data.command.ok).toBe(true);
+    }
+    const limited = await api.request("/sessions/pane-1/focus", {
       method: "POST",
       headers: authHeaders,
     });
-    const second = await api.request("/sessions/pane-1/focus", {
-      method: "POST",
-      headers: authHeaders,
-    });
-
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.command.ok).toBe(true);
-    expect(secondData.command.ok).toBe(false);
-    expect(secondData.command.error.code).toBe("RATE_LIMIT");
-    expect(actions.focusPane).toHaveBeenCalledTimes(1);
+    const limitedData = await limited.json();
+    expect(limitedData.command.ok).toBe(false);
+    expect(limitedData.command.error.code).toBe("RATE_LIMIT");
+    expect(actions.focusPane).toHaveBeenCalledTimes(10);
   });
 
   it("returns rate limit error on repeated kill pane requests", async () => {
-    const { api, actions } = createTestContext({
-      rateLimit: { ...defaultConfig.rateLimit, send: { windowMs: 1000, max: 1 } },
-    });
-    const first = await api.request("/sessions/pane-1/kill/pane", {
+    const { api, actions } = createTestContext();
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await api.request("/sessions/pane-1/kill/pane", {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await response.json();
+      expect(data.command.ok).toBe(true);
+    }
+    const limited = await api.request("/sessions/pane-1/kill/pane", {
       method: "POST",
       headers: authHeaders,
     });
-    const second = await api.request("/sessions/pane-1/kill/pane", {
-      method: "POST",
-      headers: authHeaders,
-    });
-
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.command.ok).toBe(true);
-    expect(secondData.command.ok).toBe(false);
-    expect(secondData.command.error.code).toBe("RATE_LIMIT");
-    expect(actions.killPane).toHaveBeenCalledTimes(1);
+    const limitedData = await limited.json();
+    expect(limitedData.command.ok).toBe(false);
+    expect(limitedData.command.error.code).toBe("RATE_LIMIT");
+    expect(actions.killPane).toHaveBeenCalledTimes(10);
   });
 
   it("returns kill window command errors from actions", async () => {

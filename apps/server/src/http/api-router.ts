@@ -91,20 +91,21 @@ export const createApiRouter = ({
     }
     return c.text("Internal Server Error", 500);
   });
-  const sendLimiter = createRateLimiter(config.rateLimit.send.windowMs, config.rateLimit.send.max);
-  const screenLimiter = createRateLimiter(
-    config.rateLimit.screen.windowMs,
-    config.rateLimit.screen.max,
-  );
-  const rawLimiter = createRateLimiter(config.rateLimit.raw.windowMs, config.rateLimit.raw.max);
+  const sendLimiter = createRateLimiter(1000, 10);
+  const screenLimiter = createRateLimiter(1000, 10);
+  const rawLimiter = createRateLimiter(1000, 200);
   const usageRefreshLimiter = createRateLimiter(5_000, 1);
   const screenCache = createScreenCache();
+  const pricingConfig = {
+    currency: "USD" as const,
+    providers: config.usagePricing.providers,
+  };
   const dashboardService =
     usageDashboardService ??
     createUsageDashboardService({
-      pricingConfig: config.usagePricing,
+      pricingConfig,
       costProvider: createUsageCostProvider({
-        pricingConfig: config.usagePricing,
+        pricingConfig,
         pricingSource: new LiteLLMPricingSource(),
         tokenSources: {
           codex: new CodexSessionTokenSource(),

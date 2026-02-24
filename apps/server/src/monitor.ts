@@ -34,7 +34,7 @@ export const createSessionMonitor = (
   config: AgentMonitorConfig,
   options: CreateSessionMonitorOptions = {},
 ) => {
-  configureVwGhRefreshIntervalMs(config.activity.vwGhRefreshIntervalMs);
+  configureVwGhRefreshIntervalMs(30_000);
 
   const inspector = runtime.inspector;
   const screenCapture = runtime.screenCapture;
@@ -56,7 +56,6 @@ export const createSessionMonitor = (
   const paneLogManager = createPaneLogManager({
     baseDir,
     serverKey,
-    config,
     pipeSupport: runtime.pipeSupport,
     pipeManager: runtime.pipeManager,
     logActivity,
@@ -152,8 +151,8 @@ export const createSessionMonitor = (
   const monitorLoop = createMonitorLoop({
     intervalMs: config.activity.pollIntervalMs,
     eventLogPath,
-    maxEventLogBytes: config.logs.maxEventLogBytes,
-    retainRotations: config.logs.retainRotations,
+    maxEventLogBytes: 2_000_000,
+    retainRotations: 5,
     updateFromPanes,
   });
 

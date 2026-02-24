@@ -1,4 +1,4 @@
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -67,7 +67,7 @@ describe("createWeztermRuntime focusPane", () => {
     focusPaneMock.mockResolvedValue({ ok: true });
 
     const runtime = createWeztermRuntime({
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
     });
     const result = await runtime.actions.focusPane("6");
@@ -89,7 +89,7 @@ describe("createWeztermRuntime focusPane", () => {
     });
 
     const runtime = createWeztermRuntime({
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
     });
     const result = await runtime.actions.focusPane("404");

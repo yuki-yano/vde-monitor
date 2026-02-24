@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { resolveLogPaths } from "@vde-monitor/shared";
 
 import { ensureDir, rotateLogIfNeeded } from "../logs";
@@ -17,7 +16,6 @@ type PaneLogManagerDeps = {
 type PaneLogManagerArgs = {
   baseDir: string;
   serverKey: string;
-  config: AgentMonitorConfig;
   pipeSupport: "tmux-pipe" | "none";
   pipeManager: {
     hasConflict: (state: { panePipe: boolean; pipeTagValue: string | null }) => boolean;
@@ -70,7 +68,6 @@ const resolvePaneLogDeps = (deps?: PaneLogManagerDeps) => {
 export const createPaneLogManager = ({
   baseDir,
   serverKey,
-  config,
   pipeSupport,
   pipeManager,
   logActivity,
@@ -149,7 +146,7 @@ export const createPaneLogManager = ({
 
     logActivity.register(paneId, logPath);
 
-    await rotateFn(logPath, config.logs.maxPaneLogBytes, config.logs.retainRotations);
+    await rotateFn(logPath, 2_000_000, 5);
 
     return { pipeAttached, pipeConflict, logPath };
   };

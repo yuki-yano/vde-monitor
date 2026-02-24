@@ -5,10 +5,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  type AgentMonitorConfigFile,
-  configSchema,
+  configDefaults,
+  pickUserConfigAllowlist,
   resolveConfigDir,
   resolveMonitorServerKey,
+  userConfigSchema,
 } from "@vde-monitor/shared";
 import YAML from "yaml";
 
@@ -81,15 +82,25 @@ const ensureDir = (dir: string) => {
 
 const toOptionalString = (value: unknown) => (typeof value === "string" ? value : undefined);
 
+const resolveWithDefault = <T>(value: T | undefined, fallback: T) =>
+  typeof value === "undefined" ? fallback : value;
+
 const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
-  const parsed = configSchema.safeParse(value);
+  const picked = pickUserConfigAllowlist(value);
+  const parsed = userConfigSchema.safeParse(picked);
   if (parsed.success) {
-    const config: AgentMonitorConfigFile = parsed.data;
+    const config = parsed.data;
     return {
-      multiplexerBackend: config.multiplexer.backend,
-      tmuxSocketName: config.tmux.socketName,
-      tmuxSocketPath: config.tmux.socketPath,
-      weztermTarget: config.multiplexer.wezterm.target,
+      multiplexerBackend: resolveWithDefault(
+        config.multiplexer?.backend,
+        configDefaults.multiplexer.backend,
+      ),
+      tmuxSocketName: resolveWithDefault(config.tmux?.socketName, configDefaults.tmux.socketName),
+      tmuxSocketPath: resolveWithDefault(config.tmux?.socketPath, configDefaults.tmux.socketPath),
+      weztermTarget: resolveWithDefault(
+        config.multiplexer?.wezterm?.target,
+        configDefaults.multiplexer.wezterm.target,
+      ),
     };
   }
   return null;

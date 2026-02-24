@@ -1,4 +1,9 @@
-import type { AgentMonitorConfig, PaneMeta, SessionDetail } from "@vde-monitor/shared";
+import {
+  type AgentMonitorConfig,
+  configDefaults,
+  type PaneMeta,
+  type SessionDetail,
+} from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PaneLogManager } from "./pane-log-manager";
@@ -59,9 +64,14 @@ const basePane: PaneMeta = {
   pipeTagValue: "0",
 };
 
-const baseConfig = {
-  activity: { runningThresholdMs: 20000, inactiveThresholdMs: 60000 },
-} as AgentMonitorConfig;
+const baseConfig: AgentMonitorConfig = {
+  ...configDefaults,
+  token: "test-token",
+  activity: {
+    ...configDefaults.activity,
+    runningThresholdMs: 20000,
+  },
+};
 
 describe("processPane", () => {
   it("returns null when pane should be ignored", async () => {

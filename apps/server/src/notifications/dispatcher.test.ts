@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { type ConfigPushEventType, defaultConfig, type SessionDetail } from "@vde-monitor/shared";
+import { configDefaults, type ConfigPushEventType, type SessionDetail } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createNotificationDispatcher } from "./dispatcher";
@@ -68,7 +68,7 @@ afterEach(() => {
 describe("createNotificationDispatcher", () => {
   it("sends waiting_permission notifications for eligible subscriptions", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -121,7 +121,7 @@ describe("createNotificationDispatcher", () => {
 
   it("follows global enabledEventTypes when scope.eventTypes is null", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -163,7 +163,7 @@ describe("createNotificationDispatcher", () => {
 
   it("sends task_completed on RUNNING -> WAITING_INPUT transition", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -215,7 +215,7 @@ describe("createNotificationDispatcher", () => {
 
   it("retries transient failures with backoff", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -273,7 +273,7 @@ describe("createNotificationDispatcher", () => {
 
   it("removes subscription immediately on 410", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -321,7 +321,7 @@ describe("createNotificationDispatcher", () => {
 
   it("cleans subscription caches when expired subscription is removed", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -403,7 +403,7 @@ describe("createNotificationDispatcher", () => {
 
   it("reconciles stale caches after external subscription removal", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,
@@ -469,7 +469,7 @@ describe("createNotificationDispatcher", () => {
 
   it("skips transitions from restore source and first observation", async () => {
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "token",
       notifications: {
         pushEnabled: true,

@@ -26,8 +26,6 @@ type ScreenResponseParams = {
   buildTextResponse: ScreenCache["buildTextResponse"];
 };
 
-const resolveRequestedJoinLines = (config: AgentMonitorConfig) => config.screen.joinLines;
-
 const resolveCaptureBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] =>
   config.multiplexer.backend === "tmux" || config.multiplexer.backend === "wezterm"
     ? config.multiplexer.backend
@@ -81,11 +79,11 @@ const buildImageCaptureMeta = (backend: ScreenCaptureMeta["backend"]): ScreenCap
   captureMethod: "terminal-image",
 });
 
-const resolveAltScreenMode = (config: AgentMonitorConfig, target: SessionDetail) => {
+const resolveAltScreenMode = (target: SessionDetail) => {
   if (isEditorCommand(target.currentCommand) || isEditorCommand(target.startCommand)) {
     return "on" as const;
   }
-  return config.screen.altScreen;
+  return "auto" as const;
 };
 
 export const createScreenResponse = async ({
@@ -99,9 +97,9 @@ export const createScreenResponse = async ({
   limiterKey,
   buildTextResponse,
 }: ScreenResponseParams): Promise<ScreenResponse> => {
-  const lineCount = Math.min(lines ?? config.screen.defaultLines, config.screen.maxLines);
+  const lineCount = Math.min(lines ?? config.screen.maxLines, config.screen.maxLines);
   const backend = resolveCaptureBackend(config);
-  const joinLinesRequested = resolveRequestedJoinLines(config);
+  const joinLinesRequested = true;
   const joinLinesApplied = resolveAppliedJoinLines({ backend, joinLinesRequested });
   const textCaptureMeta = buildTextCaptureMeta({ backend, joinLinesApplied });
 
@@ -114,9 +112,9 @@ export const createScreenResponse = async ({
         paneId: target.paneId,
         lines: lineCount,
         joinLines: joinLinesApplied,
-        includeAnsi: config.screen.ansi,
-        includeTruncated: config.screen.includeTruncated,
-        altScreen: resolveAltScreenMode(config, target),
+        includeAnsi: true,
+        includeTruncated: false,
+        altScreen: resolveAltScreenMode(target),
         alternateOn: target.alternateOn,
         currentCommand: target.currentCommand ?? target.startCommand,
       });
@@ -153,12 +151,9 @@ export const createScreenResponse = async ({
     };
   }
 
-  const effectiveMode = mode ?? config.screen.mode;
+  const effectiveMode = mode ?? "text";
 
   if (effectiveMode === "image") {
-    if (!config.screen.image.enabled) {
-      return captureTextResponse("image_disabled", false);
-    }
     const multiplexerBackend = config.multiplexer.backend;
     if (multiplexerBackend !== "tmux" && multiplexerBackend !== "wezterm") {
       return captureTextResponse("image_disabled", false);
@@ -168,7 +163,7 @@ export const createScreenResponse = async ({
       multiplexerBackend,
       tmux: config.tmux,
       wezterm: config.multiplexer.wezterm,
-      cropPane: config.screen.image.cropPane,
+      cropPane: true,
       backend: config.screen.image.backend,
     });
     if (imageResult) {

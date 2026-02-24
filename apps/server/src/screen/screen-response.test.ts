@@ -1,4 +1,4 @@
-import { type AgentMonitorConfig, defaultConfig, type SessionDetail } from "@vde-monitor/shared";
+import { type AgentMonitorConfig, configDefaults, type SessionDetail } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import type { createSessionMonitor } from "../monitor";
@@ -8,14 +8,14 @@ import { createScreenResponse } from "./screen-response";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 
-const baseConfig: AgentMonitorConfig = { ...defaultConfig, token: "test-token" };
+const baseConfig: AgentMonitorConfig = { ...configDefaults, token: "test-token" };
 
 vi.mock("../screen-service", () => ({
   captureTerminalScreen: vi.fn(),
 }));
 
 describe("createScreenResponse", () => {
-  it("follows config joinLines setting for claude sessions", async () => {
+  it("uses joined lines for tmux text capture", async () => {
     const captureText = vi.fn(async () => ({
       screen: "hello",
       alternateOn: false,
@@ -33,13 +33,7 @@ describe("createScreenResponse", () => {
     const screenCache = createScreenCache();
 
     const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          joinLines: false,
-        },
-      },
+      config: baseConfig,
       monitor,
       target,
       mode: "text",
@@ -52,15 +46,15 @@ describe("createScreenResponse", () => {
     expect(response.ok).toBe(true);
     expect(response.captureMeta).toMatchObject({
       backend: "tmux",
-      lineModel: "physical",
-      joinLinesApplied: false,
+      lineModel: "joined-physical",
+      joinLinesApplied: true,
       captureMethod: "tmux-capture-pane",
     });
     expect(captureText).toHaveBeenCalledWith(
       expect.objectContaining({
         paneId: "%1",
         lines: 5,
-        joinLines: false,
+        joinLines: true,
         includeTruncated: false,
       }),
     );
@@ -84,13 +78,7 @@ describe("createScreenResponse", () => {
     const screenCache = createScreenCache();
 
     const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          joinLines: true,
-        },
-      },
+      config: baseConfig,
       monitor,
       target,
       mode: "text",
@@ -141,10 +129,6 @@ describe("createScreenResponse", () => {
           ...baseConfig.multiplexer,
           backend: "wezterm",
         },
-        screen: {
-          ...baseConfig.screen,
-          joinLines: true,
-        },
       },
       monitor,
       target,
@@ -189,13 +173,7 @@ describe("createScreenResponse", () => {
     const screenCache = createScreenCache();
 
     const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          altScreen: "off",
-        },
-      },
+      config: baseConfig,
       monitor,
       target,
       mode: "text",
@@ -234,13 +212,7 @@ describe("createScreenResponse", () => {
     const screenCache = createScreenCache();
 
     const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          altScreen: "auto",
-        },
-      },
+      config: baseConfig,
       monitor,
       target,
       mode: "text",
@@ -278,47 +250,6 @@ describe("createScreenResponse", () => {
     expect(response.captureMeta).toMatchObject({
       captureMethod: "none",
       lineModel: "none",
-    });
-  });
-
-  it("falls back to text when image mode is disabled", async () => {
-    const captureText = vi.fn(async () => ({
-      screen: "hello",
-      alternateOn: false,
-      truncated: null,
-    }));
-    const monitor = {
-      getScreenCapture: () => ({ captureText }),
-    } as unknown as Monitor;
-    const target = { paneId: "%1", paneTty: "tty1", alternateOn: false } as SessionDetail;
-    const screenCache = createScreenCache();
-
-    const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          image: { ...baseConfig.screen.image, enabled: false },
-          joinLines: true,
-        },
-      },
-      monitor,
-      target,
-      mode: "image",
-      lines: 5,
-      screenLimiter: () => true,
-      limiterKey: "rest",
-      buildTextResponse: screenCache.buildTextResponse,
-    });
-
-    expect(captureText).toHaveBeenCalled();
-    expect(response.ok).toBe(true);
-    expect(response.fallbackReason).toBe("image_disabled");
-    expect(response.captureMeta).toMatchObject({
-      backend: "tmux",
-      lineModel: "joined-physical",
-      joinLinesApplied: true,
-      captureMethod: "tmux-capture-pane",
     });
   });
 
@@ -361,7 +292,7 @@ describe("createScreenResponse", () => {
       multiplexerBackend: "wezterm",
       tmux: baseConfig.tmux,
       wezterm: baseConfig.multiplexer.wezterm,
-      cropPane: baseConfig.screen.image.cropPane,
+      cropPane: true,
       backend: baseConfig.screen.image.backend,
     });
     expect(captureText).not.toHaveBeenCalled();
@@ -388,14 +319,7 @@ describe("createScreenResponse", () => {
     vi.mocked(captureTerminalScreen).mockResolvedValueOnce(null);
 
     const response = await createScreenResponse({
-      config: {
-        ...baseConfig,
-        screen: {
-          ...baseConfig.screen,
-          image: { ...baseConfig.screen.image, enabled: true },
-          joinLines: true,
-        },
-      },
+      config: baseConfig,
       monitor,
       target,
       mode: "image",

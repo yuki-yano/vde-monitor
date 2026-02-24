@@ -1,4 +1,4 @@
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { execa } from "execa";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,9 +46,8 @@ describe("createTmuxActions.sendText", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
 
@@ -78,9 +77,8 @@ describe("createTmuxActions.sendText", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
 
@@ -110,9 +108,8 @@ describe("createTmuxActions.sendText", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
 
@@ -127,9 +124,8 @@ describe("createTmuxActions.sendText", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     };
     const tmuxActions = createTmuxActions(adapter, config);
 
@@ -168,7 +164,7 @@ describe("createTmuxActions.focusPane", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.focusPane("%1");
 
@@ -182,7 +178,7 @@ describe("createTmuxActions.focusPane", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.focusPane("%1");
 
@@ -198,7 +194,7 @@ describe("createTmuxActions.focusPane", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const config = { ...defaultConfig, token: "test-token" };
+    const config = { ...configDefaults, token: "test-token" };
     const tmuxActions = createTmuxActions(adapter, config);
 
     const result = await tmuxActions.focusPane("%1");
@@ -217,7 +213,7 @@ describe("createTmuxActions.sendKeys", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.sendKeys("%1", ["C-c"]);
 
@@ -232,7 +228,7 @@ describe("createTmuxActions.sendRaw", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.sendRaw(
       "%1",
@@ -259,7 +255,7 @@ describe("createTmuxActions.sendRaw", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.sendRaw("%1", [{ kind: "key", value: "C-c" }], false);
 
@@ -272,7 +268,7 @@ describe("createTmuxActions.sendRaw", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.sendRaw("%1", [{ kind: "key", value: "C-c" }], true);
 
@@ -292,9 +288,8 @@ describe("createTmuxActions.killPane / killWindow", () => {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
     const tmuxActions = createTmuxActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     });
 
     const promise = tmuxActions.killPane("%1");
@@ -326,9 +321,8 @@ describe("createTmuxActions.killPane / killWindow", () => {
       }),
     };
     const tmuxActions = createTmuxActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     });
 
     const promise = tmuxActions.killWindow("%1");
@@ -357,9 +351,8 @@ describe("createTmuxActions.killPane / killWindow", () => {
       }),
     };
     const tmuxActions = createTmuxActions(adapter, {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
-      input: { ...defaultConfig.input, enterKey: "C-m", enterDelayMs: 0 },
     });
 
     const promise = tmuxActions.killPane("%1");
@@ -396,7 +389,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -452,7 +445,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -516,7 +509,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -616,7 +609,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -699,7 +692,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -779,7 +772,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -883,7 +876,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -954,7 +947,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -990,7 +983,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1025,7 +1018,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
       }),
     };
     const config = {
-      ...defaultConfig,
+      ...configDefaults,
       token: "test-token",
       launch: {
         agents: {
@@ -1075,7 +1068,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1127,7 +1120,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1158,7 +1151,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1226,7 +1219,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1307,7 +1300,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1353,7 +1346,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1405,7 +1398,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1432,7 +1425,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "missing",
@@ -1468,7 +1461,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1505,7 +1498,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",
@@ -1539,7 +1532,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const tmuxActions = createTmuxActions(adapter, { ...defaultConfig, token: "test-token" });
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
       sessionName: "dev-main",

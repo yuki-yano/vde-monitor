@@ -58,7 +58,8 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const dangerKeys = new Set(config.dangerKeys);
   const allowedKeySet = new Set(allowedKeys);
-  const enterDelayMs = config.input.enterDelayMs ?? 0;
+  const enterDelayMs = 100;
+  const maxTextLength = 2000;
 
   const okResult = (): ActionResult => ({ ok: true });
   const invalidPayload = (message: string): ActionResult => ({
@@ -109,7 +110,7 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
   };
 
   const ensureTextLength = (value: string): ActionResult | null => {
-    if (value.length > config.input.maxTextLength) {
+    if (value.length > maxTextLength) {
       return invalidPayload("text too long");
     }
     return null;
@@ -135,7 +136,7 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     const pending = pendingCommands.get(paneId) ?? "";
     const combined = `${pending}${normalized}`;
 
-    if (combined.length > config.input.maxTextLength) {
+    if (combined.length > maxTextLength) {
       pendingCommands.delete(paneId);
       return invalidPayload("text too long");
     }

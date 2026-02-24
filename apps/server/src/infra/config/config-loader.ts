@@ -1,8 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type { AgentMonitorConfigFile, AgentMonitorConfigOverride } from "@vde-monitor/shared";
-import { configOverrideSchema, configSchema, resolveConfigDir } from "@vde-monitor/shared";
+import type {
+  AgentMonitorConfigFile,
+  GeneratedConfigTemplate,
+  UserConfigReadable,
+} from "@vde-monitor/shared";
+import {
+  configDefaults,
+  configOverrideSchema,
+  configSchema,
+  generatedConfigTemplateAllowlist,
+  generatedConfigTemplateSchema,
+  pickGeneratedConfigTemplateAllowlist,
+  pickUserConfigAllowlist,
+  resolveConfigDir,
+} from "@vde-monitor/shared";
 import YAML from "yaml";
 
 const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
@@ -19,6 +32,76 @@ const getConfigPaths = () => {
 
 const getDefaultConfigPath = () => {
   return path.join(getConfigDir(), DEFAULT_CONFIG_FILE_BASENAME);
+};
+
+type AllowlistNode = true | { [key: string]: AllowlistNode };
+
+const collectAllowlistLeafPaths = (allowlist: AllowlistNode, prefix: string[] = []): string[] => {
+  if (allowlist === true) {
+    return [prefix.join(".")];
+  }
+  return Object.entries(allowlist).flatMap(([key, nestedAllowlist]) =>
+    collectAllowlistLeafPaths(nestedAllowlist, [...prefix, key]),
+  );
+};
+
+const collectMissingAllowlistLeafPaths = (
+  source: unknown,
+  allowlist: AllowlistNode,
+  prefix: string[] = [],
+): string[] => {
+  if (allowlist === true) {
+    return [];
+  }
+  if (!isPlainObject(source)) {
+    return collectAllowlistLeafPaths(allowlist, prefix);
+  }
+  const missingPaths: string[] = [];
+  for (const [key, nestedAllowlist] of Object.entries(allowlist)) {
+    const nextPrefix = [...prefix, key];
+    if (!Object.hasOwn(source, key)) {
+      missingPaths.push(...collectAllowlistLeafPaths(nestedAllowlist, nextPrefix));
+      continue;
+    }
+    if (nestedAllowlist === true) {
+      continue;
+    }
+    missingPaths.push(
+      ...collectMissingAllowlistLeafPaths(source[key], nestedAllowlist, nextPrefix),
+    );
+  }
+  return missingPaths;
+};
+
+const createMissingRequiredKeysError = ({
+  configPath,
+  missingKeys,
+}: {
+  configPath: string;
+  missingKeys: string[];
+}) => {
+  const formattedKeys = missingKeys.map((key) => `- ${key}`).join("\n");
+  return new Error(
+    [
+      `config is missing required generated keys: ${configPath}`,
+      formattedKeys,
+      "Run `vde-monitor config regenerate` to overwrite and regenerate the config file.",
+    ].join("\n"),
+  );
+};
+
+const validateRequiredGeneratedKeys = ({
+  value,
+  configPath,
+}: {
+  value: unknown;
+  configPath: string;
+}) => {
+  const missingKeys = collectMissingAllowlistLeafPaths(value, generatedConfigTemplateAllowlist);
+  if (missingKeys.length === 0) {
+    return;
+  }
+  throw createMissingRequiredKeysError({ configPath, missingKeys });
 };
 
 const getProjectConfigCandidatePaths = (basePath: string) => {
@@ -200,9 +283,7 @@ export const resolveProjectConfigPath = ({
   return null;
 };
 
-export const loadProjectConfigOverride = (
-  projectConfigPath: string,
-): AgentMonitorConfigOverride => {
+export const loadProjectConfigOverride = (projectConfigPath: string): UserConfigReadable => {
   let raw: string;
   try {
     raw = fs.readFileSync(projectConfigPath, "utf8");
@@ -210,8 +291,8 @@ export const loadProjectConfigOverride = (
     throw new Error(`failed to read project config: ${projectConfigPath}`);
   }
 
-  const ext = path.extname(projectConfigPath).toLowerCase();
   let json: unknown;
+  const ext = path.extname(projectConfigPath).toLowerCase();
   if (ext === ".json") {
     try {
       json = JSON.parse(raw);
@@ -226,7 +307,8 @@ export const loadProjectConfigOverride = (
     }
   }
 
-  const parsed = configOverrideSchema.safeParse(json);
+  const picked = pickUserConfigAllowlist(json);
+  const parsed = configOverrideSchema.safeParse(picked);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const pathLabel = issue?.path?.join(".") ?? "unknown";
@@ -267,6 +349,24 @@ const deepMerge = (baseValue: unknown, overrideValue: unknown): unknown => {
   return overrideValue;
 };
 
+const validateUserConfig = ({
+  value,
+  errorPrefix,
+}: {
+  value: unknown;
+  errorPrefix: string;
+}): UserConfigReadable => {
+  const picked = pickUserConfigAllowlist(value);
+  const parsed = configOverrideSchema.safeParse(picked);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const pathLabel = issue?.path?.join(".") ?? "unknown";
+    const detail = issue?.message ?? "validation failed";
+    throw new Error(`${errorPrefix}: ${pathLabel} ${detail}`);
+  }
+  return parsed.data;
+};
+
 const validateMergedConfig = (value: unknown): AgentMonitorConfigFile => {
   const parsed = configSchema.safeParse(value);
   if (!parsed.success) {
@@ -278,28 +378,48 @@ const validateMergedConfig = (value: unknown): AgentMonitorConfigFile => {
   return parsed.data;
 };
 
+const parseConfigFile = ({ raw, configPath }: { raw: string; configPath: string }) => {
+  const ext = path.extname(configPath).toLowerCase();
+  if (ext === ".json") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error(`invalid config JSON: ${configPath}`);
+    }
+  }
+  try {
+    return YAML.parse(raw);
+  } catch {
+    throw new Error(`invalid config: ${configPath} failed to parse YAML`);
+  }
+};
+
 export const mergeConfigLayers = ({
-  base,
   globalConfig,
   projectOverride,
   fileOverrides,
 }: {
-  base: AgentMonitorConfigFile;
-  globalConfig: AgentMonitorConfigFile | null;
-  projectOverride: AgentMonitorConfigOverride | null;
-  fileOverrides: Partial<AgentMonitorConfigFile> | undefined;
+  globalConfig: UserConfigReadable | null;
+  projectOverride: UserConfigReadable | null;
+  fileOverrides: UserConfigReadable | undefined;
 }) => {
-  const withGlobal = globalConfig == null ? base : deepMerge(base, globalConfig);
+  const withGlobal =
+    globalConfig == null ? configDefaults : deepMerge(configDefaults, globalConfig);
   const withProject = projectOverride == null ? withGlobal : deepMerge(withGlobal, projectOverride);
   const withFileOverrides = deepMerge(withProject, fileOverrides);
   return validateMergedConfig(withFileOverrides);
 };
 
-export const loadConfig = (): AgentMonitorConfigFile | null => {
-  const configPath = resolveFirstExistingPath({
+export const resolveGlobalConfigPath = () =>
+  resolveFirstExistingPath({
     candidatePaths: getConfigPaths(),
     readErrorPrefix: "failed to read config",
   });
+
+export const loadConfig = ({
+  enforceRequiredGeneratedKeys = true,
+}: { enforceRequiredGeneratedKeys?: boolean } = {}): UserConfigReadable | null => {
+  const configPath = resolveGlobalConfigPath();
   if (configPath == null) {
     return null;
   }
@@ -313,36 +433,40 @@ export const loadConfig = (): AgentMonitorConfigFile | null => {
     throw new Error(`failed to read config: ${configPath}`);
   }
 
-  const ext = path.extname(configPath).toLowerCase();
-  let json: unknown;
-  if (ext === ".json") {
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      throw new Error(`invalid config JSON: ${configPath}`);
-    }
-  } else {
-    try {
-      json = YAML.parse(raw);
-    } catch {
-      throw new Error(`invalid config: ${configPath} failed to parse YAML`);
-    }
+  const json = parseConfigFile({ raw, configPath });
+  if (enforceRequiredGeneratedKeys) {
+    validateRequiredGeneratedKeys({ value: json, configPath });
   }
+  return validateUserConfig({ value: json, errorPrefix: "invalid config" });
+};
 
-  const parsed = configSchema.safeParse(json);
+export const buildGeneratedConfigTemplate = (
+  resolvedConfig: AgentMonitorConfigFile,
+): GeneratedConfigTemplate => {
+  const picked = pickGeneratedConfigTemplateAllowlist(resolvedConfig);
+  const parsed = generatedConfigTemplateSchema.safeParse(picked);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const pathLabel = issue?.path?.join(".") ?? "unknown";
     const detail = issue?.message ?? "validation failed";
-    throw new Error(`invalid config: ${pathLabel} ${detail}`);
+    throw new Error(`invalid generated config template: ${pathLabel} ${detail}`);
   }
   return parsed.data;
 };
 
-export const saveConfig = (config: AgentMonitorConfigFile) => {
+export const saveConfig = (config: GeneratedConfigTemplate) => {
+  const parsed = generatedConfigTemplateSchema.safeParse(config);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const pathLabel = issue?.path?.join(".") ?? "unknown";
+    const detail = issue?.message ?? "validation failed";
+    throw new Error(`invalid generated config template: ${pathLabel} ${detail}`);
+  }
   const dir = getConfigDir();
   ensureDir(dir);
-  const serialized = YAML.stringify(config);
+  const serialized = YAML.stringify(parsed.data);
   const normalized = serialized.endsWith("\n") ? serialized : `${serialized}\n`;
-  writeFileSafe(getDefaultConfigPath(), normalized);
+  const outputPath = getDefaultConfigPath();
+  writeFileSafe(outputPath, normalized);
+  return outputPath;
 };

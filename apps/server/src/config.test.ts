@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "yaml";
 
@@ -49,7 +49,9 @@ vi.mock("node:os", () => ({
 
 import {
   ensureConfig,
+  initConfig,
   mergeConfigLayers,
+  regenerateConfig,
   resolveProjectConfigPath,
   resolveProjectConfigSearchBoundary,
   rotateToken,
@@ -104,6 +106,26 @@ const setProjectConfigFile = (targetPath: string, config: unknown) => {
 
 const setStatError = (targetPath: string, code: string) => {
   statErrorCodes.set(path.resolve(targetPath), code);
+};
+
+const expectedGeneratedTemplate = {
+  multiplexer: {
+    backend: "tmux",
+  },
+  screen: {
+    image: {
+      backend: "terminal",
+    },
+  },
+  dangerKeys: ["C-c", "C-d", "C-z"],
+  dangerCommandPatterns: configDefaults.dangerCommandPatterns,
+  launch: configDefaults.launch,
+  usagePricing: {
+    providers: configDefaults.usagePricing.providers,
+  },
+  workspaceTabs: {
+    displayMode: "all",
+  },
 };
 
 beforeEach(() => {
@@ -242,57 +264,32 @@ describe("resolveProjectConfigPath", () => {
     });
     expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.json"));
   });
-
-  it("prefers project config.yaml over config.json when config.yml is missing", () => {
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yaml", { port: 18000 });
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
-    const resolved = resolveProjectConfigPath({
-      cwd: "/mock/repo/apps/server",
-      boundaryDir: "/mock/repo",
-    });
-    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.yaml"));
-  });
-
-  it("falls back to project config.json when config.yml is not a regular file", () => {
-    setDirectory("/mock/repo/apps/.vde/monitor/config.yml");
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
-    const resolved = resolveProjectConfigPath({
-      cwd: "/mock/repo/apps/server",
-      boundaryDir: "/mock/repo",
-    });
-    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.json"));
-  });
 });
 
 describe("mergeConfigLayers", () => {
   it("recursively merges objects and replaces arrays by higher-priority value", () => {
     const merged = mergeConfigLayers({
-      base: defaultConfig,
       globalConfig: {
-        ...defaultConfig,
         allowedOrigins: ["https://global.example"],
-        rateLimit: {
-          ...defaultConfig.rateLimit,
-          send: {
-            ...defaultConfig.rateLimit.send,
-            windowMs: 2000,
-          },
+        screen: {
+          maxLines: 1800,
         },
       },
       projectOverride: {
         allowedOrigins: ["https://project.example"],
-        rateLimit: {
-          send: {
-            max: 99,
-          },
+        screen: {
+          maxLines: 1900,
         },
       },
-      fileOverrides: undefined,
+      fileOverrides: {
+        screen: {
+          maxLines: 1200,
+        },
+      },
     });
 
     expect(merged.allowedOrigins).toEqual(["https://project.example"]);
-    expect(merged.rateLimit.send.windowMs).toBe(2000);
-    expect(merged.rateLimit.send.max).toBe(99);
+    expect(merged.screen.maxLines).toBe(1200);
   });
 });
 
@@ -301,224 +298,87 @@ describe("ensureConfig", () => {
     const result = ensureConfig({ bind: "0.0.0.0" });
 
     expect(result.bind).toBe("0.0.0.0");
-    expect(result.port).toBe(defaultConfig.port);
-    expect(result.notifications).toEqual(defaultConfig.notifications);
+    expect(result.port).toBe(configDefaults.port);
+    expect(result.notifications).toEqual(configDefaults.notifications);
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
-    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
-      ...defaultConfig,
-      bind: "0.0.0.0",
-    });
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
     expect(JSON.parse(writtenContents.get(tokenPath) ?? "{}")).toEqual({ token: result.token });
   });
 
-  it("keeps existing legacy-looking values without auto migration", () => {
-    setConfigFile({
-      ...defaultConfig,
-      port: 10080,
-      screen: {
-        ...defaultConfig.screen,
-        image: {
-          ...defaultConfig.screen.image,
-          enabled: false,
-        },
-      },
-    });
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.port).toBe(10080);
-    expect(result.screen.image.enabled).toBe(false);
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
   it("does not rewrite existing config and only persists missing token", () => {
-    setConfigFile(defaultConfig);
+    setConfigFile({
+      multiplexer: { backend: "wezterm" },
+      screen: { image: { backend: "wezterm" } },
+      dangerKeys: ["C-c", "C-d", "C-z"],
+      dangerCommandPatterns: configDefaults.dangerCommandPatterns,
+      launch: configDefaults.launch,
+      usagePricing: { providers: configDefaults.usagePricing.providers },
+      workspaceTabs: { displayMode: "all" },
+    });
 
     const result = ensureConfig({ bind: "0.0.0.0" });
 
     expect(result.bind).toBe("0.0.0.0");
+    expect(result.multiplexer.backend).toBe("wezterm");
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
     const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
     expect(writtenPaths).toEqual([tokenPath]);
   });
 
-  it("loads legacy global config.json when yaml files are missing", () => {
-    setFile(
-      "/mock/config/config.json",
-      `${JSON.stringify(
-        {
-          ...defaultConfig,
-          port: 10081,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.port).toBe(10081);
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
-  it("prefers global config.yml over config.json when both files exist", () => {
-    setConfigFile({
-      ...defaultConfig,
-      port: 10082,
-    });
-    setFile(
-      "/mock/config/config.json",
-      `${JSON.stringify(
-        {
-          ...defaultConfig,
-          port: 10083,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.port).toBe(10082);
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
-  it("prefers global config.yaml over config.json when config.yml is missing", () => {
-    setFile(
-      "/mock/config/config.yaml",
-      `${YAML.stringify({
-        ...defaultConfig,
-        port: 10085,
-      })}`,
-    );
-    setFile(
-      "/mock/config/config.json",
-      `${JSON.stringify(
-        {
-          ...defaultConfig,
-          port: 10086,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.port).toBe(10085);
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
-  it("falls back to global config.json when config.yml is not a regular file", () => {
-    setDirectory("/mock/config/config.yml");
-    setFile(
-      "/mock/config/config.json",
-      `${JSON.stringify(
-        {
-          ...defaultConfig,
-          port: 10084,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.port).toBe(10084);
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
   it("applies CLI > project > global > default precedence", () => {
     setConfigFile({
-      ...defaultConfig,
+      ...expectedGeneratedTemplate,
       port: 10080,
-      rateLimit: {
-        ...defaultConfig.rateLimit,
-        send: {
-          ...defaultConfig.rateLimit.send,
-          windowMs: 2500,
-          max: 15,
-        },
+      screen: {
+        maxLines: 1500,
+        image: { backend: "terminal" },
       },
-      fileNavigator: {
-        ...defaultConfig.fileNavigator,
-        autoExpandMatchLimit: 60,
-      },
+      fileNavigator: { includeIgnoredPaths: ["global/**"] },
     });
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web/src"));
     setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yml", {
       port: 12000,
-      rateLimit: {
-        send: {
-          max: 99,
-        },
-      },
-      fileNavigator: {
-        includeIgnoredPaths: ["tmp/ai/**"],
-        autoExpandMatchLimit: 150,
-      },
+      screen: { maxLines: 1300 },
+      fileNavigator: { includeIgnoredPaths: ["project/**"], autoExpandMatchLimit: 150 },
     });
 
     const result = ensureConfig({ port: 13000 });
 
     expect(result.port).toBe(13000);
-    expect(result.rateLimit.send.windowMs).toBe(2500);
-    expect(result.rateLimit.send.max).toBe(99);
-    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["tmp/ai/**"]);
+    expect(result.screen.maxLines).toBe(1300);
+    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["project/**"]);
     expect(result.fileNavigator.autoExpandMatchLimit).toBe(150);
     expect(result.token).toBe("existing-token");
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
 
-  it("does not load project config above repository root boundary", () => {
+  it("ignores unknown keys in global/project config", () => {
     setConfigFile({
-      ...defaultConfig,
+      ...expectedGeneratedTemplate,
       port: 10080,
+      logs: { retainRotations: 999 },
     });
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web"));
-    setProjectConfigFile("/mock/.vde/monitor/config.yml", {
-      port: 19000,
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
+    setProjectConfigFile("/mock/repo/.vde/monitor/config.yml", {
+      input: { maxTextLength: 99999 },
+      fileNavigator: { autoExpandMatchLimit: 120 },
     });
 
     const result = ensureConfig();
-    expect(result.port).toBe(10080);
-  });
 
-  it("does not search parent directories when cwd is outside repository", () => {
-    setConfigFile({
-      ...defaultConfig,
-      port: 10080,
-    });
-    setTokenFile("existing-token");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/no-repo/work/subdir"));
-    setProjectConfigFile("/mock/no-repo/work/.vde/monitor/config.yml", {
-      port: 19000,
-    });
-
-    const result = ensureConfig();
     expect(result.port).toBe(10080);
+    expect(result.fileNavigator.autoExpandMatchLimit).toBe(120);
+    expect(result.token).toBe("existing-token");
   });
 
   it("throws when project config contains invalid JSON", () => {
-    setConfigFile(defaultConfig);
+    setConfigFile(expectedGeneratedTemplate);
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
@@ -530,7 +390,7 @@ describe("ensureConfig", () => {
   });
 
   it("throws when project config contains invalid includeIgnoredPaths pattern", () => {
-    setConfigFile(defaultConfig);
+    setConfigFile(expectedGeneratedTemplate);
     setTokenFile("existing-token");
     setDirectory("/mock/repo/.git");
     cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
@@ -543,33 +403,10 @@ describe("ensureConfig", () => {
     expect(() => ensureConfig()).toThrow(/invalid project config: .*includeIgnoredPaths/);
   });
 
-  it("throws when project config path exists as non-regular file", () => {
-    setConfigFile(defaultConfig);
-    setTokenFile("existing-token");
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setDirectory("/mock/repo/.vde/monitor/config.yml");
-
-    expect(() => ensureConfig()).toThrow(/project config path exists but is not a regular file/);
-  });
-
-  it("throws when config contains invalid includeIgnoredPaths pattern", () => {
-    setConfigFile({
-      ...defaultConfig,
-      fileNavigator: {
-        ...defaultConfig.fileNavigator,
-        includeIgnoredPaths: ["!dist/**"],
-      },
-    });
-
-    expect(() => ensureConfig()).toThrow(/invalid config/);
-  });
-
   it("throws when notifications.enabledEventTypes is empty", () => {
     setConfigFile({
-      ...defaultConfig,
+      ...expectedGeneratedTemplate,
       notifications: {
-        ...defaultConfig.notifications,
         enabledEventTypes: [],
       },
     });
@@ -577,22 +414,101 @@ describe("ensureConfig", () => {
     expect(() => ensureConfig()).toThrow(/invalid config/);
   });
 
-  it("throws when notifications.enabledEventTypes has unsupported events", () => {
+  it("throws with missing key list and regenerate guidance when required generated keys are missing", () => {
     setConfigFile({
-      ...defaultConfig,
-      notifications: {
-        ...defaultConfig.notifications,
-        enabledEventTypes: ["pane.error"],
-      },
+      multiplexer: { backend: "wezterm" },
+      screen: { image: { backend: "wezterm" } },
+      dangerKeys: ["C-c", "C-d", "C-z"],
+      launch: configDefaults.launch,
+      usagePricing: { providers: configDefaults.usagePricing.providers },
     });
 
-    expect(() => ensureConfig()).toThrow(/invalid config/);
+    expect(() => ensureConfig()).toThrowError(
+      /config is missing required generated keys: .*config\.yml/s,
+    );
+    expect(() => ensureConfig()).toThrow(/dangerCommandPatterns/);
+    expect(() => ensureConfig()).toThrow(/workspaceTabs\.displayMode/);
+    expect(() => ensureConfig()).toThrow(/vde-monitor config regenerate/);
+  });
+});
+
+describe("regenerateConfig", () => {
+  it("overwrites config and restores missing required generated keys", () => {
+    setConfigFile({
+      multiplexer: { backend: "wezterm" },
+      dangerKeys: ["C-c", "C-d", "C-z"],
+      launch: configDefaults.launch,
+      usagePricing: { providers: configDefaults.usagePricing.providers },
+      workspaceTabs: { displayMode: "all" },
+    });
+
+    const result = regenerateConfig();
+
+    expect(result.configPath).toBe(configPath);
+    expect(result.config).toEqual({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "wezterm" },
+    });
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "wezterm" },
+    });
+
+    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
+    expect(writtenPaths).toEqual([configPath]);
+  });
+
+  it("ignores project override while regenerating global config", () => {
+    setConfigFile(expectedGeneratedTemplate);
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
+    setFile("/mock/repo/.vde/monitor/config.yml", "{");
+
+    const result = regenerateConfig();
+
+    expect(result.config).toEqual(expectedGeneratedTemplate);
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
+  });
+});
+
+describe("initConfig", () => {
+  it("creates initial generated config only when no config exists", () => {
+    const result = initConfig();
+
+    expect(result).toEqual({ created: true, configPath });
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
+
+    const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
+    expect(writtenPaths).toEqual([configPath]);
+  });
+
+  it("does not overwrite when config already exists", () => {
+    setFile("/mock/config/config.json", `${JSON.stringify({ port: 18080 }, null, 2)}\n`);
+
+    const result = initConfig();
+
+    expect(result).toEqual({
+      created: false,
+      configPath: path.resolve("/mock/config/config.json"),
+    });
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("ignores project override while creating initial global config", () => {
+    setDirectory("/mock/repo/.git");
+    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
+    setFile("/mock/repo/.vde/monitor/config.yml", "{");
+
+    const result = initConfig();
+
+    expect(result).toEqual({ created: true, configPath });
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
   });
 });
 
 describe("rotateToken", () => {
   it("rotates token and persists only the new token", () => {
-    setConfigFile(defaultConfig);
+    setConfigFile(expectedGeneratedTemplate);
     setTokenFile("old-token");
 
     const result = rotateToken();

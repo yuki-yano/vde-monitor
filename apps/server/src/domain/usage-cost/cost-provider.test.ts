@@ -1,4 +1,4 @@
-import { defaultConfig } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
 import { createUsageCostProvider } from "./cost-provider";
@@ -7,15 +7,15 @@ import type { UsagePricingSource, UsageTokenSource } from "./types";
 const baseNow = new Date("2026-02-23T00:00:00.000Z");
 
 const createPricingConfig = () => ({
-  ...defaultConfig.usagePricing,
+  currency: "USD" as const,
   providers: {
-    ...defaultConfig.usagePricing.providers,
+    ...configDefaults.usagePricing.providers,
     codex: {
-      ...defaultConfig.usagePricing.providers.codex,
+      ...configDefaults.usagePricing.providers.codex,
       enabled: true,
     },
     claude: {
-      ...defaultConfig.usagePricing.providers.claude,
+      ...configDefaults.usagePricing.providers.claude,
       enabled: true,
     },
   },

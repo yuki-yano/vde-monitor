@@ -188,10 +188,15 @@ Notes:
 ### Utility commands
 
 ```bash
+npx vde-monitor@latest config init
+npx vde-monitor@latest config regenerate
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 ```
+
+- `config init`: create initial generated config only when no global config file exists
+- `config regenerate`: overwrite existing global config with regenerated required template
 
 ## Configuration
 
@@ -218,91 +223,41 @@ Project config discovery:
 - walks up to git root (`.git`) and stops there
 - outside a repository, only current directory is checked
 
-`fileNavigator.includeIgnoredPaths` policy:
+Auto-generated required settings (`config.yml`):
 
-- ignored paths stay hidden by default
-- ignored paths become visible only when matching `includeIgnoredPaths`
-- applies to tree/search/content and log file-reference resolution
+| Key                                     | Default                     | Meaning                                                 |
+| --------------------------------------- | --------------------------- | ------------------------------------------------------- |
+| `multiplexer.backend`                   | `tmux`                      | Multiplexer backend (`tmux` or `wezterm`)               |
+| `screen.image.backend`                  | `terminal`                  | Image capture backend on macOS                          |
+| `dangerKeys`                            | `["C-c","C-d","C-z"]`       | Blocked danger keys                                     |
+| `dangerCommandPatterns`                 | existing default regex list | Regex list for dangerous command detection              |
+| `launch.agents.codex.options`           | `[]`                        | Default options for Codex launch                        |
+| `launch.agents.claude.options`          | `[]`                        | Default options for Claude launch                       |
+| `usagePricing.providers.codex.enabled`  | `true`                      | Enable Codex cost calculation                           |
+| `usagePricing.providers.claude.enabled` | `true`                      | Enable Claude cost calculation                          |
+| `workspaceTabs.displayMode`             | `all`                       | Mobile workspace tabs display mode (`all`/`pwa`/`none`) |
 
-`notifications` policy:
+Configurable but optional settings (if omitted, runtime defaults are used):
 
-- `notifications.pushEnabled`: global master switch for push notification delivery
-  - when `false`, the server rejects new subscription upserts
-  - clients switch to disabled state on the next settings sync
-- `notifications.enabledEventTypes`: global event filter
-  - allowed values: `pane.waiting_permission`, `pane.task_completed`
-  - must be non-empty when provided
-
-`workspaceTabs.displayMode` policy:
-
-- `all` (default): show mobile workspace tabs in both browser and installed PWA
-- `pwa`: show mobile workspace tabs only in installed PWA mode
-- `none`: disable mobile workspace tabs
-- tabs are mobile-only (`max-width: 767px`) regardless of display mode
-
-`usagePricing` (Usage Dashboard billing/cost) policy:
-
-- `usagePricing.currency`: currently fixed to `USD` (default: `USD`)
-- `usagePricing.providers.codex.enabled`: enable cost calculation for Codex (default: `true`)
-- `usagePricing.providers.claude.enabled`: enable cost calculation for Claude (default: `true`)
-
-Minimal global config example:
-
-```yaml
-bind: 127.0.0.1
-port: 11080
-allowedOrigins: []
-rateLimit:
-  send: { windowMs: 1000, max: 10 }
-  screen: { windowMs: 1000, max: 10 }
-  raw: { windowMs: 1000, max: 200 }
-screen:
-  mode: text
-  image:
-    enabled: true
-    backend: terminal
-    format: png
-    cropPane: true
-    timeoutMs: 5000
-multiplexer:
-  backend: tmux
-  wezterm:
-    cliPath: wezterm
-    target: auto
-notifications:
-  pushEnabled: true
-  enabledEventTypes:
-    - pane.waiting_permission
-    - pane.task_completed
-usagePricing:
-  currency: USD
-  providers:
-    codex:
-      enabled: true
-    claude:
-      enabled: true
-workspaceTabs:
-  displayMode: all
-tmux:
-  socketName: null
-  socketPath: null
-  primaryClient: null
-```
-
-Project-local override example (`<repo-root>/.vde/monitor/config.yml`):
-
-```yaml
-fileNavigator:
-  includeIgnoredPaths:
-    - ai/**
-  autoExpandMatchLimit: 150
-```
-
-Supported multiplexer backends:
-`tmux`, `wezterm`
-
-Supported image backends:
-`alacritty`, `terminal`, `iterm`, `wezterm`, `ghostty`
+| Key                                  | Default                                             |
+| ------------------------------------ | --------------------------------------------------- |
+| `bind`                               | `127.0.0.1`                                         |
+| `port`                               | `11080`                                             |
+| `allowedOrigins`                     | `[]`                                                |
+| `activity.pollIntervalMs`            | `1000`                                              |
+| `activity.runningThresholdMs`        | `5000`                                              |
+| `screen.maxLines`                    | `2000`                                              |
+| `screen.highlightCorrection.codex`   | `true`                                              |
+| `screen.highlightCorrection.claude`  | `true`                                              |
+| `multiplexer.wezterm.cliPath`        | `wezterm`                                           |
+| `multiplexer.wezterm.target`         | `auto`                                              |
+| `notifications.pushEnabled`          | `true`                                              |
+| `notifications.enabledEventTypes`    | `["pane.waiting_permission","pane.task_completed"]` |
+| `fileNavigator.includeIgnoredPaths`  | `[]`                                                |
+| `fileNavigator.autoExpandMatchLimit` | `100`                                               |
+| `tmux.socketName`                    | `null`                                              |
+| `tmux.socketPath`                    | `null`                                              |
+| `tmux.primaryClient`                 | `null`                                              |
 
 ## Platform behavior
 

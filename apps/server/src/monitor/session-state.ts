@@ -5,7 +5,6 @@ import type { AgentType } from "./agent-resolver-utils";
 
 type ActivityThresholds = {
   runningThresholdMs: number;
-  inactiveThresholdMs: number;
 };
 
 type EstimateSessionStateArgs = {
@@ -30,7 +29,7 @@ export const estimateSessionState = ({
     hookState,
     thresholds: {
       runningThresholdMs,
-      inactiveThresholdMs: activity.inactiveThresholdMs,
+      inactiveThresholdMs: 60000,
     },
   });
 };

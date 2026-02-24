@@ -690,46 +690,27 @@ export type UsagePricingConfig = {
   providers: Record<"codex" | "claude", UsagePricingProviderRule>;
 };
 
-export type AgentMonitorConfigBase = {
+export type ResolvedUsagePricingConfig = {
+  providers: Record<"codex" | "claude", UsagePricingProviderRule>;
+};
+
+export type ResolvedConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
   allowedOrigins: string[];
-  rateLimit: {
-    send: { windowMs: number; max: number };
-    screen: { windowMs: number; max: number };
-    raw: { windowMs: number; max: number };
-  };
   dangerKeys: string[];
   dangerCommandPatterns: string[];
   activity: {
     pollIntervalMs: number;
-    vwGhRefreshIntervalMs: number;
     runningThresholdMs: number;
-    inactiveThresholdMs: number;
   };
-  hooks: {
-    ttyCacheTtlMs: number;
-    ttyCacheMax: number;
-  };
-  input: { maxTextLength: number; enterKey: string; enterDelayMs: number };
   screen: {
-    mode: "text" | "image";
-    defaultLines: number;
     maxLines: number;
-    includeTruncated: boolean;
-    joinLines: boolean;
-    ansi: boolean;
-    altScreen: "auto" | "on" | "off";
     highlightCorrection: HighlightCorrectionConfig;
     image: {
-      enabled: boolean;
       backend: "alacritty" | "terminal" | "iterm" | "wezterm" | "ghostty";
-      format: "png";
-      cropPane: boolean;
-      timeoutMs: number;
     };
   };
-  logs: { maxPaneLogBytes: number; maxEventLogBytes: number; retainRotations: number };
   multiplexer: {
     backend: "tmux" | "wezterm";
     wezterm: {
@@ -742,7 +723,7 @@ export type AgentMonitorConfigBase = {
     pushEnabled: boolean;
     enabledEventTypes: ConfigPushEventType[];
   };
-  usagePricing: UsagePricingConfig;
+  usagePricing: ResolvedUsagePricingConfig;
   workspaceTabs: {
     displayMode: WorkspaceTabsDisplayMode;
   };
@@ -750,11 +731,37 @@ export type AgentMonitorConfigBase = {
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
 };
 
-export type AgentMonitorConfig = AgentMonitorConfigBase & {
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends (infer U)[] ? U[] : T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
+export type UserConfigReadable = DeepPartial<ResolvedConfig>;
+
+export type GeneratedConfigTemplate = {
+  multiplexer: {
+    backend: ResolvedConfig["multiplexer"]["backend"];
+  };
+  screen: {
+    image: {
+      backend: ResolvedConfig["screen"]["image"]["backend"];
+    };
+  };
+  dangerKeys: string[];
+  dangerCommandPatterns: string[];
+  launch: LaunchConfig;
+  usagePricing: {
+    providers: ResolvedUsagePricingConfig["providers"];
+  };
+  workspaceTabs: {
+    displayMode: WorkspaceTabsDisplayMode;
+  };
+};
+
+export type AgentMonitorConfig = ResolvedConfig & {
   token: string;
 };
 
-export type AgentMonitorConfigFile = AgentMonitorConfigBase;
+export type AgentMonitorConfigFile = ResolvedConfig;
 
 export type PaneMeta = {
   paneId: string;

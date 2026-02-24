@@ -1,4 +1,3 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import { createPaneLogManager } from "./pane-log-manager";
@@ -18,13 +17,9 @@ describe("pane-log-manager", () => {
       attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
     };
     const logActivity = { register: vi.fn() };
-    const config = {
-      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
-    } as AgentMonitorConfig;
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      config,
       pipeSupport: "tmux-pipe",
       pipeManager,
       logActivity,
@@ -62,13 +57,9 @@ describe("pane-log-manager", () => {
       attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
     };
     const logActivity = { register: vi.fn() };
-    const config = {
-      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
-    } as AgentMonitorConfig;
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      config,
       pipeSupport: "tmux-pipe",
       pipeManager,
       logActivity,
@@ -113,13 +104,9 @@ describe("pane-log-manager", () => {
       attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
     };
     const logActivity = { register: vi.fn() };
-    const config = {
-      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
-    } as AgentMonitorConfig;
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      config,
       pipeSupport: "tmux-pipe",
       pipeManager,
       logActivity,
@@ -156,13 +143,9 @@ describe("pane-log-manager", () => {
       attachPipe: vi.fn(async () => ({ attached: false, conflict: true })),
     };
     const logActivity = { register: vi.fn() };
-    const config = {
-      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
-    } as AgentMonitorConfig;
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      config,
       pipeSupport: "tmux-pipe",
       pipeManager,
       logActivity,
@@ -190,13 +173,9 @@ describe("pane-log-manager", () => {
       attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
     };
     const logActivity = { register: vi.fn() };
-    const config = {
-      logs: { maxPaneLogBytes: 10, retainRotations: 1 },
-    } as AgentMonitorConfig;
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      config,
       pipeSupport: "none",
       pipeManager,
       logActivity,
