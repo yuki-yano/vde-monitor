@@ -316,6 +316,7 @@ Quality checks:
 
 ```bash
 pnpm run ci
+pnpm run ci:diff
 pnpm run ci:fix
 pnpm test
 pnpm test:run
