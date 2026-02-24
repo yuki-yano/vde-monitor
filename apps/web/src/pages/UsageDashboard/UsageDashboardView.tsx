@@ -1075,7 +1075,6 @@ export const UsageDashboardView = ({
             </div>
           </section>
         </GlowCard>
-
       </div>
     </main>
   );
