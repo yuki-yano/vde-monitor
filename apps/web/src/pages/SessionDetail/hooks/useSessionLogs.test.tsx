@@ -309,5 +309,8 @@ describe("useSessionLogs", () => {
     );
 
     expect(result.current.selectedLogLines).toEqual(["cached1", "cached2"]);
+    await waitFor(() => {
+      expect(result.current.selectedLogLoading).toBe(true);
+    });
   });
 });

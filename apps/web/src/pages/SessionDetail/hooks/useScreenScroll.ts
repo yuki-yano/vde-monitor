@@ -104,16 +104,18 @@ export const useScreenScroll = ({
     const prevMode = prevModeRef.current;
     if (prevMode === "image" && mode === "text") {
       snapToBottomRef.current = true;
+      setIsAtBottom(true);
     }
     prevModeRef.current = mode;
-  }, [mode]);
+  }, [mode, setIsAtBottom]);
 
   useEffect(() => {
     if (prevPaneIdRef.current !== paneId) {
       snapToBottomRef.current = true;
+      setIsAtBottom(true);
       prevPaneIdRef.current = paneId;
     }
-  }, [paneId]);
+  }, [paneId, setIsAtBottom]);
 
   useLayoutEffect(() => {
     if (!snapToBottomRef.current || mode !== "text" || screenLinesLength === 0) {

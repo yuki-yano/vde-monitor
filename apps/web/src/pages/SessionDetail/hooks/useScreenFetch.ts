@@ -108,12 +108,17 @@ export const useScreenFetch = ({
   );
 
   const updateImageScreen = useCallback(
-    (nextImage: string | null) => {
+    (nextImage: string | null, immediateCommit: boolean) => {
       if (imageRef.current !== nextImage || screenRef.current !== "") {
-        startTransition(() => {
+        if (immediateCommit) {
           setImageBase64(nextImage);
           setScreen("");
-        });
+        } else {
+          startTransition(() => {
+            setImageBase64(nextImage);
+            setScreen("");
+          });
+        }
         imageRef.current = nextImage;
         screenRef.current = "";
         pendingScreenRef.current = null;
@@ -128,6 +133,7 @@ export const useScreenFetch = ({
       nextLines: string[],
       nextCursor: string | null,
       suppressRender: boolean,
+      immediateCommit: boolean,
     ) => {
       screenLinesRef.current = nextLines;
       cursorRef.current = nextCursor;
@@ -136,10 +142,15 @@ export const useScreenFetch = ({
         return;
       }
       if (screenRef.current !== nextScreen || imageRef.current != null) {
-        startTransition(() => {
+        if (immediateCommit) {
           setScreen(nextScreen);
           setImageBase64(null);
-        });
+        } else {
+          startTransition(() => {
+            setScreen(nextScreen);
+            setImageBase64(null);
+          });
+        }
         screenRef.current = nextScreen;
         imageRef.current = null;
         pendingScreenRef.current = null;
@@ -149,12 +160,12 @@ export const useScreenFetch = ({
   );
 
   const applyTextResponse = useCallback(
-    (response: ScreenResponse, suppressRender: boolean) => {
+    (response: ScreenResponse, suppressRender: boolean, immediateCommit: boolean) => {
       const nextCursor = response.cursor ?? null;
       if (shouldUseFullResponse(response)) {
         const nextScreen = response.screen ?? "";
         const nextLines = normalizeScreenText(nextScreen).split("\n");
-        updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender);
+        updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender, immediateCommit);
         return;
       }
       const applied = applyScreenDeltas(screenLinesRef.current, response.deltas ?? []);
@@ -164,7 +175,7 @@ export const useScreenFetch = ({
       }
       const nextLines = applied.lines;
       const nextScreen = nextLines.join("\n");
-      updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender);
+      updateTextScreen(nextScreen, nextLines, nextCursor, suppressRender, immediateCommit);
     },
     [cursorRef, screenLinesRef, updateTextScreen],
   );
@@ -190,11 +201,14 @@ export const useScreenFetch = ({
   );
 
   const beginRefreshAttempt = useCallback((): ScreenFetchLifecycleAttempt | null => {
+    const hasCurrentData =
+      mode === "image" ? imageRef.current != null : screenRef.current.length > 0;
     const nextLifecycle = applyRefreshLifecycleAction({
       type: "request",
       mode,
       modeSwitch: modeSwitchRef.current,
       modeLoaded: modeLoadedRef.current,
+      hasCurrentData,
     });
     const attempt = nextLifecycle.latestAttempt;
     if (!attempt) {
@@ -208,23 +222,25 @@ export const useScreenFetch = ({
   }, [
     applyRefreshLifecycleAction,
     dispatchScreenLoading,
+    imageRef,
     mode,
     modeLoadedRef,
     modeSwitchRef,
+    screenRef,
     setError,
   ]);
 
   const applyRefreshResponse = useCallback(
-    (response: ScreenResponse, suppressRender: boolean) => {
+    (response: ScreenResponse, suppressRender: boolean, immediateCommit: boolean) => {
       if (!response.ok) {
         setError(response.error?.message ?? API_ERROR_MESSAGES.screenCapture);
         return;
       }
       setFallbackReason(response.fallbackReason ?? null);
       if (response.mode === "image") {
-        updateImageScreen(response.imageBase64 ?? null);
+        updateImageScreen(response.imageBase64 ?? null, immediateCommit);
       } else {
-        applyTextResponse(response, suppressRender);
+        applyTextResponse(response, suppressRender, immediateCommit);
       }
       onModeLoaded(mode);
     },
@@ -263,7 +279,7 @@ export const useScreenFetch = ({
         return;
       }
       const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
-      applyRefreshResponse(response, suppressRender);
+      applyRefreshResponse(response, suppressRender, attempt.shouldShowLoading);
     } catch (err) {
       setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.screenRequestFailed));
     } finally {

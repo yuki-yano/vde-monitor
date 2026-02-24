@@ -1,7 +1,15 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
-import { forwardRef, type HTMLAttributes, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  forwardRef,
+  type HTMLAttributes,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { Button, Callout, Card, IconButton, Toolbar } from "@/components/ui";
@@ -44,6 +52,9 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
   const [displayLines, setDisplayLines] = useAtom(logModalDisplayLinesAtom);
   const pendingLinesRef = useRef<string[] | null>(null);
   const isUserScrollingRef = useRef(false);
+  const shouldSnapOnNextLinesRef = useRef(false);
+  const prevOpenRef = useRef(open);
+  const prevSessionPaneIdRef = useRef<string | null>(session?.paneId ?? null);
   const handleUserScrollStateChange = useCallback(
     (value: boolean) => {
       isUserScrollingRef.current = value;
@@ -86,18 +97,20 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
   }, [scrollerRef]);
 
   useEffect(() => {
-    if (open && displayLines.length > 0) {
-      // モーダルが開いたときに一番下にスクロール
-      const timer = setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: displayLines.length - 1,
-          behavior: "auto",
-          align: "end",
-        });
-      }, 50);
-      return () => clearTimeout(timer);
+    if (!open) {
+      prevOpenRef.current = false;
+      return;
     }
-  }, [open, displayLines.length]);
+    const currentPaneId = session?.paneId ?? null;
+    const didOpenNow = !prevOpenRef.current;
+    const paneChanged = prevSessionPaneIdRef.current !== currentPaneId;
+    if (didOpenNow || paneChanged) {
+      shouldSnapOnNextLinesRef.current = true;
+      setIsAtBottom(true);
+    }
+    prevOpenRef.current = true;
+    prevSessionPaneIdRef.current = currentPaneId;
+  }, [open, session?.paneId, setIsAtBottom]);
 
   useEffect(() => {
     if (!open) {
@@ -112,20 +125,34 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     pendingLinesRef.current = null;
   }, [logLines, open, setDisplayLines]);
 
-  const scrollToBottom = () => {
-    virtuosoRef.current?.scrollToIndex({
-      index: displayLines.length - 1,
-      behavior: "smooth",
-      align: "end",
-    });
-    if (scrollerRef.current) {
-      scrollerRef.current.scrollTo({
-        top: scrollerRef.current.scrollHeight,
-        left: 0,
-        behavior: "smooth",
+  const scrollToBottom = useCallback(
+    (behavior: "auto" | "smooth" = "smooth") => {
+      if (displayLines.length === 0) {
+        return;
+      }
+      virtuosoRef.current?.scrollToIndex({
+        index: displayLines.length - 1,
+        behavior,
+        align: "end",
       });
+      if (scrollerRef.current) {
+        scrollerRef.current.scrollTo({
+          top: scrollerRef.current.scrollHeight,
+          left: 0,
+          behavior,
+        });
+      }
+    },
+    [displayLines.length, scrollerRef],
+  );
+
+  useLayoutEffect(() => {
+    if (!open || displayLines.length === 0 || !shouldSnapOnNextLinesRef.current) {
+      return;
     }
-  };
+    scrollToBottom("auto");
+    shouldSnapOnNextLinesRef.current = false;
+  }, [displayLines.length, open, scrollToBottom]);
 
   if (!open || !session) return null;
 

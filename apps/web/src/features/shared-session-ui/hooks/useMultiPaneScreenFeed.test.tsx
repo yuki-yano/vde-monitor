@@ -116,6 +116,39 @@ describe("useMultiPaneScreenFeed", () => {
     });
   });
 
+  it("skips initial poll when fetchOnMount is disabled", async () => {
+    const requestScreen = vi.fn<RequestScreen>().mockResolvedValue({
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "line",
+    });
+    const wrapper = createWrapper("multi-pane-feed-fetch-on-mount-disabled");
+
+    renderHook(
+      () =>
+        useMultiPaneScreenFeed({
+          paneIds: ["pane-1"],
+          retainedPaneIds: ["pane-1"],
+          enabled: true,
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+          cacheKey: "multi-pane-feed-fetch-on-mount-disabled",
+          intervalMs: 1000,
+          fetchOnMount: false,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(requestScreen).not.toHaveBeenCalled();
+  });
+
   it("skips polling when shouldPoll returns false", async () => {
     vi.useFakeTimers();
     const requestScreen = vi.fn<RequestScreen>().mockResolvedValue({

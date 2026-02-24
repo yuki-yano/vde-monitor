@@ -72,6 +72,42 @@ describe("useScreenFetch", () => {
     });
   });
 
+  it("starts loading when mode is loaded but current text is empty", async () => {
+    const dispatchScreenLoading = vi.fn();
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+
+    setup({
+      requestScreen,
+      modeLoadedRef: { current: { text: true, image: true } },
+      screenRef: { current: "" },
+      dispatchScreenLoading,
+    });
+
+    await waitFor(() => {
+      expect(requestScreen).toHaveBeenCalledTimes(1);
+    });
+
+    expect(dispatchScreenLoading).toHaveBeenCalledWith({ type: "start", mode: "text" });
+  });
+
+  it("does not start loading when mode is loaded and current text exists", async () => {
+    const dispatchScreenLoading = vi.fn();
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+
+    setup({
+      requestScreen,
+      modeLoadedRef: { current: { text: true, image: true } },
+      screenRef: { current: "existing-screen" },
+      dispatchScreenLoading,
+    });
+
+    await waitFor(() => {
+      expect(requestScreen).toHaveBeenCalledTimes(1);
+    });
+
+    expect(dispatchScreenLoading).not.toHaveBeenCalledWith({ type: "start", mode: "text" });
+  });
+
   it("ignores stale responses when mode changes mid-flight", async () => {
     let resolveFirst: ((value: ScreenResponse) => void) | undefined;
     let resolveSecond: ((value: ScreenResponse) => void) | undefined;

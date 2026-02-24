@@ -32,6 +32,7 @@ type UseMultiPaneScreenFeedParams = {
     requestFailed: string;
   };
   shouldPoll?: () => boolean;
+  fetchOnMount?: boolean;
 };
 
 const normalizePaneIds = (paneIds: string[]) =>
@@ -72,6 +73,7 @@ export const useMultiPaneScreenFeed = ({
   cacheKey = "default",
   errorMessages,
   shouldPoll,
+  fetchOnMount = true,
 }: UseMultiPaneScreenFeedParams) => {
   const paneIdsSignature = paneIds.join("\u0000");
   const normalizedPaneIds = useMemo(
@@ -135,11 +137,11 @@ export const useMultiPaneScreenFeed = ({
   });
 
   useEffect(() => {
-    if (!canPoll() || normalizedPaneIds.length === 0) {
+    if (!fetchOnMount || !canPoll() || normalizedPaneIds.length === 0) {
       return;
     }
     void pollNow();
-  }, [canPoll, normalizedPaneIds.length, pollNow]);
+  }, [canPoll, fetchOnMount, normalizedPaneIds.length, pollNow]);
 
   useEffect(() => {
     const activePaneIds = new Set(normalizedRetainedPaneIds);

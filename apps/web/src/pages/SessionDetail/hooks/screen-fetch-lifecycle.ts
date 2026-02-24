@@ -28,6 +28,7 @@ export type ScreenFetchLifecycleAction =
       mode: ScreenMode;
       modeSwitch: ScreenMode | null;
       modeLoaded: ScreenFetchModeLoadedState;
+      hasCurrentData: boolean;
     }
   | { type: "finish"; requestId: number }
   | { type: "reset" };
@@ -51,7 +52,8 @@ export const screenFetchLifecycleReducer = (
     }
     const requestId = state.nextRequestId;
     const isModeSwitch = action.modeSwitch === action.mode;
-    const shouldShowLoading = isModeSwitch || !action.modeLoaded[action.mode];
+    const shouldShowLoading =
+      isModeSwitch || !action.modeLoaded[action.mode] || !action.hasCurrentData;
     return {
       inFlight: {
         id: requestId,

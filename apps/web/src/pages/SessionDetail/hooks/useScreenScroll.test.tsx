@@ -243,4 +243,30 @@ describe("useScreenScroll", () => {
       behavior: "auto",
     });
   });
+
+  it("resets at-bottom state when pane changes", () => {
+    const isUserScrollingRef = { current: false };
+    const onFlushPending = vi.fn();
+    const onClearPending = vi.fn();
+
+    const wrapper = createWrapper(false);
+    const { result, rerender } = renderHook(
+      ({ paneId }: { paneId: string }) =>
+        useScreenScroll({
+          paneId,
+          mode: "text",
+          screenLinesLength: 0,
+          isUserScrollingRef,
+          onFlushPending,
+          onClearPending,
+        }),
+      { initialProps: { paneId: "pane-1" }, wrapper },
+    );
+
+    expect(result.current.isAtBottom).toBe(false);
+
+    rerender({ paneId: "pane-2" });
+
+    expect(result.current.isAtBottom).toBe(true);
+  });
 });

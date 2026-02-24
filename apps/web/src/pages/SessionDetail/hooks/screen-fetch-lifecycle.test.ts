@@ -12,6 +12,7 @@ describe("screenFetchLifecycleReducer", () => {
       mode: "text",
       modeSwitch: "text",
       modeLoaded: { text: false, image: false },
+      hasCurrentData: false,
     });
 
     expect(next.inFlight).toEqual({
@@ -26,12 +27,25 @@ describe("screenFetchLifecycleReducer", () => {
     });
   });
 
+  it("shows loading when current mode has no cached data", () => {
+    const next = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
+      type: "request",
+      mode: "text",
+      modeSwitch: null,
+      modeLoaded: { text: true, image: true },
+      hasCurrentData: false,
+    });
+
+    expect(next.latestAttempt?.shouldShowLoading).toBe(true);
+  });
+
   it("does not start a new request while same mode request is in flight", () => {
     const loadingState = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
       type: "request",
       mode: "image",
       modeSwitch: null,
       modeLoaded: { text: true, image: true },
+      hasCurrentData: true,
     });
 
     const next = screenFetchLifecycleReducer(loadingState, {
@@ -39,6 +53,7 @@ describe("screenFetchLifecycleReducer", () => {
       mode: "image",
       modeSwitch: null,
       modeLoaded: { text: true, image: true },
+      hasCurrentData: true,
     });
 
     expect(next.inFlight).toEqual(loadingState.inFlight);
@@ -52,6 +67,7 @@ describe("screenFetchLifecycleReducer", () => {
       mode: "image",
       modeSwitch: null,
       modeLoaded: { text: true, image: true },
+      hasCurrentData: true,
     });
 
     const unchanged = screenFetchLifecycleReducer(loadingState, {
@@ -75,6 +91,7 @@ describe("screenFetchLifecycleReducer", () => {
       mode: "text",
       modeSwitch: null,
       modeLoaded: { text: true, image: false },
+      hasCurrentData: true,
     });
 
     const reset = screenFetchLifecycleReducer(loadingState, {

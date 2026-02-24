@@ -91,6 +91,7 @@ export const useSessionLogs = ({
     connectionIssue,
     requestScreen,
     cacheKey: "logs",
+    fetchOnMount: false,
     errorMessages: {
       load: API_ERROR_MESSAGES.logLoad,
       requestFailed: API_ERROR_MESSAGES.logRequestFailed,
@@ -126,7 +127,7 @@ export const useSessionLogs = ({
 
   const fetchLog = useCallback(
     async (paneId: string) => {
-      await fetchPane(paneId, { loading: "if-empty" });
+      await fetchPane(paneId, { loading: "always" });
     },
     [fetchPane],
   );
