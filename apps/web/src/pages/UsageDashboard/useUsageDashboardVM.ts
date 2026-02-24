@@ -1,15 +1,20 @@
+import { useNavigate } from "@tanstack/react-router";
 import type {
   SessionStateTimelineRange,
   UsageDashboardResponse,
   UsageGlobalTimelineResponse,
   UsageIssue,
 } from "@vde-monitor/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
+import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 import { useSessions } from "@/state/session-context";
+import { useTheme } from "@/state/theme-context";
 import { useUsageApi } from "@/state/use-usage-api";
 
 const DASHBOARD_POLL_INTERVAL_MS = 30_000;
@@ -66,7 +71,18 @@ const mergeDashboardCore = (
 };
 
 export const useUsageDashboardVM = () => {
-  const { token, apiBaseUrl } = useSessions();
+  const {
+    token,
+    apiBaseUrl,
+    sessions,
+    connected,
+    connectionIssue,
+    requestScreen,
+    highlightCorrections,
+  } = useSessions();
+  const navigate = useNavigate();
+  const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
+  const { resolvedTheme } = useTheme();
   const {
     requestUsageDashboard,
     requestUsageProviderBilling,
@@ -101,6 +117,27 @@ export const useUsageDashboardVM = () => {
   const nowMs = useNowMs(30_000);
 
   const canRequest = Boolean(token);
+  const quickPanelGroups = useMemo(() => buildSessionGroups(sessions), [sessions]);
+  const {
+    quickPanelOpen,
+    logModalOpen,
+    selectedPaneId,
+    selectedSession,
+    selectedLogLines,
+    selectedLogLoading,
+    selectedLogError,
+    openLogModal,
+    closeLogModal,
+    toggleQuickPanel,
+    closeQuickPanel,
+  } = useSessionLogs({
+    connected,
+    connectionIssue,
+    sessions,
+    requestScreen,
+    resolvedTheme,
+    highlightCorrections,
+  });
 
   const loadProviderBilling = useCallback(
     async ({
@@ -383,7 +420,44 @@ export const useUsageDashboardVM = () => {
     ]);
   }, [loadDashboard, loadTimeline, timelineRange]);
 
+  const handleOpenPaneInNewWindow = useCallback(
+    (targetPaneId: string) => {
+      closeQuickPanel();
+      closeLogModal();
+      if (pwaTabsEnabled) {
+        openSessionTab(targetPaneId);
+        return;
+      }
+      const encoded = encodeURIComponent(targetPaneId);
+      window.open(`/sessions/${encoded}`, "_blank", "noopener,noreferrer");
+    },
+    [closeLogModal, closeQuickPanel, openSessionTab, pwaTabsEnabled],
+  );
+
+  const handleOpenPaneHere = useCallback(
+    (targetPaneId: string) => {
+      closeQuickPanel();
+      closeLogModal();
+      void navigate({
+        to: "/sessions/$paneId",
+        params: { paneId: targetPaneId },
+      });
+    },
+    [closeLogModal, closeQuickPanel, navigate],
+  );
+
+  const handleOpenHere = useCallback(() => {
+    if (!selectedPaneId) return;
+    handleOpenPaneHere(selectedPaneId);
+  }, [handleOpenPaneHere, selectedPaneId]);
+
+  const handleOpenInNewTab = useCallback(() => {
+    if (!selectedPaneId) return;
+    handleOpenPaneInNewWindow(selectedPaneId);
+  }, [handleOpenPaneInNewWindow, selectedPaneId]);
+
   return {
+    sessions,
     dashboard,
     dashboardLoading,
     billingLoadingByProvider,
@@ -399,6 +473,21 @@ export const useUsageDashboardVM = () => {
       setCompactTimeline((current) => !current);
     },
     onRefreshAll: refreshAll,
+    quickPanelGroups,
+    quickPanelOpen,
+    logModalOpen,
+    selectedSession,
+    selectedLogLines,
+    selectedLogLoading,
+    selectedLogError,
+    onOpenLogModal: openLogModal,
+    onCloseLogModal: closeLogModal,
+    onToggleQuickPanel: toggleQuickPanel,
+    onCloseQuickPanel: closeQuickPanel,
+    onOpenPaneHere: handleOpenPaneHere,
+    onOpenPaneInNewWindow: handleOpenPaneInNewWindow,
+    onOpenHere: handleOpenHere,
+    onOpenNewTab: handleOpenInNewTab,
   };
 };
 

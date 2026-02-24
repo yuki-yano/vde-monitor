@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import * as pwaDisplayMode from "@/lib/pwa-display-mode";
 import { buildSessionGroups } from "@/lib/session-group";
 
 import { createSessionDetail } from "../test-helpers";
@@ -35,6 +36,45 @@ describe("QuickPanel", () => {
 
     fireEvent.click(screen.getByLabelText("Toggle session quick panel"));
     expect(onToggle).toHaveBeenCalled();
+  });
+
+  it("shows history controls only in pwa display mode", () => {
+    const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
+    isPwaDisplayModeSpy.mockReturnValue(false);
+    const state = buildState({ open: false });
+    const actions = buildActions();
+    const { rerender } = render(<QuickPanel state={state} actions={actions} />);
+
+    expect(screen.queryByLabelText("Go back")).toBeNull();
+    expect(screen.queryByLabelText("Go forward")).toBeNull();
+
+    isPwaDisplayModeSpy.mockReturnValue(true);
+    rerender(<QuickPanel state={state} actions={actions} />);
+
+    expect(screen.getByLabelText("Go back")).toBeTruthy();
+    expect(screen.getByLabelText("Go forward")).toBeTruthy();
+
+    isPwaDisplayModeSpy.mockRestore();
+  });
+
+  it("calls browser history methods from history controls", () => {
+    const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
+    const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    const forwardSpy = vi.spyOn(window.history, "forward").mockImplementation(() => undefined);
+    isPwaDisplayModeSpy.mockReturnValue(true);
+    const state = buildState({ open: false });
+    const actions = buildActions();
+    render(<QuickPanel state={state} actions={actions} />);
+
+    fireEvent.click(screen.getByLabelText("Go back"));
+    fireEvent.click(screen.getByLabelText("Go forward"));
+
+    expect(backSpy).toHaveBeenCalledTimes(1);
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+
+    isPwaDisplayModeSpy.mockRestore();
+    backSpy.mockRestore();
+    forwardSpy.mockRestore();
   });
 
   it("renders empty state when no sessions", () => {
@@ -226,6 +266,20 @@ describe("QuickPanel", () => {
     expect(onClose).not.toHaveBeenCalled();
 
     overlay.remove();
+  });
+
+  it("does not close when clicking history controls", () => {
+    const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
+    isPwaDisplayModeSpy.mockReturnValue(true);
+    const onClose = vi.fn();
+    const state = buildState({ open: true, sessionGroups: [] });
+    const actions = buildActions({ onClose });
+    render(<QuickPanel state={state} actions={actions} />);
+
+    fireEvent.pointerDown(screen.getByLabelText("Go back"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    isPwaDisplayModeSpy.mockRestore();
   });
 
   it("uses window-level pane totals from all sessions", () => {

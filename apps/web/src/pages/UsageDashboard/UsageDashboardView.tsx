@@ -21,6 +21,8 @@ import {
   TabsTrigger,
   TagPill,
 } from "@/components/ui";
+import { LogModal } from "@/features/shared-session-ui/components/LogModal";
+import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
 import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
@@ -895,6 +897,7 @@ const timelineRangeTabs = (
 );
 
 export const UsageDashboardView = ({
+  sessions,
   dashboard,
   dashboardLoading,
   billingLoadingByProvider,
@@ -908,6 +911,21 @@ export const UsageDashboardView = ({
   onTimelineRangeChange,
   onToggleCompactTimeline,
   onRefreshAll,
+  quickPanelGroups,
+  quickPanelOpen,
+  logModalOpen,
+  selectedSession,
+  selectedLogLines,
+  selectedLogLoading,
+  selectedLogError,
+  onOpenLogModal,
+  onCloseLogModal,
+  onToggleQuickPanel,
+  onCloseQuickPanel,
+  onOpenPaneHere,
+  onOpenPaneInNewWindow,
+  onOpenHere,
+  onOpenNewTab,
 }: UsageDashboardVM) => {
   const timelineDisplay = useMemo(
     () =>
@@ -930,152 +948,190 @@ export const UsageDashboardView = ({
   const backToListSearch = { filter: readStoredSessionListFilter() };
 
   return (
-    <main className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:px-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
-        <div className="flex items-center justify-between gap-3">
-          <Link to="/" search={backToListSearch} className={backLinkClass}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to list
-          </Link>
-          <ThemeToggle />
-        </div>
-        <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur sm:p-6">
-          <div>
-            <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
-            <h1 className="font-display text-latte-text text-3xl font-semibold tracking-tight sm:text-4xl">
-              Usage Dashboard
-            </h1>
-            <p className="text-latte-subtext1 mt-1 text-sm">
-              Monitor Codex / Claude limits and usage pace.
-            </p>
+    <>
+      <main className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
+          <div className="flex items-center justify-between gap-3">
+            <Link to="/" search={backToListSearch} className={backLinkClass}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to list
+            </Link>
+            <ThemeToggle />
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={onRefreshAll}
-              aria-label="Refresh usage dashboard"
-              title="Refresh usage dashboard"
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5",
-                  (dashboardLoading || timelineLoading) && "animate-spin",
-                )}
-              />
-            </Button>
-          </div>
-        </header>
-
-        {dashboardError ? (
-          <Callout tone="error" size="sm">
-            {dashboardError}
-          </Callout>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ProviderQuotaSection
-            title="Codex"
-            provider={codexProvider}
-            nowMs={nowMs}
-            providerLoading={dashboardLoading}
-            billingLoading={billingLoadingByProvider.codex}
-          />
-          <ProviderQuotaSection
-            title="Claude"
-            provider={claudeProvider}
-            nowMs={nowMs}
-            providerLoading={dashboardLoading}
-            billingLoading={billingLoadingByProvider.claude}
-          />
-        </div>
-
-        <GlowCard contentClassName="gap-3">
-          <section>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-latte-text text-xl font-semibold">
-                Global State Timeline
-              </h2>
-              <p className="text-latte-subtext0 text-xs">
-                Aggregated across all sessions ({timeline?.paneCount ?? 0} total /{" "}
-                {timeline?.activePaneCount ?? 0} active)
+          <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur sm:p-6">
+            <div>
+              <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
+              <h1 className="font-display text-latte-text text-3xl font-semibold tracking-tight sm:text-4xl">
+                Usage Dashboard
+              </h1>
+              <p className="text-latte-subtext1 mt-1 text-sm">
+                Monitor Codex / Claude limits and usage pace.
               </p>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {timelineRangeTabs(timelineRange, onTimelineRangeChange)}
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={onToggleCompactTimeline}
-                className={cn(
-                  "transition-all duration-200",
-                  compactTimeline
-                    ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
-                    : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
-                )}
+                className="h-8 w-8 p-0"
+                onClick={onRefreshAll}
+                aria-label="Refresh usage dashboard"
+                title="Refresh usage dashboard"
               >
-                Compact
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    (dashboardLoading || timelineLoading) && "animate-spin",
+                  )}
+                />
               </Button>
             </div>
-            {timelineError ? (
-              <Callout tone="error" size="sm" className="mt-3">
-                {timelineError}
-              </Callout>
-            ) : null}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TagPill tone="meta">Waiting {formatDurationMs(waitingMs)}</TagPill>
-              <TagPill tone="meta">
-                Running {formatDurationMs(timelineDisplay.totalsMs.RUNNING)}
-              </TagPill>
-              {timeline?.fetchedAt ? (
-                <TagPill tone="meta">Updated {formatDateTime(timeline.fetchedAt)}</TagPill>
+          </header>
+
+          {dashboardError ? (
+            <Callout tone="error" size="sm">
+              {dashboardError}
+            </Callout>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <ProviderQuotaSection
+              title="Codex"
+              provider={codexProvider}
+              nowMs={nowMs}
+              providerLoading={dashboardLoading}
+              billingLoading={billingLoadingByProvider.codex}
+            />
+            <ProviderQuotaSection
+              title="Claude"
+              provider={claudeProvider}
+              nowMs={nowMs}
+              providerLoading={dashboardLoading}
+              billingLoading={billingLoadingByProvider.claude}
+            />
+          </div>
+
+          <GlowCard contentClassName="gap-3">
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-latte-text text-xl font-semibold">
+                  Global State Timeline
+                </h2>
+                <p className="text-latte-subtext0 text-xs">
+                  Aggregated across all sessions ({timeline?.paneCount ?? 0} total /{" "}
+                  {timeline?.activePaneCount ?? 0} active)
+                </p>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {timelineRangeTabs(timelineRange, onTimelineRangeChange)}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleCompactTimeline}
+                  className={cn(
+                    "transition-all duration-200",
+                    compactTimeline
+                      ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
+                      : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
+                  )}
+                >
+                  Compact
+                </Button>
+              </div>
+              {timelineError ? (
+                <Callout tone="error" size="sm" className="mt-3">
+                  {timelineError}
+                </Callout>
               ) : null}
-            </div>
-            <div className="border-latte-surface2 bg-latte-crust/70 mt-3 flex h-2 overflow-hidden rounded-full border">
-              {timelineSegments.length === 0 ? (
-                <div className="bg-latte-surface1/80 h-full w-full" />
-              ) : (
-                timelineSegments.map((segment) => (
-                  <div
-                    key={segment.item.id}
-                    className={SEGMENT_COLOR_CLASS[segment.item.state]}
-                    style={{ width: `${segment.width}%` }}
-                    title={`${formatStateLabel(segment.item.state)} (${formatDurationMs(segment.item.durationMs)})`}
-                  />
-                ))
-              )}
-            </div>
-            <div className="mt-3 space-y-1.5">
-              {timelineItems.length > 0 ? (
-                timelineItems.map((item) => (
-                  <PanelSection
-                    key={item.id}
-                    className="border-latte-surface2/60 rounded-2xl border"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Badge tone={stateTone(item.state)} size="sm" animateIcon={false}>
-                          {formatStateLabel(item.state)}
-                        </Badge>
-                        <span className="text-latte-subtext0 truncate text-xs">{item.reason}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <TagPill tone="meta">Waiting {formatDurationMs(waitingMs)}</TagPill>
+                <TagPill tone="meta">
+                  Running {formatDurationMs(timelineDisplay.totalsMs.RUNNING)}
+                </TagPill>
+                {timeline?.fetchedAt ? (
+                  <TagPill tone="meta">Updated {formatDateTime(timeline.fetchedAt)}</TagPill>
+                ) : null}
+              </div>
+              <div className="border-latte-surface2 bg-latte-crust/70 mt-3 flex h-2 overflow-hidden rounded-full border">
+                {timelineSegments.length === 0 ? (
+                  <div className="bg-latte-surface1/80 h-full w-full" />
+                ) : (
+                  timelineSegments.map((segment) => (
+                    <div
+                      key={segment.item.id}
+                      className={SEGMENT_COLOR_CLASS[segment.item.state]}
+                      style={{ width: `${segment.width}%` }}
+                      title={`${formatStateLabel(segment.item.state)} (${formatDurationMs(segment.item.durationMs)})`}
+                    />
+                  ))
+                )}
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {timelineItems.length > 0 ? (
+                  timelineItems.map((item) => (
+                    <PanelSection
+                      key={item.id}
+                      className="border-latte-surface2/60 rounded-2xl border"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Badge tone={stateTone(item.state)} size="sm" animateIcon={false}>
+                            {formatStateLabel(item.state)}
+                          </Badge>
+                          <span className="text-latte-subtext0 truncate text-xs">
+                            {item.reason}
+                          </span>
+                        </div>
+                        <TagPill tone="meta">{formatDurationMs(item.durationMs)}</TagPill>
                       </div>
-                      <TagPill tone="meta">{formatDurationMs(item.durationMs)}</TagPill>
-                    </div>
-                    <p className="text-latte-subtext0 mt-1 text-xs">
-                      {formatTime(item.startedAt)} - {formatTime(item.endedAt)}
-                    </p>
-                  </PanelSection>
-                ))
-              ) : (
-                <p className="text-latte-subtext0 text-sm">No timeline events in this range.</p>
-              )}
-            </div>
-          </section>
-        </GlowCard>
+                      <p className="text-latte-subtext0 mt-1 text-xs">
+                        {formatTime(item.startedAt)} - {formatTime(item.endedAt)}
+                      </p>
+                    </PanelSection>
+                  ))
+                ) : (
+                  <p className="text-latte-subtext0 text-sm">No timeline events in this range.</p>
+                )}
+              </div>
+            </section>
+          </GlowCard>
+        </div>
+      </main>
+
+      <div className="md:hidden">
+        <QuickPanel
+          state={{
+            open: quickPanelOpen,
+            sessionGroups: quickPanelGroups,
+            allSessions: sessions,
+            nowMs,
+            currentPaneId: null,
+          }}
+          actions={{
+            onOpenLogModal,
+            onOpenSessionLink: onOpenPaneHere,
+            onOpenSessionLinkInNewWindow: onOpenPaneInNewWindow,
+            onClose: onCloseQuickPanel,
+            onToggle: onToggleQuickPanel,
+          }}
+        />
       </div>
-    </main>
+
+      <LogModal
+        state={{
+          open: logModalOpen,
+          session: selectedSession,
+          logLines: selectedLogLines,
+          loading: selectedLogLoading,
+          error: selectedLogError,
+        }}
+        actions={{
+          onClose: onCloseLogModal,
+          onOpenHere,
+          onOpenNewTab,
+        }}
+      />
+    </>
   );
 };

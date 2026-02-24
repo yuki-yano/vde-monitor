@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { UsageProviderSnapshot } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import * as pwaDisplayMode from "@/lib/pwa-display-mode";
 
 import { UsageDashboardView } from "./UsageDashboardView";
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
@@ -87,6 +89,7 @@ const createProvider = (
 });
 
 const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM => ({
+  sessions: [],
   dashboard: {
     providers: [codexProvider, createProvider("claude", { windows: [] })],
     fetchedAt: "2026-02-24T12:00:00.000Z",
@@ -106,9 +109,60 @@ const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM
   onTimelineRangeChange: vi.fn(),
   onToggleCompactTimeline: vi.fn(),
   onRefreshAll: vi.fn(),
+  quickPanelGroups: [],
+  quickPanelOpen: false,
+  logModalOpen: false,
+  selectedSession: null,
+  selectedLogLines: [],
+  selectedLogLoading: false,
+  selectedLogError: null,
+  onOpenLogModal: vi.fn(),
+  onCloseLogModal: vi.fn(),
+  onToggleQuickPanel: vi.fn(),
+  onCloseQuickPanel: vi.fn(),
+  onOpenPaneHere: vi.fn(),
+  onOpenPaneInNewWindow: vi.fn(),
+  onOpenHere: vi.fn(),
+  onOpenNewTab: vi.fn(),
 });
 
 describe("UsageDashboardView", () => {
+  it("shows history controls only in pwa display mode", () => {
+    const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
+    const viewModel = createViewModel(createProvider("codex"));
+    isPwaDisplayModeSpy.mockReturnValue(false);
+    const { rerender } = render(<UsageDashboardView {...viewModel} />);
+
+    expect(screen.queryByLabelText("Go back")).toBeNull();
+    expect(screen.queryByLabelText("Go forward")).toBeNull();
+
+    isPwaDisplayModeSpy.mockReturnValue(true);
+    rerender(<UsageDashboardView {...viewModel} />);
+
+    expect(screen.getByLabelText("Go back")).toBeTruthy();
+    expect(screen.getByLabelText("Go forward")).toBeTruthy();
+
+    isPwaDisplayModeSpy.mockRestore();
+  });
+
+  it("calls browser history methods from history controls", () => {
+    const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
+    const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    const forwardSpy = vi.spyOn(window.history, "forward").mockImplementation(() => undefined);
+    isPwaDisplayModeSpy.mockReturnValue(true);
+    render(<UsageDashboardView {...createViewModel(createProvider("codex"))} />);
+
+    fireEvent.click(screen.getByLabelText("Go back"));
+    fireEvent.click(screen.getByLabelText("Go forward"));
+
+    expect(backSpy).toHaveBeenCalledTimes(1);
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+
+    isPwaDisplayModeSpy.mockRestore();
+    backSpy.mockRestore();
+    forwardSpy.mockRestore();
+  });
+
   it("hides session metric when capabilities.session is false", () => {
     const codex = createProvider("codex", {
       capabilities: {

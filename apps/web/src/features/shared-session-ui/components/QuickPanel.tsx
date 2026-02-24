@@ -1,4 +1,13 @@
-import { ArrowRight, Clock, ExternalLink, GitBranch, List, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  GitBranch,
+  List,
+  X,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Card, IconButton, LastInputPill, SurfaceButton, TagPill } from "@/components/ui";
@@ -11,6 +20,7 @@ import {
   type SessionWindowGroup,
 } from "@/features/shared-session-ui/model/session-window-group";
 import { cn } from "@/lib/cn";
+import { isPwaDisplayMode } from "@/lib/pwa-display-mode";
 import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "@/lib/quick-panel-utils";
 import { formatBranchLabel, formatRelativeTime, getLastInputTone } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
@@ -42,6 +52,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
     actions;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const pwaDisplayMode = isPwaDisplayMode();
 
   useEffect(() => {
     if (!open) {
@@ -59,6 +70,9 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
         return;
       }
       if (target.closest('[aria-label="Toggle session quick panel"]')) {
+        return;
+      }
+      if (target.closest("[data-quick-panel-history-controls]")) {
         return;
       }
       onClose();
@@ -334,15 +348,43 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           </div>
         </Card>
       )}
-      <IconButton
-        type="button"
-        onClick={onToggle}
-        variant="lavenderStrong"
-        size="lg"
-        aria-label="Toggle session quick panel"
-      >
-        <List className="h-5 w-5" />
-      </IconButton>
+      <div className="flex items-center gap-2">
+        <IconButton
+          type="button"
+          onClick={onToggle}
+          variant="lavenderStrong"
+          size="lg"
+          aria-label="Toggle session quick panel"
+        >
+          <List className="h-5 w-5" />
+        </IconButton>
+        {pwaDisplayMode && (
+          <div data-quick-panel-history-controls className="flex items-center gap-1.5">
+            <IconButton
+              type="button"
+              onClick={() => {
+                window.history.back();
+              }}
+              variant="lavender"
+              size="md"
+              aria-label="Go back"
+            >
+              <ChevronLeft className="h-[18px] w-[18px]" />
+            </IconButton>
+            <IconButton
+              type="button"
+              onClick={() => {
+                window.history.forward();
+              }}
+              variant="lavender"
+              size="md"
+              aria-label="Go forward"
+            >
+              <ChevronRight className="h-[18px] w-[18px]" />
+            </IconButton>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
