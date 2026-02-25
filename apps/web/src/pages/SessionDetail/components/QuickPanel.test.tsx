@@ -268,6 +268,24 @@ describe("QuickPanel", () => {
     overlay.remove();
   });
 
+  it("does not close when clicking inside log modal panel", () => {
+    const onClose = vi.fn();
+    const state = buildState({ open: true, sessionGroups: [] });
+    const actions = buildActions({ onClose });
+    render(<QuickPanel state={state} actions={actions} />);
+
+    const panel = document.createElement("div");
+    panel.setAttribute("data-log-modal-panel", "");
+    const button = document.createElement("button");
+    panel.append(button);
+    document.body.append(panel);
+
+    fireEvent.pointerDown(button);
+    expect(onClose).not.toHaveBeenCalled();
+
+    panel.remove();
+  });
+
   it("does not close when clicking history controls", () => {
     const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
     isPwaDisplayModeSpy.mockReturnValue(true);

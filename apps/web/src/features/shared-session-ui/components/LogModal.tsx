@@ -190,6 +190,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
           event.preventDefault();
           onClose();
         }}
+        data-log-modal-panel="true"
         data-testid="log-modal-panel"
         className="top-[50%] z-[111] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[min(760px,calc(100vw-1.5rem))]"
       >
