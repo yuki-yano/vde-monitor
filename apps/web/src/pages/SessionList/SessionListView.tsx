@@ -235,6 +235,7 @@ export const SessionListView = ({
         <SessionSidebar
           state={{
             sessionGroups: sidebarSessionGroups,
+            sidebarWidth,
             nowMs,
             connected,
             connectionIssue,

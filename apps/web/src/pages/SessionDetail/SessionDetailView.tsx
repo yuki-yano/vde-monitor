@@ -314,7 +314,10 @@ export const SessionDetailView = ({
         className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
         style={{ width: `${sidebarWidth}px` }}
       >
-        <SessionSidebar {...sessionSidebarProps} />
+        <SessionSidebar
+          {...sessionSidebarProps}
+          state={{ ...sessionSidebarProps.state, sidebarWidth }}
+        />
         <div
           role="separator"
           aria-orientation="vertical"

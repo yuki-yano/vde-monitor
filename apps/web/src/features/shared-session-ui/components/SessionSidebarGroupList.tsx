@@ -12,6 +12,7 @@ import { SessionSidebarItem } from "./SessionSidebarItem";
 
 type SessionSidebarGroupListProps = {
   sidebarGroups: SidebarRepoGroup[];
+  sidebarWidth?: number;
   nowMs: number;
   currentPaneId?: string | null;
   focusPendingPaneIds: Set<string>;
@@ -32,6 +33,7 @@ type SessionSidebarGroupListProps = {
 
 export const SessionSidebarGroupList = ({
   sidebarGroups,
+  sidebarWidth,
   nowMs,
   currentPaneId,
   focusPendingPaneIds,
@@ -136,6 +138,7 @@ export const SessionSidebarGroupList = ({
                         <SessionSidebarItem
                           key={item.paneId}
                           item={item}
+                          sidebarWidth={sidebarWidth}
                           nowMs={nowMs}
                           isCurrent={currentPaneId === item.paneId}
                           isFocusPending={focusPendingPaneIds.has(item.paneId)}

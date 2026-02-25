@@ -31,6 +31,8 @@ const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> 
 };
 
 const sidebarEditorSessionBorderClass = "border-latte-maroon/55";
+const SIDEBAR_BRANCH_INLINE_MIN_WIDTH = 460;
+const SIDEBAR_BRANCH_COMPACT_MAX_WIDTH = 520;
 const isMacDesktopPlatform = () =>
   typeof navigator !== "undefined" &&
   /^Mac/i.test(navigator.platform) &&
@@ -38,6 +40,7 @@ const isMacDesktopPlatform = () =>
 
 type SessionSidebarItemProps = {
   item: SessionSummary;
+  sidebarWidth?: number;
   nowMs: number;
   isCurrent: boolean;
   isFocusPending: boolean;
@@ -54,6 +57,7 @@ type SessionSidebarItemProps = {
 export const SessionSidebarItem = memo(
   ({
     item,
+    sidebarWidth,
     nowMs,
     isCurrent,
     isFocusPending,
@@ -84,6 +88,13 @@ export const SessionSidebarItem = memo(
     const StatusIcon = statusMeta.icon;
     const canFocusPane = onFocusPane != null && isMacDesktopPlatform();
     const hasActionButtons = onTouchSession != null || canFocusPane;
+    const showBranchInline = (sidebarWidth ?? 0) >= SIDEBAR_BRANCH_INLINE_MIN_WIDTH;
+    const compactBranchClass =
+      (sidebarWidth ?? 0) < SIDEBAR_BRANCH_COMPACT_MAX_WIDTH
+        ? hasKnownAgent
+          ? "max-w-[140px]"
+          : "max-w-[180px]"
+        : "max-w-[220px]";
 
     const handleRef = useCallback(
       (node: HTMLDivElement | null) => {
@@ -171,7 +182,12 @@ export const SessionSidebarItem = memo(
             </span>
           </div>
           <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div
+              className={cn(
+                "flex w-full min-w-0 items-center gap-x-2 gap-y-1.5",
+                showBranchInline ? "flex-nowrap" : "flex-wrap",
+              )}
+            >
               {hasKnownAgent ? (
                 <Badge tone={agentToneFor(item.agent)} size="sm">
                   {agentLabelFor(item.agent)}
@@ -184,13 +200,33 @@ export const SessionSidebarItem = memo(
                 value={formatRelativeTime(item.lastInputAt, nowMs)}
                 size="xs"
                 showDot={false}
+                className="shrink-0 whitespace-nowrap"
               />
+              {showBranchInline ? (
+                <TagPill
+                  tone="meta"
+                  className={cn(
+                    "ml-auto inline-flex min-w-0 items-center gap-1",
+                    compactBranchClass,
+                  )}
+                  title={formatBranchLabel(item.branch)}
+                >
+                  <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
+                </TagPill>
+              ) : null}
             </div>
-            <span aria-hidden="true" className="basis-full" />
-            <TagPill tone="meta" className="inline-flex max-w-[220px] items-center gap-1">
-              <GitBranch className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
-            </TagPill>
+            {!showBranchInline ? <span aria-hidden="true" className="basis-full" /> : null}
+            {!showBranchInline ? (
+              <TagPill
+                tone="meta"
+                className={cn("inline-flex items-center gap-1", compactBranchClass)}
+                title={formatBranchLabel(item.branch)}
+              >
+                <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
+              </TagPill>
+            ) : null}
           </div>
         </Link>
         {hasActionButtons ? (

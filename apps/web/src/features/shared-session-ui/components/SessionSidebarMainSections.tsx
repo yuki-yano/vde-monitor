@@ -84,6 +84,7 @@ const SessionSidebarListSection = ({ list }: SessionSidebarListSectionProps) => 
   >
     <SessionSidebarGroupList
       sidebarGroups={list.sidebarGroups}
+      sidebarWidth={list.sidebarWidth}
       nowMs={list.nowMs}
       currentPaneId={list.currentPaneId}
       focusPendingPaneIds={list.focusPendingPaneIds}

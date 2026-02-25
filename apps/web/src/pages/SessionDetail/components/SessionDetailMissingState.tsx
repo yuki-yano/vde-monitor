@@ -48,7 +48,7 @@ export const SessionDetailMissingState = ({
   backToListSearch,
   missingSessionState,
   loading,
-  sidebarWidth = 240,
+  sidebarWidth = 340,
 }: SessionDetailMissingStateProps) => {
   const missingDetailRows = useMemo(() => {
     const detailCounts = new Map<string, number>();

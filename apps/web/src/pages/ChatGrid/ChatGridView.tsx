@@ -143,6 +143,7 @@ export const ChatGridView = ({
         <SessionSidebar
           state={{
             sessionGroups: sidebarSessionGroups,
+            sidebarWidth,
             nowMs,
             connected,
             connectionIssue,

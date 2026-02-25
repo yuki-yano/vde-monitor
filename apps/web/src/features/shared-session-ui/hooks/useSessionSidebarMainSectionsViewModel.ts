@@ -9,6 +9,7 @@ import type { SidebarRepoGroup } from "./useSessionSidebarGroups";
 export type SessionSidebarListSectionViewModel = {
   onListScroll: () => void;
   sidebarGroups: SidebarRepoGroup[];
+  sidebarWidth?: number;
   nowMs: number;
   currentPaneId?: string | null;
   focusPendingPaneIds: Set<string>;

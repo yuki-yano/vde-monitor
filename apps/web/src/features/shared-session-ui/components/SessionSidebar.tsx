@@ -25,6 +25,7 @@ import type { LaunchAgentHandler } from "@/state/launch-agent-options";
 type SessionSidebarState = {
   sessionGroups: SessionGroup[];
   getRepoSortAnchorAt?: (repoRoot: string | null) => number | null;
+  sidebarWidth?: number;
   nowMs: number;
   connected: boolean;
   connectionIssue: string | null;
@@ -76,6 +77,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
   const {
     sessionGroups,
     getRepoSortAnchorAt,
+    sidebarWidth,
     nowMs,
     connected,
     connectionIssue,
@@ -150,6 +152,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     list: {
       onListScroll: handleListScroll,
       sidebarGroups,
+      sidebarWidth,
       nowMs,
       currentPaneId,
       focusPendingPaneIds,

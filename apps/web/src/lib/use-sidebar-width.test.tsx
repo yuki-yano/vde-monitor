@@ -15,7 +15,7 @@ describe("useSidebarWidth", () => {
   });
 
   it("updates width based on pointer drag", () => {
-    window.localStorage.setItem(STORAGE_KEY, "300");
+    window.localStorage.setItem(STORAGE_KEY, "400");
     const { result } = renderHook(() => useSidebarWidth());
 
     act(() => {
@@ -31,7 +31,7 @@ describe("useSidebarWidth", () => {
       window.dispatchEvent(new PointerEvent("pointerup"));
     });
 
-    expect(result.current.sidebarWidth).toBe(350);
+    expect(result.current.sidebarWidth).toBe(450);
   });
 
   it("clamps width within bounds", () => {
@@ -50,6 +50,6 @@ describe("useSidebarWidth", () => {
       window.dispatchEvent(new PointerEvent("pointerup"));
     });
 
-    expect(result.current.sidebarWidth).toBe(460);
+    expect(result.current.sidebarWidth).toBe(560);
   });
 });

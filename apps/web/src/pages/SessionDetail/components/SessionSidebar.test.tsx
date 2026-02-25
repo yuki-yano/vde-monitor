@@ -206,6 +206,7 @@ describe("SessionSidebar", () => {
     });
     const state = buildState({
       nowMs: Date.parse("2026-02-07T10:01:00.000Z"),
+      sidebarWidth: 400,
       sessionGroups: [
         {
           repoRoot: "/Users/test/repo",
@@ -220,12 +221,48 @@ describe("SessionSidebar", () => {
     expect(screen.getByText("CODEX")).toBeTruthy();
     const branchText = screen.getByText("feature/sidebar-layout");
     const branchPill = branchText.parentElement;
-    expect(branchPill?.className).toContain("max-w-[220px]");
+    expect(branchPill?.className).toContain("max-w-[140px]");
     expect(branchPill?.className).not.toContain("basis-full");
 
     const lastInputValue = screen.getByText("1m ago");
     const lastInputPill = lastInputValue.closest("span.inline-flex");
     expect(lastInputPill?.parentElement?.className).not.toContain("ml-auto");
+    const sessionLink = screen.getByText("Codex Session").closest("a");
+    expect(sessionLink?.querySelector("span.basis-full")).toBeTruthy();
+  });
+
+  it("renders branch inline to the right of last input when sidebar is 460px or wider", () => {
+    const session = createSessionDetail({
+      paneId: "pane-1",
+      title: "Codex Session",
+      agent: "codex",
+      branch: "feature/sidebar-inline",
+      lastInputAt: "2026-02-07T10:00:00.000Z",
+      windowIndex: 1,
+      sessionName: "alpha",
+    });
+    const state = buildState({
+      nowMs: Date.parse("2026-02-07T10:01:00.000Z"),
+      sidebarWidth: 460,
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo",
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
+
+    const branchPill = screen.getByText("feature/sidebar-inline").parentElement;
+    expect(branchPill?.className).toContain("ml-auto");
+    expect(branchPill?.className).toContain("max-w-[140px]");
+    const lastInputValue = screen.getByText("1m ago");
+    const lastInputPill = lastInputValue.closest("span.inline-flex");
+    expect(lastInputPill?.parentElement?.className).toContain("flex-nowrap");
+    const sessionLink = screen.getByText("Codex Session").closest("a");
+    expect(sessionLink?.querySelector("span.basis-full")).toBeNull();
   });
 
   it("shows empty state when no agent sessions", () => {
