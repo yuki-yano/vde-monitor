@@ -117,6 +117,82 @@ describe("createUsageCostProvider", () => {
     });
   });
 
+  it("does not double count codex cached input tokens", async () => {
+    const pricingSource: UsagePricingSource = {
+      lookupModelPrice: async ({ modelId }) => ({
+        ok: true,
+        quote: {
+          modelId,
+          resolvedModelId: modelId,
+          strategy: "exact",
+          inputCostPerToken: 0.000001,
+          outputCostPerToken: 0.00001,
+          cacheReadInputCostPerToken: 0.0000005,
+          cacheCreationInputCostPerToken: 0.000001,
+          hasPrice: true,
+          sourceLabel: "LiteLLM",
+          updatedAt: baseNow.toISOString(),
+          stale: false,
+        },
+      }),
+    };
+    const tokenSource = createTokenSource();
+    const provider = createUsageCostProvider({
+      pricingSource,
+      tokenSources: {
+        codex: tokenSource,
+        claude: tokenSource,
+      },
+      pricingConfig: createPricingConfig(),
+    });
+
+    const result = await provider.getProviderCost({
+      providerId: "codex",
+      now: baseNow,
+    });
+
+    expect(result.today.usd).toBeCloseTo(0.0059, 10);
+    expect(result.last30days.usd).toBeCloseTo(0.0235, 10);
+  });
+
+  it("keeps claude input and cache-read pricing behavior", async () => {
+    const pricingSource: UsagePricingSource = {
+      lookupModelPrice: async ({ modelId }) => ({
+        ok: true,
+        quote: {
+          modelId,
+          resolvedModelId: modelId,
+          strategy: "exact",
+          inputCostPerToken: 0.000001,
+          outputCostPerToken: 0.00001,
+          cacheReadInputCostPerToken: 0.0000005,
+          cacheCreationInputCostPerToken: 0.000001,
+          hasPrice: true,
+          sourceLabel: "LiteLLM",
+          updatedAt: baseNow.toISOString(),
+          stale: false,
+        },
+      }),
+    };
+    const tokenSource = createTokenSource();
+    const provider = createUsageCostProvider({
+      pricingSource,
+      tokenSources: {
+        codex: tokenSource,
+        claude: tokenSource,
+      },
+      pricingConfig: createPricingConfig(),
+    });
+
+    const result = await provider.getProviderCost({
+      providerId: "claude",
+      now: baseNow,
+    });
+
+    expect(result.today.usd).toBeCloseTo(0.0061, 10);
+    expect(result.last30days.usd).toBeCloseTo(0.0245, 10);
+  });
+
   it("returns estimated/medium for alias or prefix resolution", async () => {
     const pricingSource: UsagePricingSource = {
       lookupModelPrice: async ({ modelId }) => ({

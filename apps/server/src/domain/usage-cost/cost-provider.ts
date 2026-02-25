@@ -45,8 +45,20 @@ const createUnavailable = (input?: {
 
 const roundUsd = (value: number) => Math.round(value * 1_000_000) / 1_000_000;
 
-const calculateCounterCost = (usage: UsageTokenCounters, quote: ModelPriceQuote) => {
-  const inputCost = usage.inputTokens * (quote.inputCostPerToken ?? 0);
+const calculateCounterCost = ({
+  providerId,
+  usage,
+  quote,
+}: {
+  providerId: SupportedUsageCostProviderId;
+  usage: UsageTokenCounters;
+  quote: ModelPriceQuote;
+}) => {
+  const billableInputTokens =
+    providerId === "codex"
+      ? Math.max(usage.inputTokens - usage.cacheReadInputTokens, 0)
+      : usage.inputTokens;
+  const inputCost = billableInputTokens * (quote.inputCostPerToken ?? 0);
   const outputCost = usage.outputTokens * (quote.outputCostPerToken ?? 0);
   const cacheReadUnit = quote.cacheReadInputCostPerToken ?? quote.inputCostPerToken ?? 0;
   const cacheCreationUnit = quote.cacheCreationInputCostPerToken ?? quote.inputCostPerToken ?? 0;
@@ -122,8 +134,16 @@ export const createUsageCostProvider = (options: UsageCostProviderOptions): Usag
       sourceLabels.add(quote.sourceLabel);
       updatedAtValues.add(quote.updatedAt);
 
-      const todayCost = calculateCounterCost(modelUsage.today, quote);
-      const last30daysCost = calculateCounterCost(modelUsage.last30days, quote);
+      const todayCost = calculateCounterCost({
+        providerId,
+        usage: modelUsage.today,
+        quote,
+      });
+      const last30daysCost = calculateCounterCost({
+        providerId,
+        usage: modelUsage.last30days,
+        quote,
+      });
 
       todayUsd += todayCost;
       todayTokens += modelUsage.today.totalTokens;
@@ -165,7 +185,11 @@ export const createUsageCostProvider = (options: UsageCostProviderOptions): Usag
         row.cacheCreationInputTokens += counters.cacheCreationInputTokens;
         row.cacheReadInputTokens += counters.cacheReadInputTokens;
         row.totalTokens += counters.totalTokens;
-        row.usd += calculateCounterCost(counters, quote);
+        row.usd += calculateCounterCost({
+          providerId,
+          usage: counters,
+          quote,
+        });
       }
 
       modelBreakdown.push({
