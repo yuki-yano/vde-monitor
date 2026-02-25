@@ -160,7 +160,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     <div
       data-testid="log-modal-overlay"
       data-log-modal-overlay="true"
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-[110] bg-black/45 backdrop-blur-[2px]"
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -169,9 +169,9 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     >
       <div
         data-testid="log-modal-panel"
-        className="absolute bottom-[72px] left-2.5 top-2.5 min-h-0 w-[min(900px,calc(100vw-1.25rem))] sm:bottom-[76px] sm:left-6 sm:top-4 sm:w-[min(900px,calc(100vw-3rem))]"
+        className="absolute left-1/2 top-1/2 z-[111] flex h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] min-h-0 w-[min(760px,calc(100vw-1rem))] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[min(760px,calc(100vw-1.5rem))]"
       >
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
+        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
           <IconButton
             type="button"
             onClick={onClose}
