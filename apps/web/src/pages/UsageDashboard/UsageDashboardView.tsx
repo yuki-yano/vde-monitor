@@ -3,6 +3,8 @@ import type {
   SessionStateTimelineItem,
   SessionStateTimelineRange,
   SessionStateValue,
+  UsageGlobalTimelineRepoRanking,
+  UsageGlobalTimelineRepoRankingItem,
   UsageMetricWindow,
   UsageProviderSnapshot,
 } from "@vde-monitor/shared";
@@ -903,6 +905,58 @@ const ProviderQuotaSection = ({
   );
 };
 
+type RepoRankingTab = "running-sum" | "running-union" | "running-transitions";
+
+const EMPTY_REPO_RANKING: UsageGlobalTimelineRepoRanking = {
+  totalRepoCount: 0,
+  byRunningTimeSum: [],
+  byRunningTimeUnion: [],
+  byRunningTransitions: [],
+};
+
+const resolveRepoRankingRows = (
+  repoRanking: UsageGlobalTimelineRepoRanking,
+  tab: RepoRankingTab,
+): UsageGlobalTimelineRepoRankingItem[] => {
+  if (tab === "running-union") {
+    return repoRanking.byRunningTimeUnion;
+  }
+  if (tab === "running-transitions") {
+    return repoRanking.byRunningTransitions;
+  }
+  return repoRanking.byRunningTimeSum;
+};
+
+const resolveRepoApproximationReason = (
+  reason: UsageGlobalTimelineRepoRankingItem["approximationReason"],
+) => {
+  if (reason === "retention_clipped") {
+    return "Range start is outside retained timeline history.";
+  }
+  return "Metrics may include approximation.";
+};
+
+const repoRankingTabs = (value: RepoRankingTab, onValueChange: (value: RepoRankingTab) => void) => (
+  <Tabs
+    value={value}
+    onValueChange={(nextValue) => {
+      if (
+        nextValue === "running-sum" ||
+        nextValue === "running-union" ||
+        nextValue === "running-transitions"
+      ) {
+        onValueChange(nextValue);
+      }
+    }}
+  >
+    <TabsList aria-label="Repo ranking metric">
+      <TabsTrigger value="running-sum">Running Time (Sum)</TabsTrigger>
+      <TabsTrigger value="running-union">Running Time (Union)</TabsTrigger>
+      <TabsTrigger value="running-transitions">RUNNING Transitions</TabsTrigger>
+    </TabsList>
+  </Tabs>
+);
+
 const timelineRangeTabs = (
   timelineRange: SessionStateTimelineRange,
   onTimelineRangeChange: (range: SessionStateTimelineRange) => void,
@@ -980,6 +1034,7 @@ export const UsageDashboardView = ({
   onOpenHere,
   onOpenNewTab,
 }: UsageDashboardVM) => {
+  const [repoRankingTab, setRepoRankingTab] = useState<RepoRankingTab>("running-sum");
   const timelineDisplay = useMemo(
     () =>
       buildTimelineDisplay(timeline?.timeline ?? null, timelineRange, { compact: compactTimeline }),
@@ -994,6 +1049,15 @@ export const UsageDashboardView = ({
   const waitingMs =
     timelineDisplay.totalsMs.WAITING_INPUT + timelineDisplay.totalsMs.WAITING_PERMISSION;
   const timelineItems = compactTimeline ? timelineDisplay.items.slice(0, 6) : timelineDisplay.items;
+  const repoRanking = timeline?.repoRanking ?? EMPTY_REPO_RANKING;
+  const repoRankingRows = useMemo(
+    () => resolveRepoRankingRows(repoRanking, repoRankingTab),
+    [repoRanking, repoRankingTab],
+  );
+  const hasRepoRanking =
+    repoRanking.byRunningTimeSum.length > 0 ||
+    repoRanking.byRunningTimeUnion.length > 0 ||
+    repoRanking.byRunningTransitions.length > 0;
   const codexProvider =
     dashboard?.providers.find((provider) => provider.providerId === "codex") ?? null;
   const claudeProvider =
@@ -1103,6 +1167,70 @@ export const UsageDashboardView = ({
               billingLoading={billingLoadingByProvider.claude}
             />
           </div>
+
+          <GlowCard contentClassName="gap-3">
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-latte-text text-xl font-semibold">Repo Ranking</h2>
+                <p className="text-latte-subtext0 text-xs">
+                  Across all repos in this range ({repoRanking.totalRepoCount} repos)
+                </p>
+              </div>
+              <p className="text-latte-subtext0 mt-2 text-xs">
+                Running(sum) counts overlaps across panes. Running(union) removes overlaps.
+              </p>
+              <div className="mt-2">{repoRankingTabs(repoRankingTab, setRepoRankingTab)}</div>
+              <div className="mt-3 space-y-1.5">
+                {hasRepoRanking ? (
+                  repoRankingRows.map((item, index) => (
+                    <PanelSection
+                      key={`${repoRankingTab}:${item.repoRoot}`}
+                      className="border-latte-surface2/60 rounded-2xl border"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <TagPill tone="meta">#{index + 1}</TagPill>
+                            <p className="text-latte-text font-medium">{item.repoName}</p>
+                            {item.approximate ? (
+                              <TagPill
+                                tone="meta"
+                                title={resolveRepoApproximationReason(item.approximationReason)}
+                              >
+                                Approx
+                              </TagPill>
+                            ) : null}
+                          </div>
+                          <p
+                            className="text-latte-subtext0 mt-1 truncate text-xs"
+                            title={item.repoRoot}
+                          >
+                            {item.repoRoot}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <TagPill tone="meta">
+                          Running(sum) {formatDurationMs(item.runningMs)}
+                        </TagPill>
+                        <TagPill tone="meta">
+                          Running(union) {formatDurationMs(item.runningUnionMs)}
+                        </TagPill>
+                        <TagPill tone="meta">Runs {item.executionCount}</TagPill>
+                        <TagPill tone="meta">
+                          Panes {item.activePaneCount}/{item.totalPaneCount}
+                        </TagPill>
+                      </div>
+                    </PanelSection>
+                  ))
+                ) : (
+                  <p className="text-latte-subtext0 text-sm">
+                    No repository activity in this range.
+                  </p>
+                )}
+              </div>
+            </section>
+          </GlowCard>
 
           <GlowCard contentClassName="gap-3">
             <section>

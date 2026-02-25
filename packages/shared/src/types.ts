@@ -537,10 +537,32 @@ export type UsageDashboardResponse = {
   fetchedAt: string;
 };
 
+export type UsageGlobalTimelineRepoRankingApproximationReason = "retention_clipped";
+
+export type UsageGlobalTimelineRepoRankingItem = {
+  repoRoot: string;
+  repoName: string;
+  totalPaneCount: number;
+  activePaneCount: number;
+  runningMs: number;
+  runningUnionMs: number;
+  executionCount: number;
+  approximate: boolean;
+  approximationReason: UsageGlobalTimelineRepoRankingApproximationReason | null;
+};
+
+export type UsageGlobalTimelineRepoRanking = {
+  totalRepoCount: number;
+  byRunningTimeSum: UsageGlobalTimelineRepoRankingItem[];
+  byRunningTimeUnion: UsageGlobalTimelineRepoRankingItem[];
+  byRunningTransitions: UsageGlobalTimelineRepoRankingItem[];
+};
+
 export type UsageGlobalTimelineResponse = {
   timeline: SessionStateTimeline;
   paneCount: number;
   activePaneCount: number;
+  repoRanking: UsageGlobalTimelineRepoRanking;
   fetchedAt: string;
 };
 

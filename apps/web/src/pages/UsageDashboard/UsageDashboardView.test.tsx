@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { UsageProviderSnapshot } from "@vde-monitor/shared";
+import type { UsageGlobalTimelineResponse, UsageProviderSnapshot } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -92,7 +92,86 @@ const createProvider = (
   ...overrides,
 });
 
-const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM => ({
+const createTimeline = (
+  overrides: Partial<UsageGlobalTimelineResponse["repoRanking"]> = {},
+): UsageGlobalTimelineResponse => ({
+  timeline: {
+    paneId: "global",
+    now: "2026-02-25T00:00:00.000Z",
+    range: "1h",
+    items: [],
+    totalsMs: {
+      RUNNING: 0,
+      WAITING_INPUT: 0,
+      WAITING_PERMISSION: 0,
+      SHELL: 0,
+      UNKNOWN: 0,
+    },
+    current: null,
+  },
+  paneCount: 3,
+  activePaneCount: 2,
+  repoRanking: {
+    totalRepoCount: 2,
+    byRunningTimeSum: [
+      {
+        repoRoot: "/repo/sum-first",
+        repoName: "sum-first",
+        totalPaneCount: 2,
+        activePaneCount: 1,
+        runningMs: 6 * 60 * 1000,
+        runningUnionMs: 4 * 60 * 1000,
+        executionCount: 3,
+        approximate: false,
+        approximationReason: null,
+      },
+      {
+        repoRoot: "/repo/sum-second",
+        repoName: "sum-second",
+        totalPaneCount: 1,
+        activePaneCount: 1,
+        runningMs: 4 * 60 * 1000,
+        runningUnionMs: 4 * 60 * 1000,
+        executionCount: 1,
+        approximate: true,
+        approximationReason: "retention_clipped",
+      },
+    ],
+    byRunningTimeUnion: [
+      {
+        repoRoot: "/repo/union-first",
+        repoName: "union-first",
+        totalPaneCount: 2,
+        activePaneCount: 2,
+        runningMs: 7 * 60 * 1000,
+        runningUnionMs: 6 * 60 * 1000,
+        executionCount: 2,
+        approximate: false,
+        approximationReason: null,
+      },
+    ],
+    byRunningTransitions: [
+      {
+        repoRoot: "/repo/transitions-first",
+        repoName: "transitions-first",
+        totalPaneCount: 1,
+        activePaneCount: 1,
+        runningMs: 2 * 60 * 1000,
+        runningUnionMs: 2 * 60 * 1000,
+        executionCount: 9,
+        approximate: false,
+        approximationReason: null,
+      },
+    ],
+    ...overrides,
+  },
+  fetchedAt: "2026-02-25T00:00:00.000Z",
+});
+
+const createViewModel = (
+  codexProvider: UsageProviderSnapshot,
+  overrides: Partial<UsageDashboardVM> = {},
+): UsageDashboardVM => ({
   sessions: [],
   connected: true,
   connectionIssue: null,
@@ -142,6 +221,7 @@ const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM
   onTouchRepoPin: vi.fn(),
   onOpenHere: vi.fn(),
   onOpenNewTab: vi.fn(),
+  ...overrides,
 });
 
 describe("UsageDashboardView", () => {
@@ -350,6 +430,81 @@ describe("UsageDashboardView", () => {
     expect(paceBadge.className).toContain("text-latte-yellow");
     expect(paceBadge.className).not.toContain("text-latte-red");
     expect(paceBadge.className).not.toContain("text-latte-green");
+  });
+
+  it("renders Repo Ranking section above Global State Timeline", () => {
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline(),
+        })}
+      />,
+    );
+
+    const repoHeading = screen.getByRole("heading", { name: "Repo Ranking" });
+    const timelineHeading = screen.getByRole("heading", { name: "Global State Timeline" });
+    expect(
+      repoHeading.compareDocumentPosition(timelineHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("switches ranking rows by tab", () => {
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline(),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Running Time (Sum)")).toBeTruthy();
+    expect(screen.getByText("Running Time (Union)")).toBeTruthy();
+    expect(screen.getByText("RUNNING Transitions")).toBeTruthy();
+    expect(screen.getByText("Runs 3")).toBeTruthy();
+
+    const unionTab = screen.getByRole("tab", { name: "Running Time (Union)" });
+    fireEvent.mouseDown(unionTab, { button: 0 });
+    expect(unionTab.getAttribute("data-state")).toBe("active");
+    expect(screen.getByText("Runs 2")).toBeTruthy();
+
+    const transitionsTab = screen.getByRole("tab", { name: "RUNNING Transitions" });
+    fireEvent.mouseDown(transitionsTab, { button: 0 });
+    expect(transitionsTab.getAttribute("data-state")).toBe("active");
+    expect(screen.getByText("Runs 9")).toBeTruthy();
+  });
+
+  it("shows ranking row metrics and Approx tag", () => {
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline(),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Running(sum) 6m")).toBeTruthy();
+    expect(screen.getAllByText("Running(union) 4m")).toHaveLength(2);
+    expect(screen.getByText("Runs 3")).toBeTruthy();
+    expect(screen.getByText("Panes 1/2")).toBeTruthy();
+    const approx = screen.getByText("Approx");
+    expect(approx.getAttribute("title")).toBe("Range start is outside retained timeline history.");
+  });
+
+  it("shows empty state when all ranking lists are empty", () => {
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline({
+            totalRepoCount: 0,
+            byRunningTimeSum: [],
+            byRunningTimeUnion: [],
+            byRunningTransitions: [],
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("No repository activity in this range.")).toBeTruthy();
   });
 
   it("renders usage breakdown dates in local time zone", () => {

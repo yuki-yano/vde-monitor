@@ -2,7 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { type AgentMonitorConfig, type SessionStateTimelineRange } from "@vde-monitor/shared";
+import type {
+  AgentMonitorConfig,
+  SessionStateTimelineRange,
+  UsageGlobalTimelineRepoRanking,
+} from "@vde-monitor/shared";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { type HookEventContext, handleHookLine } from "./monitor/hook-tailer";
@@ -216,6 +220,66 @@ export const createSessionMonitor = (
     });
   };
 
+  const getGlobalRepoRanking = (
+    range: SessionStateTimelineRange = "1h",
+  ): UsageGlobalTimelineRepoRanking => {
+    const rankingItems = stateTimeline
+      .listRepoRoots({ range })
+      .map((repoRoot) => {
+        const metrics = stateTimeline.getRepoActivityMetrics({ repoRoot, range });
+        const repoName = path.basename(repoRoot) || repoRoot;
+        return {
+          repoRoot,
+          repoName,
+          totalPaneCount: metrics.totalPaneCount,
+          activePaneCount: metrics.activePaneCount,
+          runningMs: metrics.runningMs,
+          runningUnionMs: metrics.runningUnionMs,
+          executionCount: metrics.executionCount,
+          approximate: metrics.approximate,
+          approximationReason: metrics.approximationReason,
+        };
+      })
+      .filter((item) => item.runningMs > 0 || item.runningUnionMs > 0 || item.executionCount > 0);
+
+    const byRunningTimeSum = [...rankingItems].sort((left, right) => {
+      if (right.runningMs !== left.runningMs) {
+        return right.runningMs - left.runningMs;
+      }
+      if (right.executionCount !== left.executionCount) {
+        return right.executionCount - left.executionCount;
+      }
+      return left.repoRoot.localeCompare(right.repoRoot);
+    });
+
+    const byRunningTimeUnion = [...rankingItems].sort((left, right) => {
+      if (right.runningUnionMs !== left.runningUnionMs) {
+        return right.runningUnionMs - left.runningUnionMs;
+      }
+      if (right.runningMs !== left.runningMs) {
+        return right.runningMs - left.runningMs;
+      }
+      return left.repoRoot.localeCompare(right.repoRoot);
+    });
+
+    const byRunningTransitions = [...rankingItems].sort((left, right) => {
+      if (right.executionCount !== left.executionCount) {
+        return right.executionCount - left.executionCount;
+      }
+      if (right.runningMs !== left.runningMs) {
+        return right.runningMs - left.runningMs;
+      }
+      return left.repoRoot.localeCompare(right.repoRoot);
+    });
+
+    return {
+      totalRepoCount: rankingItems.length,
+      byRunningTimeSum,
+      byRunningTimeUnion,
+      byRunningTransitions,
+    };
+  };
+
   const getRepoNotes = repoNotesService.listByPane;
   const createRepoNote = repoNotesService.createByPane;
   const updateRepoNote = repoNotesService.updateByPane;
@@ -230,6 +294,7 @@ export const createSessionMonitor = (
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
+    getGlobalRepoRanking,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,

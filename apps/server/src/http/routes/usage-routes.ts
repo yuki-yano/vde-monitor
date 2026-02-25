@@ -14,7 +14,7 @@ const usageDashboardQuerySchema = z.object({
 
 const usageTimelineQuerySchema = z.object({
   range: sessionStateTimelineRangeSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(10_000).optional(),
+  limit: z.string().optional(),
 });
 
 const usageProviderQuerySchema = z.object({
@@ -226,13 +226,15 @@ export const createUsageRoutes = ({
     .get("/usage/state-timeline", zValidator("query", usageTimelineQuerySchema), (c) => {
       const query = c.req.valid("query");
       const range = resolveGlobalTimelineRange(query.range);
-      const timeline = monitor.getGlobalStateTimeline(range, query.limit);
+      const timeline = monitor.getGlobalStateTimeline(range);
+      const repoRanking = monitor.getGlobalRepoRanking(range);
       const sessions = monitor.registry.values();
       const activePaneCount = sessions.filter((session) => !session.paneDead).length;
       return c.json({
         timeline,
         paneCount: sessions.length,
         activePaneCount,
+        repoRanking,
         fetchedAt: nowIso(),
       });
     });

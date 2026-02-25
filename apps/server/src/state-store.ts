@@ -24,6 +24,7 @@ type PersistedSession = {
   customTitle: string | null;
   state: SessionStateValue;
   stateReason: string;
+  repoRoot?: string | null;
 };
 
 export type PersistedTimelineEvent = {
@@ -31,6 +32,7 @@ export type PersistedTimelineEvent = {
   paneId: string;
   state: SessionStateValue;
   reason: string;
+  repoRoot?: string | null;
   startedAt: string;
   endedAt: string | null;
   source: SessionStateTimelineSource;
@@ -85,6 +87,7 @@ const isPersistedTimelineEvent = (value: unknown): value is PersistedTimelineEve
     typeof event.paneId === "string" &&
     isStateValue(event.state) &&
     typeof event.reason === "string" &&
+    (event.repoRoot == null || typeof event.repoRoot === "string") &&
     typeof event.startedAt === "string" &&
     (event.endedAt == null || typeof event.endedAt === "string") &&
     isTimelineSource(event.source)
@@ -141,6 +144,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions =
           customTitle: session.customTitle ?? null,
           state: session.state,
           stateReason: session.stateReason,
+          repoRoot: session.repoRoot ?? null,
         },
       ]),
     ),

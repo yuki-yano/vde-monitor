@@ -13,6 +13,7 @@ type TimelineStoreLike = {
     paneId: string;
     state: SessionStateValue;
     reason: string;
+    repoRoot?: string | null;
     at?: string;
     source: "restore";
   }) => void;
@@ -52,6 +53,7 @@ export const restoreMonitorRuntimeState = ({
         paneId,
         state: session.state,
         reason: session.stateReason || "restored",
+        repoRoot: session.repoRoot ?? null,
         at: session.lastEventAt ?? session.lastOutputAt ?? session.lastInputAt ?? undefined,
         source: "restore",
       });

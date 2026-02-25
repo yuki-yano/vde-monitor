@@ -48,6 +48,7 @@ type TimelineStoreLike = {
     paneId: string;
     state: SessionDetail["state"];
     reason: string;
+    repoRoot?: string | null;
     at?: string;
     source: SessionStateTimelineSource;
   }) => void;
@@ -249,13 +250,15 @@ export const createPaneUpdateService = ({
       if (
         !existing ||
         existing.state !== detail.state ||
-        existing.stateReason !== detail.stateReason
+        existing.stateReason !== detail.stateReason ||
+        existing.repoRoot !== detail.repoRoot
       ) {
         const transitionSource = resolveTimelineSource(detail.stateReason);
         stateTimeline.record({
           paneId: detail.paneId,
           state: detail.state,
           reason: detail.stateReason,
+          repoRoot: detail.repoRoot ?? null,
           at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
           source: transitionSource,
         });

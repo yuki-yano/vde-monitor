@@ -23,7 +23,6 @@ const RANGE_MS: Record<SessionStateTimelineRange, number> = {
 };
 
 const DEFAULT_RETENTION_MS = RANGE_MS["7d"];
-const DEFAULT_MAX_ITEMS_PER_PANE = 1000;
 const MAX_TIMELINE_ITEMS = 10_000;
 const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "15m": 200,
@@ -35,20 +34,24 @@ const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "7d": 10_000,
 };
 
-type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs">;
-type SessionTimelinePersistedEvent = TimelineEvent;
+type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs"> & {
+  repoRoot: string | null;
+};
+type SessionTimelinePersistedEvent = Omit<TimelineEvent, "repoRoot"> & {
+  repoRoot?: string | null;
+};
 type SessionTimelinePersistedEvents = Record<string, SessionTimelinePersistedEvent[]>;
 
 type StoreOptions = {
   now?: () => Date;
   retentionMs?: number;
-  maxItemsPerPane?: number;
 };
 
 type RecordStateTransitionInput = {
   paneId: string;
   state: SessionStateValue;
   reason: string;
+  repoRoot?: string | null;
   at?: string;
   source?: SessionStateTimelineSource;
 };
@@ -71,6 +74,27 @@ type GetRepoTimelineInput = {
   limit?: number;
   aggregateReason?: string;
   itemIdPrefix?: string;
+};
+
+type ListRepoRootsInput = {
+  range?: SessionStateTimelineRange;
+};
+
+type RepoActivityApproximationReason = "retention_clipped";
+
+export type RepoActivityMetrics = {
+  runningMs: number;
+  runningUnionMs: number;
+  executionCount: number;
+  totalPaneCount: number;
+  activePaneCount: number;
+  approximate: boolean;
+  approximationReason: RepoActivityApproximationReason | null;
+};
+
+type GetRepoActivityMetricsInput = {
+  repoRoot: string;
+  range?: SessionStateTimelineRange;
 };
 
 const toIso = (ms: number) => new Date(ms).toISOString();
@@ -122,7 +146,6 @@ const TIMELINE_STATE_PRIORITY: SessionStateValue[] = [
 export const createSessionTimelineStore = (options: StoreOptions = {}) => {
   const now = options.now ?? (() => new Date());
   const retentionMs = options.retentionMs ?? DEFAULT_RETENTION_MS;
-  const maxItemsPerPane = options.maxItemsPerPane ?? DEFAULT_MAX_ITEMS_PER_PANE;
   const eventsByPane = new Map<string, TimelineEvent[]>();
   let sequence = 0;
 
@@ -163,12 +186,17 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       return endedAtMs >= thresholdMs;
     });
 
-    const overflow = Math.max(0, retained.length - maxItemsPerPane);
-    const next = overflow > 0 ? retained.slice(overflow) : retained;
-    events.splice(0, events.length, ...next);
+    events.splice(0, events.length, ...retained);
   };
 
-  const record = ({ paneId, state, reason, at, source = "poll" }: RecordStateTransitionInput) => {
+  const record = ({
+    paneId,
+    state,
+    reason,
+    repoRoot = null,
+    at,
+    source = "poll",
+  }: RecordStateTransitionInput) => {
     if (!paneId) {
       return;
     }
@@ -186,9 +214,12 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       }
 
       if (!last.endedAt) {
-        if (last.state === state) {
-          last.reason = reason;
-          last.source = source;
+        if (
+          last.state === state &&
+          last.reason === reason &&
+          last.source === source &&
+          last.repoRoot === repoRoot
+        ) {
           return;
         }
         const closeAtMs = Math.max(lastStartMs, atMs);
@@ -201,6 +232,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       paneId,
       state,
       reason,
+      repoRoot,
       startedAt: toIso(atMs),
       endedAt: null,
       source,
@@ -252,7 +284,16 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
         }
         const durationMs = Math.max(0, interval.endedAtMs - interval.startedAtMs);
         totals[event.state] += durationMs;
-        return { ...event, durationMs };
+        return {
+          id: event.id,
+          paneId: event.paneId,
+          state: event.state,
+          reason: event.reason,
+          startedAt: event.startedAt,
+          endedAt: event.endedAt,
+          source: event.source,
+          durationMs,
+        };
       })
       .filter((event): event is SessionStateTimelineItem => event != null)
       .sort((a, b) => {
@@ -290,6 +331,135 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       return "restore" as SessionStateTimelineSource;
     }
     return "poll" as SessionStateTimelineSource;
+  };
+
+  const listRepoRoots = ({ range = "1h" }: ListRepoRootsInput = {}) => {
+    const nowMs = now().getTime();
+    const rangeMs = RANGE_MS[range];
+    const rangeStartMs = nowMs - rangeMs;
+    const repoRoots = new Set<string>();
+
+    eventsByPane.forEach((_events, paneId) => {
+      prunePane(paneId, nowMs);
+      const events = eventsByPane.get(paneId) ?? [];
+      events.forEach((event) => {
+        if (event.repoRoot == null) {
+          return;
+        }
+        const interval = clipTimelineEventToInterval({
+          event,
+          rangeStartMs,
+          nowMs,
+          parseIso,
+        });
+        if (!interval) {
+          return;
+        }
+        repoRoots.add(event.repoRoot);
+      });
+    });
+
+    return Array.from(repoRoots).sort((left, right) => left.localeCompare(right));
+  };
+
+  const getRepoActivityMetrics = ({
+    repoRoot,
+    range = "1h",
+  }: GetRepoActivityMetricsInput): RepoActivityMetrics => {
+    const nowMs = now().getTime();
+    const rangeMs = RANGE_MS[range];
+    const rangeStartMs = nowMs - rangeMs;
+    const retentionFloorMs = nowMs - retentionMs;
+    const approximate = rangeStartMs < retentionFloorMs;
+    const approximationReason: RepoActivityApproximationReason | null = approximate
+      ? "retention_clipped"
+      : null;
+
+    const runningIntervals: Array<{ startedAtMs: number; endedAtMs: number }> = [];
+    const activePaneIds = new Set<string>();
+    const totalPaneIds = new Set<string>();
+    let runningMs = 0;
+    let executionCount = 0;
+
+    eventsByPane.forEach((_events, paneId) => {
+      prunePane(paneId, nowMs);
+      const events = eventsByPane.get(paneId) ?? [];
+      events.forEach((event) => {
+        if (event.repoRoot !== repoRoot) {
+          return;
+        }
+        const interval = clipTimelineEventToInterval({
+          event,
+          rangeStartMs,
+          nowMs,
+          parseIso,
+        });
+        if (!interval) {
+          return;
+        }
+        totalPaneIds.add(paneId);
+        if (event.endedAt == null) {
+          activePaneIds.add(paneId);
+        }
+        const startedAtMs = parseIso(event.startedAt);
+        if (
+          event.state === "RUNNING" &&
+          startedAtMs != null &&
+          startedAtMs >= rangeStartMs &&
+          startedAtMs < nowMs
+        ) {
+          executionCount += 1;
+        }
+        if (event.state !== "RUNNING") {
+          return;
+        }
+        const durationMs = Math.max(0, interval.endedAtMs - interval.startedAtMs);
+        runningMs += durationMs;
+        runningIntervals.push({
+          startedAtMs: interval.startedAtMs,
+          endedAtMs: interval.endedAtMs,
+        });
+      });
+    });
+
+    const runningUnionMs = (() => {
+      if (runningIntervals.length === 0) {
+        return 0;
+      }
+      const sorted = [...runningIntervals].sort((left, right) =>
+        left.startedAtMs === right.startedAtMs
+          ? left.endedAtMs - right.endedAtMs
+          : left.startedAtMs - right.startedAtMs,
+      );
+      let mergedStart = sorted[0]?.startedAtMs ?? 0;
+      let mergedEnd = sorted[0]?.endedAtMs ?? 0;
+      let total = 0;
+      for (let index = 1; index < sorted.length; index += 1) {
+        const interval = sorted[index];
+        if (!interval) {
+          continue;
+        }
+        if (interval.startedAtMs <= mergedEnd) {
+          mergedEnd = Math.max(mergedEnd, interval.endedAtMs);
+          continue;
+        }
+        total += Math.max(0, mergedEnd - mergedStart);
+        mergedStart = interval.startedAtMs;
+        mergedEnd = interval.endedAtMs;
+      }
+      total += Math.max(0, mergedEnd - mergedStart);
+      return total;
+    })();
+
+    return {
+      runningMs,
+      runningUnionMs,
+      executionCount,
+      totalPaneCount: totalPaneIds.size,
+      activePaneCount: activePaneIds.size,
+      approximate,
+      approximationReason,
+    };
   };
 
   const getRepoTimeline = ({
@@ -433,6 +603,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
             state: event.state,
             reason: event.reason,
             source: event.source,
+            repoRoot: typeof event.repoRoot === "string" ? event.repoRoot : null,
             startedAtMs,
             endedAtMs: parseIso(event.endedAt),
           };
@@ -446,6 +617,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
             state: SessionStateValue;
             reason: string;
             source: SessionStateTimelineSource;
+            repoRoot: string | null;
             startedAtMs: number;
             endedAtMs: number | null;
           } => event != null,
@@ -473,6 +645,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
           paneId,
           state: event.state,
           reason: event.reason,
+          repoRoot: event.repoRoot,
           startedAt: toIso(startedAtMs),
           endedAt: endedAtMs == null ? null : toIso(endedAtMs),
           source: event.source,
@@ -491,5 +664,15 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     });
   };
 
-  return { record, closePane, getTimeline, getRepoTimeline, reset, serialize, restore };
+  return {
+    record,
+    closePane,
+    getTimeline,
+    getRepoTimeline,
+    listRepoRoots,
+    getRepoActivityMetrics,
+    reset,
+    serialize,
+    restore,
+  };
 };

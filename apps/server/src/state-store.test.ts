@@ -100,6 +100,7 @@ describe("state-store timeline persistence", () => {
             paneId: "pane-1",
             state: "RUNNING",
             reason: "poll",
+            repoRoot: "/repo/a",
             startedAt: "2026-02-07T00:00:00.000Z",
             endedAt: null,
             source: "poll",
@@ -118,6 +119,7 @@ describe("state-store timeline persistence", () => {
     const restoredTimeline = restoreTimeline();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
+    expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBe("/repo/a");
   });
 
   it("restores sessions/timeline/repoNotes from a single read", () => {
@@ -202,5 +204,49 @@ describe("state-store timeline persistence", () => {
     expect(restoredSessions.size).toBe(0);
     expect(restoredTimeline.size).toBe(0);
     expect(restoredRepoNotes.size).toBe(0);
+  });
+
+  it("restores legacy timeline event without repoRoot", () => {
+    fileContents.set(
+      statePath,
+      `${JSON.stringify(
+        {
+          version: 2,
+          savedAt: "2026-02-07T00:00:00.000Z",
+          sessions: {
+            "pane-1": {
+              paneId: "pane-1",
+              lastOutputAt: null,
+              lastEventAt: null,
+              lastMessage: null,
+              lastInputAt: null,
+              customTitle: null,
+              state: "RUNNING",
+              stateReason: "reason",
+            },
+          },
+          timeline: {
+            "pane-1": [
+              {
+                id: "pane-1:1700000000000:1",
+                paneId: "pane-1",
+                state: "RUNNING",
+                reason: "poll",
+                startedAt: "2026-02-07T00:00:00.000Z",
+                endedAt: null,
+                source: "poll",
+              },
+            ],
+          },
+          repoNotes: {},
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const restoredTimeline = restoreTimeline();
+    expect(restoredTimeline.get("pane-1")).toHaveLength(1);
+    expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBeUndefined();
   });
 });

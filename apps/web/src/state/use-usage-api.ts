@@ -38,7 +38,6 @@ type RequestUsageProviderBillingOptions = {
 
 type RequestUsageGlobalTimelineOptions = {
   range?: SessionStateTimelineRange;
-  limit?: number;
 };
 
 const DEFAULT_TIMELINE_RANGE: SessionStateTimelineRange = "1h";
@@ -114,9 +113,6 @@ export const useUsageApi = ({ token, apiBaseUrl }: UseUsageApiParams) => {
       ensureToken();
       const query = new URLSearchParams();
       query.set("range", options.range ?? DEFAULT_TIMELINE_RANGE);
-      if (options.limit != null) {
-        query.set("limit", String(Math.max(1, Math.floor(options.limit))));
-      }
       const request = fetch(buildApiPath(apiBasePath, "/usage/state-timeline", query), {
         headers: {
           Authorization: `Bearer ${token}`,

@@ -497,10 +497,34 @@ export const usageDashboardResponseSchema = z.object({
   fetchedAt: z.string(),
 });
 
+export const usageGlobalTimelineRepoRankingApproximationReasonSchema = z.enum([
+  "retention_clipped",
+]);
+
+export const usageGlobalTimelineRepoRankingItemSchema = z.object({
+  repoRoot: z.string(),
+  repoName: z.string(),
+  totalPaneCount: z.number().int().min(0),
+  activePaneCount: z.number().int().min(0),
+  runningMs: z.number().min(0),
+  runningUnionMs: z.number().min(0),
+  executionCount: z.number().int().min(0),
+  approximate: z.boolean(),
+  approximationReason: usageGlobalTimelineRepoRankingApproximationReasonSchema.nullable(),
+});
+
+export const usageGlobalTimelineRepoRankingSchema = z.object({
+  totalRepoCount: z.number().int().min(0),
+  byRunningTimeSum: z.array(usageGlobalTimelineRepoRankingItemSchema),
+  byRunningTimeUnion: z.array(usageGlobalTimelineRepoRankingItemSchema),
+  byRunningTransitions: z.array(usageGlobalTimelineRepoRankingItemSchema),
+});
+
 export const usageGlobalTimelineResponseSchema = z.object({
   timeline: sessionStateTimelineSchema,
   paneCount: z.number().int().min(0),
   activePaneCount: z.number().int().min(0),
+  repoRanking: usageGlobalTimelineRepoRankingSchema,
   fetchedAt: z.string(),
 });
 

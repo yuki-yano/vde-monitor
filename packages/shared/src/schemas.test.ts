@@ -8,6 +8,7 @@ import {
   launchAgentRequestSchema,
   notificationSubscriptionRevokeSchema,
   screenResponseSchema,
+  usageGlobalTimelineResponseSchema,
 } from "./schemas";
 
 describe("launchAgentRequestSchema", () => {
@@ -57,6 +58,89 @@ describe("screenResponseSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("usageGlobalTimelineResponseSchema", () => {
+  const createPayload = () => ({
+    timeline: {
+      paneId: "global",
+      now: "2026-02-25T00:00:00.000Z",
+      range: "1h",
+      items: [],
+      totalsMs: {
+        RUNNING: 0,
+        WAITING_INPUT: 0,
+        WAITING_PERMISSION: 0,
+        SHELL: 0,
+        UNKNOWN: 0,
+      },
+      current: null,
+    },
+    paneCount: 2,
+    activePaneCount: 1,
+    repoRanking: {
+      totalRepoCount: 1,
+      byRunningTimeSum: [
+        {
+          repoRoot: "/repo/a",
+          repoName: "a",
+          totalPaneCount: 1,
+          activePaneCount: 1,
+          runningMs: 1000,
+          runningUnionMs: 1000,
+          executionCount: 2,
+          approximate: false,
+          approximationReason: null,
+        },
+      ],
+      byRunningTimeUnion: [],
+      byRunningTransitions: [],
+    },
+    fetchedAt: "2026-02-25T00:00:00.000Z",
+  });
+
+  it("accepts response with required repoRanking", () => {
+    const result = usageGlobalTimelineResponseSchema.safeParse(createPayload());
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts approximationReason as retention_clipped", () => {
+    const payload = createPayload();
+    const result = usageGlobalTimelineResponseSchema.safeParse({
+      ...payload,
+      repoRanking: {
+        ...payload.repoRanking,
+        byRunningTimeSum: payload.repoRanking.byRunningTimeSum.map((item, index) =>
+          index === 0
+            ? { ...item, approximate: true, approximationReason: "retention_clipped" as const }
+            : item,
+        ),
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing repoRanking", () => {
+    const payload = createPayload();
+    const result = usageGlobalTimelineResponseSchema.safeParse({
+      ...payload,
+      repoRanking: undefined,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing ranking arrays", () => {
+    const payload = createPayload();
+    const result = usageGlobalTimelineResponseSchema.safeParse({
+      ...payload,
+      repoRanking: {
+        totalRepoCount: payload.repoRanking.totalRepoCount,
+        byRunningTimeSum: payload.repoRanking.byRunningTimeSum,
+        byRunningTransitions: payload.repoRanking.byRunningTransitions,
+      },
+    });
+    expect(result.success).toBe(false);
   });
 });
 

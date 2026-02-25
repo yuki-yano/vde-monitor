@@ -22,6 +22,7 @@ describe("restoreMonitorRuntimeState", () => {
           customTitle: "Custom",
           state: "RUNNING",
           stateReason: "restored",
+          repoRoot: "/repo/a",
         },
       ],
       [
@@ -39,6 +40,7 @@ describe("restoreMonitorRuntimeState", () => {
           customTitle: null,
           state: "WAITING_INPUT",
           stateReason: "restored",
+          repoRoot: "/repo/b",
         },
       ],
     ]);
@@ -79,6 +81,7 @@ describe("restoreMonitorRuntimeState", () => {
       expect.objectContaining({
         paneId: "%2",
         state: "WAITING_INPUT",
+        repoRoot: "/repo/b",
         source: "restore",
       }),
     );
