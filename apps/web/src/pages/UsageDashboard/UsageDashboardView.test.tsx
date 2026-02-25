@@ -432,7 +432,7 @@ describe("UsageDashboardView", () => {
     expect(paceBadge.className).not.toContain("text-latte-green");
   });
 
-  it("renders Repo Ranking section above Global State Timeline", () => {
+  it("renders Active Repository section above Global State Timeline", () => {
     render(
       <UsageDashboardView
         {...createViewModel(createProvider("codex"), {
@@ -441,11 +441,16 @@ describe("UsageDashboardView", () => {
       />,
     );
 
-    const repoHeading = screen.getByRole("heading", { name: "Repo Ranking" });
+    const repoHeading = screen.getByRole("heading", { name: "Active Repository" });
     const timelineHeading = screen.getByRole("heading", { name: "Global State Timeline" });
     expect(
       repoHeading.compareDocumentPosition(timelineHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
+    expect(
+      screen.queryByText(
+        "Running(sum) counts overlaps across panes. Running(union) removes overlaps.",
+      ),
+    ).toBeNull();
   });
 
   it("switches ranking rows by tab", () => {
@@ -470,7 +475,7 @@ describe("UsageDashboardView", () => {
     const transitionsTab = screen.getByRole("tab", { name: "RUNNING Transitions" });
     fireEvent.mouseDown(transitionsTab, { button: 0 });
     expect(transitionsTab.getAttribute("data-state")).toBe("active");
-    expect(screen.getByText("Runs 9")).toBeTruthy();
+    expect(screen.getAllByText("Runs 9").length).toBeGreaterThan(0);
   });
 
   it("shows ranking row metrics and Approx tag", () => {
@@ -482,12 +487,93 @@ describe("UsageDashboardView", () => {
       />,
     );
 
-    expect(screen.getByText("Running(sum) 6m")).toBeTruthy();
-    expect(screen.getAllByText("Running(union) 4m")).toHaveLength(2);
+    expect(screen.queryByText("Baseline (#1)")).toBeNull();
+    expect(screen.queryByText(/Across all repos in this range/)).toBeNull();
+    expect(screen.queryByText("Relative to #1")).toBeNull();
+    expect(screen.getByText("Sum 6m")).toBeTruthy();
+    expect(screen.getAllByText("Union 4m")).toHaveLength(2);
     expect(screen.getByText("Runs 3")).toBeTruthy();
-    expect(screen.getByText("Panes 1/2")).toBeTruthy();
+    expect(screen.queryByText(/Panes/)).toBeNull();
     const approx = screen.getByText("Approx");
     expect(approx.getAttribute("title")).toBe("Range start is outside retained timeline history.");
+  });
+
+  it("switches aggregation range from ranking range tabs", () => {
+    const onTimelineRangeChange = vi.fn();
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline(),
+          timelineRange: "24h",
+          onTimelineRangeChange,
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: "15m" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "1h" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "3h" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "14d" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "30d" })).toBeTruthy();
+
+    const rangeTab = screen.getByRole("tab", { name: "30d" });
+    fireEvent.mouseDown(rangeTab, { button: 0 });
+    expect(onTimelineRangeChange).toHaveBeenCalledWith("30d");
+  });
+
+  it("formats long running metrics to minute precision and compacts home path", () => {
+    render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline: createTimeline({
+            totalRepoCount: 1,
+            byRunningTimeSum: [
+              {
+                repoRoot: "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor",
+                repoName: "vde-monitor",
+                totalPaneCount: 2,
+                activePaneCount: 1,
+                runningMs: (2 * 24 * 60 + 3 * 60 + 4) * 60 * 1000,
+                runningUnionMs: (24 * 60 + 60 + 2) * 60 * 1000,
+                executionCount: 3,
+                approximate: false,
+                approximationReason: null,
+              },
+            ],
+            byRunningTimeUnion: [
+              {
+                repoRoot: "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor",
+                repoName: "vde-monitor",
+                totalPaneCount: 2,
+                activePaneCount: 1,
+                runningMs: (2 * 24 * 60 + 3 * 60 + 4) * 60 * 1000,
+                runningUnionMs: (24 * 60 + 60 + 2) * 60 * 1000,
+                executionCount: 3,
+                approximate: false,
+                approximationReason: null,
+              },
+            ],
+            byRunningTransitions: [
+              {
+                repoRoot: "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor",
+                repoName: "vde-monitor",
+                totalPaneCount: 2,
+                activePaneCount: 1,
+                runningMs: (2 * 24 * 60 + 3 * 60 + 4) * 60 * 1000,
+                runningUnionMs: (24 * 60 + 60 + 2) * 60 * 1000,
+                executionCount: 3,
+                approximate: false,
+                approximationReason: null,
+              },
+            ],
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Sum 2d 3h 4m")).toBeTruthy();
+    expect(screen.getByText("Union 1d 1h 2m")).toBeTruthy();
+    expect(screen.getByText("~/repos/github.com/yuki-yano/vde-monitor")).toBeTruthy();
   });
 
   it("shows empty state when all ranking lists are empty", () => {

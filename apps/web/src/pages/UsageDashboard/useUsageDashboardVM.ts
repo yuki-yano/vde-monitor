@@ -402,7 +402,12 @@ export const useUsageDashboardVM = () => {
   }, [loadTimeline, timelineRange]);
 
   useEffect(() => {
-    if (timelineRange === "3d" || timelineRange === "7d") {
+    if (
+      timelineRange === "3d" ||
+      timelineRange === "7d" ||
+      timelineRange === "14d" ||
+      timelineRange === "30d"
+    ) {
       setCompactTimeline(true);
     }
   }, [timelineRange]);

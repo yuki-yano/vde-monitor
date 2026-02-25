@@ -141,8 +141,7 @@ const ensureFallbackOutputAt = ({
   return fallbackTs;
 };
 
-const shouldKeepHookState = (state: string) =>
-  state === "WAITING_INPUT" || state === "WAITING_PERMISSION";
+const shouldKeepHookState = (state: string) => state === "WAITING_PERMISSION";
 
 const resolveHookState = (paneState: PaneRuntimeState, outputAt: string | null) => {
   const hookState = paneState.hookState;

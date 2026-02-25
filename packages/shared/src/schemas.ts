@@ -372,7 +372,17 @@ export const sessionDetailSchema = sessionSummarySchema.extend({
   panePid: z.number().nullable(),
 });
 
-export const sessionStateTimelineRangeSchema = z.enum(["15m", "1h", "3h", "6h", "24h", "3d", "7d"]);
+export const sessionStateTimelineRangeSchema = z.enum([
+  "15m",
+  "1h",
+  "3h",
+  "6h",
+  "24h",
+  "3d",
+  "7d",
+  "14d",
+  "30d",
+]);
 export const sessionStateTimelineScopeSchema = z.enum(["pane", "repo"]);
 
 export const sessionStateTimelineSourceSchema = z.enum(["poll", "hook", "restore"]);

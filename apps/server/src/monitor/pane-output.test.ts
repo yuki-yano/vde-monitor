@@ -57,7 +57,7 @@ describe("updatePaneOutputState", () => {
     expect(state.hookState).toBeNull();
   });
 
-  it("keeps waiting hook state even when output advances", async () => {
+  it("clears waiting-input hook state when output advances", async () => {
     const state = createState({
       hookState: { state: "WAITING_INPUT", reason: "hook:stop", at: "2024-01-01T00:00:00.000Z" },
     });
@@ -75,11 +75,8 @@ describe("updatePaneOutputState", () => {
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
-    expect(result.hookState).toEqual({
-      state: "WAITING_INPUT",
-      reason: "hook:stop",
-      at: "2024-01-01T00:00:00.000Z",
-    });
+    expect(result.hookState).toBeNull();
+    expect(state.hookState).toBeNull();
   });
 
   it("keeps waiting-permission hook state when output advances", async () => {

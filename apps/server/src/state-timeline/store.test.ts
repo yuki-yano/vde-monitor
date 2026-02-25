@@ -142,27 +142,27 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 60 * 1000);
   });
 
-  it("retains enough history for 7d range by default", () => {
+  it("retains enough history for 30d range by default", () => {
     const clock = nowAt;
-    clock.set("2026-02-13T12:00:00.000Z");
+    clock.set("2026-03-05T12:00:00.000Z");
     const store = createSessionTimelineStore({ now: clock.now });
 
     store.record({
-      paneId: "%7d",
+      paneId: "%30d",
       state: "WAITING_INPUT",
       reason: "hook:stop",
-      at: "2026-02-07T12:00:00.000Z",
+      at: "2026-02-10T12:00:00.000Z",
       source: "hook",
     });
     store.record({
-      paneId: "%7d",
+      paneId: "%30d",
       state: "RUNNING",
       reason: "hook:PreToolUse",
-      at: "2026-02-12T00:00:00.000Z",
+      at: "2026-03-01T00:00:00.000Z",
       source: "hook",
     });
 
-    const timeline = store.getTimeline({ paneId: "%7d", range: "7d" });
+    const timeline = store.getTimeline({ paneId: "%30d", range: "30d" });
 
     expect(timeline.items).toHaveLength(2);
     expect(timeline.items[0]?.state).toBe("RUNNING");

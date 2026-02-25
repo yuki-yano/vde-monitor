@@ -55,6 +55,8 @@ const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "24h": 24 * 60 * 60 * 1000,
   "3d": 3 * 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,
+  "14d": 14 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
 const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {

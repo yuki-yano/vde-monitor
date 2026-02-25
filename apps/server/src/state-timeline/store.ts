@@ -20,9 +20,11 @@ const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "24h": 24 * 60 * 60 * 1000,
   "3d": 3 * 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,
+  "14d": 14 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
-const DEFAULT_RETENTION_MS = RANGE_MS["7d"];
+const DEFAULT_RETENTION_MS = RANGE_MS["30d"];
 const MAX_TIMELINE_ITEMS = 10_000;
 const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "15m": 200,
@@ -32,6 +34,8 @@ const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "24h": 5_000,
   "3d": 7_000,
   "7d": 10_000,
+  "14d": 10_000,
+  "30d": 10_000,
 };
 
 type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs"> & {
