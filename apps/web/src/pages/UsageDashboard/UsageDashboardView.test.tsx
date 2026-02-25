@@ -190,4 +190,86 @@ describe("UsageDashboardView", () => {
     expect(screen.getByText("Session")).toBeTruthy();
     expect(screen.getByText("Weekly")).toBeTruthy();
   });
+
+  it("renders used/elapsed percent with shared formatting across all windows", () => {
+    const codex = createProvider("codex", {
+      windows: [
+        {
+          id: "session",
+          title: "Session",
+          utilizationPercent: 10,
+          windowDurationMs: 300 * 60 * 1000,
+          resetsAt: "2026-02-24T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 50,
+            paceMarginPercent: 30,
+            status: "margin",
+          },
+        },
+        {
+          id: "weekly",
+          title: "Weekly",
+          utilizationPercent: 40,
+          windowDurationMs: 10_080 * 60 * 1000,
+          resetsAt: "2026-02-28T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 30,
+            projectedEndUtilizationPercent: 70,
+            paceMarginPercent: 10,
+            status: "balanced",
+          },
+        },
+        {
+          id: "model",
+          title: "Sonnet Weekly",
+          utilizationPercent: 12,
+          windowDurationMs: 10_080 * 60 * 1000,
+          resetsAt: "2026-02-28T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 8.5,
+            projectedEndUtilizationPercent: 141.2,
+            paceMarginPercent: -41.2,
+            status: "over",
+          },
+        },
+      ],
+    });
+
+    render(<UsageDashboardView {...createViewModel(codex)} />);
+
+    expect(screen.getByText("10% / 20%")).toBeTruthy();
+    expect(screen.getByText("40% / 30%")).toBeTruthy();
+    expect(screen.getByText("12% / 8.5%")).toBeTruthy();
+  });
+
+  it("renders usage breakdown dates in local time zone", () => {
+    const codex = createProvider("codex");
+    codex.billing = {
+      ...codex.billing,
+      meta: {
+        ...codex.billing.meta,
+        source: "actual",
+      },
+      dailyBreakdown: [
+        {
+          date: "2026-02-24",
+          modelIds: ["gpt-5"],
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+          totalTokens: 150,
+          usd: 1.23,
+        },
+      ],
+    };
+
+    render(<UsageDashboardView {...createViewModel(codex)} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Usage breakdown (last 30 days)" }));
+
+    const expectedDate = new Date("2026-02-24T00:00:00.000Z").toLocaleDateString();
+    expect(screen.getByText(expectedDate)).toBeTruthy();
+  });
 });

@@ -204,18 +204,29 @@ const parseUtcDay = (value: string): Date | null => {
   return parsed;
 };
 
-const formatUtcDay = (date: Date) => {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
+const toLocalDayStart = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const formatLocalDayKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
-const resolveWeekStartUtc = (date: Date) => {
+const formatLocalDay = (date: Date) => date.toLocaleDateString();
+
+const formatLocalMonth = (date: Date) =>
+  date.toLocaleDateString([], {
+    year: "numeric",
+    month: "2-digit",
+  });
+
+const resolveWeekStartLocal = (date: Date) => {
   const shifted = new Date(date);
-  const weekday = (shifted.getUTCDay() + 6) % 7;
-  shifted.setUTCDate(shifted.getUTCDate() - weekday);
-  shifted.setUTCHours(0, 0, 0, 0);
+  const weekday = (shifted.getDay() + 6) % 7;
+  shifted.setDate(shifted.getDate() - weekday);
+  shifted.setHours(0, 0, 0, 0);
   return shifted;
 };
 
@@ -227,30 +238,31 @@ const resolveBreakdownBucket = (
   if (!parsed) {
     return null;
   }
+  const localDayStart = toLocalDayStart(parsed);
   if (granularity === "daily") {
     return {
-      key: dateText,
-      label: dateText,
-      startMs: parsed.getTime(),
+      key: formatLocalDayKey(localDayStart),
+      label: formatLocalDay(localDayStart),
+      startMs: localDayStart.getTime(),
     };
   }
   if (granularity === "weekly") {
-    const start = resolveWeekStartUtc(parsed);
+    const start = resolveWeekStartLocal(localDayStart);
     const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 6);
-    const startText = formatUtcDay(start);
-    const endText = formatUtcDay(end);
+    end.setDate(end.getDate() + 6);
+    const startText = formatLocalDay(start);
+    const endText = formatLocalDay(end);
     return {
-      key: startText,
+      key: formatLocalDayKey(start),
       label: `${startText} - ${endText}`,
       startMs: start.getTime(),
     };
   }
-  const monthKey = `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}`;
-  const monthStart = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1));
+  const monthKey = `${localDayStart.getFullYear()}-${String(localDayStart.getMonth() + 1).padStart(2, "0")}`;
+  const monthStart = new Date(localDayStart.getFullYear(), localDayStart.getMonth(), 1);
   return {
     key: monthKey,
-    label: monthKey,
+    label: formatLocalMonth(monthStart),
     startMs: monthStart.getTime(),
   };
 };
