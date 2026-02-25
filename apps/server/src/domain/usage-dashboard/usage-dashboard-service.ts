@@ -11,10 +11,7 @@ import type {
   UsageProviderSnapshot,
 } from "@vde-monitor/shared";
 
-import {
-  fetchClaudeOauthUsage,
-  resolveClaudeOauthToken,
-} from "../claude-usage/claude-usage-service";
+import { fetchClaudeOauthUsageWithFallback } from "../claude-usage/claude-usage-service";
 import {
   type CodexRateLimitSnapshot,
   fetchCodexRateLimits,
@@ -405,8 +402,7 @@ const buildClaudeSnapshot = async ({
   nowMs: number;
   balancedThresholdPercent: number;
 }): Promise<UsageSnapshotCore> => {
-  const token = await resolveClaudeOauthToken();
-  const response = await fetchClaudeOauthUsage({ token, timeoutMs });
+  const response = await fetchClaudeOauthUsageWithFallback({ timeoutMs });
 
   const windows: UsageMetricWindow[] = [
     createUsageMetricWindow({

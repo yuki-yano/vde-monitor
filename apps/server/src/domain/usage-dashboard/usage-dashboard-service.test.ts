@@ -5,8 +5,7 @@ import { createUsageDashboardService } from "./usage-dashboard-service";
 
 const mocks = vi.hoisted(() => ({
   fetchCodexRateLimits: vi.fn(),
-  fetchClaudeOauthUsage: vi.fn(),
-  resolveClaudeOauthToken: vi.fn(),
+  fetchClaudeOauthUsageWithFallback: vi.fn(),
 }));
 
 vi.mock("../codex-usage/codex-usage-service", () => ({
@@ -14,8 +13,7 @@ vi.mock("../codex-usage/codex-usage-service", () => ({
 }));
 
 vi.mock("../claude-usage/claude-usage-service", () => ({
-  fetchClaudeOauthUsage: mocks.fetchClaudeOauthUsage,
-  resolveClaudeOauthToken: mocks.resolveClaudeOauthToken,
+  fetchClaudeOauthUsageWithFallback: mocks.fetchClaudeOauthUsageWithFallback,
 }));
 
 const codexRateLimitsResponse = {
@@ -65,8 +63,7 @@ describe("createUsageDashboardService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.fetchCodexRateLimits.mockResolvedValue(codexRateLimitsResponse);
-    mocks.resolveClaudeOauthToken.mockResolvedValue("token");
-    mocks.fetchClaudeOauthUsage.mockResolvedValue({
+    mocks.fetchClaudeOauthUsageWithFallback.mockResolvedValue({
       fiveHour: {
         utilizationPercent: 10,
         resetsAt: "2026-02-24T12:00:00.000Z",

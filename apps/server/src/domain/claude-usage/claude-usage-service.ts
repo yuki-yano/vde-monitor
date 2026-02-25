@@ -23,6 +23,10 @@ type FetchClaudeOauthUsageOptions = {
   timeoutMs?: number;
 };
 
+type FetchClaudeOauthUsageWithFallbackOptions = {
+  timeoutMs?: number;
+};
+
 const CLAUDE_USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage";
 const CLAUDE_USAGE_BETA_HEADER = "oauth-2025-04-20";
 const CLAUDE_FIVE_HOUR_MINS = 300;
@@ -170,20 +174,29 @@ const readTokenFromMacKeychain = async (): Promise<string | null> => {
   return null;
 };
 
+const resolveClaudeOauthTokenCandidates = async (): Promise<string[]> => {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const pushCandidate = (token: string | null | undefined) => {
+    const normalized = token?.trim();
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
+
+  pushCandidate(process.env.CLAUDE_CODE_OAUTH_TOKEN);
+  pushCandidate(await readTokenFromMacKeychain());
+  pushCandidate(await readTokenFromCredentialsFile());
+
+  return candidates;
+};
+
 export const resolveClaudeOauthToken = async (): Promise<string> => {
-  const envToken = process.env.CLAUDE_CODE_OAUTH_TOKEN?.trim();
-  if (envToken) {
-    return envToken;
-  }
-
-  const keychainToken = await readTokenFromMacKeychain();
-  if (keychainToken) {
-    return keychainToken;
-  }
-
-  const fileToken = await readTokenFromCredentialsFile();
-  if (fileToken) {
-    return fileToken;
+  const [token] = await resolveClaudeOauthTokenCandidates();
+  if (token) {
+    return token;
   }
 
   throw new UsageProviderError(
@@ -254,4 +267,37 @@ export const fetchClaudeOauthUsage = async ({
   } finally {
     clearTimeout(timeoutHandle);
   }
+};
+
+export const fetchClaudeOauthUsageWithFallback = async ({
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+}: FetchClaudeOauthUsageWithFallbackOptions = {}): Promise<ClaudeOauthUsageResponse> => {
+  const tokens = await resolveClaudeOauthTokenCandidates();
+  if (tokens.length === 0) {
+    throw new UsageProviderError(
+      "TOKEN_NOT_FOUND",
+      "Claude token not found. Run claude login or set CLAUDE_CODE_OAUTH_TOKEN.",
+    );
+  }
+
+  let lastTokenInvalidError: UsageProviderError | null = null;
+  for (const token of tokens) {
+    try {
+      return await fetchClaudeOauthUsage({ token, timeoutMs });
+    } catch (error) {
+      if (error instanceof UsageProviderError && error.code === "TOKEN_INVALID") {
+        lastTokenInvalidError = error;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw (
+    lastTokenInvalidError ??
+    new UsageProviderError(
+      "TOKEN_INVALID",
+      "Claude token is invalid or expired. Run claude login again or update CLAUDE_CODE_OAUTH_TOKEN.",
+    )
+  );
 };
