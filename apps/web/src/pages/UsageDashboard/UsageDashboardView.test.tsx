@@ -16,6 +16,10 @@ vi.mock("@/components/theme-toggle", () => ({
   ThemeToggle: () => <div data-testid="theme-toggle" />,
 }));
 
+vi.mock("@/features/shared-session-ui/components/SessionSidebar", () => ({
+  SessionSidebar: () => <div data-testid="session-sidebar" />,
+}));
+
 const createProvider = (
   providerId: "codex" | "claude",
   overrides: Partial<UsageProviderSnapshot> = {},
@@ -90,6 +94,16 @@ const createProvider = (
 
 const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM => ({
   sessions: [],
+  connected: true,
+  connectionIssue: null,
+  launchConfig: {} as UsageDashboardVM["launchConfig"],
+  requestWorktrees: vi.fn() as UsageDashboardVM["requestWorktrees"],
+  requestStateTimeline: vi.fn() as UsageDashboardVM["requestStateTimeline"],
+  requestScreen: vi.fn() as UsageDashboardVM["requestScreen"],
+  highlightCorrections: {} as UsageDashboardVM["highlightCorrections"],
+  resolvedTheme: "latte",
+  sidebarSessionGroups: [],
+  sidebarWidth: 280,
   dashboard: {
     providers: [codexProvider, createProvider("claude", { windows: [] })],
     fetchedAt: "2026-02-24T12:00:00.000Z",
@@ -122,11 +136,22 @@ const createViewModel = (codexProvider: UsageProviderSnapshot): UsageDashboardVM
   onCloseQuickPanel: vi.fn(),
   onOpenPaneHere: vi.fn(),
   onOpenPaneInNewWindow: vi.fn(),
+  onSidebarResizeStart: vi.fn(),
+  onLaunchAgentInSession: vi.fn() as UsageDashboardVM["onLaunchAgentInSession"],
+  onTouchPanePin: vi.fn(),
+  onTouchRepoPin: vi.fn(),
   onOpenHere: vi.fn(),
   onOpenNewTab: vi.fn(),
 });
 
 describe("UsageDashboardView", () => {
+  it("renders desktop sidebar shell", () => {
+    render(<UsageDashboardView {...createViewModel(createProvider("codex"))} />);
+
+    expect(screen.getByTestId("session-sidebar")).toBeTruthy();
+    expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeTruthy();
+  });
+
   it("shows history controls only in pwa display mode", () => {
     const isPwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "isPwaDisplayMode");
     const viewModel = createViewModel(createProvider("codex"));

@@ -8,11 +8,14 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
+import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessionListPins";
 import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
+import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
+import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 import { useSessions } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 import { useUsageApi } from "@/state/use-usage-api";
@@ -23,6 +26,13 @@ const TIMELINE_POLL_INTERVAL_MS = 15_000;
 const TIMELINE_DEFAULT_RANGE: SessionStateTimelineRange = "24h";
 type BillingProviderId = "codex" | "claude";
 const FALLBACK_BILLING_PROVIDERS: BillingProviderId[] = ["codex", "claude"];
+
+const createLaunchRequestId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `launch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 const isBillingProviderId = (providerId: string): providerId is BillingProviderId =>
   providerId === "codex" || providerId === "claude";
@@ -77,12 +87,22 @@ export const useUsageDashboardVM = () => {
     sessions,
     connected,
     connectionIssue,
+    launchConfig,
+    requestWorktrees,
+    requestStateTimeline,
     requestScreen,
+    launchAgentInSession,
+    touchSession,
     highlightCorrections,
   } = useSessions();
   const navigate = useNavigate();
   const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
   const { resolvedTheme } = useTheme();
+  const { sidebarWidth, handlePointerDown } = useSidebarWidth();
+  const { getRepoSortAnchorAt, touchRepoPin, touchPanePin } = useSessionListPins({
+    sessions,
+    onTouchPane: touchSession,
+  });
   const {
     requestUsageDashboard,
     requestUsageProviderBilling,
@@ -117,7 +137,14 @@ export const useUsageDashboardVM = () => {
   const nowMs = useNowMs(30_000);
 
   const canRequest = Boolean(token);
-  const quickPanelGroups = useMemo(() => buildSessionGroups(sessions), [sessions]);
+  const sidebarSessionGroups = useMemo(
+    () =>
+      buildSessionGroups(sessions, {
+        getRepoSortAnchorAt,
+      }),
+    [getRepoSortAnchorAt, sessions],
+  );
+  const quickPanelGroups = sidebarSessionGroups;
   const {
     quickPanelOpen,
     logModalOpen,
@@ -456,8 +483,25 @@ export const useUsageDashboardVM = () => {
     handleOpenPaneInNewWindow(selectedPaneId);
   }, [handleOpenPaneInNewWindow, selectedPaneId]);
 
+  const handleLaunchAgentInSession = useCallback(
+    async (sessionName: string, agent: "codex" | "claude", options?: LaunchAgentRequestOptions) => {
+      await launchAgentInSession(sessionName, agent, createLaunchRequestId(), options);
+    },
+    [launchAgentInSession],
+  );
+
   return {
     sessions,
+    connected,
+    connectionIssue,
+    launchConfig,
+    requestWorktrees,
+    requestStateTimeline,
+    requestScreen,
+    highlightCorrections,
+    resolvedTheme,
+    sidebarSessionGroups,
+    sidebarWidth,
     dashboard,
     dashboardLoading,
     billingLoadingByProvider,
@@ -486,6 +530,10 @@ export const useUsageDashboardVM = () => {
     onCloseQuickPanel: closeQuickPanel,
     onOpenPaneHere: handleOpenPaneHere,
     onOpenPaneInNewWindow: handleOpenPaneInNewWindow,
+    onSidebarResizeStart: handlePointerDown,
+    onLaunchAgentInSession: handleLaunchAgentInSession,
+    onTouchPanePin: touchPanePin,
+    onTouchRepoPin: touchRepoPin,
     onOpenHere: handleOpenHere,
     onOpenNewTab: handleOpenInNewTab,
   };

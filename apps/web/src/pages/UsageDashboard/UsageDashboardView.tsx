@@ -7,7 +7,7 @@ import type {
   UsageProviderSnapshot,
 } from "@vde-monitor/shared";
 import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui";
 import { LogModal } from "@/features/shared-session-ui/components/LogModal";
 import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
+import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
 import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
@@ -910,6 +911,16 @@ const timelineRangeTabs = (
 
 export const UsageDashboardView = ({
   sessions,
+  connected,
+  connectionIssue,
+  launchConfig,
+  requestWorktrees,
+  requestStateTimeline,
+  requestScreen,
+  highlightCorrections,
+  resolvedTheme,
+  sidebarSessionGroups,
+  sidebarWidth,
   dashboard,
   dashboardLoading,
   billingLoadingByProvider,
@@ -936,6 +947,10 @@ export const UsageDashboardView = ({
   onCloseQuickPanel,
   onOpenPaneHere,
   onOpenPaneInNewWindow,
+  onSidebarResizeStart,
+  onLaunchAgentInSession,
+  onTouchPanePin,
+  onTouchRepoPin,
   onOpenHere,
   onOpenNewTab,
 }: UsageDashboardVM) => {
@@ -961,7 +976,46 @@ export const UsageDashboardView = ({
 
   return (
     <>
-      <main className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:px-6">
+      <div
+        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        <SessionSidebar
+          state={{
+            sessionGroups: sidebarSessionGroups,
+            nowMs,
+            connected,
+            connectionIssue,
+            launchConfig,
+            requestWorktrees,
+            requestStateTimeline,
+            requestScreen,
+            highlightCorrections,
+            resolvedTheme,
+            currentPaneId: null,
+            className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
+          }}
+          actions={{
+            onSelectSession: onOpenPaneHere,
+            onFocusPane: onOpenPaneHere,
+            onLaunchAgentInSession,
+            onTouchSession: onTouchPanePin,
+            onTouchRepoPin,
+          }}
+        />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
+          onPointerDown={onSidebarResizeStart}
+        />
+      </div>
+
+      <main
+        className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      >
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
           <div className="flex items-center justify-between gap-3">
             <Link to="/" search={backToListSearch} className={backLinkClass}>
