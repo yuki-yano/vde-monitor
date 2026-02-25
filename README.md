@@ -211,23 +211,13 @@ Global config file:
 - `$XDG_CONFIG_HOME/vde/monitor/config.yml`
 - fallback: `~/.config/vde/monitor/config.yml`
 
-Project-local override:
-
-- `<repo-root>/.vde/monitor/config.yml`
-
 Priority:
 
-- `CLI args > project-local override > global config > defaults`
+- `CLI args > global config > defaults`
 
-Config file discovery order (both global and project-local):
+Global config file discovery order:
 
 - `config.yml > config.yaml > config.json`
-
-Project config discovery:
-
-- starts from current working directory
-- walks up to git root (`.git`) and stops there
-- outside a repository, only current directory is checked
 
 Auto-generated required settings (`config.yml`):
 
@@ -272,6 +262,7 @@ Notes:
 - `config check` / `config prune` target global config only.
 - `config check` exits with code `1` when any issue is found (including unused keys).
 - `config prune` writes YAML to `config.yml`; when source is `config.json`, it is removed after successful write.
+- Project-local config (`<repo-root>/.vde/monitor/config.*`) is no longer loaded. Move required values to global config.
 
 ## Platform behavior
 

@@ -30,7 +30,7 @@ type ApiContext = {
 
 const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
 const CORS_ALLOW_HEADERS = "Authorization,Content-Type,Request-Id,X-Request-Id,Content-Length";
-const CONFIG_VALIDATION_ERROR_PATTERN = /^invalid (?:project )?config(?: JSON)?: /i;
+const CONFIG_VALIDATION_ERROR_PATTERN = /^invalid config(?: JSON)?: /i;
 
 const resolveConfigValidationErrorCause = (error: unknown) => {
   if (!(error instanceof Error)) {

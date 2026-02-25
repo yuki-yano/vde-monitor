@@ -48,7 +48,7 @@ describe("session-api-utils", () => {
   it("formats refresh 500 errors with explicit error cause", () => {
     const onConnectionIssueCalls: Array<string | null> = [];
     const cause =
-      "invalid config: /tmp/.vde/monitor/config.yml activity.pollIntervalMs Invalid input: expected number, received string";
+      "invalid config: /tmp/.config/vde/monitor/config.yml activity.pollIntervalMs Invalid input: expected number, received string";
 
     const result = applyRefreshSessionsFailure({
       res: new Response(null, { status: 500 }),

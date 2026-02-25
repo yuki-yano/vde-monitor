@@ -211,23 +211,13 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `$XDG_CONFIG_HOME/vde/monitor/config.yml`
 - フォールバック: `~/.config/vde/monitor/config.yml`
 
-プロジェクトローカル上書き:
-
-- `<repo-root>/.vde/monitor/config.yml`
-
 優先順位:
 
-- `CLI args > project-local override > global config > defaults`
+- `CLI args > global config > defaults`
 
-設定ファイル探索順（global / project-local 共通）:
+グローバル設定ファイル探索順:
 
 - `config.yml > config.yaml > config.json`
-
-プロジェクト設定の探索:
-
-- 現在の作業ディレクトリから探索開始
-- git ルート（`.git`）まで親ディレクトリを遡って探索し、そこで停止
-- リポジトリ外では現在ディレクトリのみを確認
 
 自動生成される必須設定（`config.yml`）:
 
@@ -272,6 +262,7 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `config check` / `config prune` はグローバル設定のみを対象にします。
 - `config check` は問題が1件でもあると終了コード `1` で終了します（未使用キーを含む）。
 - `config prune` は YAML を `config.yml` に書き込みます。入力が `config.json` の場合、成功後に削除されます。
+- プロジェクトローカル設定（`<repo-root>/.vde/monitor/config.*`）は読み込まれません。必要な値はグローバル設定へ移行してください。
 
 ## プラットフォーム挙動
 

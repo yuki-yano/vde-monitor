@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { configDefaults } from "@vde-monitor/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "yaml";
 
 const mocks = vi.hoisted(() => ({
@@ -56,14 +56,12 @@ vi.mock("node:os", () => ({
 import {
   ensureConfig,
   initConfig,
-  mergeConfigLayers,
   regenerateConfig,
-  resolveProjectConfigPath,
-  resolveProjectConfigSearchBoundary,
   rotateToken,
   runConfigCheck,
   runConfigPrune,
 } from "./config";
+import { mergeConfigLayers } from "./infra/config/config-loader";
 
 const configPath = path.resolve("/mock/config/config.yml");
 const legacyJsonConfigPath = path.resolve("/mock/config/config.json");
@@ -72,8 +70,6 @@ const tokenPath = path.resolve("/mock/home/.vde-monitor/token.json");
 const fileContents = new Map<string, string>();
 const writtenContents = new Map<string, string>();
 const directoryPaths = new Set<string>();
-const statErrorCodes = new Map<string, string>();
-let cwdSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 const createFsError = (code: string, targetPath: string) => {
   const error = new Error(`${code}: ${targetPath}`) as NodeJS.ErrnoException;
@@ -113,14 +109,6 @@ const setTokenFile = (token: string) => {
   setFile(tokenPath, `${JSON.stringify({ token }, null, 2)}\n`);
 };
 
-const setProjectConfigFile = (targetPath: string, config: unknown) => {
-  setFile(path.resolve(targetPath), `${JSON.stringify(config, null, 2)}\n`);
-};
-
-const setStatError = (targetPath: string, code: string) => {
-  statErrorCodes.set(path.resolve(targetPath), code);
-};
-
 const expectedGeneratedTemplate = {
   multiplexer: {
     backend: "tmux",
@@ -143,10 +131,7 @@ beforeEach(() => {
   fileContents.clear();
   writtenContents.clear();
   directoryPaths.clear();
-  statErrorCodes.clear();
   setDirectory("/");
-
-  cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(path.resolve("/mock/cwd"));
 
   mocks.readFileSync.mockImplementation((targetPath: unknown) => {
     if (typeof targetPath !== "string") {
@@ -211,10 +196,6 @@ beforeEach(() => {
       throw new Error("unexpected stat args");
     }
     const resolved = path.resolve(targetPath);
-    const forcedCode = statErrorCodes.get(resolved);
-    if (forcedCode) {
-      throw createFsError(forcedCode, resolved);
-    }
     if (fileContents.has(resolved)) {
       return {
         isFile: () => true,
@@ -233,75 +214,6 @@ beforeEach(() => {
   mocks.chmodSync.mockImplementation(() => undefined);
 });
 
-afterEach(() => {
-  cwdSpy?.mockRestore();
-  cwdSpy = null;
-});
-
-describe("resolveProjectConfigSearchBoundary", () => {
-  it("detects repository root when .git is a directory", () => {
-    setDirectory("/mock/repo/.git");
-    const boundary = resolveProjectConfigSearchBoundary({
-      cwd: "/mock/repo/apps/server/src",
-    });
-    expect(boundary).toBe(path.resolve("/mock/repo"));
-  });
-
-  it("detects repository root when .git is a file", () => {
-    setFile("/mock/worktree/.git", "gitdir: /tmp/worktrees/a\n");
-    const boundary = resolveProjectConfigSearchBoundary({
-      cwd: "/mock/worktree/packages/app",
-    });
-    expect(boundary).toBe(path.resolve("/mock/worktree"));
-  });
-
-  it("uses cwd as boundary when not inside a repository", () => {
-    const boundary = resolveProjectConfigSearchBoundary({
-      cwd: "/mock/no-repo/project/subdir",
-    });
-    expect(boundary).toBe(path.resolve("/mock/no-repo/project/subdir"));
-  });
-
-  it("throws when git metadata cannot be inspected", () => {
-    setStatError("/mock/repo/.git", "EACCES");
-    expect(() =>
-      resolveProjectConfigSearchBoundary({
-        cwd: "/mock/repo/apps/server/src",
-      }),
-    ).toThrow(/failed to inspect git metadata/);
-  });
-});
-
-describe("resolveProjectConfigPath", () => {
-  it("stops searching at repository root boundary", () => {
-    setProjectConfigFile("/mock/.vde/monitor/config.yml", { port: 19000 });
-    const resolved = resolveProjectConfigPath({
-      cwd: "/mock/repo/apps/server",
-      boundaryDir: "/mock/repo",
-    });
-    expect(resolved).toBeNull();
-  });
-
-  it("prefers project config.yml over config.json in the same directory", () => {
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yml", { port: 12000 });
-    const resolved = resolveProjectConfigPath({
-      cwd: "/mock/repo/apps/server",
-      boundaryDir: "/mock/repo",
-    });
-    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.yml"));
-  });
-
-  it("falls back to project config.json when yaml files are missing", () => {
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.json", { port: 19000 });
-    const resolved = resolveProjectConfigPath({
-      cwd: "/mock/repo/apps/server",
-      boundaryDir: "/mock/repo",
-    });
-    expect(resolved).toBe(path.resolve("/mock/repo/apps/.vde/monitor/config.json"));
-  });
-});
-
 describe("mergeConfigLayers", () => {
   it("recursively merges objects and replaces arrays by higher-priority value", () => {
     const merged = mergeConfigLayers({
@@ -311,29 +223,24 @@ describe("mergeConfigLayers", () => {
           maxLines: 1800,
         },
       },
-      projectOverride: {
-        allowedOrigins: ["https://project.example"],
-        screen: {
-          maxLines: 1900,
-        },
-      },
-      fileOverrides: {
+      cliArgsOverride: {
+        allowedOrigins: ["https://cli.example"],
         screen: {
           maxLines: 1200,
         },
       },
     });
 
-    expect(merged.allowedOrigins).toEqual(["https://project.example"]);
+    expect(merged.allowedOrigins).toEqual(["https://cli.example"]);
     expect(merged.screen.maxLines).toBe(1200);
   });
 });
 
 describe("ensureConfig", () => {
   it("creates config and token when no files exist", () => {
-    const result = ensureConfig({ bind: "0.0.0.0" });
+    const result = ensureConfig();
 
-    expect(result.bind).toBe("0.0.0.0");
+    expect(result.bind).toBe(configDefaults.bind);
     expect(result.port).toBe(configDefaults.port);
     expect(result.notifications).toEqual(configDefaults.notifications);
     expect(result.usage).toEqual(configDefaults.usage);
@@ -353,9 +260,9 @@ describe("ensureConfig", () => {
       workspaceTabs: { displayMode: "all" },
     });
 
-    const result = ensureConfig({ bind: "0.0.0.0" });
+    const result = ensureConfig();
 
-    expect(result.bind).toBe("0.0.0.0");
+    expect(result.bind).toBe(configDefaults.bind);
     expect(result.multiplexer.backend).toBe("wezterm");
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
@@ -363,7 +270,7 @@ describe("ensureConfig", () => {
     expect(writtenPaths).toEqual([tokenPath]);
   });
 
-  it("applies CLI > project > global > default precedence", () => {
+  it("applies global > default precedence", () => {
     setConfigFile({
       ...expectedGeneratedTemplate,
       port: 10080,
@@ -374,37 +281,25 @@ describe("ensureConfig", () => {
       fileNavigator: { includeIgnoredPaths: ["global/**"] },
     });
     setTokenFile("existing-token");
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/web/src"));
-    setProjectConfigFile("/mock/repo/apps/.vde/monitor/config.yml", {
-      port: 12000,
-      screen: { maxLines: 1300 },
-      fileNavigator: { includeIgnoredPaths: ["project/**"], autoExpandMatchLimit: 150 },
-    });
 
-    const result = ensureConfig({ port: 13000 });
+    const result = ensureConfig();
 
-    expect(result.port).toBe(13000);
-    expect(result.screen.maxLines).toBe(1300);
-    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["project/**"]);
-    expect(result.fileNavigator.autoExpandMatchLimit).toBe(150);
+    expect(result.port).toBe(10080);
+    expect(result.screen.maxLines).toBe(1500);
+    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["global/**"]);
     expect(result.token).toBe("existing-token");
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
 
-  it("ignores unknown keys in global/project config", () => {
+  it("ignores unknown keys in global config", () => {
     setConfigFile({
       ...expectedGeneratedTemplate,
       port: 10080,
       logs: { retainRotations: 999 },
-    });
-    setTokenFile("existing-token");
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setProjectConfigFile("/mock/repo/.vde/monitor/config.yml", {
       input: { maxTextLength: 99999 },
       fileNavigator: { autoExpandMatchLimit: 120 },
     });
+    setTokenFile("existing-token");
 
     const result = ensureConfig();
 
@@ -413,30 +308,16 @@ describe("ensureConfig", () => {
     expect(result.token).toBe("existing-token");
   });
 
-  it("throws when project config contains invalid JSON", () => {
-    setConfigFile(expectedGeneratedTemplate);
+  it("throws when global config contains invalid includeIgnoredPaths pattern", () => {
     setTokenFile("existing-token");
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setFile("/mock/repo/.vde/monitor/config.json", "{ invalid-json\n");
-
-    expect(() => ensureConfig()).toThrow(
-      `invalid project config JSON: ${path.resolve("/mock/repo/.vde/monitor/config.json")}`,
-    );
-  });
-
-  it("throws when project config contains invalid includeIgnoredPaths pattern", () => {
-    setConfigFile(expectedGeneratedTemplate);
-    setTokenFile("existing-token");
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setProjectConfigFile("/mock/repo/.vde/monitor/config.yml", {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
       fileNavigator: {
         includeIgnoredPaths: ["!dist/**"],
       },
     });
 
-    expect(() => ensureConfig()).toThrow(/invalid project config: .*includeIgnoredPaths/);
+    expect(() => ensureConfig()).toThrow(/invalid config: .*includeIgnoredPaths/);
   });
 
   it("throws when notifications.enabledEventTypes is empty", () => {
@@ -492,11 +373,8 @@ describe("regenerateConfig", () => {
     expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(configPath);
   });
 
-  it("ignores project override while regenerating global config", () => {
+  it("keeps global config precedence while regenerating", () => {
     setConfigFile(expectedGeneratedTemplate);
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setFile("/mock/repo/.vde/monitor/config.yml", "{");
 
     const result = regenerateConfig();
 
@@ -526,17 +404,6 @@ describe("initConfig", () => {
       configPath: path.resolve("/mock/config/config.json"),
     });
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
-  it("ignores project override while creating initial global config", () => {
-    setDirectory("/mock/repo/.git");
-    cwdSpy?.mockReturnValue(path.resolve("/mock/repo/apps/server"));
-    setFile("/mock/repo/.vde/monitor/config.yml", "{");
-
-    const result = initConfig();
-
-    expect(result).toEqual({ created: true, configPath });
-    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
   });
 });
 

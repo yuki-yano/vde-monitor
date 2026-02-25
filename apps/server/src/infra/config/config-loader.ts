@@ -21,7 +21,6 @@ import YAML from "yaml";
 
 const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
 const DEFAULT_CONFIG_FILE_BASENAME = "config.yml";
-const PROJECT_CONFIG_RELATIVE_DIR = path.join(".vde", "monitor");
 
 const getConfigDir = () => {
   return resolveConfigDir();
@@ -129,12 +128,6 @@ const validateRequiredGeneratedKeys = ({
   throw createMissingRequiredKeysError({ configPath, missingKeys });
 };
 
-const getProjectConfigCandidatePaths = (basePath: string) => {
-  return CONFIG_FILE_BASENAMES.map((basename) =>
-    path.join(basePath, PROJECT_CONFIG_RELATIVE_DIR, basename),
-  );
-};
-
 const ensureDir = (dir: string) => {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
 };
@@ -170,45 +163,6 @@ const isMissingFileError = (error: unknown) => {
   }
   const maybeCode = (error as { code?: unknown }).code;
   return maybeCode === "ENOENT" || error.message.includes("ENOENT");
-};
-
-const isPathUnderDirectory = (targetPath: string, directoryPath: string) => {
-  const relativePath = path.relative(directoryPath, targetPath);
-  if (relativePath.length === 0) {
-    return true;
-  }
-  return !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
-};
-
-const hasGitMetadataEntry = (dirPath: string) => {
-  const gitMetadataPath = path.join(dirPath, ".git");
-  try {
-    fs.statSync(gitMetadataPath);
-    return true;
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return false;
-    }
-    throw new Error(`failed to inspect git metadata: ${gitMetadataPath}`);
-  }
-};
-
-export const resolveProjectConfigSearchBoundary = ({ cwd }: { cwd: string }) => {
-  const startPath = path.resolve(cwd);
-  let currentPath = startPath;
-
-  while (true) {
-    if (hasGitMetadataEntry(currentPath)) {
-      return currentPath;
-    }
-    const parentPath = path.dirname(currentPath);
-    if (parentPath === currentPath) {
-      break;
-    }
-    currentPath = parentPath;
-  }
-
-  return startPath;
 };
 
 const buildReadError = ({
@@ -287,76 +241,6 @@ const resolveFirstExistingPath = ({
     throw firstNonRegularError;
   }
   return null;
-};
-
-export const resolveProjectConfigPath = ({
-  cwd,
-  boundaryDir,
-}: {
-  cwd: string;
-  boundaryDir: string;
-}) => {
-  const startPath = path.resolve(cwd);
-  const resolvedBoundary = path.resolve(boundaryDir);
-  const effectiveBoundary = isPathUnderDirectory(startPath, resolvedBoundary)
-    ? resolvedBoundary
-    : startPath;
-
-  let currentPath = startPath;
-  while (true) {
-    const resolvedPath = resolveFirstExistingPath({
-      candidatePaths: getProjectConfigCandidatePaths(currentPath),
-      readErrorPrefix: "failed to read project config",
-      nonRegularFileErrorPrefix: "project config path exists but is not a regular file",
-    });
-    if (resolvedPath) {
-      return resolvedPath;
-    }
-    if (currentPath === effectiveBoundary) {
-      break;
-    }
-    const parentPath = path.dirname(currentPath);
-    if (parentPath === currentPath) {
-      break;
-    }
-    currentPath = parentPath;
-  }
-  return null;
-};
-
-export const loadProjectConfigOverride = (projectConfigPath: string): UserConfigReadable => {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(projectConfigPath, "utf8");
-  } catch {
-    throw new Error(`failed to read project config: ${projectConfigPath}`);
-  }
-
-  let json: unknown;
-  const ext = path.extname(projectConfigPath).toLowerCase();
-  if (ext === ".json") {
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      throw new Error(`invalid project config JSON: ${projectConfigPath}`);
-    }
-  } else {
-    try {
-      json = YAML.parse(raw);
-    } catch {
-      throw new Error(`invalid project config: ${projectConfigPath} failed to parse YAML`);
-    }
-  }
-
-  const picked = pickUserConfigAllowlist(json);
-  const parsed = configOverrideSchema.safeParse(picked);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const pathLabel = issue?.path?.join(".") ?? "unknown";
-    const detail = issue?.message ?? "validation failed";
-    throw new Error(`invalid project config: ${projectConfigPath} ${pathLabel} ${detail}`);
-  }
-  return parsed.data;
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
@@ -633,18 +517,15 @@ export const pruneGlobalConfig = ({
 
 export const mergeConfigLayers = ({
   globalConfig,
-  projectOverride,
-  fileOverrides,
+  cliArgsOverride,
 }: {
   globalConfig: UserConfigReadable | null;
-  projectOverride: UserConfigReadable | null;
-  fileOverrides: UserConfigReadable | undefined;
+  cliArgsOverride?: UserConfigReadable;
 }) => {
   const withGlobal =
     globalConfig == null ? configDefaults : deepMerge(configDefaults, globalConfig);
-  const withProject = projectOverride == null ? withGlobal : deepMerge(withGlobal, projectOverride);
-  const withFileOverrides = deepMerge(withProject, fileOverrides);
-  return validateMergedConfig(withFileOverrides);
+  const withCliArgs = deepMerge(withGlobal, cliArgsOverride);
+  return validateMergedConfig(withCliArgs);
 };
 
 export const resolveGlobalConfigPath = () =>

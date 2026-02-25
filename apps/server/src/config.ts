@@ -1,25 +1,15 @@
-import type { UserConfigReadable } from "@vde-monitor/shared";
-
 import {
   buildGeneratedConfigTemplate,
   checkGlobalConfig,
   loadConfig,
-  loadProjectConfigOverride,
   mergeConfigLayers,
   pruneGlobalConfig,
   resolveGlobalConfigPath,
-  resolveProjectConfigPath,
-  resolveProjectConfigSearchBoundary,
   saveConfig,
 } from "./infra/config/config-loader";
 import { ensureToken, generateToken, saveToken } from "./token-store";
 
-export {
-  mergeConfigLayers,
-  resolveGlobalConfigPath,
-  resolveProjectConfigPath,
-  resolveProjectConfigSearchBoundary,
-} from "./infra/config/config-loader";
+export { resolveGlobalConfigPath } from "./infra/config/config-loader";
 
 type ConfigInitResult =
   | {
@@ -31,45 +21,35 @@ type ConfigInitResult =
       configPath: string;
     };
 
-export const ensureConfig = (overrides?: UserConfigReadable) => {
+export const ensureConfig = () => {
   const globalConfig = loadConfig();
-  const cwd = process.cwd();
-  const boundaryDir = resolveProjectConfigSearchBoundary({ cwd });
-  const projectConfigPath = resolveProjectConfigPath({ cwd, boundaryDir });
-  const projectOverride = projectConfigPath ? loadProjectConfigOverride(projectConfigPath) : null;
 
   if (!globalConfig) {
     const persistedConfig = mergeConfigLayers({
       globalConfig: null,
-      projectOverride: null,
-      fileOverrides: overrides,
     });
     saveConfig(buildGeneratedConfigTemplate(persistedConfig));
   }
 
   const config = mergeConfigLayers({
     globalConfig,
-    projectOverride,
-    fileOverrides: overrides,
   });
 
   const token = ensureToken();
   return { ...config, token };
 };
 
-export const regenerateConfig = (overrides?: UserConfigReadable) => {
+export const regenerateConfig = () => {
   const globalConfig = loadConfig({ enforceRequiredGeneratedKeys: false });
   const resolvedConfig = mergeConfigLayers({
     globalConfig,
-    projectOverride: null,
-    fileOverrides: overrides,
   });
   const template = buildGeneratedConfigTemplate(resolvedConfig);
   const configPath = saveConfig(template);
   return { configPath, config: template };
 };
 
-export const initConfig = (overrides?: UserConfigReadable): ConfigInitResult => {
+export const initConfig = (): ConfigInitResult => {
   const existingConfigPath = resolveGlobalConfigPath();
   if (existingConfigPath) {
     return {
@@ -80,8 +60,6 @@ export const initConfig = (overrides?: UserConfigReadable): ConfigInitResult => 
 
   const resolvedConfig = mergeConfigLayers({
     globalConfig: null,
-    projectOverride: null,
-    fileOverrides: overrides,
   });
   const template = buildGeneratedConfigTemplate(resolvedConfig);
   const configPath = saveConfig(template);
