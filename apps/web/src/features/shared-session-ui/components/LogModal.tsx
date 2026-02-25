@@ -12,7 +12,17 @@ import {
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
-import { Button, Callout, Card, IconButton, Toolbar } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  IconButton,
+  Toolbar,
+} from "@/components/ui";
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import {
   logModalDisplayLinesAtom,
@@ -157,21 +167,37 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
   if (!open || !session) return null;
 
   return (
-    <div
-      data-testid="log-modal-overlay"
-      data-log-modal-overlay="true"
-      className="fixed inset-0 z-[110] bg-black/45 backdrop-blur-[2px]"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) {
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
           onClose();
         }
       }}
     >
-      <div
+      <DialogContent
+        overlayProps={{
+          "data-testid": "log-modal-overlay",
+          "data-log-modal-overlay": "true",
+          onPointerDown: (event) => {
+            if (event.target === event.currentTarget) {
+              event.preventDefault();
+              onClose();
+            }
+          },
+        }}
+        onInteractOutside={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
         data-testid="log-modal-panel"
-        className="absolute left-1/2 top-1/2 z-[111] flex h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] min-h-0 w-[min(760px,calc(100vw-1rem))] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[min(760px,calc(100vw-1.5rem))]"
+        className="top-[50%] z-[111] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[min(760px,calc(100vw-1.5rem))]"
       >
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
+        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-[min(720px,calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem))] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
+          <DialogTitle className="sr-only">Session Log</DialogTitle>
+          <DialogDescription className="sr-only">
+            Scroll and inspect the selected session log output.
+          </DialogDescription>
           <IconButton
             type="button"
             onClick={onClose}
@@ -232,7 +258,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
             sanitizeCopyText={sanitizeLogCopyText}
           />
         </Card>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
