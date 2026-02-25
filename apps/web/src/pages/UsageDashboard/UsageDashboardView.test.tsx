@@ -268,6 +268,90 @@ describe("UsageDashboardView", () => {
     expect(screen.getByText("12% / 8.5%")).toBeTruthy();
   });
 
+  it("colors usage bars by relative position to elapsed line", () => {
+    const codex = createProvider("codex", {
+      windows: [
+        {
+          id: "session",
+          title: "Ahead",
+          utilizationPercent: 10,
+          windowDurationMs: 300 * 60 * 1000,
+          resetsAt: "2026-02-24T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 50,
+            paceMarginPercent: 10,
+            status: "margin",
+          },
+        },
+        {
+          id: "weekly",
+          title: "Near pace",
+          utilizationPercent: 24,
+          windowDurationMs: 10_080 * 60 * 1000,
+          resetsAt: "2026-02-28T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 96,
+            paceMarginPercent: 4,
+            status: "margin",
+          },
+        },
+        {
+          id: "model",
+          title: "Over pace",
+          utilizationPercent: 35,
+          windowDurationMs: 10_080 * 60 * 1000,
+          resetsAt: "2026-02-28T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 175,
+            paceMarginPercent: -15,
+            status: "over",
+          },
+        },
+      ],
+    });
+
+    const { container } = render(<UsageDashboardView {...createViewModel(codex)} />);
+
+    expect(container.querySelectorAll('[class*="bg-latte-green/85"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[class*="bg-latte-yellow/85"]')).toHaveLength(1);
+    expect(container.querySelectorAll('[class*="bg-latte-red/85"]')).toHaveLength(1);
+  });
+
+  it("keeps pace and buffer badges yellow in relaxed near-pace range", () => {
+    const codex = createProvider("codex", {
+      windows: [
+        {
+          id: "session",
+          title: "Session",
+          utilizationPercent: 24,
+          windowDurationMs: 300 * 60 * 1000,
+          resetsAt: "2026-02-24T12:00:00.000Z",
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 96,
+            paceMarginPercent: 4,
+            status: "margin",
+          },
+        },
+      ],
+    });
+
+    render(<UsageDashboardView {...createViewModel(codex)} />);
+
+    const bufferBadge = screen.getByText("Buffer -4%");
+    const paceBadge = screen.getByText("Pace +4% margin");
+
+    expect(bufferBadge.className).toContain("text-latte-yellow");
+    expect(bufferBadge.className).not.toContain("text-latte-red");
+    expect(bufferBadge.className).not.toContain("text-latte-green");
+    expect(paceBadge.className).toContain("text-latte-yellow");
+    expect(paceBadge.className).not.toContain("text-latte-red");
+    expect(paceBadge.className).not.toContain("text-latte-green");
+  });
+
   it("renders usage breakdown dates in local time zone", () => {
     const codex = createProvider("codex");
     codex.billing = {

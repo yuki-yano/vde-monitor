@@ -50,9 +50,7 @@ const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
   UNKNOWN: "bg-latte-overlay0/80",
 };
 
-const UTILIZATION_LOW_THRESHOLD = 60;
-const UTILIZATION_HIGH_THRESHOLD = 85;
-const BUFFER_BALANCED_THRESHOLD = 1;
+const BUFFER_BALANCED_THRESHOLD = 5;
 
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 const roundOne = (value: number) => Math.round(value * 10) / 10;
@@ -360,20 +358,47 @@ const resolveCostSourceTone = (
   return "danger";
 };
 
-const resolveUsageColor = (utilizationPercent: number | null) => {
-  if (utilizationPercent == null) {
+const resolveRelativeTone = (deltaPercent: number | null) => {
+  if (deltaPercent == null) {
+    return "unknown" as const;
+  }
+  if (deltaPercent > BUFFER_BALANCED_THRESHOLD) {
+    return "ahead" as const;
+  }
+  if (deltaPercent < -BUFFER_BALANCED_THRESHOLD) {
+    return "behind" as const;
+  }
+  return "balanced" as const;
+};
+
+const resolveUsageColor = (remainingBufferPercent: number | null) => {
+  const tone = resolveRelativeTone(remainingBufferPercent);
+  if (tone === "unknown") {
     return "bg-latte-surface1/80";
   }
-  if (utilizationPercent < UTILIZATION_LOW_THRESHOLD) {
+  if (tone === "ahead") {
     return "bg-latte-green/85";
   }
-  if (utilizationPercent < UTILIZATION_HIGH_THRESHOLD) {
+  if (tone === "balanced") {
     return "bg-latte-yellow/85";
   }
   return "bg-latte-red/85";
 };
 
-const resolvePaceTone = (paceStatus: UsageMetricWindow["pace"]["status"]) => {
+const resolvePaceTone = (
+  paceStatus: UsageMetricWindow["pace"]["status"],
+  paceMarginPercent: number | null,
+) => {
+  const tone = resolveRelativeTone(paceMarginPercent);
+  if (tone === "ahead") {
+    return "bg-latte-green/15 text-latte-green border-latte-green/40";
+  }
+  if (tone === "behind") {
+    return "bg-latte-red/15 text-latte-red border-latte-red/40";
+  }
+  if (tone === "balanced") {
+    return "bg-latte-yellow/15 text-latte-yellow border-latte-yellow/40";
+  }
   if (paceStatus === "margin") {
     return "bg-latte-green/15 text-latte-green border-latte-green/40";
   }
@@ -387,13 +412,14 @@ const resolvePaceTone = (paceStatus: UsageMetricWindow["pace"]["status"]) => {
 };
 
 const resolveBufferTone = (bufferPercent: number | null) => {
-  if (bufferPercent == null) {
+  const tone = resolveRelativeTone(bufferPercent);
+  if (tone === "unknown") {
     return "bg-latte-surface1/70 text-latte-subtext0 border-latte-surface2";
   }
-  if (bufferPercent > BUFFER_BALANCED_THRESHOLD) {
+  if (tone === "ahead") {
     return "bg-latte-green/15 text-latte-green border-latte-green/40";
   }
-  if (bufferPercent < -BUFFER_BALANCED_THRESHOLD) {
+  if (tone === "behind") {
     return "bg-latte-red/15 text-latte-red border-latte-red/40";
   }
   return "bg-latte-yellow/15 text-latte-yellow border-latte-yellow/40";
@@ -460,7 +486,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
       <div className="flex items-center gap-2">
         <div className="border-latte-surface2 bg-latte-base/70 relative h-2 flex-1 overflow-hidden rounded-full border">
           <div
-            className={cn("h-full transition-[width]", resolveUsageColor(utilization))}
+            className={cn("h-full transition-[width]", resolveUsageColor(bufferPercent))}
             style={{ width: widthPercent }}
           />
           {elapsedMarkerLeft ? (
@@ -494,7 +520,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
         <span
           className={cn(
             "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-            resolvePaceTone(metric.pace.status),
+            resolvePaceTone(metric.pace.status, metric.pace.paceMarginPercent),
           )}
         >
           {renderPaceLabel(metric)}
@@ -727,9 +753,9 @@ const BillingModelMapping = ({ provider }: { provider: UsageProviderSnapshot }) 
                   {formatTokenCount(row.tokens ?? 0)} tokens / {formatUsd(row.usd)}
                 </p>
               </div>
-              <TagPill tone={row.resolveStrategy === "exact" ? "neutral" : "meta"}>
-                {resolveModelStrategyLabel(row.resolveStrategy)}
-              </TagPill>
+              {row.resolveStrategy !== "exact" ? (
+                <TagPill tone="meta">{resolveModelStrategyLabel(row.resolveStrategy)}</TagPill>
+              ) : null}
             </div>
           );
         })}
