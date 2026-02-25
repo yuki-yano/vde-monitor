@@ -1,5 +1,6 @@
 export * from "./api-contract";
 export * from "./config-allowlist";
+export * from "./config-path-resolver";
 export * from "./constants";
 export * from "./danger";
 export * from "./editor-command";

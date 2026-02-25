@@ -15,19 +15,15 @@ import {
   pickGeneratedConfigTemplateAllowlist,
   pickUserConfigAllowlist,
   resolveConfigDir,
+  resolveConfigFilePath,
   userConfigAllowlist,
 } from "@vde-monitor/shared";
 import YAML from "yaml";
 
-const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
 const DEFAULT_CONFIG_FILE_BASENAME = "config.yml";
 
 const getConfigDir = () => {
   return resolveConfigDir();
-};
-
-const getConfigPaths = () => {
-  return CONFIG_FILE_BASENAMES.map((basename) => path.join(getConfigDir(), basename));
 };
 
 const getDefaultConfigPath = () => {
@@ -165,84 +161,6 @@ const isMissingFileError = (error: unknown) => {
   return maybeCode === "ENOENT" || error.message.includes("ENOENT");
 };
 
-const buildReadError = ({
-  targetPath,
-  readErrorPrefix,
-  nonRegularFileErrorPrefix,
-}: {
-  targetPath: string;
-  readErrorPrefix: string;
-  nonRegularFileErrorPrefix?: string;
-}) => {
-  if (nonRegularFileErrorPrefix) {
-    return new Error(`${nonRegularFileErrorPrefix}: ${targetPath}`);
-  }
-  return new Error(`${readErrorPrefix}: ${targetPath}`);
-};
-
-const resolveFileIfExists = ({
-  targetPath,
-  readErrorPrefix,
-  nonRegularFileErrorPrefix,
-}: {
-  targetPath: string;
-  readErrorPrefix: string;
-  nonRegularFileErrorPrefix?: string;
-}) => {
-  try {
-    const stats = fs.statSync(targetPath);
-    if (!stats.isFile()) {
-      return {
-        path: null,
-        nonRegularError: buildReadError({ targetPath, readErrorPrefix, nonRegularFileErrorPrefix }),
-      };
-    }
-    return { path: targetPath, nonRegularError: null };
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return { path: null, nonRegularError: null };
-    }
-    if (
-      error instanceof Error &&
-      (error.message.startsWith(`${readErrorPrefix}:`) ||
-        (nonRegularFileErrorPrefix != null &&
-          error.message.startsWith(`${nonRegularFileErrorPrefix}:`)))
-    ) {
-      throw error;
-    }
-    throw new Error(`${readErrorPrefix}: ${targetPath}`);
-  }
-};
-
-const resolveFirstExistingPath = ({
-  candidatePaths,
-  readErrorPrefix,
-  nonRegularFileErrorPrefix,
-}: {
-  candidatePaths: string[];
-  readErrorPrefix: string;
-  nonRegularFileErrorPrefix?: string;
-}) => {
-  let firstNonRegularError: Error | null = null;
-  for (const candidatePath of candidatePaths) {
-    const { path: resolvedPath, nonRegularError } = resolveFileIfExists({
-      targetPath: candidatePath,
-      readErrorPrefix,
-      nonRegularFileErrorPrefix,
-    });
-    if (resolvedPath) {
-      return resolvedPath;
-    }
-    if (!firstNonRegularError && nonRegularError) {
-      firstNonRegularError = nonRegularError;
-    }
-  }
-  if (firstNonRegularError) {
-    throw firstNonRegularError;
-  }
-  return null;
-};
-
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (value == null || typeof value !== "object") {
     return false;
@@ -281,15 +199,11 @@ const validateUserConfig = ({
   value: unknown;
   errorPrefix: string;
 }): UserConfigReadable => {
-  const picked = pickUserConfigAllowlist(value);
-  const parsed = configOverrideSchema.safeParse(picked);
-  if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const pathLabel = issue?.path?.join(".") ?? "unknown";
-    const detail = issue?.message ?? "validation failed";
-    throw new Error(`${errorPrefix}: ${pathLabel} ${detail}`);
+  const validation = validateUserConfigSafe(value);
+  if (!validation.success) {
+    throw new Error(`${errorPrefix}: ${validation.pathLabel} ${validation.detail}`);
   }
-  return parsed.data;
+  return validation.value;
 };
 
 const validateMergedConfig = (value: unknown): AgentMonitorConfigFile => {
@@ -330,7 +244,7 @@ type ValidatedUserConfig =
       detail: string;
     };
 
-const validateUserConfigSafe = (value: unknown): ValidatedUserConfig => {
+const parseUserConfigValidation = (value: unknown): ValidatedUserConfig => {
   const picked = pickUserConfigAllowlist(value);
   const parsed = configOverrideSchema.safeParse(picked);
   if (!parsed.success) {
@@ -346,6 +260,9 @@ const validateUserConfigSafe = (value: unknown): ValidatedUserConfig => {
     value: parsed.data,
   };
 };
+
+const validateUserConfigSafe = (value: unknown): ValidatedUserConfig =>
+  parseUserConfigValidation(value);
 
 const loadGlobalConfigDocument = (configPath: string) => {
   let raw: string;
@@ -529,8 +446,8 @@ export const mergeConfigLayers = ({
 };
 
 export const resolveGlobalConfigPath = () =>
-  resolveFirstExistingPath({
-    candidatePaths: getConfigPaths(),
+  resolveConfigFilePath({
+    configDir: getConfigDir(),
     readErrorPrefix: "failed to read config",
   });
 

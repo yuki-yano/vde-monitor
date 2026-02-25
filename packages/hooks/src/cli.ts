@@ -8,6 +8,7 @@ import {
   configDefaults,
   pickUserConfigAllowlist,
   resolveConfigDir,
+  resolveConfigFilePath,
   resolveMonitorServerKey,
   userConfigSchema,
 } from "@vde-monitor/shared";
@@ -43,8 +44,6 @@ type HookServerConfig = {
   tmuxSocketPath: string | null;
   weztermTarget: string | null;
 };
-
-const CONFIG_FILE_BASENAMES = ["config.yml", "config.yaml", "config.json"] as const;
 
 const readStdin = (): string => {
   try {
@@ -106,46 +105,12 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
   return null;
 };
 
-const isMissingFileError = (error: unknown) => {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const maybeCode = (error as { code?: unknown }).code;
-  return maybeCode === "ENOENT" || error.message.includes("ENOENT");
-};
-
-const buildReadError = (prefix: string, configPath: string) => {
-  return new Error(`${prefix}: ${configPath}`);
-};
-
 const resolveConfigPath = () => {
-  const configDir = resolveConfigDir();
-  let firstNonRegularError: Error | null = null;
-  for (const basename of CONFIG_FILE_BASENAMES) {
-    const candidatePath = path.join(configDir, basename);
-    try {
-      const stats = fs.statSync(candidatePath);
-      if (stats.isFile()) {
-        return candidatePath;
-      }
-      if (!firstNonRegularError) {
-        firstNonRegularError = buildReadError(
-          "config path exists but is not a regular file",
-          candidatePath,
-        );
-      }
-      continue;
-    } catch (error) {
-      if (isMissingFileError(error)) {
-        continue;
-      }
-      throw buildReadError("failed to read config", candidatePath);
-    }
-  }
-  if (firstNonRegularError) {
-    throw firstNonRegularError;
-  }
-  return null;
+  return resolveConfigFilePath({
+    configDir: resolveConfigDir(),
+    readErrorPrefix: "failed to read config",
+    nonRegularFileErrorPrefix: "config path exists but is not a regular file",
+  });
 };
 
 const parseConfig = (raw: string, configPath: string) => {
