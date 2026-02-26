@@ -15,11 +15,13 @@ describe("PaneTextComposer", () => {
     autoEnter: true,
     rawMode: false,
     allowDangerKeys: false,
+    showPermissionShortcuts: false,
     ...overrides,
   });
 
   const buildActions = (overrides: Partial<ComposerActions> = {}): ComposerActions => ({
     onSendText: vi.fn(),
+    onSendPermissionShortcut: vi.fn(),
     onPickImage: vi.fn(),
     onToggleAutoEnter: vi.fn(),
     onToggleRawMode: vi.fn(),
@@ -88,5 +90,23 @@ describe("PaneTextComposer", () => {
     expect(screen.getByText("Shift")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Enter" }));
     expect(onSendKey).toHaveBeenCalledWith("Enter");
+  });
+
+  it("shows permission shortcuts and sends selected values", () => {
+    const onSendPermissionShortcut = vi.fn();
+    render(
+      <PaneTextComposer
+        state={buildState({ showPermissionShortcuts: true })}
+        actions={buildActions({ onSendPermissionShortcut })}
+      />,
+    );
+
+    expect(screen.getByTestId("permission-shortcuts-row")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Esc" }));
+
+    expect(onSendPermissionShortcut).toHaveBeenCalledTimes(2);
+    expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(1, "1");
+    expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(2, "Escape");
   });
 });

@@ -138,6 +138,19 @@ describe("ControlsPanel", () => {
     });
   });
 
+  it("shows permission shortcuts and forwards selected values", () => {
+    const onSendPermissionShortcut = vi.fn();
+    const state = buildState({ showPermissionShortcuts: true });
+    const actions = buildActions({ onSendPermissionShortcut });
+    render(<ControlsPanel state={state} actions={actions} showKeysSection={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Esc" }));
+
+    expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(1, "1");
+    expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(2, "Escape");
+  });
+
   it("opens file picker and uploads selected image", () => {
     const onPickImage = vi.fn();
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");

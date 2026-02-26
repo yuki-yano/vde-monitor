@@ -471,6 +471,37 @@ describe("useSessionControls", () => {
     expect(sendKeys).toHaveBeenNthCalledWith(2, "pane-1", ["C-Left"]);
   });
 
+  it("sends permission shortcuts via raw input channel", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.handleSendPermissionShortcut("1");
+      await result.current.handleSendPermissionShortcut("Escape");
+    });
+
+    expect(sendRaw).toHaveBeenNthCalledWith(1, "pane-1", [{ kind: "text", value: "1" }], false);
+    expect(sendRaw).toHaveBeenNthCalledWith(2, "pane-1", [{ kind: "key", value: "Escape" }], false);
+  });
+
   it("sends raw ctrl key input from beforeinput", async () => {
     vi.useFakeTimers();
     const sendText = vi.fn().mockResolvedValue({ ok: true });

@@ -48,6 +48,11 @@ const MODIFIER_DOT_CLASS_ACTIVE = "bg-latte-lavender";
 const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
 const KEY_BUTTON_CLASS =
   "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
+const PERMISSION_SHORTCUT_BUTTON_CLASS =
+  "h-7 min-w-[32px] px-0 text-[10px] font-semibold tracking-[0.12em] sm:h-8 sm:min-w-[36px]";
+const PERMISSION_SHORTCUT_ESCAPE_BUTTON_CLASS =
+  "h-7 min-w-[56px] px-1.5 text-[10px] font-semibold tracking-[0.12em] sm:h-8 sm:min-w-[60px] sm:px-2";
+const PERMISSION_SHORTCUT_DIGITS = ["1", "2", "3", "4", "5", "6"] as const;
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const FUNCTION_KEY_BUTTONS = [
   { label: "Esc", key: "Escape" },
@@ -80,11 +85,15 @@ type PaneTextComposerState = {
   autoEnter: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
+  showPermissionShortcuts?: boolean;
   keyPanel?: PaneTextComposerKeyPanelState;
 };
 
+export type PermissionShortcutValue = (typeof PERMISSION_SHORTCUT_DIGITS)[number] | "Escape";
+
 type PaneTextComposerActions = {
   onSendText: () => void;
+  onSendPermissionShortcut?: (value: PermissionShortcutValue) => void | Promise<void>;
   onPickImage: (file: File) => void | Promise<void>;
   onToggleAutoEnter: () => void;
   onToggleRawMode: () => void;
@@ -232,10 +241,12 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     autoEnter,
     rawMode,
     allowDangerKeys,
+    showPermissionShortcuts,
     keyPanel,
   } = state;
   const {
     onSendText,
+    onSendPermissionShortcut,
     onPickImage,
     onToggleAutoEnter,
     onToggleRawMode,
@@ -257,6 +268,8 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const keyPanelState = keyPanel ?? null;
   const keyPanelHandlers = keyPanelActions ?? null;
   const canUseKeyPanel = keyPanelState != null && keyPanelHandlers != null;
+  const canShowPermissionShortcuts =
+    showPermissionShortcuts === true && onSendPermissionShortcut != null;
   const shiftDotClass =
     keyPanelState != null && keyPanelState.shiftHeld
       ? MODIFIER_DOT_CLASS_ACTIVE
@@ -340,11 +353,48 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     }
   }, [syncPromptHeight, textInputRef]);
 
+  const handlePermissionShortcut = (value: PermissionShortcutValue) => {
+    const result = onSendPermissionShortcut?.(value);
+    void Promise.resolve(result);
+  };
+
   return (
     <div className="min-w-0">
       <div
         className={cn("min-w-0 overflow-hidden rounded-2xl border transition", rawModeInputClass)}
       >
+        {canShowPermissionShortcuts ? (
+          <div
+            data-testid="permission-shortcuts-row"
+            className="border-latte-surface2/65 bg-latte-mantle/40 flex items-center gap-1 border-b px-1.5 py-1 sm:px-2 sm:py-1.5"
+          >
+            <div className="flex items-center gap-1">
+              {PERMISSION_SHORTCUT_DIGITS.map((digit) => (
+                <Button
+                  key={digit}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!interactive}
+                  onClick={() => handlePermissionShortcut(digit)}
+                  className={PERMISSION_SHORTCUT_BUTTON_CLASS}
+                >
+                  {digit}
+                </Button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!interactive}
+              onClick={() => handlePermissionShortcut("Escape")}
+              className={cn("ml-auto", PERMISSION_SHORTCUT_ESCAPE_BUTTON_CLASS)}
+            >
+              Esc
+            </Button>
+          </div>
+        ) : null}
         <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
           <ZoomSafeTextarea
             placeholder={placeholder}

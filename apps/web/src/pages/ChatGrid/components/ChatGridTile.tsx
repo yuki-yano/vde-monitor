@@ -30,7 +30,10 @@ import {
   TextButton,
 } from "@/components/ui";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
-import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTextComposer";
+import {
+  PaneTextComposer,
+  type PermissionShortcutValue,
+} from "@/features/shared-session-ui/components/PaneTextComposer";
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
 import {
   resolveSessionStateLabel,
@@ -340,6 +343,21 @@ export const ChatGridTile = ({
     [allowDangerKeys, ctrlHeld, rawMode, sendKeys, sendRaw, session.paneId, shiftHeld],
   );
 
+  const handleSendPermissionShortcut = useCallback(
+    async (value: PermissionShortcutValue) => {
+      const item: RawItem =
+        value === "Escape" ? { kind: "key", value: "Escape" } : { kind: "text", value };
+      const result = await sendRaw(session.paneId, [item], false);
+      if (!result.ok) {
+        setComposerError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
+        return;
+      }
+      setComposerError(null);
+      void onTouchSession?.(session.paneId);
+    },
+    [onTouchSession, sendRaw, session.paneId],
+  );
+
   const openTitleEditor = useCallback(() => {
     updateTitleState((state) => ({
       ...state,
@@ -627,6 +645,7 @@ export const ChatGridTile = ({
             autoEnter,
             rawMode,
             allowDangerKeys,
+            showPermissionShortcuts: session.state === "WAITING_PERMISSION",
             keyPanel: {
               shiftHeld,
               ctrlHeld,
@@ -634,6 +653,7 @@ export const ChatGridTile = ({
           }}
           actions={{
             onSendText: handleSendText,
+            onSendPermissionShortcut: handleSendPermissionShortcut,
             onPickImage: handlePickImage,
             onToggleAutoEnter: () => setAutoEnter((prev) => !prev),
             onToggleRawMode: handleToggleRawMode,

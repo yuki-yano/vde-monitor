@@ -42,6 +42,8 @@ type UseSessionControlsParams = {
   scrollToBottom: (behavior?: "auto" | "smooth") => void;
 };
 
+type PermissionShortcutValue = "1" | "2" | "3" | "4" | "5" | "6" | "Escape";
+
 const handleCommandFailure = (
   response: CommandResponse,
   fallback: string,
@@ -160,6 +162,16 @@ export const useSessionControls = ({
     [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setScreenError, shiftHeld],
   );
 
+  const handleSendPermissionShortcut = useCallback(
+    async (value: PermissionShortcutValue) => {
+      const item: RawItem =
+        value === "Escape" ? { kind: "key", value: "Escape" } : { kind: "text", value };
+      const result = await sendRaw(paneId, [item], false);
+      handleCommandFailure(result, API_ERROR_MESSAGES.sendRaw, setScreenError);
+    },
+    [paneId, sendRaw, setScreenError],
+  );
+
   const handleKillPane = useCallback(async () => {
     if (!killPane) {
       setScreenError(API_ERROR_MESSAGES.killPane);
@@ -266,6 +278,7 @@ export const useSessionControls = ({
     allowDangerKeys,
     isSendingText,
     handleSendKey,
+    handleSendPermissionShortcut,
     handleKillPane,
     handleKillWindow,
     handleSendText,

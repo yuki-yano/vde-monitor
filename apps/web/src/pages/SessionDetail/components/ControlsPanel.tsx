@@ -27,12 +27,16 @@ export type ControlsPanelState = {
   autoEnter: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
+  showPermissionShortcuts?: boolean;
   shiftHeld: boolean;
   ctrlHeld: boolean;
 };
 
 export type ControlsPanelActions = {
   onSendText: () => void;
+  onSendPermissionShortcut?: (
+    value: "1" | "2" | "3" | "4" | "5" | "6" | "Escape",
+  ) => void | Promise<void>;
   onPickImage: (file: File) => void | Promise<void>;
   onToggleAutoEnter: () => void;
   onToggleRawMode: () => void;
@@ -73,11 +77,13 @@ const ControlsPanelInner = ({
     autoEnter,
     rawMode,
     allowDangerKeys,
+    showPermissionShortcuts,
     shiftHeld,
     ctrlHeld,
   } = state;
   const {
     onSendText,
+    onSendPermissionShortcut,
     onPickImage,
     onToggleAutoEnter,
     onToggleRawMode,
@@ -149,9 +155,11 @@ const ControlsPanelInner = ({
               autoEnter,
               rawMode,
               allowDangerKeys,
+              showPermissionShortcuts,
             }}
             actions={{
               onSendText,
+              onSendPermissionShortcut,
               onPickImage,
               onToggleAutoEnter,
               onToggleRawMode,

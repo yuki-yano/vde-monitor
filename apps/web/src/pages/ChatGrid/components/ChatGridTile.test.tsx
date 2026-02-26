@@ -285,6 +285,38 @@ describe("ChatGridTile", () => {
     });
   });
 
+  it("shows permission shortcuts and sends selected number or Esc", async () => {
+    const sendRaw = vi.fn(async () => ({ ok: true }));
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession({ state: "WAITING_PERMISSION" })}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+        sendText={vi.fn(async () => ({ ok: true }))}
+        sendKeys={vi.fn(async () => ({ ok: true }))}
+        sendRaw={sendRaw}
+        updateSessionTitle={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Esc" }));
+
+    await waitFor(() => {
+      expect(sendRaw).toHaveBeenNthCalledWith(1, "pane-1", [{ kind: "text", value: "1" }], false);
+      expect(sendRaw).toHaveBeenNthCalledWith(
+        2,
+        "pane-1",
+        [{ kind: "key", value: "Escape" }],
+        false,
+      );
+    });
+  });
+
   it("does not show empty fallback while screen is loading", () => {
     renderWithRouter(
       <ChatGridTile
