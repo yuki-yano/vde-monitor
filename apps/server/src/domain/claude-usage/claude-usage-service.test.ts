@@ -197,4 +197,86 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(secondBody).toContain("client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e");
     expect(thirdHeaders?.Authorization).toBe("Bearer refreshed-token");
   });
+
+  it("parses JSON env token and uses refresh token for retry", async () => {
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = JSON.stringify({
+      claudeAiOauth: {
+        accessToken: "env-stale-token",
+        refreshToken: "env-refresh-token",
+      },
+    });
+    mocks.readFile.mockResolvedValue(JSON.stringify({}));
+
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "authentication_error", message: "Invalid bearer token" },
+          }),
+          {
+            status: 401,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "env-refreshed-token",
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            five_hour: {
+              utilization: 56,
+              resets_at: "2026-02-25T10:00:00.000Z",
+            },
+            seven_day: {
+              utilization: 78,
+              resets_at: "2026-03-01T10:00:00.000Z",
+            },
+            seven_day_sonnet: null,
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
+
+    expect(usage.fiveHour.utilizationPercent).toBe(56);
+    expect(usage.sevenDay.utilizationPercent).toBe(78);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    const refreshBody = fetchMock.mock.calls[1]?.[1]?.body;
+    const thirdHeaders = fetchMock.mock.calls[2]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+
+    expect(firstHeaders?.Authorization).toBe("Bearer env-stale-token");
+    expect(typeof refreshBody).toBe("string");
+    expect(refreshBody).toContain("refresh_token=env-refresh-token");
+    expect(thirdHeaders?.Authorization).toBe("Bearer env-refreshed-token");
+  });
 });

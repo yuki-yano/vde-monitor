@@ -608,6 +608,37 @@ describe("createApiRouter", () => {
     expect(claude.status).toBe(200);
   });
 
+  it("applies usage refresh throttle per provider usage endpoint", async () => {
+    const { api } = createTestContext();
+
+    const firstCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(firstCodex.status).toBe(200);
+
+    const secondCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(secondCodex.status).toBe(200);
+
+    const thirdCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(thirdCodex.status).toBe(200);
+
+    const fourthCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourthCodex.status).toBe(429);
+    const fourthCodexBody = await fourthCodex.json();
+    expect(fourthCodexBody.error.code).toBe("RATE_LIMIT");
+
+    const claude = await api.request("/claude/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claude.status).toBe(200);
+  });
+
   it("returns global usage state timeline with repo ranking", async () => {
     const { api, getGlobalStateTimeline, getGlobalRepoRanking } = createTestContext();
     const res = await api.request("/usage/state-timeline?range=3d&limit=25", {

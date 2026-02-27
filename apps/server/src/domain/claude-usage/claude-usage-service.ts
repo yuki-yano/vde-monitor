@@ -227,15 +227,8 @@ const resolveClaudeOauthTokenCandidates = async (): Promise<ClaudeOauthCredentia
     }
   };
 
-  const envToken = asNonEmptyString(process.env.CLAUDE_CODE_OAUTH_TOKEN);
-  pushCandidate(
-    envToken
-      ? {
-          accessToken: envToken,
-          refreshToken: null,
-        }
-      : null,
-  );
+  const envTokenRaw = asNonEmptyString(process.env.CLAUDE_CODE_OAUTH_TOKEN);
+  pushCandidate(envTokenRaw ? extractOauthCredentialsFromSecret(envTokenRaw) : null);
   pushCandidate(await readTokenFromMacKeychain());
   pushCandidate(await readTokenFromCredentialsFile());
 
