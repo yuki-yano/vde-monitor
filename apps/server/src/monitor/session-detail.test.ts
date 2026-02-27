@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type PaneSnapshot, buildSessionDetail } from "./session-detail";
+import { hostCandidates } from "./monitor-utils";
 
 const buildPane = (overrides: Partial<PaneSnapshot> = {}): PaneSnapshot => ({
   paneId: "1",
@@ -69,8 +70,8 @@ describe("buildSessionDetail", () => {
     expect(detail.branch).toBeNull();
   });
 
-  it("keeps title null when path is missing", () => {
-    const pane = buildPane({ currentPath: null, paneTitle: null });
+  it("keeps pane title when path is missing", () => {
+    const pane = buildPane({ currentPath: null, paneTitle: "MyPane" });
     const detail = buildSessionDetail({
       pane,
       agent: "unknown",
@@ -85,8 +86,28 @@ describe("buildSessionDetail", () => {
       customTitle: null,
       repoRoot: null,
     });
-    expect(detail.title).toBeNull();
+    expect(detail.title).toBe("MyPane");
     expect(detail.pipeConflict).toBe(true);
     expect(detail.lastMessage).toBe("msg");
+  });
+
+  it("treats host-like pane title as case-insensitive", () => {
+    const hostTitle = [...hostCandidates][0] ?? "localhost";
+    const pane = buildPane({ paneTitle: hostTitle.toUpperCase() });
+    const detail = buildSessionDetail({
+      pane,
+      agent: "unknown",
+      state: "UNKNOWN",
+      stateReason: "test",
+      lastMessage: null,
+      lastOutputAt: null,
+      lastEventAt: null,
+      lastInputAt: null,
+      pipeAttached: false,
+      pipeConflict: false,
+      customTitle: null,
+      repoRoot: null,
+    });
+    expect(detail.title).toBeNull();
   });
 });

@@ -20,9 +20,13 @@ export type PaneSnapshot = {
   alternateOn: boolean;
 };
 
+const hostCandidatesNormalized = new Set(
+  [...hostCandidates].map((candidate) => candidate.toLowerCase()),
+);
+
 const resolveSessionTitle = (paneTitle: string | null) => {
   const normalized = normalizeTitle(paneTitle);
-  if (!normalized || hostCandidates.has(normalized)) {
+  if (!normalized || hostCandidatesNormalized.has(normalized.toLowerCase())) {
     return null;
   }
   return normalized;

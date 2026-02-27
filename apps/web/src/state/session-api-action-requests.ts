@@ -211,7 +211,7 @@ export const createSessionActionRequests = ({
   };
 
   const resetSessionTitle = async (paneId: string) => {
-    await runPaneMutation(paneId, API_ERROR_MESSAGES.updateTitle, (param) =>
+    await runPaneMutation(paneId, API_ERROR_MESSAGES.resetTitle, (param) =>
       apiClient.sessions[":paneId"].title.reset.$post({
         param,
       }),
