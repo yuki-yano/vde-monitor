@@ -543,9 +543,69 @@ describe("createApiRouter", () => {
     const second = await api.request("/usage/dashboard?refresh=1", {
       headers: authHeaders,
     });
-    expect(second.status).toBe(429);
-    const body = await second.json();
+    expect(second.status).toBe(200);
+
+    const third = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(third.status).toBe(200);
+
+    const fourth = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourth.status).toBe(429);
+    const body = await fourth.json();
     expect(body.error.code).toBe("RATE_LIMIT");
+  });
+
+  it("does not share usage refresh throttle across dashboard and billing providers", async () => {
+    const { api } = createTestContext();
+
+    const dashboard = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(dashboard.status).toBe(200);
+
+    const codexBilling = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(codexBilling.status).toBe(200);
+
+    const claudeBilling = await api.request("/usage/billing?provider=claude&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claudeBilling.status).toBe(200);
+  });
+
+  it("applies usage refresh throttle per billing provider", async () => {
+    const { api } = createTestContext();
+
+    const firstCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(firstCodex.status).toBe(200);
+
+    const secondCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(secondCodex.status).toBe(200);
+
+    const thirdCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(thirdCodex.status).toBe(200);
+
+    const fourthCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourthCodex.status).toBe(429);
+    const fourthCodexBody = await fourthCodex.json();
+    expect(fourthCodexBody.error.code).toBe("RATE_LIMIT");
+
+    const claude = await api.request("/usage/billing?provider=claude&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claude.status).toBe(200);
   });
 
   it("returns global usage state timeline with repo ranking", async () => {
