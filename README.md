@@ -196,6 +196,7 @@ npx vde-monitor@latest config prune --dry-run
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
+npx --package vde-monitor@latest vde-monitor-summary [--async] [<HookEventName>|<notify-payload-json>]
 ```
 
 - `config init`: create initial generated config only when no global config file exists
@@ -203,6 +204,69 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `config check`: validate global config (parse/schema/required generated keys/unused keys)
 - `config prune`: remove unused keys from global config and rewrite as `config.yml` (YAML)
 - `config prune --dry-run`: show removable keys without updating files
+
+### Summary helper (`vde-monitor-summary`)
+
+Use `vde-monitor-summary` for summary processing in both Codex notify and Claude hooks.
+
+```toml
+# Codex ~/.codex/config.toml
+notify = ["vde-monitor-summary", "--async"]
+```
+
+```json
+// Claude hooks
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "vde-monitor-summary --async Stop -- vde-monitor-hook" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Notes:
+
+- `vde-monitor-summary` auto-detects source payload (`codex` / `claude`) and resolves
+  `notifications.summary.sources.<source>` config automatically.
+- `--async` works for both payload types.
+- Summary behavior is controlled by YAML config under `notifications.summary`.
+
+```yaml
+notifications:
+  summary:
+    enabled: true
+    rename:
+      pane: true
+      push: true
+    sources:
+      codex:
+        enabled: true
+        waitMs: 7000
+        engine:
+          agent: codex
+          model: gpt-5.3-codex-spark
+          effort: low
+      claude:
+        enabled: true
+        waitMs: 20000
+        engine:
+          agent: claude
+          model: claude-haiku-4-5
+          effort: low
+```
+
+Default booleans:
+
+- `notifications.summary.enabled`: `false` (summary is disabled by default)
+- `notifications.summary.rename.pane`: `true`
+- `notifications.summary.rename.push`: `true`
+- `notifications.summary.sources.codex.enabled`: `true`
+- `notifications.summary.sources.claude.enabled`: `true`
 
 ## Configuration
 
@@ -233,29 +297,34 @@ Auto-generated required settings (`config.yml`):
 
 Configurable but optional settings (if omitted, runtime defaults are used):
 
-| Key                                      | Default                                             |
-| ---------------------------------------- | --------------------------------------------------- |
-| `bind`                                   | `127.0.0.1`                                         |
-| `port`                                   | `11080`                                             |
-| `allowedOrigins`                         | `[]`                                                |
-| `activity.pollIntervalMs`                | `1000`                                              |
-| `activity.runningThresholdMs`            | `5000`                                              |
-| `screen.maxLines`                        | `2000`                                              |
-| `screen.highlightCorrection.codex`       | `true`                                              |
-| `screen.highlightCorrection.claude`      | `true`                                              |
-| `multiplexer.wezterm.cliPath`            | `wezterm`                                           |
-| `multiplexer.wezterm.target`             | `auto`                                              |
-| `notifications.pushEnabled`              | `true`                                              |
-| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
-| `usage.session.providers.codex.enabled`  | `true`                                              |
-| `usage.session.providers.claude.enabled` | `true`                                              |
-| `usage.pricing.providers.codex.enabled`  | `true`                                              |
-| `usage.pricing.providers.claude.enabled` | `true`                                              |
-| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
-| `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
-| `tmux.socketName`                        | `null`                                              |
-| `tmux.socketPath`                        | `null`                                              |
-| `tmux.primaryClient`                     | `null`                                              |
+| Key                                      | Default                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `bind`                                   | `127.0.0.1`                                                       |
+| `port`                                   | `11080`                                                           |
+| `allowedOrigins`                         | `[]`                                                              |
+| `activity.pollIntervalMs`                | `1000`                                                            |
+| `activity.runningThresholdMs`            | `5000`                                                            |
+| `screen.maxLines`                        | `2000`                                                            |
+| `screen.highlightCorrection.codex`       | `true`                                                            |
+| `screen.highlightCorrection.claude`      | `true`                                                            |
+| `multiplexer.wezterm.cliPath`            | `wezterm`                                                         |
+| `multiplexer.wezterm.target`             | `auto`                                                            |
+| `notifications.pushEnabled`              | `true`                                                            |
+| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]`               |
+| `notifications.summary.enabled`          | `false`                                                           |
+| `notifications.summary.rename.pane`      | `true`                                                            |
+| `notifications.summary.rename.push`      | `true`                                                            |
+| `notifications.summary.sources.codex`    | `enabled=true,waitMs=7000,engine=(codex,gpt-5.3-codex-spark,low)` |
+| `notifications.summary.sources.claude`   | `enabled=true,waitMs=20000,engine=(claude,claude-haiku-4-5,low)`  |
+| `usage.session.providers.codex.enabled`  | `true`                                                            |
+| `usage.session.providers.claude.enabled` | `true`                                                            |
+| `usage.pricing.providers.codex.enabled`  | `true`                                                            |
+| `usage.pricing.providers.claude.enabled` | `true`                                                            |
+| `fileNavigator.includeIgnoredPaths`      | `[]`                                                              |
+| `fileNavigator.autoExpandMatchLimit`     | `100`                                                             |
+| `tmux.socketName`                        | `null`                                                            |
+| `tmux.socketPath`                        | `null`                                                            |
+| `tmux.primaryClient`                     | `null`                                                            |
 
 Notes:
 
@@ -277,6 +346,7 @@ Notes:
 - Push VAPID keys: `~/.vde-monitor/push-vapid.json`
 - Push subscriptions: `~/.vde-monitor/notifications.json`
 - Hook event logs: `~/.vde-monitor/events/<server-key>/claude.jsonl`
+- Summary event logs: `~/.vde-monitor/events/<server-key>/summary.jsonl`
 - Uploaded image attachments: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 
 ## Security defaults
@@ -320,6 +390,12 @@ pnpm build
 ```
 
 `pnpm build` assembles npm-ready artifacts in `dist/`, including CLI entry files and web assets.
+
+To rebuild `dist/` continuously while editing:
+
+```bash
+pnpm run build:watch
+```
 
 ## Troubleshooting
 

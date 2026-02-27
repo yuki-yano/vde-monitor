@@ -88,6 +88,19 @@ describe("SessionHeader", () => {
     expect(screen.getByText("Pane pane-1")).toBeTruthy();
   });
 
+  it("uses full remaining width for title button", () => {
+    const session = createSessionDetail({
+      customTitle: "Implemented summary in monitor and notification pipeline",
+    });
+    const state = buildState({ session });
+    const actions = buildActions();
+    renderWithRouter(<SessionHeader state={state} actions={actions} />);
+
+    const titleButton = screen.getByRole("button", { name: "Edit session title" });
+    expect(titleButton.className).toContain("flex-1");
+    expect(titleButton.className).toContain("truncate");
+  });
+
   it("renders current path with shared truncated-path component style", () => {
     const session = createSessionDetail({
       currentPath: "/tmp/vde-monitor/.worktree/feature/very/long/session/header/path",

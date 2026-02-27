@@ -37,6 +37,33 @@ export const configDefaults: ResolvedConfig = {
   notifications: {
     pushEnabled: true,
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
+    summary: {
+      enabled: false,
+      rename: {
+        pane: true,
+        push: true,
+      },
+      sources: {
+        codex: {
+          enabled: true,
+          waitMs: 7000,
+          engine: {
+            agent: "codex",
+            model: "gpt-5.3-codex-spark",
+            effort: "low",
+          },
+        },
+        claude: {
+          enabled: true,
+          waitMs: 20000,
+          engine: {
+            agent: "claude",
+            model: "claude-haiku-4-5",
+            effort: "low",
+          },
+        },
+      },
+    },
   },
   usage: {
     session: {

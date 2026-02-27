@@ -31,9 +31,23 @@ const findBundle = (dir: string, base: string) => {
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 };
 
+const prepareBundle = (distDir: string, base: string, label: string) => {
+  const bundle = findBundle(distDir, base);
+  if (!bundle) {
+    process.stderr.write(`\n[vde-monitor] ${label} bundle not found in dist.\n`);
+    process.exit(1);
+  }
+  const targetPath = path.join(distDir, `${base}.js`);
+  if (bundle !== targetPath) {
+    fs.copyFileSync(bundle, targetPath);
+  }
+  ensureShebang(targetPath);
+  fs.chmodSync(targetPath, 0o755);
+};
+
 const main = () => {
   run(["--filter", "@vde-monitor/web", "build"], "web build");
-  run(["run", "build:bundle"], "bundle build");
+  run(["exec", "tsdown", "--config", "tsdown.config.ts"], "bundle build");
 
   const distDir = path.resolve("dist");
   const webDist = path.resolve("apps/web/dist");
@@ -48,32 +62,9 @@ const main = () => {
   fs.mkdirSync(targetWebDir, { recursive: true });
   fs.cpSync(webDist, targetWebDir, { recursive: true });
 
-  const hookBundle = findBundle(distDir, "vde-monitor-hook");
-  if (!hookBundle) {
-    process.stderr.write("\n[vde-monitor] hook bundle not found in dist.\n");
-    process.exit(1);
-  }
-  const hookTarget = path.join(distDir, "vde-monitor-hook.js");
-  fs.rmSync(hookTarget, { force: true });
-  if (hookBundle !== hookTarget) {
-    fs.renameSync(hookBundle, hookTarget);
-  }
-
-  const mainBundle = findBundle(distDir, "index");
-  if (!mainBundle) {
-    process.stderr.write("\n[vde-monitor] main bundle not found in dist.\n");
-    process.exit(1);
-  }
-  const mainTarget = path.join(distDir, "index.js");
-  if (mainBundle !== mainTarget) {
-    fs.rmSync(mainTarget, { force: true });
-    fs.renameSync(mainBundle, mainTarget);
-  }
-
-  ensureShebang(mainTarget);
-  ensureShebang(hookTarget);
-  fs.chmodSync(mainTarget, 0o755);
-  fs.chmodSync(hookTarget, 0o755);
+  prepareBundle(distDir, "index", "main");
+  prepareBundle(distDir, "vde-monitor-hook", "hook");
+  prepareBundle(distDir, "vde-monitor-summary", "summary");
 };
 
 main();

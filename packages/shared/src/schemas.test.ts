@@ -8,6 +8,7 @@ import {
   launchAgentRequestSchema,
   notificationSubscriptionRevokeSchema,
   screenResponseSchema,
+  summaryEventSchema,
   usageGlobalTimelineResponseSchema,
 } from "./schemas";
 
@@ -193,6 +194,28 @@ describe("configOverrideSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts summary source/engine overrides", () => {
+    const result = configOverrideSchema.safeParse({
+      notifications: {
+        summary: {
+          enabled: true,
+          sources: {
+            claude: {
+              waitMs: 25000,
+              engine: {
+                agent: "codex",
+                model: "gpt-5.3-codex-spark",
+                effort: "low",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts partial usage override", () => {
     const result = configOverrideSchema.safeParse({
       usage: {
@@ -203,6 +226,38 @@ describe("configOverrideSchema", () => {
             },
           },
         },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("summaryEventSchema", () => {
+  it("accepts valid summary event payload", () => {
+    const result = summaryEventSchema.safeParse({
+      ts: "2026-02-27T00:00:00.000Z",
+      summary_id: "01JY0000000000000000000000",
+      source_agent: "codex",
+      event_type: "task_completed_summary",
+      source_event_at: "2026-02-27T00:00:00.000Z",
+      pane_locator: {
+        tmux_pane: "%12",
+        tty: "ttys001",
+        cwd: "/repo",
+      },
+      summary: {
+        pane_title: "Fix done",
+        notification_title: "Fix completed",
+        notification_body: "Parser fix completed and waiting for review",
+      },
+      engine: {
+        agent: "codex",
+        model: "gpt-5.3-codex-spark",
+        effort: "low",
+      },
+      source: {
+        turn_id: "turn-1",
       },
     });
 

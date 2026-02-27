@@ -13,6 +13,34 @@ export type PushEventType =
 
 export type ConfigPushEventType = "pane.waiting_permission" | "pane.task_completed";
 
+export type SummaryAgent = "codex" | "claude";
+
+export type SummaryEffort = "low" | "medium" | "high";
+
+export type SummaryEngineConfig = {
+  agent: SummaryAgent;
+  model: string;
+  effort: SummaryEffort;
+};
+
+export type NotificationSummarySourceConfig = {
+  enabled: boolean;
+  waitMs: number;
+  engine: SummaryEngineConfig;
+};
+
+export type NotificationSummaryConfig = {
+  enabled: boolean;
+  rename: {
+    pane: boolean;
+    push: boolean;
+  };
+  sources: {
+    codex: NotificationSummarySourceConfig;
+    claude: NotificationSummarySourceConfig;
+  };
+};
+
 export type AllowedKey =
   | "Enter"
   | "Escape"
@@ -367,6 +395,36 @@ export type NotificationSettings = {
   supportedEvents: PushEventType[];
   enabledEventTypes: ConfigPushEventType[];
   requireStandaloneOnIOS: boolean;
+};
+
+export type SummaryPaneLocator = {
+  tmux_pane?: string;
+  tty?: string;
+  cwd?: string;
+};
+
+export type SummaryText = {
+  pane_title: string;
+  notification_title: string;
+  notification_body: string;
+};
+
+export type SummaryEventSource = {
+  turn_id?: string;
+  session_id?: string;
+  hook_event_name?: string;
+};
+
+export type SummaryEvent = {
+  ts: string;
+  summary_id: string;
+  source_agent: SummaryAgent;
+  event_type: "task_completed_summary";
+  source_event_at: string;
+  pane_locator: SummaryPaneLocator;
+  summary: SummaryText;
+  engine: SummaryEngineConfig;
+  source: SummaryEventSource;
 };
 
 export type ScreenCaptureMeta = {
@@ -757,6 +815,7 @@ export type ResolvedConfig = {
   notifications: {
     pushEnabled: boolean;
     enabledEventTypes: ConfigPushEventType[];
+    summary: NotificationSummaryConfig;
   };
   usage: UsageConfig;
   workspaceTabs: {

@@ -631,9 +631,36 @@ const clientConfigSchema = z.object({
   launch: launchConfigSchema,
 });
 
+const summaryEffortSchema = z.enum(["low", "medium", "high"]);
+const summaryAgentSchema = z.enum(["codex", "claude"]);
+const summaryEngineConfigSchema = strictObject({
+  agent: summaryAgentSchema,
+  model: z.string().trim().min(1),
+  effort: summaryEffortSchema,
+});
+
+const notificationSummarySourceConfigSchema = strictObject({
+  enabled: z.boolean(),
+  waitMs: z.number().int().min(0).max(30_000),
+  engine: summaryEngineConfigSchema,
+});
+
+const notificationSummaryConfigSchema = strictObject({
+  enabled: z.boolean(),
+  rename: strictObject({
+    pane: z.boolean(),
+    push: z.boolean(),
+  }),
+  sources: strictObject({
+    codex: notificationSummarySourceConfigSchema,
+    claude: notificationSummarySourceConfigSchema,
+  }),
+});
+
 const notificationsConfigSchema = strictObject({
   pushEnabled: z.boolean(),
   enabledEventTypes: z.array(configPushEventTypeSchema).min(1),
+  summary: notificationSummaryConfigSchema,
 });
 
 export const usageProviderRuleSchema = z.object({
@@ -751,6 +778,38 @@ export const claudeHookEventSchema = z.object({
   payload: z.object({ raw: z.string() }),
 });
 
+export const summaryEventSchema = z
+  .object({
+    ts: z.string(),
+    summary_id: z.string().trim().min(1),
+    source_agent: summaryAgentSchema,
+    event_type: z.literal("task_completed_summary"),
+    source_event_at: z.string(),
+    pane_locator: z
+      .object({
+        tmux_pane: z.string().trim().min(1).optional(),
+        tty: z.string().trim().min(1).optional(),
+        cwd: z.string().trim().min(1).optional(),
+      })
+      .strict(),
+    summary: z
+      .object({
+        pane_title: z.string().trim().min(1).max(24),
+        notification_title: z.string().trim().min(1).max(32),
+        notification_body: z.string().trim().min(1).max(120),
+      })
+      .strict(),
+    engine: summaryEngineConfigSchema,
+    source: z
+      .object({
+        turn_id: z.string().trim().min(1).optional(),
+        session_id: z.string().trim().min(1).optional(),
+        hook_event_name: z.string().trim().min(1).optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
 const workspaceTabsDisplayModeSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.toLowerCase() : value),
   z.enum(["all", "pwa", "none"]),
@@ -862,6 +921,33 @@ export const configOverrideSchema = strictObject({
   notifications: strictObject({
     pushEnabled: z.boolean().optional(),
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
+    summary: strictObject({
+      enabled: z.boolean().optional(),
+      rename: strictObject({
+        pane: z.boolean().optional(),
+        push: z.boolean().optional(),
+      }).optional(),
+      sources: strictObject({
+        codex: strictObject({
+          enabled: z.boolean().optional(),
+          waitMs: z.number().int().min(0).max(30_000).optional(),
+          engine: strictObject({
+            agent: summaryAgentSchema.optional(),
+            model: z.string().trim().min(1).optional(),
+            effort: summaryEffortSchema.optional(),
+          }).optional(),
+        }).optional(),
+        claude: strictObject({
+          enabled: z.boolean().optional(),
+          waitMs: z.number().int().min(0).max(30_000).optional(),
+          engine: strictObject({
+            agent: summaryAgentSchema.optional(),
+            model: z.string().trim().min(1).optional(),
+            effort: summaryEffortSchema.optional(),
+          }).optional(),
+        }).optional(),
+      }).optional(),
+    }).optional(),
   }).optional(),
   usage: strictObject({
     session: strictObject({

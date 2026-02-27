@@ -100,9 +100,12 @@ const readLocalSessionTitle = async (paneId) => {
   });
 };
 
-const resolveNotificationBody = ({ payloadBody, eventType, localSessionTitle }) => {
+const resolveNotificationBody = ({ payloadBody, eventType, localSessionTitle, hasSummary }) => {
   if (typeof payloadBody !== "string") {
     return "Session update";
+  }
+  if (hasSummary) {
+    return payloadBody;
   }
   if (!localSessionTitle) {
     return payloadBody;
@@ -128,8 +131,15 @@ self.addEventListener("push", (event) => {
     }
   })();
 
-  const title = typeof payload?.title === "string" ? payload.title : "VDE Monitor";
-  const payloadBody = typeof payload?.body === "string" ? payload.body : "Session update";
+  const summary = typeof payload?.summary === "object" && payload?.summary ? payload.summary : null;
+  const summaryTitle =
+    typeof summary?.notificationTitle === "string" ? summary.notificationTitle : null;
+  const summaryBody =
+    typeof summary?.notificationBody === "string" ? summary.notificationBody : null;
+  const title =
+    summaryTitle ?? (typeof payload?.title === "string" ? payload.title : "VDE Monitor");
+  const payloadBody =
+    summaryBody ?? (typeof payload?.body === "string" ? payload.body : "Session update");
   const paneId = typeof payload?.paneId === "string" ? payload.paneId : null;
   const eventType = typeof payload?.eventType === "string" ? payload.eventType : null;
   const tag = typeof payload?.tag === "string" ? payload.tag : "session-update";
@@ -142,6 +152,7 @@ self.addEventListener("push", (event) => {
         payloadBody,
         eventType,
         localSessionTitle,
+        hasSummary: summaryBody != null,
       });
       await self.registration.showNotification(title, {
         body,
