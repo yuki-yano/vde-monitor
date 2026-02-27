@@ -256,6 +256,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     sendText: vi.fn(async () => ({ ok: true })),
     sendKeys: vi.fn(async () => ({ ok: true })),
     sendRaw: vi.fn(async () => ({ ok: true })),
+    clearPaneTitle: vi.fn(async () => ({ ok: true as const })),
     focusPane: vi.fn(async () => ({ ok: true as const })),
     killPane: vi.fn(async () => ({ ok: true as const })),
     killWindow: vi.fn(async () => ({ ok: true as const })),
@@ -1396,6 +1397,49 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.session.customTitle).toBe("new title");
     expect(monitor.setCustomTitle).toHaveBeenCalledWith("pane-1", "new title");
+  });
+
+  it("resets title by clearing pane title and custom title", async () => {
+    const { api, actions, monitor } = createTestContext();
+    const latest = monitor.registry.getDetail("pane-1");
+    if (!latest) {
+      throw new Error("session not found");
+    }
+    monitor.registry.update({
+      ...latest,
+      title: "✳ Initial Greeting",
+      customTitle: "Custom",
+    });
+
+    const res = await api.request("/sessions/pane-1/title/reset", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(actions.clearPaneTitle).toHaveBeenCalledWith("pane-1");
+    expect(monitor.setCustomTitle).toHaveBeenCalledWith("pane-1", null);
+    expect(data.session.customTitle).toBeNull();
+    expect(data.session.title).toBeNull();
+  });
+
+  it("returns error when pane title reset action fails", async () => {
+    const { api, actions, monitor } = createTestContext();
+    vi.mocked(actions.clearPaneTitle).mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "clear failed" },
+    });
+
+    const res = await api.request("/sessions/pane-1/title/reset", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error.code).toBe("INTERNAL");
+    expect(monitor.setCustomTitle).not.toHaveBeenCalledWith("pane-1", null);
   });
 
   it("touch updates session activity", async () => {

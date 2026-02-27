@@ -144,6 +144,7 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
   };
   title: {
     $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }, TRequestInit, TResponse>;
+    reset: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   };
   touch: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   attachments: {

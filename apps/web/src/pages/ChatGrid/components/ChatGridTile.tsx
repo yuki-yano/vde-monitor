@@ -55,10 +55,7 @@ import {
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
 } from "@/pages/SessionDetail/log-file-reference";
-import {
-  buildDefaultSessionTitle,
-  isDangerousText,
-} from "@/pages/SessionDetail/sessionDetailUtils";
+import { isDangerousText } from "@/pages/SessionDetail/sessionDetailUtils";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -78,6 +75,7 @@ type ChatGridTileProps = {
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
@@ -161,6 +159,7 @@ export const ChatGridTile = ({
   sendKeys,
   sendRaw,
   updateSessionTitle,
+  resetSessionTitle,
   uploadImageAttachment,
 }: ChatGridTileProps) => {
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -176,10 +175,7 @@ export const ChatGridTile = ({
   const [composerError, setComposerError] = useState<string | null>(null);
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
   const sessionCustomTitle = session.customTitle ?? null;
-  const sessionDefaultTitle = buildDefaultSessionTitle(session);
-  const canResetAutoTitle =
-    sessionCustomTitle == null && session.title != null && session.title !== sessionDefaultTitle;
-  const canResetTitle = Boolean(sessionCustomTitle || canResetAutoTitle);
+  const canResetTitle = sessionCustomTitle != null || session.title != null;
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
   const titleContextKey = buildTitleContextKey(session.paneId, sessionCustomTitle);
@@ -439,7 +435,6 @@ export const ChatGridTile = ({
 
   const handleTitleReset = useCallback(async () => {
     if (titleSaving) return;
-    const nextTitle = session.customTitle ? null : buildDefaultSessionTitle(session);
 
     updateTitleState((state) => ({
       ...state,
@@ -447,12 +442,12 @@ export const ChatGridTile = ({
       error: null,
     }));
     try {
-      await updateSessionTitle(session.paneId, nextTitle);
+      await resetSessionTitle(session.paneId);
       updateTitleState((state) => ({
         ...state,
         editing: false,
         saving: false,
-        draft: nextTitle ?? "",
+        draft: "",
         error: null,
       }));
     } catch (error) {
@@ -462,7 +457,7 @@ export const ChatGridTile = ({
         error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateTitle),
       }));
     }
-  }, [session, titleSaving, updateSessionTitle, updateTitleState]);
+  }, [resetSessionTitle, session.paneId, titleSaving, updateTitleState]);
 
   const handleTitleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {

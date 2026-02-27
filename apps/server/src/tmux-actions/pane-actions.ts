@@ -94,6 +94,19 @@ export const createPaneActions = ({
     return internalError(killed.stderr || "kill-pane failed");
   };
 
+  const clearPaneTitle = async (paneId: string): Promise<ActionResult> => {
+    const targetPaneId = resolvePaneId(paneId);
+    if (!targetPaneId) {
+      return invalidPayload("pane id is required");
+    }
+
+    const cleared = await adapter.run(["select-pane", "-t", targetPaneId, "-T", ""]);
+    if (cleared.exitCode === 0 || isTmuxTargetMissing(cleared.stderr || "")) {
+      return okResult();
+    }
+    return internalError(cleared.stderr || "select-pane -T failed");
+  };
+
   const killWindow = async (paneId: string): Promise<ActionResult> => {
     const targetPaneId = resolvePaneId(paneId);
     if (!targetPaneId) {
@@ -148,5 +161,5 @@ export const createPaneActions = ({
     }
   };
 
-  return { killPane, killWindow, focusPane };
+  return { clearPaneTitle, killPane, killWindow, focusPane };
 };

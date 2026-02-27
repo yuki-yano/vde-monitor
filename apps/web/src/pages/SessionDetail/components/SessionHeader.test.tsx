@@ -262,7 +262,7 @@ describe("SessionHeader", () => {
     expect(screen.getByLabelText("Reset session title")).toBeTruthy();
   });
 
-  it("shows reset button when auto title differs from default", () => {
+  it("shows reset button when title is set without custom title", () => {
     const session = createSessionDetail({
       customTitle: null,
       title: "✳ Initial Greeting",
@@ -275,10 +275,10 @@ describe("SessionHeader", () => {
     expect(screen.getByLabelText("Reset session title")).toBeTruthy();
   });
 
-  it("hides reset button when auto title matches default and custom title is not set", () => {
+  it("hides reset button when both custom title and title are unset", () => {
     const session = createSessionDetail({
       customTitle: null,
-      title: "repo:w1:pane-1",
+      title: null,
       currentPath: "/Users/test/repo",
     });
     const state = buildState({ session });

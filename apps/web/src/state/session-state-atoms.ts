@@ -105,6 +105,7 @@ type SessionApi = {
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
   createRepoNote: (
     paneId: string,
     input: { title?: string | null; body: string },
@@ -162,6 +163,7 @@ export const sessionApiAtom = atom<SessionApi>({
   sendRaw: () => rejectMissingSessionProvider<CommandResponse>(),
   touchSession: () => rejectMissingSessionProvider<void>(),
   updateSessionTitle: () => rejectMissingSessionProvider<void>(),
+  resetSessionTitle: () => rejectMissingSessionProvider<void>(),
   createRepoNote: () => rejectMissingSessionProvider<RepoNote>(),
   updateRepoNote: () => rejectMissingSessionProvider<RepoNote>(),
   deleteRepoNote: () => rejectMissingSessionProvider<string>(),

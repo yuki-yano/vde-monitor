@@ -88,6 +88,7 @@ export type ChatGridViewProps = {
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
@@ -132,6 +133,7 @@ export const ChatGridView = ({
   sendKeys,
   sendRaw,
   updateSessionTitle,
+  resetSessionTitle,
   uploadImageAttachment,
 }: ChatGridViewProps) => {
   return (
@@ -211,6 +213,7 @@ export const ChatGridView = ({
             sendKeys={sendKeys}
             sendRaw={sendRaw}
             updateSessionTitle={updateSessionTitle}
+            resetSessionTitle={resetSessionTitle}
             uploadImageAttachment={uploadImageAttachment}
           />
         </div>

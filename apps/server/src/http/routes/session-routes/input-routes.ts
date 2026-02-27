@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import type { RawItem } from "@vde-monitor/shared";
+import type { ApiErrorCode, RawItem } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
 import { buildError } from "../../helpers";
@@ -34,6 +34,19 @@ export const createInputRoutes = ({
   executeCommand: ExecuteCommand;
 }) => {
   const sendTextIdempotency = createSendTextIdempotencyExecutor({});
+  const resolveActionErrorStatus = (code: ApiErrorCode) => {
+    switch (code) {
+      case "INVALID_PAYLOAD":
+        return 400;
+      case "INVALID_PANE":
+        return 404;
+      case "TMUX_UNAVAILABLE":
+      case "WEZTERM_UNAVAILABLE":
+        return 503;
+      default:
+        return 500;
+    }
+  };
 
   return new Hono()
     .put("/sessions/:paneId/title", zValidator("json", titleSchema), async (c) => {
@@ -44,6 +57,23 @@ export const createInputRoutes = ({
           return titleUpdate;
         }
         monitor.setCustomTitle(pane.paneId, titleUpdate.nextTitle);
+        return c.json(resolveLatestSessionResponse(pane));
+      });
+    })
+    .post("/sessions/:paneId/title/reset", async (c) => {
+      return withPane(c, async (pane) => {
+        const cleared = await actions.clearPaneTitle(pane.paneId);
+        if (!cleared.ok) {
+          return c.json({ error: cleared.error }, resolveActionErrorStatus(cleared.error.code));
+        }
+        monitor.setCustomTitle(pane.paneId, null);
+        const latest = monitor.registry.getDetail(pane.paneId);
+        if (latest && latest.title != null) {
+          monitor.registry.update({
+            ...latest,
+            title: null,
+          });
+        }
         return c.json(resolveLatestSessionResponse(pane));
       });
     })

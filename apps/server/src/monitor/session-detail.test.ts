@@ -48,7 +48,7 @@ describe("buildSessionDetail", () => {
     expect(detail.branch).toBe("main");
   });
 
-  it("falls back to default title when pane title is absent", () => {
+  it("returns null title when pane title is absent", () => {
     const pane = buildPane({ paneTitle: null });
     const detail = buildSessionDetail({
       pane,
@@ -64,12 +64,12 @@ describe("buildSessionDetail", () => {
       customTitle: "Custom",
       repoRoot: null,
     });
-    expect(detail.title).toBe("project:w0:1");
+    expect(detail.title).toBeNull();
     expect(detail.customTitle).toBe("Custom");
     expect(detail.branch).toBeNull();
   });
 
-  it("builds default title from session name when path is missing", () => {
+  it("keeps title null when path is missing", () => {
     const pane = buildPane({ currentPath: null, paneTitle: null });
     const detail = buildSessionDetail({
       pane,
@@ -85,7 +85,7 @@ describe("buildSessionDetail", () => {
       customTitle: null,
       repoRoot: null,
     });
-    expect(detail.title).toBe("main:w0:1");
+    expect(detail.title).toBeNull();
     expect(detail.pipeConflict).toBe(true);
     expect(detail.lastMessage).toBe("msg");
   });

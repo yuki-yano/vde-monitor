@@ -23,7 +23,6 @@ import {
   agentLabelFor,
   agentToneFor,
   backLinkClass,
-  buildDefaultSessionTitle,
   formatBranchLabel,
   formatPath,
   formatRelativeTime,
@@ -279,10 +278,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   } = actions;
 
   const sessionCustomTitle = session.customTitle ?? null;
-  const sessionDefaultTitle = buildDefaultSessionTitle(session);
-  const canResetAutoTitle =
-    sessionCustomTitle == null && session.title != null && session.title !== sessionDefaultTitle;
-  const canResetTitle = Boolean(sessionCustomTitle || canResetAutoTitle);
+  const canResetTitle = sessionCustomTitle != null || session.title != null;
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
   const lastInputTone = getLastInputTone(session.lastInputAt ?? null, nowMs);
