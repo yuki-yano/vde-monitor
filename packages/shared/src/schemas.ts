@@ -794,7 +794,7 @@ export const summaryEventSchema = z
       .strict(),
     summary: z
       .object({
-        pane_title: z.string().trim().min(1).max(24),
+        pane_title: z.string().trim().min(1).max(48),
         notification_title: z.string().trim().min(1).max(32),
         notification_body: z.string().trim().min(1).max(120),
       })

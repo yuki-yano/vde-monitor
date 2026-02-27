@@ -34,6 +34,19 @@ describe("payload source helper", () => {
     ).toBe("claude");
   });
 
+  it("returns fallback when payload matches both codex and claude markers", () => {
+    expect(
+      detectPayloadSourceAgent(
+        {
+          turn_id: "turn-1",
+          session_id: "session-1",
+          hook_event_name: "Stop",
+        },
+        "codex",
+      ),
+    ).toBe("codex");
+  });
+
   it("extracts codex assistant message with fallback to first input", () => {
     expect(
       extractCodexAssistantMessage({
@@ -45,6 +58,15 @@ describe("payload source helper", () => {
         "input-messages": ["first input", "second input"],
       }),
     ).toBe("first input");
+  });
+
+  it("preserves explicit empty assistant message", () => {
+    expect(
+      extractCodexAssistantMessage({
+        "last-assistant-message": "",
+        "input-messages": ["first input"],
+      }),
+    ).toBe("");
   });
 
   it("extracts codex turn id from turn_id and turn-id", () => {

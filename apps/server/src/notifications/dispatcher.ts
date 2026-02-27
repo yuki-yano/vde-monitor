@@ -341,7 +341,7 @@ export const createNotificationDispatcher = ({
         }
         const cooldownKey = `${subscription.id}:${event.paneId}:${eventType}`;
         const previousTransitionAtMs = lastTransitionAtByPaneEventBySubscriptionId.get(cooldownKey);
-        if (previousTransitionAtMs != null && startedAtMs - previousTransitionAtMs < cooldownMs) {
+        if (previousTransitionAtMs != null && nowMs() - previousTransitionAtMs < cooldownMs) {
           return {
             sentCount: localSentCount,
             retryCount: localRetryCount,
@@ -349,7 +349,6 @@ export const createNotificationDispatcher = ({
             expiredCount: localExpiredCount,
           };
         }
-        lastTransitionAtByPaneEventBySubscriptionId.set(cooldownKey, startedAtMs);
 
         const maxAttempts = 3;
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -358,6 +357,7 @@ export const createNotificationDispatcher = ({
             const deliveredAt = now();
             subscriptionStore.markDelivered(subscription.id, deliveredAt);
             localSentCount += 1;
+            lastTransitionAtByPaneEventBySubscriptionId.set(cooldownKey, nowMs());
             lastFingerprintBySubscriptionId.set(subscription.id, fingerprint);
             consecutiveFailureCountBySubscriptionId.delete(subscription.id);
             logger.log(

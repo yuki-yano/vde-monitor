@@ -47,7 +47,9 @@ const createSummaryEvent = ({
 });
 
 afterEach(() => {
-  tempDirs.splice(0).forEach((dir) => fs.rmSync(dir, { recursive: true, force: true }));
+  tempDirs.splice(0).forEach((dir) => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 describe("createSummaryEventStore", () => {

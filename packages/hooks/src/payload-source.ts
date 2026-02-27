@@ -46,19 +46,10 @@ export const detectPayloadSourceAgent = (
 ): SummarySourceAgent => {
   const codexLike = isCodexPayloadLike(payload);
   const claudeLike = isClaudePayloadLike(payload);
-  if (claudeLike && !codexLike) {
-    return "claude";
+  if (codexLike === claudeLike) {
+    return fallback;
   }
-  if (codexLike && !claudeLike) {
-    return "codex";
-  }
-  if (claudeLike) {
-    return "claude";
-  }
-  if (codexLike) {
-    return "codex";
-  }
-  return fallback;
+  return codexLike ? "codex" : "claude";
 };
 
 export const extractCodexTurnId = (payload: HookPayload): string | null =>
@@ -66,7 +57,7 @@ export const extractCodexTurnId = (payload: HookPayload): string | null =>
 
 export const extractCodexAssistantMessage = (payload: HookPayload): string | null => {
   const lastAssistantMessage = readOptionalString(payload["last-assistant-message"]);
-  if (lastAssistantMessage) {
+  if (lastAssistantMessage != null) {
     return lastAssistantMessage;
   }
   const firstInputMessage = readStringArray(payload["input-messages"])[0] ?? null;
