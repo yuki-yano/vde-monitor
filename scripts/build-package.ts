@@ -24,9 +24,9 @@ const ensureShebang = (filePath: string) => {
 
 const findBundle = (dir: string, base: string) => {
   const candidates = [
-    path.join(dir, `${base}.js`),
     path.join(dir, `${base}.mjs`),
     path.join(dir, `${base}.cjs`),
+    path.join(dir, `${base}.js`),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 };
