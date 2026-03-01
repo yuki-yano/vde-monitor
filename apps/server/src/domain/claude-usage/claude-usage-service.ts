@@ -122,13 +122,13 @@ const sliceBalancedJsonObject = (input: string, startBraceIndex: number): string
         escaped = true;
         continue;
       }
-      if (char === "\"") {
+      if (char === '"') {
         inString = false;
       }
       continue;
     }
 
-    if (char === "\"") {
+    if (char === '"') {
       inString = true;
       continue;
     }
@@ -146,29 +146,74 @@ const sliceBalancedJsonObject = (input: string, startBraceIndex: number): string
   return null;
 };
 
+const trimEdgeControlChars = (raw: string): string => {
+  let startIndex = 0;
+  let endIndex = raw.length;
+
+  while (startIndex < endIndex && raw.charCodeAt(startIndex) <= 0x1f) {
+    startIndex += 1;
+  }
+  while (endIndex > startIndex && raw.charCodeAt(endIndex - 1) <= 0x1f) {
+    endIndex -= 1;
+  }
+
+  return raw.slice(startIndex, endIndex);
+};
+
+const isWhitespaceOnly = (value: string): boolean => {
+  for (const char of value) {
+    if (!/\s/.test(char)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const extractCredentialFromNamedSegment = (raw: string): ClaudeOauthCredential | null => {
   const candidateKeys = ["claudeAiOauth", "oauth", "auth"];
   for (const key of candidateKeys) {
-    const pattern = new RegExp(`(?:\\\\\"|\")${key}(?:\\\\\"|\")\\s*:\\s*\\{`, "g");
-    let match: RegExpExecArray | null = null;
-    while (true) {
-      match = pattern.exec(raw);
-      if (!match) {
-        break;
-      }
-      const startBraceIndex = match.index + match[0].lastIndexOf("{");
-      const objectSlice = sliceBalancedJsonObject(raw, startBraceIndex);
-      if (!objectSlice) {
-        continue;
-      }
-      try {
-        const decoded: unknown = JSON.parse(objectSlice);
-        const credential = extractCredentialFromObject(decoded);
-        if (credential) {
-          return credential;
+    const keyTokens = [`"${key}"`, `\\"${key}\\"`];
+    for (const keyToken of keyTokens) {
+      let searchOffset = 0;
+      while (true) {
+        const keyIndex = raw.indexOf(keyToken, searchOffset);
+        if (keyIndex === -1) {
+          break;
         }
-      } catch {
-        continue;
+        const colonIndex = raw.indexOf(":", keyIndex + keyToken.length);
+        if (colonIndex === -1) {
+          break;
+        }
+        const betweenKeyAndColon = raw.slice(keyIndex + keyToken.length, colonIndex);
+        if (!isWhitespaceOnly(betweenKeyAndColon)) {
+          searchOffset = keyIndex + keyToken.length;
+          continue;
+        }
+        const braceIndex = raw.indexOf("{", colonIndex + 1);
+        if (braceIndex === -1) {
+          break;
+        }
+        const betweenColonAndBrace = raw.slice(colonIndex + 1, braceIndex);
+        if (!isWhitespaceOnly(betweenColonAndBrace)) {
+          searchOffset = keyIndex + keyToken.length;
+          continue;
+        }
+        const objectSlice = sliceBalancedJsonObject(raw, braceIndex);
+        if (!objectSlice) {
+          searchOffset = keyIndex + keyToken.length;
+          continue;
+        }
+        try {
+          const decoded: unknown = JSON.parse(objectSlice);
+          const credential = extractCredentialFromObject(decoded);
+          if (credential) {
+            return credential;
+          }
+        } catch {
+          searchOffset = keyIndex + keyToken.length;
+          continue;
+        }
+        searchOffset = keyIndex + keyToken.length;
       }
     }
   }
@@ -213,10 +258,7 @@ const extractCredentialFromObject = (value: unknown): ClaudeOauthCredential | nu
 };
 
 const extractCredentialFromJsonLikeString = (raw: string): ClaudeOauthCredential | null => {
-  const normalized = raw
-    .trim()
-    .replace(/^[\u0000-\u001F]+/, "")
-    .replace(/[\u0000-\u001F]+$/, "");
+  const normalized = trimEdgeControlChars(raw.trim());
   if (!normalized) {
     return null;
   }
@@ -238,7 +280,7 @@ const extractCredentialFromJsonLikeString = (raw: string): ClaudeOauthCredential
     }
   }
 
-  if (normalized.startsWith("\"") && lastBrace !== -1) {
+  if (normalized.startsWith('"') && lastBrace !== -1) {
     const wrapped = `{${normalized.slice(0, lastBrace + 1)}}`;
     try {
       return extractCredentialFromObject(JSON.parse(wrapped));
@@ -344,7 +386,11 @@ const resolveMacKeychainServiceNames = async (): Promise<string[]> => {
   ];
 
   try {
-    const { stdout } = await execFileAsync("security", ["dump-keychain", "-d", "login.keychain-db"]);
+    const { stdout } = await execFileAsync("security", [
+      "dump-keychain",
+      "-d",
+      "login.keychain-db",
+    ]);
     const discovered = parseClaudeCredentialServiceCandidates(stdout).map(
       (candidate) => candidate.serviceName,
     );
@@ -684,7 +730,10 @@ export const fetchClaudeOauthUsageWithFallback = async ({
     if (fileError) {
       throw fileError;
     }
-    throw new UsageProviderError("TOKEN_NOT_FOUND", "Claude credential not found. Run claude login.");
+    throw new UsageProviderError(
+      "TOKEN_NOT_FOUND",
+      "Claude credential not found. Run claude login.",
+    );
   }
 
   try {

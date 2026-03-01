@@ -156,7 +156,9 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(usage.fiveHour.utilizationPercent).toBe(30);
     expect(usage.sevenDay.utilizationPercent).toBe(40);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string> | undefined;
+    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
     const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
       | Record<string, string>
       | undefined;
@@ -271,7 +273,9 @@ attributes:
     expect(usage.fiveHour.utilizationPercent).toBe(12);
     expect(usage.sevenDay.utilizationPercent).toBe(34);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string> | undefined;
+    const firstHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
     const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
       | Record<string, string>
       | undefined;
