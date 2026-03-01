@@ -171,7 +171,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(String(writtenContent)).toContain("keychain-refresh-token");
   });
 
-  it("prefers newer Claude Code-credentials-* keychain entry discovered from dump-keychain", async () => {
+  it("discovers suffixed Claude keychain service via dump-keychain and uses it", async () => {
     setProcessPlatform("darwin");
     mocks.readFile.mockResolvedValue(
       JSON.stringify({
@@ -183,18 +183,24 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
 
     const keychainDump = `class: "genp"
 attributes:
-    "mdat"<timedate>=0x32303236303232373037333834345A00  "20260227073844Z\\000"
+    "mdat"<timedate>=0x32303236303330313132353235345A00  "20260301125254Z\\000"
     "svce"<blob>="Claude Code-credentials"
 class: "genp"
 attributes:
-    "mdat"<timedate>=0x32303236303330313034303832345A00  "20260301040824Z\\000"
+    "mdat"<timedate>=0x32303236303330313132353034365A00  "20260301125046Z\\000"
     "svce"<blob>="Claude Code-credentials-d9c45eec"`;
+
     mocks.execFile.mockImplementation(
       (_file, args: string[], callback: (...callbackArgs: unknown[]) => void) => {
         if (args[0] === "dump-keychain") {
           callback(null, keychainDump, "");
           return {} as never;
         }
+        if (args[0] !== "find-generic-password") {
+          callback(new Error(`unexpected command: ${args.join(" ")}`), "", "");
+          return {} as never;
+        }
+
         const serviceName = args.at(-1);
         if (serviceName === "Claude Code-credentials-d9c45eec") {
           callback(
@@ -203,27 +209,14 @@ attributes:
               claudeAiOauth: {
                 accessToken: "keychain-fresh-token",
                 refreshToken: "keychain-fresh-refresh-token",
-                expiresAt: 1_772_366_904_110,
+                expiresAt: 1_773_000_000_000,
               },
             }),
             "",
           );
           return {} as never;
         }
-        if (serviceName === "Claude Code-credentials") {
-          callback(
-            null,
-            JSON.stringify({
-              claudeAiOauth: {
-                accessToken: "keychain-old-token",
-                refreshToken: "keychain-old-refresh-token",
-                expiresAt: 1_772_206_724_292,
-              },
-            }),
-            "",
-          );
-          return {} as never;
-        }
+
         callback(new Error("service not found"), "", "");
         return {} as never;
       },
@@ -281,6 +274,19 @@ attributes:
       | undefined;
     expect(firstHeaders?.Authorization).toBe("Bearer file-stale-token");
     expect(secondHeaders?.Authorization).toBe("Bearer keychain-fresh-token");
+    expect(mocks.execFile).toHaveBeenCalledWith(
+      "security",
+      ["dump-keychain", "login.keychain-db"],
+      expect.any(Function),
+    );
+    expect(
+      mocks.execFile.mock.calls.some(
+        (call) =>
+          Array.isArray(call[1]) &&
+          (call[1] as string[])[0] === "dump-keychain" &&
+          !(call[1] as string[]).includes("-d"),
+      ),
+    ).toBe(true);
     const [writtenPath, writtenContent] = mocks.writeFile.mock.calls[0] ?? [];
     expect(String(writtenPath)).toContain(".claude/.credentials.json");
     expect(String(writtenContent)).toContain("keychain-fresh-token");

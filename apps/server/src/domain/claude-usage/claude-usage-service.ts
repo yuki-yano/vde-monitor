@@ -29,6 +29,11 @@ type KeychainServiceCandidate = {
   modifiedAtMs: number | null;
 };
 
+type KeychainCredentialCandidate = {
+  serviceName: string;
+  credential: ClaudeOauthCredential;
+};
+
 type FetchClaudeOauthUsageOptions = {
   token: string;
   timeoutMs?: number;
@@ -47,6 +52,12 @@ const CLAUDE_FIVE_HOUR_MINS = 300;
 const CLAUDE_SEVEN_DAY_MINS = 10_080;
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_DIRECT_OAUTH_TOKEN_LENGTH = 2048;
+const CLAUDE_KEYCHAIN_SERVICE_NAMES = [
+  "Claude Code-credentials",
+  "Claude Code Credentials",
+  "Claude Code credentials",
+  "Claude Code-credentials-production",
+];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value != null;
@@ -345,6 +356,9 @@ const parseKeychainTimedate = (value: string): number | null => {
   return Number.isNaN(timestamp) ? null : timestamp;
 };
 
+const isSuffixedClaudeCredentialServiceName = (serviceName: string): boolean =>
+  serviceName.startsWith("Claude Code-credentials-");
+
 const parseClaudeCredentialServiceCandidates = (rawDump: string): KeychainServiceCandidate[] => {
   const byServiceName = new Map<string, KeychainServiceCandidate>();
   const blocks = rawDump.split(/class:\s+"genp"/g);
@@ -354,9 +368,14 @@ const parseClaudeCredentialServiceCandidates = (rawDump: string): KeychainServic
       continue;
     }
     const serviceName = serviceMatch[1] ?? "";
-    if (!serviceName.startsWith("Claude Code-credentials")) {
+    if (
+      !serviceName.startsWith("Claude Code-credentials") &&
+      !serviceName.startsWith("Claude Code Credentials") &&
+      !serviceName.startsWith("Claude Code credentials")
+    ) {
       continue;
     }
+
     const modifiedAtMatch = block.match(/"mdat"<timedate>=[^\n]*"(\d{14})Z/);
     const modifiedAtMs = parseKeychainTimedate(modifiedAtMatch?.[1] ?? "");
     const existing = byServiceName.get(serviceName);
@@ -367,36 +386,33 @@ const parseClaudeCredentialServiceCandidates = (rawDump: string): KeychainServic
       });
     }
   }
-  return [...byServiceName.values()].sort(
-    (left, right) =>
+
+  return [...byServiceName.values()].sort((left, right) => {
+    const leftSuffixed = isSuffixedClaudeCredentialServiceName(left.serviceName) ? 1 : 0;
+    const rightSuffixed = isSuffixedClaudeCredentialServiceName(right.serviceName) ? 1 : 0;
+    if (leftSuffixed !== rightSuffixed) {
+      return rightSuffixed - leftSuffixed;
+    }
+    return (
       (right.modifiedAtMs ?? 0) - (left.modifiedAtMs ?? 0) ||
-      right.serviceName.localeCompare(left.serviceName),
-  );
+      right.serviceName.localeCompare(left.serviceName)
+    );
+  });
 };
 
 const resolveMacKeychainServiceNames = async (): Promise<string[]> => {
   if (process.platform !== "darwin") {
     return [];
   }
-  const staticServiceNames = [
-    "Claude Code-credentials",
-    "Claude Code Credentials",
-    "Claude Code credentials",
-    "Claude Code-credentials-production",
-  ];
 
   try {
-    const { stdout } = await execFileAsync("security", [
-      "dump-keychain",
-      "-d",
-      "login.keychain-db",
-    ]);
+    const { stdout } = await execFileAsync("security", ["dump-keychain", "login.keychain-db"]);
     const discovered = parseClaudeCredentialServiceCandidates(stdout).map(
       (candidate) => candidate.serviceName,
     );
-    return [...new Set([...discovered, ...staticServiceNames])];
+    return [...new Set([...discovered, ...CLAUDE_KEYCHAIN_SERVICE_NAMES])];
   } catch {
-    return staticServiceNames;
+    return CLAUDE_KEYCHAIN_SERVICE_NAMES;
   }
 };
 
@@ -431,12 +447,13 @@ const execFileAsync = (file: string, args: string[]) =>
     });
   });
 
-const readTokenFromMacKeychain = async (): Promise<ClaudeOauthCredential | null> => {
+const readCredentialsFromMacKeychain = async (): Promise<KeychainCredentialCandidate[]> => {
   if (process.platform !== "darwin") {
-    return null;
+    return [];
   }
 
   const serviceNames = await resolveMacKeychainServiceNames();
+  const candidates: KeychainCredentialCandidate[] = [];
   for (const serviceName of serviceNames) {
     try {
       const { stdout } = await execFileAsync("security", [
@@ -447,14 +464,65 @@ const readTokenFromMacKeychain = async (): Promise<ClaudeOauthCredential | null>
       ]);
       const credential = extractOauthCredentialsFromSecret(stdout);
       if (credential) {
-        return credential;
+        candidates.push({
+          serviceName,
+          credential,
+        });
       }
     } catch {
       continue;
     }
   }
 
-  return null;
+  return candidates;
+};
+
+const compareKeychainCredentialCandidates = (
+  left: KeychainCredentialCandidate,
+  right: KeychainCredentialCandidate,
+  nowMs: number,
+): number => {
+  const leftExpiresAtMs = left.credential.expiresAtMs;
+  const rightExpiresAtMs = right.credential.expiresAtMs;
+  const leftIsFutureExpiry = leftExpiresAtMs != null && leftExpiresAtMs > nowMs;
+  const rightIsFutureExpiry = rightExpiresAtMs != null && rightExpiresAtMs > nowMs;
+  if (leftIsFutureExpiry !== rightIsFutureExpiry) {
+    return Number(rightIsFutureExpiry) - Number(leftIsFutureExpiry);
+  }
+
+  const leftServicePriority = isSuffixedClaudeCredentialServiceName(left.serviceName) ? 1 : 0;
+  const rightServicePriority = isSuffixedClaudeCredentialServiceName(right.serviceName) ? 1 : 0;
+  if (leftServicePriority !== rightServicePriority) {
+    return rightServicePriority - leftServicePriority;
+  }
+
+  if (leftExpiresAtMs != null || rightExpiresAtMs != null) {
+    return (rightExpiresAtMs ?? 0) - (leftExpiresAtMs ?? 0);
+  }
+  return 0;
+};
+
+const sortKeychainCredentialCandidates = (
+  candidates: KeychainCredentialCandidate[],
+): KeychainCredentialCandidate[] => {
+  const nowMs = Date.now();
+  return [...candidates].sort((left, right) =>
+    compareKeychainCredentialCandidates(left, right, nowMs),
+  );
+};
+
+const pickBestKeychainCredential = (
+  candidates: KeychainCredentialCandidate[],
+): ClaudeOauthCredential | null => {
+  if (candidates.length === 0) {
+    return null;
+  }
+  return sortKeychainCredentialCandidates(candidates)[0]?.credential ?? null;
+};
+
+const readTokenFromMacKeychain = async (): Promise<ClaudeOauthCredential | null> => {
+  const candidates = await readCredentialsFromMacKeychain();
+  return pickBestKeychainCredential(candidates);
 };
 
 const persistCredentialToCredentialsFile = async (credential: ClaudeOauthCredential) => {
@@ -722,8 +790,8 @@ export const fetchClaudeOauthUsageWithFallback = async ({
     }
   }
 
-  const keychainCredential = await readTokenFromMacKeychain();
-  if (!keychainCredential) {
+  const keychainCredentials = await readCredentialsFromMacKeychain();
+  if (keychainCredentials.length === 0) {
     if (fileError instanceof UsageProviderError) {
       throw fileError;
     }
@@ -736,27 +804,46 @@ export const fetchClaudeOauthUsageWithFallback = async ({
     );
   }
 
-  try {
-    const usage = await fetchClaudeOauthUsage({ token: keychainCredential.accessToken, timeoutMs });
-    await persistCredentialToCredentialsFile(keychainCredential).catch(() => null);
-    return usage;
-  } catch (error) {
-    if (!isTokenInvalidError(error) || keychainCredential.refreshToken == null) {
-      throw error;
+  let latestError: unknown = fileError;
+  const orderedCredentials = sortKeychainCredentialCandidates(keychainCredentials);
+
+  for (const { credential: keychainCredential } of orderedCredentials) {
+    try {
+      const usage = await fetchClaudeOauthUsage({
+        token: keychainCredential.accessToken,
+        timeoutMs,
+      });
+      await persistCredentialToCredentialsFile(keychainCredential).catch(() => null);
+      return usage;
+    } catch (error) {
+      latestError = error;
+      if (!isTokenInvalidError(error) || keychainCredential.refreshToken == null) {
+        continue;
+      }
+    }
+
+    try {
+      const refreshed = await refreshClaudeOauthAccessToken({
+        refreshToken: keychainCredential.refreshToken,
+        timeoutMs,
+        clientId: keychainCredential.clientId,
+      });
+      const usage = await fetchClaudeOauthUsage({ token: refreshed.accessToken, timeoutMs });
+      await persistCredentialToCredentialsFile({
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken ?? keychainCredential.refreshToken,
+        expiresAtMs: refreshed.expiresAtMs,
+        clientId: keychainCredential.clientId,
+      }).catch(() => null);
+      return usage;
+    } catch (error) {
+      latestError = error;
+      continue;
     }
   }
 
-  const refreshed = await refreshClaudeOauthAccessToken({
-    refreshToken: keychainCredential.refreshToken,
-    timeoutMs,
-    clientId: keychainCredential.clientId,
-  });
-  const usage = await fetchClaudeOauthUsage({ token: refreshed.accessToken, timeoutMs });
-  await persistCredentialToCredentialsFile({
-    accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken ?? keychainCredential.refreshToken,
-    expiresAtMs: refreshed.expiresAtMs,
-    clientId: keychainCredential.clientId,
-  }).catch(() => null);
-  return usage;
+  if (latestError instanceof Error) {
+    throw latestError;
+  }
+  throw new UsageProviderError("TOKEN_NOT_FOUND", "Claude credential not found. Run claude login.");
 };
