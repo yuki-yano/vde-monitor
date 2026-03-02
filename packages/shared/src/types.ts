@@ -29,8 +29,11 @@ export type NotificationSummarySourceConfig = {
   engine: SummaryEngineConfig;
 };
 
+export type NotificationSummaryLanguage = "en" | "ja";
+
 export type NotificationSummaryConfig = {
   enabled: boolean;
+  lang: NotificationSummaryLanguage;
   rename: {
     pane: boolean;
     push: boolean;
@@ -426,6 +429,80 @@ export type SummaryEvent = {
   engine: SummaryEngineConfig;
   source: SummaryEventSource;
 };
+
+export type SummaryPublishSource = "codex" | "claude";
+
+export type SummaryPublishLocator = {
+  source: SummaryPublishSource;
+  runId: string;
+  paneId: string;
+  eventType: "pane.task_completed";
+  sequence: number;
+};
+
+export type SummaryPublishPayload = {
+  paneTitle: string;
+  notificationTitle: string;
+  notificationBody: string;
+};
+
+export type SummaryPublishRequest = {
+  schemaVersion: 1;
+  eventId: string;
+  locator: SummaryPublishLocator;
+  sourceEventAt: string;
+  summary: SummaryPublishPayload;
+};
+
+export type SummaryPublishSuccessResponse = {
+  schemaVersion: 1;
+  eventId: string;
+  deduplicated: boolean;
+};
+
+export type SummaryPublishErrorCode =
+  | "invalid_json"
+  | "unsupported_content_type"
+  | "unsupported_schema_version"
+  | "invalid_request"
+  | "unauthorized"
+  | "forbidden_origin"
+  | "forbidden_binding"
+  | "rate_limit"
+  | "max_events_overflow"
+  | "single_process_guard_unavailable"
+  | "server_state_conflict";
+
+export type SummaryPublishErrorResponse = {
+  schemaVersion: 1;
+  code: SummaryPublishErrorCode;
+  message: string;
+  eventId?: string;
+  retryAfterSec?: number;
+  deduplicated?: boolean;
+};
+
+export type SummaryPublishConnectionInfo = {
+  schemaVersion: 1;
+  endpoint: string;
+  listenerType: "loopback" | "network" | "https";
+  bind: string;
+  tokenRef: string;
+};
+
+export type SummaryPublishTokenMetadata = {
+  schemaVersion: 1;
+  tokenRef: string;
+  generation: number;
+  hashKeyVersion: number;
+  source: SummaryPublishSource;
+  runId: string;
+  paneId: string;
+  audience: "summary-events";
+  expiresAt: string;
+};
+
+export type SummaryPublishInternalErrorCode = "invalid_connection_info";
 
 export type ScreenCaptureMeta = {
   backend: "tmux" | "wezterm" | "unknown";

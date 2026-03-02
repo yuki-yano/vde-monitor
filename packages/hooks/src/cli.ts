@@ -44,12 +44,15 @@ export type HookEvent = {
 };
 
 type HookServerConfig = {
+  bind: "127.0.0.1" | "0.0.0.0";
+  port: number;
   multiplexerBackend: "tmux" | "wezterm";
   tmuxSocketName: string | null;
   tmuxSocketPath: string | null;
   weztermTarget: string | null;
   summary: {
     enabled: boolean;
+    lang: "en" | "ja";
     rename: {
       pane: boolean;
       push: boolean;
@@ -270,6 +273,7 @@ const resolveSummaryConfig = (
   value:
     | {
         enabled?: boolean;
+        lang?: "en" | "ja";
         rename?: { pane?: boolean; push?: boolean };
         sources?: {
           codex?: {
@@ -297,6 +301,7 @@ const resolveSummaryConfig = (
   const fallback = configDefaults.notifications.summary;
   return {
     enabled: resolveWithDefault(value?.enabled, fallback.enabled),
+    lang: resolveWithDefault(value?.lang, fallback.lang),
     rename: {
       pane: resolveWithDefault(value?.rename?.pane, fallback.rename.pane),
       push: resolveWithDefault(value?.rename?.push, fallback.rename.push),
@@ -314,6 +319,8 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
   if (parsed.success) {
     const config = parsed.data;
     return {
+      bind: resolveWithDefault(config.bind, configDefaults.bind),
+      port: resolveWithDefault(config.port, configDefaults.port),
       multiplexerBackend: resolveWithDefault(
         config.multiplexer?.backend,
         configDefaults.multiplexer.backend,

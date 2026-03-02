@@ -258,36 +258,30 @@ describe("createNotificationDispatcher", () => {
       client: { platform: "desktop", standalone: false },
     });
     const sendNotification = vi.fn(async () => undefined);
-    const summaryEventStore = {
-      waitForSummary: vi.fn(async () => ({
-        waitedMs: 1200,
-        event: {
-          ts: "2026-02-20T00:00:01.100Z",
-          summary_id: "summary-1",
-          source_agent: "codex" as const,
-          event_type: "task_completed_summary" as const,
-          source_event_at: "2026-02-20T00:00:01.100Z",
-          pane_locator: { tmux_pane: "%1" },
-          summary: {
-            pane_title: "Parser done",
-            notification_title: "Parser fixed",
-            notification_body: "Parser fix completed and waiting for review",
-          },
-          engine: {
-            agent: "codex" as const,
-            model: "gpt-5.3-codex-spark",
-            effort: "low" as const,
-          },
-          source: {
-            turn_id: "turn-1",
-          },
+    const summaryResolver = vi.fn(async () => ({
+      result: "hit" as const,
+      reasonCode: "hit" as const,
+      waitedMs: 1200,
+      event: {
+        eventId: "evt-1",
+        locator: {
+          source: "codex" as const,
+          runId: "%1",
+          paneId: "%1",
+          eventType: "pane.task_completed" as const,
+          sequence: 1,
         },
-      })),
-    };
+        summary: {
+          paneTitle: "Parser done",
+          notificationTitle: "Parser fixed",
+          notificationBody: "Parser fix completed and waiting for review",
+        },
+      },
+    }));
     const dispatcher = createNotificationDispatcher({
       config,
       subscriptionStore: store,
-      summaryEventStore,
+      summaryResolver,
       sendNotification,
       logger: { log: vi.fn(), warn: vi.fn() },
       now: () => "2026-02-20T00:00:02.000Z",
@@ -302,14 +296,7 @@ describe("createNotificationDispatcher", () => {
       ),
     );
 
-    expect(summaryEventStore.waitForSummary).toHaveBeenCalledWith({
-      paneId: "%1",
-      paneTty: "tty1",
-      cwd: "/repo",
-      sourceAgent: "codex",
-      transitionAt: "2026-02-20T00:00:00.000Z",
-      waitMs: 7000,
-    });
+    expect(summaryResolver).toHaveBeenCalledTimes(1);
     const sentCall = (sendNotification.mock.calls as unknown[][])[0];
     if (!sentCall || typeof sentCall[1] !== "string") {
       throw new Error("expected sendNotification payload");
@@ -354,13 +341,9 @@ describe("createNotificationDispatcher", () => {
       client: { platform: "desktop", standalone: false },
     });
     const sendNotification = vi.fn(async () => undefined);
-    const summaryEventStore = {
-      waitForSummary: vi.fn(async () => null),
-    };
     const dispatcher = createNotificationDispatcher({
       config,
       subscriptionStore: store,
-      summaryEventStore,
       sendNotification,
       logger: { log: vi.fn(), warn: vi.fn() },
       now: () => "2026-02-20T00:00:02.000Z",
@@ -375,7 +358,6 @@ describe("createNotificationDispatcher", () => {
       ),
     );
 
-    expect(summaryEventStore.waitForSummary).not.toHaveBeenCalled();
     const sentCall = (sendNotification.mock.calls as unknown[][])[0];
     if (!sentCall || typeof sentCall[1] !== "string") {
       throw new Error("expected sendNotification payload");

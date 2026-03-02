@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { SummaryEngineConfig, SummaryEvent } from "@vde-monitor/shared";
+import type { SummaryEngineConfig, SummaryPublishRequest } from "@vde-monitor/shared";
 
 import {
   type SummaryText,
@@ -28,6 +28,7 @@ import {
   detectPayloadSourceAgent,
   extractCodexAssistantMessage,
   extractCodexTurnId,
+  extractEventTimestamp,
   isLikelyJsonObjectText,
   readOptionalString,
 } from "./payload-source";
@@ -182,7 +183,7 @@ export const buildSummaryEvent = (
   summary: SummaryText,
   engine: SummaryEngineConfig,
   sourceEventAt = new Date().toISOString(),
-): SummaryEvent =>
+): SummaryPublishRequest =>
   buildSummaryContractEvent({
     sourceAgent: SOURCE_AGENT,
     sourceEventAt,
@@ -204,7 +205,7 @@ export const buildCodexSummaryEvent = (
   summary: SummaryText,
   engine: SummaryEngineConfig,
   sourceEventAt = new Date().toISOString(),
-): SummaryEvent =>
+): SummaryPublishRequest =>
   buildSummaryContractEvent({
     sourceAgent: "codex",
     sourceEventAt,
@@ -495,6 +496,7 @@ const main = () => {
             {
               engine: sourceConfig.engine,
               timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
+              lang: summaryConfig.lang,
             },
           );
           if (summaryConfig.rename.pane) {
@@ -506,7 +508,7 @@ const main = () => {
               fields,
               summary,
               sourceConfig.engine,
-              new Date().toISOString(),
+              extractEventTimestamp(payload) ?? new Date().toISOString(),
             ),
           );
         }
@@ -526,13 +528,19 @@ const main = () => {
           {
             engine: sourceConfig.engine,
             timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
+            lang: summaryConfig.lang,
           },
         );
         if (summaryConfig.rename.pane) {
           applyTmuxPaneTitle(readOptionalString(process.env.TMUX_PANE), summary.paneTitle);
         }
         appendSummaryEvent(
-          buildCodexSummaryEvent(payload, summary, sourceConfig.engine, new Date().toISOString()),
+          buildCodexSummaryEvent(
+            payload,
+            summary,
+            sourceConfig.engine,
+            extractEventTimestamp(payload) ?? new Date().toISOString(),
+          ),
         );
       }
       runForwardNotifyCommand(parsed.forwardCommandArgv, payloadRaw);
@@ -575,6 +583,7 @@ const main = () => {
           {
             engine: sourceConfig.engine,
             timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
+            lang: summaryConfig.lang,
           },
         );
         if (summaryConfig.rename.pane) {
@@ -586,7 +595,7 @@ const main = () => {
             fields,
             summary,
             sourceConfig.engine,
-            new Date().toISOString(),
+            extractEventTimestamp(payload) ?? new Date().toISOString(),
           ),
         );
       }

@@ -70,6 +70,8 @@ const applyCorsHeaders = (
   c.header("Vary", mergeVary(c.res.headers.get("Vary"), "Origin"));
 };
 
+const isSummaryPublishPath = (path: string) => path.endsWith("/notifications/summary-events");
+
 export const createApiRouter = ({
   config,
   monitor,
@@ -182,7 +184,18 @@ export const createApiRouter = ({
     }
     const origin = c.req.header("origin");
     const host = c.req.header("host");
+    const summaryPublishPath = isSummaryPublishPath(c.req.path);
     if (!isOriginAllowed(config, origin, host)) {
+      if (summaryPublishPath) {
+        return c.json(
+          {
+            schemaVersion: 1,
+            code: "forbidden_origin",
+            message: "origin not allowed",
+          },
+          403,
+        );
+      }
       return c.json({ error: buildError("INVALID_PAYLOAD", "origin not allowed") }, 403);
     }
     if (origin) {
@@ -192,6 +205,16 @@ export const createApiRouter = ({
       return c.body(null, 204);
     }
     if (!requireAuth(config, c)) {
+      if (summaryPublishPath) {
+        return c.json(
+          {
+            schemaVersion: 1,
+            code: "unauthorized",
+            message: "unauthorized",
+          },
+          401,
+        );
+      }
       return c.json({ error: buildError("INVALID_PAYLOAD", "unauthorized") }, 401);
     }
     await next();

@@ -14,7 +14,7 @@ import {
   runSummaryWithCodex,
   truncateOneLine,
 } from "./summary-engine";
-import { buildSummaryPromptTemplate } from "./summary-prompt";
+import { type SummaryPromptLanguage, buildSummaryPromptTemplate } from "./summary-prompt";
 
 export { normalizeSummary, parseSummaryOutputFromClaudeJson, truncateOneLine };
 export type { SummaryText };
@@ -36,15 +36,6 @@ const DEFAULT_EFFORT: SummaryEffort = "low";
 const DEFAULT_TIMEOUT_MS = 12_000;
 const TRANSCRIPT_TAIL_MAX_BYTES = 512 * 1024;
 const PROMPT_MESSAGE_MAX_CHARS = 4_000;
-
-const SUMMARY_PROMPT = buildSummaryPromptTemplate({
-  task: "Claude hook context を要約し、terminal pane title と通知文を作成してください。",
-  priorities: [
-    "最新の assistant 出力を最優先で使う。",
-    "作業の結果・状態・次の待機状況を短く要約する。",
-    "push 通知に適した短く明確な表現にする。",
-  ],
-});
 
 const normalizeWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
@@ -217,22 +208,34 @@ export const buildFallbackSummary = ({
   };
 };
 
-export const buildSummaryPrompt = ({ assistantMessage, cwd, sessionId }: SummarySource): string => {
+export const buildSummaryPrompt = (
+  { assistantMessage, cwd, sessionId }: SummarySource,
+  outputLanguage: SummaryPromptLanguage = "en",
+): string => {
   const assistantText =
     assistantMessage == null
-      ? "(なし)"
+      ? "(none)"
       : assistantMessage.length <= PROMPT_MESSAGE_MAX_CHARS
         ? assistantMessage
-        : `${assistantMessage.slice(0, PROMPT_MESSAGE_MAX_CHARS).trimEnd()}\n...(省略)`;
-  const cwdLine = cwd ?? "(不明)";
-  const sessionLine = sessionId ?? "(不明)";
-  return `${SUMMARY_PROMPT}
+        : `${assistantMessage.slice(0, PROMPT_MESSAGE_MAX_CHARS).trimEnd()}\n...(truncated)`;
+  const cwdLine = cwd ?? "(unknown)";
+  const sessionLine = sessionId ?? "(unknown)";
+  const promptTemplate = buildSummaryPromptTemplate({
+    task: "Summarize the provided execution context and produce terminal pane title and push notification text.",
+    priorities: [
+      "Use the latest assistant output first.",
+      "Summarize outcome, state, and what should happen next in short form.",
+      "Optimize for concise and clear push notification text.",
+    ],
+    outputLanguage,
+  });
+  return `${promptTemplate}
 
 ## Context
 - cwd: ${cwdLine}
 - session_id: ${sessionLine}
 
-## 最新の assistant 出力
+## Latest assistant output
 ${assistantText}
 `;
 };
@@ -245,11 +248,11 @@ const resolveEngine = (engine: ClaudeSummaryEngine | undefined): ClaudeSummaryEn
 
 export const runClaudeSummary = (
   source: SummarySource,
-  options: { engine?: ClaudeSummaryEngine; timeoutMs?: number } = {},
+  options: { engine?: ClaudeSummaryEngine; timeoutMs?: number; lang?: SummaryPromptLanguage } = {},
 ): SummaryText => {
   const fallback = buildFallbackSummary(source);
   const engine = resolveEngine(options.engine);
-  const prompt = buildSummaryPrompt(source);
+  const prompt = buildSummaryPrompt(source, options.lang ?? "en");
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const output =
     engine.agent === "claude"

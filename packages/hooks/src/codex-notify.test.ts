@@ -93,10 +93,14 @@ describe("codex notify helper", () => {
     const prompt = buildSummaryPrompt('{"type":"agent-turn-complete"}');
     expect(prompt).toContain("Notify Payload");
     expect(prompt).toContain('{"type":"agent-turn-complete"}');
-    expect(prompt).toContain("出力言語は日本語");
-    expect(prompt).toContain("簡潔な日本語");
-    expect(prompt).toContain("プロジェクト名・リポジトリ名・パス");
-    expect(prompt).toContain("turn id");
+    expect(prompt).toContain("Write all output fields in English.");
+    expect(prompt).toContain('Do not prepend labels like "Claude hook summary:" or "Summary:".');
+    expect(prompt).toContain("project/repository/path/session IDs/turn IDs");
+  });
+
+  it("builds japanese-language instruction when requested", () => {
+    const prompt = buildSummaryPrompt('{"type":"agent-turn-complete"}', "ja");
+    expect(prompt).toContain("Write all output fields in Japanese.");
   });
 
   it("builds japanese fallback when only cwd is available", () => {

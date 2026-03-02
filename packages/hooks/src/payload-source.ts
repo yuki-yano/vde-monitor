@@ -63,3 +63,20 @@ export const extractCodexAssistantMessage = (payload: HookPayload): string | nul
   const firstInputMessage = readStringArray(payload["input-messages"])[0] ?? null;
   return firstInputMessage;
 };
+
+export const extractEventTimestamp = (payload: HookPayload): string | null => {
+  const candidates = [
+    readOptionalString(payload.ts),
+    readOptionalString(payload.timestamp),
+    readOptionalString(payload.event_at),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (Number.isFinite(Date.parse(candidate))) {
+      return candidate;
+    }
+  }
+  return null;
+};

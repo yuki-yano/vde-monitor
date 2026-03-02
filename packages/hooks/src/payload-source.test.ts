@@ -4,6 +4,7 @@ import {
   detectPayloadSourceAgent,
   extractCodexAssistantMessage,
   extractCodexTurnId,
+  extractEventTimestamp,
   isLikelyJsonObjectText,
 } from "./payload-source";
 
@@ -85,5 +86,18 @@ describe("payload source helper", () => {
   it("recognizes json object payload text", () => {
     expect(isLikelyJsonObjectText('{"type":"agent-turn-complete"}')).toBe(true);
     expect(isLikelyJsonObjectText("Stop")).toBe(false);
+  });
+
+  it("extracts event timestamp from supported fields", () => {
+    expect(extractEventTimestamp({ ts: "2026-03-02T00:00:00.000Z" })).toBe(
+      "2026-03-02T00:00:00.000Z",
+    );
+    expect(extractEventTimestamp({ timestamp: "2026-03-02T00:00:01.000Z" })).toBe(
+      "2026-03-02T00:00:01.000Z",
+    );
+    expect(extractEventTimestamp({ event_at: "2026-03-02T00:00:02.000Z" })).toBe(
+      "2026-03-02T00:00:02.000Z",
+    );
+    expect(extractEventTimestamp({ ts: "invalid-ts" })).toBeNull();
   });
 });

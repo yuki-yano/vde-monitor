@@ -123,12 +123,25 @@ describe("claude summary helper", () => {
       sessionId: "session-3",
     });
 
-    expect(prompt).toContain("最新の assistant 出力");
+    expect(prompt).toContain("Latest assistant output");
     expect(prompt).toContain("fix finished");
     expect(prompt).toContain("session-3");
-    expect(prompt).toContain("出力言語は日本語");
-    expect(prompt).toContain("簡潔な日本語");
-    expect(prompt).toContain("プロジェクト名・リポジトリ名・パス・セッションID");
+    expect(prompt).toContain("Write all output fields in English.");
+    expect(prompt).toContain("Use concise, concrete wording.");
+    expect(prompt).toContain("project/repository/path/session IDs/turn IDs");
+  });
+
+  it("builds japanese-language instruction when requested", () => {
+    const prompt = buildSummaryPrompt(
+      {
+        assistantMessage: "fix finished",
+        cwd: "/Users/example/repo-c",
+        sessionId: "session-3",
+      },
+      "ja",
+    );
+
+    expect(prompt).toContain("Write all output fields in Japanese.");
   });
 
   it("truncates oversized assistant message in prompt", () => {
@@ -139,8 +152,8 @@ describe("claude summary helper", () => {
       sessionId: "session-4",
     });
 
-    expect(prompt).toContain("...(省略)");
-    const latestSection = prompt.split("## 最新の assistant 出力\n")[1] ?? "";
+    expect(prompt).toContain("...(truncated)");
+    const latestSection = prompt.split("## Latest assistant output\n")[1] ?? "";
     expect(latestSection.length).toBeLessThanOrEqual(4_020);
   });
 

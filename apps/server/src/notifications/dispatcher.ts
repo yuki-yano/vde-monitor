@@ -1,23 +1,21 @@
-import os from "node:os";
-import path from "node:path";
-
 import {
   type AgentMonitorConfig,
   type PushEventType,
   type PushSubscriptionJson,
-  resolveMonitorServerKey,
 } from "@vde-monitor/shared";
 import webpush from "web-push";
 
 import { toErrorMessage } from "../errors";
-import { type SummaryEventStore, createSummaryEventStore } from "./summary-event-store";
+import { type ResolveSummaryResult, createResolveSummary } from "./resolve-summary";
 import type { NotificationSubscriptionStore } from "./subscription-store";
+import { type SummaryBus, createSummaryBus } from "./summary-bus";
 import type { NotificationPayload, SessionTransitionEvent } from "./types";
 
 type DispatcherOptions = {
   config: AgentMonitorConfig;
   subscriptionStore: NotificationSubscriptionStore;
-  summaryEventStore?: SummaryEventStore;
+  summaryBus?: SummaryBus;
+  summaryResolver?: (event: SessionTransitionEvent) => Promise<ResolveSummaryResult>;
   sendNotification?: (subscription: PushSubscriptionJson, payload: string) => Promise<void>;
   now?: () => string;
   nowMs?: () => number;
@@ -174,7 +172,8 @@ const resolveFingerprint = (event: SessionTransitionEvent) => {
 export const createNotificationDispatcher = ({
   config,
   subscriptionStore,
-  summaryEventStore,
+  summaryBus,
+  summaryResolver,
   sendNotification = async (subscription, payload) => {
     await webpush.sendNotification(subscription, payload);
   },
@@ -186,26 +185,14 @@ export const createNotificationDispatcher = ({
   cooldownMs = DEFAULT_COOLDOWN_MS,
   consecutiveFailureWarnThreshold = DEFAULT_WARN_THRESHOLD,
 }: DispatcherOptions) => {
-  const summaryLogPath = path.join(
-    os.homedir(),
-    ".vde-monitor",
-    "events",
-    resolveMonitorServerKey({
-      multiplexerBackend: config.multiplexer.backend,
-      tmuxSocketName: config.tmux.socketName,
-      tmuxSocketPath: config.tmux.socketPath,
-      weztermTarget: config.multiplexer.wezterm.target,
-    }),
-    "summary.jsonl",
-  );
-  const activeSummaryEventStore =
-    summaryEventStore ??
-    createSummaryEventStore({
-      filePath: summaryLogPath,
+  const activeSummaryBus = summaryBus ?? createSummaryBus();
+  const activeSummaryResolver =
+    summaryResolver ??
+    createResolveSummary({
+      config,
+      summaryBus: activeSummaryBus,
       nowMs,
-      sleep,
-      logger,
-    });
+    }).resolveSummary;
 
   const lastFingerprintBySubscriptionId = new Map<string, string>();
   const lastTransitionAtByPaneEventBySubscriptionId = new Map<string, number>();
@@ -291,32 +278,16 @@ export const createNotificationDispatcher = ({
       notificationTitle: string;
       notificationBody: string;
     } | null = null;
-    if (
-      eventType === "pane.task_completed" &&
-      candidates.length > 0 &&
-      config.notifications.summary.enabled &&
-      config.notifications.summary.rename.push &&
-      (event.next.agent === "codex" || event.next.agent === "claude")
-    ) {
-      const sourceConfig = config.notifications.summary.sources[event.next.agent];
-      if (sourceConfig.enabled) {
-        const summaryHit = await activeSummaryEventStore.waitForSummary({
-          paneId: event.next.paneId,
-          paneTty: event.next.paneTty,
-          cwd: event.next.currentPath,
-          sourceAgent: event.next.agent,
-          transitionAt: event.at,
-          waitMs: sourceConfig.waitMs,
-        });
-        if (summaryHit) {
-          summaryForPayload = {
-            summaryId: summaryHit.event.summary_id,
-            sourceAgent: summaryHit.event.source_agent,
-            paneTitle: summaryHit.event.summary.pane_title,
-            notificationTitle: summaryHit.event.summary.notification_title,
-            notificationBody: summaryHit.event.summary.notification_body,
-          };
-        }
+    if (eventType === "pane.task_completed" && candidates.length > 0) {
+      const resolvedSummary = await activeSummaryResolver(event);
+      if (resolvedSummary.result === "hit") {
+        summaryForPayload = {
+          summaryId: resolvedSummary.event.eventId,
+          sourceAgent: resolvedSummary.event.locator.source,
+          paneTitle: resolvedSummary.event.summary.paneTitle,
+          notificationTitle: resolvedSummary.event.summary.notificationTitle,
+          notificationBody: resolvedSummary.event.summary.notificationBody,
+        };
       }
     }
 

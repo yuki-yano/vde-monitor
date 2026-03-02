@@ -130,6 +130,8 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
@@ -171,6 +173,8 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
@@ -200,6 +204,8 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "tmux",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
@@ -227,6 +233,8 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
@@ -275,6 +283,8 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "tmux",
       tmuxSocketName: "sock",
       tmuxSocketPath: "/tmp/tmux.sock",
@@ -290,6 +300,7 @@ describe("hooks config loading", () => {
         notifications: {
           summary: {
             enabled: true,
+            lang: "ja",
             rename: {
               push: false,
             },
@@ -309,12 +320,15 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: configDefaults.multiplexer.backend,
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: configDefaults.multiplexer.wezterm.target,
       summary: {
         enabled: true,
+        lang: "ja",
         rename: {
           pane: configDefaults.notifications.summary.rename.pane,
           push: false,

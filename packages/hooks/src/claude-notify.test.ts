@@ -135,30 +135,22 @@ describe("claude notify helper", () => {
       "2026-02-27T00:00:00.000Z",
     );
 
-    expect(summaryEvent.source_agent).toBe("claude");
-    expect(summaryEvent.event_type).toBe("task_completed_summary");
-    expect(summaryEvent.summary_id).toMatch(
+    expect(summaryEvent.schemaVersion).toBe(1);
+    expect(summaryEvent.eventId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
-    expect(summaryEvent.source_event_at).toBe("2026-02-27T00:00:00.000Z");
-    expect(summaryEvent.pane_locator).toEqual({
-      tmux_pane: "%12",
-      tty: "ttys001",
-      cwd: "apps/web",
+    expect(summaryEvent.sourceEventAt).toBe("2026-02-27T00:00:00.000Z");
+    expect(summaryEvent.locator).toEqual({
+      source: "claude",
+      runId: "session-1",
+      paneId: "%12",
+      eventType: "pane.task_completed",
+      sequence: 1772150400000,
     });
     expect(summaryEvent.summary).toEqual({
-      pane_title: "README done",
-      notification_title: "README update",
-      notification_body: "README update and tests finished",
-    });
-    expect(summaryEvent.engine).toEqual({
-      agent: "claude",
-      model: "claude-haiku-4-5",
-      effort: "low",
-    });
-    expect(summaryEvent.source).toEqual({
-      session_id: "session-1",
-      hook_event_name: "Stop",
+      paneTitle: "README done",
+      notificationTitle: "README update",
+      notificationBody: "README update and tests finished",
     });
   });
 

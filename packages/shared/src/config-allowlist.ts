@@ -99,6 +99,7 @@ export const userConfigAllowlist = {
     enabledEventTypes: true,
     summary: {
       enabled: true,
+      lang: true,
       rename: {
         pane: true,
         push: true,

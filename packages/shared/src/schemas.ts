@@ -633,6 +633,7 @@ const clientConfigSchema = z.object({
 
 const summaryEffortSchema = z.enum(["low", "medium", "high"]);
 const summaryAgentSchema = z.enum(["codex", "claude"]);
+const summaryLanguageSchema = z.enum(["en", "ja"]);
 const summaryEngineConfigSchema = strictObject({
   agent: summaryAgentSchema,
   model: z.string().trim().min(1),
@@ -647,6 +648,7 @@ const notificationSummarySourceConfigSchema = strictObject({
 
 const notificationSummaryConfigSchema = strictObject({
   enabled: z.boolean(),
+  lang: summaryLanguageSchema,
   rename: strictObject({
     pane: z.boolean(),
     push: z.boolean(),
@@ -777,6 +779,110 @@ export const claudeHookEventSchema = z.object({
     .optional(),
   payload: z.object({ raw: z.string() }),
 });
+
+export const summaryPublishSchemaVersionSchema = z.literal(1);
+export const summaryPublishSourceSchema = summaryAgentSchema;
+export const summaryPublishEventIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._:-]+$/);
+
+export const summaryPublishLocatorSchema = z
+  .object({
+    source: summaryPublishSourceSchema,
+    runId: z.string().trim().min(1).max(256),
+    paneId: z.string().trim().min(1).max(64),
+    eventType: z.literal("pane.task_completed"),
+    sequence: z.number().int().min(1),
+  })
+  .strict();
+
+export const summaryPublishPayloadSchema = z
+  .object({
+    paneTitle: z.string().trim().min(1).max(48),
+    notificationTitle: z.string().trim().min(1).max(32),
+    notificationBody: z.string().trim().min(1).max(120),
+  })
+  .strict();
+
+export const summaryPublishRequestSchema = z
+  .object({
+    schemaVersion: summaryPublishSchemaVersionSchema,
+    eventId: summaryPublishEventIdSchema,
+    locator: summaryPublishLocatorSchema,
+    sourceEventAt: z.string(),
+    summary: summaryPublishPayloadSchema,
+  })
+  .strict();
+
+export const summaryPublishSuccessResponseSchema = z
+  .object({
+    schemaVersion: summaryPublishSchemaVersionSchema,
+    eventId: summaryPublishEventIdSchema,
+    deduplicated: z.boolean(),
+  })
+  .strict();
+
+export const summaryPublishErrorCodeSchema = z.enum([
+  "invalid_json",
+  "unsupported_content_type",
+  "unsupported_schema_version",
+  "invalid_request",
+  "unauthorized",
+  "forbidden_origin",
+  "forbidden_binding",
+  "rate_limit",
+  "max_events_overflow",
+  "single_process_guard_unavailable",
+  "server_state_conflict",
+]);
+
+export const summaryPublishErrorResponseSchema = z
+  .object({
+    schemaVersion: summaryPublishSchemaVersionSchema,
+    code: summaryPublishErrorCodeSchema,
+    message: z.string().trim().min(1),
+    eventId: summaryPublishEventIdSchema.optional(),
+    retryAfterSec: z.number().int().min(1).max(300).optional(),
+    deduplicated: z.boolean().optional(),
+  })
+  .strict();
+
+export const summaryPublishConnectionInfoSchema = z
+  .object({
+    schemaVersion: summaryPublishSchemaVersionSchema,
+    endpoint: z.string().url(),
+    listenerType: z.enum(["loopback", "network", "https"]),
+    bind: z.string().trim().min(1).max(255),
+    tokenRef: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9._:-]+$/),
+  })
+  .strict();
+
+export const summaryPublishTokenMetadataSchema = z
+  .object({
+    schemaVersion: summaryPublishSchemaVersionSchema,
+    tokenRef: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9._:-]+$/),
+    generation: z.number().int().min(1),
+    hashKeyVersion: z.number().int().min(1),
+    source: summaryPublishSourceSchema,
+    runId: z.string().trim().min(1).max(256),
+    paneId: z.string().trim().min(1).max(64),
+    audience: z.literal("summary-events"),
+    expiresAt: z.string(),
+  })
+  .strict();
 
 export const summaryEventSchema = z
   .object({
@@ -923,6 +1029,7 @@ export const configOverrideSchema = strictObject({
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
     summary: strictObject({
       enabled: z.boolean().optional(),
+      lang: summaryLanguageSchema.optional(),
       rename: strictObject({
         pane: z.boolean().optional(),
         push: z.boolean().optional(),

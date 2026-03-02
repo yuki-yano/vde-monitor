@@ -39,6 +39,7 @@ export const configDefaults: ResolvedConfig = {
     enabledEventTypes: ["pane.waiting_permission", "pane.task_completed"],
     summary: {
       enabled: false,
+      lang: "en",
       rename: {
         pane: true,
         push: true,

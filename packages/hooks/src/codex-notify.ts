@@ -16,7 +16,12 @@ import {
   resolveHookSummaryConfig,
   resolveHookSummarySourceConfig,
 } from "./cli";
-import { detectPayloadSourceAgent, readOptionalString, readStringArray } from "./payload-source";
+import {
+  detectPayloadSourceAgent,
+  extractEventTimestamp,
+  readOptionalString,
+  readStringArray,
+} from "./payload-source";
 import {
   NOTIFICATION_BODY_MAX,
   NOTIFICATION_TITLE_MAX,
@@ -27,7 +32,7 @@ import {
   runSummaryWithCodex,
   truncateOneLine,
 } from "./summary-engine";
-import { buildSummaryPromptTemplate } from "./summary-prompt";
+import { type SummaryPromptLanguage, buildSummaryPromptTemplate } from "./summary-prompt";
 import { appendSummaryEvent, buildSummaryEvent } from "./summary-event";
 
 type CodexNotifyPayload = {
@@ -56,15 +61,6 @@ const readStdin = (): string => {
     return "";
   }
 };
-
-const SUMMARY_PROMPT = buildSummaryPromptTemplate({
-  task: "Codex notify payload を要約し、terminal pane title と通知文を作成してください。",
-  priorities: [
-    '"last-assistant-message" があれば最優先で使う。',
-    '必要に応じて "input-messages" の先頭要素を使う。',
-    "結果・状態・次の待機状況に絞って短く表現する。",
-  ],
-});
 
 const basenameOrNull = (cwd: string | null): string | null => {
   if (!cwd) {
@@ -121,8 +117,19 @@ export const normalizeSummary = (
   payload: CodexNotifyPayload,
 ): SummaryText => normalizeSummaryFromOutput(summaryOutput, buildFallbackSummary(payload));
 
-export const buildSummaryPrompt = (payloadRaw: string) =>
-  `${SUMMARY_PROMPT}
+export const buildSummaryPrompt = (
+  payloadRaw: string,
+  outputLanguage: SummaryPromptLanguage = "en",
+) =>
+  `${buildSummaryPromptTemplate({
+    task: "Summarize the provided execution context and produce terminal pane title and push notification text.",
+    priorities: [
+      'Use "last-assistant-message" first when available.',
+      'Use the first item in "input-messages" only when needed.',
+      "Focus on outcome, state transition, and what the user should know next.",
+    ],
+    outputLanguage,
+  })}
 
 ## Notify Payload
 \`\`\`json
@@ -196,31 +203,33 @@ const runCodexSummary = (
   payload: CodexNotifyPayload,
   sourceConfig: ReturnType<typeof resolveHookSummarySourceConfig>,
   renamePane: boolean,
+  outputLanguage: SummaryPromptLanguage,
 ): SummaryText => {
   const fallback = buildFallbackSummary(payload);
   const output =
     sourceConfig.engine.agent === "codex"
       ? runSummaryWithCodex({
-          prompt: buildSummaryPrompt(payloadRaw),
+          prompt: buildSummaryPrompt(payloadRaw, outputLanguage),
           model: sourceConfig.engine.model,
           effort: sourceConfig.engine.effort,
           timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
         })
       : runSummaryWithClaude({
-          prompt: buildSummaryPrompt(payloadRaw),
+          prompt: buildSummaryPrompt(payloadRaw, outputLanguage),
           model: sourceConfig.engine.model,
           effort: sourceConfig.engine.effort,
           timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
         });
 
   const normalized = normalizeSummaryFromOutput(output, fallback);
+  const sourceEventAt = extractEventTimestamp(payload) ?? new Date().toISOString();
   if (renamePane) {
     applyPaneTitle(normalized.paneTitle);
   }
   appendSummaryEvent(
     buildSummaryEvent({
       sourceAgent: "codex",
-      sourceEventAt: new Date().toISOString(),
+      sourceEventAt,
       paneLocator: {
         tmux_pane: readOptionalString(process.env.TMUX_PANE) ?? undefined,
         cwd: readOptionalString(payload.cwd) ?? undefined,
@@ -242,6 +251,7 @@ const runClaudePayloadSummary = (
   payload: Record<string, unknown>,
   sourceConfig: ReturnType<typeof resolveHookSummarySourceConfig>,
   renamePane: boolean,
+  outputLanguage: SummaryPromptLanguage,
 ): SummaryText => {
   const fields = extractPayloadFields(payload);
   const assistantMessage = extractLatestAssistantMessageFromTranscript(fields.transcriptPath);
@@ -254,15 +264,17 @@ const runClaudePayloadSummary = (
     {
       engine: sourceConfig.engine,
       timeoutMs: resolveTimeoutMs(sourceConfig.waitMs),
+      lang: outputLanguage,
     },
   );
+  const sourceEventAt = extractEventTimestamp(payload) ?? new Date().toISOString();
   if (renamePane) {
     applyTmuxPaneTitle(fields.tmuxPane, summary.paneTitle);
   }
   appendSummaryEvent(
     buildSummaryEvent({
       sourceAgent: "claude",
-      sourceEventAt: new Date().toISOString(),
+      sourceEventAt,
       paneLocator: {
         tmux_pane: fields.tmuxPane ?? undefined,
         tty: fields.tty,
@@ -385,13 +397,14 @@ const main = () => {
   const sourceConfig = resolveHookSummarySourceConfig(config, sourceAgent);
   if (summaryConfig.enabled && sourceConfig.enabled && shouldForward) {
     if (sourceAgent === "claude") {
-      runClaudePayloadSummary(payload, sourceConfig, summaryConfig.rename.pane);
+      runClaudePayloadSummary(payload, sourceConfig, summaryConfig.rename.pane, summaryConfig.lang);
     } else {
       runCodexSummary(
         parsed.payloadRaw,
         payload as CodexNotifyPayload,
         sourceConfig,
         summaryConfig.rename.pane,
+        summaryConfig.lang,
       );
     }
   }

@@ -289,6 +289,13 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
   };
   const notificationService = {
     getSettings: vi.fn(() => settings),
+    validateSummaryLocator: vi.fn(() => ({ ok: true })),
+    setSummarySessionDetailResolver: vi.fn(),
+    publishSummaryEvent: vi.fn(() => ({
+      ok: true,
+      eventId: "evt-1",
+      deduplicated: false,
+    })),
     upsertSubscription: vi.fn(() => ({
       subscriptionId: "sub-1",
       created: true,
@@ -378,6 +385,73 @@ describe("createApiRouter", () => {
     const { api } = createTestContext();
     const res = await api.request("/sessions");
     expect(res.status).toBe(401);
+  });
+
+  it("returns summary publish contract error when auth is missing", async () => {
+    const { api } = createTestContext();
+    const res = await api.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%1",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      schemaVersion: 1,
+      code: "unauthorized",
+      message: "unauthorized",
+    });
+  });
+
+  it("returns summary publish contract error when origin is forbidden", async () => {
+    const { api, config } = createTestContext();
+    config.allowedOrigins = ["https://allowed.example"];
+    const res = await api.request("/notifications/summary-events", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer token",
+        Origin: "https://forbidden.example",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%1",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      schemaVersion: 1,
+      code: "forbidden_origin",
+      message: "origin not allowed",
+    });
   });
 
   it("rejects requests with disallowed origin", async () => {

@@ -57,6 +57,8 @@ describe("hooks cli helpers", () => {
   it("resolves tmux server key from config", () => {
     expect(
       resolveHookServerKey({
+        bind: "127.0.0.1",
+        port: 11080,
         multiplexerBackend: "tmux",
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",
@@ -69,6 +71,8 @@ describe("hooks cli helpers", () => {
   it("resolves wezterm server key from config", () => {
     expect(
       resolveHookServerKey({
+        bind: "127.0.0.1",
+        port: 11080,
         multiplexerBackend: "wezterm",
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",

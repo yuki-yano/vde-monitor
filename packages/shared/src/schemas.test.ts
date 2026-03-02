@@ -9,6 +9,10 @@ import {
   notificationSubscriptionRevokeSchema,
   screenResponseSchema,
   summaryEventSchema,
+  summaryPublishConnectionInfoSchema,
+  summaryPublishErrorResponseSchema,
+  summaryPublishRequestSchema,
+  summaryPublishSuccessResponseSchema,
   usageGlobalTimelineResponseSchema,
 } from "./schemas";
 
@@ -216,6 +220,30 @@ describe("configOverrideSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts summary language override", () => {
+    const result = configOverrideSchema.safeParse({
+      notifications: {
+        summary: {
+          lang: "ja",
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unsupported summary language", () => {
+    const result = configOverrideSchema.safeParse({
+      notifications: {
+        summary: {
+          lang: "fr",
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("accepts partial usage override", () => {
     const result = configOverrideSchema.safeParse({
       usage: {
@@ -259,6 +287,102 @@ describe("summaryEventSchema", () => {
       source: {
         turn_id: "turn-1",
       },
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("summaryPublishRequestSchema", () => {
+  it("accepts valid publish request payload", () => {
+    const result = summaryPublishRequestSchema.safeParse({
+      schemaVersion: 1,
+      eventId: "evt-1",
+      locator: {
+        source: "codex",
+        runId: "run-1",
+        paneId: "%12",
+        eventType: "pane.task_completed",
+        sequence: 1,
+      },
+      sourceEventAt: "2026-03-02T00:00:00.000Z",
+      summary: {
+        paneTitle: "Fix done",
+        notificationTitle: "Fix completed",
+        notificationBody: "Parser fix completed and waiting for review",
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unsupported eventType", () => {
+    const result = summaryPublishRequestSchema.safeParse({
+      schemaVersion: 1,
+      eventId: "evt-1",
+      locator: {
+        source: "codex",
+        runId: "run-1",
+        paneId: "%12",
+        eventType: "pane.waiting_permission",
+        sequence: 1,
+      },
+      sourceEventAt: "2026-03-02T00:00:00.000Z",
+      summary: {
+        paneTitle: "Fix done",
+        notificationTitle: "Fix completed",
+        notificationBody: "Parser fix completed and waiting for review",
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("summary publish response schemas", () => {
+  it("accepts success response", () => {
+    const result = summaryPublishSuccessResponseSchema.safeParse({
+      schemaVersion: 1,
+      eventId: "evt-1",
+      deduplicated: false,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts error response with retryAfterSec", () => {
+    const result = summaryPublishErrorResponseSchema.safeParse({
+      schemaVersion: 1,
+      code: "rate_limit",
+      message: "rate limited",
+      eventId: "evt-1",
+      retryAfterSec: 3,
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("summaryPublishConnectionInfoSchema", () => {
+  it("accepts valid connection info payload", () => {
+    const result = summaryPublishConnectionInfoSchema.safeParse({
+      schemaVersion: 1,
+      endpoint: "http://127.0.0.1:11080/api/notifications/summary-events",
+      listenerType: "loopback",
+      bind: "127.0.0.1",
+      tokenRef: "summary-token",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts network listener payload", () => {
+    const result = summaryPublishConnectionInfoSchema.safeParse({
+      schemaVersion: 1,
+      endpoint: "http://100.64.0.10:11080/api/notifications/summary-events",
+      listenerType: "network",
+      bind: "100.64.0.10",
+      tokenRef: "summary-token",
     });
 
     expect(result.success).toBe(true);
