@@ -113,6 +113,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -142,6 +143,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -151,6 +153,7 @@ describe("ChatGridTile", () => {
 
   it("edits and saves session title with Enter", async () => {
     const updateSessionTitle = vi.fn(async () => undefined);
+    const resetSessionTitle = vi.fn(async () => undefined);
     renderWithRouter(
       <ChatGridTile
         session={buildSession()}
@@ -164,6 +167,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={updateSessionTitle}
+        resetSessionTitle={resetSessionTitle}
       />,
     );
 
@@ -180,6 +184,7 @@ describe("ChatGridTile", () => {
 
   it("closes title editor without mutation when title is unchanged", async () => {
     const updateSessionTitle = vi.fn(async () => undefined);
+    const resetSessionTitle = vi.fn(async () => undefined);
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ customTitle: "Pinned Title" })}
@@ -193,6 +198,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={updateSessionTitle}
+        resetSessionTitle={resetSessionTitle}
       />,
     );
 
@@ -209,6 +215,7 @@ describe("ChatGridTile", () => {
 
   it("resets custom title", async () => {
     const updateSessionTitle = vi.fn(async () => undefined);
+    const resetSessionTitle = vi.fn(async () => undefined);
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ customTitle: "Pinned Title" })}
@@ -222,13 +229,15 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={updateSessionTitle}
+        resetSessionTitle={resetSessionTitle}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reset session title" }));
 
     await waitFor(() => {
-      expect(updateSessionTitle).toHaveBeenCalledWith("pane-1", null);
+      expect(resetSessionTitle).toHaveBeenCalledWith("pane-1");
+      expect(updateSessionTitle).not.toHaveBeenCalled();
     });
   });
 
@@ -247,6 +256,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -274,6 +284,7 @@ describe("ChatGridTile", () => {
         sendKeys={sendKeys}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -300,6 +311,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={sendRaw}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -331,6 +343,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -351,6 +364,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -371,6 +385,7 @@ describe("ChatGridTile", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 

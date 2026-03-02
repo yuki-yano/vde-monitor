@@ -40,6 +40,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     sendText: sendActions.sendText,
     sendKeys: sendActions.sendKeys,
     sendRaw: sendActions.sendRaw,
+    clearPaneTitle: paneActions.clearPaneTitle,
     focusPane: paneActions.focusPane,
     killPane: paneActions.killPane,
     killWindow: paneActions.killWindow,

@@ -131,6 +131,10 @@ export const useUsageDashboardVM = () => {
     codex: 0,
     claude: 0,
   });
+  const billingInFlightRef = useRef<Record<BillingProviderId, boolean>>({
+    codex: false,
+    claude: false,
+  });
   const dashboardBillingProvidersRef = useRef<BillingProviderId[]>(FALLBACK_BILLING_PROVIDERS);
   const timelineRequestIdRef = useRef(0);
   const timelineRangeRef = useRef<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
@@ -174,10 +178,14 @@ export const useUsageDashboardVM = () => {
       provider: BillingProviderId;
       forceRefresh?: boolean;
     }) => {
+      if (billingInFlightRef.current[provider]) {
+        return;
+      }
       const requestId = ++billingRequestIdRef.current[provider];
       if (!canRequest) {
         return;
       }
+      billingInFlightRef.current[provider] = true;
       setBillingLoadingByProvider((current) => ({
         ...current,
         [provider]: true,
@@ -259,6 +267,7 @@ export const useUsageDashboardVM = () => {
             [provider]: false,
           }));
         }
+        billingInFlightRef.current[provider] = false;
       }
     },
     [canRequest, requestUsageProviderBilling, resolveErrorMessage],

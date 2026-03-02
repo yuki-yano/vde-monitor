@@ -3,14 +3,17 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { configDefaults } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
 import {
   buildHookEvent,
   extractPayloadFields,
+  isClaudeNonInteractivePayload,
   isMainModule,
   resolveHookServerKey,
   resolveTranscriptPath,
+  shouldPersistHookPayload,
 } from "./cli";
 
 describe("hooks cli helpers", () => {
@@ -54,10 +57,13 @@ describe("hooks cli helpers", () => {
   it("resolves tmux server key from config", () => {
     expect(
       resolveHookServerKey({
+        bind: "127.0.0.1",
+        port: 11080,
         multiplexerBackend: "tmux",
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",
         weztermTarget: "dev",
+        summary: configDefaults.notifications.summary,
       }),
     ).toBe("my_socket");
   });
@@ -65,10 +71,13 @@ describe("hooks cli helpers", () => {
   it("resolves wezterm server key from config", () => {
     expect(
       resolveHookServerKey({
+        bind: "127.0.0.1",
+        port: 11080,
         multiplexerBackend: "wezterm",
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",
         weztermTarget: " dev ",
+        summary: configDefaults.notifications.summary,
       }),
     ).toBe("wezterm-dev");
   });
@@ -108,5 +117,117 @@ describe("hooks cli helpers", () => {
       fs.rmSync(legacyPath, { force: true });
       fs.rmSync(path.dirname(legacyPath), { recursive: true, force: true });
     }
+  });
+
+  it("treats result-like payload as non-interactive", () => {
+    expect(
+      isClaudeNonInteractivePayload(
+        {
+          type: "result",
+          session_id: "session-1",
+        },
+        "Stop",
+      ),
+    ).toBe(true);
+  });
+
+  it("detects non-interactive stop when ancestor claude process uses -p", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [1200, { ppid: 1100, command: "/bin/sh -c vde-monitor-claude-summary Stop" }],
+      [1100, { ppid: 1000, command: "/usr/local/bin/claude -p --output-format json" }],
+      [1000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      isClaudeNonInteractivePayload(
+        {
+          session_id: "session-1",
+          cwd: "apps/web",
+        },
+        "Stop",
+        {
+          parentPid: 1200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("does not treat interactive stop as non-interactive when claude has no -p flag", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [2200, { ppid: 2100, command: "/bin/sh -c vde-monitor-claude-summary Stop" }],
+      [2100, { ppid: 2000, command: "/usr/local/bin/claude --continue" }],
+      [2000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      isClaudeNonInteractivePayload(
+        {
+          session_id: "session-1",
+          cwd: "apps/web",
+        },
+        "Stop",
+        {
+          parentPid: 2200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it("skips persisting non-interactive result payloads", () => {
+    expect(
+      shouldPersistHookPayload(
+        {
+          type: "result",
+          session_id: "session-1",
+        },
+        "Stop",
+      ),
+    ).toBe(false);
+  });
+
+  it("skips persisting stop payloads when ancestor claude uses -p", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [3200, { ppid: 3100, command: "/bin/sh -c vde-monitor-hook Stop" }],
+      [3100, { ppid: 3000, command: "/usr/local/bin/claude -p --output-format json" }],
+      [3000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      shouldPersistHookPayload(
+        {
+          session_id: "session-1",
+          cwd: "apps/web",
+        },
+        "Stop",
+        {
+          parentPid: 3200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it("persists interactive stop payloads", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [4200, { ppid: 4100, command: "/bin/sh -c vde-monitor-hook Stop" }],
+      [4100, { ppid: 4000, command: "/usr/local/bin/claude --continue" }],
+      [4000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      shouldPersistHookPayload(
+        {
+          session_id: "session-1",
+          cwd: "apps/web",
+        },
+        "Stop",
+        {
+          parentPid: 4200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(true);
   });
 });

@@ -256,6 +256,7 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     sendText: vi.fn(async () => ({ ok: true })),
     sendKeys: vi.fn(async () => ({ ok: true })),
     sendRaw: vi.fn(async () => ({ ok: true })),
+    clearPaneTitle: vi.fn(async () => ({ ok: true as const })),
     focusPane: vi.fn(async () => ({ ok: true as const })),
     killPane: vi.fn(async () => ({ ok: true as const })),
     killWindow: vi.fn(async () => ({ ok: true as const })),
@@ -288,6 +289,13 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
   };
   const notificationService = {
     getSettings: vi.fn(() => settings),
+    validateSummaryLocator: vi.fn(() => ({ ok: true })),
+    setSummarySessionDetailResolver: vi.fn(),
+    publishSummaryEvent: vi.fn(() => ({
+      ok: true,
+      eventId: "evt-1",
+      deduplicated: false,
+    })),
     upsertSubscription: vi.fn(() => ({
       subscriptionId: "sub-1",
       created: true,
@@ -377,6 +385,73 @@ describe("createApiRouter", () => {
     const { api } = createTestContext();
     const res = await api.request("/sessions");
     expect(res.status).toBe(401);
+  });
+
+  it("returns summary publish contract error when auth is missing", async () => {
+    const { api } = createTestContext();
+    const res = await api.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%1",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      schemaVersion: 1,
+      code: "unauthorized",
+      message: "unauthorized",
+    });
+  });
+
+  it("returns summary publish contract error when origin is forbidden", async () => {
+    const { api, config } = createTestContext();
+    config.allowedOrigins = ["https://allowed.example"];
+    const res = await api.request("/notifications/summary-events", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer token",
+        Origin: "https://forbidden.example",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%1",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      schemaVersion: 1,
+      code: "forbidden_origin",
+      message: "origin not allowed",
+    });
   });
 
   it("rejects requests with disallowed origin", async () => {
@@ -542,9 +617,100 @@ describe("createApiRouter", () => {
     const second = await api.request("/usage/dashboard?refresh=1", {
       headers: authHeaders,
     });
-    expect(second.status).toBe(429);
-    const body = await second.json();
+    expect(second.status).toBe(200);
+
+    const third = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(third.status).toBe(200);
+
+    const fourth = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourth.status).toBe(429);
+    const body = await fourth.json();
     expect(body.error.code).toBe("RATE_LIMIT");
+  });
+
+  it("does not share usage refresh throttle across dashboard and billing providers", async () => {
+    const { api } = createTestContext();
+
+    const dashboard = await api.request("/usage/dashboard?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(dashboard.status).toBe(200);
+
+    const codexBilling = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(codexBilling.status).toBe(200);
+
+    const claudeBilling = await api.request("/usage/billing?provider=claude&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claudeBilling.status).toBe(200);
+  });
+
+  it("applies usage refresh throttle per billing provider", async () => {
+    const { api } = createTestContext();
+
+    const firstCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(firstCodex.status).toBe(200);
+
+    const secondCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(secondCodex.status).toBe(200);
+
+    const thirdCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(thirdCodex.status).toBe(200);
+
+    const fourthCodex = await api.request("/usage/billing?provider=codex&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourthCodex.status).toBe(429);
+    const fourthCodexBody = await fourthCodex.json();
+    expect(fourthCodexBody.error.code).toBe("RATE_LIMIT");
+
+    const claude = await api.request("/usage/billing?provider=claude&refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claude.status).toBe(200);
+  });
+
+  it("applies usage refresh throttle per provider usage endpoint", async () => {
+    const { api } = createTestContext();
+
+    const firstCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(firstCodex.status).toBe(200);
+
+    const secondCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(secondCodex.status).toBe(200);
+
+    const thirdCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(thirdCodex.status).toBe(200);
+
+    const fourthCodex = await api.request("/codex/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(fourthCodex.status).toBe(429);
+    const fourthCodexBody = await fourthCodex.json();
+    expect(fourthCodexBody.error.code).toBe("RATE_LIMIT");
+
+    const claude = await api.request("/claude/usage?refresh=1", {
+      headers: authHeaders,
+    });
+    expect(claude.status).toBe(200);
   });
 
   it("returns global usage state timeline with repo ranking", async () => {
@@ -1396,6 +1562,49 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.session.customTitle).toBe("new title");
     expect(monitor.setCustomTitle).toHaveBeenCalledWith("pane-1", "new title");
+  });
+
+  it("resets title by clearing pane title and custom title", async () => {
+    const { api, actions, monitor } = createTestContext();
+    const latest = monitor.registry.getDetail("pane-1");
+    if (!latest) {
+      throw new Error("session not found");
+    }
+    monitor.registry.update({
+      ...latest,
+      title: "✳ Initial Greeting",
+      customTitle: "Custom",
+    });
+
+    const res = await api.request("/sessions/pane-1/title/reset", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(actions.clearPaneTitle).toHaveBeenCalledWith("pane-1");
+    expect(monitor.setCustomTitle).toHaveBeenCalledWith("pane-1", null);
+    expect(data.session.customTitle).toBeNull();
+    expect(data.session.title).toBeNull();
+  });
+
+  it("returns error when pane title reset action fails", async () => {
+    const { api, actions, monitor } = createTestContext();
+    vi.mocked(actions.clearPaneTitle).mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "clear failed" },
+    });
+
+    const res = await api.request("/sessions/pane-1/title/reset", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error.code).toBe("INTERNAL");
+    expect(monitor.setCustomTitle).not.toHaveBeenCalledWith("pane-1", null);
   });
 
   it("touch updates session activity", async () => {

@@ -1,13 +1,21 @@
-import type { AgentMonitorConfig, PushEventType, PushSubscriptionJson } from "@vde-monitor/shared";
+import {
+  type AgentMonitorConfig,
+  type PushEventType,
+  type PushSubscriptionJson,
+} from "@vde-monitor/shared";
 import webpush from "web-push";
 
 import { toErrorMessage } from "../errors";
+import { type ResolveSummaryResult, createResolveSummary } from "./resolve-summary";
 import type { NotificationSubscriptionStore } from "./subscription-store";
+import { type SummaryBus, createSummaryBus } from "./summary-bus";
 import type { NotificationPayload, SessionTransitionEvent } from "./types";
 
 type DispatcherOptions = {
   config: AgentMonitorConfig;
   subscriptionStore: NotificationSubscriptionStore;
+  summaryBus?: SummaryBus;
+  summaryResolver?: (event: SessionTransitionEvent) => Promise<ResolveSummaryResult>;
   sendNotification?: (subscription: PushSubscriptionJson, payload: string) => Promise<void>;
   now?: () => string;
   nowMs?: () => number;
@@ -48,6 +56,13 @@ const buildNotificationPayload = (
   eventType: PushEventType,
   event: SessionTransitionEvent,
   now: () => string,
+  summary: {
+    summaryId: string;
+    sourceAgent: "codex" | "claude";
+    paneTitle: string;
+    notificationTitle: string;
+    notificationBody: string;
+  } | null,
 ): NotificationPayload => {
   const paneLabel = `${event.next.sessionName}:w${event.next.windowIndex}:${event.next.paneId}`;
   if (eventType === "pane.waiting_permission") {
@@ -62,6 +77,27 @@ const buildNotificationPayload = (
       url: `/sessions/${encodeURIComponent(event.next.paneId)}`,
       tag: `pane:${event.next.paneId}:waiting_permission`,
       ts: now(),
+    };
+  }
+  if (summary) {
+    return {
+      version: 1,
+      type: "session.state.changed",
+      eventType,
+      paneId: event.next.paneId,
+      sessionName: event.next.sessionName,
+      title: summary.notificationTitle,
+      body: summary.notificationBody,
+      url: `/sessions/${encodeURIComponent(event.next.paneId)}`,
+      tag: `pane:${event.next.paneId}:task_completed`,
+      ts: now(),
+      summary: {
+        summaryId: summary.summaryId,
+        sourceAgent: summary.sourceAgent,
+        paneTitle: summary.paneTitle,
+        notificationTitle: summary.notificationTitle,
+        notificationBody: summary.notificationBody,
+      },
     };
   }
   return {
@@ -136,6 +172,8 @@ const resolveFingerprint = (event: SessionTransitionEvent) => {
 export const createNotificationDispatcher = ({
   config,
   subscriptionStore,
+  summaryBus,
+  summaryResolver,
   sendNotification = async (subscription, payload) => {
     await webpush.sendNotification(subscription, payload);
   },
@@ -147,8 +185,17 @@ export const createNotificationDispatcher = ({
   cooldownMs = DEFAULT_COOLDOWN_MS,
   consecutiveFailureWarnThreshold = DEFAULT_WARN_THRESHOLD,
 }: DispatcherOptions) => {
+  const activeSummaryBus = summaryBus ?? createSummaryBus();
+  const activeSummaryResolver =
+    summaryResolver ??
+    createResolveSummary({
+      config,
+      summaryBus: activeSummaryBus,
+      nowMs,
+    }).resolveSummary;
+
   const lastFingerprintBySubscriptionId = new Map<string, string>();
-  const lastSentAtByPaneEventBySubscriptionId = new Map<string, number>();
+  const lastTransitionAtByPaneEventBySubscriptionId = new Map<string, number>();
   const consecutiveFailureCountBySubscriptionId = new Map<string, number>();
   const endpointBySubscriptionId = new Map<string, string>();
   const cleanupSubscriptionCache = (subscriptionId: string) => {
@@ -156,9 +203,9 @@ export const createNotificationDispatcher = ({
     consecutiveFailureCountBySubscriptionId.delete(subscriptionId);
     endpointBySubscriptionId.delete(subscriptionId);
     const cooldownKeyPrefix = `${subscriptionId}:`;
-    Array.from(lastSentAtByPaneEventBySubscriptionId.keys()).forEach((key) => {
+    Array.from(lastTransitionAtByPaneEventBySubscriptionId.keys()).forEach((key) => {
       if (key.startsWith(cooldownKeyPrefix)) {
-        lastSentAtByPaneEventBySubscriptionId.delete(key);
+        lastTransitionAtByPaneEventBySubscriptionId.delete(key);
       }
     });
   };
@@ -186,7 +233,7 @@ export const createNotificationDispatcher = ({
         cleanupSubscriptionCache(subscriptionId);
       }
     });
-    Array.from(lastSentAtByPaneEventBySubscriptionId.keys()).forEach((cooldownKey) => {
+    Array.from(lastTransitionAtByPaneEventBySubscriptionId.keys()).forEach((cooldownKey) => {
       const separatorIndex = cooldownKey.indexOf(":");
       const subscriptionId =
         separatorIndex >= 0 ? cooldownKey.slice(0, separatorIndex) : cooldownKey;
@@ -224,7 +271,27 @@ export const createNotificationDispatcher = ({
     });
 
     const startedAtMs = nowMs();
-    const payload = buildNotificationPayload(eventType, event, now);
+    let summaryForPayload: {
+      summaryId: string;
+      sourceAgent: "codex" | "claude";
+      paneTitle: string;
+      notificationTitle: string;
+      notificationBody: string;
+    } | null = null;
+    if (eventType === "pane.task_completed" && candidates.length > 0) {
+      const resolvedSummary = await activeSummaryResolver(event);
+      if (resolvedSummary.result === "hit") {
+        summaryForPayload = {
+          summaryId: resolvedSummary.event.eventId,
+          sourceAgent: resolvedSummary.event.locator.source,
+          paneTitle: resolvedSummary.event.summary.paneTitle,
+          notificationTitle: resolvedSummary.event.summary.notificationTitle,
+          notificationBody: resolvedSummary.event.summary.notificationBody,
+        };
+      }
+    }
+
+    const payload = buildNotificationPayload(eventType, event, now, summaryForPayload);
     const payloadRaw = JSON.stringify(payload);
     const fingerprint = resolveFingerprint(event);
 
@@ -244,8 +311,8 @@ export const createNotificationDispatcher = ({
           };
         }
         const cooldownKey = `${subscription.id}:${event.paneId}:${eventType}`;
-        const previousSentAtMs = lastSentAtByPaneEventBySubscriptionId.get(cooldownKey);
-        if (previousSentAtMs != null && nowMs() - previousSentAtMs < cooldownMs) {
+        const previousTransitionAtMs = lastTransitionAtByPaneEventBySubscriptionId.get(cooldownKey);
+        if (previousTransitionAtMs != null && nowMs() - previousTransitionAtMs < cooldownMs) {
           return {
             sentCount: localSentCount,
             retryCount: localRetryCount,
@@ -261,8 +328,8 @@ export const createNotificationDispatcher = ({
             const deliveredAt = now();
             subscriptionStore.markDelivered(subscription.id, deliveredAt);
             localSentCount += 1;
+            lastTransitionAtByPaneEventBySubscriptionId.set(cooldownKey, nowMs());
             lastFingerprintBySubscriptionId.set(subscription.id, fingerprint);
-            lastSentAtByPaneEventBySubscriptionId.set(cooldownKey, nowMs());
             consecutiveFailureCountBySubscriptionId.delete(subscription.id);
             logger.log(
               `[vde-monitor][push] event=${eventType} paneId=${event.paneId} subscriptionId=${subscription.id} attempt=${attempt} result=ok`,

@@ -97,6 +97,34 @@ export const userConfigAllowlist = {
   notifications: {
     pushEnabled: true,
     enabledEventTypes: true,
+    summary: {
+      enabled: true,
+      lang: true,
+      rename: {
+        pane: true,
+        push: true,
+      },
+      sources: {
+        codex: {
+          enabled: true,
+          waitMs: true,
+          engine: {
+            agent: true,
+            model: true,
+            effort: true,
+          },
+        },
+        claude: {
+          enabled: true,
+          waitMs: true,
+          engine: {
+            agent: true,
+            model: true,
+            effort: true,
+          },
+        },
+      },
+    },
   },
   usage: {
     session: {

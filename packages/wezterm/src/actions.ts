@@ -236,6 +236,11 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     return okResult();
   };
 
+  const clearPaneTitle = async (): Promise<ActionResult> => {
+    // WezTerm CLI does not provide pane title reset compatible with tmux `select-pane -T`.
+    return okResult();
+  };
+
   const killPane = async (paneId: string): Promise<ActionResult> => {
     if (!paneId) {
       return invalidPayload("pane id is required");
@@ -262,6 +267,7 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     sendText,
     sendKeys,
     sendRaw,
+    clearPaneTitle,
     focusPane,
     killPane,
     killWindow,

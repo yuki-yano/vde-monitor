@@ -196,6 +196,7 @@ npx vde-monitor@latest config prune --dry-run
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
+npx --package vde-monitor@latest vde-monitor-summary [--async] [<HookEventName>|<notify-payload-json>]
 ```
 
 - `config init`: グローバル設定ファイルが存在しない場合のみ、初期の自動生成設定を作成
@@ -203,6 +204,69 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `config check`: グローバル設定を検証（parse/schema/必須生成キー/未使用キー）
 - `config prune`: グローバル設定の未使用キーを削除し、`config.yml`（YAML）として再書き込み
 - `config prune --dry-run`: ファイル更新せず、削除対象キーのみ表示
+
+### 要約ヘルパー（`vde-monitor-summary`）
+
+Codex notify / Claude hook の要約処理には `vde-monitor-summary` を使用します。
+
+```toml
+# Codex ~/.codex/config.toml
+notify = ["vde-monitor-summary", "--async"]
+```
+
+```json
+// Claude hooks
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "vde-monitor-summary --async Stop -- vde-monitor-hook" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+補足:
+
+- `vde-monitor-summary` は payload（`codex` / `claude`）を自動判定し、
+  `notifications.summary.sources.<source>` を自動的に参照します。
+- `--async` はどちらの payload でも有効です。
+- 要約機能の有効/無効は `notifications.summary` の YAML 設定で制御します。
+
+```yaml
+notifications:
+  summary:
+    enabled: true
+    rename:
+      pane: true
+      push: true
+    sources:
+      codex:
+        enabled: true
+        waitMs: 7000
+        engine:
+          agent: codex
+          model: gpt-5.3-codex-spark
+          effort: low
+      claude:
+        enabled: true
+        waitMs: 20000
+        engine:
+          agent: claude
+          model: claude-haiku-4-5
+          effort: low
+```
+
+デフォルト値（true/false）:
+
+- `notifications.summary.enabled`: `false`（要約は既定で無効）
+- `notifications.summary.rename.pane`: `true`
+- `notifications.summary.rename.push`: `true`
+- `notifications.summary.sources.codex.enabled`: `true`
+- `notifications.summary.sources.claude.enabled`: `true`
 
 ## 設定
 
@@ -233,29 +297,34 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 
 設定可能だが任意の設定（未指定時はランタイム既定値を使用）:
 
-| キー                                     | 既定値                                              |
-| ---------------------------------------- | --------------------------------------------------- |
-| `bind`                                   | `127.0.0.1`                                         |
-| `port`                                   | `11080`                                             |
-| `allowedOrigins`                         | `[]`                                                |
-| `activity.pollIntervalMs`                | `1000`                                              |
-| `activity.runningThresholdMs`            | `5000`                                              |
-| `screen.maxLines`                        | `2000`                                              |
-| `screen.highlightCorrection.codex`       | `true`                                              |
-| `screen.highlightCorrection.claude`      | `true`                                              |
-| `multiplexer.wezterm.cliPath`            | `wezterm`                                           |
-| `multiplexer.wezterm.target`             | `auto`                                              |
-| `notifications.pushEnabled`              | `true`                                              |
-| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
-| `usage.session.providers.codex.enabled`  | `true`                                              |
-| `usage.session.providers.claude.enabled` | `true`                                              |
-| `usage.pricing.providers.codex.enabled`  | `true`                                              |
-| `usage.pricing.providers.claude.enabled` | `true`                                              |
-| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
-| `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
-| `tmux.socketName`                        | `null`                                              |
-| `tmux.socketPath`                        | `null`                                              |
-| `tmux.primaryClient`                     | `null`                                              |
+| キー                                     | 既定値                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `bind`                                   | `127.0.0.1`                                                       |
+| `port`                                   | `11080`                                                           |
+| `allowedOrigins`                         | `[]`                                                              |
+| `activity.pollIntervalMs`                | `1000`                                                            |
+| `activity.runningThresholdMs`            | `5000`                                                            |
+| `screen.maxLines`                        | `2000`                                                            |
+| `screen.highlightCorrection.codex`       | `true`                                                            |
+| `screen.highlightCorrection.claude`      | `true`                                                            |
+| `multiplexer.wezterm.cliPath`            | `wezterm`                                                         |
+| `multiplexer.wezterm.target`             | `auto`                                                            |
+| `notifications.pushEnabled`              | `true`                                                            |
+| `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]`               |
+| `notifications.summary.enabled`          | `false`                                                           |
+| `notifications.summary.rename.pane`      | `true`                                                            |
+| `notifications.summary.rename.push`      | `true`                                                            |
+| `notifications.summary.sources.codex`    | `enabled=true,waitMs=7000,engine=(codex,gpt-5.3-codex-spark,low)` |
+| `notifications.summary.sources.claude`   | `enabled=true,waitMs=20000,engine=(claude,claude-haiku-4-5,low)`  |
+| `usage.session.providers.codex.enabled`  | `true`                                                            |
+| `usage.session.providers.claude.enabled` | `true`                                                            |
+| `usage.pricing.providers.codex.enabled`  | `true`                                                            |
+| `usage.pricing.providers.claude.enabled` | `true`                                                            |
+| `fileNavigator.includeIgnoredPaths`      | `[]`                                                              |
+| `fileNavigator.autoExpandMatchLimit`     | `100`                                                             |
+| `tmux.socketName`                        | `null`                                                            |
+| `tmux.socketPath`                        | `null`                                                            |
+| `tmux.primaryClient`                     | `null`                                                            |
 
 補足:
 
@@ -277,6 +346,7 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - Push VAPID鍵: `~/.vde-monitor/push-vapid.json`
 - Push購読情報: `~/.vde-monitor/notifications.json`
 - Hook イベントログ: `~/.vde-monitor/events/<server-key>/claude.jsonl`
+- 要約イベントログ: `~/.vde-monitor/events/<server-key>/summary.jsonl`
 - アップロード画像添付: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 
 ## セキュリティ初期値
@@ -320,6 +390,12 @@ pnpm build
 ```
 
 `pnpm build` は npm 配布用アーティファクトを `dist/` に生成します（CLI エントリと web assets を含む）。
+
+変更を監視して `dist/` を継続更新する場合:
+
+```bash
+pnpm run build:watch
+```
 
 ## トラブルシューティング
 

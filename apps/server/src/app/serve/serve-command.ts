@@ -13,6 +13,7 @@ import { createSessionMonitor } from "../../monitor";
 import { createMultiplexerRuntime } from "../../multiplexer/runtime";
 import { getLocalIP, getTailscaleDnsName, getTailscaleIP } from "../../network";
 import { createNotificationService } from "../../notifications/service";
+import { writeSummaryConnectionInfo } from "../../notifications/summary-connection-info-store";
 import { findAvailablePort } from "../../ports";
 import { type ParsedArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "../cli/cli";
 
@@ -397,6 +398,9 @@ export const runServe = async (args: ParsedArgs) => {
   const monitor = createSessionMonitor(runtime, config, {
     onSessionTransition: (event) => notificationService.dispatchTransition(event),
   });
+  notificationService.setSummarySessionDetailResolver((paneId) =>
+    monitor.registry.getDetail(paneId),
+  );
   await monitor.start();
 
   const { app } = createApp({ config, monitor, actions: runtime.actions, notificationService });
@@ -406,6 +410,7 @@ export const runServe = async (args: ParsedArgs) => {
     port,
     hostname: host,
   });
+  writeSummaryConnectionInfo({ config, bindHost: host, port });
 
   const parsedWebPort = parsePort(args.webPort);
   const displayPort = parsedWebPort ?? port;

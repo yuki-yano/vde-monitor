@@ -210,6 +210,14 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const resetSessionTitle = async (paneId: string) => {
+    await runPaneMutation(paneId, API_ERROR_MESSAGES.resetTitle, (param) =>
+      apiClient.sessions[":paneId"].title.reset.$post({
+        param,
+      }),
+    );
+  };
+
   const touchSession = async (paneId: string) => {
     await runPaneMutation(paneId, API_ERROR_MESSAGES.updateActivity, (param) =>
       apiClient.sessions[":paneId"].touch.$post({ param }),
@@ -267,6 +275,7 @@ export const createSessionActionRequests = ({
     sendKeys,
     sendRaw,
     updateSessionTitle,
+    resetSessionTitle,
     touchSession,
     createRepoNote,
     updateRepoNote,

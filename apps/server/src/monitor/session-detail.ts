@@ -1,7 +1,7 @@
 import type { SessionDetail } from "@vde-monitor/shared";
 
 import type { AgentType } from "./agent-resolver-utils";
-import { buildDefaultTitle, hostCandidates, normalizeTitle } from "./monitor-utils";
+import { hostCandidates, normalizeTitle } from "./monitor-utils";
 
 export type PaneSnapshot = {
   paneId: string;
@@ -20,16 +20,16 @@ export type PaneSnapshot = {
   alternateOn: boolean;
 };
 
-const resolveSessionTitle = (
-  paneTitle: string | null,
-  currentPath: string | null,
-  paneId: string,
-  sessionName: string,
-  windowIndex: number,
-) => {
+const hostCandidatesNormalized = new Set(
+  [...hostCandidates].map((candidate) => candidate.toLowerCase()),
+);
+
+const resolveSessionTitle = (paneTitle: string | null) => {
   const normalized = normalizeTitle(paneTitle);
-  const defaultTitle = buildDefaultTitle(currentPath, paneId, sessionName, windowIndex);
-  return normalized && !hostCandidates.has(normalized) ? normalized : defaultTitle;
+  if (!normalized || hostCandidatesNormalized.has(normalized.toLowerCase())) {
+    return null;
+  }
+  return normalized;
 };
 
 type BuildSessionDetailArgs = {
@@ -92,13 +92,7 @@ export const buildSessionDetail = ({
   currentCommand: pane.currentCommand,
   currentPath: pane.currentPath,
   paneTty: pane.paneTty,
-  title: resolveSessionTitle(
-    pane.paneTitle,
-    pane.currentPath,
-    pane.paneId,
-    pane.sessionName,
-    pane.windowIndex,
-  ),
+  title: resolveSessionTitle(pane.paneTitle),
   customTitle,
   branch: branch ?? null,
   worktreePath: worktreePath ?? null,

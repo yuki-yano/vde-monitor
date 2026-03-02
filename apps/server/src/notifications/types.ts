@@ -71,4 +71,11 @@ export type NotificationPayload = {
   url: string;
   tag: string;
   ts: string;
+  summary?: {
+    summaryId: string;
+    sourceAgent: "codex" | "claude";
+    paneTitle: string;
+    notificationTitle: string;
+    notificationBody: string;
+  };
 };

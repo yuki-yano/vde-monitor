@@ -14,6 +14,7 @@ import {
   TextButton,
   TruncatedPathText,
 } from "@/components/ui";
+import { resolveSessionDetailTitleTextClass } from "@/features/shared-session-ui/model/session-title-font";
 import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
 import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
@@ -22,7 +23,6 @@ import {
   agentLabelFor,
   agentToneFor,
   backLinkClass,
-  buildDefaultSessionTitle,
   formatBranchLabel,
   formatPath,
   formatRelativeTime,
@@ -68,6 +68,7 @@ type SessionTitleInputProps = {
 
 type SessionTitleButtonProps = {
   sessionDisplayTitle: string;
+  titleClassName: string;
   onOpenTitleEditor: () => void;
 };
 
@@ -156,13 +157,17 @@ const SessionTitleInput = ({
 
 const SessionTitleButton = ({
   sessionDisplayTitle,
+  titleClassName,
   onOpenTitleEditor,
 }: SessionTitleButtonProps) => (
   <TextButton
     type="button"
     onClick={onOpenTitleEditor}
     variant="title"
-    className={cn("hover:text-latte-lavender cursor-default transition hover:cursor-pointer")}
+    className={cn(
+      "hover:text-latte-lavender min-w-0 flex-1 cursor-default truncate text-left transition hover:cursor-pointer",
+      titleClassName,
+    )}
     aria-label="Edit session title"
   >
     {sessionDisplayTitle}
@@ -212,6 +217,7 @@ const SessionTitleArea = ({
 }: SessionTitleAreaProps) => {
   const showResetTitle = canResetTitle && !titleEditing;
   const formattedCurrentPath = formatPath(currentPath);
+  const sessionTitleClassName = resolveSessionDetailTitleTextClass(sessionDisplayTitle);
   return (
     <>
       <div className="flex flex-wrap items-center gap-1">
@@ -227,6 +233,7 @@ const SessionTitleArea = ({
         ) : (
           <SessionTitleButton
             sessionDisplayTitle={sessionDisplayTitle}
+            titleClassName={sessionTitleClassName}
             onOpenTitleEditor={onOpenTitleEditor}
           />
         )}
@@ -271,10 +278,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
   } = actions;
 
   const sessionCustomTitle = session.customTitle ?? null;
-  const sessionDefaultTitle = buildDefaultSessionTitle(session);
-  const canResetAutoTitle =
-    sessionCustomTitle == null && session.title != null && session.title !== sessionDefaultTitle;
-  const canResetTitle = Boolean(sessionCustomTitle || canResetAutoTitle);
+  const canResetTitle = sessionCustomTitle != null || session.title != null;
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
   const lastInputTone = getLastInputTone(session.lastInputAt ?? null, nowMs);

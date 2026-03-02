@@ -53,6 +53,7 @@ export const useSessionDetailVM = (paneId: string) => {
     sendRaw,
     touchSession,
     updateSessionTitle,
+    resetSessionTitle,
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
@@ -251,6 +252,7 @@ export const useSessionDetailVM = (paneId: string) => {
     session,
     paneId,
     updateSessionTitle,
+    resetSessionTitle,
   });
 
   const contextLeftLabel = useMemo(

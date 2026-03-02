@@ -13,6 +13,37 @@ export type PushEventType =
 
 export type ConfigPushEventType = "pane.waiting_permission" | "pane.task_completed";
 
+export type SummaryAgent = "codex" | "claude";
+
+export type SummaryEffort = "low" | "medium" | "high";
+
+export type SummaryEngineConfig = {
+  agent: SummaryAgent;
+  model: string;
+  effort: SummaryEffort;
+};
+
+export type NotificationSummarySourceConfig = {
+  enabled: boolean;
+  waitMs: number;
+  engine: SummaryEngineConfig;
+};
+
+export type NotificationSummaryLanguage = "en" | "ja";
+
+export type NotificationSummaryConfig = {
+  enabled: boolean;
+  lang: NotificationSummaryLanguage;
+  rename: {
+    pane: boolean;
+    push: boolean;
+  };
+  sources: {
+    codex: NotificationSummarySourceConfig;
+    claude: NotificationSummarySourceConfig;
+  };
+};
+
 export type AllowedKey =
   | "Enter"
   | "Escape"
@@ -368,6 +399,110 @@ export type NotificationSettings = {
   enabledEventTypes: ConfigPushEventType[];
   requireStandaloneOnIOS: boolean;
 };
+
+export type SummaryPaneLocator = {
+  tmux_pane?: string;
+  tty?: string;
+  cwd?: string;
+};
+
+export type SummaryText = {
+  pane_title: string;
+  notification_title: string;
+  notification_body: string;
+};
+
+export type SummaryEventSource = {
+  turn_id?: string;
+  session_id?: string;
+  hook_event_name?: string;
+};
+
+export type SummaryEvent = {
+  ts: string;
+  summary_id: string;
+  source_agent: SummaryAgent;
+  event_type: "task_completed_summary";
+  source_event_at: string;
+  pane_locator: SummaryPaneLocator;
+  summary: SummaryText;
+  engine: SummaryEngineConfig;
+  source: SummaryEventSource;
+};
+
+export type SummaryPublishSource = "codex" | "claude";
+
+export type SummaryPublishLocator = {
+  source: SummaryPublishSource;
+  runId: string;
+  paneId: string;
+  eventType: "pane.task_completed";
+  sequence: number;
+};
+
+export type SummaryPublishPayload = {
+  paneTitle: string;
+  notificationTitle: string;
+  notificationBody: string;
+};
+
+export type SummaryPublishRequest = {
+  schemaVersion: 1;
+  eventId: string;
+  locator: SummaryPublishLocator;
+  sourceEventAt: string;
+  summary: SummaryPublishPayload;
+};
+
+export type SummaryPublishSuccessResponse = {
+  schemaVersion: 1;
+  eventId: string;
+  deduplicated: boolean;
+};
+
+export type SummaryPublishErrorCode =
+  | "invalid_json"
+  | "unsupported_content_type"
+  | "unsupported_schema_version"
+  | "invalid_request"
+  | "unauthorized"
+  | "forbidden_origin"
+  | "forbidden_binding"
+  | "rate_limit"
+  | "max_events_overflow"
+  | "single_process_guard_unavailable"
+  | "server_state_conflict";
+
+export type SummaryPublishErrorResponse = {
+  schemaVersion: 1;
+  code: SummaryPublishErrorCode;
+  message: string;
+  eventId?: string;
+  retryAfterSec?: number;
+  deduplicated?: boolean;
+};
+
+export type SummaryPublishConnectionInfo = {
+  schemaVersion: 1;
+  endpoint: string;
+  listenerType: "loopback" | "network" | "https";
+  bind: string;
+  tokenRef: string;
+};
+
+export type SummaryPublishTokenMetadata = {
+  schemaVersion: 1;
+  tokenRef: string;
+  generation: number;
+  hashKeyVersion: number;
+  source: SummaryPublishSource;
+  runId: string;
+  paneId: string;
+  audience: "summary-events";
+  expiresAt: string;
+};
+
+export type SummaryPublishInternalErrorCode = "invalid_connection_info";
 
 export type ScreenCaptureMeta = {
   backend: "tmux" | "wezterm" | "unknown";
@@ -757,6 +892,7 @@ export type ResolvedConfig = {
   notifications: {
     pushEnabled: boolean;
     enabledEventTypes: ConfigPushEventType[];
+    summary: NotificationSummaryConfig;
   };
   usage: UsageConfig;
   workspaceTabs: {

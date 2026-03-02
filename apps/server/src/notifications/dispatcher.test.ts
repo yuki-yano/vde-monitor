@@ -71,6 +71,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",
@@ -124,6 +125,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
       },
@@ -166,6 +168,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
       },
@@ -213,11 +216,163 @@ describe("createNotificationDispatcher", () => {
     );
   });
 
+  it("uses summary payload for task_completed when summary is available", async () => {
+    const config = {
+      ...configDefaults,
+      token: "token",
+      notifications: {
+        ...configDefaults.notifications,
+        pushEnabled: true,
+        enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
+        summary: {
+          ...configDefaults.notifications.summary,
+          enabled: true,
+          rename: {
+            ...configDefaults.notifications.summary.rename,
+            push: true,
+          },
+          sources: {
+            ...configDefaults.notifications.summary.sources,
+            codex: {
+              ...configDefaults.notifications.summary.sources.codex,
+              enabled: true,
+              waitMs: 7000,
+            },
+          },
+        },
+      },
+    };
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempStorePath(),
+      createId: () => "sub-1",
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+    const sendNotification = vi.fn(async () => undefined);
+    const summaryResolver = vi.fn(async () => ({
+      result: "hit" as const,
+      reasonCode: "hit" as const,
+      waitedMs: 1200,
+      event: {
+        eventId: "evt-1",
+        locator: {
+          source: "codex" as const,
+          runId: "%1",
+          paneId: "%1",
+          eventType: "pane.task_completed" as const,
+          sequence: 1,
+        },
+        summary: {
+          paneTitle: "Parser done",
+          notificationTitle: "Parser fixed",
+          notificationBody: "Parser fix completed and waiting for review",
+        },
+      },
+    }));
+    const dispatcher = createNotificationDispatcher({
+      config,
+      subscriptionStore: store,
+      summaryResolver,
+      sendNotification,
+      logger: { log: vi.fn(), warn: vi.fn() },
+      now: () => "2026-02-20T00:00:02.000Z",
+      nowMs: () => 2000,
+      sleep: async () => undefined,
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "recent_output"),
+        createDetail("WAITING_INPUT", "inactive_timeout"),
+      ),
+    );
+
+    expect(summaryResolver).toHaveBeenCalledTimes(1);
+    const sentCall = (sendNotification.mock.calls as unknown[][])[0];
+    if (!sentCall || typeof sentCall[1] !== "string") {
+      throw new Error("expected sendNotification payload");
+    }
+    const payload = JSON.parse(sentCall[1]) as { title: string; body: string; summary?: unknown };
+    expect(payload.title).toBe("Parser fixed");
+    expect(payload.body).toBe("Parser fix completed and waiting for review");
+    expect(payload.summary).toBeTruthy();
+  });
+
+  it("skips summary wait when rename.push is disabled", async () => {
+    const config = {
+      ...configDefaults,
+      token: "token",
+      notifications: {
+        ...configDefaults.notifications,
+        pushEnabled: true,
+        enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
+        summary: {
+          ...configDefaults.notifications.summary,
+          enabled: true,
+          rename: {
+            ...configDefaults.notifications.summary.rename,
+            push: false,
+          },
+        },
+      },
+    };
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempStorePath(),
+      createId: () => "sub-1",
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+    const sendNotification = vi.fn(async () => undefined);
+    const dispatcher = createNotificationDispatcher({
+      config,
+      subscriptionStore: store,
+      sendNotification,
+      logger: { log: vi.fn(), warn: vi.fn() },
+      now: () => "2026-02-20T00:00:02.000Z",
+      nowMs: () => 2000,
+      sleep: async () => undefined,
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "recent_output"),
+        createDetail("WAITING_INPUT", "inactive_timeout"),
+      ),
+    );
+
+    const sentCall = (sendNotification.mock.calls as unknown[][])[0];
+    if (!sentCall || typeof sentCall[1] !== "string") {
+      throw new Error("expected sendNotification payload");
+    }
+    const payload = JSON.parse(sentCall[1]) as { title: string; body: string };
+    expect(payload.title).toBe("Task completed");
+    expect(payload.body).toContain("completed and is now waiting for input");
+  });
+
   it("retries transient failures with backoff", async () => {
     const config = {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",
@@ -276,6 +431,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",
@@ -324,6 +480,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",
@@ -406,6 +563,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",
@@ -472,6 +630,7 @@ describe("createNotificationDispatcher", () => {
       ...configDefaults,
       token: "token",
       notifications: {
+        ...configDefaults.notifications,
         pushEnabled: true,
         enabledEventTypes: [
           "pane.waiting_permission",

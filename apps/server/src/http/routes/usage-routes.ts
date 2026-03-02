@@ -52,18 +52,20 @@ const resolveGlobalTimelineRange = (
 const applyRefreshRateLimit = ({
   c,
   forceRefresh,
+  scope,
   getLimiterKey,
   refreshLimiter,
 }: {
   c: HeaderContext & { json: (body: unknown, status?: number) => Response };
   forceRefresh: boolean;
+  scope: string;
   getLimiterKey: GetLimiterKey;
   refreshLimiter: (key: string) => boolean;
 }) => {
   if (!forceRefresh) {
     return null;
   }
-  const limiterKey = `usage:${getLimiterKey(c)}`;
+  const limiterKey = `usage:${scope}:${getLimiterKey(c)}`;
   if (refreshLimiter(limiterKey)) {
     return null;
   }
@@ -104,6 +106,7 @@ const handleProviderUsage = async ({
   const rateLimitResponse = applyRefreshRateLimit({
     c,
     forceRefresh,
+    scope: `provider:${providerId}`,
     getLimiterKey,
     refreshLimiter,
   });
@@ -142,6 +145,7 @@ const handleProviderBilling = async ({
   const rateLimitResponse = applyRefreshRateLimit({
     c,
     forceRefresh,
+    scope: `billing:${query.provider}`,
     getLimiterKey,
     refreshLimiter,
   });
@@ -180,6 +184,7 @@ export const createUsageRoutes = ({
       const rateLimitResponse = applyRefreshRateLimit({
         c,
         forceRefresh,
+        scope: "dashboard",
         getLimiterKey,
         refreshLimiter,
       });
