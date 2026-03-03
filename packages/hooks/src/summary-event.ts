@@ -5,7 +5,6 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  type SummaryEngineConfig,
   type SummaryPublishRequest,
   summaryPublishConnectionInfoSchema,
 } from "@vde-monitor/shared";
@@ -55,6 +54,8 @@ const isLoopbackHost = (host: string) =>
   host === "127.0.0.1" || host === "::1" || host === "::ffff:127.0.0.1" || host === "localhost";
 
 const isSupportedProtocol = (protocol: string) => protocol === "http:" || protocol === "https:";
+const SUMMARY_PUBLISH_MAX_ATTEMPTS = 2;
+const SUMMARY_PUBLISH_TIMEOUT_SEC_BY_ATTEMPT = ["1", "2"] as const;
 
 const resolveSummaryConnectionInfoPath = () => {
   const config = loadConfig();
@@ -121,7 +122,6 @@ export const buildSummaryEvent = ({
   sourceEventAt,
   paneLocator,
   summary,
-  engine,
   source,
 }: {
   sourceAgent: "codex" | "claude";
@@ -132,10 +132,8 @@ export const buildSummaryEvent = ({
     cwd?: string;
   };
   summary: SummaryText;
-  engine: SummaryEngineConfig;
   source: SummarySource;
 }): SummaryPublishRequest => {
-  void engine;
   const locator = resolveRunAndPane({ sourceAgent, paneLocator, source });
   return {
     schemaVersion: 1,
@@ -169,8 +167,13 @@ export const appendSummaryEvent = (event: SummaryPublishRequest) => {
   }
   let lastStatusCode: number | null = null;
   let lastSpawnStatus: number | null = null;
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  const payloadRaw = JSON.stringify(event);
+  const headerInput = `content-type: application/json\nauthorization: Bearer ${token}\n`;
+  for (let attempt = 1; attempt <= SUMMARY_PUBLISH_MAX_ATTEMPTS; attempt += 1) {
+    const timeoutSec =
+      SUMMARY_PUBLISH_TIMEOUT_SEC_BY_ATTEMPT[attempt - 1] ??
+      SUMMARY_PUBLISH_TIMEOUT_SEC_BY_ATTEMPT[SUMMARY_PUBLISH_TIMEOUT_SEC_BY_ATTEMPT.length - 1] ??
+      "2";
     const result = spawnSync(
       "curl",
       [
@@ -181,18 +184,17 @@ export const appendSummaryEvent = (event: SummaryPublishRequest) => {
         "--write-out",
         "%{http_code}",
         "--max-time",
-        "2",
+        timeoutSec,
         "--request",
         "POST",
         "--header",
-        "content-type: application/json",
-        "--header",
-        `authorization: Bearer ${token}`,
+        "@-",
         "--data-binary",
-        JSON.stringify(event),
+        payloadRaw,
         endpoint,
       ],
       {
+        input: headerInput,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       },

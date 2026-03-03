@@ -114,6 +114,8 @@ const asEpochMs = (value: unknown): number | null => {
   return parsed;
 };
 
+// Best-effort fallback parser for keychain dump blobs.
+// This intentionally does not implement full JSON grammar and should only be used as a recovery path.
 const sliceBalancedJsonObject = (input: string, startBraceIndex: number): string | null => {
   if (input[startBraceIndex] !== "{") {
     return null;
@@ -234,6 +236,15 @@ const extractCredentialFromNamedSegment = (raw: string): ClaudeOauthCredential |
 const isHexPayload = (value: string) => value.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(value);
 
 const extractCredentialFromObject = (value: unknown): ClaudeOauthCredential | null => {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const credential = extractCredentialFromObject(item);
+      if (credential) {
+        return credential;
+      }
+    }
+    return null;
+  }
   if (!isRecord(value)) {
     return null;
   }

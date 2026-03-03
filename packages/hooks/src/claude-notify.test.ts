@@ -127,11 +127,6 @@ describe("claude notify helper", () => {
         notificationTitle: "README update",
         notificationBody: "README update and tests finished",
       },
-      {
-        agent: "claude",
-        model: "claude-haiku-4-5",
-        effort: "low",
-      },
       "2026-02-27T00:00:00.000Z",
     );
 

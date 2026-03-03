@@ -31,6 +31,12 @@ export type ClaudeSummaryEngine = {
   effort: SummaryEffort;
 };
 
+type FallbackPhrases = {
+  notificationTitle: string;
+  notificationBodyWithCwd: (cwdLabel: string) => string;
+  notificationBodyDefault: string;
+};
+
 const DEFAULT_MODEL = "claude-haiku-4-5";
 const DEFAULT_EFFORT: SummaryEffort = "low";
 const DEFAULT_TIMEOUT_MS = 12_000;
@@ -51,6 +57,19 @@ const basenameOrNull = (cwd: string | undefined): string | null => {
   }
   return resolved;
 };
+
+const resolveFallbackPhrases = (lang: SummaryPromptLanguage): FallbackPhrases =>
+  lang === "ja"
+    ? {
+        notificationTitle: "タスク完了",
+        notificationBodyWithCwd: (cwdLabel) => `${cwdLabel} でタスクが完了しました`,
+        notificationBodyDefault: "タスクが完了して入力待ちです",
+      }
+    : {
+        notificationTitle: "Task completed",
+        notificationBodyWithCwd: (cwdLabel) => `Task completed in ${cwdLabel}`,
+        notificationBodyDefault: "Task completed and waiting for input",
+      };
 
 const readTailText = (filePath: string, maxBytes: number): string | null => {
   try {
@@ -189,17 +208,17 @@ export const extractLatestAssistantMessageFromTranscript = (
   return null;
 };
 
-export const buildFallbackSummary = ({
-  assistantMessage,
-  cwd,
-  sessionId,
-}: SummarySource): SummaryText => {
+export const buildFallbackSummary = (
+  { assistantMessage, cwd, sessionId }: SummarySource,
+  lang: SummaryPromptLanguage = "en",
+): SummaryText => {
+  const phrases = resolveFallbackPhrases(lang);
   const cwdLabel = basenameOrNull(cwd);
   const paneCandidate = assistantMessage ?? cwdLabel ?? sessionId ?? "Claude";
-  const notificationTitleCandidate = cwdLabel ?? sessionId ?? "タスク完了";
+  const notificationTitleCandidate = cwdLabel ?? sessionId ?? phrases.notificationTitle;
   const notificationBodyCandidate =
     assistantMessage ??
-    (cwdLabel ? `${cwdLabel} でタスクが完了しました` : "タスクが完了して入力待ちです");
+    (cwdLabel ? phrases.notificationBodyWithCwd(cwdLabel) : phrases.notificationBodyDefault);
 
   return {
     paneTitle: truncateOneLine(paneCandidate, PANE_TITLE_MAX),
@@ -250,9 +269,10 @@ export const runClaudeSummary = (
   source: SummarySource,
   options: { engine?: ClaudeSummaryEngine; timeoutMs?: number; lang?: SummaryPromptLanguage } = {},
 ): SummaryText => {
-  const fallback = buildFallbackSummary(source);
+  const outputLanguage = options.lang ?? "en";
+  const fallback = buildFallbackSummary(source, outputLanguage);
   const engine = resolveEngine(options.engine);
-  const prompt = buildSummaryPrompt(source, options.lang ?? "en");
+  const prompt = buildSummaryPrompt(source, outputLanguage);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const output =
     engine.agent === "claude"

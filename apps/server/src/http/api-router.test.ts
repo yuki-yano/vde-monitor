@@ -635,10 +635,16 @@ describe("createApiRouter", () => {
   it("does not share usage refresh throttle across dashboard and billing providers", async () => {
     const { api } = createTestContext();
 
-    const dashboard = await api.request("/usage/dashboard?refresh=1", {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const dashboard = await api.request("/usage/dashboard?refresh=1", {
+        headers: authHeaders,
+      });
+      expect(dashboard.status).toBe(200);
+    }
+    const dashboardLimited = await api.request("/usage/dashboard?refresh=1", {
       headers: authHeaders,
     });
-    expect(dashboard.status).toBe(200);
+    expect(dashboardLimited.status).toBe(429);
 
     const codexBilling = await api.request("/usage/billing?provider=codex&refresh=1", {
       headers: authHeaders,

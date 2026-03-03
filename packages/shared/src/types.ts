@@ -400,36 +400,6 @@ export type NotificationSettings = {
   requireStandaloneOnIOS: boolean;
 };
 
-export type SummaryPaneLocator = {
-  tmux_pane?: string;
-  tty?: string;
-  cwd?: string;
-};
-
-export type SummaryText = {
-  pane_title: string;
-  notification_title: string;
-  notification_body: string;
-};
-
-export type SummaryEventSource = {
-  turn_id?: string;
-  session_id?: string;
-  hook_event_name?: string;
-};
-
-export type SummaryEvent = {
-  ts: string;
-  summary_id: string;
-  source_agent: SummaryAgent;
-  event_type: "task_completed_summary";
-  source_event_at: string;
-  pane_locator: SummaryPaneLocator;
-  summary: SummaryText;
-  engine: SummaryEngineConfig;
-  source: SummaryEventSource;
-};
-
 export type SummaryPublishSource = "codex" | "claude";
 
 export type SummaryPublishLocator = {
@@ -469,9 +439,7 @@ export type SummaryPublishErrorCode =
   | "forbidden_origin"
   | "forbidden_binding"
   | "rate_limit"
-  | "max_events_overflow"
-  | "single_process_guard_unavailable"
-  | "server_state_conflict";
+  | "max_events_overflow";
 
 export type SummaryPublishErrorResponse = {
   schemaVersion: 1;
@@ -489,20 +457,6 @@ export type SummaryPublishConnectionInfo = {
   bind: string;
   tokenRef: string;
 };
-
-export type SummaryPublishTokenMetadata = {
-  schemaVersion: 1;
-  tokenRef: string;
-  generation: number;
-  hashKeyVersion: number;
-  source: SummaryPublishSource;
-  runId: string;
-  paneId: string;
-  audience: "summary-events";
-  expiresAt: string;
-};
-
-export type SummaryPublishInternalErrorCode = "invalid_connection_info";
 
 export type ScreenCaptureMeta = {
   backend: "tmux" | "wezterm" | "unknown";

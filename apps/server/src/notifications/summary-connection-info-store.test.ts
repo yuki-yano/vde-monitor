@@ -33,6 +33,21 @@ describe("buildSummaryConnectionInfo", () => {
     });
   });
 
+  it("uses loopback endpoint when bind host is ipv6 wildcard", () => {
+    const connectionInfo = buildSummaryConnectionInfo({
+      bindHost: "::",
+      port: 11080,
+    });
+
+    expect(connectionInfo).toEqual({
+      schemaVersion: 1,
+      endpoint: "http://127.0.0.1:11080/api/notifications/summary-events",
+      listenerType: "loopback",
+      bind: "::",
+      tokenRef: "server-token",
+    });
+  });
+
   it("uses network endpoint when bind host is non-loopback", () => {
     const connectionInfo = buildSummaryConnectionInfo({
       bindHost: "100.64.0.10",

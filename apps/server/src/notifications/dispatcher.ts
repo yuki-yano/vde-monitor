@@ -279,6 +279,7 @@ export const createNotificationDispatcher = ({
       notificationBody: string;
     } | null = null;
     if (eventType === "pane.task_completed" && candidates.length > 0) {
+      // Intentionally blocks up to sourceConfig.waitMs to attach summary text to push payloads.
       const resolvedSummary = await activeSummaryResolver(event);
       if (resolvedSummary.result === "hit") {
         summaryForPayload = {

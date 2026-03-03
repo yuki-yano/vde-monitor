@@ -74,6 +74,8 @@ const main = async () => {
   const webWatch = spawnPnpm([
     "--filter",
     "@vde-monitor/web",
+    "exec",
+    "vite",
     "build",
     "--watch",
     "--outDir",

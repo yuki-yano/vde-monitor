@@ -42,7 +42,8 @@ const writeAtomically = (targetPath: string, content: string) => {
 const isLoopbackHost = (host: string) =>
   host === "127.0.0.1" || host === "::1" || host === "::ffff:127.0.0.1" || host === "localhost";
 
-const resolveEndpointHost = (bindHost: string) => (bindHost === "0.0.0.0" ? "127.0.0.1" : bindHost);
+const resolveEndpointHost = (bindHost: string) =>
+  bindHost === "0.0.0.0" || bindHost === "::" ? "127.0.0.1" : bindHost;
 
 const resolveListenerType = (endpointHost: string): SummaryPublishConnectionInfo["listenerType"] =>
   isLoopbackHost(endpointHost) ? "loopback" : "network";

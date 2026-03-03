@@ -171,6 +171,86 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(String(writtenContent)).toContain("keychain-refresh-token");
   });
 
+  it("extracts keychain oauth credentials from json array payload", async () => {
+    setProcessPlatform("darwin");
+    mocks.readFile.mockResolvedValue(
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "file-stale-token",
+        },
+      }),
+    );
+
+    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
+      callback(
+        null,
+        JSON.stringify([
+          { kind: "metadata", value: "ignored" },
+          {
+            claudeAiOauth: {
+              accessToken: "keychain-array-token",
+              refreshToken: "keychain-array-refresh-token",
+            },
+          },
+        ]),
+        "",
+      );
+      return {} as never;
+    });
+
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "authentication_error", message: "Invalid bearer token" },
+          }),
+          {
+            status: 401,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            five_hour: {
+              utilization: 31,
+              resets_at: "2026-02-25T10:00:00.000Z",
+            },
+            seven_day: {
+              utilization: 41,
+              resets_at: "2026-03-01T10:00:00.000Z",
+            },
+            seven_day_sonnet: null,
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
+
+    expect(usage.fiveHour.utilizationPercent).toBe(31);
+    expect(usage.sevenDay.utilizationPercent).toBe(41);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(secondHeaders?.Authorization).toBe("Bearer keychain-array-token");
+    const [, writtenContent] = mocks.writeFile.mock.calls[0] ?? [];
+    expect(String(writtenContent)).toContain("keychain-array-token");
+    expect(String(writtenContent)).toContain("keychain-array-refresh-token");
+  });
+
   it("discovers suffixed Claude keychain service via dump-keychain and uses it", async () => {
     setProcessPlatform("darwin");
     mocks.readFile.mockResolvedValue(

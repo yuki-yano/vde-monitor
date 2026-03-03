@@ -82,7 +82,7 @@ type Waiter = {
   expectedSequence: number;
   startedAtMs: number;
   resolve: (result: SummaryBusWaitResult) => void;
-  timer: ReturnType<typeof setTimeout>;
+  timer?: ReturnType<typeof setTimeout>;
 };
 
 type EventIdIndexValue = {
@@ -294,7 +294,9 @@ export const createSummaryBus = ({
         waitersByBindingKey.delete(bindingKey);
       }
     }
-    clearTimer(waiter.timer);
+    if (waiter.timer != null) {
+      clearTimer(waiter.timer);
+    }
     waiter.resolve(result);
   };
 
@@ -551,22 +553,22 @@ export const createSummaryBus = ({
         expectedSequence: input.binding.sequence,
         startedAtMs,
         resolve,
-        timer: setTimer(() => {
-          const waitedMs = Math.max(0, nowMs() - startedAtMs);
-          finishWaiter({
-            waiter,
-            bindingKey,
-            result: {
-              result: "timeout",
-              waitedMs,
-            },
-          });
-        }, waitMs),
       };
       const queue = waitersByBindingKey.get(bindingKey) ?? [];
       queue.push(waiter);
       waitersByBindingKey.set(bindingKey, queue);
       totalWaiterCount += 1;
+      waiter.timer = setTimer(() => {
+        const waitedMs = Math.max(0, nowMs() - startedAtMs);
+        finishWaiter({
+          waiter,
+          bindingKey,
+          result: {
+            result: "timeout",
+            waitedMs,
+          },
+        });
+      }, waitMs);
       wakeWaiters(bindingKey, nowMs());
     });
   };

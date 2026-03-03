@@ -312,6 +312,7 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 | `notifications.pushEnabled`              | `true`                                                            |
 | `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]`               |
 | `notifications.summary.enabled`          | `false`                                                           |
+| `notifications.summary.lang`             | `en`                                                              |
 | `notifications.summary.rename.pane`      | `true`                                                            |
 | `notifications.summary.rename.push`      | `true`                                                            |
 | `notifications.summary.sources.codex`    | `enabled=true,waitMs=7000,engine=(codex,gpt-5.3-codex-spark,low)` |
@@ -346,7 +347,7 @@ Notes:
 - Push VAPID keys: `~/.vde-monitor/push-vapid.json`
 - Push subscriptions: `~/.vde-monitor/notifications.json`
 - Hook event logs: `~/.vde-monitor/events/<server-key>/claude.jsonl`
-- Summary event logs: `~/.vde-monitor/events/<server-key>/summary.jsonl`
+- Summary publish connection info: `~/.vde-monitor/events/<server-key>/summary-connection.json`
 - Uploaded image attachments: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 
 ## Security defaults

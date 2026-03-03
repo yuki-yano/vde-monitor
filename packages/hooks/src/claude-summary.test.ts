@@ -104,12 +104,27 @@ describe("claude summary helper", () => {
     });
   });
 
-  it("builds fallback summary from cwd/session", () => {
+  it("builds english fallback summary from cwd/session by default", () => {
     const summary = buildFallbackSummary({
       assistantMessage: null,
       cwd: "/Users/example/work/repo-b",
       sessionId: "session-2",
     });
+
+    expect(summary.paneTitle).toBe("repo-b");
+    expect(summary.notificationTitle).toBe("repo-b");
+    expect(summary.notificationBody).toBe("Task completed in repo-b");
+  });
+
+  it("builds japanese fallback summary when lang is ja", () => {
+    const summary = buildFallbackSummary(
+      {
+        assistantMessage: null,
+        cwd: "/Users/example/work/repo-b",
+        sessionId: "session-2",
+      },
+      "ja",
+    );
 
     expect(summary.paneTitle).toBe("repo-b");
     expect(summary.notificationTitle).toBe("repo-b");

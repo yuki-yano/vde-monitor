@@ -3,9 +3,8 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { SummaryEngineConfig, SummaryPublishRequest } from "@vde-monitor/shared";
+import type { SummaryPublishRequest } from "@vde-monitor/shared";
 
 import {
   type SummaryText,
@@ -32,6 +31,8 @@ import {
   isLikelyJsonObjectText,
   readOptionalString,
 } from "./payload-source";
+import { isMainModule } from "./main-module";
+import { parseJsonObject } from "./parse-json-object";
 
 type HookPayload = Record<string, unknown>;
 type HookPayloadFields = ReturnType<typeof extractPayloadFields>;
@@ -58,17 +59,7 @@ const readStdin = (): string => {
 
 const resolveTimeoutMs = (waitMs: number) => Math.max(SUMMARY_TIMEOUT_BASE_MS, waitMs + 2000);
 
-export const parseNotifyPayload = (raw: string): HookPayload | null => {
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return null;
-    }
-    return parsed as HookPayload;
-  } catch {
-    return null;
-  }
-};
+export const parseNotifyPayload = (raw: string): HookPayload | null => parseJsonObject(raw);
 
 export const parseRuntimeArgs = (argv: string[]): ParsedRuntimeArgs => {
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -181,7 +172,6 @@ export const buildSummaryEvent = (
   hookEventName: string,
   fields: HookPayloadFields,
   summary: SummaryText,
-  engine: SummaryEngineConfig,
   sourceEventAt = new Date().toISOString(),
 ): SummaryPublishRequest =>
   buildSummaryContractEvent({
@@ -193,7 +183,6 @@ export const buildSummaryEvent = (
       cwd: fields.cwd,
     },
     summary,
-    engine,
     source: {
       session_id: fields.sessionId,
       hook_event_name: hookEventName,
@@ -203,7 +192,6 @@ export const buildSummaryEvent = (
 export const buildCodexSummaryEvent = (
   payload: HookPayload,
   summary: SummaryText,
-  engine: SummaryEngineConfig,
   sourceEventAt = new Date().toISOString(),
 ): SummaryPublishRequest =>
   buildSummaryContractEvent({
@@ -214,7 +202,6 @@ export const buildCodexSummaryEvent = (
       cwd: readOptionalString(payload.cwd) ?? undefined,
     },
     summary,
-    engine,
     source: {
       turn_id: extractCodexTurnId(payload) ?? undefined,
     },
@@ -359,38 +346,7 @@ const spawnDetachedProcess = (parsed: ParsedRuntimeArgs, payloadFilePath: string
   }
 };
 
-const toCanonicalFileUrlFromPath = (targetPath: string) => {
-  try {
-    return pathToFileURL(fs.realpathSync(targetPath)).href;
-  } catch {
-    return pathToFileURL(path.resolve(targetPath)).href;
-  }
-};
-
-const toCanonicalFileUrlFromModuleUrl = (moduleUrl: string) => {
-  if (!moduleUrl.startsWith("file:")) {
-    return moduleUrl;
-  }
-  try {
-    return pathToFileURL(fs.realpathSync(fileURLToPath(moduleUrl))).href;
-  } catch {
-    try {
-      return pathToFileURL(fileURLToPath(moduleUrl)).href;
-    } catch {
-      return moduleUrl;
-    }
-  }
-};
-
-export const isMainModule = (
-  mainPath: string | undefined = process.argv[1],
-  moduleUrl = import.meta.url,
-) => {
-  if (!mainPath) {
-    return false;
-  }
-  return toCanonicalFileUrlFromModuleUrl(moduleUrl) === toCanonicalFileUrlFromPath(mainPath);
-};
+export { isMainModule };
 
 const main = () => {
   const parsed = parseRuntimeArgs(process.argv.slice(2));
@@ -507,7 +463,6 @@ const main = () => {
               hookEventName,
               fields,
               summary,
-              sourceConfig.engine,
               extractEventTimestamp(payload) ?? new Date().toISOString(),
             ),
           );
@@ -538,7 +493,6 @@ const main = () => {
           buildCodexSummaryEvent(
             payload,
             summary,
-            sourceConfig.engine,
             extractEventTimestamp(payload) ?? new Date().toISOString(),
           ),
         );
@@ -594,7 +548,6 @@ const main = () => {
             parsed.hookEventName,
             fields,
             summary,
-            sourceConfig.engine,
             extractEventTimestamp(payload) ?? new Date().toISOString(),
           ),
         );

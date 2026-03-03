@@ -312,6 +312,7 @@ notifications:
 | `notifications.pushEnabled`              | `true`                                                            |
 | `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]`               |
 | `notifications.summary.enabled`          | `false`                                                           |
+| `notifications.summary.lang`             | `en`                                                              |
 | `notifications.summary.rename.pane`      | `true`                                                            |
 | `notifications.summary.rename.push`      | `true`                                                            |
 | `notifications.summary.sources.codex`    | `enabled=true,waitMs=7000,engine=(codex,gpt-5.3-codex-spark,low)` |
@@ -346,7 +347,7 @@ notifications:
 - Push VAPID鍵: `~/.vde-monitor/push-vapid.json`
 - Push購読情報: `~/.vde-monitor/notifications.json`
 - Hook イベントログ: `~/.vde-monitor/events/<server-key>/claude.jsonl`
-- 要約イベントログ: `~/.vde-monitor/events/<server-key>/summary.jsonl`
+- 要約公開接続情報: `~/.vde-monitor/events/<server-key>/summary-connection.json`
 - アップロード画像添付: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 
 ## セキュリティ初期値

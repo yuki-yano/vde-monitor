@@ -151,24 +151,7 @@ export const createResolveSummary = ({
     };
   };
 
-  const resolveLocatorForTransition = (
-    event: SessionTransitionEvent,
-  ): SummaryPublishLocator | null => {
-    const source = resolveSummarySource(event);
-    if (!source) {
-      return null;
-    }
-    return {
-      source,
-      runId: resolveRunId(event, source),
-      paneId: event.next.paneId,
-      eventType: "pane.task_completed",
-      sequence: resolveSequence(event.at, nowMs()),
-    };
-  };
-
   return {
     resolveSummary,
-    resolveLocatorForTransition,
   };
 };

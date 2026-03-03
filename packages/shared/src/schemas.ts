@@ -835,8 +835,6 @@ export const summaryPublishErrorCodeSchema = z.enum([
   "forbidden_binding",
   "rate_limit",
   "max_events_overflow",
-  "single_process_guard_unavailable",
-  "server_state_conflict",
 ]);
 
 export const summaryPublishErrorResponseSchema = z
@@ -862,57 +860,6 @@ export const summaryPublishConnectionInfoSchema = z
       .min(1)
       .max(128)
       .regex(/^[A-Za-z0-9._:-]+$/),
-  })
-  .strict();
-
-export const summaryPublishTokenMetadataSchema = z
-  .object({
-    schemaVersion: summaryPublishSchemaVersionSchema,
-    tokenRef: z
-      .string()
-      .trim()
-      .min(1)
-      .max(128)
-      .regex(/^[A-Za-z0-9._:-]+$/),
-    generation: z.number().int().min(1),
-    hashKeyVersion: z.number().int().min(1),
-    source: summaryPublishSourceSchema,
-    runId: z.string().trim().min(1).max(256),
-    paneId: z.string().trim().min(1).max(64),
-    audience: z.literal("summary-events"),
-    expiresAt: z.string(),
-  })
-  .strict();
-
-export const summaryEventSchema = z
-  .object({
-    ts: z.string(),
-    summary_id: z.string().trim().min(1),
-    source_agent: summaryAgentSchema,
-    event_type: z.literal("task_completed_summary"),
-    source_event_at: z.string(),
-    pane_locator: z
-      .object({
-        tmux_pane: z.string().trim().min(1).optional(),
-        tty: z.string().trim().min(1).optional(),
-        cwd: z.string().trim().min(1).optional(),
-      })
-      .strict(),
-    summary: z
-      .object({
-        pane_title: z.string().trim().min(1).max(48),
-        notification_title: z.string().trim().min(1).max(32),
-        notification_body: z.string().trim().min(1).max(120),
-      })
-      .strict(),
-    engine: summaryEngineConfigSchema,
-    source: z
-      .object({
-        turn_id: z.string().trim().min(1).optional(),
-        session_id: z.string().trim().min(1).optional(),
-        hook_event_name: z.string().trim().min(1).optional(),
-      })
-      .strict(),
   })
   .strict();
 

@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   configDefaults,
@@ -14,6 +13,9 @@ import {
   userConfigSchema,
 } from "@vde-monitor/shared";
 import YAML from "yaml";
+
+import { isMainModule } from "./main-module";
+import { parseJsonObject } from "./parse-json-object";
 
 type HookPayload = Record<string, unknown>;
 type ProcessSnapshot = {
@@ -391,13 +393,7 @@ export const resolveHookSummarySourceConfig = (
   sourceAgent: "codex" | "claude",
 ) => resolveHookSummaryConfig(config).sources[sourceAgent];
 
-const parsePayload = (rawInput: string): HookPayload | null => {
-  try {
-    return JSON.parse(rawInput) as HookPayload;
-  } catch {
-    return null;
-  }
-};
+const parsePayload = (rawInput: string): HookPayload | null => parseJsonObject(rawInput);
 
 export const extractPayloadFields = (
   payload: HookPayload,
@@ -456,38 +452,7 @@ const appendEvent = (event: HookEvent) => {
   fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, "utf8");
 };
 
-const toCanonicalFileUrlFromPath = (targetPath: string) => {
-  try {
-    return pathToFileURL(fs.realpathSync(targetPath)).href;
-  } catch {
-    return pathToFileURL(path.resolve(targetPath)).href;
-  }
-};
-
-const toCanonicalFileUrlFromModuleUrl = (moduleUrl: string) => {
-  if (!moduleUrl.startsWith("file:")) {
-    return moduleUrl;
-  }
-  try {
-    return pathToFileURL(fs.realpathSync(fileURLToPath(moduleUrl))).href;
-  } catch {
-    try {
-      return pathToFileURL(fileURLToPath(moduleUrl)).href;
-    } catch {
-      return moduleUrl;
-    }
-  }
-};
-
-export const isMainModule = (
-  mainPath: string | undefined = process.argv[1],
-  moduleUrl = import.meta.url,
-) => {
-  if (!mainPath) {
-    return false;
-  }
-  return toCanonicalFileUrlFromModuleUrl(moduleUrl) === toCanonicalFileUrlFromPath(mainPath);
-};
+export { isMainModule };
 
 const main = () => {
   const hookEventName = process.argv[2];
