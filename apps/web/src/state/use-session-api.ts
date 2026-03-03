@@ -385,6 +385,7 @@ export const useSessionApi = ({
     sendKeys,
     sendRaw,
     updateSessionTitle,
+    resetSessionTitle,
     touchSession,
     createRepoNote,
     updateRepoNote,
@@ -440,6 +441,7 @@ export const useSessionApi = ({
       sendKeys,
       sendRaw,
       updateSessionTitle,
+      resetSessionTitle,
       touchSession,
       createRepoNote,
       updateRepoNote,
@@ -471,6 +473,7 @@ export const useSessionApi = ({
       touchSession,
       updateRepoNote,
       updateSessionTitle,
+      resetSessionTitle,
       uploadImageAttachment,
     ],
   );

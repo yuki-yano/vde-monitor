@@ -12,17 +12,18 @@ import {
   titleErrorAtom,
   titleSavingAtom,
 } from "../atoms/titleAtoms";
-import { buildDefaultSessionTitle } from "../sessionDetailUtils";
 type UseSessionTitleEditorParams = {
   session: SessionSummary | null;
   paneId: string;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
 };
 
 export const useSessionTitleEditor = ({
   session,
   paneId,
   updateSessionTitle,
+  resetSessionTitle,
 }: UseSessionTitleEditorParams) => {
   const sessionCustomTitle = session?.customTitle ?? null;
   const [titleDraft, setTitleDraft] = useAtom(titleDraftAtom);
@@ -97,20 +98,16 @@ export const useSessionTitleEditor = ({
 
   const resetTitle = useCallback(async () => {
     if (!session || titleSaving) return;
-    // Keep "reset" behavior in one action:
-    // - custom title: clear it
-    // - auto title: pin the computed default title as custom title
-    const nextTitle = session.customTitle ? null : buildDefaultSessionTitle(session);
     setTitleSaving(true);
     try {
-      await updateSessionTitle(session.paneId, nextTitle);
-      const nextLocalTitle = nextTitle ?? session.title ?? session.sessionName;
+      await resetSessionTitle(session.paneId);
+      const nextLocalTitle = session.sessionName;
       void upsertLocalNotificationSessionTitle({
         paneId: session.paneId,
         title: nextLocalTitle,
       }).catch(() => undefined);
       setTitleEditing(false);
-      setTitleDraft(nextTitle ?? "");
+      setTitleDraft("");
       setTitleError(null);
     } catch (err) {
       setTitleError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
@@ -120,7 +117,7 @@ export const useSessionTitleEditor = ({
   }, [
     session,
     titleSaving,
-    updateSessionTitle,
+    resetSessionTitle,
     setTitleDraft,
     setTitleEditing,
     setTitleError,

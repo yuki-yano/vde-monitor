@@ -16,6 +16,13 @@ const createServiceMock = (settingsOverride: Partial<NotificationSettings> = {})
   return {
     getSettings: vi.fn(() => settings),
     getSupportedEvents: vi.fn(() => settings.supportedEvents),
+    validateSummaryLocator: vi.fn(() => ({ ok: true })),
+    setSummarySessionDetailResolver: vi.fn(),
+    publishSummaryEvent: vi.fn(() => ({
+      ok: true,
+      eventId: "evt-1",
+      deduplicated: false,
+    })),
     upsertSubscription: vi.fn(() => ({
       subscriptionId: "sub-1",
       created: true,
@@ -41,6 +48,130 @@ describe("createNotificationRoutes", () => {
     expect(res.status).toBe(200);
     const data = (await res.json()) as { settings: NotificationSettings };
     expect(data.settings.vapidPublicKey).toBe("vapid-test");
+  });
+
+  it("accepts summary publish events", async () => {
+    const service = createServiceMock();
+    const app = createNotificationRoutes({ notificationService: service });
+
+    const res = await app.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%12",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+
+    expect(res.status).toBe(202);
+    expect(service.publishSummaryEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "evt-1",
+      }),
+    );
+  });
+
+  it("rejects summary publish when content-type is not json", async () => {
+    const service = createServiceMock();
+    const app = createNotificationRoutes({ notificationService: service });
+
+    const res = await app.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "{}",
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("unsupported_content_type");
+  });
+
+  it("returns 429 when summary publish hits overflow", async () => {
+    const service = createServiceMock();
+    (service.publishSummaryEvent as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      ok: false,
+      code: "max_events_overflow",
+      message: "overflow",
+      eventId: "evt-1",
+    });
+    const app = createNotificationRoutes({ notificationService: service });
+
+    const res = await app.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%12",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { code: string; retryAfterSec: number };
+    expect(body.code).toBe("max_events_overflow");
+    expect(body.retryAfterSec).toBe(1);
+  });
+
+  it("returns 403 when summary locator validation fails", async () => {
+    const service = createServiceMock();
+    (service.validateSummaryLocator as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      ok: false,
+      status: 403,
+      code: "forbidden_binding",
+      message: "source mismatch",
+    });
+    const app = createNotificationRoutes({ notificationService: service });
+
+    const res = await app.request("/notifications/summary-events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        eventId: "evt-1",
+        locator: {
+          source: "claude",
+          runId: "run-1",
+          paneId: "%12",
+          eventType: "pane.task_completed",
+          sequence: 1,
+        },
+        sourceEventAt: "2026-03-02T00:00:00.000Z",
+        summary: {
+          paneTitle: "done",
+          notificationTitle: "task done",
+          notificationBody: "task completed",
+        },
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("forbidden_binding");
   });
 
   it("upserts subscription with normalized scope", async () => {

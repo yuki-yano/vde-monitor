@@ -10,6 +10,7 @@ import {
   resolveSessionStateLabel,
   resolveSessionStateTone,
 } from "@/features/shared-session-ui/model/session-display";
+import { resolveSessionCardTitleTextClass } from "@/features/shared-session-ui/model/session-title-font";
 import { cn } from "@/lib/cn";
 import {
   agentLabelFor,
@@ -70,6 +71,7 @@ export const SessionCard = ({
 }: SessionCardProps) => {
   const sessionTone = getLastInputTone(session.lastInputAt, nowMs);
   const sessionTitle = resolveSessionDisplayTitle(session);
+  const titleTextClassName = resolveSessionCardTitleTextClass(sessionTitle);
   const showAgentBadge = isKnownAgent(session.agent);
   const showEditorState = isSessionEditorState(session);
   const stateStyle = showEditorState ? editorSessionStyle : sessionStateStyles[session.state];
@@ -132,7 +134,12 @@ export const SessionCard = ({
         </div>
 
         <div className="relative mt-2 flex min-w-0 flex-1 flex-col sm:mt-2.5">
-          <h3 className="font-display text-latte-text block w-full max-w-full truncate text-[15px] font-semibold leading-snug">
+          <h3
+            className={cn(
+              "font-display text-latte-text block w-full max-w-full truncate font-semibold leading-snug",
+              titleTextClassName,
+            )}
+          >
             {sessionTitle}
           </h3>
           <p

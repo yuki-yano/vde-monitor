@@ -15,7 +15,8 @@
   },
   "bin": {
     "vde-monitor": "dist/index.js",
-    "vde-monitor-hook": "dist/vde-monitor-hook.js"
+    "vde-monitor-hook": "dist/vde-monitor-hook.js",
+    "vde-monitor-summary": "dist/vde-monitor-summary.js"
   },
   "files": [
     "dist/**",
@@ -25,8 +26,8 @@
   ],
   "scripts": {
     "build": "tsx scripts/build-package.ts",
+    "build:watch": "tsx scripts/build-watch.ts",
     "build:web": "pnpm --filter @vde-monitor/web build",
-    "build:bundle": "tsdown --config tsdown.config.ts",
     "prepack": "pnpm build",
     "dev": "tsx scripts/dev.ts",
     "dev:public": "tsx scripts/dev.ts --public",

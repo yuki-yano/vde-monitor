@@ -130,10 +130,13 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yml-target",
+      summary: configDefaults.notifications.summary,
     });
   });
 
@@ -170,10 +173,13 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yaml-target",
+      summary: configDefaults.notifications.summary,
     });
   });
 
@@ -198,10 +204,13 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "tmux",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "json-target",
+      summary: configDefaults.notifications.summary,
     });
   });
 
@@ -224,10 +233,13 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "wezterm",
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: configDefaults.multiplexer.wezterm.target,
+      summary: configDefaults.notifications.summary,
     });
   });
 
@@ -271,10 +283,69 @@ describe("hooks config loading", () => {
     );
 
     expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
       multiplexerBackend: "tmux",
       tmuxSocketName: "sock",
       tmuxSocketPath: "/tmp/tmux.sock",
       weztermTarget: "custom-target",
+      summary: configDefaults.notifications.summary,
+    });
+  });
+
+  it("resolves notifications.summary overrides with nested defaults", () => {
+    setFile(
+      "/mock/config/config.yml",
+      YAML.stringify({
+        notifications: {
+          summary: {
+            enabled: true,
+            lang: "ja",
+            rename: {
+              push: false,
+            },
+            sources: {
+              claude: {
+                waitMs: 25000,
+                engine: {
+                  agent: "codex",
+                  model: "gpt-5.3-codex-spark",
+                  effort: "low",
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
+      multiplexerBackend: configDefaults.multiplexer.backend,
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
+      weztermTarget: configDefaults.multiplexer.wezterm.target,
+      summary: {
+        enabled: true,
+        lang: "ja",
+        rename: {
+          pane: configDefaults.notifications.summary.rename.pane,
+          push: false,
+        },
+        sources: {
+          codex: configDefaults.notifications.summary.sources.codex,
+          claude: {
+            enabled: configDefaults.notifications.summary.sources.claude.enabled,
+            waitMs: 25000,
+            engine: {
+              agent: "codex",
+              model: "gpt-5.3-codex-spark",
+              effort: "low",
+            },
+          },
+        },
+      },
     });
   });
 });

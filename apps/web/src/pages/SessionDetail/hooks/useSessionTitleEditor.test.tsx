@@ -33,6 +33,7 @@ describe("useSessionTitleEditor", () => {
           session,
           paneId: session.paneId,
           updateSessionTitle: vi.fn(),
+          resetSessionTitle: vi.fn(),
         }),
       { wrapper },
     );
@@ -44,6 +45,7 @@ describe("useSessionTitleEditor", () => {
   it("opens editor and saves trimmed title", async () => {
     const session = createSessionDetail({ customTitle: "Custom" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
+    const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
     const { result } = renderHook(
       () =>
@@ -51,6 +53,7 @@ describe("useSessionTitleEditor", () => {
           session,
           paneId: session.paneId,
           updateSessionTitle,
+          resetSessionTitle,
         }),
       { wrapper },
     );
@@ -71,6 +74,7 @@ describe("useSessionTitleEditor", () => {
   it("validates title length", async () => {
     const session = createSessionDetail();
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
+    const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
     const { result } = renderHook(
       () =>
@@ -78,6 +82,7 @@ describe("useSessionTitleEditor", () => {
           session,
           paneId: session.paneId,
           updateSessionTitle,
+          resetSessionTitle,
         }),
       { wrapper },
     );
@@ -97,6 +102,7 @@ describe("useSessionTitleEditor", () => {
   it("resets custom title", async () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
+    const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
     const { result } = renderHook(
       () =>
@@ -104,6 +110,7 @@ describe("useSessionTitleEditor", () => {
           session,
           paneId: session.paneId,
           updateSessionTitle,
+          resetSessionTitle,
         }),
       { wrapper },
     );
@@ -112,12 +119,14 @@ describe("useSessionTitleEditor", () => {
       await result.current.resetTitle();
     });
 
-    expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, null);
+    expect(resetSessionTitle).toHaveBeenCalledWith(session.paneId);
+    expect(updateSessionTitle).not.toHaveBeenCalled();
   });
 
-  it("resets auto title to default when custom title is not set", async () => {
+  it("resets title when custom title is not set", async () => {
     const session = createSessionDetail({ customTitle: null, title: "✳ Initial Greeting" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
+    const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
     const wrapper = createWrapper();
     const { result } = renderHook(
       () =>
@@ -125,6 +134,7 @@ describe("useSessionTitleEditor", () => {
           session,
           paneId: session.paneId,
           updateSessionTitle,
+          resetSessionTitle,
         }),
       { wrapper },
     );
@@ -133,6 +143,7 @@ describe("useSessionTitleEditor", () => {
       await result.current.resetTitle();
     });
 
-    expect(updateSessionTitle).toHaveBeenCalledWith(session.paneId, "repo:w1:pane-1");
+    expect(resetSessionTitle).toHaveBeenCalledWith(session.paneId);
+    expect(updateSessionTitle).not.toHaveBeenCalled();
   });
 });

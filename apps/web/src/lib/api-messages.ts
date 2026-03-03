@@ -38,5 +38,6 @@ export const API_ERROR_MESSAGES = {
   forbiddenPath: "Access to this path is forbidden.",
   permissionDenied: "Permission denied while loading files.",
   updateTitle: "Failed to update title",
+  resetTitle: "Failed to reset title",
   updateActivity: "Failed to update session activity",
 } as const;

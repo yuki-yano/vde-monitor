@@ -136,6 +136,7 @@ type SessionContextValue = {
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
   createRepoNote: (
     paneId: string,
     input: { title?: string | null; body: string },
@@ -211,6 +212,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     sendKeys,
     sendRaw,
     updateSessionTitle,
+    resetSessionTitle,
     touchSession,
     createRepoNote,
     updateRepoNote,
@@ -293,6 +295,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       sendRaw,
       touchSession,
       updateSessionTitle,
+      resetSessionTitle,
       createRepoNote,
       updateRepoNote,
       deleteRepoNote,
@@ -323,6 +326,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       sendRaw,
       touchSession,
       updateSessionTitle,
+      resetSessionTitle,
       createRepoNote,
       updateRepoNote,
       deleteRepoNote,

@@ -4,6 +4,7 @@ import {
   dedupeStrings,
   notificationSubscriptionRevokeSchema,
   notificationSubscriptionUpsertSchema,
+  summaryPublishRequestSchema,
 } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
@@ -43,6 +44,116 @@ const normalizeEventTypes = ({
 
 export const createNotificationRoutes = ({ notificationService }: NotificationRouteDeps) => {
   const app = new Hono();
+
+  app.post("/notifications/summary-events", async (c) => {
+    const contentType = c.req.header("content-type") ?? c.req.header("Content-Type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return c.json(
+        {
+          schemaVersion: 1,
+          code: "unsupported_content_type",
+          message: "content-type must be application/json",
+        },
+        400,
+      );
+    }
+
+    let parsedBody: unknown;
+    try {
+      parsedBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          schemaVersion: 1,
+          code: "invalid_json",
+          message: "request body is not valid json",
+        },
+        400,
+      );
+    }
+
+    const validated = summaryPublishRequestSchema.safeParse(parsedBody);
+    if (!validated.success) {
+      const input = validated.error.issues[0]?.path[0];
+      const body = parsedBody as { schemaVersion?: unknown } | null;
+      if (
+        (input === "schemaVersion" || typeof body?.schemaVersion !== "undefined") &&
+        body?.schemaVersion !== 1
+      ) {
+        return c.json(
+          {
+            schemaVersion: 1,
+            code: "unsupported_schema_version",
+            message: "unsupported schemaVersion",
+          },
+          400,
+        );
+      }
+      const eventId =
+        parsedBody != null &&
+        typeof parsedBody === "object" &&
+        !Array.isArray(parsedBody) &&
+        typeof (parsedBody as { eventId?: unknown }).eventId === "string"
+          ? ((parsedBody as { eventId?: string }).eventId ?? undefined)
+          : undefined;
+      return c.json(
+        {
+          schemaVersion: 1,
+          code: "invalid_request",
+          message: "invalid summary publish request",
+          ...(eventId ? { eventId } : {}),
+        },
+        400,
+      );
+    }
+
+    const locatorValidation = notificationService.validateSummaryLocator(validated.data.locator);
+    if (!locatorValidation.ok) {
+      return c.json(
+        {
+          schemaVersion: 1,
+          code: locatorValidation.code,
+          message: locatorValidation.message,
+          eventId: validated.data.eventId,
+        },
+        locatorValidation.status,
+      );
+    }
+
+    const publishResult = notificationService.publishSummaryEvent(validated.data);
+    if (!publishResult.ok) {
+      if (publishResult.code === "max_events_overflow") {
+        return c.json(
+          {
+            schemaVersion: 1,
+            code: "max_events_overflow",
+            message: publishResult.message,
+            ...(publishResult.eventId ? { eventId: publishResult.eventId } : {}),
+            retryAfterSec: 1,
+          },
+          429,
+        );
+      }
+      return c.json(
+        {
+          schemaVersion: 1,
+          code: "invalid_request",
+          message: publishResult.message,
+          ...(publishResult.eventId ? { eventId: publishResult.eventId } : {}),
+        },
+        400,
+      );
+    }
+
+    return c.json(
+      {
+        schemaVersion: 1,
+        eventId: publishResult.eventId,
+        deduplicated: publishResult.deduplicated,
+      },
+      202,
+    );
+  });
 
   app.get("/notifications/settings", (c) => {
     return c.json({

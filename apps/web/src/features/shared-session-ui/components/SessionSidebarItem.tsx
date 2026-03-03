@@ -8,6 +8,7 @@ import {
   isSessionEditorState,
   resolveSessionDisplayTitle,
 } from "@/features/shared-session-ui/model/session-display";
+import { resolveSessionSidebarTitleTextClass } from "@/features/shared-session-ui/model/session-title-font";
 import { cn } from "@/lib/cn";
 import { statusIconMeta } from "@/lib/quick-panel-utils";
 import {
@@ -71,6 +72,7 @@ export const SessionSidebarItem = memo(
     registerItemRef,
   }: SessionSidebarItemProps) => {
     const displayTitle = resolveSessionDisplayTitle(item);
+    const sessionTitleTextClassName = resolveSessionSidebarTitleTextClass(displayTitle);
     const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
     const hasKnownAgent = isKnownAgent(item.agent);
     const showEditorState = isSessionEditorState(item);
@@ -177,7 +179,12 @@ export const SessionSidebarItem = memo(
             >
               <StatusIcon className={cn("h-3.5 w-3.5", statusMeta.className)} />
             </span>
-            <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
+            <span
+              className={cn(
+                "text-latte-text min-w-0 truncate font-semibold",
+                sessionTitleTextClassName,
+              )}
+            >
               {displayTitle}
             </span>
           </div>

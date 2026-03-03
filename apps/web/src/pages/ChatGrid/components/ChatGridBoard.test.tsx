@@ -73,6 +73,7 @@ describe("ChatGridBoard", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -96,6 +97,7 @@ describe("ChatGridBoard", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -126,6 +128,7 @@ describe("ChatGridBoard", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -153,6 +156,7 @@ describe("ChatGridBoard", () => {
         sendKeys={vi.fn(async () => ({ ok: true }))}
         sendRaw={vi.fn(async () => ({ ok: true }))}
         updateSessionTitle={vi.fn(async () => undefined)}
+        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 

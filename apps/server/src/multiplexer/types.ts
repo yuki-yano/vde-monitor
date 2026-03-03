@@ -56,6 +56,7 @@ export type MultiplexerInputActions = {
   sendText: (paneId: string, text: string, enter?: boolean) => Promise<MultiplexerActionResult>;
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<MultiplexerActionResult>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<MultiplexerActionResult>;
+  clearPaneTitle: (paneId: string) => Promise<MultiplexerActionResult>;
   focusPane: (paneId: string) => Promise<MultiplexerActionResult>;
   killPane: (paneId: string) => Promise<MultiplexerActionResult>;
   killWindow: (paneId: string) => Promise<MultiplexerActionResult>;

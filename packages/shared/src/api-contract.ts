@@ -5,6 +5,7 @@ import type {
   RawItem,
   SessionStateTimelineRange,
   SessionStateTimelineScope,
+  SummaryPublishRequest,
 } from "./types";
 
 export type ApiClientRequestOptions<TRequestInit = unknown> = {
@@ -144,6 +145,7 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
   };
   title: {
     $put: ApiRequest<{ param: PaneParam; json: SessionTitleJson }, TRequestInit, TResponse>;
+    reset: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   };
   touch: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   attachments: {
@@ -198,6 +200,9 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
 
 type NotificationApiClient<TRequestInit, TResponse> = {
   settings: { $get: ApiRootGetRequest<TRequestInit, TResponse> };
+  "summary-events": {
+    $post: ApiRequest<{ json: SummaryPublishRequest }, TRequestInit, TResponse>;
+  };
   subscriptions: {
     $post: ApiRequest<{ json: NotificationSubscriptionUpsertJson }, TRequestInit, TResponse>;
     revoke: {
