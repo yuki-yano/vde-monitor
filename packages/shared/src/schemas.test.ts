@@ -83,66 +83,28 @@ describe("usageGlobalTimelineResponseSchema", () => {
     },
     paneCount: 2,
     activePaneCount: 1,
-    repoRanking: {
-      totalRepoCount: 1,
-      byRunningTimeSum: [
-        {
-          repoRoot: "/repo/a",
-          repoName: "a",
-          totalPaneCount: 1,
-          activePaneCount: 1,
-          runningMs: 1000,
-          runningUnionMs: 1000,
-          executionCount: 2,
-          approximate: false,
-          approximationReason: null,
-        },
-      ],
-      byRunningTimeUnion: [],
-      byRunningTransitions: [],
-    },
     fetchedAt: "2026-02-25T00:00:00.000Z",
   });
 
-  it("accepts response with required repoRanking", () => {
+  it("accepts response payload", () => {
     const result = usageGlobalTimelineResponseSchema.safeParse(createPayload());
     expect(result.success).toBe(true);
   });
 
-  it("accepts approximationReason as retention_clipped", () => {
+  it("rejects missing fetchedAt", () => {
     const payload = createPayload();
     const result = usageGlobalTimelineResponseSchema.safeParse({
       ...payload,
-      repoRanking: {
-        ...payload.repoRanking,
-        byRunningTimeSum: payload.repoRanking.byRunningTimeSum.map((item, index) =>
-          index === 0
-            ? { ...item, approximate: true, approximationReason: "retention_clipped" as const }
-            : item,
-        ),
-      },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects missing repoRanking", () => {
-    const payload = createPayload();
-    const result = usageGlobalTimelineResponseSchema.safeParse({
-      ...payload,
-      repoRanking: undefined,
+      fetchedAt: undefined,
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects missing ranking arrays", () => {
+  it("rejects missing timeline", () => {
     const payload = createPayload();
     const result = usageGlobalTimelineResponseSchema.safeParse({
       ...payload,
-      repoRanking: {
-        totalRepoCount: payload.repoRanking.totalRepoCount,
-        byRunningTimeSum: payload.repoRanking.byRunningTimeSum,
-        byRunningTransitions: payload.repoRanking.byRunningTransitions,
-      },
+      timeline: undefined,
     });
     expect(result.success).toBe(false);
   });

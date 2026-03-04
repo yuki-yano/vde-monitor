@@ -232,14 +232,12 @@ export const createUsageRoutes = ({
       const query = c.req.valid("query");
       const range = resolveGlobalTimelineRange(query.range);
       const timeline = monitor.getGlobalStateTimeline(range);
-      const repoRanking = monitor.getGlobalRepoRanking(range);
       const sessions = monitor.registry.values();
       const activePaneCount = sessions.filter((session) => !session.paneDead).length;
       return c.json({
         timeline,
         paneCount: sessions.length,
         activePaneCount,
-        repoRanking,
         fetchedAt: nowIso(),
       });
     });

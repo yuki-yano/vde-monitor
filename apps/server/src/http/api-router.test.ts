@@ -191,24 +191,6 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     },
     current: null,
   }));
-  const getGlobalRepoRanking = vi.fn(() => ({
-    totalRepoCount: 1,
-    byRunningTimeSum: [
-      {
-        repoRoot: "/repo/a",
-        repoName: "a",
-        totalPaneCount: 1,
-        activePaneCount: 1,
-        runningMs: 60_000,
-        runningUnionMs: 60_000,
-        executionCount: 2,
-        approximate: false,
-        approximationReason: null,
-      },
-    ],
-    byRunningTimeUnion: [],
-    byRunningTransitions: [],
-  }));
   const getRepoNotes = vi.fn((): RepoNote[] => []);
   const createRepoNote = vi.fn((_: string, input: { title?: string | null; body: string }) => ({
     id: "note-1",
@@ -239,7 +221,6 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
-    getGlobalRepoRanking,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
@@ -336,7 +317,6 @@ const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) =>
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
-    getGlobalRepoRanking,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
@@ -719,29 +699,34 @@ describe("createApiRouter", () => {
     expect(claude.status).toBe(200);
   });
 
-  it("returns global usage state timeline with repo ranking", async () => {
-    const { api, getGlobalStateTimeline, getGlobalRepoRanking } = createTestContext();
+  it("returns global usage state timeline", async () => {
+    const { api, getGlobalStateTimeline } = createTestContext();
     const res = await api.request("/usage/state-timeline?range=3d&limit=25", {
       headers: authHeaders,
     });
 
     expect(res.status).toBe(200);
     expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d");
-    expect(getGlobalRepoRanking).toHaveBeenCalledWith("3d");
     const data = await res.json();
     expect(data.timeline.paneId).toBe("global");
-    expect(data.repoRanking.totalRepoCount).toBe(1);
+    const removedRankingKey = "repo" + "Ranking";
+    expect(data[removedRankingKey]).toBeUndefined();
+    expect(Object.keys(data).sort()).toEqual([
+      "activePaneCount",
+      "fetchedAt",
+      "paneCount",
+      "timeline",
+    ]);
   });
 
   it("ignores usage state timeline limit query as no-op", async () => {
-    const { api, getGlobalStateTimeline, getGlobalRepoRanking } = createTestContext();
+    const { api, getGlobalStateTimeline } = createTestContext();
     const res = await api.request("/usage/state-timeline?range=3d&limit=not-a-number", {
       headers: authHeaders,
     });
 
     expect(res.status).toBe(200);
     expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d");
-    expect(getGlobalRepoRanking).toHaveBeenCalledWith("3d");
   });
 
   it("returns codex provider snapshot endpoint", async () => {

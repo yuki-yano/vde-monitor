@@ -147,12 +147,6 @@ const createTimelineResponse = (): UsageGlobalTimelineResponse => ({
   },
   paneCount: 0,
   activePaneCount: 0,
-  repoRanking: {
-    totalRepoCount: 0,
-    byRunningTimeSum: [],
-    byRunningTimeUnion: [],
-    byRunningTransitions: [],
-  },
   fetchedAt: NOW_ISO,
 });
 

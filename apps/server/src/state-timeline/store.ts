@@ -80,27 +80,6 @@ type GetRepoTimelineInput = {
   itemIdPrefix?: string;
 };
 
-type ListRepoRootsInput = {
-  range?: SessionStateTimelineRange;
-};
-
-type RepoActivityApproximationReason = "retention_clipped";
-
-export type RepoActivityMetrics = {
-  runningMs: number;
-  runningUnionMs: number;
-  executionCount: number;
-  totalPaneCount: number;
-  activePaneCount: number;
-  approximate: boolean;
-  approximationReason: RepoActivityApproximationReason | null;
-};
-
-type GetRepoActivityMetricsInput = {
-  repoRoot: string;
-  range?: SessionStateTimelineRange;
-};
-
 const toIso = (ms: number) => new Date(ms).toISOString();
 
 const parseIso = (value: string | null | undefined) => {
@@ -337,135 +316,6 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     return "poll" as SessionStateTimelineSource;
   };
 
-  const listRepoRoots = ({ range = "1h" }: ListRepoRootsInput = {}) => {
-    const nowMs = now().getTime();
-    const rangeMs = RANGE_MS[range];
-    const rangeStartMs = nowMs - rangeMs;
-    const repoRoots = new Set<string>();
-
-    eventsByPane.forEach((_events, paneId) => {
-      prunePane(paneId, nowMs);
-      const events = eventsByPane.get(paneId) ?? [];
-      events.forEach((event) => {
-        if (event.repoRoot == null) {
-          return;
-        }
-        const interval = clipTimelineEventToInterval({
-          event,
-          rangeStartMs,
-          nowMs,
-          parseIso,
-        });
-        if (!interval) {
-          return;
-        }
-        repoRoots.add(event.repoRoot);
-      });
-    });
-
-    return Array.from(repoRoots).sort((left, right) => left.localeCompare(right));
-  };
-
-  const getRepoActivityMetrics = ({
-    repoRoot,
-    range = "1h",
-  }: GetRepoActivityMetricsInput): RepoActivityMetrics => {
-    const nowMs = now().getTime();
-    const rangeMs = RANGE_MS[range];
-    const rangeStartMs = nowMs - rangeMs;
-    const retentionFloorMs = nowMs - retentionMs;
-    const approximate = rangeStartMs < retentionFloorMs;
-    const approximationReason: RepoActivityApproximationReason | null = approximate
-      ? "retention_clipped"
-      : null;
-
-    const runningIntervals: Array<{ startedAtMs: number; endedAtMs: number }> = [];
-    const activePaneIds = new Set<string>();
-    const totalPaneIds = new Set<string>();
-    let runningMs = 0;
-    let executionCount = 0;
-
-    eventsByPane.forEach((_events, paneId) => {
-      prunePane(paneId, nowMs);
-      const events = eventsByPane.get(paneId) ?? [];
-      events.forEach((event) => {
-        if (event.repoRoot !== repoRoot) {
-          return;
-        }
-        const interval = clipTimelineEventToInterval({
-          event,
-          rangeStartMs,
-          nowMs,
-          parseIso,
-        });
-        if (!interval) {
-          return;
-        }
-        totalPaneIds.add(paneId);
-        if (event.endedAt == null) {
-          activePaneIds.add(paneId);
-        }
-        const startedAtMs = parseIso(event.startedAt);
-        if (
-          event.state === "RUNNING" &&
-          startedAtMs != null &&
-          startedAtMs >= rangeStartMs &&
-          startedAtMs < nowMs
-        ) {
-          executionCount += 1;
-        }
-        if (event.state !== "RUNNING") {
-          return;
-        }
-        const durationMs = Math.max(0, interval.endedAtMs - interval.startedAtMs);
-        runningMs += durationMs;
-        runningIntervals.push({
-          startedAtMs: interval.startedAtMs,
-          endedAtMs: interval.endedAtMs,
-        });
-      });
-    });
-
-    const runningUnionMs = (() => {
-      if (runningIntervals.length === 0) {
-        return 0;
-      }
-      const sorted = [...runningIntervals].sort((left, right) =>
-        left.startedAtMs === right.startedAtMs
-          ? left.endedAtMs - right.endedAtMs
-          : left.startedAtMs - right.startedAtMs,
-      );
-      let mergedStart = sorted[0]?.startedAtMs ?? 0;
-      let mergedEnd = sorted[0]?.endedAtMs ?? 0;
-      let total = 0;
-      for (let index = 1; index < sorted.length; index += 1) {
-        const interval = sorted[index];
-        if (!interval) {
-          continue;
-        }
-        if (interval.startedAtMs <= mergedEnd) {
-          mergedEnd = Math.max(mergedEnd, interval.endedAtMs);
-          continue;
-        }
-        total += Math.max(0, mergedEnd - mergedStart);
-        mergedStart = interval.startedAtMs;
-        mergedEnd = interval.endedAtMs;
-      }
-      total += Math.max(0, mergedEnd - mergedStart);
-      return total;
-    })();
-
-    return {
-      runningMs,
-      runningUnionMs,
-      executionCount,
-      totalPaneCount: totalPaneIds.size,
-      activePaneCount: activePaneIds.size,
-      approximate,
-      approximationReason,
-    };
-  };
-
   const getRepoTimeline = ({
     paneId,
     paneIds,
@@ -673,8 +523,6 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     closePane,
     getTimeline,
     getRepoTimeline,
-    listRepoRoots,
-    getRepoActivityMetrics,
     reset,
     serialize,
     restore,

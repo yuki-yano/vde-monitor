@@ -3,8 +3,6 @@ import type {
   SessionStateTimelineItem,
   SessionStateTimelineRange,
   SessionStateValue,
-  UsageGlobalTimelineRepoRanking,
-  UsageGlobalTimelineRepoRankingItem,
   UsageMetricWindow,
   UsageProviderSnapshot,
 } from "@vde-monitor/shared";
@@ -29,7 +27,7 @@ import { SessionSidebar } from "@/features/shared-session-ui/components/SessionS
 import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
-import { formatPath, formatStateLabel, stateTone } from "@/lib/session-format";
+import { formatStateLabel, stateTone } from "@/lib/session-format";
 import { backLinkClass } from "@/pages/SessionDetail/sessionDetailUtils";
 
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
@@ -117,27 +115,6 @@ const formatDurationMs = (durationMs: number) => {
   const days = Math.floor(hours / 24);
   const restHours = hours % 24;
   return restHours > 0 ? `${days}d ${restHours}h` : `${days}d`;
-};
-
-const formatDurationMsToMinute = (durationMs: number) => {
-  if (durationMs <= 0) {
-    return "0s";
-  }
-  const seconds = Math.floor(durationMs / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-  const days = Math.floor(minutes / (24 * 60));
-  const hours = Math.floor((minutes % (24 * 60)) / 60);
-  const restMinutes = minutes % 60;
-  if (days > 0) {
-    return `${days}d ${hours}h ${restMinutes}m`;
-  }
-  return `${hours}h ${restMinutes}m`;
 };
 
 const formatResetIn = (resetsAt: string | null, nowMs: number) => {
@@ -928,114 +905,6 @@ const ProviderQuotaSection = ({
   );
 };
 
-type RepoRankingTab = "running-sum" | "running-union" | "running-transitions";
-type RepoRankingMetric = {
-  label: string;
-  value: number;
-  rendered: string;
-};
-
-const EMPTY_REPO_RANKING: UsageGlobalTimelineRepoRanking = {
-  totalRepoCount: 0,
-  byRunningTimeSum: [],
-  byRunningTimeUnion: [],
-  byRunningTransitions: [],
-};
-
-const resolveRepoRankingRows = (
-  repoRanking: UsageGlobalTimelineRepoRanking,
-  tab: RepoRankingTab,
-): UsageGlobalTimelineRepoRankingItem[] => {
-  if (tab === "running-union") {
-    return repoRanking.byRunningTimeUnion;
-  }
-  if (tab === "running-transitions") {
-    return repoRanking.byRunningTransitions;
-  }
-  return repoRanking.byRunningTimeSum;
-};
-
-const resolveRepoRankingMetric = (
-  item: UsageGlobalTimelineRepoRankingItem,
-  tab: RepoRankingTab,
-): RepoRankingMetric => {
-  if (tab === "running-union") {
-    return {
-      label: "Union",
-      value: item.runningUnionMs,
-      rendered: formatDurationMsToMinute(item.runningUnionMs),
-    };
-  }
-  if (tab === "running-transitions") {
-    return {
-      label: "Runs",
-      value: item.executionCount,
-      rendered: tokenFormatter.format(item.executionCount),
-    };
-  }
-  return {
-    label: "Sum",
-    value: item.runningMs,
-    rendered: formatDurationMsToMinute(item.runningMs),
-  };
-};
-
-const resolveRankBadgeClass = (index: number) => {
-  if (index === 0) {
-    return "border-latte-yellow/60 bg-latte-yellow/20 text-latte-yellow";
-  }
-  if (index === 1) {
-    return "border-latte-blue/55 bg-latte-blue/15 text-latte-blue";
-  }
-  if (index === 2) {
-    return "border-latte-green/55 bg-latte-green/15 text-latte-green";
-  }
-  return "border-latte-surface2/70 bg-latte-crust/65 text-latte-subtext0";
-};
-
-const resolveRankBarClass = (index: number) => {
-  if (index === 0) {
-    return "from-latte-yellow/85 to-latte-peach/85";
-  }
-  if (index === 1) {
-    return "from-latte-blue/80 to-latte-lavender/80";
-  }
-  if (index === 2) {
-    return "from-latte-green/80 to-latte-lavender/75";
-  }
-  return "from-latte-overlay1/80 to-latte-surface2/80";
-};
-
-const resolveRepoApproximationReason = (
-  reason: UsageGlobalTimelineRepoRankingItem["approximationReason"],
-) => {
-  if (reason === "retention_clipped") {
-    return "Range start is outside retained timeline history.";
-  }
-  return "Metrics may include approximation.";
-};
-
-const repoRankingTabs = (value: RepoRankingTab, onValueChange: (value: RepoRankingTab) => void) => (
-  <Tabs
-    value={value}
-    onValueChange={(nextValue) => {
-      if (
-        nextValue === "running-sum" ||
-        nextValue === "running-union" ||
-        nextValue === "running-transitions"
-      ) {
-        onValueChange(nextValue);
-      }
-    }}
-  >
-    <TabsList aria-label="Repo ranking metric">
-      <TabsTrigger value="running-sum">Running Time (Sum)</TabsTrigger>
-      <TabsTrigger value="running-union">Running Time (Union)</TabsTrigger>
-      <TabsTrigger value="running-transitions">RUNNING Transitions</TabsTrigger>
-    </TabsList>
-  </Tabs>
-);
-
 const timelineRangeTabs = (
   timelineRange: SessionStateTimelineRange,
   onTimelineRangeChange: (range: SessionStateTimelineRange) => void,
@@ -1111,7 +980,6 @@ export const UsageDashboardView = ({
   onOpenHere,
   onOpenNewTab,
 }: UsageDashboardVM) => {
-  const [repoRankingTab, setRepoRankingTab] = useState<RepoRankingTab>("running-sum");
   const timelineDisplay = useMemo(
     () =>
       buildTimelineDisplay(timeline?.timeline ?? null, timelineRange, { compact: compactTimeline }),
@@ -1126,36 +994,6 @@ export const UsageDashboardView = ({
   const waitingMs =
     timelineDisplay.totalsMs.WAITING_INPUT + timelineDisplay.totalsMs.WAITING_PERMISSION;
   const timelineItems = compactTimeline ? timelineDisplay.items.slice(0, 6) : timelineDisplay.items;
-  const repoRanking = timeline?.repoRanking ?? EMPTY_REPO_RANKING;
-  const repoRankingRows = useMemo(
-    () => resolveRepoRankingRows(repoRanking, repoRankingTab),
-    [repoRanking, repoRankingTab],
-  );
-  const repoRankingBaseline = useMemo(() => {
-    if (repoRankingRows.length === 0) {
-      return null;
-    }
-    const ranked = repoRankingRows
-      .map((item) => ({
-        item,
-        metric: resolveRepoRankingMetric(item, repoRankingTab),
-      }))
-      .sort((left, right) => right.metric.value - left.metric.value);
-    const leader = ranked[0];
-    if (!leader || leader.metric.value <= 0) {
-      return null;
-    }
-    return {
-      repoName: leader.item.repoName,
-      metricLabel: leader.metric.label,
-      metricRendered: leader.metric.rendered,
-      metricValue: leader.metric.value,
-    };
-  }, [repoRankingRows, repoRankingTab]);
-  const hasRepoRanking =
-    repoRanking.byRunningTimeSum.length > 0 ||
-    repoRanking.byRunningTimeUnion.length > 0 ||
-    repoRanking.byRunningTransitions.length > 0;
   const codexProvider =
     dashboard?.providers.find((provider) => provider.providerId === "codex") ?? null;
   const claudeProvider =
@@ -1270,125 +1108,6 @@ export const UsageDashboardView = ({
             <section>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-display text-latte-text text-xl font-semibold">
-                  Active Repository
-                </h2>
-              </div>
-              <div className="mt-2">{timelineRangeTabs(timelineRange, onTimelineRangeChange)}</div>
-              <div className="mt-2">{repoRankingTabs(repoRankingTab, setRepoRankingTab)}</div>
-              <div className="mt-3 space-y-1.5">
-                {hasRepoRanking ? (
-                  <ol className="space-y-2">
-                    {repoRankingRows.map((item, index) => {
-                      const primaryMetric = resolveRepoRankingMetric(item, repoRankingTab);
-                      const baselineValue = repoRankingBaseline?.metricValue ?? 0;
-                      const rawWidth =
-                        baselineValue > 0 ? (primaryMetric.value / baselineValue) * 100 : 0;
-                      const width = clampPercent(
-                        primaryMetric.value > 0 ? Math.max(rawWidth, 6) : rawWidth,
-                      );
-                      const formattedRepoRoot = formatPath(item.repoRoot);
-                      return (
-                        <li key={`${repoRankingTab}:${item.repoRoot}`}>
-                          <PanelSection className="border-latte-surface2/65 bg-latte-base/35 rounded-2xl border">
-                            <div className="flex items-start gap-3">
-                              <span
-                                className={cn(
-                                  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold tabular-nums",
-                                  resolveRankBadgeClass(index),
-                                )}
-                              >
-                                {index + 1}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-latte-text truncate font-semibold">
-                                    {item.repoName}
-                                  </p>
-                                  {item.approximate ? (
-                                    <TagPill
-                                      tone="meta"
-                                      title={resolveRepoApproximationReason(
-                                        item.approximationReason,
-                                      )}
-                                    >
-                                      Approx
-                                    </TagPill>
-                                  ) : null}
-                                </div>
-                                <p
-                                  className="text-latte-subtext0 mt-0.5 truncate text-xs"
-                                  title={item.repoRoot}
-                                >
-                                  {formattedRepoRoot}
-                                </p>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.22em]">
-                                  {primaryMetric.label}
-                                </p>
-                                <p className="font-display text-latte-text text-lg font-semibold tabular-nums">
-                                  {primaryMetric.rendered}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mt-2.5">
-                              <div className="border-latte-surface2/75 bg-latte-base/70 h-2.5 overflow-hidden rounded-full border">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-full bg-gradient-to-r transition-[width] duration-300 ease-out",
-                                    resolveRankBarClass(index),
-                                  )}
-                                  style={{ width: `${width}%` }}
-                                />
-                              </div>
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <TagPill
-                                tone="neutral"
-                                className={cn(
-                                  repoRankingTab === "running-sum" &&
-                                    "border-latte-blue/55 bg-latte-blue/15 text-latte-blue",
-                                )}
-                              >
-                                Sum {formatDurationMsToMinute(item.runningMs)}
-                              </TagPill>
-                              <TagPill
-                                tone="neutral"
-                                className={cn(
-                                  repoRankingTab === "running-union" &&
-                                    "border-latte-blue/55 bg-latte-blue/15 text-latte-blue",
-                                )}
-                              >
-                                Union {formatDurationMsToMinute(item.runningUnionMs)}
-                              </TagPill>
-                              <TagPill
-                                tone="neutral"
-                                className={cn(
-                                  repoRankingTab === "running-transitions" &&
-                                    "border-latte-blue/55 bg-latte-blue/15 text-latte-blue",
-                                )}
-                              >
-                                Runs {tokenFormatter.format(item.executionCount)}
-                              </TagPill>
-                            </div>
-                          </PanelSection>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                ) : (
-                  <p className="text-latte-subtext0 text-sm">
-                    No repository activity in this range.
-                  </p>
-                )}
-              </div>
-            </section>
-          </GlowCard>
-
-          <GlowCard contentClassName="gap-3">
-            <section>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-display text-latte-text text-xl font-semibold">
                   Global State Timeline
                 </h2>
                 <p className="text-latte-subtext0 text-xs">
@@ -1396,6 +1115,7 @@ export const UsageDashboardView = ({
                   {timeline?.activePaneCount ?? 0} active)
                 </p>
               </div>
+              <div className="mt-2">{timelineRangeTabs(timelineRange, onTimelineRangeChange)}</div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
