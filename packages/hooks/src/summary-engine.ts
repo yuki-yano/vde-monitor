@@ -149,6 +149,8 @@ export const runSummaryWithCodex = ({
       "-c",
       `model_reasoning_effort="${effort}"`,
       "-c",
+      "project_doc_max_bytes=0",
+      "-c",
       "notify=[]",
       "--output-schema",
       schemaPath,
@@ -157,6 +159,7 @@ export const runSummaryWithCodex = ({
       "-",
     ];
     const result = spawnSync("codex", codexArgs, {
+      cwd: os.tmpdir(),
       input: prompt,
       encoding: "utf8",
       stdio: ["pipe", "ignore", "ignore"],
@@ -195,6 +198,8 @@ export const runSummaryWithClaude = ({
       model,
       "--effort",
       effort,
+      "--setting-sources",
+      "user",
       "--no-session-persistence",
       "--tools",
       "",
@@ -210,6 +215,7 @@ export const runSummaryWithClaude = ({
       env: {
         ...process.env,
         CLAUDE_CODE_EFFORT_LEVEL: effort,
+        CLAUDE_CODE_SIMPLE: "1",
       },
     });
 
