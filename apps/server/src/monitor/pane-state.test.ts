@@ -24,6 +24,7 @@ describe("pane-state", () => {
     expect(state.lastFingerprint).toBeNull();
     expect(state.lastFingerprintCaptureAtMs).toBeNull();
     expect(state.hookState).toBeNull();
+    expect(state.codexQuestionPromptActive).toBe(false);
   });
 
   it("updates input timestamp only when newer", () => {

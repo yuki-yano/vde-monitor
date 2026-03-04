@@ -25,6 +25,9 @@ export const estimateState = (
   if (signals.hookState) {
     return mapHookState(signals.hookState);
   }
+  if (signals.codexQuestionPromptActive) {
+    return { state: "WAITING_PERMISSION", reason: "poll:codex_question_prompt" };
+  }
 
   const lastOutputTs = toTimestamp(signals.lastOutputAt);
   if (lastOutputTs != null) {

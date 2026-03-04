@@ -12,6 +12,7 @@ import type { PaneRuntimeState } from "./pane-state";
 
 const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
   hookState: null,
+  codexQuestionPromptActive: false,
   lastOutputAt: null,
   lastEventAt: null,
   lastMessage: null,
@@ -108,6 +109,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
     const result = await processPane(
       {
@@ -147,6 +149,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     await processPane(
@@ -175,6 +178,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     await processPane(
@@ -216,6 +220,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
     const detail = await processPane(
       {
@@ -280,6 +285,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     const detail = await processPane(
@@ -320,6 +326,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     const detail = await processPane(
@@ -355,6 +362,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     await processPane(
@@ -391,6 +399,7 @@ describe("processPane", () => {
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
       inputTouchedAt: null,
+      codexQuestionPromptActive: false,
     }));
 
     await processPane(
@@ -430,6 +439,7 @@ describe("processPane", () => {
           outputAt: "2024-01-05T00:00:00.000Z",
           hookState: null,
           inputTouchedAt: "2024-01-05T00:00:00.000Z",
+          codexQuestionPromptActive: false,
         };
       },
     );

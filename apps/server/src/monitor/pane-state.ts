@@ -7,6 +7,7 @@ import type {
 
 export type PaneRuntimeState = {
   hookState: HookStateSignal | null;
+  codexQuestionPromptActive: boolean;
   lastOutputAt: string | null;
   lastEventAt: string | null;
   lastMessage: string | null;
@@ -28,6 +29,7 @@ export type PaneRuntimeState = {
 
 const createDefaultState = (): PaneRuntimeState => ({
   hookState: null,
+  codexQuestionPromptActive: false,
   lastOutputAt: null,
   lastEventAt: null,
   lastMessage: null,

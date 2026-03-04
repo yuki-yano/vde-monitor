@@ -29,6 +29,10 @@ type DispatcherOptions = {
 const DEFAULT_RETRY_DELAYS_MS: [number, number] = [500, 1500];
 const DEFAULT_COOLDOWN_MS = 30_000;
 const DEFAULT_WARN_THRESHOLD = 3;
+const waitingPermissionPushReasons = new Set([
+  "hook:permission_prompt",
+  "poll:codex_question_prompt",
+]);
 
 const resolveTransitionEventType = (event: SessionTransitionEvent): PushEventType | null => {
   if (event.previous == null) {
@@ -44,6 +48,9 @@ const resolveTransitionEventType = (event: SessionTransitionEvent): PushEventTyp
     return null;
   }
   if (event.next.state === "WAITING_PERMISSION") {
+    if (!waitingPermissionPushReasons.has(event.next.stateReason)) {
+      return null;
+    }
     return "pane.waiting_permission";
   }
   if (event.next.state === "WAITING_INPUT" && event.previous.state === "RUNNING") {

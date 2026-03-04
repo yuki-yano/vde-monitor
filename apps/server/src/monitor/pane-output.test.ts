@@ -15,6 +15,7 @@ describe("updatePaneOutputState", () => {
 
   const createState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
     hookState: null,
+    codexQuestionPromptActive: false,
     lastOutputAt: null,
     lastEventAt: null,
     lastMessage: null,
@@ -167,6 +168,102 @@ describe("updatePaneOutputState", () => {
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
     expect(captureFingerprint).not.toHaveBeenCalled();
+  });
+
+  it("captures fingerprint for codex pane even when log timestamp is available", async () => {
+    const state = createState();
+    const captureFingerprint = vi.fn(async () => "Question 1/2 (2 unanswered)");
+
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: true,
+      logPath: "/tmp/log",
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => "2024-01-02T00:00:00.000Z",
+        resolveActivityAt: () => null,
+        captureFingerprint,
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+
+    expect(captureFingerprint).toHaveBeenCalledTimes(1);
+    expect(result.codexQuestionPromptActive).toBe(true);
+  });
+
+  it("detects codex question prompt with ansi sequences", async () => {
+    const state = createState();
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: true,
+      logPath: null,
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => null,
+        resolveActivityAt: () => null,
+        captureFingerprint: async () => "\u001b[31mQuestion 1/2 (2 unanswered)\u001b[0m",
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+
+    expect(result.codexQuestionPromptActive).toBe(true);
+  });
+
+  it("uses latest status line when unanswered and answered both exist", async () => {
+    const state = createState();
+    const first = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: true,
+      logPath: null,
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => null,
+        resolveActivityAt: () => null,
+        captureFingerprint: async () =>
+          "Question 1/2 (2 unanswered)\n• Questions 2/2 answered\nanswer: バグ修正",
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+    expect(first.codexQuestionPromptActive).toBe(false);
+
+    const second = await updatePaneOutputState({
+      pane: basePane,
+      paneState: createState(),
+      isCodexAgentPane: true,
+      logPath: null,
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => null,
+        resolveActivityAt: () => null,
+        captureFingerprint: async () =>
+          "• Questions 2/2 answered\nQuestion 1/2 (2 unanswered)\n回答スタイルはどれが良いですか？",
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+    expect(second.codexQuestionPromptActive).toBe(true);
+  });
+
+  it("does not keep codex question prompt active for non-codex panes", async () => {
+    const state = createState({ codexQuestionPromptActive: true });
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: false,
+      logPath: null,
+      inactiveThresholdMs: 1000,
+      deps: {
+        statLogMtime: async () => null,
+        resolveActivityAt: () => null,
+        captureFingerprint: async () => "Question 1/2 (2 unanswered)",
+        now: () => new Date("2024-01-03T00:00:00.000Z"),
+      },
+    });
+
+    expect(result.codexQuestionPromptActive).toBe(false);
+    expect(state.codexQuestionPromptActive).toBe(false);
   });
 
   it("captures fingerprint when activity timestamp is available but log timestamp is missing", async () => {

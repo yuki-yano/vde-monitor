@@ -9,6 +9,13 @@ import {
 import { type PaneRuntimeState, updateInputAt, updateOutputAt } from "./pane-state";
 
 const DEFAULT_FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
+const ansiEscapePattern = new RegExp(String.raw`\u001b\[[0-?]*[ -/]*[@-~]`, "g");
+const ansiOscPattern = new RegExp(String.raw`\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)`, "g");
+const ansiCharsetDesignatePattern = new RegExp(String.raw`\u001b[\(\)\*\+\-\.\/][0-~]`, "g");
+const ansiSingleCharacterPattern = new RegExp(String.raw`\u001b(?:[@-Z\\^_]|[=>])`, "g");
+const codexQuestionUnansweredLinePattern =
+  /^Question\s+\d+\s*\/\s*\d+\s*\(\s*\d+\s+unanswered\s*\)$/i;
+const codexQuestionsAnsweredLinePattern = /^Questions\s+\d+\s*\/\s*\d+\s+answered$/i;
 
 type PaneOutputSnapshot = {
   paneId: string;
@@ -33,6 +40,7 @@ type UpdatePaneOutputArgs = {
   pane: PaneOutputSnapshot;
   paneState: PaneRuntimeState;
   isAgentPane?: boolean;
+  isCodexAgentPane?: boolean;
   logPath: string | null;
   inactiveThresholdMs: number;
   deps: PaneOutputDeps;
@@ -93,6 +101,37 @@ const updateOutputAtFromActivity = ({
   return activityAt;
 };
 
+const stripAnsi = (value: string) =>
+  value
+    .replace(ansiEscapePattern, "")
+    .replace(ansiOscPattern, "")
+    .replace(ansiCharsetDesignatePattern, "")
+    .replace(ansiSingleCharacterPattern, "");
+
+const normalizeQuestionStatusLine = (line: string) =>
+  stripAnsi(line)
+    .trim()
+    .replace(/^[•*-]\s*/, "");
+
+const resolveCodexQuestionPromptActive = (fingerprint: string) => {
+  const normalized = stripAnsi(fingerprint.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));
+  const lines = normalized.split("\n");
+  let latestStatus: "answered" | "unanswered" | null = null;
+
+  for (const line of lines) {
+    const normalizedLine = normalizeQuestionStatusLine(line);
+    if (codexQuestionUnansweredLinePattern.test(normalizedLine)) {
+      latestStatus = "unanswered";
+      continue;
+    }
+    if (codexQuestionsAnsweredLinePattern.test(normalizedLine)) {
+      latestStatus = "answered";
+    }
+  }
+
+  return latestStatus === "unanswered";
+};
+
 const updateOutputAtFromFingerprint = async ({
   pane,
   paneState,
@@ -100,6 +139,7 @@ const updateOutputAtFromFingerprint = async ({
   now,
   setOutputAt,
   allowCapture,
+  trackCodexQuestionPrompt,
 }: {
   pane: PaneOutputSnapshot;
   paneState: PaneRuntimeState;
@@ -107,6 +147,7 @@ const updateOutputAtFromFingerprint = async ({
   now: () => Date;
   setOutputAt: (next: string | null) => void;
   allowCapture: boolean;
+  trackCodexQuestionPrompt: boolean;
 }) => {
   if (pane.paneDead || !allowCapture) {
     return;
@@ -115,7 +156,13 @@ const updateOutputAtFromFingerprint = async ({
   const capturedAtMs = now().getTime();
   paneState.lastFingerprintCaptureAtMs = capturedAtMs;
   const fingerprint = await captureFingerprint(pane.paneId, pane.alternateOn);
-  if (!fingerprint || paneState.lastFingerprint === fingerprint) {
+  if (!fingerprint) {
+    return;
+  }
+  if (trackCodexQuestionPrompt) {
+    paneState.codexQuestionPromptActive = resolveCodexQuestionPromptActive(fingerprint);
+  }
+  if (paneState.lastFingerprint === fingerprint) {
     return;
   }
   paneState.lastFingerprint = fingerprint;
@@ -212,6 +259,7 @@ export const updatePaneOutputState = async ({
   pane,
   paneState,
   isAgentPane = false,
+  isCodexAgentPane = false,
   logPath,
   inactiveThresholdMs,
   deps,
@@ -226,6 +274,9 @@ export const updatePaneOutputState = async ({
   );
   const allowFingerprintCapture = deps.allowFingerprintCapture ?? true;
   const now = deps.now ?? (() => new Date());
+  if (!isCodexAgentPane) {
+    paneState.codexQuestionPromptActive = false;
+  }
 
   const outputAtTracker = createOutputAtTracker(paneState);
   const logMtime = await updateOutputAtFromLog({
@@ -241,7 +292,7 @@ export const updatePaneOutputState = async ({
   const lastFingerprintCaptureAtMs = paneState.lastFingerprintCaptureAtMs ?? 0;
   const shouldCaptureFingerprint =
     allowFingerprintCapture &&
-    !logMtime &&
+    (isCodexAgentPane || !logMtime) &&
     now().getTime() - lastFingerprintCaptureAtMs >= fingerprintIntervalMs;
   await updateOutputAtFromFingerprint({
     pane,
@@ -250,6 +301,7 @@ export const updatePaneOutputState = async ({
     now,
     setOutputAt: outputAtTracker.setOutputAt,
     allowCapture: shouldCaptureFingerprint,
+    trackCodexQuestionPrompt: isCodexAgentPane,
   });
 
   const outputAt = ensureFallbackOutputAt({
@@ -285,5 +337,10 @@ export const updatePaneOutputState = async ({
     }
   }
 
-  return { outputAt, hookState, inputTouchedAt };
+  return {
+    outputAt,
+    hookState,
+    inputTouchedAt,
+    codexQuestionPromptActive: paneState.codexQuestionPromptActive,
+  };
 };

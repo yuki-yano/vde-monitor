@@ -893,5 +893,6 @@ export type StateSignals = {
   paneDead: boolean;
   lastOutputAt: string | null;
   hookState: HookStateSignal | null;
+  codexQuestionPromptActive?: boolean;
   thresholds: { runningThresholdMs: number; inactiveThresholdMs: number };
 };

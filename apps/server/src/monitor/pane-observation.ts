@@ -106,6 +106,7 @@ const resolveEstimatedState = ({
   paneDead,
   outputAt,
   hookState,
+  codexQuestionPromptActive,
   activity,
   estimateState,
 }: {
@@ -115,6 +116,7 @@ const resolveEstimatedState = ({
   paneDead: boolean;
   outputAt: string | null;
   hookState: HookStateSignal | null;
+  codexQuestionPromptActive: boolean;
   activity: AgentMonitorConfig["activity"];
   estimateState: typeof estimateSessionState;
 }): EstimatedPaneState => {
@@ -124,6 +126,7 @@ const resolveEstimatedState = ({
       paneDead,
       lastOutputAt: outputAt,
       hookState,
+      codexQuestionPromptActive,
       activity,
     });
   }
@@ -192,7 +195,11 @@ export const observePane = async (
 
   const paneState = paneStates.get(pane.paneId);
   const allowFingerprintCapture = isAgent || Boolean(isPaneViewedRecently?.(pane.paneId));
-  const { outputAt, hookState } = await updateOutput({
+  const {
+    outputAt,
+    hookState,
+    codexQuestionPromptActive = false,
+  } = await updateOutput({
     pane: {
       paneId: pane.paneId,
       paneActivity: pane.paneActivity,
@@ -203,6 +210,7 @@ export const observePane = async (
     },
     paneState,
     isAgentPane: isAgent,
+    isCodexAgentPane: agent === "codex",
     logPath,
     inactiveThresholdMs: 60000,
     deps: {
@@ -220,6 +228,7 @@ export const observePane = async (
     paneDead: pane.paneDead,
     outputAt,
     hookState,
+    codexQuestionPromptActive,
     activity: config.activity,
     estimateState,
   });

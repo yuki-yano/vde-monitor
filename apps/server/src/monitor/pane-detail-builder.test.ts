@@ -31,6 +31,7 @@ const observation: PaneObservation = {
   pipeConflict: false,
   paneState: {
     hookState: null,
+    codexQuestionPromptActive: false,
     lastOutputAt: null,
     lastEventAt: "2024-01-01T00:00:00.000Z",
     lastMessage: "message",

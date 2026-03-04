@@ -110,7 +110,10 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
@@ -118,6 +121,101 @@ describe("createNotificationDispatcher", () => {
     expect(logger.log).toHaveBeenCalledWith(
       expect.stringContaining("summary event=pane.waiting_permission"),
     );
+  });
+
+  it("sends waiting_permission for poll:codex_question_prompt", async () => {
+    const config = {
+      ...configDefaults,
+      token: "token",
+      notifications: {
+        ...configDefaults.notifications,
+        pushEnabled: true,
+        enabledEventTypes: [
+          "pane.waiting_permission",
+          "pane.task_completed",
+        ] as ConfigPushEventType[],
+      },
+    };
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempStorePath(),
+      createId: () => "sub-1",
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+    const sendNotification = vi.fn(async () => undefined);
+    const dispatcher = createNotificationDispatcher({
+      config,
+      subscriptionStore: store,
+      sendNotification,
+      now: () => "2026-02-20T00:00:01.000Z",
+      nowMs: () => 1000,
+      sleep: async () => undefined,
+      logger: { log: vi.fn(), warn: vi.fn() },
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "poll:codex_question_prompt"),
+      ),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send waiting_permission for unsupported poll reason", async () => {
+    const config = {
+      ...configDefaults,
+      token: "token",
+      notifications: {
+        ...configDefaults.notifications,
+        pushEnabled: true,
+        enabledEventTypes: [
+          "pane.waiting_permission",
+          "pane.task_completed",
+        ] as ConfigPushEventType[],
+      },
+    };
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempStorePath(),
+      createId: () => "sub-1",
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert({
+      deviceId: "device-1",
+      subscription: {
+        endpoint: "https://push.example/sub/1",
+        expirationTime: null,
+        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+      },
+      scope: { paneIds: ["%1"], eventTypes: null },
+      client: { platform: "desktop", standalone: false },
+    });
+    const sendNotification = vi.fn(async () => undefined);
+    const dispatcher = createNotificationDispatcher({
+      config,
+      subscriptionStore: store,
+      sendNotification,
+      now: () => "2026-02-20T00:00:01.000Z",
+      nowMs: () => 1000,
+      sleep: async () => undefined,
+      logger: { log: vi.fn(), warn: vi.fn() },
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+    );
+
+    expect(sendNotification).not.toHaveBeenCalled();
   });
 
   it("follows global enabledEventTypes when scope.eventTypes is null", async () => {
@@ -157,7 +255,10 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
 
     expect(sendNotification).not.toHaveBeenCalled();
@@ -418,7 +519,10 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
 
     expect(sendNotification).toHaveBeenCalledTimes(2);
@@ -468,7 +572,10 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
@@ -522,7 +629,7 @@ describe("createNotificationDispatcher", () => {
 
     await dispatcher.dispatchTransition(
       createTransition(createDetail("RUNNING", "poll"), {
-        ...createDetail("WAITING_PERMISSION", "poll"),
+        ...createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
         lastEventAt: "2026-02-20T00:00:01.000Z",
       }),
     );
@@ -530,7 +637,7 @@ describe("createNotificationDispatcher", () => {
     currentNowMs = 12_000;
     await dispatcher.dispatchTransition(
       createTransition(createDetail("RUNNING", "poll"), {
-        ...createDetail("WAITING_PERMISSION", "poll"),
+        ...createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
         lastEventAt: "2026-02-20T00:00:12.000Z",
       }),
     );
@@ -550,7 +657,7 @@ describe("createNotificationDispatcher", () => {
     currentNowMs = 13_000;
     await dispatcher.dispatchTransition(
       createTransition(createDetail("RUNNING", "poll"), {
-        ...createDetail("WAITING_PERMISSION", "poll"),
+        ...createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
         lastEventAt: "2026-02-20T00:00:01.000Z",
       }),
     );
@@ -601,7 +708,10 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
     expect(sendNotification).toHaveBeenCalledTimes(1);
 
@@ -619,7 +729,10 @@ describe("createNotificationDispatcher", () => {
 
     currentNowMs = 1001;
     await dispatcher.dispatchTransition(
-      createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
+      ),
     );
 
     expect(sendNotification).toHaveBeenCalledTimes(2);
@@ -665,12 +778,12 @@ describe("createNotificationDispatcher", () => {
     });
 
     await dispatcher.dispatchTransition(
-      createTransition(null, createDetail("WAITING_PERMISSION", "poll"), "poll"),
+      createTransition(null, createDetail("WAITING_PERMISSION", "hook:permission_prompt"), "poll"),
     );
     await dispatcher.dispatchTransition(
       createTransition(
         createDetail("RUNNING", "poll"),
-        createDetail("WAITING_PERMISSION", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
         "restore",
       ),
     );
