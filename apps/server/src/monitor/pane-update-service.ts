@@ -73,6 +73,7 @@ type CreatePaneUpdateServiceArgs = {
   logActivity: LogActivityLike;
   savePersistedState: () => void;
   onStateTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
+  now?: () => string;
 };
 
 const resolveTimelineSource = (reason: string): SessionStateTimelineSource => {
@@ -107,6 +108,7 @@ export const createPaneUpdateService = ({
   logActivity,
   savePersistedState,
   onStateTransition,
+  now = () => new Date().toISOString(),
 }: CreatePaneUpdateServiceArgs) => {
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
@@ -263,15 +265,12 @@ export const createPaneUpdateService = ({
           source: transitionSource,
         });
         if (onStateTransition) {
+          const transitionAt = now();
           const transitionEvent: SessionTransitionEvent = {
             paneId: detail.paneId,
             previous: existing,
             next: detail,
-            at:
-              detail.lastEventAt ??
-              detail.lastOutputAt ??
-              detail.lastInputAt ??
-              new Date().toISOString(),
+            at: transitionAt,
             source: transitionSource,
           };
           void Promise.resolve(onStateTransition(transitionEvent)).catch((error) => {

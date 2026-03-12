@@ -18,6 +18,7 @@ import {
   loadConfig,
   resolveHookSummaryConfig,
   resolveHookSummarySourceConfig,
+  resolveTmuxPane,
 } from "./cli";
 import {
   appendSummaryEvent,
@@ -26,6 +27,7 @@ import {
 import {
   detectPayloadSourceAgent,
   extractCodexAssistantMessage,
+  extractCodexSessionId,
   extractCodexTurnId,
   extractEventTimestamp,
   isLikelyJsonObjectText,
@@ -48,6 +50,7 @@ export type ParsedRuntimeArgs = {
 
 const SOURCE_AGENT = "claude" as const;
 const SUMMARY_TIMEOUT_BASE_MS = 12_000;
+const DETACHED_RECEIVED_AT_ENV = "VDE_MONITOR_RECEIVED_AT";
 
 const readStdin = (): string => {
   try {
@@ -193,12 +196,15 @@ export const buildCodexSummaryEvent = (
   payload: HookPayload,
   summary: SummaryText,
   sourceEventAt = new Date().toISOString(),
+  options: {
+    tmuxPane?: string | null;
+  } = {},
 ): SummaryPublishRequest =>
   buildSummaryContractEvent({
     sourceAgent: "codex",
     sourceEventAt,
     paneLocator: {
-      tmux_pane: readOptionalString(process.env.TMUX_PANE) ?? undefined,
+      tmux_pane: options.tmuxPane ?? readOptionalString(process.env.TMUX_PANE) ?? undefined,
       cwd: readOptionalString(payload.cwd) ?? undefined,
     },
     summary,
@@ -206,6 +212,19 @@ export const buildCodexSummaryEvent = (
       turn_id: extractCodexTurnId(payload) ?? undefined,
     },
   });
+
+export const resolveSourceEventAt = (payload: HookPayload, receivedAt: string): string =>
+  extractEventTimestamp(payload) ?? receivedAt;
+
+export const resolveReceivedAt = (
+  fallbackReceivedAt: string,
+  input = readOptionalString(process.env[DETACHED_RECEIVED_AT_ENV]),
+): string => {
+  if (input && Number.isFinite(Date.parse(input))) {
+    return input;
+  }
+  return fallbackReceivedAt;
+};
 
 export const shouldForwardHookPayload = (
   hookEventName: string,
@@ -328,7 +347,11 @@ export const buildDetachedProcessPlan = (
   };
 };
 
-const spawnDetachedProcess = (parsed: ParsedRuntimeArgs, payloadFilePath: string): boolean => {
+const spawnDetachedProcess = (
+  parsed: ParsedRuntimeArgs,
+  payloadFilePath: string,
+  receivedAt: string,
+): boolean => {
   const plan = buildDetachedProcessPlan(parsed, payloadFilePath);
   if (!plan) {
     return false;
@@ -337,7 +360,10 @@ const spawnDetachedProcess = (parsed: ParsedRuntimeArgs, payloadFilePath: string
     const child = spawn(plan.command, plan.args, {
       detached: true,
       stdio: "ignore",
-      env: process.env,
+      env: {
+        ...process.env,
+        [DETACHED_RECEIVED_AT_ENV]: receivedAt,
+      },
     });
     child.unref();
     return true;
@@ -373,6 +399,7 @@ const main = () => {
     if (!payloadRaw.trim()) {
       process.exit(0);
     }
+    const receivedAt = new Date().toISOString();
 
     if (isPayloadArgMode) {
       const payload = parseNotifyPayload(payloadRaw);
@@ -396,7 +423,7 @@ const main = () => {
     }
 
     const payloadFilePath = writePayloadToTempFile(payloadRaw);
-    if (!spawnDetachedProcess(parsed, payloadFilePath)) {
+    if (!spawnDetachedProcess(parsed, payloadFilePath, receivedAt)) {
       cleanupPayloadFile(payloadFilePath);
       process.exit(1);
     }
@@ -428,6 +455,8 @@ const main = () => {
       const config = loadConfig();
       const summaryConfig = resolveHookSummaryConfig(config);
       const sourceConfig = resolveHookSummarySourceConfig(config, sourceAgent);
+      const receivedAt = resolveReceivedAt(new Date().toISOString());
+      const sourceEventAt = resolveSourceEventAt(payload, receivedAt);
 
       if (sourceAgent === "claude") {
         const hookEventName = readOptionalString(payload.hook_event_name) ?? "Stop";
@@ -458,14 +487,7 @@ const main = () => {
           if (summaryConfig.rename.pane) {
             applyTmuxPaneTitle(fields.tmuxPane, summary.paneTitle);
           }
-          appendSummaryEvent(
-            buildSummaryEvent(
-              hookEventName,
-              fields,
-              summary,
-              extractEventTimestamp(payload) ?? new Date().toISOString(),
-            ),
-          );
+          appendSummaryEvent(buildSummaryEvent(hookEventName, fields, summary, sourceEventAt));
         }
         if (shouldForward) {
           runForwardNotifyCommand(parsed.forwardCommandArgv, payloadRaw);
@@ -474,11 +496,12 @@ const main = () => {
       }
 
       if (summaryConfig.enabled && sourceConfig.enabled) {
+        const tmuxPane = resolveTmuxPane();
         const summary = runClaudeSummary(
           {
             assistantMessage: extractCodexAssistantMessage(payload),
             cwd: readOptionalString(payload.cwd) ?? undefined,
-            sessionId: extractCodexTurnId(payload) ?? undefined,
+            sessionId: extractCodexSessionId(payload) ?? undefined,
           },
           {
             engine: sourceConfig.engine,
@@ -487,15 +510,9 @@ const main = () => {
           },
         );
         if (summaryConfig.rename.pane) {
-          applyTmuxPaneTitle(readOptionalString(process.env.TMUX_PANE), summary.paneTitle);
+          applyTmuxPaneTitle(tmuxPane, summary.paneTitle);
         }
-        appendSummaryEvent(
-          buildCodexSummaryEvent(
-            payload,
-            summary,
-            extractEventTimestamp(payload) ?? new Date().toISOString(),
-          ),
-        );
+        appendSummaryEvent(buildCodexSummaryEvent(payload, summary, sourceEventAt, { tmuxPane }));
       }
       runForwardNotifyCommand(parsed.forwardCommandArgv, payloadRaw);
       process.exit(0);
@@ -525,6 +542,8 @@ const main = () => {
       const config = loadConfig();
       const summaryConfig = resolveHookSummaryConfig(config);
       const sourceConfig = resolveHookSummarySourceConfig(config, SOURCE_AGENT);
+      const receivedAt = resolveReceivedAt(new Date().toISOString());
+      const sourceEventAt = resolveSourceEventAt(payload, receivedAt);
       if (summaryConfig.enabled && sourceConfig.enabled) {
         const fields = extractPayloadFields(payload);
         const assistantMessage = extractLatestAssistantMessageFromTranscript(fields.transcriptPath);
@@ -543,14 +562,7 @@ const main = () => {
         if (summaryConfig.rename.pane) {
           applyTmuxPaneTitle(fields.tmuxPane, summary.paneTitle);
         }
-        appendSummaryEvent(
-          buildSummaryEvent(
-            parsed.hookEventName,
-            fields,
-            summary,
-            extractEventTimestamp(payload) ?? new Date().toISOString(),
-          ),
-        );
+        appendSummaryEvent(buildSummaryEvent(parsed.hookEventName, fields, summary, sourceEventAt));
       }
     }
 
@@ -562,6 +574,6 @@ const main = () => {
   }
 };
 
-if (isMainModule()) {
+if (isMainModule(import.meta.url)) {
   main();
 }

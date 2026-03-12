@@ -25,10 +25,7 @@ const toCanonicalFileUrlFromModuleUrl = (moduleUrl: string) => {
   }
 };
 
-export const isMainModule = (
-  mainPath: string | undefined = process.argv[1],
-  moduleUrl = import.meta.url,
-) => {
+export const isMainModule = (moduleUrl: string, mainPath: string | undefined = process.argv[1]) => {
   if (!mainPath) {
     return false;
   }

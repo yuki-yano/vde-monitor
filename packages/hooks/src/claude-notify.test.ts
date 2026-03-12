@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCodexSummaryEvent,
   buildDetachedProcessPlan,
   buildSummaryEvent,
   parseNotifyPayload,
   parseRuntimeArgs,
+  resolveReceivedAt,
+  resolveSourceEventAt,
   shouldForwardHookPayload,
   shouldSkipAsyncSpawnForPayload,
 } from "./claude-notify";
@@ -147,6 +150,64 @@ describe("claude notify helper", () => {
       notificationTitle: "README update",
       notificationBody: "README update and tests finished",
     });
+  });
+
+  it("builds codex summary event payload from current task_complete payload", () => {
+    const summaryEvent = buildCodexSummaryEvent(
+      {
+        type: "task_complete",
+        turn_id: "019ccc98-0c75-7bc3-85ce-827942840e81",
+        cwd: "/repo/apps/server",
+      },
+      {
+        paneTitle: "summary ready",
+        notificationTitle: "Codex done",
+        notificationBody: "Summary payload is ready",
+      },
+      "2026-03-08T08:38:27.507Z",
+    );
+
+    expect(summaryEvent.sourceEventAt).toBe("2026-03-08T08:38:27.507Z");
+    expect(summaryEvent.locator.source).toBe("codex");
+    expect(summaryEvent.locator.eventType).toBe("pane.task_completed");
+    expect(summaryEvent.locator.sequence).toBe(1772959107507);
+  });
+
+  it("uses receive time when payload timestamp is missing", () => {
+    expect(
+      resolveSourceEventAt(
+        {
+          type: "task_complete",
+          turn_id: "019ccc98-0c75-7bc3-85ce-827942840e81",
+          last_agent_message: "done",
+        },
+        "2026-03-08T08:38:27.507Z",
+      ),
+    ).toBe("2026-03-08T08:38:27.507Z");
+  });
+
+  it("prefers payload timestamp over receive time when present", () => {
+    expect(
+      resolveSourceEventAt(
+        {
+          type: "task_complete",
+          ts: "2026-03-08T08:38:20.000Z",
+        },
+        "2026-03-08T08:38:27.507Z",
+      ),
+    ).toBe("2026-03-08T08:38:20.000Z");
+  });
+
+  it("prefers detached parent receive time when provided", () => {
+    expect(resolveReceivedAt("2026-03-08T08:38:27.507Z", "2026-03-08T08:38:20.000Z")).toBe(
+      "2026-03-08T08:38:20.000Z",
+    );
+  });
+
+  it("falls back to local receive time when detached parent receive time is invalid", () => {
+    expect(resolveReceivedAt("2026-03-08T08:38:27.507Z", "invalid")).toBe(
+      "2026-03-08T08:38:27.507Z",
+    );
   });
 
   it("does not forward non-interactive stop payloads", () => {

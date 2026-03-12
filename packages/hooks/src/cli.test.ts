@@ -12,6 +12,7 @@ import {
   isClaudeNonInteractivePayload,
   isMainModule,
   resolveHookServerKey,
+  resolveTmuxPane,
   resolveTranscriptPath,
   shouldPersistHookPayload,
 } from "./cli";
@@ -38,6 +39,35 @@ describe("hooks cli helpers", () => {
     expect(fields.cwd).toBe("apps/web");
     expect(fields.tmuxPane).toBe("%42");
     expect(fields.transcriptPath).toContain(path.join(".claude", "projects", "apps-web"));
+  });
+
+  it("resolves tmux pane from display-message when TMUX_PANE is missing", () => {
+    const pane = resolveTmuxPane(
+      {},
+      {
+        spawnSyncFn: (() => ({
+          status: 0,
+          stdout: "%77\n",
+        })) as unknown as typeof import("node:child_process").spawnSync,
+      },
+    );
+
+    expect(pane).toBe("%77");
+  });
+
+  it("uses resolved tmux pane in extracted payload fields when env key is missing", () => {
+    const fields = extractPayloadFields(
+      {
+        session_id: "session-1",
+        cwd: "apps/web",
+      },
+      {},
+      {
+        resolveTmuxPaneFn: () => "%88",
+      },
+    );
+
+    expect(fields.tmuxPane).toBe("%88");
   });
 
   it("includes fallback payload when tmux pane is missing", () => {
@@ -90,7 +120,7 @@ describe("hooks cli helpers", () => {
       fs.writeFileSync(realPath, "export {};\n", "utf8");
       fs.symlinkSync(realPath, symlinkPath);
 
-      expect(isMainModule(symlinkPath, pathToFileURL(realPath).href)).toBe(true);
+      expect(isMainModule(pathToFileURL(realPath).href, symlinkPath)).toBe(true);
     } finally {
       fs.rmSync(baseDir, { recursive: true, force: true });
     }

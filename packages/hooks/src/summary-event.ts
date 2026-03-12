@@ -196,7 +196,7 @@ export const appendSummaryEvent = (event: SummaryPublishRequest) => {
       {
         input: headerInput,
         encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
+        stdio: ["pipe", "pipe", "ignore"],
       },
     );
     lastSpawnStatus = result.status;

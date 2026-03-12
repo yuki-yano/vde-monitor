@@ -118,6 +118,40 @@ const ensureDir = (dir: string) => {
 
 const toOptionalString = (value: unknown) => (typeof value === "string" ? value : undefined);
 
+const normalizeTmuxPane = (value: string | null | undefined): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return trimmed;
+};
+
+export const resolveTmuxPane = (
+  env: NodeJS.ProcessEnv = process.env,
+  options: {
+    spawnSyncFn?: typeof spawnSync;
+  } = {},
+): string | null => {
+  const directPane = normalizeTmuxPane(env.TMUX_PANE);
+  if (directPane) {
+    return directPane;
+  }
+  const spawnSyncFn = options.spawnSyncFn ?? spawnSync;
+  const result = spawnSyncFn("tmux", ["display-message", "-p", "#{pane_id}"], {
+    encoding: "utf8",
+    env,
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 1000,
+  });
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  return normalizeTmuxPane(typeof result.stdout === "string" ? result.stdout : null);
+};
+
 const normalizeExecutableToken = (command: string): string | null => {
   const firstToken = command.trim().split(/\s+/, 1)[0];
   if (!firstToken) {
@@ -398,16 +432,20 @@ const parsePayload = (rawInput: string): HookPayload | null => parseJsonObject(r
 export const extractPayloadFields = (
   payload: HookPayload,
   env: NodeJS.ProcessEnv = process.env,
+  options: {
+    resolveTmuxPaneFn?: typeof resolveTmuxPane;
+  } = {},
 ): HookPayloadFields => {
   const sessionId = toOptionalString(payload.session_id);
   const cwd = toOptionalString(payload.cwd);
   const transcriptPath =
     toOptionalString(payload.transcript_path) ?? resolveTranscriptPath(cwd, sessionId);
+  const resolveTmuxPaneFn = options.resolveTmuxPaneFn ?? resolveTmuxPane;
   return {
     sessionId,
     cwd,
     tty: toOptionalString(payload.tty),
-    tmuxPane: toOptionalString(payload.tmux_pane) ?? env.TMUX_PANE ?? null,
+    tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
     notificationType: toOptionalString(payload.notification_type),
     transcriptPath,
   };
@@ -480,6 +518,6 @@ const main = () => {
   appendEvent(event);
 };
 
-if (isMainModule()) {
+if (isMainModule(import.meta.url)) {
   main();
 }

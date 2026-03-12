@@ -112,6 +112,7 @@ describe("createPaneUpdateService", () => {
       stateTimeline,
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(),
+      now: () => "2026-02-25T00:00:10.000Z",
     });
     return { service, stateTimeline };
   };
@@ -153,5 +154,61 @@ describe("createPaneUpdateService", () => {
     await service.updateFromPanes();
 
     expect(stateTimeline.record).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses transition detection time for notification events", async () => {
+    processPaneMock.mockResolvedValueOnce(
+      createDetail({
+        state: "RUNNING",
+        stateReason: "recent_output",
+        lastOutputAt: "2026-02-25T00:00:00.000Z",
+        lastEventAt: null,
+      }),
+    );
+    processPaneMock.mockResolvedValueOnce(
+      createDetail({
+        state: "WAITING_INPUT",
+        stateReason: "inactive_timeout",
+        lastOutputAt: "2026-02-25T00:00:00.000Z",
+        lastEventAt: null,
+      }),
+    );
+
+    const paneStates = createPaneStateStore();
+    const registry = createSessionRegistry();
+    const stateTimeline = {
+      record: vi.fn(),
+      closePane: vi.fn(),
+    };
+    const inspector = {
+      listPanes: vi.fn(async () => [basePane]),
+      readUserOption: vi.fn(async () => null),
+    };
+    const onStateTransition = vi.fn();
+    const service = createPaneUpdateService({
+      inspector,
+      config,
+      paneStates,
+      paneLogManager: {} as never,
+      capturePaneFingerprint: vi.fn(async () => null),
+      applyRestored: vi.fn(() => null),
+      getCustomTitle: vi.fn(() => null),
+      customTitles: new Map(),
+      registry,
+      stateTimeline,
+      logActivity: { unregister: vi.fn() },
+      savePersistedState: vi.fn(),
+      onStateTransition,
+      now: () => "2026-02-25T00:00:10.000Z",
+    });
+
+    await service.updateFromPanes();
+    await service.updateFromPanes();
+
+    expect(onStateTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        at: "2026-02-25T00:00:10.000Z",
+      }),
+    );
   });
 });
