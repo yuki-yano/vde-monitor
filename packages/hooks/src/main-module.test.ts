@@ -6,8 +6,8 @@ describe("isMainModule", () => {
   it("returns true when moduleUrl matches the entrypoint path", () => {
     expect(
       isMainModule(
-        "file:///Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-summary.js",
-        "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-summary.js",
+        "file:///Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-hook.js",
+        "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-hook.js",
       ),
     ).toBe(true);
   });
@@ -16,7 +16,7 @@ describe("isMainModule", () => {
     expect(
       isMainModule(
         "file:///Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/cli-ySbDmZGw.mjs",
-        "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-summary.js",
+        "/Users/yuki-yano/repos/github.com/yuki-yano/vde-monitor/dist/vde-monitor-hook.js",
       ),
     ).toBe(false);
   });

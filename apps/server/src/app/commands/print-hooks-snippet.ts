@@ -16,9 +16,7 @@ export const printHooksSnippet = () => {
       Notification: [{ hooks: [{ type: "command", command: "vde-monitor-hook Notification" }] }],
       Stop: [
         {
-          hooks: [
-            { type: "command", command: "vde-monitor-summary --async Stop -- vde-monitor-hook" },
-          ],
+          hooks: [{ type: "command", command: "vde-monitor-hook Stop" }],
         },
       ],
       UserPromptSubmit: [

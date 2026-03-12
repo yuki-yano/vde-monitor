@@ -607,38 +607,9 @@ const clientConfigSchema = z.object({
   launch: launchConfigSchema,
 });
 
-const summaryEffortSchema = z.enum(["low", "medium", "high"]);
-const summaryAgentSchema = z.enum(["codex", "claude"]);
-const summaryLanguageSchema = z.enum(["en", "ja"]);
-const summaryEngineConfigSchema = strictObject({
-  agent: summaryAgentSchema,
-  model: z.string().trim().min(1),
-  effort: summaryEffortSchema,
-});
-
-const notificationSummarySourceConfigSchema = strictObject({
-  enabled: z.boolean(),
-  waitMs: z.number().int().min(0).max(30_000),
-  engine: summaryEngineConfigSchema,
-});
-
-const notificationSummaryConfigSchema = strictObject({
-  enabled: z.boolean(),
-  lang: summaryLanguageSchema,
-  rename: strictObject({
-    pane: z.boolean(),
-    push: z.boolean(),
-  }),
-  sources: strictObject({
-    codex: notificationSummarySourceConfigSchema,
-    claude: notificationSummarySourceConfigSchema,
-  }),
-});
-
 const notificationsConfigSchema = strictObject({
   pushEnabled: z.boolean(),
   enabledEventTypes: z.array(configPushEventTypeSchema).min(1),
-  summary: notificationSummaryConfigSchema,
 });
 
 export const usageProviderRuleSchema = z.object({
@@ -756,89 +727,6 @@ export const claudeHookEventSchema = z.object({
   payload: z.object({ raw: z.string() }),
 });
 
-export const summaryPublishSchemaVersionSchema = z.literal(1);
-export const summaryPublishSourceSchema = summaryAgentSchema;
-export const summaryPublishEventIdSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(128)
-  .regex(/^[A-Za-z0-9._:-]+$/);
-
-export const summaryPublishLocatorSchema = z
-  .object({
-    source: summaryPublishSourceSchema,
-    runId: z.string().trim().min(1).max(256),
-    paneId: z.string().trim().min(1).max(64),
-    eventType: z.literal("pane.task_completed"),
-    sequence: z.number().int().min(1),
-  })
-  .strict();
-
-export const summaryPublishPayloadSchema = z
-  .object({
-    paneTitle: z.string().trim().min(1).max(48),
-    notificationTitle: z.string().trim().min(1).max(32),
-    notificationBody: z.string().trim().min(1).max(120),
-  })
-  .strict();
-
-export const summaryPublishRequestSchema = z
-  .object({
-    schemaVersion: summaryPublishSchemaVersionSchema,
-    eventId: summaryPublishEventIdSchema,
-    locator: summaryPublishLocatorSchema,
-    sourceEventAt: z.string(),
-    summary: summaryPublishPayloadSchema,
-  })
-  .strict();
-
-export const summaryPublishSuccessResponseSchema = z
-  .object({
-    schemaVersion: summaryPublishSchemaVersionSchema,
-    eventId: summaryPublishEventIdSchema,
-    deduplicated: z.boolean(),
-  })
-  .strict();
-
-export const summaryPublishErrorCodeSchema = z.enum([
-  "invalid_json",
-  "unsupported_content_type",
-  "unsupported_schema_version",
-  "invalid_request",
-  "unauthorized",
-  "forbidden_origin",
-  "forbidden_binding",
-  "rate_limit",
-  "max_events_overflow",
-]);
-
-export const summaryPublishErrorResponseSchema = z
-  .object({
-    schemaVersion: summaryPublishSchemaVersionSchema,
-    code: summaryPublishErrorCodeSchema,
-    message: z.string().trim().min(1),
-    eventId: summaryPublishEventIdSchema.optional(),
-    retryAfterSec: z.number().int().min(1).max(300).optional(),
-    deduplicated: z.boolean().optional(),
-  })
-  .strict();
-
-export const summaryPublishConnectionInfoSchema = z
-  .object({
-    schemaVersion: summaryPublishSchemaVersionSchema,
-    endpoint: z.string().url(),
-    listenerType: z.enum(["loopback", "network", "https"]),
-    bind: z.string().trim().min(1).max(255),
-    tokenRef: z
-      .string()
-      .trim()
-      .min(1)
-      .max(128)
-      .regex(/^[A-Za-z0-9._:-]+$/),
-  })
-  .strict();
-
 const workspaceTabsDisplayModeSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.toLowerCase() : value),
   z.enum(["all", "pwa", "none"]),
@@ -950,34 +838,6 @@ export const configOverrideSchema = strictObject({
   notifications: strictObject({
     pushEnabled: z.boolean().optional(),
     enabledEventTypes: z.array(configPushEventTypeSchema).min(1).optional(),
-    summary: strictObject({
-      enabled: z.boolean().optional(),
-      lang: summaryLanguageSchema.optional(),
-      rename: strictObject({
-        pane: z.boolean().optional(),
-        push: z.boolean().optional(),
-      }).optional(),
-      sources: strictObject({
-        codex: strictObject({
-          enabled: z.boolean().optional(),
-          waitMs: z.number().int().min(0).max(30_000).optional(),
-          engine: strictObject({
-            agent: summaryAgentSchema.optional(),
-            model: z.string().trim().min(1).optional(),
-            effort: summaryEffortSchema.optional(),
-          }).optional(),
-        }).optional(),
-        claude: strictObject({
-          enabled: z.boolean().optional(),
-          waitMs: z.number().int().min(0).max(30_000).optional(),
-          engine: strictObject({
-            agent: summaryAgentSchema.optional(),
-            model: z.string().trim().min(1).optional(),
-            effort: summaryEffortSchema.optional(),
-          }).optional(),
-        }).optional(),
-      }).optional(),
-    }).optional(),
   }).optional(),
   usage: strictObject({
     session: strictObject({

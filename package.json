@@ -15,8 +15,7 @@
   },
   "bin": {
     "vde-monitor": "dist/index.js",
-    "vde-monitor-hook": "dist/vde-monitor-hook.js",
-    "vde-monitor-summary": "dist/vde-monitor-summary.js"
+    "vde-monitor-hook": "dist/vde-monitor-hook.js"
   },
   "files": [
     "dist/**",

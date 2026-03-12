@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { configDefaults } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -93,7 +92,6 @@ describe("hooks cli helpers", () => {
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",
         weztermTarget: "dev",
-        summary: configDefaults.notifications.summary,
       }),
     ).toBe("my_socket");
   });
@@ -107,7 +105,6 @@ describe("hooks cli helpers", () => {
         tmuxSocketName: "my/socket",
         tmuxSocketPath: "/tmp/tmux.sock",
         weztermTarget: " dev ",
-        summary: configDefaults.notifications.summary,
       }),
     ).toBe("wezterm-dev");
   });

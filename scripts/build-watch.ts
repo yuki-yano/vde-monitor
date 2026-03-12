@@ -7,7 +7,7 @@ import { execa } from "execa";
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const distDir = path.resolve("dist");
 const BUNDLE_SYNC_INTERVAL_MS = 500;
-const bundleBases = ["index", "vde-monitor-hook", "vde-monitor-summary"] as const;
+const bundleBases = ["index", "vde-monitor-hook"] as const;
 
 const ensureShebang = (filePath: string) => {
   const content = fs.readFileSync(filePath, "utf8");

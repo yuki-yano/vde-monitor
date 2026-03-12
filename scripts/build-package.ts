@@ -64,7 +64,6 @@ const main = () => {
 
   prepareBundle(distDir, "index", "main");
   prepareBundle(distDir, "vde-monitor-hook", "hook");
-  prepareBundle(distDir, "vde-monitor-summary", "summary");
 };
 
 main();

@@ -112,7 +112,6 @@ describe("createPaneUpdateService", () => {
       stateTimeline,
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(),
-      now: () => "2026-02-25T00:00:10.000Z",
     });
     return { service, stateTimeline };
   };
@@ -156,7 +155,7 @@ describe("createPaneUpdateService", () => {
     expect(stateTimeline.record).toHaveBeenCalledTimes(1);
   });
 
-  it("uses transition detection time for notification events", async () => {
+  it("uses last known pane activity time for notification events", async () => {
     processPaneMock.mockResolvedValueOnce(
       createDetail({
         state: "RUNNING",
@@ -199,7 +198,6 @@ describe("createPaneUpdateService", () => {
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(),
       onStateTransition,
-      now: () => "2026-02-25T00:00:10.000Z",
     });
 
     await service.updateFromPanes();
@@ -207,7 +205,7 @@ describe("createPaneUpdateService", () => {
 
     expect(onStateTransition).toHaveBeenCalledWith(
       expect.objectContaining({
-        at: "2026-02-25T00:00:10.000Z",
+        at: "2026-02-25T00:00:00.000Z",
       }),
     );
   });

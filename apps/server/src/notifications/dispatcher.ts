@@ -6,16 +6,12 @@ import {
 import webpush from "web-push";
 
 import { toErrorMessage } from "../errors";
-import { type ResolveSummaryResult, createResolveSummary } from "./resolve-summary";
 import type { NotificationSubscriptionStore } from "./subscription-store";
-import { type SummaryBus, createSummaryBus } from "./summary-bus";
 import type { NotificationPayload, SessionTransitionEvent } from "./types";
 
 type DispatcherOptions = {
   config: AgentMonitorConfig;
   subscriptionStore: NotificationSubscriptionStore;
-  summaryBus?: SummaryBus;
-  summaryResolver?: (event: SessionTransitionEvent) => Promise<ResolveSummaryResult>;
   sendNotification?: (subscription: PushSubscriptionJson, payload: string) => Promise<void>;
   now?: () => string;
   nowMs?: () => number;
@@ -63,13 +59,6 @@ const buildNotificationPayload = (
   eventType: PushEventType,
   event: SessionTransitionEvent,
   now: () => string,
-  summary: {
-    summaryId: string;
-    sourceAgent: "codex" | "claude";
-    paneTitle: string;
-    notificationTitle: string;
-    notificationBody: string;
-  } | null,
 ): NotificationPayload => {
   const paneLabel = `${event.next.sessionName}:w${event.next.windowIndex}:${event.next.paneId}`;
   if (eventType === "pane.waiting_permission") {
@@ -84,27 +73,6 @@ const buildNotificationPayload = (
       url: `/sessions/${encodeURIComponent(event.next.paneId)}`,
       tag: `pane:${event.next.paneId}:waiting_permission`,
       ts: now(),
-    };
-  }
-  if (summary) {
-    return {
-      version: 1,
-      type: "session.state.changed",
-      eventType,
-      paneId: event.next.paneId,
-      sessionName: event.next.sessionName,
-      title: summary.notificationTitle,
-      body: summary.notificationBody,
-      url: `/sessions/${encodeURIComponent(event.next.paneId)}`,
-      tag: `pane:${event.next.paneId}:task_completed`,
-      ts: now(),
-      summary: {
-        summaryId: summary.summaryId,
-        sourceAgent: summary.sourceAgent,
-        paneTitle: summary.paneTitle,
-        notificationTitle: summary.notificationTitle,
-        notificationBody: summary.notificationBody,
-      },
     };
   }
   return {
@@ -179,8 +147,6 @@ const resolveFingerprint = (event: SessionTransitionEvent) => {
 export const createNotificationDispatcher = ({
   config,
   subscriptionStore,
-  summaryBus,
-  summaryResolver,
   sendNotification = async (subscription, payload) => {
     await webpush.sendNotification(subscription, payload);
   },
@@ -192,15 +158,6 @@ export const createNotificationDispatcher = ({
   cooldownMs = DEFAULT_COOLDOWN_MS,
   consecutiveFailureWarnThreshold = DEFAULT_WARN_THRESHOLD,
 }: DispatcherOptions) => {
-  const activeSummaryBus = summaryBus ?? createSummaryBus();
-  const activeSummaryResolver =
-    summaryResolver ??
-    createResolveSummary({
-      config,
-      summaryBus: activeSummaryBus,
-      nowMs,
-    }).resolveSummary;
-
   const lastFingerprintBySubscriptionId = new Map<string, string>();
   const lastTransitionAtByPaneEventBySubscriptionId = new Map<string, number>();
   const consecutiveFailureCountBySubscriptionId = new Map<string, number>();
@@ -278,28 +235,7 @@ export const createNotificationDispatcher = ({
     });
 
     const startedAtMs = nowMs();
-    let summaryForPayload: {
-      summaryId: string;
-      sourceAgent: "codex" | "claude";
-      paneTitle: string;
-      notificationTitle: string;
-      notificationBody: string;
-    } | null = null;
-    if (eventType === "pane.task_completed" && candidates.length > 0) {
-      // Intentionally blocks up to sourceConfig.waitMs to attach summary text to push payloads.
-      const resolvedSummary = await activeSummaryResolver(event);
-      if (resolvedSummary.result === "hit") {
-        summaryForPayload = {
-          summaryId: resolvedSummary.event.eventId,
-          sourceAgent: resolvedSummary.event.locator.source,
-          paneTitle: resolvedSummary.event.summary.paneTitle,
-          notificationTitle: resolvedSummary.event.summary.notificationTitle,
-          notificationBody: resolvedSummary.event.summary.notificationBody,
-        };
-      }
-    }
-
-    const payload = buildNotificationPayload(eventType, event, now, summaryForPayload);
+    const payload = buildNotificationPayload(eventType, event, now);
     const payloadRaw = JSON.stringify(payload);
     const fingerprint = resolveFingerprint(event);
 

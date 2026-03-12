@@ -52,34 +52,6 @@ type HookServerConfig = {
   tmuxSocketName: string | null;
   tmuxSocketPath: string | null;
   weztermTarget: string | null;
-  summary: {
-    enabled: boolean;
-    lang: "en" | "ja";
-    rename: {
-      pane: boolean;
-      push: boolean;
-    };
-    sources: {
-      codex: {
-        enabled: boolean;
-        waitMs: number;
-        engine: {
-          agent: "codex" | "claude";
-          model: string;
-          effort: "low" | "medium" | "high";
-        };
-      };
-      claude: {
-        enabled: boolean;
-        waitMs: number;
-        engine: {
-          agent: "codex" | "claude";
-          model: string;
-          effort: "low" | "medium" | "high";
-        };
-      };
-    };
-  };
 };
 
 const readStdin = (): string => {
@@ -282,73 +254,6 @@ export const shouldPersistHookPayload = (
 const resolveWithDefault = <T>(value: T | undefined, fallback: T) =>
   typeof value === "undefined" ? fallback : value;
 
-const resolveSummarySource = (
-  value:
-    | {
-        enabled?: boolean;
-        waitMs?: number;
-        engine?: {
-          agent?: "codex" | "claude";
-          model?: string;
-          effort?: "low" | "medium" | "high";
-        };
-      }
-    | undefined,
-  fallback: typeof configDefaults.notifications.summary.sources.codex,
-) => ({
-  enabled: resolveWithDefault(value?.enabled, fallback.enabled),
-  waitMs: resolveWithDefault(value?.waitMs, fallback.waitMs),
-  engine: {
-    agent: resolveWithDefault(value?.engine?.agent, fallback.engine.agent),
-    model: resolveWithDefault(value?.engine?.model, fallback.engine.model),
-    effort: resolveWithDefault(value?.engine?.effort, fallback.engine.effort),
-  },
-});
-
-const resolveSummaryConfig = (
-  value:
-    | {
-        enabled?: boolean;
-        lang?: "en" | "ja";
-        rename?: { pane?: boolean; push?: boolean };
-        sources?: {
-          codex?: {
-            enabled?: boolean;
-            waitMs?: number;
-            engine?: {
-              agent?: "codex" | "claude";
-              model?: string;
-              effort?: "low" | "medium" | "high";
-            };
-          };
-          claude?: {
-            enabled?: boolean;
-            waitMs?: number;
-            engine?: {
-              agent?: "codex" | "claude";
-              model?: string;
-              effort?: "low" | "medium" | "high";
-            };
-          };
-        };
-      }
-    | undefined,
-) => {
-  const fallback = configDefaults.notifications.summary;
-  return {
-    enabled: resolveWithDefault(value?.enabled, fallback.enabled),
-    lang: resolveWithDefault(value?.lang, fallback.lang),
-    rename: {
-      pane: resolveWithDefault(value?.rename?.pane, fallback.rename.pane),
-      push: resolveWithDefault(value?.rename?.push, fallback.rename.push),
-    },
-    sources: {
-      codex: resolveSummarySource(value?.sources?.codex, fallback.sources.codex),
-      claude: resolveSummarySource(value?.sources?.claude, fallback.sources.claude),
-    },
-  };
-};
-
 const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
   const picked = pickUserConfigAllowlist(value);
   const parsed = userConfigSchema.safeParse(picked);
@@ -367,7 +272,6 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
         config.multiplexer?.wezterm?.target,
         configDefaults.multiplexer.wezterm.target,
       ),
-      summary: resolveSummaryConfig(config.notifications?.summary),
     };
   }
   return null;
@@ -418,14 +322,6 @@ export const resolveHookServerKey = (config: HookServerConfig | null): string =>
     weztermTarget: config.weztermTarget,
   });
 };
-
-export const resolveHookSummaryConfig = (config: HookServerConfig | null) =>
-  config?.summary ?? configDefaults.notifications.summary;
-
-export const resolveHookSummarySourceConfig = (
-  config: HookServerConfig | null,
-  sourceAgent: "codex" | "claude",
-) => resolveHookSummaryConfig(config).sources[sourceAgent];
 
 const parsePayload = (rawInput: string): HookPayload | null => parseJsonObject(rawInput);
 
