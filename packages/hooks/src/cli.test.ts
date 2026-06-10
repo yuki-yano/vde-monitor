@@ -36,8 +36,24 @@ describe("hooks cli helpers", () => {
 
     expect(fields.sessionId).toBe("session-1");
     expect(fields.cwd).toBe("apps/web");
+    expect(fields.notificationType).toBeUndefined();
     expect(fields.tmuxPane).toBe("%42");
     expect(fields.transcriptPath).toContain(path.join(".claude", "projects", "apps-web"));
+  });
+
+  it("keeps supported notification type values in payload fields", () => {
+    const fields = extractPayloadFields(
+      {
+        session_id: "session-1",
+        notification_type: "permission_prompt",
+      },
+      {},
+      {
+        resolveTmuxPaneFn: () => null,
+      },
+    );
+
+    expect(fields.notificationType).toBe("permission_prompt");
   });
 
   it("resolves tmux pane from display-message when TMUX_PANE is missing", () => {

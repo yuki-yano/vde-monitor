@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  type ClaudeHookEvent,
   configDefaults,
   pickUserConfigAllowlist,
   resolveConfigDir,
@@ -28,22 +29,12 @@ type HookPayloadFields = {
   cwd?: string;
   tty?: string;
   tmuxPane: string | null;
-  notificationType?: string;
+  notificationType?: ClaudeHookEvent["notification_type"];
   transcriptPath?: string | null;
 };
 
-export type HookEvent = {
-  ts: string;
-  hook_event_name: string;
-  notification_type?: string;
-  session_id: string;
-  cwd?: string;
-  tty?: string;
-  tmux_pane: string | null;
-  transcript_path?: string;
-  fallback?: { cwd?: string; transcript_path?: string };
-  payload: { raw: string };
-};
+export type HookEvent = ClaudeHookEvent;
+type HookEventName = ClaudeHookEvent["hook_event_name"];
 
 type HookServerConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
@@ -89,6 +80,20 @@ const ensureDir = (dir: string) => {
 };
 
 const toOptionalString = (value: unknown) => (typeof value === "string" ? value : undefined);
+
+const HOOK_EVENT_NAMES = [
+  "PreToolUse",
+  "PostToolUse",
+  "Notification",
+  "Stop",
+  "UserPromptSubmit",
+] as const satisfies readonly HookEventName[];
+
+const isHookEventName = (value: string): value is HookEventName =>
+  HOOK_EVENT_NAMES.some((name) => name === value);
+
+const normalizeNotificationType = (value: unknown): ClaudeHookEvent["notification_type"] =>
+  value === "permission_prompt" ? value : undefined;
 
 const normalizeTmuxPane = (value: string | null | undefined): string | null => {
   if (typeof value !== "string") {
@@ -342,7 +347,7 @@ export const extractPayloadFields = (
     cwd,
     tty: toOptionalString(payload.tty),
     tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
-    notificationType: toOptionalString(payload.notification_type),
+    notificationType: normalizeNotificationType(payload.notification_type),
     transcriptPath,
   };
 };
@@ -358,7 +363,7 @@ const buildFallback = (fields: HookPayloadFields): HookEvent["fallback"] => {
 };
 
 export const buildHookEvent = (
-  hookEventName: string,
+  hookEventName: HookEventName,
   rawInput: string,
   fields: HookPayloadFields,
 ): HookEvent => ({
@@ -406,6 +411,9 @@ const main = () => {
     process.exit(1);
   }
   if (!shouldPersistHookPayload(payload, hookEventName)) {
+    process.exit(0);
+  }
+  if (!isHookEventName(hookEventName)) {
     process.exit(0);
   }
 
