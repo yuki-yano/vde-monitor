@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ensureLineContent,
+  extractBackgroundColor,
   isUnicodeTableHtmlLine,
   normalizeMarkdownPipeTableLines,
   normalizeUnicodeTableLines,
@@ -9,6 +10,7 @@ import {
   sanitizeAnsiForHtml,
   stripAnsi,
   unwrapUnicodeTableHtmlLine,
+  wrapLineBackground,
 } from "./ansi-text-utils";
 
 describe("ansi-text-utils", () => {
@@ -42,6 +44,16 @@ describe("ansi-text-utils", () => {
     expect(sanitizeAnsiForHtml(value)).toBe("\u001b[48;2;55;55;55mblock\u001b[49m");
   });
 
+  it("preserves 256-color sgr mode parameters that include 2", () => {
+    const value = "\u001b[38;5;245mgray\u001b[48;5;22mgreen\u001b[0m";
+    expect(sanitizeAnsiForHtml(value)).toBe(value);
+  });
+
+  it("removes non-SGR escape/control sequences while keeping printable text", () => {
+    const value = "\u001b[?25lhide\u0000\u0007bell\u001b>keypad\u001b[0m";
+    expect(sanitizeAnsiForHtml(value)).toBe("\u001b[?25lhidebellkeypad\u001b[0m");
+  });
+
   it("ensures line content when html is empty", () => {
     expect(ensureLineContent("")).toContain("&#x200B;");
   });
@@ -56,6 +68,18 @@ describe("ansi-text-utils", () => {
       return `background-color:${rawValue}-changed`;
     });
     expect(replaced).toContain("background-color:#000-changed");
+  });
+
+  it("extracts and trims the first background color from inline html", () => {
+    const html = '<span style="color:#fff; background-color: rgb(1, 2, 3) ">x</span>';
+    expect(extractBackgroundColor(html)).toBe("rgb(1, 2, 3)");
+    expect(extractBackgroundColor("<span>x</span>")).toBeNull();
+  });
+
+  it("wraps a line with a full-width background span", () => {
+    expect(wrapLineBackground("<span>x</span>", "#123456")).toBe(
+      '<span style="background-color:#123456; display:block; width:100%;"><span>x</span></span>',
+    );
   });
 
   it("normalizes unicode table rows into html table", () => {

@@ -251,6 +251,87 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(String(writtenContent)).toContain("keychain-array-refresh-token");
   });
 
+  it("extracts keychain oauth credentials from embedded balanced json and normalizes epoch seconds", async () => {
+    setProcessPlatform("darwin");
+    mocks.readFile.mockResolvedValue(
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "file-stale-token",
+        },
+      }),
+    );
+
+    const embeddedCredential = JSON.stringify({
+      accessToken: "keychain-embedded-token",
+      refreshToken: "keychain-embedded-refresh-token",
+      expiresAt: "1773000000",
+      clientId: "client-with-}brace-and-\\escape",
+    });
+    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
+      callback(
+        null,
+        `prefix "claudeAiOauth": ${embeddedCredential}, "mcpOAuth":{"cloudflare":{"resource":0`,
+        "",
+      );
+      return {} as never;
+    });
+
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "authentication_error", message: "Invalid bearer token" },
+          }),
+          {
+            status: 401,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            five_hour: {
+              utilization: 32,
+              resets_at: "2026-02-25T10:00:00.000Z",
+            },
+            seven_day: {
+              utilization: 42,
+              resets_at: "2026-03-01T10:00:00.000Z",
+            },
+            seven_day_sonnet: null,
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
+
+    expect(usage.fiveHour.utilizationPercent).toBe(32);
+    const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as
+      | Record<string, string>
+      | undefined;
+    expect(secondHeaders?.Authorization).toBe("Bearer keychain-embedded-token");
+    const [, writtenContent] = mocks.writeFile.mock.calls[0] ?? [];
+    const parsed = JSON.parse(String(writtenContent));
+    expect(parsed.claudeAiOauth).toMatchObject({
+      accessToken: "keychain-embedded-token",
+      refreshToken: "keychain-embedded-refresh-token",
+      expiresAt: 1_773_000_000_000,
+      clientId: "client-with-}brace-and-\\escape",
+    });
+  });
+
   it("discovers suffixed Claude keychain service via dump-keychain and uses it", async () => {
     setProcessPlatform("darwin");
     mocks.readFile.mockResolvedValue(

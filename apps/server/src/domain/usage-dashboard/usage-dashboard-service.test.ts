@@ -142,4 +142,69 @@ describe("createUsageDashboardService", () => {
       vi.useRealTimers();
     }
   });
+
+  it("reuses provider core snapshot until the ttl expires", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
+      const service = createUsageDashboardService({
+        cacheTtlMs: 1_000,
+      });
+
+      const first = await service.getDashboard({ provider: "codex" });
+      expect(first.providers[0]?.fetchedAt).toBe("2026-02-24T00:00:00.000Z");
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(new Date("2026-02-24T00:00:00.999Z"));
+      const cached = await service.getDashboard({ provider: "codex" });
+      expect(cached.providers[0]?.fetchedAt).toBe("2026-02-24T00:00:00.000Z");
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(new Date("2026-02-24T00:00:01.001Z"));
+      const refreshed = await service.getDashboard({ provider: "codex" });
+      expect(refreshed.providers[0]?.fetchedAt).toBe("2026-02-24T00:00:01.001Z");
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("serves degraded cached data during provider backoff and retries after backoff expires", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
+      const service = createUsageDashboardService({
+        cacheTtlMs: 1_000,
+        backoffMs: 5_000,
+      });
+
+      await service.getDashboard({ provider: "codex" });
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(1);
+
+      mocks.fetchCodexRateLimits.mockRejectedValue(new Error("temporary upstream failure"));
+
+      vi.setSystemTime(new Date("2026-02-24T00:00:01.001Z"));
+      const degraded = await service.getDashboard({ provider: "codex" });
+      expect(degraded.providers[0]?.status).toBe("degraded");
+      expect(degraded.providers[0]?.issues.at(-1)?.message).toBe("Usage provider request failed");
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(2);
+
+      vi.setSystemTime(new Date("2026-02-24T00:00:04.000Z"));
+      const duringBackoff = await service.getDashboard({ provider: "codex" });
+      expect(duringBackoff.providers[0]?.status).toBe("degraded");
+      expect(duringBackoff.providers[0]?.issues.at(-1)?.message).toBe(
+        "Using cached usage data while provider is recovering.",
+      );
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(2);
+
+      vi.setSystemTime(new Date("2026-02-24T00:00:06.002Z"));
+      mocks.fetchCodexRateLimits.mockResolvedValue(codexRateLimitsResponse);
+      const recovered = await service.getDashboard({ provider: "codex" });
+      expect(recovered.providers[0]?.status).toBe("ok");
+      expect(recovered.providers[0]?.fetchedAt).toBe("2026-02-24T00:00:06.002Z");
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

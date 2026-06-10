@@ -125,15 +125,26 @@ const createProviderSnapshot = (providerId: "codex" | "claude"): UsageProviderSn
   staleAt: NOW_ISO,
 });
 
-const createDashboardResponse = (): UsageDashboardResponse => ({
-  providers: [createProviderSnapshot("codex"), createProviderSnapshot("claude")],
-  fetchedAt: NOW_ISO,
+const createDashboardResponse = (fetchedAt = NOW_ISO): UsageDashboardResponse => ({
+  providers: [
+    {
+      ...createProviderSnapshot("codex"),
+      fetchedAt,
+      staleAt: fetchedAt,
+    },
+    {
+      ...createProviderSnapshot("claude"),
+      fetchedAt,
+      staleAt: fetchedAt,
+    },
+  ],
+  fetchedAt,
 });
 
-const createTimelineResponse = (): UsageGlobalTimelineResponse => ({
+const createTimelineResponse = (fetchedAt = NOW_ISO): UsageGlobalTimelineResponse => ({
   timeline: {
     paneId: "global",
-    now: NOW_ISO,
+    now: fetchedAt,
     range: "24h",
     items: [],
     totalsMs: {
@@ -147,8 +158,19 @@ const createTimelineResponse = (): UsageGlobalTimelineResponse => ({
   },
   paneCount: 0,
   activePaneCount: 0,
-  fetchedAt: NOW_ISO,
+  fetchedAt,
 });
+
+const createDeferred = <T,>() => {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return {
+    promise,
+    resolve: (value: T) => resolve?.(value),
+  };
+};
 
 describe("useUsageDashboardVM", () => {
   beforeEach(() => {
@@ -217,5 +239,51 @@ describe("useUsageDashboardVM", () => {
     await waitFor(() => {
       expect(result.current.billingLoadingByProvider.codex).toBe(false);
     });
+  });
+
+  it("ignores stale dashboard and timeline responses when a newer refresh finishes first", async () => {
+    const firstDashboard = createDeferred<UsageDashboardResponse>();
+    const firstTimeline = createDeferred<UsageGlobalTimelineResponse>();
+
+    const requestUsageDashboard = vi
+      .fn()
+      .mockReturnValueOnce(firstDashboard.promise)
+      .mockResolvedValueOnce(createDashboardResponse("2026-02-27T00:00:02.000Z"));
+    const requestUsageGlobalTimeline = vi
+      .fn()
+      .mockReturnValueOnce(firstTimeline.promise)
+      .mockResolvedValueOnce(createTimelineResponse("2026-02-27T00:00:02.000Z"));
+
+    mockUseUsageApi.mockReturnValue({
+      requestUsageDashboard,
+      requestUsageProviderBilling: vi.fn(async ({ provider }: { provider: "codex" | "claude" }) =>
+        createProviderSnapshot(provider),
+      ),
+      requestUsageGlobalTimeline,
+      resolveErrorMessage: (_error: unknown, fallback: string) => fallback,
+    });
+
+    const { result } = renderHook(() => useUsageDashboardVM());
+
+    await act(async () => {
+      result.current.onRefreshAll();
+    });
+
+    await waitFor(() => {
+      expect(result.current.dashboard?.fetchedAt).toBe("2026-02-27T00:00:02.000Z");
+      expect(result.current.timeline?.fetchedAt).toBe("2026-02-27T00:00:02.000Z");
+    });
+
+    await act(async () => {
+      firstDashboard.resolve(createDashboardResponse("2026-02-27T00:00:01.000Z"));
+      firstTimeline.resolve(createTimelineResponse("2026-02-27T00:00:01.000Z"));
+    });
+
+    await waitFor(() => {
+      expect(result.current.dashboard?.fetchedAt).toBe("2026-02-27T00:00:02.000Z");
+      expect(result.current.timeline?.fetchedAt).toBe("2026-02-27T00:00:02.000Z");
+    });
+    expect(requestUsageDashboard).toHaveBeenCalledTimes(2);
+    expect(requestUsageGlobalTimeline).toHaveBeenCalledTimes(2);
   });
 });
