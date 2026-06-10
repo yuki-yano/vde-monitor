@@ -32,6 +32,10 @@ const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
 const CORS_ALLOW_HEADERS = "Authorization,Content-Type,Request-Id,X-Request-Id,Content-Length";
 const CONFIG_VALIDATION_ERROR_PATTERN = /^invalid config(?: JSON)?: /i;
 
+const logInternalError = (error: unknown) => {
+  console.error("[vde-monitor] API request failed", error);
+};
+
 const resolveConfigValidationErrorCause = (error: unknown) => {
   if (!(error instanceof Error)) {
     return null;
@@ -79,6 +83,7 @@ export const createApiRouter = ({
 }: ApiContext) => {
   const api = new Hono();
   api.onError((error, c) => {
+    logInternalError(error);
     const configValidationErrorCause = resolveConfigValidationErrorCause(error);
     if (configValidationErrorCause) {
       return c.json(
