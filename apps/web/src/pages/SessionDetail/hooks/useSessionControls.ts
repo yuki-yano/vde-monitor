@@ -3,12 +3,15 @@ import {
   type CommandResponse,
   type ImageAttachment,
   type RawItem,
-  defaultDangerKeys,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
+import {
+  confirmDangerousKey,
+  confirmDangerousText,
+} from "@/features/shared-session-ui/model/danger-confirm";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
 import type { ScreenMode } from "@/lib/screen-loading";
@@ -20,7 +23,6 @@ import {
   controlsRawModeAtom,
   controlsShiftHeldAtom,
 } from "../atoms/controlAtoms";
-import { isDangerousText } from "../sessionDetailUtils";
 import { mapKeyWithModifiers } from "./sessionControlKeys";
 import { useRawInputHandlers } from "./useRawInputHandlers";
 
@@ -56,13 +58,6 @@ const handleCommandFailure = (
   return true;
 };
 
-const confirmDangerousKeySend = (mappedKey: string) => {
-  if (!defaultDangerKeys.includes(mappedKey as AllowedKey)) {
-    return true;
-  }
-  return window.confirm("Dangerous key detected. Send anyway?");
-};
-
 const readPromptValue = (textInputRef: { current: HTMLTextAreaElement | null }) =>
   textInputRef.current?.value ?? "";
 
@@ -70,13 +65,6 @@ const clearPromptValue = (textInputRef: { current: HTMLTextAreaElement | null })
   if (textInputRef.current) {
     textInputRef.current.value = "";
   }
-};
-
-const confirmDangerousTextSend = (value: string) => {
-  if (!isDangerousText(value)) {
-    return true;
-  }
-  return window.confirm("Dangerous command detected. Send anyway?");
 };
 
 const insertIntoTextarea = (textarea: HTMLTextAreaElement, insertText: string) => {
@@ -155,7 +143,7 @@ export const useSessionControls = ({
         handleCommandFailure(result, API_ERROR_MESSAGES.sendRaw, setScreenError);
         return;
       }
-      if (!confirmDangerousKeySend(mapped)) return;
+      if (!confirmDangerousKey(mapped)) return;
       const result = await sendKeys(paneId, [mapped as AllowedKey]);
       handleCommandFailure(result, API_ERROR_MESSAGES.sendKeys, setScreenError);
     },
@@ -196,7 +184,7 @@ export const useSessionControls = ({
       text: currentValue,
       enter: autoEnter,
       skip: rawMode,
-      confirm: () => confirmDangerousTextSend(currentValue),
+      confirm: () => confirmDangerousText(currentValue),
       onSuccess: () => {
         clearPromptValue(textInputRef);
       },

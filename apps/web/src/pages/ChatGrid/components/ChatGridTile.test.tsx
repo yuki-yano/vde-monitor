@@ -33,7 +33,7 @@ vi.mock("@/features/shared-session-ui/components/AnsiVirtualizedViewport", () =>
   },
 }));
 
-vi.mock("@/pages/SessionDetail/hooks/useRawInputHandlers", () => ({
+vi.mock("@/features/shared-session-ui/hooks/useRawInputHandlers", () => ({
   useRawInputHandlers: () => ({
     handleRawBeforeInput: vi.fn(),
     handleRawInput: vi.fn(),

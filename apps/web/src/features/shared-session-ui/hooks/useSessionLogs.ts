@@ -15,7 +15,8 @@ import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMu
 import { renderAnsiLines } from "@/lib/ansi";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
-import { linkifyLogLineHttpUrls } from "@/pages/SessionDetail/log-file-reference";
+
+import { linkifyLogLineHttpUrls } from "../lib/log-file-reference";
 
 type UseSessionLogsParams = {
   connected: boolean;

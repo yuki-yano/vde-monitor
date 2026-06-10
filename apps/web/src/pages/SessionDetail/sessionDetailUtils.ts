@@ -1,11 +1,8 @@
-import {
-  type CommitLog,
-  type DiffSummary,
-  type SessionSummary,
-  defaultDangerCommandPatterns,
-} from "@vde-monitor/shared";
+import { type CommitLog, type DiffSummary, type SessionSummary } from "@vde-monitor/shared";
 
 import { stripAnsi } from "@/lib/ansi-text-utils";
+export { isDangerousText } from "@/features/shared-session-ui/model/danger-confirm";
+export { backLinkClass } from "@/features/shared-session-ui/model/navigation-style";
 
 export {
   agentLabelFor,
@@ -20,9 +17,6 @@ export {
   stateTone,
 } from "@/lib/session-format";
 
-const compilePatterns = () =>
-  defaultDangerCommandPatterns.map((pattern) => new RegExp(pattern, "i"));
-
 const normalizeScreenTextForSearch = (screenText: string) =>
   stripAnsi(screenText).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -30,17 +24,6 @@ export const AUTO_REFRESH_INTERVAL_MS = 10_000;
 export const MAX_DIFF_LINES = 1200;
 export const PREVIEW_DIFF_LINES = 240;
 export const DISCONNECTED_MESSAGE = "Disconnected. Reconnecting...";
-export const backLinkClass =
-  "inline-flex items-center justify-center gap-2 rounded-full border border-latte-surface2 bg-transparent px-2.5 py-1 text-xs font-semibold text-latte-subtext0 transition hover:bg-latte-crust hover:text-latte-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-latte-lavender sm:px-3 sm:py-1.5";
-
-export const isDangerousText = (text: string) => {
-  const patterns = compilePatterns();
-  const normalized = text.replace(/\r\n/g, "\n").split("\n");
-  return normalized.some((line) =>
-    patterns.some((pattern) => pattern.test(line.toLowerCase().replace(/\s+/g, " ").trim())),
-  );
-};
-
 export const extractCodexContextLeft = (screenText: string): string | null => {
   if (!screenText) {
     return null;

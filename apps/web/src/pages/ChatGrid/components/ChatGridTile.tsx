@@ -6,7 +6,6 @@ import type {
   RawItem,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { defaultDangerKeys } from "@vde-monitor/shared";
 import { ArrowRight, Clock, GitBranch, X } from "lucide-react";
 import {
   type CompositionEvent,
@@ -36,6 +35,16 @@ import {
 } from "@/features/shared-session-ui/components/PaneTextComposer";
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
 import {
+  confirmDangerousKey,
+  confirmDangerousText,
+} from "@/features/shared-session-ui/model/danger-confirm";
+import { mapKeyWithModifiers } from "@/features/shared-session-ui/hooks/session-control-keys";
+import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
+import {
+  linkifyLogLineFileReferences,
+  linkifyLogLineHttpUrls,
+} from "@/features/shared-session-ui/lib/log-file-reference";
+import {
   resolveSessionStateLabel,
   resolveSessionStateTone,
 } from "@/features/shared-session-ui/model/session-display";
@@ -49,13 +58,6 @@ import {
   getLastInputTone,
   isKnownAgent,
 } from "@/lib/session-format";
-import { mapKeyWithModifiers } from "@/pages/SessionDetail/hooks/sessionControlKeys";
-import { useRawInputHandlers } from "@/pages/SessionDetail/hooks/useRawInputHandlers";
-import {
-  linkifyLogLineFileReferences,
-  linkifyLogLineHttpUrls,
-} from "@/pages/SessionDetail/log-file-reference";
-import { isDangerousText } from "@/pages/SessionDetail/sessionDetailUtils";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -77,20 +79,6 @@ type ChatGridTileProps = {
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   resetSessionTitle: (paneId: string) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
-};
-
-const confirmDangerousTextSend = (value: string) => {
-  if (!isDangerousText(value)) {
-    return true;
-  }
-  return window.confirm("Dangerous command detected. Send anyway?");
-};
-
-const confirmDangerousKeySend = (mappedKey: string) => {
-  if (!defaultDangerKeys.includes(mappedKey as AllowedKey)) {
-    return true;
-  }
-  return window.confirm("Dangerous key detected. Send anyway?");
 };
 
 const insertIntoTextarea = (textarea: HTMLTextAreaElement, insertText: string) => {
@@ -261,7 +249,7 @@ export const ChatGridTile = ({
       text: value,
       enter: autoEnter,
       skip: rawMode,
-      confirm: () => confirmDangerousTextSend(value),
+      confirm: () => confirmDangerousText(value),
       onSuccess: () => {
         if (textInputRef.current) {
           textInputRef.current.value = "";
@@ -326,7 +314,7 @@ export const ChatGridTile = ({
         setComposerError(null);
         return;
       }
-      if (!confirmDangerousKeySend(mappedKey)) {
+      if (!confirmDangerousKey(mappedKey)) {
         return;
       }
       const keyResult = await sendKeys(session.paneId, [mappedKey]);

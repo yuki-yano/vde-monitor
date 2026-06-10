@@ -6,17 +6,7 @@ import type {
   SessionStateValue,
 } from "@vde-monitor/shared";
 
-const RANGE_MS: Record<SessionStateTimelineRange, number> = {
-  "15m": 15 * 60 * 1000,
-  "1h": 60 * 60 * 1000,
-  "3h": 3 * 60 * 60 * 1000,
-  "6h": 6 * 60 * 60 * 1000,
-  "24h": 24 * 60 * 60 * 1000,
-  "3d": 3 * 24 * 60 * 60 * 1000,
-  "7d": 7 * 24 * 60 * 60 * 1000,
-  "14d": 14 * 24 * 60 * 60 * 1000,
-  "30d": 30 * 24 * 60 * 60 * 1000,
-};
+import { SESSION_TIMELINE_RANGE_MS } from "../model/session-timeline-range";
 
 const DEFAULT_MERGE_GAP_MS = 3_000;
 const DEFAULT_BLIP_THRESHOLD_MS = 60_000;
@@ -246,7 +236,7 @@ export const buildTimelineDisplay = (
   const mergeGapMs = options.mergeGapMs ?? DEFAULT_MERGE_GAP_MS;
   const blipThresholdMs = options.blipThresholdMs ?? DEFAULT_BLIP_THRESHOLD_MS;
   const minVisibleDurationMs = options.minVisibleDurationMs ?? DEFAULT_MIN_VISIBLE_DURATION_MS;
-  const rangeStartMs = nowMs - RANGE_MS[range];
+  const rangeStartMs = nowMs - SESSION_TIMELINE_RANGE_MS[range];
 
   const rawSegments = toSegments({
     timeline,

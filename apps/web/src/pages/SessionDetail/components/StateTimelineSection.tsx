@@ -19,6 +19,7 @@ import {
   TabsTrigger,
   TagPill,
 } from "@/components/ui";
+import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/session-timeline-range";
 import { cn } from "@/lib/cn";
 
 import { formatStateLabel, stateTone } from "../sessionDetailUtils";
@@ -45,18 +46,6 @@ type StateTimelineSectionActions = {
 type StateTimelineSectionProps = {
   state: StateTimelineSectionState;
   actions: StateTimelineSectionActions;
-};
-
-const RANGE_MS: Record<SessionStateTimelineRange, number> = {
-  "15m": 15 * 60 * 1000,
-  "1h": 60 * 60 * 1000,
-  "3h": 3 * 60 * 60 * 1000,
-  "6h": 6 * 60 * 60 * 1000,
-  "24h": 24 * 60 * 60 * 1000,
-  "3d": 3 * 24 * 60 * 60 * 1000,
-  "7d": 7 * 24 * 60 * 60 * 1000,
-  "14d": 14 * 24 * 60 * 60 * 1000,
-  "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
 const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
@@ -108,7 +97,7 @@ const resolveSegmentItems = (
   items: SessionStateTimelineItem[],
   range: SessionStateTimelineRange,
 ) => {
-  const rangeMs = RANGE_MS[range];
+  const rangeMs = SESSION_TIMELINE_RANGE_MS[range];
   return [...items]
     .sort((a, b) => {
       const aMs = Date.parse(a.startedAt);

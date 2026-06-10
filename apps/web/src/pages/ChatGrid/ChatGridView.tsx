@@ -18,10 +18,10 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Callout } from "@/components/ui";
 import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
+import { backLinkClass } from "@/features/shared-session-ui/model/navigation-style";
 import type { SessionGroup } from "@/lib/session-group";
 import type { Theme } from "@/lib/theme";
 import type { ChatGridLayout } from "@/pages/ChatGrid/model/chat-grid-layout";
-import { backLinkClass } from "@/pages/SessionDetail/sessionDetailUtils";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import { ChatGridBoard } from "./components/ChatGridBoard";
