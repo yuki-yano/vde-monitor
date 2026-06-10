@@ -460,7 +460,7 @@ describe("useSessionListVM", () => {
   it("shows launch error when launchAgentInSession returns error", async () => {
     const launchAgentInSession = vi.fn().mockResolvedValue({
       ok: false,
-      error: { code: "TMUX_UNAVAILABLE", message: "launch-agent requires tmux backend" },
+      error: { code: "WEZTERM_UNAVAILABLE", message: "launch-agent requires tmux backend" },
       rollback: { attempted: false, ok: true },
     });
 

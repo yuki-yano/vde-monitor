@@ -153,6 +153,50 @@ describe("createLaunchRoute", () => {
     expect(json.command.resume?.failureReason).toBeUndefined();
   });
 
+  it("returns WEZTERM_UNAVAILABLE with resume unsupported metadata on wezterm backend", async () => {
+    const launchAgentInSession = vi.fn();
+
+    const app = createLaunchRoute({
+      config: {
+        multiplexer: { backend: "wezterm" },
+      } as unknown as AgentMonitorConfig,
+      monitor: {
+        registry: { getDetail: () => null },
+      } as unknown as SessionRouteDeps["monitor"],
+      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
+      sendLimiter: () => true,
+      getLimiterKey: () => "limiter-key",
+    });
+
+    const res = await app.request("/sessions/launch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionName: "dev",
+        agent: "codex",
+        requestId: "req-wezterm-resume",
+        resumeSessionId: "manual-session-id",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      command: {
+        ok: false;
+        error: { code: string; message: string };
+        resume?: { failureReason?: string; source: string | null };
+      };
+    };
+    expect(json.command.ok).toBe(false);
+    expect(json.command.error).toEqual({
+      code: "WEZTERM_UNAVAILABLE",
+      message: "launch-agent requires tmux backend",
+    });
+    expect(json.command.resume?.source).toBeNull();
+    expect(json.command.resume?.failureReason).toBe("unsupported");
+    expect(launchAgentInSession).not.toHaveBeenCalled();
+  });
+
   it("forwards resumeTarget to launch action when provided", async () => {
     const launchAgentInSession = vi.fn(async () => ({
       ok: true as const,

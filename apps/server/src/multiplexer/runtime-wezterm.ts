@@ -56,7 +56,7 @@ export const createWeztermRuntime = (config: AgentMonitorConfig): MultiplexerRun
     launchAgentInSession: async () => ({
       ok: false,
       error: {
-        code: "TMUX_UNAVAILABLE",
+        code: "WEZTERM_UNAVAILABLE",
         message: "launch-agent requires tmux backend",
       },
       rollback: {

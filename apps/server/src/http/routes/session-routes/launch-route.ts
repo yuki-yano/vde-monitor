@@ -211,7 +211,7 @@ export const createLaunchRoute = ({
         if (resumePlan.requested && config.multiplexer.backend !== "tmux") {
           return {
             ok: false as const,
-            error: buildError("TMUX_UNAVAILABLE", "launch-agent requires tmux backend"),
+            error: buildError("WEZTERM_UNAVAILABLE", "launch-agent requires tmux backend"),
             rollback: { attempted: false, ok: true },
             resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy),
           };
