@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { UsageProviderError } from "../usage-dashboard/usage-error";
+import { UsageProviderError } from "../usage-shared/usage-error";
 
 type ClaudeUsageWindow = {
   utilizationPercent: number;

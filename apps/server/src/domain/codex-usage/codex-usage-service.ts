@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
-import { UsageProviderError } from "../usage-dashboard/usage-error";
+import { UsageProviderError } from "../usage-shared/usage-error";
 
 type JsonRpcId = string | number;
 

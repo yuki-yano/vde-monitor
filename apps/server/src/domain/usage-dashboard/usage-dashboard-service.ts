@@ -21,7 +21,7 @@ import {
   USAGE_PROVIDER_ERROR_CODES,
   UsageProviderError,
   type UsageProviderErrorCode,
-} from "./usage-error";
+} from "../usage-shared/usage-error";
 
 const SUPPORTED_PROVIDERS = ["codex", "claude"] as const;
 type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number];
