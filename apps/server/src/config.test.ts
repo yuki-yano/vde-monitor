@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { configDefaults } from "@vde-monitor/shared";
+import { type GeneratedConfigTemplate, configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "yaml";
 
@@ -61,7 +61,7 @@ import {
   runConfigCheck,
   runConfigPrune,
 } from "./config";
-import { mergeConfigLayers } from "./infra/config/config-loader";
+import { mergeConfigLayers, saveConfig } from "./infra/config/config-loader";
 
 const configPath = path.resolve("/mock/config/config.yml");
 const legacyJsonConfigPath = path.resolve("/mock/config/config.json");
@@ -109,7 +109,7 @@ const setTokenFile = (token: string) => {
   setFile(tokenPath, `${JSON.stringify({ token }, null, 2)}\n`);
 };
 
-const expectedGeneratedTemplate = {
+const expectedGeneratedTemplate: GeneratedConfigTemplate = {
   multiplexer: {
     backend: "tmux",
   },
@@ -233,6 +233,41 @@ describe("mergeConfigLayers", () => {
 
     expect(merged.allowedOrigins).toEqual(["https://cli.example"]);
     expect(merged.screen.maxLines).toBe(1200);
+  });
+
+  it("clones array overrides and preserves defaults when cli override is undefined", () => {
+    const origins = ["https://global.example"];
+    const merged = mergeConfigLayers({
+      globalConfig: {
+        allowedOrigins: origins,
+        screen: {
+          maxLines: 1800,
+        },
+      },
+      cliArgsOverride: undefined,
+    });
+
+    origins.push("https://mutated.example");
+
+    expect(merged.allowedOrigins).toEqual(["https://global.example"]);
+    expect(merged.screen.maxLines).toBe(1800);
+    expect(merged.port).toBe(configDefaults.port);
+  });
+});
+
+describe("saveConfig", () => {
+  it("cleans up the atomic temp file when rename fails", () => {
+    mocks.renameSync.mockImplementationOnce((fromPath: unknown) => {
+      throw createFsError("EACCES", String(fromPath));
+    });
+
+    expect(() => saveConfig(expectedGeneratedTemplate)).toThrow("EACCES");
+
+    const tempPath = String(mocks.writeFileSync.mock.calls[0]?.[0]);
+    expect(tempPath).toContain(`${configPath}.tmp-`);
+    expect(mocks.unlinkSync).toHaveBeenCalledWith(tempPath);
+    expect(fileContents.has(path.resolve(tempPath))).toBe(false);
+    expect(fileContents.has(configPath)).toBe(false);
   });
 });
 

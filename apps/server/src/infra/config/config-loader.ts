@@ -244,7 +244,7 @@ type ValidatedUserConfig =
       detail: string;
     };
 
-const parseUserConfigValidation = (value: unknown): ValidatedUserConfig => {
+const validateUserConfigSafe = (value: unknown): ValidatedUserConfig => {
   const picked = pickUserConfigAllowlist(value);
   const parsed = configOverrideSchema.safeParse(picked);
   if (!parsed.success) {
@@ -260,9 +260,6 @@ const parseUserConfigValidation = (value: unknown): ValidatedUserConfig => {
     value: parsed.data,
   };
 };
-
-const validateUserConfigSafe = (value: unknown): ValidatedUserConfig =>
-  parseUserConfigValidation(value);
 
 const loadGlobalConfigDocument = (configPath: string) => {
   let raw: string;
