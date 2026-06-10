@@ -1,7 +1,7 @@
 import type { LaunchConfig, SessionSummary, WorktreeList } from "@vde-monitor/shared";
 import { Clock, FolderGit2, Github, Pin } from "lucide-react";
 
-import { LaunchAgentButton } from "@/components/launch-agent-button";
+import { LaunchAgentButton } from "@/features/launch-agent/LaunchAgentButton";
 import { GlassPanel, GlowCard, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import { selectLaunchSourceSession } from "@/features/shared-session-ui/model/launch-source-session";
 import { cn } from "@/lib/cn";

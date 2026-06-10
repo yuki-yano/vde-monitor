@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { defaultLaunchConfig } from "@/state/launch-agent-options";
 
-import { LaunchAgentButton } from "./launch-agent-button";
+import { LaunchAgentButton } from "./LaunchAgentButton";
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",

@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
-import { ResumeWorktreeDialog } from "@/components/resume-worktree-dialog";
+import { ResumeWorktreeDialog } from "@/features/launch-agent/ResumeWorktreeDialog";
 import { Button, Callout, Card, Tabs, TabsList, TabsTrigger, Toolbar } from "@/components/ui";
 import type { PushUiStatus } from "@/features/notifications/use-push-notifications";
 import { cn } from "@/lib/cn";

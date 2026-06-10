@@ -25,7 +25,7 @@ vi.mock("@/features/shared-session-ui/hooks/useSidebarPreview", () => ({
   }),
 }));
 
-vi.mock("@/components/launch-agent-button", () => ({
+vi.mock("@/features/launch-agent/LaunchAgentButton", () => ({
   LaunchAgentButton: ({
     sessionName,
     sourceSession,

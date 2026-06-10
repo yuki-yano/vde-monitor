@@ -111,7 +111,7 @@ vi.mock("@/features/shared-session-ui/components/LogModal", () => ({
   ),
 }));
 
-vi.mock("@/components/launch-agent-button", () => ({
+vi.mock("@/features/launch-agent/LaunchAgentButton", () => ({
   LaunchAgentButton: ({
     sessionName,
     sourceSession,

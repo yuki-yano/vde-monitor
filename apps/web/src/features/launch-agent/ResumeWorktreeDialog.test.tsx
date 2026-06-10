@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { defaultLaunchConfig } from "@/state/launch-agent-options";
 
-import { ResumeWorktreeDialog } from "./resume-worktree-dialog";
+import { ResumeWorktreeDialog } from "./ResumeWorktreeDialog";
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",

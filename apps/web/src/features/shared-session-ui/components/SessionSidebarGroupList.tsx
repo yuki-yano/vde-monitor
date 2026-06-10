@@ -1,7 +1,7 @@
 import type { LaunchConfig, WorktreeList } from "@vde-monitor/shared";
 import { Pin } from "lucide-react";
 
-import { LaunchAgentButton } from "@/components/launch-agent-button";
+import { LaunchAgentButton } from "@/features/launch-agent/LaunchAgentButton";
 import { IconButton, TagPill } from "@/components/ui";
 import { selectLaunchSourceSession } from "@/features/shared-session-ui/model/launch-source-session";
 import { formatRepoDirLabel } from "@/lib/quick-panel-utils";
