@@ -209,4 +209,51 @@ describe("createPaneUpdateService", () => {
       }),
     );
   });
+
+  it("shares in-flight pane pipe tag reads for the same pane", async () => {
+    const paneWithPipe: PaneMeta = {
+      ...basePane,
+      panePipe: true,
+      pipeTagValue: null,
+    };
+    let resolveRead: ((value: string | null) => void) | undefined;
+    const readUserOptionPromise = new Promise<string | null>((resolve) => {
+      resolveRead = resolve;
+    });
+    const inspector = {
+      listPanes: vi.fn(async () => [paneWithPipe, paneWithPipe]),
+      readUserOption: vi.fn(() => readUserOptionPromise),
+    };
+    processPaneMock.mockImplementation(async (args) => {
+      const pipeTagValue = await args.resolvePanePipeTagValue(args.pane);
+      return createDetail({ pipeAttached: pipeTagValue === "1" });
+    });
+    const service = createPaneUpdateService({
+      inspector,
+      config,
+      paneStates: createPaneStateStore(),
+      paneLogManager: {} as never,
+      capturePaneFingerprint: vi.fn(async () => null),
+      applyRestored: vi.fn(() => null),
+      getCustomTitle: vi.fn(() => null),
+      customTitles: new Map(),
+      registry: createSessionRegistry(),
+      stateTimeline: {
+        record: vi.fn(),
+        closePane: vi.fn(),
+      },
+      logActivity: { unregister: vi.fn() },
+      savePersistedState: vi.fn(),
+    });
+
+    const updatePromise = service.updateFromPanes();
+    await vi.waitFor(() => {
+      expect(inspector.readUserOption).toHaveBeenCalledTimes(1);
+    });
+    resolveRead?.("1");
+    await updatePromise;
+
+    expect(inspector.readUserOption).toHaveBeenCalledWith("%1", "@vde-monitor_pipe");
+    expect(processPaneMock).toHaveBeenCalledTimes(2);
+  });
 });

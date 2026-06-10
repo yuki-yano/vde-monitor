@@ -110,6 +110,7 @@ export const createPaneUpdateService = ({
 }: CreatePaneUpdateServiceArgs) => {
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
+  const panePipeTagInflight = new Map<string, Promise<string | null>>();
   const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
 
   const markPaneViewed = (paneId: string, atMs = Date.now()) => {
@@ -155,9 +156,22 @@ export const createPaneUpdateService = ({
       return null;
     }
 
-    const fallback = await inspector.readUserOption(pane.paneId, "@vde-monitor_pipe");
-    cachePanePipeTagValue(pane.paneId, fallback);
-    return fallback;
+    const existingRequest = panePipeTagInflight.get(pane.paneId);
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = inspector
+      .readUserOption(pane.paneId, "@vde-monitor_pipe")
+      .then((fallback) => {
+        cachePanePipeTagValue(pane.paneId, fallback);
+        return fallback;
+      })
+      .finally(() => {
+        panePipeTagInflight.delete(pane.paneId);
+      });
+    panePipeTagInflight.set(pane.paneId, request);
+    return request;
   };
 
   const updateFromPanes = async () => {
@@ -293,6 +307,7 @@ export const createPaneUpdateService = ({
         logActivity.unregister(paneId);
         viewedPaneAtMs.delete(paneId);
         panePipeTagCache.delete(paneId);
+        panePipeTagInflight.delete(paneId);
         paneProcessingFailures.delete(paneId);
       },
     });
