@@ -2,7 +2,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ChatGridCandidateModal } from "./ChatGridCandidateModal";
+import {
+  CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS,
+  ChatGridCandidateModal,
+} from "./ChatGridCandidateModal";
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",
@@ -163,7 +166,7 @@ describe("ChatGridCandidateModal", () => {
     const searchInput = screen.getByLabelText("Filter candidate panes");
     fireEvent.change(searchInput, { target: { value: "beta-session" } });
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
 
     expect(screen.queryByLabelText("Select First Session")).toBeNull();
@@ -171,7 +174,7 @@ describe("ChatGridCandidateModal", () => {
 
     fireEvent.change(searchInput, { target: { value: "beta 8" } });
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
 
     expect(screen.queryByLabelText("Select First Session")).toBeNull();
@@ -179,7 +182,7 @@ describe("ChatGridCandidateModal", () => {
 
     fireEvent.change(searchInput, { target: { value: "window 3" } });
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
 
     expect(screen.getByLabelText("Select First Session")).toBeTruthy();
@@ -211,7 +214,7 @@ describe("ChatGridCandidateModal", () => {
     const searchInput = screen.getByLabelText("Filter candidate panes");
     fireEvent.change(searchInput, { target: { value: "no-match" } });
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
 
     expect(screen.getByText('No candidate panes match "no-match".')).toBeTruthy();
@@ -238,7 +241,7 @@ describe("ChatGridCandidateModal", () => {
     const searchInput = screen.getByLabelText("Filter candidate panes");
     fireEvent.change(searchInput, { target: { value: "beta-session" } });
     act(() => {
-      vi.advanceTimersByTime(120);
+      vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
     expect(screen.queryByLabelText("Select First Session")).toBeNull();
 

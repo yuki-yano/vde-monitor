@@ -43,7 +43,7 @@ type ChatGridCandidateModalProps = {
 
 const MIN_SELECTION_COUNT = CHAT_GRID_MIN_PANE_COUNT;
 const MAX_SELECTION_COUNT = CHAT_GRID_MAX_PANE_COUNT;
-const SEARCH_INPUT_DEBOUNCE_MS = 120;
+export const CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS = 120;
 
 const normalizeSearchText = (value: string) => value.trim().toLowerCase();
 const tokenizeSearchTerms = (value: string) =>
@@ -83,7 +83,7 @@ export const ChatGridCandidateModal = ({
     if (searchQuery === debouncedSearchQuery) {
       return;
     }
-    const debounceMs = searchQuery.length === 0 ? 0 : SEARCH_INPUT_DEBOUNCE_MS;
+    const debounceMs = searchQuery.length === 0 ? 0 : CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS;
     const timeoutId = window.setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, debounceMs);
