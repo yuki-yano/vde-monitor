@@ -43,6 +43,10 @@ const prepareBundle = (distDir: string, base: string, label: string) => {
   }
   ensureShebang(targetPath);
   fs.chmodSync(targetPath, 0o755);
+  const duplicateMjsPath = path.join(distDir, `${base}.mjs`);
+  if (bundle === duplicateMjsPath) {
+    fs.rmSync(duplicateMjsPath, { force: true });
+  }
 };
 
 const main = () => {
