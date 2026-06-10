@@ -7,6 +7,7 @@ import { resolveBackendApp } from "../screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "../screen/macos-applescript";
 import { focusTmuxPane } from "../screen/tmux-geometry";
 import type { ActionResult, ActionResultHelpers } from "./action-results";
+import { sleep } from "./async-utils";
 
 const GRACEFUL_TERMINATE_INTERRUPT_DELAY_MS = 120;
 const GRACEFUL_TERMINATE_EXIT_DELAY_MS = 120;
@@ -19,8 +20,6 @@ type CreatePaneActionsParams = {
   exitCopyModeIfNeeded: (paneId: string) => Promise<void>;
   sendEnterKey: (paneId: string) => Promise<ActionResult>;
 };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isTmuxTargetMissing = (message: string) =>
   /can't find pane|can't find window|no such pane|no such window|invalid pane|invalid window/i.test(

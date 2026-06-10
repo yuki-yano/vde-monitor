@@ -9,22 +9,22 @@ import { execa } from "execa";
 
 import { buildError } from "../errors";
 import type { ActionResult } from "./action-results";
+import { sleep } from "./async-utils";
+import { buildLaunchCommandLine, quoteShellValue } from "./launch-command";
+
+export { buildLaunchCommandLine, quoteShellValue } from "./launch-command";
 
 const LAUNCH_VERIFY_INTERVAL_MS = 200;
 const LAUNCH_VERIFY_MAX_ATTEMPTS = 5;
 const AGENT_TERMINATE_WAIT_MS = 500;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const isTmuxTargetMissing = (message: string) =>
   /can't find pane|can't find window|no such pane|no such window|invalid pane|invalid window/i.test(
     message,
   );
 
-export const quoteShellValue = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
-
 type PaneCommandResult = { ok: true; command: string | null } | { ok: false; error: ApiError };
 type PaneCurrentPathResult = { ok: true; cwd: string } | { ok: false; error: ApiError };
-type ShellFragment = string;
 
 const readPaneCurrentCommand = async ({
   adapter,
@@ -287,44 +287,6 @@ const terminateAgentProcessIfRunning = async ({
     return buildError("INTERNAL", `failed to terminate existing ${agent} process`);
   }
   return null;
-};
-
-export const buildLaunchCommandLine = ({
-  agent,
-  options,
-  resumeSessionId,
-  resumePrompt,
-  finalCwd,
-  alwaysPrefixCwd = false,
-}: {
-  agent: LaunchAgent;
-  // Each option must already be a validated shell fragment.
-  options: ShellFragment[];
-  resumeSessionId?: string;
-  resumePrompt?: string;
-  finalCwd?: string;
-  alwaysPrefixCwd?: boolean;
-}) => {
-  const optionsSuffix = options.join(" ").trim();
-  if (!resumeSessionId) {
-    const launchCommand = [agent, ...options].join(" ");
-    if (!finalCwd || !alwaysPrefixCwd) {
-      return launchCommand;
-    }
-    return `cd ${quoteShellValue(finalCwd)} && ${launchCommand}`;
-  }
-  const quotedSessionId = quoteShellValue(resumeSessionId);
-  const resumeBase =
-    agent === "codex" ? `codex resume ${quotedSessionId}` : `claude --resume ${quotedSessionId}`;
-  const resumeWithOptions =
-    optionsSuffix.length > 0 ? `${resumeBase} ${optionsSuffix}` : resumeBase;
-  const resumeCommand = resumePrompt
-    ? `${resumeWithOptions} ${quoteShellValue(resumePrompt)}`
-    : resumeWithOptions;
-  if (!finalCwd) {
-    return resumeCommand;
-  }
-  return `cd ${quoteShellValue(finalCwd)} && ${resumeCommand}`;
 };
 
 export const assertSessionExists = async (

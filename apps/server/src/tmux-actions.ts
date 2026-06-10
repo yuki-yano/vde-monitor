@@ -6,6 +6,8 @@ import { createLaunchActions } from "./tmux-actions/launch-actions";
 import { createPaneActions } from "./tmux-actions/pane-actions";
 import { createSendActions } from "./tmux-actions/send-actions";
 
+export { resolveSessionByPane } from "./tmux-actions/session-resume-resolver";
+
 export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConfig) => {
   const pendingCommands = new Map<string, string>();
   const dangerKeys = new Set(config.dangerKeys);

@@ -6,7 +6,7 @@ import type {
 } from "@vde-monitor/shared";
 
 import { buildError } from "../../../errors";
-import { resolveSessionByPane } from "../../../tmux-actions/session-resume-resolver";
+import { resolveSessionByPane } from "../../../tmux-actions";
 
 type ResumeFailureReason = NonNullable<LaunchResumeMeta["failureReason"]>;
 
