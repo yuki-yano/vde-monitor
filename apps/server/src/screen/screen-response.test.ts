@@ -2,7 +2,7 @@ import { type AgentMonitorConfig, type SessionDetail, configDefaults } from "@vd
 import { describe, expect, it, vi } from "vitest";
 
 import type { createSessionMonitor } from "../monitor";
-import { captureTerminalScreen } from "../screen-service";
+import { captureTerminalScreen } from "./capture";
 import { createScreenCache } from "./screen-cache";
 import { createScreenResponse } from "./screen-response";
 
@@ -10,7 +10,7 @@ type Monitor = ReturnType<typeof createSessionMonitor>;
 
 const baseConfig: AgentMonitorConfig = { ...configDefaults, token: "test-token" };
 
-vi.mock("../screen-service", () => ({
+vi.mock("./capture", () => ({
   captureTerminalScreen: vi.fn(),
 }));
 

@@ -8,7 +8,7 @@ import type {
 import { buildError, nowIso } from "../http/helpers";
 import type { createSessionMonitor } from "../monitor";
 import { isEditorCommand } from "../monitor/agent-resolver-utils";
-import { captureTerminalScreen } from "../screen-service";
+import { captureTerminalScreen } from "./capture";
 import type { ScreenCache } from "./screen-cache";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
