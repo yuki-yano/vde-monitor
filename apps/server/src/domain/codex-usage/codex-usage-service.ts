@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
-import { isRecord } from "../parse-utils";
 import { createInterface } from "node:readline";
+import { isRecord } from "../parse-utils";
 
 import { UsageProviderError } from "../usage-shared/usage-error";
+import { type CodexAppServerPort, defaultCodexAppServerPort } from "./codex-app-server-process";
 
 type JsonRpcId = string | number;
 
@@ -45,6 +45,7 @@ type JsonRpcResponse = {
 type FetchCodexRateLimitsOptions = {
   timeoutMs?: number;
   cwd?: string;
+  port?: CodexAppServerPort;
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -150,12 +151,10 @@ const randomRequestId = (prefix: string): string =>
 export const fetchCodexRateLimits = async ({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   cwd = process.cwd(),
+  port = defaultCodexAppServerPort,
 }: FetchCodexRateLimitsOptions = {}): Promise<CodexRateLimitsResponse> =>
   new Promise((resolve, reject) => {
-    const processHandle = spawn("codex", ["app-server", "--listen", "stdio://"], {
-      cwd,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const processHandle = port.spawnAppServer(cwd);
     const reader = createInterface({ input: processHandle.stdout });
 
     let settled = false;

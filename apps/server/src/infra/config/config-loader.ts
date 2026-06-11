@@ -20,6 +20,12 @@ import {
 } from "@vde-monitor/shared";
 import YAML from "yaml";
 
+import {
+  collectExtraAllowlistLeafPaths,
+  collectMissingAllowlistLeafPaths,
+} from "./allowlist-paths";
+import { deepMerge, ensureDir, writeFileAtomic } from "./config-io";
+
 const DEFAULT_CONFIG_FILE_BASENAME = "config.yml";
 
 const getConfigDir = () => {
@@ -28,69 +34,6 @@ const getConfigDir = () => {
 
 const getDefaultConfigPath = () => {
   return path.join(getConfigDir(), DEFAULT_CONFIG_FILE_BASENAME);
-};
-
-type AllowlistNode = true | { [key: string]: AllowlistNode };
-
-const collectAllowlistLeafPaths = (allowlist: AllowlistNode, prefix: string[] = []): string[] => {
-  if (allowlist === true) {
-    return [prefix.join(".")];
-  }
-  return Object.entries(allowlist).flatMap(([key, nestedAllowlist]) =>
-    collectAllowlistLeafPaths(nestedAllowlist, [...prefix, key]),
-  );
-};
-
-const collectMissingAllowlistLeafPaths = (
-  source: unknown,
-  allowlist: AllowlistNode,
-  prefix: string[] = [],
-): string[] => {
-  if (allowlist === true) {
-    return [];
-  }
-  if (!isPlainObject(source)) {
-    return collectAllowlistLeafPaths(allowlist, prefix);
-  }
-  const missingPaths: string[] = [];
-  for (const [key, nestedAllowlist] of Object.entries(allowlist)) {
-    const nextPrefix = [...prefix, key];
-    if (!Object.hasOwn(source, key)) {
-      missingPaths.push(...collectAllowlistLeafPaths(nestedAllowlist, nextPrefix));
-      continue;
-    }
-    if (nestedAllowlist === true) {
-      continue;
-    }
-    missingPaths.push(
-      ...collectMissingAllowlistLeafPaths(source[key], nestedAllowlist, nextPrefix),
-    );
-  }
-  return missingPaths;
-};
-
-const collectExtraAllowlistLeafPaths = (
-  source: unknown,
-  allowlist: AllowlistNode,
-  prefix: string[] = [],
-): string[] => {
-  if (!isPlainObject(source) || allowlist === true) {
-    return [];
-  }
-  const extras: string[] = [];
-  for (const [key, nestedValue] of Object.entries(source)) {
-    const nextAllowlist = allowlist[key];
-    const nextPrefix = [...prefix, key];
-    if (nextAllowlist == null) {
-      extras.push(nextPrefix.join("."));
-      continue;
-    }
-    if (nextAllowlist === true) {
-      continue;
-    }
-    extras.push(...collectExtraAllowlistLeafPaths(nestedValue, nextAllowlist, nextPrefix));
-  }
-  return extras;
 };
 
 const createMissingRequiredKeysError = ({
@@ -124,72 +67,12 @@ const validateRequiredGeneratedKeys = ({
   throw createMissingRequiredKeysError({ configPath, missingKeys });
 };
 
-const ensureDir = (dir: string) => {
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-};
-
-const resolveAtomicTempPath = (filePath: string) => {
-  const randomToken = Math.random().toString(36).slice(2, 10);
-  return `${filePath}.tmp-${process.pid}-${Date.now()}-${randomToken}`;
-};
-
-const writeFileAtomic = (filePath: string, data: string) => {
-  const tempPath = resolveAtomicTempPath(filePath);
-  fs.writeFileSync(tempPath, data, { encoding: "utf8", mode: 0o600 });
-  try {
-    fs.chmodSync(tempPath, 0o600);
-  } catch {
-    // ignore
-  }
-  try {
-    fs.renameSync(tempPath, filePath);
-  } catch (error) {
-    try {
-      fs.unlinkSync(tempPath);
-    } catch {
-      // ignore cleanup errors
-    }
-    throw error;
-  }
-};
-
 const isMissingFileError = (error: unknown) => {
   if (!(error instanceof Error)) {
     return false;
   }
   const maybeCode = (error as { code?: unknown }).code;
   return maybeCode === "ENOENT" || error.message.includes("ENOENT");
-};
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  if (value == null || typeof value !== "object") {
-    return false;
-  }
-  return Object.getPrototypeOf(value) === Object.prototype;
-};
-
-const deepMerge = (baseValue: unknown, overrideValue: unknown): unknown => {
-  if (typeof overrideValue === "undefined") {
-    return baseValue;
-  }
-  if (Array.isArray(overrideValue)) {
-    return [...overrideValue];
-  }
-  if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
-    const merged: Record<string, unknown> = { ...baseValue };
-    Object.keys(overrideValue).forEach((key) => {
-      merged[key] = deepMerge(baseValue[key], overrideValue[key]);
-    });
-    return merged;
-  }
-  if (isPlainObject(overrideValue)) {
-    const merged: Record<string, unknown> = {};
-    Object.keys(overrideValue).forEach((key) => {
-      merged[key] = deepMerge(undefined, overrideValue[key]);
-    });
-    return merged;
-  }
-  return overrideValue;
 };
 
 const validateUserConfig = ({

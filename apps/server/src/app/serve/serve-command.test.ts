@@ -5,7 +5,7 @@ import {
   buildTailscaleServeProxyTarget,
   collectServeProxyTargets,
   matchesExpectedTailscaleServeTarget,
-} from "./serve-command";
+} from "./tailscale-setup";
 
 describe("buildTailscaleServeProxyTarget", () => {
   it("builds an HTTP upstream target from host and port", () => {

@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig, SessionDetail } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import { Hono } from "hono";
 
 import { createCommandResponse } from "../command/command-response";
@@ -12,13 +12,17 @@ import type { MultiplexerInputActions } from "../multiplexer/types";
 import type { NotificationService } from "../notifications/service";
 import { createScreenCache } from "../screen/screen-cache";
 import { buildError, isOriginAllowed, requireAuth } from "./helpers";
-import { IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES } from "./image-attachment";
 import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
 import { createNotificationRoutes } from "./routes/notification-routes";
 import { createSessionRoutes } from "./routes/session-routes";
 import type { CommandPayload, HeaderContext, Monitor, RouteContext } from "./routes/types";
 import { createUsageRoutes } from "./routes/usage-routes";
+import {
+  resolvePane as _resolvePane,
+  resolveTitleUpdate as _resolveTitleUpdate,
+  validateAttachmentContentLength as _validateAttachmentContentLength,
+} from "./route-validators";
 
 type ApiContext = {
   config: AgentMonitorConfig;
@@ -121,50 +125,10 @@ export const createApiRouter = ({
     return auth ?? "rest";
   };
 
-  const resolvePane = (c: RouteContext): { paneId: string; detail: SessionDetail } | Response => {
-    const paneId = c.req.param("paneId");
-    if (!paneId) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "invalid pane id") }, 400);
-    }
-    const detail = monitor.registry.getDetail(paneId);
-    if (!detail) {
-      return c.json({ error: buildError("INVALID_PANE", "pane not found") }, 404);
-    }
-    return { paneId, detail };
-  };
-
-  const resolveTitleUpdate = (c: RouteContext, title: string | null) => {
-    const trimmed = title ? title.trim() : null;
-    if (trimmed && trimmed.length > 80) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "title too long") }, 400);
-    }
-    return { nextTitle: trimmed && trimmed.length > 0 ? trimmed : null };
-  };
-
-  const validateAttachmentContentLength = (c: RouteContext): number | Response => {
-    const header = c.req.header("content-length") ?? c.req.header("Content-Length");
-    if (!header) {
-      return c.json(
-        { error: buildError("INVALID_PAYLOAD", "content-length header is required") },
-        400,
-      );
-    }
-    const normalized = header.trim();
-    if (!/^\d+$/.test(normalized)) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "invalid content-length") }, 400);
-    }
-    const contentLength = Number(normalized);
-    if (!Number.isSafeInteger(contentLength) || contentLength < 1) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "invalid content-length") }, 400);
-    }
-    if (contentLength > IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES) {
-      return c.json(
-        { error: buildError("INVALID_PAYLOAD", "attachment exceeds content-length limit") },
-        400,
-      );
-    }
-    return contentLength;
-  };
+  const resolvePane = (c: RouteContext) => _resolvePane(c, monitor);
+  const resolveTitleUpdate = (c: RouteContext, title: string | null) =>
+    _resolveTitleUpdate(c, title);
+  const validateAttachmentContentLength = (c: RouteContext) => _validateAttachmentContentLength(c);
 
   const executeCommand = (c: HeaderContext, payload: CommandPayload) =>
     createCommandResponse({

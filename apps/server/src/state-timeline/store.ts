@@ -11,6 +11,14 @@ import {
   buildTimelineBoundaries,
   clipTimelineEventToInterval,
 } from "./timeline-aggregation";
+import {
+  type SessionTimelinePersistedEvent,
+  type SessionTimelinePersistedEvents,
+  type TimelineEvent,
+  normalizeRestoredPaneEvents,
+  parseIso,
+  toIso,
+} from "./timeline-restore";
 
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
@@ -37,14 +45,6 @@ const DEFAULT_LIMIT_BY_RANGE: Record<SessionStateTimelineRange, number> = {
   "14d": 10_000,
   "30d": 10_000,
 };
-
-type TimelineEvent = Omit<SessionStateTimelineItem, "durationMs"> & {
-  repoRoot: string | null;
-};
-type SessionTimelinePersistedEvent = Omit<TimelineEvent, "repoRoot"> & {
-  repoRoot?: string | null;
-};
-type SessionTimelinePersistedEvents = Record<string, SessionTimelinePersistedEvent[]>;
 
 type StoreOptions = {
   now?: () => Date;
@@ -80,16 +80,6 @@ type GetRepoTimelineInput = {
   itemIdPrefix?: string;
 };
 
-const toIso = (ms: number) => new Date(ms).toISOString();
-
-const parseIso = (value: string | null | undefined) => {
-  if (!value) {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
 const createEmptyTotals = (): Record<SessionStateValue, number> => ({
   RUNNING: 0,
   WAITING_INPUT: 0,
@@ -97,18 +87,6 @@ const createEmptyTotals = (): Record<SessionStateValue, number> => ({
   SHELL: 0,
   UNKNOWN: 0,
 });
-
-const parseSequenceFromId = (id: string) => {
-  const candidate = id.split(":").at(-1);
-  if (!candidate) {
-    return 0;
-  }
-  const parsed = Number.parseInt(candidate, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-  return parsed;
-};
 
 const resolveTimelineLimit = (range: SessionStateTimelineRange, limit: number | undefined) => {
   const fallback = DEFAULT_LIMIT_BY_RANGE[range];
@@ -442,74 +420,11 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       if (!paneId || !Array.isArray(events)) {
         return;
       }
-      const sorted = events
-        .map((event) => {
-          const startedAtMs = parseIso(event.startedAt);
-          if (startedAtMs == null) {
-            return null;
-          }
-          return {
-            id:
-              typeof event.id === "string" && event.id.length > 0
-                ? event.id
-                : `${paneId}:${startedAtMs}:0`,
-            paneId,
-            state: event.state,
-            reason: event.reason,
-            source: event.source,
-            repoRoot: typeof event.repoRoot === "string" ? event.repoRoot : null,
-            startedAtMs,
-            endedAtMs: parseIso(event.endedAt),
-          };
-        })
-        .filter(
-          (
-            event,
-          ): event is {
-            id: string;
-            paneId: string;
-            state: SessionStateValue;
-            reason: string;
-            source: SessionStateTimelineSource;
-            repoRoot: string | null;
-            startedAtMs: number;
-            endedAtMs: number | null;
-          } => event != null,
-        )
-        .sort((a, b) => a.startedAtMs - b.startedAtMs);
-
-      const restored: TimelineEvent[] = [];
-      let lastBoundaryMs = Number.NEGATIVE_INFINITY;
-      sorted.forEach((event, index) => {
-        const next = sorted[index + 1];
-        const nextStartMs = next?.startedAtMs ?? null;
-        const startedAtMs = Math.max(event.startedAtMs, lastBoundaryMs);
-        let endedAtMs = event.endedAtMs;
-        if (endedAtMs == null && nextStartMs != null) {
-          endedAtMs = nextStartMs;
-        }
-        if (endedAtMs != null) {
-          endedAtMs = Math.max(endedAtMs, startedAtMs);
-        }
-        if (endedAtMs != null && endedAtMs === startedAtMs) {
-          return;
-        }
-        restored.push({
-          id: event.id,
-          paneId,
-          state: event.state,
-          reason: event.reason,
-          repoRoot: event.repoRoot,
-          startedAt: toIso(startedAtMs),
-          endedAt: endedAtMs == null ? null : toIso(endedAtMs),
-          source: event.source,
-        });
-        sequence = Math.max(sequence, parseSequenceFromId(event.id));
-        lastBoundaryMs = endedAtMs ?? startedAtMs;
-      });
+      const { events: restored, maxSequence } = normalizeRestoredPaneEvents(paneId, events);
       if (restored.length > 0) {
         eventsByPane.set(paneId, restored);
       }
+      sequence = Math.max(sequence, maxSequence);
     });
 
     const nowMs = now().getTime();
