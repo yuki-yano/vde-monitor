@@ -1,4 +1,4 @@
-import { normalizeWeztermTarget } from "@vde-monitor/wezterm";
+import { normalizeWeztermTarget } from "@vde-monitor/shared";
 import { execa } from "execa";
 
 import type { PaneGeometry } from "./tmux-geometry";

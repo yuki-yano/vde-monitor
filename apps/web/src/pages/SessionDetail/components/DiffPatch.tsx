@@ -13,7 +13,7 @@ import {
 import { MonoBlock } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-import { normalizeLogReference } from "../log-file-reference";
+import { normalizeLogReference } from "@/features/shared-session-ui/lib/log-file-reference";
 import { diffLineClass } from "../sessionDetailUtils";
 
 type DiffPatchProps = {

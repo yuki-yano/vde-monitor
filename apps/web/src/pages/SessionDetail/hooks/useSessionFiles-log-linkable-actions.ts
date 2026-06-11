@@ -1,6 +1,6 @@
 import { type MutableRefObject, useCallback } from "react";
 
-import { normalizeLogReference } from "../log-file-reference";
+import { normalizeLogReference } from "@/features/shared-session-ui/lib/log-file-reference";
 import {
   buildLogReferenceLinkableCacheKey,
   resolveLogReferenceLinkableWithCache,

@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { CompositionEvent, FormEvent, KeyboardEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useRawInputHandlers } from "./useRawInputHandlers";
+import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
 
 const createFormEvent = (
   textarea: HTMLTextAreaElement,

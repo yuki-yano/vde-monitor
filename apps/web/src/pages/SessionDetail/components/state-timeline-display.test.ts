@@ -6,7 +6,7 @@ import type {
 } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
-import { buildTimelineDisplay } from "./state-timeline-display";
+import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 
 const PANE_ID = "pane-1";
 const NOW_ISO = "2026-02-06T21:00:00.000Z";

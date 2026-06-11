@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSessionDetail } from "../test-helpers";
-import { SessionSidebar } from "./SessionSidebar";
+import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
 
 vi.mock("@/features/shared-session-ui/hooks/useSidebarPreview", () => ({
   useSidebarPreview: () => ({

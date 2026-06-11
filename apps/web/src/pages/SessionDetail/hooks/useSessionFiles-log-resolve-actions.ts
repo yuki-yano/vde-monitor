@@ -1,6 +1,9 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
 
-import { extractLogReferenceLocation, normalizeLogReference } from "../log-file-reference";
+import {
+  extractLogReferenceLocation,
+  normalizeLogReference,
+} from "@/features/shared-session-ui/lib/log-file-reference";
 import {
   type LogFileCandidateItem,
   initializeLogResolveRequest,

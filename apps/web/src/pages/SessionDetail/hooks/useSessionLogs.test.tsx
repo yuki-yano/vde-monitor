@@ -10,14 +10,14 @@ import {
   logModalOpenAtom,
   quickPanelOpenAtom,
   selectedPaneIdAtom,
-} from "../atoms/logAtoms";
+} from "@/features/shared-session-ui/atoms/logAtoms";
 import {
   getScreenCacheAtom,
   getScreenCacheErrorAtom,
   getScreenCacheLoadingAtom,
-} from "../atoms/screenCacheAtoms";
+} from "@/features/shared-session-ui/atoms/screenCacheAtoms";
 import { createSessionDetail } from "../test-helpers";
-import { useSessionLogs } from "./useSessionLogs";
+import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 
 vi.mock("@/lib/ansi", () => ({
   renderAnsiLines: (text: string) => text.split("\n"),

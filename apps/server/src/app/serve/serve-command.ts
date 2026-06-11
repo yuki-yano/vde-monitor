@@ -1,9 +1,9 @@
 import { createInterface } from "node:readline/promises";
 
 import { serve } from "@hono/node-server";
-import { isObject } from "@vde-monitor/shared";
+import { isObject, normalizeWeztermTarget } from "@vde-monitor/shared";
 import { createTmuxAdapter } from "@vde-monitor/tmux";
-import { createWeztermAdapter, normalizeWeztermTarget } from "@vde-monitor/wezterm";
+import { createWeztermAdapter } from "@vde-monitor/wezterm";
 import { execaSync } from "execa";
 import qrcode from "qrcode-terminal";
 

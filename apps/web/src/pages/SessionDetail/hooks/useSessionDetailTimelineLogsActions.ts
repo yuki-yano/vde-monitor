@@ -15,7 +15,7 @@ import type { Theme } from "@/lib/theme";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
 import { useSessionDetailActions } from "./useSessionDetailActions";
-import { useSessionLogs } from "./useSessionLogs";
+import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 import { useSessionTimeline } from "./useSessionTimeline";
 
 const RESUME_WINDOW_TRANSITION_TIMEOUT_MS = 15_000;

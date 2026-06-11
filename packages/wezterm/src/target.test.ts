@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildWeztermTargetArgs, normalizeWeztermTarget } from "./target";
+import { normalizeWeztermTarget } from "@vde-monitor/shared";
+import { buildWeztermTargetArgs } from "./target";
 
 describe("normalizeWeztermTarget", () => {
   it("normalizes null/blank/auto to auto", () => {

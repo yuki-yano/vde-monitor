@@ -24,7 +24,7 @@ import type { ScreenWrapMode } from "../atoms/screenAtoms";
 import { usePromptContextLayout } from "../hooks/usePromptContextLayout";
 import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogReferenceLinking";
 import { useScreenPanelWorktreeSelector } from "../hooks/useScreenPanelWorktreeSelector";
-import { useStableVirtuosoScroll } from "../hooks/useStableVirtuosoScroll";
+import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
 import { classifySmartWrapLines } from "../smart-wrap-classify";
 import { ScreenPanelPromptContext } from "./screen-panel-prompt-context";

@@ -2,8 +2,6 @@ import type { TextCaptureOptions, TextCaptureResult } from "@vde-monitor/shared"
 
 import type { WeztermAdapter } from "./adapter";
 
-export type { TextCaptureOptions, TextCaptureResult };
-
 const normalizeLines = (text: string) => {
   const lines = text.replace(/\r/g, "").split("\n");
   while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {

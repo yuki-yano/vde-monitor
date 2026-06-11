@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mapKeyWithModifiers } from "./sessionControlKeys";
+import { mapKeyWithModifiers } from "@/features/shared-session-ui/hooks/session-control-keys";
 
 describe("mapKeyWithModifiers", () => {
   it("maps shift+Tab to BTab", () => {

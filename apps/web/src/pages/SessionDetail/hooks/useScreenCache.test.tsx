@@ -7,8 +7,8 @@ import {
   getScreenCacheAtom,
   getScreenCacheErrorAtom,
   getScreenCacheLoadingAtom,
-} from "../atoms/screenCacheAtoms";
-import { useScreenCache } from "./useScreenCache";
+} from "@/features/shared-session-ui/atoms/screenCacheAtoms";
+import { useScreenCache } from "@/features/shared-session-ui/hooks/useScreenCache";
 
 describe("useScreenCache", () => {
   afterEach(() => {

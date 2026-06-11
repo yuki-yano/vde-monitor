@@ -22,13 +22,13 @@ import { DiffSection } from "./components/DiffSection";
 import { FileContentModal } from "./components/FileContentModal";
 import { FileNavigatorSection } from "./components/FileNavigatorSection";
 import { LogFileCandidateModal } from "./components/LogFileCandidateModal";
-import { LogModal } from "./components/LogModal";
+import { LogModal } from "@/features/shared-session-ui/components/LogModal";
 import { NotesSection } from "./components/NotesSection";
-import { QuickPanel } from "./components/QuickPanel";
+import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
 import { ScreenPanel } from "./components/ScreenPanel";
 import { SessionDetailMissingState } from "./components/SessionDetailMissingState";
 import { SessionHeader } from "./components/SessionHeader";
-import { SessionSidebar } from "./components/SessionSidebar";
+import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
 import { StateTimelineSection } from "./components/StateTimelineSection";
 import { WorktreeSection } from "./components/WorktreeSection";
 import {

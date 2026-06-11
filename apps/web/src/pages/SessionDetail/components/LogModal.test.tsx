@@ -3,9 +3,12 @@ import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { logModalDisplayLinesAtom, logModalIsAtBottomAtom } from "../atoms/logAtoms";
+import {
+  logModalDisplayLinesAtom,
+  logModalIsAtBottomAtom,
+} from "@/features/shared-session-ui/atoms/logAtoms";
 import { createSessionDetail } from "../test-helpers";
-import { LogModal } from "./LogModal";
+import { LogModal } from "@/features/shared-session-ui/components/LogModal";
 
 let latestOnUserScrollStateChange: ((value: boolean) => void) | null = null;
 const mockUseWorkspaceTabs = vi.hoisted(

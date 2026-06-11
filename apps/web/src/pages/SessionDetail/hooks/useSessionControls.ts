@@ -23,8 +23,8 @@ import {
   controlsRawModeAtom,
   controlsShiftHeldAtom,
 } from "../atoms/controlAtoms";
-import { mapKeyWithModifiers } from "./sessionControlKeys";
-import { useRawInputHandlers } from "./useRawInputHandlers";
+import { mapKeyWithModifiers } from "@/features/shared-session-ui/hooks/session-control-keys";
+import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
 
 type UseSessionControlsParams = {
   paneId: string;

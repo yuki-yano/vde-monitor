@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { __testables, mapAnchorIndex } from "./scroll-stability";
+import { __testables, mapAnchorIndex } from "@/features/shared-session-ui/hooks/scroll-stability";
 
 describe("scroll-stability", () => {
   it("maps anchor index when lines are trimmed from the top", () => {

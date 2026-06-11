@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveRawBeforeInput } from "./raw-input-beforeinput";
+import { resolveRawBeforeInput } from "@/features/shared-session-ui/hooks/raw-input-beforeinput";
 
 describe("resolveRawBeforeInput", () => {
   it("ignores when raw mode is disabled", () => {

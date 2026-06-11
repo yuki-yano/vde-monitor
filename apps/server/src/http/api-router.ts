@@ -142,10 +142,7 @@ export const createApiRouter = ({
   };
 
   const validateAttachmentContentLength = (c: RouteContext): number | Response => {
-    const header =
-      c.req.header("content-length") ??
-      c.req.header("Content-Length") ??
-      (process.env.NODE_ENV === "test" ? c.req.header("x-content-length") : undefined);
+    const header = c.req.header("content-length") ?? c.req.header("Content-Length");
     if (!header) {
       return c.json(
         { error: buildError("INVALID_PAYLOAD", "content-length header is required") },

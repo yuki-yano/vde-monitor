@@ -9,8 +9,6 @@ import {
 } from "./infra/config/config-loader";
 import { ensureToken, generateToken, saveToken } from "./token-store";
 
-export { resolveGlobalConfigPath } from "./infra/config/config-loader";
-
 type ConfigInitResult =
   | {
       created: true;

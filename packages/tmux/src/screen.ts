@@ -6,8 +6,6 @@ import {
 
 import type { TmuxAdapter } from "./adapter";
 
-export type { TextCaptureOptions, TextCaptureResult };
-
 const normalizeScreen = (text: string, lineLimit: number): string => {
   const lines = text.replace(/\r/g, "").split("\n");
   while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {

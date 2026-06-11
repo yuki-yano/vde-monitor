@@ -2,7 +2,10 @@ import { act, render } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { __testables, useStableVirtuosoScroll } from "./useStableVirtuosoScroll";
+import {
+  __testables,
+  useStableVirtuosoScroll,
+} from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 
 type Control = {
   scroller: HTMLDivElement;

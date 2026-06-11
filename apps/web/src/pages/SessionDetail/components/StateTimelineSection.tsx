@@ -23,7 +23,7 @@ import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/se
 import { cn } from "@/lib/cn";
 
 import { formatStateLabel, stateTone } from "../sessionDetailUtils";
-import { buildTimelineDisplay } from "./state-timeline-display";
+import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 
 type StateTimelineSectionState = {
   timeline: SessionStateTimeline | null;

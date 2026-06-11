@@ -1,3 +1,5 @@
+// @vitest-environment node
+// The happy-dom Request drops forbidden headers like content-length, which this suite must set.
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -316,7 +318,7 @@ describe("createApiRouter", () => {
       headers: {
         ...authHeaders,
         "content-type": `multipart/form-data; boundary=${payload.boundary}`,
-        "x-content-length": "abc",
+        "content-length": "abc",
       },
       body: payload.body,
     });
@@ -334,7 +336,7 @@ describe("createApiRouter", () => {
       headers: {
         ...authHeaders,
         "content-type": `multipart/form-data; boundary=${payload.boundary}`,
-        "x-content-length": String(IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES + 1),
+        "content-length": String(IMAGE_ATTACHMENT_MAX_CONTENT_LENGTH_BYTES + 1),
       },
       body: payload.body,
     });
@@ -357,7 +359,7 @@ describe("createApiRouter", () => {
       method: "POST",
       headers: {
         ...authHeaders,
-        "x-content-length": "128",
+        "content-length": "128",
       },
       body: formData,
     });
@@ -385,7 +387,7 @@ describe("createApiRouter", () => {
         method: "POST",
         headers: {
           ...authHeaders,
-          "x-content-length": "128",
+          "content-length": "128",
         },
         body: formData,
       });
@@ -430,7 +432,7 @@ describe("createApiRouter", () => {
         method: "POST",
         headers: {
           ...authHeaders,
-          "x-content-length": String(simulatedContentLength),
+          "content-length": String(simulatedContentLength),
         },
         body: formData,
       });

@@ -7,7 +7,7 @@ import {
   extractLogReferenceTokensFromLine,
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
-} from "../log-file-reference";
+} from "@/features/shared-session-ui/lib/log-file-reference";
 
 const VISIBLE_REFERENCE_LINE_PADDING = 20;
 const FALLBACK_VISIBLE_REFERENCE_WINDOW = 120;

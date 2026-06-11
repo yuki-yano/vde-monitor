@@ -6,7 +6,7 @@ import {
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
   normalizeLogReference,
-} from "./log-file-reference";
+} from "@/features/shared-session-ui/lib/log-file-reference";
 
 describe("normalizeLogReference", () => {
   it("normalizes path token and strips line/column suffix", () => {

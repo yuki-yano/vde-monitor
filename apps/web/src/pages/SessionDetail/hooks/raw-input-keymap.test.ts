@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveRawKeyInput } from "./raw-input-keymap";
+import { resolveRawKeyInput } from "@/features/shared-session-ui/hooks/raw-input-keymap";
 
 describe("resolveRawKeyInput", () => {
   it("maps tab with shift to BTab", () => {

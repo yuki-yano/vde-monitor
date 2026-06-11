@@ -5,7 +5,7 @@ import * as pwaDisplayMode from "@/lib/pwa-display-mode";
 import { buildSessionGroups } from "@/lib/session-group";
 
 import { createSessionDetail } from "../test-helpers";
-import { QuickPanel } from "./QuickPanel";
+import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
 
 describe("QuickPanel", () => {
   type QuickPanelState = Parameters<typeof QuickPanel>[0]["state"];

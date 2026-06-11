@@ -6,8 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Theme } from "@/lib/theme";
 
-import { sidebarHoveredPaneIdAtom, sidebarPreviewFrameAtom } from "../atoms/sidebarPreviewAtoms";
-import { useSidebarPreview } from "./useSidebarPreview";
+import {
+  sidebarHoveredPaneIdAtom,
+  sidebarPreviewFrameAtom,
+} from "@/features/shared-session-ui/atoms/sidebarPreviewAtoms";
+import { useSidebarPreview } from "@/features/shared-session-ui/hooks/useSidebarPreview";
 
 const prefetchPreview = vi.fn();
 const previewCache: Record<
