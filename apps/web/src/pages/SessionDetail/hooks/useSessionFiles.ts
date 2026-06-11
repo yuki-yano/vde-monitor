@@ -1,3 +1,11 @@
+// Orchestrator for the SessionDetail file navigator. All state lives in the
+// useSessionFiles-ui-state-machine reducer; the useSessionFiles-* sub-hooks each own one
+// concern and are wired here in dependency order:
+//   tree-loader -> tree-actions/tree-reveal/tree-render-nodes   (tree browsing)
+//   search-actions -> search-effects/search-expand-state        (fuzzy search)
+//   file-modal-actions                                          (content modal)
+//   log-resolve-* / log-linkable-actions                        (log path resolution)
+// Guarded by useSessionFiles.test.tsx (session-file-tree-fuzzy-finder spec).
 import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 

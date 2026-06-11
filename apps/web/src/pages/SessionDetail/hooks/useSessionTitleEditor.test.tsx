@@ -1,41 +1,19 @@
 import { act, renderHook } from "@testing-library/react";
-import { Provider as JotaiProvider, createStore } from "jotai";
-import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  titleDraftAtom,
-  titleEditingAtom,
-  titleErrorAtom,
-  titleSavingAtom,
-} from "../atoms/titleAtoms";
 import { createSessionDetail } from "../test-helpers";
 import { useSessionTitleEditor } from "./useSessionTitleEditor";
 
 describe("useSessionTitleEditor", () => {
-  const createWrapper = () => {
-    const store = createStore();
-    store.set(titleDraftAtom, "");
-    store.set(titleEditingAtom, false);
-    store.set(titleSavingAtom, false);
-    store.set(titleErrorAtom, null);
-    return ({ children }: { children: ReactNode }) => (
-      <JotaiProvider store={store}>{children}</JotaiProvider>
-    );
-  };
-
   it("initializes with custom title", () => {
     const session = createSessionDetail({ customTitle: "Custom" });
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionTitleEditor({
-          session,
-          paneId: session.paneId,
-          updateSessionTitle: vi.fn(),
-          resetSessionTitle: vi.fn(),
-        }),
-      { wrapper },
+    const { result } = renderHook(() =>
+      useSessionTitleEditor({
+        session,
+        paneId: session.paneId,
+        updateSessionTitle: vi.fn(),
+        resetSessionTitle: vi.fn(),
+      }),
     );
 
     expect(result.current.titleDraft).toBe("Custom");
@@ -46,16 +24,13 @@ describe("useSessionTitleEditor", () => {
     const session = createSessionDetail({ customTitle: "Custom" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionTitleEditor({
-          session,
-          paneId: session.paneId,
-          updateSessionTitle,
-          resetSessionTitle,
-        }),
-      { wrapper },
+    const { result } = renderHook(() =>
+      useSessionTitleEditor({
+        session,
+        paneId: session.paneId,
+        updateSessionTitle,
+        resetSessionTitle,
+      }),
     );
 
     act(() => {
@@ -75,16 +50,13 @@ describe("useSessionTitleEditor", () => {
     const session = createSessionDetail();
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionTitleEditor({
-          session,
-          paneId: session.paneId,
-          updateSessionTitle,
-          resetSessionTitle,
-        }),
-      { wrapper },
+    const { result } = renderHook(() =>
+      useSessionTitleEditor({
+        session,
+        paneId: session.paneId,
+        updateSessionTitle,
+        resetSessionTitle,
+      }),
     );
 
     act(() => {
@@ -103,16 +75,13 @@ describe("useSessionTitleEditor", () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionTitleEditor({
-          session,
-          paneId: session.paneId,
-          updateSessionTitle,
-          resetSessionTitle,
-        }),
-      { wrapper },
+    const { result } = renderHook(() =>
+      useSessionTitleEditor({
+        session,
+        paneId: session.paneId,
+        updateSessionTitle,
+        resetSessionTitle,
+      }),
     );
 
     await act(async () => {
@@ -127,16 +96,13 @@ describe("useSessionTitleEditor", () => {
     const session = createSessionDetail({ customTitle: null, title: "✳ Initial Greeting" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionTitleEditor({
-          session,
-          paneId: session.paneId,
-          updateSessionTitle,
-          resetSessionTitle,
-        }),
-      { wrapper },
+    const { result } = renderHook(() =>
+      useSessionTitleEditor({
+        session,
+        paneId: session.paneId,
+        updateSessionTitle,
+        resetSessionTitle,
+      }),
     );
 
     await act(async () => {

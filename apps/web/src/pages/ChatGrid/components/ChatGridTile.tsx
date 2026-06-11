@@ -32,6 +32,7 @@ import {
   type PermissionShortcutValue,
 } from "@/features/shared-session-ui/components/PaneTextComposer";
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
+import { useTitleEditor } from "@/features/shared-session-ui/hooks/useTitleEditor";
 import {
   confirmDangerousKey,
   confirmDangerousText,
@@ -69,39 +70,6 @@ type ChatGridTileProps = {
   onRemoveFromGrid?: (paneId: string) => void;
 };
 
-type TitleEditorState = {
-  contextKey: string;
-  draft: string;
-  editing: boolean;
-  saving: boolean;
-  error: string | null;
-};
-
-const buildTitleContextKey = (paneId: string, customTitle: string | null) =>
-  `${paneId}\u0000${customTitle ?? ""}`;
-
-const createTitleEditorState = (
-  contextKey: string,
-  customTitle: string | null,
-): TitleEditorState => ({
-  contextKey,
-  draft: customTitle ?? "",
-  editing: false,
-  saving: false,
-  error: null,
-});
-
-const resolveTitleEditorState = (
-  state: TitleEditorState,
-  contextKey: string,
-  customTitle: string | null,
-) => {
-  if (state.contextKey === contextKey) {
-    return state;
-  }
-  return createTitleEditorState(contextKey, customTitle);
-};
-
 export const ChatGridTile = ({
   session,
   nowMs,
@@ -136,27 +104,23 @@ export const ChatGridTile = ({
   const canResetTitle = sessionCustomTitle != null || session.title != null;
   const sessionAutoTitle = session.title ?? session.sessionName ?? "";
   const sessionDisplayTitle = sessionCustomTitle ?? sessionAutoTitle;
-  const titleContextKey = buildTitleContextKey(session.paneId, sessionCustomTitle);
-  const [titleState, setTitleState] = useState<TitleEditorState>(() =>
-    createTitleEditorState(titleContextKey, sessionCustomTitle),
-  );
-  const resolvedTitleState = resolveTitleEditorState(
-    titleState,
-    titleContextKey,
-    sessionCustomTitle,
-  );
-  const titleDraft = resolvedTitleState.draft;
-  const titleEditing = resolvedTitleState.editing;
-  const titleSaving = resolvedTitleState.saving;
-  const titleError = resolvedTitleState.error;
-  const updateTitleState = useCallback(
-    (updater: (state: TitleEditorState) => TitleEditorState) => {
-      setTitleState((prev) =>
-        updater(resolveTitleEditorState(prev, titleContextKey, sessionCustomTitle)),
-      );
-    },
-    [sessionCustomTitle, titleContextKey],
-  );
+  const {
+    titleDraft,
+    titleEditing,
+    titleSaving,
+    titleError,
+    openTitleEditor,
+    updateTitleDraft,
+    resetTitle,
+    handleTitleKeyDown,
+    handleTitleBlur,
+  } = useTitleEditor({
+    paneId: session.paneId,
+    customTitle: sessionCustomTitle,
+    updateSessionTitle,
+    resetSessionTitle,
+    skipSaveIfUnchanged: true,
+  });
   const displayLines = useMemo(() => {
     if (screenLines.length > 0) {
       return screenLines.map((line) => {
@@ -312,132 +276,6 @@ export const ChatGridTile = ({
     [onTouchSession, sendRaw, session.paneId],
   );
 
-  const openTitleEditor = useCallback(() => {
-    updateTitleState((state) => ({
-      ...state,
-      draft: sessionCustomTitle ?? "",
-      editing: true,
-      saving: false,
-      error: null,
-    }));
-  }, [sessionCustomTitle, updateTitleState]);
-
-  const closeTitleEditor = useCallback(() => {
-    updateTitleState((state) => ({
-      ...state,
-      draft: sessionCustomTitle ?? "",
-      editing: false,
-      saving: false,
-      error: null,
-    }));
-  }, [sessionCustomTitle, updateTitleState]);
-
-  const handleTitleDraftChange = useCallback(
-    (value: string) => {
-      updateTitleState((state) => ({
-        ...state,
-        draft: value,
-        error: null,
-      }));
-    },
-    [updateTitleState],
-  );
-
-  const handleTitleSave = useCallback(async () => {
-    if (titleSaving) return;
-    const trimmed = titleDraft.trim();
-    const nextCustomTitle = trimmed.length > 0 ? trimmed : null;
-
-    if (nextCustomTitle === sessionCustomTitle) {
-      updateTitleState((state) => ({
-        ...state,
-        draft: nextCustomTitle ?? "",
-        editing: false,
-        saving: false,
-        error: null,
-      }));
-      return;
-    }
-
-    if (trimmed.length > 80) {
-      updateTitleState((state) => ({
-        ...state,
-        error: "Title must be 80 characters or less.",
-      }));
-      return;
-    }
-
-    updateTitleState((state) => ({
-      ...state,
-      saving: true,
-      error: null,
-    }));
-    try {
-      await updateSessionTitle(session.paneId, nextCustomTitle);
-      updateTitleState((state) => ({ ...state, editing: false, saving: false, error: null }));
-    } catch (error) {
-      updateTitleState((state) => ({
-        ...state,
-        saving: false,
-        error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateTitle),
-      }));
-    }
-  }, [
-    session.paneId,
-    sessionCustomTitle,
-    titleDraft,
-    titleSaving,
-    updateSessionTitle,
-    updateTitleState,
-  ]);
-
-  const handleTitleReset = useCallback(async () => {
-    if (titleSaving) return;
-
-    updateTitleState((state) => ({
-      ...state,
-      saving: true,
-      error: null,
-    }));
-    try {
-      await resetSessionTitle(session.paneId);
-      updateTitleState((state) => ({
-        ...state,
-        editing: false,
-        saving: false,
-        draft: "",
-        error: null,
-      }));
-    } catch (error) {
-      updateTitleState((state) => ({
-        ...state,
-        saving: false,
-        error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateTitle),
-      }));
-    }
-  }, [resetSessionTitle, session.paneId, titleSaving, updateTitleState]);
-
-  const handleTitleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        void handleTitleSave();
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeTitleEditor();
-      }
-    },
-    [closeTitleEditor, handleTitleSave],
-  );
-
-  const handleTitleBlur = useCallback(() => {
-    if (titleSaving) {
-      return;
-    }
-    closeTitleEditor();
-  }, [closeTitleEditor, titleSaving]);
   const handleRemoveFromGrid = useCallback(() => {
     onRemoveFromGrid?.(session.paneId);
   }, [onRemoveFromGrid, session.paneId]);
@@ -476,7 +314,7 @@ export const ChatGridTile = ({
                   type="text"
                   value={titleDraft}
                   onChange={(event) => {
-                    handleTitleDraftChange(event.target.value);
+                    updateTitleDraft(event.target.value);
                   }}
                   onKeyDown={handleTitleKeyDown}
                   onBlur={handleTitleBlur}
@@ -501,7 +339,7 @@ export const ChatGridTile = ({
               {canResetTitle && !titleEditing ? (
                 <IconButton
                   type="button"
-                  onClick={() => void handleTitleReset()}
+                  onClick={() => void resetTitle()}
                   disabled={titleSaving}
                   variant="dangerOutline"
                   size="xs"

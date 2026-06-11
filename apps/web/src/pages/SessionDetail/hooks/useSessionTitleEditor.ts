@@ -1,17 +1,9 @@
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 
-import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { useTitleEditor } from "@/features/shared-session-ui/hooks/useTitleEditor";
 import { upsertLocalNotificationSessionTitle } from "@/lib/notification-session-title-store";
 
-import {
-  titleDraftAtom,
-  titleEditingAtom,
-  titleErrorAtom,
-  titleSavingAtom,
-} from "../atoms/titleAtoms";
 type UseSessionTitleEditorParams = {
   session: SessionSummary | null;
   paneId: string;
@@ -26,113 +18,48 @@ export const useSessionTitleEditor = ({
   resetSessionTitle,
 }: UseSessionTitleEditorParams) => {
   const sessionCustomTitle = session?.customTitle ?? null;
-  const [titleDraft, setTitleDraft] = useAtom(titleDraftAtom);
-  const [titleEditing, setTitleEditing] = useAtom(titleEditingAtom);
-  const [titleSaving, setTitleSaving] = useAtom(titleSavingAtom);
-  const [titleError, setTitleError] = useAtom(titleErrorAtom);
 
-  useEffect(() => {
-    setTitleEditing(false);
-    setTitleSaving(false);
-    setTitleError(null);
-    setTitleDraft(sessionCustomTitle ?? "");
-  }, [paneId, sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError, setTitleSaving]);
-
-  useEffect(() => {
-    if (titleEditing) return;
-    setTitleDraft(sessionCustomTitle ?? "");
-  }, [sessionCustomTitle, titleEditing, setTitleDraft]);
-
-  const openTitleEditor = useCallback(() => {
-    if (!session) return;
-    setTitleError(null);
-    setTitleDraft(sessionCustomTitle ?? "");
-    setTitleEditing(true);
-  }, [session, sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError]);
-
-  const closeTitleEditor = useCallback(() => {
-    setTitleEditing(false);
-    setTitleError(null);
-    setTitleDraft(sessionCustomTitle ?? "");
-  }, [sessionCustomTitle, setTitleDraft, setTitleEditing, setTitleError]);
-
-  const updateTitleDraft = useCallback(
-    (value: string) => {
-      setTitleDraft(value);
-      setTitleError(null);
+  const onAfterSave = useCallback(
+    async (savedPaneId: string, nextTitle: string | null) => {
+      if (!session) return;
+      const nextLocalTitle = nextTitle ?? session.title ?? session.sessionName;
+      void upsertLocalNotificationSessionTitle({
+        paneId: savedPaneId,
+        title: nextLocalTitle,
+      }).catch(() => undefined);
     },
-    [setTitleDraft, setTitleError],
+    [session],
   );
 
-  const saveTitle = useCallback(async () => {
-    if (!session || titleSaving) return;
-    const trimmed = titleDraft.trim();
-    if (trimmed.length > 80) {
-      setTitleError("Title must be 80 characters or less.");
-      return;
-    }
-    setTitleSaving(true);
-    try {
-      await updateSessionTitle(session.paneId, trimmed.length > 0 ? trimmed : null);
-      const nextLocalTitle = trimmed.length > 0 ? trimmed : (session.title ?? session.sessionName);
+  const onAfterReset = useCallback(
+    async (savedPaneId: string) => {
+      if (!session) return;
       void upsertLocalNotificationSessionTitle({
-        paneId: session.paneId,
-        title: nextLocalTitle,
+        paneId: savedPaneId,
+        title: session.sessionName,
       }).catch(() => undefined);
-      setTitleEditing(false);
-      setTitleError(null);
-    } catch (err) {
-      setTitleError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
-    } finally {
-      setTitleSaving(false);
-    }
-  }, [
-    session,
-    titleDraft,
-    titleSaving,
-    updateSessionTitle,
-    setTitleEditing,
-    setTitleError,
-    setTitleSaving,
-  ]);
+    },
+    [session],
+  );
 
-  const resetTitle = useCallback(async () => {
-    if (!session || titleSaving) return;
-    setTitleSaving(true);
-    try {
-      await resetSessionTitle(session.paneId);
-      const nextLocalTitle = session.sessionName;
-      void upsertLocalNotificationSessionTitle({
-        paneId: session.paneId,
-        title: nextLocalTitle,
-      }).catch(() => undefined);
-      setTitleEditing(false);
-      setTitleDraft("");
-      setTitleError(null);
-    } catch (err) {
-      setTitleError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
-    } finally {
-      setTitleSaving(false);
-    }
-  }, [
-    session,
-    titleSaving,
+  const { openTitleEditor: baseOpenTitleEditor, ...rest } = useTitleEditor({
+    paneId,
+    customTitle: sessionCustomTitle,
+    updateSessionTitle,
     resetSessionTitle,
-    setTitleDraft,
-    setTitleEditing,
-    setTitleError,
-    setTitleSaving,
-  ]);
+    skipSaveIfUnchanged: false,
+    onAfterSave,
+    onAfterReset,
+  });
+
+  // Guard openTitleEditor: do nothing when session data is not yet available.
+  const openTitleEditor = useCallback(() => {
+    if (!session) return;
+    baseOpenTitleEditor();
+  }, [session, baseOpenTitleEditor]);
 
   return {
-    titleDraft,
-    titleEditing,
-    titleSaving,
-    titleError,
+    ...rest,
     openTitleEditor,
-    closeTitleEditor,
-    updateTitleDraft,
-    saveTitle,
-    resetTitle,
   };
 };

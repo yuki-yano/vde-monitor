@@ -1,0 +1,133 @@
+import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+import { type DragKind, animateGroupLayoutChanges, toTabSortableId } from "../hooks/usePwaTabsDnd";
+import { SYSTEM_CHAT_GRID_TAB_ID, type WorkspaceTab } from "../model/workspace-tabs";
+import type { WorkspaceTabGroup } from "../hooks/usePwaWorkspaceTabsVM";
+import { SortableTabItem } from "./SortableTabItem";
+
+export type SortableSessionGroupProps = {
+  group: WorkspaceTabGroup;
+  groupSortableId: string;
+  activeTabId: string;
+  dragKind: DragKind;
+  resolveTabLabel: (tab: WorkspaceTab) => string;
+  resolveTabStateClass: (tab: WorkspaceTab) => string;
+  onActivateTab: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void;
+};
+
+export const SortableSessionGroup = ({
+  group,
+  groupSortableId,
+  activeTabId,
+  dragKind,
+  resolveTabLabel,
+  resolveTabStateClass,
+  onActivateTab,
+  onCloseTab,
+}: SortableSessionGroupProps) => {
+  const sortableDisabled = dragKind === "tab";
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: groupSortableId,
+    disabled: sortableDisabled,
+    animateLayoutChanges: animateGroupLayoutChanges,
+    transition: {
+      duration: 220,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    },
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform) ?? undefined,
+    transition: transition ?? undefined,
+    zIndex: isDragging ? 40 : undefined,
+  };
+  const latestTabInGroup = group.tabs.reduce<WorkspaceTab | null>((latest, candidate) => {
+    if (latest == null) {
+      return candidate;
+    }
+    if (candidate.lastActivatedAt > latest.lastActivatedAt) {
+      return candidate;
+    }
+    if (candidate.lastActivatedAt === latest.lastActivatedAt && candidate.id === activeTabId) {
+      return candidate;
+    }
+    return latest;
+  }, null);
+  const isActiveGroup = group.tabs.some((tab) => tab.id === activeTabId);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={[
+        "border-latte-surface2/65 relative flex items-center gap-1.5 border-l pl-1.5",
+        isDragging ? "opacity-45" : "",
+      ].join(" ")}
+      data-group-key={group.key}
+      data-dragging={isDragging ? "true" : "false"}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        aria-label={`Reorder session group ${group.label}`}
+        onClick={(event) => {
+          if (event.defaultPrevented || isDragging) {
+            return;
+          }
+          if (latestTabInGroup == null) {
+            return;
+          }
+          onActivateTab(latestTabInGroup.id);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        className={[
+          "text-latte-overlay1 bg-latte-base/70 hover:bg-latte-base/85 rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
+          isActiveGroup
+            ? "text-latte-text border-latte-lavender/45 bg-latte-lavender/20 shadow-accent-sm"
+            : "",
+          "cursor-grab touch-pan-x select-none [-webkit-touch-callout:none] [-webkit-user-select:none] [user-select:none] active:cursor-grabbing",
+          isDragging ? "bg-latte-base/90 text-latte-text" : "",
+        ].join(" ")}
+        {...attributes}
+        {...listeners}
+      >
+        {group.label}
+      </button>
+      <SortableContext
+        items={group.tabs.map((tab) => toTabSortableId(tab.id))}
+        strategy={rectSortingStrategy}
+      >
+        {group.tabs.map((tab) => {
+          const label = resolveTabLabel(tab);
+          const isActive = activeTabId === tab.id;
+          const stateClass = resolveTabStateClass(tab);
+          return (
+            <SortableTabItem
+              key={tab.id}
+              tab={tab}
+              tabSortableId={toTabSortableId(tab.id)}
+              label={label}
+              active={isActive}
+              showGridIcon={tab.id === SYSTEM_CHAT_GRID_TAB_ID}
+              dragKind={dragKind}
+              statusClassName={stateClass}
+              onActivate={onActivateTab}
+              onClose={onCloseTab}
+            />
+          );
+        })}
+      </SortableContext>
+    </div>
+  );
+};
