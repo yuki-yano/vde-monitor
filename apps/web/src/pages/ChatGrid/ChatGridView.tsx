@@ -1,10 +1,6 @@
 import type {
-  AllowedKey,
-  CommandResponse,
   HighlightCorrectionConfig,
-  ImageAttachment,
   LaunchConfig,
-  RawItem,
   ScreenResponse,
   SessionStateTimeline,
   SessionStateTimelineRange,
@@ -79,17 +75,6 @@ export type ChatGridViewProps = {
   onTouchRepoPin: (repoRoot: string | null) => void;
   onTouchPanePin: (paneId: string) => void;
   onSidebarResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  sendText: (
-    paneId: string,
-    text: string,
-    enter?: boolean,
-    requestId?: string,
-  ) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
-  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
-  resetSessionTitle: (paneId: string) => Promise<void>;
-  uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
 export const ChatGridView = ({
@@ -129,12 +114,6 @@ export const ChatGridView = ({
   onTouchRepoPin,
   onTouchPanePin,
   onSidebarResizeStart,
-  sendText,
-  sendKeys,
-  sendRaw,
-  updateSessionTitle,
-  resetSessionTitle,
-  uploadImageAttachment,
 }: ChatGridViewProps) => {
   return (
     <>
@@ -209,12 +188,6 @@ export const ChatGridView = ({
             screenErrorByPane={screenErrorByPane}
             onTouchSession={onTouchPanePin}
             onRemovePaneFromGrid={onRemovePaneFromGrid}
-            sendText={sendText}
-            sendKeys={sendKeys}
-            sendRaw={sendRaw}
-            updateSessionTitle={updateSessionTitle}
-            resetSessionTitle={resetSessionTitle}
-            uploadImageAttachment={uploadImageAttachment}
           />
         </div>
       </div>

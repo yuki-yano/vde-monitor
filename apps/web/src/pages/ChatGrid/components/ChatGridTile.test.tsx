@@ -43,6 +43,20 @@ vi.mock("@/features/shared-session-ui/hooks/useRawInputHandlers", () => ({
   }),
 }));
 
+// Stable mock for useSessionApi — individual methods can be replaced per test via vi.mocked
+const mockSessionApi = {
+  sendText: vi.fn(async () => ({ ok: true as const })),
+  sendKeys: vi.fn(async () => ({ ok: true as const })),
+  sendRaw: vi.fn(async () => ({ ok: true as const })),
+  updateSessionTitle: vi.fn(async () => undefined),
+  resetSessionTitle: vi.fn(async () => undefined),
+  uploadImageAttachment: vi.fn(async () => ({ path: "/tmp/img.png" })),
+};
+
+vi.mock("@/state/session-context", () => ({
+  useSessionApi: () => mockSessionApi,
+}));
+
 const renderWithRouter = (ui: ReactNode) => {
   const rootRoute = createRootRoute({
     component: () => null,
@@ -109,11 +123,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -139,11 +148,6 @@ describe("ChatGridTile", () => {
         screenError={null}
         onRemoveFromGrid={onRemoveFromGrid}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -152,8 +156,7 @@ describe("ChatGridTile", () => {
   });
 
   it("edits and saves session title with Enter", async () => {
-    const updateSessionTitle = vi.fn(async () => undefined);
-    const resetSessionTitle = vi.fn(async () => undefined);
+    mockSessionApi.updateSessionTitle.mockResolvedValueOnce(undefined);
     renderWithRouter(
       <ChatGridTile
         session={buildSession()}
@@ -163,11 +166,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={updateSessionTitle}
-        resetSessionTitle={resetSessionTitle}
       />,
     );
 
@@ -177,14 +175,13 @@ describe("ChatGridTile", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
-      expect(updateSessionTitle).toHaveBeenCalledWith("pane-1", "Updated Title");
+      expect(mockSessionApi.updateSessionTitle).toHaveBeenCalledWith("pane-1", "Updated Title");
       expect(screen.queryByRole("textbox", { name: "Custom session title" })).toBeNull();
     });
   });
 
   it("closes title editor without mutation when title is unchanged", async () => {
-    const updateSessionTitle = vi.fn(async () => undefined);
-    const resetSessionTitle = vi.fn(async () => undefined);
+    mockSessionApi.updateSessionTitle.mockClear();
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ customTitle: "Pinned Title" })}
@@ -194,11 +191,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={updateSessionTitle}
-        resetSessionTitle={resetSessionTitle}
       />,
     );
 
@@ -208,14 +200,14 @@ describe("ChatGridTile", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
-      expect(updateSessionTitle).not.toHaveBeenCalled();
+      expect(mockSessionApi.updateSessionTitle).not.toHaveBeenCalled();
       expect(screen.queryByRole("textbox", { name: "Custom session title" })).toBeNull();
     });
   });
 
   it("resets custom title", async () => {
-    const updateSessionTitle = vi.fn(async () => undefined);
-    const resetSessionTitle = vi.fn(async () => undefined);
+    mockSessionApi.resetSessionTitle.mockClear();
+    mockSessionApi.updateSessionTitle.mockClear();
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ customTitle: "Pinned Title" })}
@@ -225,24 +217,19 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={updateSessionTitle}
-        resetSessionTitle={resetSessionTitle}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reset session title" }));
 
     await waitFor(() => {
-      expect(resetSessionTitle).toHaveBeenCalledWith("pane-1");
-      expect(updateSessionTitle).not.toHaveBeenCalled();
+      expect(mockSessionApi.resetSessionTitle).toHaveBeenCalledWith("pane-1");
+      expect(mockSessionApi.updateSessionTitle).not.toHaveBeenCalled();
     });
   });
 
   it("sends text through sendText when send is clicked", async () => {
-    const sendText = vi.fn(async () => ({ ok: true }));
+    mockSessionApi.sendText.mockClear();
     renderWithRouter(
       <ChatGridTile
         session={buildSession()}
@@ -252,11 +239,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={sendText}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -264,12 +246,17 @@ describe("ChatGridTile", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
-      expect(sendText).toHaveBeenCalledWith("pane-1", "hello from tile", true, expect.any(String));
+      expect(mockSessionApi.sendText).toHaveBeenCalledWith(
+        "pane-1",
+        "hello from tile",
+        true,
+        expect.any(String),
+      );
     });
   });
 
   it("sends key input from expanded keys panel", async () => {
-    const sendKeys = vi.fn(async () => ({ ok: true }));
+    mockSessionApi.sendKeys.mockClear();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderWithRouter(
       <ChatGridTile
@@ -280,11 +267,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={sendKeys}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -292,12 +274,12 @@ describe("ChatGridTile", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     await waitFor(() => {
-      expect(sendKeys).toHaveBeenCalledWith("pane-1", ["Enter"]);
+      expect(mockSessionApi.sendKeys).toHaveBeenCalledWith("pane-1", ["Enter"]);
     });
   });
 
   it("shows permission shortcuts and sends selected number or Esc", async () => {
-    const sendRaw = vi.fn(async () => ({ ok: true }));
+    mockSessionApi.sendRaw.mockClear();
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ state: "WAITING_PERMISSION" })}
@@ -307,11 +289,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={sendRaw}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -319,8 +296,13 @@ describe("ChatGridTile", () => {
     fireEvent.click(screen.getByRole("button", { name: "Esc" }));
 
     await waitFor(() => {
-      expect(sendRaw).toHaveBeenNthCalledWith(1, "pane-1", [{ kind: "text", value: "1" }], false);
-      expect(sendRaw).toHaveBeenNthCalledWith(
+      expect(mockSessionApi.sendRaw).toHaveBeenNthCalledWith(
+        1,
+        "pane-1",
+        [{ kind: "text", value: "1" }],
+        false,
+      );
+      expect(mockSessionApi.sendRaw).toHaveBeenNthCalledWith(
         2,
         "pane-1",
         [{ kind: "key", value: "Escape" }],
@@ -339,11 +321,6 @@ describe("ChatGridTile", () => {
         screenLoading
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -360,11 +337,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 
@@ -381,11 +353,6 @@ describe("ChatGridTile", () => {
         screenLoading={false}
         screenError={null}
         onTouchSession={vi.fn(async () => undefined)}
-        sendText={vi.fn(async () => ({ ok: true }))}
-        sendKeys={vi.fn(async () => ({ ok: true }))}
-        sendRaw={vi.fn(async () => ({ ok: true }))}
-        updateSessionTitle={vi.fn(async () => undefined)}
-        resetSessionTitle={vi.fn(async () => undefined)}
       />,
     );
 

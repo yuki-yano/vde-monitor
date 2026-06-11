@@ -7,7 +7,7 @@ import { Card } from "@/components/ui";
 import type { SessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
 
-import { backLinkClass } from "../sessionDetailUtils";
+import { backLinkClass } from "@/features/shared-session-ui/model/navigation-style";
 
 type SessionDetailMissingState = {
   title: string;

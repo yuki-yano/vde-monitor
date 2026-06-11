@@ -129,11 +129,6 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
   onTouchRepoPin: vi.fn(),
   onTouchPanePin: vi.fn(async () => undefined),
   onSidebarResizeStart: vi.fn(),
-  sendText: vi.fn(async () => ({ ok: true })),
-  sendKeys: vi.fn(async () => ({ ok: true })),
-  sendRaw: vi.fn(async () => ({ ok: true })),
-  updateSessionTitle: vi.fn(async () => undefined),
-  resetSessionTitle: vi.fn(async () => undefined),
   ...overrides,
 });
 

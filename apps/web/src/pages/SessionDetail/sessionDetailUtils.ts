@@ -1,21 +1,6 @@
 import { type CommitLog, type DiffSummary, type SessionSummary } from "@vde-monitor/shared";
 
 import { stripAnsi } from "@/lib/ansi-text-utils";
-export { isDangerousText } from "@/features/shared-session-ui/model/danger-confirm";
-export { backLinkClass } from "@/features/shared-session-ui/model/navigation-style";
-
-export {
-  agentLabelFor,
-  agentToneFor,
-  formatBranchLabel,
-  formatPath,
-  formatRelativeTime,
-  formatStateLabel,
-  getLastInputTone,
-  isEditorCommand,
-  isKnownAgent,
-  stateTone,
-} from "@/lib/session-format";
 
 const normalizeScreenTextForSearch = (screenText: string) =>
   stripAnsi(screenText).replace(/\r\n/g, "\n").replace(/\r/g, "\n");

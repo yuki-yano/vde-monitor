@@ -16,7 +16,9 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { cn } from "@/lib/cn";
 
 import { diffExpandedAtom } from "../atoms/diffAtoms";
-import { formatBranchLabel, formatPath, sumFileStats } from "../sessionDetailUtils";
+import { formatBranchLabel, formatPath } from "@/lib/session-format";
+
+import { sumFileStats } from "../sessionDetailUtils";
 import { DiffFileList, buildRenderedPatches, updateExpandedDiffs } from "./diff-section-file-list";
 
 type DiffSectionState = {

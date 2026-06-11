@@ -25,7 +25,9 @@ import { usePromptContextLayout } from "../hooks/usePromptContextLayout";
 import { useScreenPanelLogReferenceLinking } from "../hooks/useScreenPanelLogReferenceLinking";
 import { useScreenPanelWorktreeSelector } from "../hooks/useScreenPanelWorktreeSelector";
 import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
-import { DISCONNECTED_MESSAGE, formatBranchLabel } from "../sessionDetailUtils";
+import { formatBranchLabel } from "@/lib/session-format";
+
+import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
 import { classifySmartWrapLines } from "../smart-wrap-classify";
 import { ScreenPanelPromptContext } from "./screen-panel-prompt-context";
 import { ScreenPanelViewport } from "./ScreenPanelViewport";

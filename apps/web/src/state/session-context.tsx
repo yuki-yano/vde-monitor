@@ -43,13 +43,17 @@ import {
   sessionLaunchConfigAtom,
   sessionWorkspaceTabsDisplayModeAtom,
 } from "./session-state-atoms";
-import { useSessionApi } from "./use-session-api";
+import { useSessionApi as useSessionApiHook } from "./use-session-api";
 import { useSessionConnectionState } from "./use-session-connection-state";
 import { useSessionPolling } from "./use-session-polling";
 import { useSessionStore } from "./use-session-store";
 import { useSessionToken } from "./use-session-token";
 
-type SessionContextValue = {
+// ---------------------------------------------------------------------------
+// Data context — reactive fields; consumers re-render when these change
+// ---------------------------------------------------------------------------
+
+type SessionDataContextValue = {
   token: string | null;
   apiBaseUrl: string | null;
   authError: string | null;
@@ -60,6 +64,14 @@ type SessionContextValue = {
   highlightCorrections: HighlightCorrectionConfig;
   fileNavigatorConfig: ClientFileNavigatorConfig;
   launchConfig: LaunchConfig;
+  getSessionDetail: (paneId: string) => SessionDetail | null;
+};
+
+// ---------------------------------------------------------------------------
+// API context — stable method references; identity does not change on data updates
+// ---------------------------------------------------------------------------
+
+type SessionApiContextValue = {
   setToken: (token: string | null) => void;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
@@ -147,10 +159,18 @@ type SessionContextValue = {
     input: { title?: string | null; body: string },
   ) => Promise<RepoNote>;
   deleteRepoNote: (paneId: string, noteId: string) => Promise<string>;
-  getSessionDetail: (paneId: string) => SessionDetail | null;
 };
 
-const SessionContext = createContext<SessionContextValue | null>(null);
+// ---------------------------------------------------------------------------
+// Contexts
+// ---------------------------------------------------------------------------
+
+const SessionDataContext = createContext<SessionDataContextValue | null>(null);
+const SessionApiContext = createContext<SessionApiContextValue | null>(null);
+
+// ---------------------------------------------------------------------------
+// Provider implementation
+// ---------------------------------------------------------------------------
 
 const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const { token, setToken, apiBaseUrl } = useSessionToken();
@@ -217,7 +237,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
-  } = useSessionApi({
+  } = useSessionApiHook({
     token,
     apiBaseUrl,
     onSessions: setSessions,
@@ -268,7 +288,9 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     void syncLocalNotificationSessionTitles(nextEntries).catch(() => undefined);
   }, [hasToken, sessions]);
 
-  const sessionApi = useMemo(
+  // Stable API context — memoized so its identity only changes when API deps change,
+  // not on every data update (sessions, connected, etc.)
+  const sessionApiValue = useMemo<SessionApiContextValue>(
     () => ({
       setToken,
       reconnect,
@@ -333,7 +355,8 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     ],
   );
 
-  const contextValue = useMemo<SessionContextValue>(
+  // Data context — updates whenever reactive state changes
+  const sessionDataValue = useMemo<SessionDataContextValue>(
     () => ({
       token,
       apiBaseUrl,
@@ -345,7 +368,6 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
-      ...sessionApi,
       getSessionDetail,
     }),
     [
@@ -359,12 +381,15 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
-      sessionApi,
       getSessionDetail,
     ],
   );
 
-  return <SessionContext.Provider value={contextValue}>{children}</SessionContext.Provider>;
+  return (
+    <SessionDataContext.Provider value={sessionDataValue}>
+      <SessionApiContext.Provider value={sessionApiValue}>{children}</SessionApiContext.Provider>
+    </SessionDataContext.Provider>
+  );
 };
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
@@ -380,10 +405,29 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useSessions = () => {
-  const context = useContext(SessionContext);
+// ---------------------------------------------------------------------------
+// Hooks
+// ---------------------------------------------------------------------------
+
+export const useSessionData = (): SessionDataContextValue => {
+  const context = useContext(SessionDataContext);
   if (context == null) {
     throw new Error("SessionProvider is required");
   }
   return context;
+};
+
+export const useSessionApi = (): SessionApiContextValue => {
+  const context = useContext(SessionApiContext);
+  if (context == null) {
+    throw new Error("SessionProvider is required");
+  }
+  return context;
+};
+
+/** Backward-compatible hook — merges data and API. Prefer useSessionData/useSessionApi in new code. */
+export const useSessions = (): SessionDataContextValue & SessionApiContextValue => {
+  const data = useSessionData();
+  const api = useSessionApi();
+  return { ...data, ...api };
 };

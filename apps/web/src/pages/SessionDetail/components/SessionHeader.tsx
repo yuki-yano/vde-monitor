@@ -19,10 +19,10 @@ import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/
 import { cn } from "@/lib/cn";
 import { buildGitHubRepoUrl } from "@/lib/github-repo-url";
 
+import { backLinkClass } from "@/features/shared-session-ui/model/navigation-style";
 import {
   agentLabelFor,
   agentToneFor,
-  backLinkClass,
   formatBranchLabel,
   formatPath,
   formatRelativeTime,
@@ -31,7 +31,7 @@ import {
   isEditorCommand,
   isKnownAgent,
   stateTone,
-} from "../sessionDetailUtils";
+} from "@/lib/session-format";
 
 type SessionHeaderState = {
   session: SessionSummary;

@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import type { DiffFile, DiffSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
@@ -6,7 +5,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
-import { QUERY_GC_TIME_MS } from "@/state/query-client";
 
 import {
   diffErrorAtom,
@@ -35,19 +33,64 @@ type UseSessionDiffsParams = {
   ) => Promise<DiffFile>;
 };
 
-const DIFF_FILE_QUERY_KEY = "session-diff-file";
+// ---------------------------------------------------------------------------
+// Module-level diff file cache (replaces TanStack Query cache)
+// Key: `${paneId}\x00${worktreePath|__default__}\x00${rev|unknown}\x00${path}`
+// ---------------------------------------------------------------------------
 
-const buildDiffFileQueryKey = ({
-  paneId,
-  worktreePath,
-  rev,
-  path,
-}: {
-  paneId: string;
-  worktreePath: string | null;
-  rev: string | null;
-  path: string;
-}) => [DIFF_FILE_QUERY_KEY, paneId, worktreePath ?? "__default__", rev ?? "unknown", path] as const;
+const diffFileCache = new Map<string, DiffFile>();
+
+const buildDiffFileCacheKey = (
+  paneId: string,
+  worktreePath: string | null,
+  rev: string | null,
+  path: string,
+) => `${paneId}\x00${worktreePath ?? "__default__"}\x00${rev ?? "unknown"}\x00${path}`;
+
+const buildDiffFileCacheKeyPrefix = (paneId: string, worktreePath: string | null) =>
+  `${paneId}\x00${worktreePath ?? "__default__"}\x00`;
+
+const getDiffFileFromCache = (
+  paneId: string,
+  worktreePath: string | null,
+  rev: string | null,
+  path: string,
+): DiffFile | undefined =>
+  diffFileCache.get(buildDiffFileCacheKey(paneId, worktreePath, rev, path));
+
+const setDiffFileInCache = (
+  paneId: string,
+  worktreePath: string | null,
+  rev: string | null,
+  path: string,
+  file: DiffFile,
+) => diffFileCache.set(buildDiffFileCacheKey(paneId, worktreePath, rev, path), file);
+
+const clearDiffFileCacheForPane = (paneId: string, worktreePath: string | null) => {
+  const prefix = buildDiffFileCacheKeyPrefix(paneId, worktreePath);
+  for (const key of diffFileCache.keys()) {
+    if (key.startsWith(prefix)) {
+      diffFileCache.delete(key);
+    }
+  }
+};
+
+// Fetch from cache or call the query function and store the result
+const fetchDiffFileWithCache = async (
+  paneId: string,
+  worktreePath: string | null,
+  rev: string | null,
+  path: string,
+  queryFn: () => Promise<DiffFile>,
+): Promise<DiffFile> => {
+  const cached = getDiffFileFromCache(paneId, worktreePath, rev, path);
+  if (cached) {
+    return cached;
+  }
+  const file = await queryFn();
+  setDiffFileInCache(paneId, worktreePath, rev, path, file);
+  return file;
+};
 
 export const useSessionDiffs = ({
   paneId,
@@ -63,7 +106,6 @@ export const useSessionDiffs = ({
   const [diffOpen, setDiffOpen] = useAtom(diffOpenAtom);
   const [diffLoadingFiles, setDiffLoadingFiles] = useAtom(diffLoadingFilesAtom);
 
-  const queryClient = useQueryClient();
   const diffOpenRef = useRef<Record<string, boolean>>({});
   const diffSignatureRef = useRef<string | null>(null);
   const prevConnectedRef = useRef<boolean | null>(null);
@@ -92,14 +134,7 @@ export const useSessionDiffs = ({
         ([path, value]) => value && fileSet.has(path),
       );
       const cachedFiles = openTargets.reduce<Record<string, DiffFile>>((acc, [path]) => {
-        const cached = queryClient.getQueryData<DiffFile>(
-          buildDiffFileQueryKey({
-            paneId,
-            worktreePath,
-            rev: summary.rev,
-            path,
-          }),
-        );
+        const cached = getDiffFileFromCache(paneId, worktreePath, summary.rev, path);
         if (cached) {
           acc[path] = cached;
         }
@@ -109,28 +144,23 @@ export const useSessionDiffs = ({
       if (openTargets.length > 0 && refreshOpenFiles) {
         await Promise.all(
           openTargets.map(async ([path]) => {
-            const queryKey = buildDiffFileQueryKey({
-              paneId,
-              worktreePath,
-              rev: summary.rev,
-              path,
-            });
-            if (queryClient.getQueryData<DiffFile>(queryKey)) {
+            if (getDiffFileFromCache(paneId, worktreePath, summary.rev, path)) {
               return;
             }
             try {
-              const file = await queryClient.fetchQuery({
-                queryKey,
-                queryFn: () =>
+              const file = await fetchDiffFileWithCache(
+                paneId,
+                worktreePath,
+                summary.rev,
+                path,
+                () =>
                   requestDiffFile(
                     paneId,
                     path,
                     summary.rev,
                     worktreePath ? { force: true, worktreePath } : { force: true },
                   ),
-                gcTime: QUERY_GC_TIME_MS,
-                retry: false,
-              });
+              );
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
               setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
@@ -141,7 +171,6 @@ export const useSessionDiffs = ({
     },
     [
       paneId,
-      queryClient,
       requestDiffFile,
       setDiffError,
       setDiffFiles,
@@ -211,13 +240,7 @@ export const useSessionDiffs = ({
     async (path: string) => {
       if (!paneId || !diffSummary?.rev) return;
       if (diffLoadingFiles[path]) return;
-      const queryKey = buildDiffFileQueryKey({
-        paneId,
-        worktreePath,
-        rev: diffSummary.rev,
-        path,
-      });
-      const cached = queryClient.getQueryData<DiffFile>(queryKey);
+      const cached = getDiffFileFromCache(paneId, worktreePath, diffSummary.rev, path);
       if (cached) {
         setDiffFiles((prev) => ({ ...prev, [path]: cached }));
         return;
@@ -226,18 +249,14 @@ export const useSessionDiffs = ({
       const requestId = summaryRequestIdRef.current;
       setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
       try {
-        const file = await queryClient.fetchQuery({
-          queryKey,
-          queryFn: () =>
-            requestDiffFile(
-              paneId,
-              path,
-              diffSummary.rev,
-              worktreePath ? { force: true, worktreePath } : { force: true },
-            ),
-          gcTime: QUERY_GC_TIME_MS,
-          retry: false,
-        });
+        const file = await fetchDiffFileWithCache(paneId, worktreePath, diffSummary.rev, path, () =>
+          requestDiffFile(
+            paneId,
+            path,
+            diffSummary.rev,
+            worktreePath ? { force: true, worktreePath } : { force: true },
+          ),
+        );
         if (
           !isCurrentScopedRequest({
             requestIdRef: summaryRequestIdRef,
@@ -278,7 +297,6 @@ export const useSessionDiffs = ({
       diffLoadingFiles,
       diffSummary?.rev,
       paneId,
-      queryClient,
       requestScopeKey,
       requestDiffFile,
       setDiffError,
@@ -325,11 +343,9 @@ export const useSessionDiffs = ({
     setDiffError(null);
     diffSignatureRef.current = null;
     return () => {
-      queryClient.removeQueries({
-        queryKey: [DIFF_FILE_QUERY_KEY, paneId, worktreePath ?? "__default__"],
-      });
+      clearDiffFileCacheForPane(paneId, worktreePath);
     };
-  }, [paneId, queryClient, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary, worktreePath]);
+  }, [paneId, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary, worktreePath]);
 
   useEffect(() => {
     diffOpenRef.current = diffOpen;

@@ -4,7 +4,7 @@ import { Check, Github } from "lucide-react";
 import { TagPill, TruncatedSegmentText } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-import { formatBranchLabel } from "../sessionDetailUtils";
+import { formatBranchLabel } from "@/lib/session-format";
 import {
   buildVisibleFileChangeCategories,
   formatGitMetric,

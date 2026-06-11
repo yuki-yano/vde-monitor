@@ -22,7 +22,7 @@ import {
 import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/session-timeline-range";
 import { cn } from "@/lib/cn";
 
-import { formatStateLabel, stateTone } from "../sessionDetailUtils";
+import { formatStateLabel, stateTone } from "@/lib/session-format";
 import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 
 type StateTimelineSectionState = {

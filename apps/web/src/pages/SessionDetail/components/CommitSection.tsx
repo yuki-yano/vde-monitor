@@ -6,7 +6,7 @@ import { Button, Callout, EmptyState, LoadingOverlay } from "@/components/ui";
 import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSectionShell";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
-import { formatBranchLabel, formatPath } from "../sessionDetailUtils";
+import { formatBranchLabel, formatPath } from "@/lib/session-format";
 import { CommitList, CommitLoadMoreButton } from "./commit-section-list";
 import {
   buildCommitListClassName,

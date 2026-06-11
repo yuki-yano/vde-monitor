@@ -256,19 +256,7 @@ export const useSessionApi = ({
     [requestPaneField],
   );
 
-  const {
-    requestWorktrees,
-    requestDiffSummary,
-    requestDiffFile,
-    requestCommitLog,
-    requestCommitDetail,
-    requestCommitFile,
-    requestStateTimeline,
-    requestRepoNotes,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-  } = useMemo(
+  const queryRequests = useMemo(
     () =>
       createSessionQueryRequests({
         apiClient,
@@ -375,22 +363,7 @@ export const useSessionApi = ({
     [mutateSession],
   );
 
-  const {
-    sendText,
-    launchAgentInSession,
-    focusPane,
-    killPane,
-    killWindow,
-    uploadImageAttachment,
-    sendKeys,
-    sendRaw,
-    updateSessionTitle,
-    resetSessionTitle,
-    touchSession,
-    createRepoNote,
-    updateRepoNote,
-    deleteRepoNote,
-  } = useMemo(
+  const actionRequests = useMemo(
     () =>
       createSessionActionRequests({
         apiClient,
@@ -417,64 +390,15 @@ export const useSessionApi = ({
     ],
   );
 
+  // The dep array lists only the 4 group references instead of all 24 individual functions,
+  // eliminating the duplication. All group objects are already memoized above.
   return useMemo(
     () => ({
       refreshSessions,
-      requestWorktrees,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-      requestStateTimeline,
-      requestRepoNotes,
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
+      ...queryRequests,
       requestScreen,
-      sendText,
-      launchAgentInSession,
-      focusPane,
-      killPane,
-      killWindow,
-      uploadImageAttachment,
-      sendKeys,
-      sendRaw,
-      updateSessionTitle,
-      resetSessionTitle,
-      touchSession,
-      createRepoNote,
-      updateRepoNote,
-      deleteRepoNote,
+      ...actionRequests,
     }),
-    [
-      createRepoNote,
-      deleteRepoNote,
-      focusPane,
-      killPane,
-      killWindow,
-      launchAgentInSession,
-      refreshSessions,
-      requestCommitDetail,
-      requestCommitFile,
-      requestCommitLog,
-      requestDiffFile,
-      requestDiffSummary,
-      requestRepoFileContent,
-      requestRepoFileSearch,
-      requestRepoFileTree,
-      requestRepoNotes,
-      requestScreen,
-      requestStateTimeline,
-      requestWorktrees,
-      sendKeys,
-      sendRaw,
-      sendText,
-      touchSession,
-      updateRepoNote,
-      updateSessionTitle,
-      resetSessionTitle,
-      uploadImageAttachment,
-    ],
+    [refreshSessions, queryRequests, requestScreen, actionRequests],
   );
 };

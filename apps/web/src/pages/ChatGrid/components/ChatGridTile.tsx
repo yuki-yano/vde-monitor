@@ -1,11 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type {
-  AllowedKey,
-  CommandResponse,
-  ImageAttachment,
-  RawItem,
-  SessionSummary,
-} from "@vde-monitor/shared";
+import type { AllowedKey, RawItem, SessionSummary } from "@vde-monitor/shared";
 import { ArrowRight, Clock, GitBranch, X } from "lucide-react";
 import {
   type CompositionEvent,
@@ -62,6 +56,7 @@ import {
   getLastInputTone,
   isKnownAgent,
 } from "@/lib/session-format";
+import { useSessionApi } from "@/state/session-context";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -72,17 +67,6 @@ type ChatGridTileProps = {
   screenError: string | null;
   onTouchSession?: (paneId: string) => Promise<void> | void;
   onRemoveFromGrid?: (paneId: string) => void;
-  sendText: (
-    paneId: string,
-    text: string,
-    enter?: boolean,
-    requestId?: string,
-  ) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
-  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
-  resetSessionTitle: (paneId: string) => Promise<void>;
-  uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
 type TitleEditorState = {
@@ -127,13 +111,15 @@ export const ChatGridTile = ({
   screenError,
   onTouchSession,
   onRemoveFromGrid,
-  sendText,
-  sendKeys,
-  sendRaw,
-  updateSessionTitle,
-  resetSessionTitle,
-  uploadImageAttachment,
 }: ChatGridTileProps) => {
+  const {
+    sendText,
+    sendKeys,
+    sendRaw,
+    updateSessionTitle,
+    resetSessionTitle,
+    uploadImageAttachment,
+  } = useSessionApi();
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const previousAutoEnterRef = useRef<boolean | null>(null);

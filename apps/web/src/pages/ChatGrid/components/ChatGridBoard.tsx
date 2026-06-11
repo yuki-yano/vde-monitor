@@ -1,10 +1,4 @@
-import type {
-  AllowedKey,
-  CommandResponse,
-  ImageAttachment,
-  RawItem,
-  SessionSummary,
-} from "@vde-monitor/shared";
+import type { SessionSummary } from "@vde-monitor/shared";
 import { LayoutGrid, Loader2 } from "lucide-react";
 
 import { EmptyCard } from "@/components/ui";
@@ -25,17 +19,6 @@ type ChatGridBoardProps = {
   screenErrorByPane: Record<string, string | null>;
   onTouchSession: (paneId: string) => Promise<void> | void;
   onRemovePaneFromGrid: (paneId: string) => void;
-  sendText: (
-    paneId: string,
-    text: string,
-    enter?: boolean,
-    requestId?: string,
-  ) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
-  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
-  resetSessionTitle: (paneId: string) => Promise<void>;
-  uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
 };
 
 const resolveLayoutClassName = (layout: ChatGridLayout) => {
@@ -62,12 +45,6 @@ export const ChatGridBoard = ({
   screenErrorByPane,
   onTouchSession,
   onRemovePaneFromGrid,
-  sendText,
-  sendKeys,
-  sendRaw,
-  updateSessionTitle,
-  resetSessionTitle,
-  uploadImageAttachment,
 }: ChatGridBoardProps) => {
   if (sessions.length === 0) {
     if (isRestoringSelection) {
@@ -110,12 +87,6 @@ export const ChatGridBoard = ({
             screenError={screenErrorByPane[session.paneId] ?? null}
             onTouchSession={onTouchSession}
             onRemoveFromGrid={onRemovePaneFromGrid}
-            sendText={sendText}
-            sendKeys={sendKeys}
-            sendRaw={sendRaw}
-            updateSessionTitle={updateSessionTitle}
-            resetSessionTitle={resetSessionTitle}
-            uploadImageAttachment={uploadImageAttachment}
           />
         </div>
       ))}
