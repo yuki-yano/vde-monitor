@@ -1,124 +1,160 @@
-export type SessionStateValue =
-  | "RUNNING"
-  | "WAITING_INPUT"
-  | "WAITING_PERMISSION"
-  | "SHELL"
-  | "UNKNOWN";
+/**
+ * This file contains two categories of types:
+ *  1. z.infer aliases – derived from the zod schemas in ./schemas (source of truth for wire shapes).
+ *  2. Schema-less hand-written types – git/diff/commit types, RepoFile* types, Worktree*,
+ *     RepoNote, ApiEnvelope<T>, WsEnvelope<TType,TData>, PaneMeta, HookStateSignal, StateSignals,
+ *     ResolvedConfig, AgentMonitorConfig, and related server-only config types.
+ */
 
-export type PushEventType =
-  | "pane.waiting_permission"
-  | "pane.task_completed"
-  | "pane.error"
-  | "pane.long_waiting_permission";
+import type { z } from "zod";
 
-export type ConfigPushEventType = "pane.waiting_permission" | "pane.task_completed";
+import type {
+  allowedKeySchema,
+  apiErrorSchema,
+  claudeHookEventSchema,
+  clientConfigSchema,
+  commandResponseSchema,
+  configOverrideSchema,
+  configPushEventTypeSchema,
+  generatedConfigTemplateSchema,
+  highlightCorrectionSchema,
+  imageAttachmentSchema,
+  launchAgentResultSchema,
+  launchAgentSchema,
+  launchCommandResponseSchema,
+  launchConfigSchema,
+  launchResumeMetaSchema,
+  launchResumePolicySchema,
+  launchResumeTargetSchema,
+  launchRollbackSchema,
+  launchVerificationSchema,
+  notificationClientInfoSchema,
+  notificationSettingsSchema,
+  notificationSubscriptionRevokeSchema,
+  notificationSubscriptionScopeSchema,
+  notificationSubscriptionUpsertSchema,
+  pushEventTypeSchema,
+  pushSubscriptionJsonSchema,
+  rawItemSchema,
+  screenCaptureMetaSchema,
+  screenDeltaSchema,
+  screenResponseSchema,
+  serverHealthSchema,
+  sessionDetailSchema,
+  sessionStateSchema,
+  sessionStateTimelineItemSchema,
+  sessionStateTimelineRangeSchema,
+  sessionStateTimelineSchema,
+  sessionStateTimelineScopeSchema,
+  sessionStateTimelineSourceSchema,
+  sessionSummarySchema,
+  usageBillingMetaSchema,
+  usageBillingSchema,
+  usageConfigSchema,
+  usageCostConfidenceSchema,
+  usageCostDataSourceSchema,
+  usageDailyCostItemSchema,
+  usageDashboardResponseSchema,
+  usageGlobalTimelineResponseSchema,
+  usageIssueSchema,
+  usageMetricWindowIdSchema,
+  usageMetricWindowSchema,
+  usageModelCostItemSchema,
+  usagePaceStatusSchema,
+  usagePricingConfigSchema,
+  usageProviderCapabilitiesSchema,
+  usageProviderIdSchema,
+  usageProviderRuleSchema,
+  usageProviderSnapshotSchema,
+  usageProviderStatusSchema,
+  usageSessionConfigSchema,
+  workspaceTabsDisplayModeSchema,
+} from "./schemas";
 
-export type AllowedKey =
-  | "Enter"
-  | "Escape"
-  | "Tab"
-  | "BTab"
-  | "C-Tab"
-  | "C-BTab"
-  | "Space"
-  | "BSpace"
-  | "Up"
-  | "Down"
-  | "Left"
-  | "Right"
-  | "C-Up"
-  | "C-Down"
-  | "C-Left"
-  | "C-Right"
-  | "C-Enter"
-  | "C-Escape"
-  | "Home"
-  | "End"
-  | "PageUp"
-  | "PageDown"
-  | "C-a"
-  | "C-b"
-  | "C-c"
-  | "C-d"
-  | "C-e"
-  | "C-f"
-  | "C-g"
-  | "C-h"
-  | "C-i"
-  | "C-j"
-  | "C-k"
-  | "C-l"
-  | "C-m"
-  | "C-n"
-  | "C-o"
-  | "C-p"
-  | "C-q"
-  | "C-r"
-  | "C-s"
-  | "C-t"
-  | "C-u"
-  | "C-v"
-  | "C-w"
-  | "C-x"
-  | "C-y"
-  | "C-z"
-  | "C-\\"
-  | "F1"
-  | "F2"
-  | "F3"
-  | "F4"
-  | "F5"
-  | "F6"
-  | "F7"
-  | "F8"
-  | "F9"
-  | "F10"
-  | "F11"
-  | "F12";
+// ---- z.infer aliases (derived from schemas in ./schemas) ----
 
-export type RawItem = { kind: "text"; value: string } | { kind: "key"; value: AllowedKey };
+export type SessionStateValue = z.infer<typeof sessionStateSchema>;
+export type AllowedKey = z.infer<typeof allowedKeySchema>;
+export type RawItem = z.infer<typeof rawItemSchema>;
 
-export type SessionSummary = {
-  paneId: string;
-  sessionName: string;
-  windowIndex: number;
-  paneIndex: number;
-  windowActivity: number | null;
-  paneActive: boolean;
-  currentCommand: string | null;
-  currentPath: string | null;
-  paneTty: string | null;
-  title: string | null;
-  customTitle: string | null;
-  branch?: string | null;
-  worktreePath?: string | null;
-  worktreeDirty?: boolean | null;
-  worktreeLocked?: boolean | null;
-  worktreeLockOwner?: string | null;
-  worktreeLockReason?: string | null;
-  worktreeMerged?: boolean | null;
-  repoRoot: string | null;
-  agent: "codex" | "claude" | "unknown";
-  state: SessionStateValue;
-  stateReason: string;
-  lastMessage: string | null;
-  lastOutputAt: string | null;
-  lastEventAt: string | null;
-  lastInputAt: string | null;
-  agentSessionId?: string | null;
-  agentSessionSource?: "hook" | "lsof" | "history" | null;
-  agentSessionConfidence?: "high" | "medium" | "low" | null;
-  agentSessionObservedAt?: string | null;
-  paneDead: boolean;
-  alternateOn: boolean;
-  pipeAttached: boolean;
-  pipeConflict: boolean;
-};
+export type PushEventType = z.infer<typeof pushEventTypeSchema>;
+export type ConfigPushEventType = z.infer<typeof configPushEventTypeSchema>;
 
-export type SessionDetail = SessionSummary & {
-  startCommand: string | null;
-  panePid: number | null;
-};
+export type ApiError = z.infer<typeof apiErrorSchema>;
+export type ApiErrorCode = ApiError["code"];
+
+export type PushSubscriptionJson = z.infer<typeof pushSubscriptionJsonSchema>;
+export type NotificationSubscriptionScope = z.infer<typeof notificationSubscriptionScopeSchema>;
+export type NotificationClientInfo = z.infer<typeof notificationClientInfoSchema>;
+export type NotificationSubscriptionUpsertJson = z.infer<
+  typeof notificationSubscriptionUpsertSchema
+>;
+export type NotificationSubscriptionRevokeJson = z.infer<
+  typeof notificationSubscriptionRevokeSchema
+>;
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
+
+export type ScreenDelta = z.infer<typeof screenDeltaSchema>;
+export type ScreenCaptureMeta = z.infer<typeof screenCaptureMetaSchema>;
+export type ScreenResponse = z.infer<typeof screenResponseSchema>;
+export type CommandResponse = z.infer<typeof commandResponseSchema>;
+
+export type SessionSummary = z.infer<typeof sessionSummarySchema>;
+export type SessionDetail = z.infer<typeof sessionDetailSchema>;
+
+export type SessionStateTimelineRange = z.infer<typeof sessionStateTimelineRangeSchema>;
+export type SessionStateTimelineScope = z.infer<typeof sessionStateTimelineScopeSchema>;
+export type SessionStateTimelineSource = z.infer<typeof sessionStateTimelineSourceSchema>;
+export type SessionStateTimelineItem = z.infer<typeof sessionStateTimelineItemSchema>;
+export type SessionStateTimeline = z.infer<typeof sessionStateTimelineSchema>;
+
+export type UsageProviderId = z.infer<typeof usageProviderIdSchema>;
+export type UsageMetricWindowId = z.infer<typeof usageMetricWindowIdSchema>;
+export type UsageMetricWindow = z.infer<typeof usageMetricWindowSchema>;
+export type UsagePaceStatus = z.infer<typeof usagePaceStatusSchema>;
+export type UsageCostDataSource = z.infer<typeof usageCostDataSourceSchema>;
+export type UsageCostConfidence = z.infer<typeof usageCostConfidenceSchema>;
+export type UsageBillingMeta = z.infer<typeof usageBillingMetaSchema>;
+export type UsageModelCostItem = z.infer<typeof usageModelCostItemSchema>;
+export type UsageDailyCostItem = z.infer<typeof usageDailyCostItemSchema>;
+export type UsageBilling = z.infer<typeof usageBillingSchema>;
+export type UsageProviderCapabilities = z.infer<typeof usageProviderCapabilitiesSchema>;
+export type UsageProviderStatus = z.infer<typeof usageProviderStatusSchema>;
+export type UsageIssue = z.infer<typeof usageIssueSchema>;
+export type UsageProviderSnapshot = z.infer<typeof usageProviderSnapshotSchema>;
+export type UsageDashboardResponse = z.infer<typeof usageDashboardResponseSchema>;
+export type UsageGlobalTimelineResponse = z.infer<typeof usageGlobalTimelineResponseSchema>;
+export type UsageProviderRuleConfig = z.infer<typeof usageProviderRuleSchema>;
+export type UsageSessionConfig = z.infer<typeof usageSessionConfigSchema>;
+export type UsagePricingConfig = z.infer<typeof usagePricingConfigSchema>;
+export type UsageConfig = z.infer<typeof usageConfigSchema>;
+
+export type LaunchAgent = z.infer<typeof launchAgentSchema>;
+export type LaunchResumePolicy = z.infer<typeof launchResumePolicySchema>;
+export type LaunchResumeTarget = z.infer<typeof launchResumeTargetSchema>;
+export type LaunchRollback = z.infer<typeof launchRollbackSchema>;
+export type LaunchVerification = z.infer<typeof launchVerificationSchema>;
+export type LaunchResumeMeta = z.infer<typeof launchResumeMetaSchema>;
+export type LaunchAgentResult = z.infer<typeof launchAgentResultSchema>;
+export type LaunchCommandResponse = z.infer<typeof launchCommandResponseSchema>;
+export type AgentLaunchOptionsConfig = z.infer<typeof launchConfigSchema>["agents"]["codex"];
+export type LaunchConfig = z.infer<typeof launchConfigSchema>;
+
+export type ImageAttachment = z.infer<typeof imageAttachmentSchema>;
+export type ClaudeHookEvent = z.infer<typeof claudeHookEventSchema>;
+
+export type HighlightCorrectionConfig = z.infer<typeof highlightCorrectionSchema>;
+export type WorkspaceTabsDisplayMode = z.infer<typeof workspaceTabsDisplayModeSchema>;
+export type ClientScreenConfig = z.infer<typeof clientConfigSchema>["screen"];
+export type ClientFileNavigatorConfig = z.infer<typeof clientConfigSchema>["fileNavigator"];
+export type ClientWorkspaceTabsConfig = z.infer<typeof clientConfigSchema>["workspaceTabs"];
+export type ClientConfig = z.infer<typeof clientConfigSchema>;
+export type ServerHealth = z.infer<typeof serverHealthSchema>;
+
+export type GeneratedConfigTemplate = z.infer<typeof generatedConfigTemplateSchema>;
+export type UserConfigReadable = z.infer<typeof configOverrideSchema>;
+
+// ---- Hand-written types (no corresponding zod schema) ----
 
 export type DiffFileStatus = "A" | "M" | "D" | "R" | "C" | "U" | "?";
 
@@ -288,6 +324,7 @@ export type WorktreeList = {
   baseBranch?: string | null;
   entries: WorktreeListEntry[];
 };
+
 export type RepoNote = {
   id: string;
   repoRoot: string;
@@ -296,320 +333,18 @@ export type RepoNote = {
   createdAt: string;
   updatedAt: string;
 };
+
 export type FileNavigatorConfig = {
   includeIgnoredPaths: string[];
   autoExpandMatchLimit: number;
-};
-
-export type ApiErrorCode =
-  | "INVALID_PANE"
-  | "INVALID_PAYLOAD"
-  | "DANGEROUS_COMMAND"
-  | "NOT_FOUND"
-  | "REPO_UNAVAILABLE"
-  | "FORBIDDEN_PATH"
-  | "PERMISSION_DENIED"
-  | "TMUX_UNAVAILABLE"
-  | "WEZTERM_UNAVAILABLE"
-  | "RESUME_NOT_FOUND"
-  | "RESUME_AMBIGUOUS"
-  | "RESUME_UNSUPPORTED"
-  | "RESUME_INVALID_INPUT"
-  | "RATE_LIMIT"
-  | "PUSH_DISABLED"
-  | "INTERNAL";
-
-export type ApiError = {
-  code: ApiErrorCode;
-  message: string;
 };
 
 export type ApiEnvelope<T> = T & {
   error?: ApiError;
 };
 
-export type PushSubscriptionJson = {
-  endpoint: string;
-  expirationTime?: number | null;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-};
-
-export type NotificationSubscriptionScope = {
-  paneIds?: string[];
-  eventTypes?: PushEventType[] | null;
-};
-
-export type NotificationClientInfo = {
-  platform?: "ios" | "android" | "desktop" | "unknown";
-  standalone?: boolean;
-  userAgent?: string;
-};
-
-export type NotificationSubscriptionUpsertJson = {
-  deviceId: string;
-  subscription: PushSubscriptionJson;
-  scope?: NotificationSubscriptionScope;
-  client?: NotificationClientInfo;
-};
-
-export type NotificationSubscriptionRevokeJson = {
-  subscriptionId?: string;
-  endpoint?: string;
-  deviceId?: string;
-};
-
-export type NotificationSettings = {
-  pushEnabled: boolean;
-  vapidPublicKey: string;
-  supportedEvents: PushEventType[];
-  enabledEventTypes: ConfigPushEventType[];
-  requireStandaloneOnIOS: boolean;
-};
-
-export type ScreenCaptureMeta = {
-  backend: "tmux" | "wezterm" | "unknown";
-  // "logical" is reserved for future backends/modes that can return logical lines.
-  lineModel: "joined-physical" | "physical" | "logical" | "none";
-  joinLinesApplied: boolean | null;
-  // "wezterm-logical-lines" is reserved for future wezterm logical-line capture support.
-  captureMethod:
-    | "tmux-capture-pane"
-    | "wezterm-get-text"
-    | "wezterm-logical-lines"
-    | "terminal-image"
-    | "none";
-};
-
-export type ScreenResponse = {
-  ok: boolean;
-  paneId: string;
-  mode: "text" | "image";
-  capturedAt: string;
-  captureMeta?: ScreenCaptureMeta;
-  cursor?: string;
-  lines?: number;
-  truncated?: boolean | null;
-  alternateOn?: boolean;
-  screen?: string;
-  full?: boolean;
-  deltas?: ScreenDelta[];
-  imageBase64?: string;
-  cropped?: boolean;
-  fallbackReason?: "image_failed" | "image_disabled";
-  error?: ApiError;
-};
-
-export type ScreenDelta = {
-  start: number;
-  deleteCount: number;
-  insertLines: string[];
-};
-
-export type SessionStateTimelineRange =
-  | "15m"
-  | "1h"
-  | "3h"
-  | "6h"
-  | "24h"
-  | "3d"
-  | "7d"
-  | "14d"
-  | "30d";
-export type SessionStateTimelineScope = "pane" | "repo";
-
-export type SessionStateTimelineSource = "poll" | "hook" | "restore";
-
-export type SessionStateTimelineItem = {
-  id: string;
-  paneId: string;
-  state: SessionStateValue;
-  reason: string;
-  startedAt: string;
-  endedAt: string | null;
-  durationMs: number;
-  source: SessionStateTimelineSource;
-};
-
-export type SessionStateTimeline = {
-  paneId: string;
-  now: string;
-  range: SessionStateTimelineRange;
-  items: SessionStateTimelineItem[];
-  totalsMs: Record<SessionStateValue, number>;
-  current: SessionStateTimelineItem | null;
-};
-
-export type UsageProviderId = "claude" | "codex" | "cursor" | "gemini" | "unknown";
-
-export type UsageMetricWindowId = "session" | "weekly" | "model" | "extra";
-
-export type UsagePaceStatus = "margin" | "balanced" | "over" | "unknown";
-
-export type UsageMetricWindow = {
-  id: UsageMetricWindowId;
-  title: string;
-  utilizationPercent: number | null;
-  windowDurationMs: number | null;
-  resetsAt: string | null;
-  pace: {
-    elapsedPercent: number | null;
-    projectedEndUtilizationPercent: number | null;
-    paceMarginPercent: number | null;
-    status: UsagePaceStatus;
-  };
-};
-
-export type UsageCostDataSource = "actual" | "estimated" | "unavailable";
-export type UsageCostConfidence = "high" | "medium" | "low" | null;
-
-export type UsageBillingMeta = {
-  source: UsageCostDataSource;
-  sourceLabel: string | null;
-  confidence: UsageCostConfidence;
-  updatedAt: string | null;
-  reasonCode: string | null;
-  reasonMessage: string | null;
-};
-
-export type UsageModelCostItem = {
-  modelId: string;
-  modelLabel: string;
-  resolvedModelId: string;
-  resolveStrategy: "exact" | "prefix" | "alias" | "fallback";
-  tokens: number | null;
-  usd: number | null;
-  source: UsageCostDataSource;
-};
-
-export type UsageDailyCostItem = {
-  date: string;
-  modelIds: string[];
-  inputTokens: number;
-  outputTokens: number;
-  cacheCreationInputTokens: number;
-  cacheReadInputTokens: number;
-  totalTokens: number;
-  usd: number | null;
-};
-
-export type UsageBilling = {
-  creditsLeft: number | null;
-  creditsUnit: "tokens" | "credits" | null;
-  extraUsageUsedUsd: number | null;
-  extraUsageLimitUsd: number | null;
-  costTodayUsd: number | null;
-  costTodayTokens: number | null;
-  costLast30DaysUsd: number | null;
-  costLast30DaysTokens: number | null;
-  meta: UsageBillingMeta;
-  modelBreakdown: UsageModelCostItem[];
-  dailyBreakdown: UsageDailyCostItem[];
-};
-
-export type UsageProviderCapabilities = {
-  session: boolean;
-  weekly: boolean;
-  pace: boolean;
-  modelWindows: boolean;
-  credits: boolean;
-  extraUsage: boolean;
-  cost: boolean;
-};
-
-export type UsageProviderStatus = "ok" | "degraded" | "error";
-
-export type UsageIssue = {
-  code: string;
-  message: string;
-  severity: "warning" | "error";
-};
-
-export type UsageProviderSnapshot = {
-  providerId: UsageProviderId;
-  providerLabel: string;
-  accountLabel: string | null;
-  planLabel: string | null;
-  windows: UsageMetricWindow[];
-  billing: UsageBilling;
-  capabilities: UsageProviderCapabilities;
-  status: UsageProviderStatus;
-  issues: UsageIssue[];
-  fetchedAt: string;
-  staleAt: string;
-};
-
-export type UsageDashboardResponse = {
-  providers: UsageProviderSnapshot[];
-  fetchedAt: string;
-};
-
-export type UsageGlobalTimelineResponse = {
-  timeline: SessionStateTimeline;
-  paneCount: number;
-  activePaneCount: number;
-  fetchedAt: string;
-};
-
-export type CommandResponse = {
-  ok: boolean;
-  error?: ApiError;
-};
-
-export type LaunchAgent = "codex" | "claude";
-
-export type LaunchRollback = {
-  attempted: boolean;
-  ok: boolean;
-  message?: string;
-};
-
-export type LaunchVerification = {
-  status: "verified" | "timeout" | "mismatch" | "skipped";
-  observedCommand: string | null;
-  attempts: number;
-};
-
-export type LaunchResumePolicy = "required" | "best_effort";
-export type LaunchResumeTarget = "pane" | "window";
-
-export type LaunchResumeMeta = {
-  requested: boolean;
-  reused: boolean;
-  sessionId: string | null;
-  source: "manual" | "hook" | "lsof" | "history" | null;
-  confidence: "high" | "medium" | "low" | "none";
-  policy: LaunchResumePolicy | null;
-  fallbackReason?: "not_found" | "ambiguous" | "unsupported" | "invalid_input";
-  failureReason?: "not_found" | "ambiguous" | "unsupported" | "invalid_input";
-};
-
-export type LaunchAgentResult = {
-  sessionName: string;
-  agent: LaunchAgent;
-  windowId: string;
-  windowIndex: number;
-  windowName: string;
-  paneId: string;
-  launchedCommand: LaunchAgent;
-  resolvedOptions: string[];
-  verification: LaunchVerification;
-};
-
-export type LaunchCommandResponse =
-  | { ok: true; result: LaunchAgentResult; rollback: LaunchRollback; resume?: LaunchResumeMeta }
-  | { ok: false; error: ApiError; rollback: LaunchRollback; resume?: LaunchResumeMeta };
-
-export type ImageAttachment = {
-  path: string;
-  mimeType: "image/png" | "image/jpeg" | "image/webp";
-  size: number;
-  createdAt: string;
-  insertText: string;
-};
-
+// Generic WebSocket envelope – kept hand-written because it is a generic type factory that
+// cannot be directly expressed as z.infer<...> while preserving the TType / TData parameters.
 export type WsEnvelope<TType extends string, TData> = {
   type: TType;
   ts: string;
@@ -634,78 +369,6 @@ export type WsServerMessage =
   | WsEnvelope<"server.health", ServerHealth>
   | WsEnvelope<"screen.response", ScreenResponse>
   | WsEnvelope<"command.response", CommandResponse>;
-
-export type ClaudeHookEvent = {
-  ts: string;
-  hook_event_name: "PreToolUse" | "PostToolUse" | "Notification" | "Stop" | "UserPromptSubmit";
-  notification_type?: "permission_prompt";
-  session_id: string;
-  cwd?: string;
-  tty?: string;
-  tmux_pane?: string | null;
-  transcript_path?: string;
-  fallback?: { cwd?: string; transcript_path?: string };
-  payload: { raw: string };
-};
-
-export type HighlightCorrectionConfig = {
-  codex: boolean;
-  claude: boolean;
-};
-
-export type ClientScreenConfig = {
-  highlightCorrection: HighlightCorrectionConfig;
-};
-
-export type ClientFileNavigatorConfig = {
-  autoExpandMatchLimit: number;
-};
-
-export type WorkspaceTabsDisplayMode = "all" | "pwa" | "none";
-
-export type ClientWorkspaceTabsConfig = {
-  displayMode: WorkspaceTabsDisplayMode;
-};
-
-export type ClientConfig = {
-  screen: ClientScreenConfig;
-  fileNavigator: ClientFileNavigatorConfig;
-  workspaceTabs: ClientWorkspaceTabsConfig;
-  launch: LaunchConfig;
-};
-
-export type ServerHealth = {
-  version: string;
-  clientConfig?: ClientConfig;
-};
-
-export type AgentLaunchOptionsConfig = {
-  options: string[];
-};
-
-export type LaunchConfig = {
-  agents: {
-    codex: AgentLaunchOptionsConfig;
-    claude: AgentLaunchOptionsConfig;
-  };
-};
-
-export type UsageProviderRuleConfig = {
-  enabled: boolean;
-};
-
-export type UsageSessionConfig = {
-  providers: Record<"codex" | "claude", UsageProviderRuleConfig>;
-};
-
-export type UsagePricingConfig = {
-  providers: Record<"codex" | "claude", UsageProviderRuleConfig>;
-};
-
-export type UsageConfig = {
-  session: UsageSessionConfig;
-  pricing: UsagePricingConfig;
-};
 
 export type ResolvedConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
@@ -742,29 +405,6 @@ export type ResolvedConfig = {
   };
   fileNavigator: FileNavigatorConfig;
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
-};
-
-type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends (infer U)[] ? U[] : T[K] extends object ? DeepPartial<T[K]> : T[K];
-};
-
-export type UserConfigReadable = DeepPartial<ResolvedConfig>;
-
-export type GeneratedConfigTemplate = {
-  multiplexer: {
-    backend: ResolvedConfig["multiplexer"]["backend"];
-  };
-  screen: {
-    image: {
-      backend: ResolvedConfig["screen"]["image"]["backend"];
-    };
-  };
-  dangerKeys: string[];
-  dangerCommandPatterns: string[];
-  launch: LaunchConfig;
-  workspaceTabs: {
-    displayMode: WorkspaceTabsDisplayMode;
-  };
 };
 
 export type AgentMonitorConfig = ResolvedConfig & {

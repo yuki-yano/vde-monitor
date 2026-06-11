@@ -40,11 +40,14 @@ export const pushEventTypeValues = [
   "pane.error",
   "pane.long_waiting_permission",
 ] as const;
-const configPushEventTypeValues = ["pane.waiting_permission", "pane.task_completed"] as const;
+export const configPushEventTypeValues = [
+  "pane.waiting_permission",
+  "pane.task_completed",
+] as const;
 const base64UrlPattern = /^[A-Za-z0-9_-]+={0,2}$/;
 
 export const pushEventTypeSchema = z.enum(pushEventTypeValues);
-const configPushEventTypeSchema = z.enum(configPushEventTypeValues);
+export const configPushEventTypeSchema = z.enum(configPushEventTypeValues);
 
 export const pushSubscriptionJsonSchema = z.object({
   endpoint: z.string().url().max(2048),
@@ -103,13 +106,13 @@ export const notificationSettingsSchema = z.object({
   requireStandaloneOnIOS: z.boolean(),
 });
 
-const screenDeltaSchema = z.object({
+export const screenDeltaSchema = z.object({
   start: z.number(),
   deleteCount: z.number(),
   insertLines: z.array(z.string()),
 });
 
-const screenCaptureMetaSchema = z.object({
+export const screenCaptureMetaSchema = z.object({
   backend: z.enum(["tmux", "wezterm", "unknown"]),
   // "logical" is reserved for future backends/modes that can return logical lines.
   lineModel: z.enum(["joined-physical", "physical", "logical", "none"]),
@@ -325,7 +328,7 @@ export const imageAttachmentSchema = z.object({
   insertText: z.string(),
 });
 
-const rawItemSchema = z.discriminatedUnion("kind", [
+export const rawItemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), value: z.string() }),
   z.object({ kind: z.literal("key"), value: allowedKeySchema }),
 ]);
@@ -516,7 +519,7 @@ export const usageGlobalTimelineResponseSchema = z.object({
 
 const strictObject = <TShape extends z.ZodRawShape>(shape: TShape) => z.object(shape).strict();
 
-const highlightCorrectionSchema = strictObject({
+export const highlightCorrectionSchema = strictObject({
   codex: z.boolean(),
   claude: z.boolean(),
 });
@@ -591,7 +594,7 @@ const includeIgnoredPatternSchema = z.string().superRefine((value, ctx) => {
   }
 });
 
-const clientConfigSchema = z.object({
+export const clientConfigSchema = z.object({
   screen: z.object({
     highlightCorrection: highlightCorrectionSchema,
   }),
@@ -650,7 +653,7 @@ const resolvedUsageConfigSchema = strictObject({
   }),
 });
 
-const serverHealthSchema = z.object({
+export const serverHealthSchema = z.object({
   version: z.string(),
   clientConfig: clientConfigSchema.optional(),
 });
@@ -727,7 +730,7 @@ export const claudeHookEventSchema = z.object({
   payload: z.object({ raw: z.string() }),
 });
 
-const workspaceTabsDisplayModeSchema = z.preprocess(
+export const workspaceTabsDisplayModeSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.toLowerCase() : value),
   z.enum(["all", "pwa", "none"]),
 );
@@ -875,5 +878,3 @@ export const configOverrideSchema = strictObject({
   }).optional(),
 });
 export const userConfigSchema = configOverrideSchema;
-
-export type AgentMonitorConfigOverride = z.infer<typeof configOverrideSchema>;
