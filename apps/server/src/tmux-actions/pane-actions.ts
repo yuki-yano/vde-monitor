@@ -1,13 +1,14 @@
-import type { AgentMonitorConfig, ApiError } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
+import { firstNonEmptyLine } from "./stdout-utils";
 
 import { markPaneFocus } from "../activity-suppressor";
 import { buildError, toErrorMessage } from "../errors";
 import { resolveBackendApp } from "../screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "../screen/macos-applescript";
 import { focusTmuxPane } from "../screen/tmux-geometry";
-import type { ActionResult, ActionResultHelpers } from "./action-results";
-import { sleep } from "./async-utils";
+import type { ActionOutcome, ActionResult, ActionResultHelpers } from "./action-results";
+import { sleep } from "../async-utils";
 
 const GRACEFUL_TERMINATE_INTERRUPT_DELAY_MS = 120;
 const GRACEFUL_TERMINATE_EXIT_DELAY_MS = 120;
@@ -52,7 +53,7 @@ export const createPaneActions = ({
 
   const resolveWindowIdFromPane = async (
     paneId: string,
-  ): Promise<{ ok: true; windowId: string } | { ok: false; error: ApiError } | null> => {
+  ): Promise<ActionOutcome<{ windowId: string }> | null> => {
     const listed = await adapter.run(["list-panes", "-t", paneId, "-F", "#{window_id}"]);
     if (listed.exitCode !== 0) {
       const message = listed.stderr || "failed to resolve pane window";
@@ -64,11 +65,7 @@ export const createPaneActions = ({
         error: buildError("INTERNAL", message),
       };
     }
-    const windowId =
-      listed.stdout
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line.length > 0) ?? null;
+    const windowId = firstNonEmptyLine(listed.stdout);
     if (!windowId) {
       return {
         ok: false,

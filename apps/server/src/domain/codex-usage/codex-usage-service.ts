@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { isRecord } from "../parse-utils";
 import { createInterface } from "node:readline";
 
 import { UsageProviderError } from "../usage-shared/usage-error";
@@ -47,9 +48,6 @@ type FetchCodexRateLimitsOptions = {
 };
 
 const DEFAULT_TIMEOUT_MS = 5_000;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value != null;
 
 const asFiniteNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {

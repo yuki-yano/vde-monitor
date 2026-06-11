@@ -13,7 +13,7 @@ import { type TmuxOptions, focusTmuxPane, getPaneGeometry } from "./tmux-geometr
 import { isValidTty } from "./tty";
 import { type WeztermOptions, focusWeztermPane, getWeztermPaneGeometry } from "./wezterm-geometry";
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import { sleep } from "../async-utils";
 
 const debugWeztermCropEnabled = process.env.VDE_MONITOR_DEBUG_WEZTERM_CROP === "1";
 const debugWeztermCrop = (payload: Record<string, unknown>) => {
@@ -56,21 +56,21 @@ const focusCaptureTarget = async (appName: string, options: CaptureOptions) => {
     if (options.paneId) {
       markPaneFocus(options.paneId);
       await focusWeztermPane(options.paneId, options.wezterm);
-      await wait(120);
+      await sleep(120);
     }
     await focusTerminalApp(appName);
-    await wait(200);
+    await sleep(200);
     return;
   }
 
   await focusTerminalApp(appName);
-  await wait(200);
+  await sleep(200);
   if (!options.paneId) {
     return;
   }
   markPaneFocus(options.paneId);
   await focusTmuxPane(options.paneId, options.tmux);
-  await wait(200);
+  await sleep(200);
 };
 
 const readTerminalBounds = async (appName: string) => {
@@ -261,7 +261,7 @@ export const captureTerminalScreenMacos = async (
       return captureResult;
     }
     if (attempt < maxAttempts - 1) {
-      await wait(200);
+      await sleep(200);
     }
   }
   return null;

@@ -6,6 +6,7 @@ import {
   isDangerousCommand,
 } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
+import { sleep } from "../async-utils";
 
 import { setMapEntryWithLimit } from "../cache";
 import type { ActionResultHelpers } from "./action-results";
@@ -116,7 +117,7 @@ export const createSendActions = ({
 
   const sendEnterKey = async (paneId: string) => {
     if (enterDelayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, enterDelayMs));
+      await sleep(enterDelayMs);
     }
     const result = await adapter.run(["send-keys", "-t", paneId, enterKey]);
     if (result.exitCode !== 0) {

@@ -18,6 +18,10 @@ import {
   useState,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
+import {
+  buildImagePathInsertText,
+  insertIntoTextarea,
+} from "@/features/shared-session-ui/lib/textarea-insert";
 
 import {
   Badge,
@@ -79,26 +83,6 @@ type ChatGridTileProps = {
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   resetSessionTitle: (paneId: string) => Promise<void>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
-};
-
-const insertIntoTextarea = (textarea: HTMLTextAreaElement, insertText: string) => {
-  const start = textarea.selectionStart ?? textarea.value.length;
-  const end = textarea.selectionEnd ?? start;
-  const current = textarea.value;
-  const next = `${current.slice(0, start)}${insertText}${current.slice(end)}`;
-  textarea.value = next;
-  const nextCaret = start + insertText.length;
-  textarea.selectionStart = nextCaret;
-  textarea.selectionEnd = nextCaret;
-};
-
-const isWhitespace = (char: string) => /\s/u.test(char);
-
-const buildImagePathInsertText = (textarea: HTMLTextAreaElement, imagePath: string): string => {
-  const start = textarea.selectionStart ?? textarea.value.length;
-  const previousChar = start > 0 ? (textarea.value[start - 1] ?? "") : "";
-  const prefix = start > 0 && !isWhitespace(previousChar) ? "\n" : "";
-  return `${prefix}${imagePath}\n`;
 };
 
 type TitleEditorState = {

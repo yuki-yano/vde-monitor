@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { execaSync } from "execa";
 
+import { ensureShebang, findBundle } from "./bundle-utils";
+
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 const run = (args: string[], label: string) => {
@@ -12,23 +14,6 @@ const run = (args: string[], label: string) => {
     process.stderr.write(`\n[vde-monitor] ${label} failed.\n`);
     process.exit(result.exitCode ?? 1);
   }
-};
-
-const ensureShebang = (filePath: string) => {
-  const content = fs.readFileSync(filePath, "utf8");
-  if (content.startsWith("#!/usr/bin/env node")) {
-    return;
-  }
-  fs.writeFileSync(filePath, `#!/usr/bin/env node\n${content}`);
-};
-
-const findBundle = (dir: string, base: string) => {
-  const candidates = [
-    path.join(dir, `${base}.mjs`),
-    path.join(dir, `${base}.cjs`),
-    path.join(dir, `${base}.js`),
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
 };
 
 const prepareBundle = (distDir: string, base: string, label: string) => {

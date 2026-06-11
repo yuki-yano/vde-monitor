@@ -1,8 +1,4 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
-
+import { execa } from "execa";
 type CreateRunLsFilesDeps = {
   timeoutMs: number;
   maxBuffer: number;
@@ -20,10 +16,9 @@ const extractStdoutFromExecError = (error: unknown) => {
 
 export const createRunLsFiles = ({ timeoutMs, maxBuffer }: CreateRunLsFilesDeps) => {
   return async (repoRoot: string, args: string[]) => {
-    const output = await execFileAsync("git", ["-C", repoRoot, ...args], {
+    const output = await execa("git", ["-C", repoRoot, ...args], {
       timeout: timeoutMs,
       maxBuffer,
-      encoding: "utf8",
     })
       .then((result) => result.stdout)
       .catch((error: unknown) => {

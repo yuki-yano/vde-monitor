@@ -1,3 +1,5 @@
+// @vitest-environment node
+// execa's timeout option needs Node's AbortSignal; happy-dom's EventTarget breaks it.
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";

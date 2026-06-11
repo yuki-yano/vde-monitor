@@ -6,6 +6,7 @@ import type {
   UsageIssue,
 } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessionListPins";
@@ -26,13 +27,6 @@ const TIMELINE_POLL_INTERVAL_MS = 15_000;
 const TIMELINE_DEFAULT_RANGE: SessionStateTimelineRange = "24h";
 type BillingProviderId = "codex" | "claude";
 const FALLBACK_BILLING_PROVIDERS: BillingProviderId[] = ["codex", "claude"];
-
-const createLaunchRequestId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `launch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
 
 const isBillingProviderId = (providerId: string): providerId is BillingProviderId =>
   providerId === "codex" || providerId === "claude";

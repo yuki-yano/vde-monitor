@@ -1,6 +1,7 @@
-import type { ApiError } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 import { execa } from "execa";
+import { firstNonEmptyLine } from "./stdout-utils";
+import type { ActionOutcome } from "./action-results";
 
 import { buildError } from "../errors";
 import { resolveVwWorktreeSnapshotCached } from "../monitor/vw-worktree";
@@ -21,7 +22,7 @@ export const resolveSessionSnapshotCwd = async ({
 }: {
   adapter: TmuxAdapter;
   sessionName: string;
-}): Promise<{ ok: true; cwd: string } | { ok: false; error: ApiError }> => {
+}): Promise<ActionOutcome<{ cwd: string }>> => {
   const listed = await adapter.run(["list-panes", "-t", sessionName, "-F", "#{pane_current_path}"]);
   if (listed.exitCode !== 0) {
     return {
@@ -29,11 +30,7 @@ export const resolveSessionSnapshotCwd = async ({
       error: buildError("INTERNAL", listed.stderr || "failed to inspect session pane cwd"),
     };
   }
-  const firstPath =
-    listed.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? null;
+  const firstPath = firstNonEmptyLine(listed.stdout);
   if (!firstPath) {
     return {
       ok: false,
@@ -57,9 +54,7 @@ export const resolveWorktreeCwd = async ({
   worktreePath,
   worktreeBranch,
   worktreeCreateIfMissing,
-}: ResolveWorktreeCwdInput): Promise<
-  { ok: true; cwd?: string } | { ok: false; error: ApiError }
-> => {
+}: ResolveWorktreeCwdInput): Promise<ActionOutcome<{ cwd?: string }>> => {
   if (!worktreePath && !worktreeBranch && !worktreeCreateIfMissing) {
     return { ok: true, cwd: undefined };
   }

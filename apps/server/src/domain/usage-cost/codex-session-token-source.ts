@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { asNonEmptyString } from "../parse-utils";
 import { createInterface } from "node:readline";
 
 import {
@@ -39,14 +40,6 @@ type CachedResult = {
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
 const DEFAULT_CODEX_SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
-
-const asNonEmptyString = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
 
 const parseUsage = (value: unknown): RawUsage | null => {
   if (!value || typeof value !== "object") {

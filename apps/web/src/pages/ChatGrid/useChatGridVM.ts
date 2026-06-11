@@ -1,6 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMultiPaneScreenFeed";
 import { useSessionListPins } from "@/features/shared-session-ui/hooks/useSessionListPins";
@@ -23,13 +24,6 @@ import {
   CHAT_GRID_MIN_PANE_COUNT,
   resolveChatGridLayout,
 } from "./model/chat-grid-layout";
-
-const createLaunchRequestId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `launch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
 
 export const useChatGridVM = () => {
   const {

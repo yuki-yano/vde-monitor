@@ -1,4 +1,5 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { resolveWeztermErrorCode } from "./error-utils";
 
 import type { AllowedKey, ApiErrorCode } from "@vde-monitor/shared";
 
@@ -18,26 +19,8 @@ const PDU_IDENT_ERROR_RESPONSE = 0;
 const PDU_IDENT_UNIT_RESPONSE = 10;
 const PDU_IDENT_SEND_KEY_DOWN = 11;
 
-const isUnavailableError = (message: string) =>
-  /no running wezterm|failed to connect|cannot connect|unable to connect|ENOENT|spawn .* ENOENT/i.test(
-    message,
-  );
-
-const isPaneNotFoundError = (message: string) =>
-  /pane .*not found|no such pane|invalid pane/i.test(message);
-
 const resolveUnknownErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
-
-const resolveProxyErrorCode = (message: string): ApiErrorCode => {
-  if (isUnavailableError(message)) {
-    return "WEZTERM_UNAVAILABLE";
-  }
-  if (isPaneNotFoundError(message)) {
-    return "INVALID_PANE";
-  }
-  return "INTERNAL";
-};
 
 export type ProxySendResult =
   | { ok: true; error?: undefined }
@@ -160,7 +143,7 @@ export const sendProxyKeyDown = async ({
     return {
       ok: false,
       error: {
-        code: resolveProxyErrorCode(message),
+        code: resolveWeztermErrorCode(message),
         message,
       },
     };
@@ -224,7 +207,7 @@ export const sendProxyKeyDown = async ({
           finish({
             ok: false,
             error: {
-              code: resolveProxyErrorCode(reason),
+              code: resolveWeztermErrorCode(reason),
               message: reason,
             },
           });
@@ -242,7 +225,7 @@ export const sendProxyKeyDown = async ({
       finish({
         ok: false,
         error: {
-          code: resolveProxyErrorCode(message),
+          code: resolveWeztermErrorCode(message),
           message,
         },
       });
@@ -258,7 +241,7 @@ export const sendProxyKeyDown = async ({
       finish({
         ok: false,
         error: {
-          code: resolveProxyErrorCode(message),
+          code: resolveWeztermErrorCode(message),
           message,
         },
       });

@@ -1,5 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
 import { useSessionGroupingSelector } from "@/features/shared-session-ui/hooks/useSessionGroupingSelector";
@@ -29,13 +30,6 @@ const FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
   value,
   label: value.replace("_", " "),
 }));
-
-const createLaunchRequestId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `launch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
 
 export const useSessionListVM = () => {
   const {

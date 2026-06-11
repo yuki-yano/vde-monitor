@@ -1,7 +1,9 @@
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
+import { asNonEmptyString, asNumber, isRecord } from "../parse-utils";
 import path from "node:path";
+import { fetchWithTimeout } from "../fetch-utils";
+import { execa } from "execa";
 
 import { UsageProviderError } from "../usage-shared/usage-error";
 
@@ -59,22 +61,6 @@ const CLAUDE_KEYCHAIN_SERVICE_NAMES = [
   "Claude Code-credentials-production",
 ];
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value != null;
-
-const asNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-};
-
 const asIsoString = (value: unknown): string | null => {
   if (typeof value !== "string" || value.trim().length === 0) {
     return null;
@@ -84,17 +70,6 @@ const asIsoString = (value: unknown): string | null => {
     return null;
   }
   return new Date(parsed).toISOString();
-};
-
-const asNonEmptyString = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim();
-  if (normalized.length === 0) {
-    return null;
-  }
-  return normalized;
 };
 
 const asEpochMs = (value: unknown): number | null => {
@@ -417,7 +392,7 @@ const resolveMacKeychainServiceNames = async (): Promise<string[]> => {
   }
 
   try {
-    const { stdout } = await execFileAsync("security", ["dump-keychain", "login.keychain-db"]);
+    const { stdout } = await execa("security", ["dump-keychain", "login.keychain-db"]);
     const discovered = parseClaudeCredentialServiceCandidates(stdout).map(
       (candidate) => candidate.serviceName,
     );
@@ -444,20 +419,6 @@ const readTokenFromCredentialsFile = async (): Promise<ClaudeOauthCredential | n
   return extractCredentialFromObject(parsed);
 };
 
-const execFileAsync = (file: string, args: string[]) =>
-  new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-    execFile(file, args, (error, stdout, stderr) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({
-        stdout,
-        stderr,
-      });
-    });
-  });
-
 const readCredentialsFromMacKeychain = async (): Promise<KeychainCredentialCandidate[]> => {
   if (process.platform !== "darwin") {
     return [];
@@ -467,7 +428,7 @@ const readCredentialsFromMacKeychain = async (): Promise<KeychainCredentialCandi
   const candidates: KeychainCredentialCandidate[] = [];
   for (const serviceName of serviceNames) {
     try {
-      const { stdout } = await execFileAsync("security", [
+      const { stdout } = await execa("security", [
         "find-generic-password",
         "-w",
         "-s",
@@ -641,25 +602,24 @@ const refreshClaudeOauthAccessToken = async ({
     asNonEmptyString(clientId) ??
     asNonEmptyString(process.env.CLAUDE_CODE_OAUTH_CLIENT_ID) ??
     CLAUDE_DEFAULT_OAUTH_CLIENT_ID;
-  const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
   try {
     const body = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
       client_id: resolvedClientId,
     });
-    const response = await fetch(CLAUDE_OAUTH_REFRESH_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
+    const response = await fetchWithTimeout(
+      CLAUDE_OAUTH_REFRESH_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-      signal: controller.signal,
-    });
+      timeoutMs,
+    );
 
     if (response.status === 400 || response.status === 401) {
       throw new UsageProviderError(
@@ -701,8 +661,6 @@ const refreshClaudeOauthAccessToken = async ({
       throw new UsageProviderError("UPSTREAM_UNAVAILABLE", "Claude OAuth token refresh timed out");
     }
     throw new UsageProviderError("UPSTREAM_UNAVAILABLE", "Failed to refresh Claude OAuth token");
-  } finally {
-    clearTimeout(timeoutHandle);
   }
 };
 
@@ -713,20 +671,19 @@ export const fetchClaudeOauthUsage = async ({
   token,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 }: FetchClaudeOauthUsageOptions): Promise<ClaudeOauthUsageResponse> => {
-  const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
   try {
-    const response = await fetch(CLAUDE_USAGE_ENDPOINT, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "anthropic-beta": CLAUDE_USAGE_BETA_HEADER,
-        Accept: "application/json",
+    const response = await fetchWithTimeout(
+      CLAUDE_USAGE_ENDPOINT,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "anthropic-beta": CLAUDE_USAGE_BETA_HEADER,
+          Accept: "application/json",
+        },
       },
-      signal: controller.signal,
-    });
+      timeoutMs,
+    );
 
     if (response.status === 401 || response.status === 403) {
       throw new UsageProviderError(
@@ -768,8 +725,6 @@ export const fetchClaudeOauthUsage = async ({
       throw new UsageProviderError("UPSTREAM_UNAVAILABLE", "Claude usage API request timed out");
     }
     throw new UsageProviderError("UPSTREAM_UNAVAILABLE", "Failed to fetch Claude usage data");
-  } finally {
-    clearTimeout(timeoutHandle);
   }
 };
 

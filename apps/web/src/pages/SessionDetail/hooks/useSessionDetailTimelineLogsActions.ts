@@ -9,6 +9,7 @@ import type {
   SessionSummary,
 } from "@vde-monitor/shared";
 import { useCallback, useRef } from "react";
+import { createLaunchRequestId } from "@/lib/request-id";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
@@ -83,13 +84,6 @@ export const useSessionDetailTimelineLogsActions = ({
   paneRepoRootMap,
   currentRepoRoot,
 }: UseSessionDetailTimelineLogsActionsArgs) => {
-  const createRequestId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    return `launch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  };
-
   const timeline = useSessionTimeline({
     paneId,
     connected,
@@ -150,7 +144,12 @@ export const useSessionDetailTimelineLogsActions = ({
 
   const handleLaunchAgentInSession = useCallback(
     async (sessionName: string, agent: "codex" | "claude", options?: LaunchAgentRequestOptions) => {
-      const result = await launchAgentInSession(sessionName, agent, createRequestId(), options);
+      const result = await launchAgentInSession(
+        sessionName,
+        agent,
+        createLaunchRequestId(),
+        options,
+      );
       if (!result.ok) {
         setScreenError(result.error?.message ?? API_ERROR_MESSAGES.launchAgent);
         return result;

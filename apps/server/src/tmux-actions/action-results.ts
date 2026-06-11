@@ -4,6 +4,8 @@ import { buildError } from "../errors";
 
 export type ActionResult = { ok: true; error?: undefined } | { ok: false; error: ApiError };
 
+export type ActionOutcome<T> = ({ ok: true } & T) | { ok: false; error: ApiError };
+
 export const createActionResultHelpers = () => {
   const okResult = (): ActionResult => ({ ok: true });
   const invalidPayload = (message: string): ActionResult => ({

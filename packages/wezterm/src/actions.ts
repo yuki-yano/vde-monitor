@@ -1,5 +1,6 @@
 import type { AgentMonitorConfig, AllowedKey, ApiError, RawItem } from "@vde-monitor/shared";
 import { allowedKeys, compileDangerPatterns, isDangerousCommand } from "@vde-monitor/shared";
+import { isPaneNotFoundError, resolveWeztermErrorCode } from "./error-utils";
 
 import type { WeztermAdapter } from "./adapter";
 import { sendProxyKeyDown, toProxyKeyEvent } from "./proxy";
@@ -14,21 +15,9 @@ const buildError = (code: ApiError["code"], message: string): ApiError => ({
 
 const normalizeText = (value: string) => value.replace(/\r\n/g, "\n");
 
-const isUnavailableError = (message: string) =>
-  /no running wezterm|failed to connect|cannot connect|unable to connect/i.test(message);
-
-const isPaneNotFoundError = (message: string) =>
-  /pane .*not found|no such pane|invalid pane/i.test(message);
-
 const resolveCliError = (stderr: string, fallbackMessage: string): ApiError => {
   const message = stderr || fallbackMessage;
-  if (isUnavailableError(message)) {
-    return buildError("WEZTERM_UNAVAILABLE", message);
-  }
-  if (isPaneNotFoundError(message)) {
-    return buildError("INVALID_PANE", message);
-  }
-  return buildError("INTERNAL", message);
+  return buildError(resolveWeztermErrorCode(message), message);
 };
 
 const sendTextToPane = async (

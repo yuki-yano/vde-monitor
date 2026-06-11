@@ -4,6 +4,7 @@ import {
   type PushSubscriptionJson,
 } from "@vde-monitor/shared";
 import webpush from "web-push";
+import { sleep as defaultSleep } from "../async-utils";
 
 import { toErrorMessage } from "../errors";
 import type { NotificationSubscriptionStore } from "./subscription-store";
@@ -152,7 +153,7 @@ export const createNotificationDispatcher = ({
   },
   now = () => new Date().toISOString(),
   nowMs = () => Date.now(),
-  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  sleep = defaultSleep,
   logger = console,
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
   cooldownMs = DEFAULT_COOLDOWN_MS,

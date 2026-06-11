@@ -4,31 +4,15 @@ import path from "node:path";
 
 import { execa } from "execa";
 
+import { ensureShebang, findBundle } from "./bundle-utils";
+
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const distDir = path.resolve("dist");
 const BUNDLE_SYNC_INTERVAL_MS = 500;
 const bundleBases = ["index", "vde-monitor-hook"] as const;
 
-const ensureShebang = (filePath: string) => {
-  const content = fs.readFileSync(filePath, "utf8");
-  if (content.startsWith("#!/usr/bin/env node")) {
-    return false;
-  }
-  fs.writeFileSync(filePath, `#!/usr/bin/env node\n${content}`);
-  return true;
-};
-
-const findBundle = (base: string): string | null => {
-  const candidates = [
-    path.join(distDir, `${base}.mjs`),
-    path.join(distDir, `${base}.cjs`),
-    path.join(distDir, `${base}.js`),
-  ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
-};
-
 const syncBundleJs = (base: string) => {
-  const sourcePath = findBundle(base);
+  const sourcePath = findBundle(distDir, base);
   if (!sourcePath) {
     return;
   }

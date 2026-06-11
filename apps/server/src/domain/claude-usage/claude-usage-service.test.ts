@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
-  execFile: vi.fn(),
+  execa: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -15,11 +15,8 @@ vi.mock("node:fs/promises", () => ({
   writeFile: mocks.writeFile,
 }));
 
-vi.mock("node:child_process", () => ({
-  default: {
-    execFile: mocks.execFile,
-  },
-  execFile: mocks.execFile,
+vi.mock("execa", () => ({
+  execa: mocks.execa,
 }));
 
 import { fetchClaudeOauthUsageWithFallback } from "./claude-usage-service";
@@ -86,7 +83,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string> | undefined;
     expect(headers?.Authorization).toBe("Bearer file-token");
-    expect(mocks.execFile).not.toHaveBeenCalled();
+    expect(mocks.execa).not.toHaveBeenCalled();
     expect(mocks.writeFile).not.toHaveBeenCalled();
   });
 
@@ -107,10 +104,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
         expiresAt: 1_773_000_000_000,
         clientId: "client-from-keychain",
       })},` + `"mcpOAuth":{"cloudflare-browser":{"resource_name":0`;
-    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
-      callback(null, toHex(keychainPayload), "");
-      return {} as never;
-    });
+    mocks.execa.mockImplementation(async () => ({ stdout: toHex(keychainPayload), stderr: "" }));
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -181,22 +175,18 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
       }),
     );
 
-    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
-      callback(
-        null,
-        JSON.stringify([
-          { kind: "metadata", value: "ignored" },
-          {
-            claudeAiOauth: {
-              accessToken: "keychain-array-token",
-              refreshToken: "keychain-array-refresh-token",
-            },
+    mocks.execa.mockImplementation(async () => ({
+      stdout: JSON.stringify([
+        { kind: "metadata", value: "ignored" },
+        {
+          claudeAiOauth: {
+            accessToken: "keychain-array-token",
+            refreshToken: "keychain-array-refresh-token",
           },
-        ]),
-        "",
-      );
-      return {} as never;
-    });
+        },
+      ]),
+      stderr: "",
+    }));
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -267,14 +257,10 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
       expiresAt: "1773000000",
       clientId: "client-with-}brace-and-\\escape",
     });
-    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
-      callback(
-        null,
-        `prefix "claudeAiOauth": ${embeddedCredential}, "mcpOAuth":{"cloudflare":{"resource":0`,
-        "",
-      );
-      return {} as never;
-    });
+    mocks.execa.mockImplementation(async () => ({
+      stdout: `prefix "claudeAiOauth": ${embeddedCredential}, "mcpOAuth":{"cloudflare":{"resource":0`,
+      stderr: "",
+    }));
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -351,37 +337,30 @@ attributes:
     "mdat"<timedate>=0x32303236303330313132353034365A00  "20260301125046Z\\000"
     "svce"<blob>="Claude Code-credentials-d9c45eec"`;
 
-    mocks.execFile.mockImplementation(
-      (_file, args: string[], callback: (...callbackArgs: unknown[]) => void) => {
-        if (args[0] === "dump-keychain") {
-          callback(null, keychainDump, "");
-          return {} as never;
-        }
-        if (args[0] !== "find-generic-password") {
-          callback(new Error(`unexpected command: ${args.join(" ")}`), "", "");
-          return {} as never;
-        }
+    mocks.execa.mockImplementation(async (_file: string, args: string[]) => {
+      if (args[0] === "dump-keychain") {
+        return { stdout: keychainDump, stderr: "" };
+      }
+      if (args[0] !== "find-generic-password") {
+        throw new Error(`unexpected command: ${args.join(" ")}`);
+      }
 
-        const serviceName = args.at(-1);
-        if (serviceName === "Claude Code-credentials-d9c45eec") {
-          callback(
-            null,
-            JSON.stringify({
-              claudeAiOauth: {
-                accessToken: "keychain-fresh-token",
-                refreshToken: "keychain-fresh-refresh-token",
-                expiresAt: 1_773_000_000_000,
-              },
-            }),
-            "",
-          );
-          return {} as never;
-        }
+      const serviceName = args.at(-1);
+      if (serviceName === "Claude Code-credentials-d9c45eec") {
+        return {
+          stdout: JSON.stringify({
+            claudeAiOauth: {
+              accessToken: "keychain-fresh-token",
+              refreshToken: "keychain-fresh-refresh-token",
+              expiresAt: 1_773_000_000_000,
+            },
+          }),
+          stderr: "",
+        };
+      }
 
-        callback(new Error("service not found"), "", "");
-        return {} as never;
-      },
-    );
+      throw new Error("service not found");
+    });
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -435,13 +414,9 @@ attributes:
       | undefined;
     expect(firstHeaders?.Authorization).toBe("Bearer file-stale-token");
     expect(secondHeaders?.Authorization).toBe("Bearer keychain-fresh-token");
-    expect(mocks.execFile).toHaveBeenCalledWith(
-      "security",
-      ["dump-keychain", "login.keychain-db"],
-      expect.any(Function),
-    );
+    expect(mocks.execa).toHaveBeenCalledWith("security", ["dump-keychain", "login.keychain-db"]);
     expect(
-      mocks.execFile.mock.calls.some(
+      mocks.execa.mock.calls.some(
         (call) =>
           Array.isArray(call[1]) &&
           (call[1] as string[])[0] === "dump-keychain" &&
@@ -463,20 +438,16 @@ attributes:
         },
       }),
     );
-    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
-      callback(
-        null,
-        JSON.stringify({
-          claudeAiOauth: {
-            accessToken: "keychain-stale-token",
-            refreshToken: "keychain-refresh-token",
-            clientId: "keychain-client-id",
-          },
-        }),
-        "",
-      );
-      return {} as never;
-    });
+    mocks.execa.mockImplementation(async () => ({
+      stdout: JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "keychain-stale-token",
+          refreshToken: "keychain-refresh-token",
+          clientId: "keychain-client-id",
+        },
+      }),
+      stderr: "",
+    }));
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -564,9 +535,8 @@ attributes:
   it("throws TOKEN_NOT_FOUND when .credentials.json and Keychain are both unavailable", async () => {
     setProcessPlatform("darwin");
     mocks.readFile.mockRejectedValue(new Error("not found"));
-    mocks.execFile.mockImplementation((_, __, callback: (...args: unknown[]) => void) => {
-      callback(new Error("not found"), "", "");
-      return {} as never;
+    mocks.execa.mockImplementation(async () => {
+      throw new Error("not found");
     });
     vi.stubGlobal("fetch", vi.fn<typeof fetch>());
 

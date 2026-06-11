@@ -6,10 +6,11 @@ import type {
 } from "@vde-monitor/shared";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 import { execa } from "execa";
+import { firstNonEmptyLine, nonEmptyLines } from "./stdout-utils";
 
 import { buildError } from "../errors";
-import type { ActionResult } from "./action-results";
-import { sleep } from "./async-utils";
+import type { ActionOutcome, ActionResult } from "./action-results";
+import { sleep } from "../async-utils";
 import { buildLaunchCommandLine, quoteShellValue } from "./launch-command";
 
 export { buildLaunchCommandLine, quoteShellValue } from "./launch-command";
@@ -23,8 +24,8 @@ const isTmuxTargetMissing = (message: string) =>
     message,
   );
 
-type PaneCommandResult = { ok: true; command: string | null } | { ok: false; error: ApiError };
-type PaneCurrentPathResult = { ok: true; cwd: string } | { ok: false; error: ApiError };
+type PaneCommandResult = ActionOutcome<{ command: string | null }>;
+type PaneCurrentPathResult = ActionOutcome<{ cwd: string }>;
 
 const readPaneCurrentCommand = async ({
   adapter,
@@ -41,11 +42,7 @@ const readPaneCurrentCommand = async ({
     "#{pane_current_command}",
   ]);
   if (viaDisplay.exitCode === 0) {
-    const displayCommand =
-      viaDisplay.stdout
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line.length > 0) ?? null;
+    const displayCommand = firstNonEmptyLine(viaDisplay.stdout);
     if (displayCommand) {
       return { ok: true, command: displayCommand };
     }
@@ -64,11 +61,7 @@ const readPaneCurrentCommand = async ({
       error: buildError(isTmuxTargetMissing(message) ? "INVALID_PANE" : "INTERNAL", message),
     };
   }
-  const command =
-    viaList.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? null;
+  const command = firstNonEmptyLine(viaList.stdout);
   return { ok: true, command };
 };
 
@@ -78,7 +71,7 @@ const readPanePid = async ({
 }: {
   adapter: TmuxAdapter;
   paneId: string;
-}): Promise<{ ok: true; panePid: number } | { ok: false; error: ApiError }> => {
+}): Promise<ActionOutcome<{ panePid: number }>> => {
   const resolved = await adapter.run(["display-message", "-p", "-t", paneId, "#{pane_pid}"]);
   if (resolved.exitCode !== 0) {
     const message = resolved.stderr || "failed to resolve pane pid";
@@ -87,11 +80,7 @@ const readPanePid = async ({
       error: buildError(isTmuxTargetMissing(message) ? "INVALID_PANE" : "INTERNAL", message),
     };
   }
-  const rawPid =
-    resolved.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? "";
+  const rawPid = firstNonEmptyLine(resolved.stdout) ?? "";
   const panePid = Number.parseInt(rawPid, 10);
   if (Number.isNaN(panePid) || panePid <= 0) {
     return { ok: false, error: buildError("INTERNAL", "invalid pane pid") };
@@ -204,11 +193,7 @@ const readProcessCommandByPid = async (pid: number): Promise<string | null> => {
   if (!stdout) {
     return null;
   }
-  const command =
-    stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? null;
+  const command = firstNonEmptyLine(stdout);
   return command;
 };
 
@@ -310,7 +295,7 @@ export const resolveUniqueWindowName = async ({
   sessionName: string;
   requestedName?: string;
   agent: LaunchAgent;
-}): Promise<{ ok: true; windowName: string } | { ok: false; error: ApiError }> => {
+}): Promise<ActionOutcome<{ windowName: string }>> => {
   const baseName = requestedName ?? `${agent}-work`;
   const listed = await adapter.run(["list-windows", "-t", sessionName, "-F", "#{window_name}"]);
   if (listed.exitCode !== 0) {
@@ -319,12 +304,7 @@ export const resolveUniqueWindowName = async ({
       error: buildError("INTERNAL", listed.stderr || "failed to list windows"),
     };
   }
-  const existingNames = new Set(
-    listed.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0),
-  );
+  const existingNames = new Set(nonEmptyLines(listed.stdout));
 
   if (!existingNames.has(baseName)) {
     return { ok: true, windowName: baseName };
@@ -384,7 +364,7 @@ export const createDetachedWindow = async ({
       error: buildError("INTERNAL", created.stderr || "failed to create tmux window"),
     };
   }
-  const firstLine = created.stdout.split(/\r?\n/).find((line) => line.trim().length > 0) ?? "";
+  const firstLine = firstNonEmptyLine(created.stdout) ?? "";
   const [windowId, indexRaw, resolvedWindowName, paneId] = firstLine.split("\t");
   if (!windowId || !indexRaw || !resolvedWindowName || !paneId) {
     return {
@@ -438,7 +418,7 @@ export const resolveExistingPaneLaunchTarget = async ({
       error: buildError(isTmuxTargetMissing(message) ? "INVALID_PANE" : "INTERNAL", message),
     };
   }
-  const firstLine = listed.stdout.split(/\r?\n/).find((line) => line.trim().length > 0) ?? "";
+  const firstLine = firstNonEmptyLine(listed.stdout) ?? "";
   const [windowId, indexRaw, windowName, resolvedPaneId] = firstLine.split("\t");
   if (!windowId || !indexRaw || !windowName || !resolvedPaneId) {
     return {
@@ -477,11 +457,7 @@ export const resolvePaneCurrentPath = async ({
     "#{pane_current_path}",
   ]);
   if (viaDisplay.exitCode === 0) {
-    const displayPath =
-      viaDisplay.stdout
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line.length > 0) ?? null;
+    const displayPath = firstNonEmptyLine(viaDisplay.stdout);
     if (displayPath) {
       return { ok: true, cwd: displayPath };
     }
@@ -500,11 +476,7 @@ export const resolvePaneCurrentPath = async ({
       error: buildError(isTmuxTargetMissing(message) ? "INVALID_PANE" : "INTERNAL", message),
     };
   }
-  const resolvedPath =
-    viaList.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? null;
+  const resolvedPath = firstNonEmptyLine(viaList.stdout);
   if (!resolvedPath) {
     return {
       ok: false,
@@ -616,11 +588,7 @@ export const verifyLaunch = async ({
   for (let attempt = 1; attempt <= LAUNCH_VERIFY_MAX_ATTEMPTS; attempt += 1) {
     const result = await adapter.run(["list-panes", "-t", paneId, "-F", "#{pane_current_command}"]);
     if (result.exitCode === 0) {
-      const currentCommand =
-        result.stdout
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .find((line) => line.length > 0) ?? null;
+      const currentCommand = firstNonEmptyLine(result.stdout);
       observedCommand = currentCommand;
       if (currentCommand === agent) {
         return {

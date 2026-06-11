@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { asNonEmptyString } from "../parse-utils";
 import { createInterface } from "node:readline";
 
 import {
@@ -57,14 +58,6 @@ const toModelEntryList = (entries: Map<string, MutableModelEntry>): UsageTokenMo
     });
   }
   return rows;
-};
-
-const asNonEmptyString = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 };
 
 export class ClaudeTranscriptTokenSource implements UsageTokenSource {
