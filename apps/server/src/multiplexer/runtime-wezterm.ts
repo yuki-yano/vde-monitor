@@ -1,8 +1,5 @@
-import {
-  type AgentMonitorConfig,
-  resolveMonitorServerKey,
-  resolveWeztermServerKey,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import { resolveMonitorServerKey, resolveWeztermServerKey } from "@vde-monitor/shared";
 import {
   createInspector,
   createScreenCapture,

@@ -1,4 +1,4 @@
-import type { PaneMeta } from "@vde-monitor/shared";
+import type { PaneMeta } from "@vde-monitor/multiplexer";
 
 type PanePrepDeps = {
   readUserOption: (paneId: string, key: string) => Promise<string | null>;

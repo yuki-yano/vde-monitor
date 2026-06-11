@@ -1,4 +1,5 @@
-import type { AgentMonitorConfig, AllowedKey, ApiError, RawItem } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type { AllowedKey, ApiError, RawItem } from "@vde-monitor/shared";
 import { allowedKeys, compileDangerPatterns, isDangerousCommand } from "@vde-monitor/shared";
 import { isPaneNotFoundError, resolveWeztermErrorCode } from "./error-utils";
 

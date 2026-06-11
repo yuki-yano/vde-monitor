@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 
 export { buildError } from "../errors";
 

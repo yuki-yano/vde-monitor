@@ -1,4 +1,5 @@
-import type { PaneMeta, SessionDetail } from "@vde-monitor/shared";
+import type { PaneMeta } from "@vde-monitor/multiplexer";
+import type { SessionDetail } from "@vde-monitor/shared";
 
 import type { PaneResolvedContext } from "./pane-context-resolver";
 import type { PaneObservation } from "./pane-observation";

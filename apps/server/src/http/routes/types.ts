@@ -1,4 +1,5 @@
-import type { AgentMonitorConfig, SessionDetail } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type { SessionDetail } from "@vde-monitor/shared";
 
 import type { createCommandResponse } from "../../command/command-response";
 import type { createRateLimiter } from "../../limits/rate-limit";

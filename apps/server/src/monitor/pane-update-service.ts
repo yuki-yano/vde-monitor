@@ -1,9 +1,5 @@
-import type {
-  AgentMonitorConfig,
-  PaneMeta,
-  SessionDetail,
-  SessionStateTimelineSource,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig, PaneMeta } from "@vde-monitor/multiplexer";
+import type { SessionDetail, SessionStateTimelineSource } from "@vde-monitor/shared";
 
 import { toErrorMessage } from "../errors";
 import type { SessionTransitionEvent } from "../notifications/types";

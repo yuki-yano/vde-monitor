@@ -1,8 +1,5 @@
-import {
-  type AgentMonitorConfig,
-  type PushEventType,
-  type PushSubscriptionJson,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import { type PushEventType, type PushSubscriptionJson } from "@vde-monitor/shared";
 import webpush from "web-push";
 import { sleep as defaultSleep } from "../async-utils";
 

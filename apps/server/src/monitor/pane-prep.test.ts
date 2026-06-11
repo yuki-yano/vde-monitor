@@ -1,4 +1,4 @@
-import type { PaneMeta } from "@vde-monitor/shared";
+import type { PaneMeta } from "@vde-monitor/multiplexer";
 import { describe, expect, it, vi } from "vitest";
 
 import { ensurePipeTagValue } from "./pane-prep";

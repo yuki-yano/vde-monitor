@@ -1,9 +1,5 @@
-import type {
-  AgentMonitorConfig,
-  HookStateSignal,
-  PaneMeta,
-  SessionDetail,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig, HookStateSignal, PaneMeta } from "@vde-monitor/multiplexer";
+import type { SessionDetail } from "@vde-monitor/shared";
 
 import { resolvePaneAgent } from "./agent-resolver";
 import { isShellCommand } from "./agent-resolver-utils";

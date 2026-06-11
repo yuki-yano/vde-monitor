@@ -1,4 +1,9 @@
-import type { PaneMeta } from "@vde-monitor/shared";
+import {
+  type MultiplexerInspector,
+  type PaneMeta,
+  toNullable,
+  toNumber,
+} from "@vde-monitor/multiplexer";
 
 import type { WeztermAdapter } from "./adapter";
 
@@ -37,27 +42,6 @@ type WeztermDurationRaw = {
 
 type InspectorDeps = {
   now?: () => Date;
-};
-
-const toNullable = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
-};
-
-const toNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
 };
 
 const toPaneId = (value: unknown): string | null => {
@@ -219,7 +203,10 @@ const toPaneMetaList = (
   return results;
 };
 
-export const createInspector = (adapter: WeztermAdapter, deps: InspectorDeps = {}) => {
+export const createInspector = (
+  adapter: WeztermAdapter,
+  deps: InspectorDeps = {},
+): MultiplexerInspector => {
   const now = deps.now ?? (() => new Date());
 
   const listPanes = async (): Promise<PaneMeta[]> => {

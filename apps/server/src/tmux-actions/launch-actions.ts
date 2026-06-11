@@ -1,5 +1,5 @@
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type {
-  AgentMonitorConfig,
   ApiError,
   LaunchAgent,
   LaunchAgentResult,

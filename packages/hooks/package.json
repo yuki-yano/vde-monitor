@@ -6,9 +6,6 @@
   "bin": {
     "vde-monitor-hook": "./src/cli.ts"
   },
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "dependencies": {
     "@vde-monitor/shared": "workspace:*",
     "yaml": "^2.8.1"

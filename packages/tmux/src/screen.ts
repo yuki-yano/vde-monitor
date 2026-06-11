@@ -1,3 +1,4 @@
+import { type MultiplexerScreenCapture, normalizeScreen } from "@vde-monitor/multiplexer";
 import {
   type TextCaptureOptions,
   type TextCaptureResult,
@@ -5,17 +6,6 @@ import {
 } from "@vde-monitor/shared";
 
 import type { TmuxAdapter } from "./adapter";
-
-const normalizeScreen = (text: string, lineLimit: number): string => {
-  const lines = text.replace(/\r/g, "").split("\n");
-  while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
-    lines.pop();
-  }
-  if (lines.length > lineLimit) {
-    return lines.slice(-lineLimit).join("\n");
-  }
-  return lines.join("\n");
-};
 
 const shouldUsePrimaryBuffer = (command?: string | null): boolean => {
   return isEditorCommand(command);
@@ -54,7 +44,7 @@ const getPaneSize = async (
   return { historySize: history, paneHeight: height };
 };
 
-export const createScreenCapture = (adapter: TmuxAdapter) => {
+export const createScreenCapture = (adapter: TmuxAdapter): MultiplexerScreenCapture => {
   const runCapture = async (
     options: TextCaptureOptions,
     useAlt: boolean,

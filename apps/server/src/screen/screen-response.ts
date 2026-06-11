@@ -1,9 +1,5 @@
-import type {
-  AgentMonitorConfig,
-  ScreenCaptureMeta,
-  ScreenResponse,
-  SessionDetail,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type { ScreenCaptureMeta, ScreenResponse, SessionDetail } from "@vde-monitor/shared";
 
 import { buildError, nowIso } from "../http/helpers";
 import type { createSessionMonitor } from "../monitor";

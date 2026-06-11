@@ -1,83 +1,15 @@
-import type {
-  AllowedKey,
-  ApiError,
-  LaunchAgent,
-  LaunchAgentResult,
-  LaunchResumePolicy,
-  LaunchResumeTarget,
-  LaunchRollback,
-  LaunchVerification,
-  PaneMeta,
-  RawItem,
-  TextCaptureOptions,
-  TextCaptureResult,
-} from "@vde-monitor/shared";
-
-export type MultiplexerBackend = "tmux" | "wezterm";
-
-export type MultiplexerInspector = {
-  listPanes: () => Promise<PaneMeta[]>;
-  readUserOption: (paneId: string, key: string) => Promise<string | null>;
-};
-
-export type MultiplexerScreenCapture = {
-  captureText: (options: TextCaptureOptions) => Promise<TextCaptureResult>;
-};
-
-export type MultiplexerActionResult =
-  | { ok: true; error?: undefined }
-  | { ok: false; error: ApiError };
-
-export type LaunchAgentInSessionInput = {
-  sessionName: string;
-  agent: LaunchAgent;
-  requestId?: string;
-  windowName?: string;
-  cwd?: string;
-  agentOptions?: string[];
-  worktreePath?: string;
-  worktreeBranch?: string;
-  worktreeCreateIfMissing?: boolean;
-  resumeSessionId?: string;
-  resumeFromPaneId?: string;
-  resumePolicy?: LaunchResumePolicy;
-  resumeTarget?: LaunchResumeTarget;
-};
-
-export type MultiplexerLaunchRollback = LaunchRollback;
-export type MultiplexerLaunchVerification = LaunchVerification;
-export type LaunchAgentInSessionResult = LaunchAgentResult;
-
-export type MultiplexerLaunchResult =
-  | { ok: true; result: LaunchAgentInSessionResult; rollback: MultiplexerLaunchRollback }
-  | { ok: false; error: ApiError; rollback: MultiplexerLaunchRollback };
-
-export type MultiplexerInputActions = {
-  sendText: (paneId: string, text: string, enter?: boolean) => Promise<MultiplexerActionResult>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<MultiplexerActionResult>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<MultiplexerActionResult>;
-  clearPaneTitle: (paneId: string) => Promise<MultiplexerActionResult>;
-  focusPane: (paneId: string) => Promise<MultiplexerActionResult>;
-  killPane: (paneId: string) => Promise<MultiplexerActionResult>;
-  killWindow: (paneId: string) => Promise<MultiplexerActionResult>;
-  launchAgentInSession: (input: LaunchAgentInSessionInput) => Promise<MultiplexerLaunchResult>;
-};
-
-export type MultiplexerRuntime = {
-  backend: MultiplexerBackend;
-  serverKey: string;
-  inspector: MultiplexerInspector;
-  screenCapture: MultiplexerScreenCapture;
-  actions: MultiplexerInputActions;
-  pipeManager: {
-    hasConflict: (state: { panePipe: boolean; pipeTagValue: string | null }) => boolean;
-    attachPipe: (
-      paneId: string,
-      logPath: string,
-      state: { panePipe: boolean; pipeTagValue: string | null },
-      options?: { forceReattach?: boolean },
-    ) => Promise<{ attached: boolean; conflict: boolean }>;
-  };
-  captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
-  pipeSupport: "tmux-pipe" | "none";
-};
+// Re-export all multiplexer types from the @vde-monitor/multiplexer package.
+// Server-internal files that import from this path continue to work unchanged.
+export type {
+  LaunchAgentInSessionInput,
+  LaunchAgentInSessionResult,
+  MultiplexerActionResult,
+  MultiplexerBackend,
+  MultiplexerInputActions,
+  MultiplexerInspector,
+  MultiplexerLaunchResult,
+  MultiplexerLaunchRollback,
+  MultiplexerLaunchVerification,
+  MultiplexerRuntime,
+  MultiplexerScreenCapture,
+} from "@vde-monitor/multiplexer";

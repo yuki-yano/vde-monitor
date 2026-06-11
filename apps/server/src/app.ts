@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { serveStatic } from "@hono/node-server/serve-static";
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import { Hono } from "hono";
 
 import { rotateToken } from "./config";

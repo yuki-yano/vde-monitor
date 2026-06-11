@@ -1,8 +1,5 @@
-import type {
-  AgentMonitorConfig,
-  NotificationSettings,
-  NotificationSubscriptionRevokeJson,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type { NotificationSettings, NotificationSubscriptionRevokeJson } from "@vde-monitor/shared";
 import webpush from "web-push";
 
 import { type NotificationDispatcher, createNotificationDispatcher } from "./dispatcher";

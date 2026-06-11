@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { ArgsDef, ParsedArgs as CittyParsedArgs } from "citty";
 import { parseArgs as parseCittyArgs } from "citty";
 

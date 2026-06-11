@@ -1,16 +1,9 @@
+import { type MultiplexerScreenCapture, normalizeLines } from "@vde-monitor/multiplexer";
 import type { TextCaptureOptions, TextCaptureResult } from "@vde-monitor/shared";
 
 import type { WeztermAdapter } from "./adapter";
 
-const normalizeLines = (text: string) => {
-  const lines = text.replace(/\r/g, "").split("\n");
-  while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
-    lines.pop();
-  }
-  return lines;
-};
-
-export const createScreenCapture = (adapter: WeztermAdapter) => {
+export const createScreenCapture = (adapter: WeztermAdapter): MultiplexerScreenCapture => {
   const captureText = async (options: TextCaptureOptions): Promise<TextCaptureResult> => {
     const args = ["get-text", "--pane-id", options.paneId, "--start-line", `-${options.lines}`];
     if (options.includeAnsi) {

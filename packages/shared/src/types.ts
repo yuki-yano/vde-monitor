@@ -2,8 +2,10 @@
  * This file contains two categories of types:
  *  1. z.infer aliases – derived from the zod schemas in ./schemas (source of truth for wire shapes).
  *  2. Schema-less hand-written types – git/diff/commit types, RepoFile* types, Worktree*,
- *     RepoNote, ApiEnvelope<T>, WsEnvelope<TType,TData>, PaneMeta, HookStateSignal, StateSignals,
- *     ResolvedConfig, AgentMonitorConfig, and related server-only config types.
+ *     RepoNote, ApiEnvelope<T>, WsEnvelope<TType,TData>, ResolvedConfig, and related config types.
+ *
+ * Note: PaneMeta, HookStateSignal, StateSignals, AgentMonitorConfig, AgentMonitorConfigFile have
+ * been moved to @vde-monitor/multiplexer to avoid including server-only types in the shared package.
  */
 
 import type { z } from "zod";
@@ -405,44 +407,4 @@ export type ResolvedConfig = {
   };
   fileNavigator: FileNavigatorConfig;
   tmux: { socketName: string | null; socketPath: string | null; primaryClient: string | null };
-};
-
-export type AgentMonitorConfig = ResolvedConfig & {
-  token: string;
-};
-
-export type AgentMonitorConfigFile = ResolvedConfig;
-
-export type PaneMeta = {
-  paneId: string;
-  sessionName: string;
-  windowIndex: number;
-  paneIndex: number;
-  windowActivity: number | null;
-  paneActivity: number | null;
-  paneActive: boolean;
-  currentCommand: string | null;
-  currentPath: string | null;
-  paneTty: string | null;
-  paneDead: boolean;
-  panePipe: boolean;
-  alternateOn: boolean;
-  panePid: number | null;
-  paneTitle: string | null;
-  paneStartCommand: string | null;
-  pipeTagValue: string | null;
-};
-
-export type HookStateSignal = {
-  state: SessionStateValue;
-  reason: string;
-  at: string;
-};
-
-export type StateSignals = {
-  paneDead: boolean;
-  lastOutputAt: string | null;
-  hookState: HookStateSignal | null;
-  codexQuestionPromptActive?: boolean;
-  thresholds: { runningThresholdMs: number; inactiveThresholdMs: number };
 };

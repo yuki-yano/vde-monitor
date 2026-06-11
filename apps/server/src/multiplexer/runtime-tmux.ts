@@ -1,4 +1,5 @@
-import { type AgentMonitorConfig, resolveMonitorServerKey } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import { resolveMonitorServerKey } from "@vde-monitor/shared";
 import {
   createInspector,
   createPipeManager,

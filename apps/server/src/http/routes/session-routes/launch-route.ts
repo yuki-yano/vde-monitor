@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type {
-  AgentMonitorConfig,
   LaunchCommandResponse,
   LaunchResumeMeta,
   LaunchResumePolicy,

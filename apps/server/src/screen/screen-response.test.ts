@@ -1,4 +1,5 @@
-import { type AgentMonitorConfig, type SessionDetail, configDefaults } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import { type SessionDetail, configDefaults } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import type { createSessionMonitor } from "../monitor";

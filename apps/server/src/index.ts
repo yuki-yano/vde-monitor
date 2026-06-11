@@ -6,15 +6,8 @@ import { runConfigInitCommand } from "./app/commands/run-config-init-command";
 import { runConfigPruneCommand } from "./app/commands/run-config-prune-command";
 import { runConfigRegenerateCommand } from "./app/commands/run-config-regenerate-command";
 import { runTokenRotateCommand } from "./app/commands/run-token-rotate-command";
-import {
-  buildAccessUrl,
-  buildTailscaleHttpsAccessUrl,
-  ensureBackendAvailable,
-  runServe,
-} from "./app/serve/serve-command";
+import { runServe } from "./app/serve/serve-command";
 import { toErrorMessage } from "./errors";
-
-export { buildAccessUrl, buildTailscaleHttpsAccessUrl, ensureBackendAvailable };
 
 export const main = async () => {
   const args = parseArgs();

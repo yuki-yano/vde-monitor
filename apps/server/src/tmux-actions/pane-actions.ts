@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { TmuxAdapter } from "@vde-monitor/tmux";
 import { firstNonEmptyLine } from "./stdout-utils";
 

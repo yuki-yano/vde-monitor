@@ -87,6 +87,9 @@ importers:
       '@vde-monitor/agents':
         specifier: workspace:*
         version: link:../../packages/agents
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../../packages/multiplexer
       '@vde-monitor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -224,6 +227,9 @@ importers:
 
   packages/agents:
     dependencies:
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../multiplexer
       '@vde-monitor/shared':
         specifier: workspace:*
         version: link:../shared
@@ -237,6 +243,12 @@ importers:
         specifier: ^2.8.1
         version: 2.8.2
 
+  packages/multiplexer:
+    dependencies:
+      '@vde-monitor/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/shared:
     dependencies:
       zod:
@@ -245,6 +257,9 @@ importers:
 
   packages/tmux:
     dependencies:
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../multiplexer
       '@vde-monitor/shared':
         specifier: workspace:*
         version: link:../shared
@@ -254,6 +269,9 @@ importers:
 
   packages/wezterm:
     dependencies:
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../multiplexer
       '@vde-monitor/shared':
         specifier: workspace:*
         version: link:../shared

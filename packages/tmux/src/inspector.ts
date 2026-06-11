@@ -1,4 +1,9 @@
-import type { PaneMeta } from "@vde-monitor/shared";
+import {
+  type MultiplexerInspector,
+  type PaneMeta,
+  toNullable,
+  toNumber,
+} from "@vde-monitor/multiplexer";
 
 import type { TmuxAdapter } from "./adapter";
 
@@ -21,22 +26,6 @@ const format = [
   "#{pane_start_command}",
   "#{@vde-monitor_pipe}",
 ].join("\t");
-
-const toNullable = (value: string | undefined): string | null => {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
-};
-
-const toNumber = (value: string | undefined): number | null => {
-  if (!value) {
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? null : parsed;
-};
 
 const toEpochSeconds = (value: string | undefined): number | null => {
   if (!value) {
@@ -111,7 +100,11 @@ const parseLine = (line: string): PaneMeta | null => {
   };
 };
 
-export const createInspector = (adapter: TmuxAdapter) => {
+export const createInspector = (
+  adapter: TmuxAdapter,
+): MultiplexerInspector & {
+  writeUserOption: (paneId: string, key: string, value: string | null) => Promise<void>;
+} => {
   const listPanes = async (): Promise<PaneMeta[]> => {
     const result = await adapter.run(["list-panes", "-a", "-F", format]);
     if (result.exitCode !== 0) {

@@ -1,4 +1,5 @@
-import { type HookStateSignal, claudeHookEventSchema } from "@vde-monitor/shared";
+import type { HookStateSignal } from "@vde-monitor/multiplexer";
+import { claudeHookEventSchema } from "@vde-monitor/shared";
 
 import { deriveHookState, mapHookToPane } from "./monitor-utils";
 

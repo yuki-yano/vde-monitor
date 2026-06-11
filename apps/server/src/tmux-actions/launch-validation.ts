@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 
-import type { AgentMonitorConfig, ApiError, LaunchAgent } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type { ApiError, LaunchAgent } from "@vde-monitor/shared";
 
 import { buildError } from "../errors";
 

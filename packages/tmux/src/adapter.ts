@@ -1,13 +1,12 @@
 import { execa } from "execa";
 
-export type TmuxRunResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-};
+import type { AdapterRunResult } from "@vde-monitor/multiplexer";
+
+/** @deprecated Use AdapterRunResult from @vde-monitor/multiplexer */
+export type TmuxRunResult = AdapterRunResult;
 
 export type TmuxAdapter = {
-  run: (args: string[]) => Promise<TmuxRunResult>;
+  run: (args: string[]) => Promise<AdapterRunResult>;
 };
 
 type AdapterOptions = {
@@ -27,7 +26,7 @@ const buildArgs = (args: string[], options: AdapterOptions): string[] => {
 };
 
 export const createTmuxAdapter = (options: AdapterOptions = {}): TmuxAdapter => {
-  const run = async (args: string[]): Promise<TmuxRunResult> => {
+  const run = async (args: string[]): Promise<AdapterRunResult> => {
     const finalArgs = buildArgs(args, options);
     const result = await execa("tmux", finalArgs, { reject: false });
     return {

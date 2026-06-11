@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 
 import { createTmuxRuntime } from "./runtime-tmux";
 import { createWeztermRuntime } from "./runtime-wezterm";

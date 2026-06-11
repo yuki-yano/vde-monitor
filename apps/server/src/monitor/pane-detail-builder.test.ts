@@ -1,4 +1,4 @@
-import type { PaneMeta } from "@vde-monitor/shared";
+import type { PaneMeta } from "@vde-monitor/multiplexer";
 import { describe, expect, it } from "vitest";
 
 import type { PaneResolvedContext } from "./pane-context-resolver";

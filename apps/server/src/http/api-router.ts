@@ -1,4 +1,4 @@
-import type { AgentMonitorConfig } from "@vde-monitor/shared";
+import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import { Hono } from "hono";
 
 import { createCommandResponse } from "../command/command-response";

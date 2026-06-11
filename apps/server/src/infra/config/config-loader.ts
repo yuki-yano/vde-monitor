@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import type {
-  AgentMonitorConfigFile,
-  GeneratedConfigTemplate,
-  UserConfigReadable,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfigFile } from "@vde-monitor/multiplexer";
+import type { GeneratedConfigTemplate, UserConfigReadable } from "@vde-monitor/shared";
 import {
   configDefaults,
   configOverrideSchema,

@@ -1,4 +1,5 @@
-import type { AgentMonitorConfig, PaneMeta, SessionDetail } from "@vde-monitor/shared";
+import type { AgentMonitorConfig, PaneMeta } from "@vde-monitor/multiplexer";
+import type { SessionDetail } from "@vde-monitor/shared";
 
 import { resolvePaneContext } from "./pane-context-resolver";
 import { buildPaneDetail } from "./pane-detail-builder";

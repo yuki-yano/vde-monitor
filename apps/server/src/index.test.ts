@@ -25,7 +25,11 @@ vi.mock("@vde-monitor/wezterm", () => ({
   }),
 }));
 
-import { buildAccessUrl, buildTailscaleHttpsAccessUrl, ensureBackendAvailable } from "./index";
+import {
+  buildAccessUrl,
+  buildTailscaleHttpsAccessUrl,
+  ensureBackendAvailable,
+} from "./app/serve/serve-command";
 
 describe("ensureBackendAvailable", () => {
   beforeEach(() => {

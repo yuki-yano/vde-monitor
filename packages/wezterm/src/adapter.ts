@@ -2,16 +2,15 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 
 import { execa } from "execa";
 
+import type { AdapterRunResult } from "@vde-monitor/multiplexer";
+
 import { buildWeztermTargetArgs } from "./target";
 
-export type WeztermRunResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-};
+/** @deprecated Use AdapterRunResult from @vde-monitor/multiplexer */
+export type WeztermRunResult = AdapterRunResult;
 
 export type WeztermAdapter = {
-  run: (args: string[]) => Promise<WeztermRunResult>;
+  run: (args: string[]) => Promise<AdapterRunResult>;
   spawnProxy?: () => ChildProcessWithoutNullStreams;
 };
 
@@ -26,7 +25,7 @@ export const createWeztermAdapter = ({
 }: AdapterOptions = {}): WeztermAdapter => {
   const targetArgs = buildWeztermTargetArgs(target);
 
-  const run = async (args: string[]): Promise<WeztermRunResult> => {
+  const run = async (args: string[]): Promise<AdapterRunResult> => {
     const result = await execa(cliPath, ["cli", ...targetArgs, ...args], { reject: false });
     return {
       stdout: result.stdout,

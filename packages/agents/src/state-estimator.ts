@@ -1,4 +1,5 @@
-import type { HookStateSignal, SessionStateValue, StateSignals } from "@vde-monitor/shared";
+import type { HookStateSignal, StateSignals } from "@vde-monitor/multiplexer";
+import type { SessionStateValue } from "@vde-monitor/shared";
 
 const toTimestamp = (value: string | null): number | null => {
   if (!value) {

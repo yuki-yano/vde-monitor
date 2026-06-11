@@ -1,9 +1,5 @@
-import {
-  type AgentMonitorConfig,
-  type PaneMeta,
-  type SessionDetail,
-  configDefaults,
-} from "@vde-monitor/shared";
+import type { AgentMonitorConfig, PaneMeta } from "@vde-monitor/multiplexer";
+import { type SessionDetail, configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSessionRegistry } from "../session-registry";
