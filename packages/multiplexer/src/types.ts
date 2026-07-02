@@ -109,7 +109,30 @@ export type MultiplexerInputActions = {
   focusPane: (paneId: string) => Promise<MultiplexerActionResult>;
   killPane: (paneId: string) => Promise<MultiplexerActionResult>;
   killWindow: (paneId: string) => Promise<MultiplexerActionResult>;
+};
+
+export type MultiplexerPipeState = {
+  panePipe: boolean;
+  pipeTagValue: string | null;
+};
+
+export type MultiplexerPipeCapability = {
+  hasConflict: (state: MultiplexerPipeState) => boolean;
+  attachPipe: (
+    paneId: string,
+    logPath: string,
+    state: MultiplexerPipeState,
+    options?: { forceReattach?: boolean },
+  ) => Promise<{ attached: boolean; conflict: boolean }>;
+};
+
+export type MultiplexerLaunchCapability = {
   launchAgentInSession: (input: LaunchAgentInSessionInput) => Promise<MultiplexerLaunchResult>;
+};
+
+export type MultiplexerCapabilities = {
+  pipe?: MultiplexerPipeCapability;
+  launch?: MultiplexerLaunchCapability;
 };
 
 export type MultiplexerRuntime = {
@@ -118,15 +141,6 @@ export type MultiplexerRuntime = {
   inspector: MultiplexerInspector;
   screenCapture: MultiplexerScreenCapture;
   actions: MultiplexerInputActions;
-  pipeManager: {
-    hasConflict: (state: { panePipe: boolean; pipeTagValue: string | null }) => boolean;
-    attachPipe: (
-      paneId: string,
-      logPath: string,
-      state: { panePipe: boolean; pipeTagValue: string | null },
-      options?: { forceReattach?: boolean },
-    ) => Promise<{ attached: boolean; conflict: boolean }>;
-  };
+  capabilities: MultiplexerCapabilities;
   captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
-  pipeSupport: "tmux-pipe" | "none";
 };

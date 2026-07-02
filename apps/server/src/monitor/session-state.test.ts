@@ -1,4 +1,4 @@
-import { estimateState } from "@vde-monitor/agents";
+import { estimateState } from "./state-estimator";
 import { describe, expect, it } from "vitest";
 
 import { estimateSessionState } from "./session-state";

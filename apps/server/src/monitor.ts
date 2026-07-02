@@ -16,7 +16,7 @@ import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
-import type { MultiplexerRuntime } from "./multiplexer/types";
+import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 import type { SessionTransitionEvent } from "./notifications/types";
 import { createRepoNotesService } from "./repo-notes/service";
 import { createRepoNotesStore } from "./repo-notes/store";
@@ -57,8 +57,7 @@ export const createSessionMonitor = (
   const paneLogManager = createPaneLogManager({
     baseDir,
     serverKey,
-    pipeSupport: runtime.pipeSupport,
-    pipeManager: runtime.pipeManager,
+    pipeCapability: runtime.capabilities.pipe,
     logActivity,
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);

@@ -17,7 +17,7 @@ describe("createWeztermServerKey", () => {
 });
 
 describe("createWeztermRuntime", () => {
-  it("returns WEZTERM_UNAVAILABLE for launch-agent on wezterm backend", async () => {
+  it("does not expose pipe or launch capabilities", () => {
     const runtime = createWeztermRuntime({
       ...configDefaults,
       token: "test-token",
@@ -27,17 +27,8 @@ describe("createWeztermRuntime", () => {
       },
     });
 
-    const result = await runtime.actions.launchAgentInSession({
-      sessionName: "dev",
-      agent: "codex",
-    });
-
-    expect(result.ok).toBe(false);
-    if (result.ok) {
-      throw new Error("expected launch-agent to fail on wezterm backend");
-    }
-    expect(result.error.code).toBe("WEZTERM_UNAVAILABLE");
-    expect(result.error.message).toBe("launch-agent requires tmux backend");
-    expect(result.rollback).toEqual({ attempted: false, ok: true });
+    expect(runtime.capabilities.pipe).toBeUndefined();
+    expect(runtime.capabilities.launch).toBeUndefined();
+    expect("launchAgentInSession" in runtime.actions).toBe(false);
   });
 });

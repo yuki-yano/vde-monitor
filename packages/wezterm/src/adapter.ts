@@ -6,9 +6,6 @@ import type { AdapterRunResult } from "@vde-monitor/multiplexer";
 
 import { buildWeztermTargetArgs } from "./target";
 
-/** @deprecated Use AdapterRunResult from @vde-monitor/multiplexer */
-export type WeztermRunResult = AdapterRunResult;
-
 export type WeztermAdapter = {
   run: (args: string[]) => Promise<AdapterRunResult>;
   spawnProxy?: () => ChildProcessWithoutNullStreams;

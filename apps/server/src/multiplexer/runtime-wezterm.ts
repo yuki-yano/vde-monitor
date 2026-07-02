@@ -11,7 +11,7 @@ import { markPaneFocus } from "../activity-suppressor";
 import { normalizeFingerprint } from "../monitor/monitor-utils";
 import { resolveBackendApp } from "../screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "../screen/macos-applescript";
-import type { MultiplexerRuntime } from "./types";
+import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 
 export const createWeztermServerKey = (target: string | null | undefined) => {
   return resolveWeztermServerKey(target);
@@ -50,17 +50,6 @@ export const createWeztermRuntime = (config: AgentMonitorConfig): MultiplexerRun
       }
       return result;
     },
-    launchAgentInSession: async () => ({
-      ok: false,
-      error: {
-        code: "WEZTERM_UNAVAILABLE",
-        message: "launch-agent requires tmux backend",
-      },
-      rollback: {
-        attempted: false,
-        ok: true,
-      },
-    }),
   };
   const captureFingerprint = async (paneId: string, useAlt: boolean) => {
     try {
@@ -89,11 +78,7 @@ export const createWeztermRuntime = (config: AgentMonitorConfig): MultiplexerRun
     inspector,
     screenCapture,
     actions,
-    pipeManager: {
-      hasConflict: () => false,
-      attachPipe: async () => ({ attached: false, conflict: false }),
-    },
+    capabilities: {},
     captureFingerprint,
-    pipeSupport: "none",
   };
 };

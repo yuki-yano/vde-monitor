@@ -2,7 +2,7 @@ import type { AllowedKey, CommandResponse, RawItem } from "@vde-monitor/shared";
 
 import { buildError } from "../http/helpers";
 import type { createSessionMonitor } from "../monitor";
-import type { MultiplexerInputActions } from "../multiplexer/types";
+import type { MultiplexerInputActions } from "@vde-monitor/multiplexer";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 type CommandLimiter = (key: string) => boolean;

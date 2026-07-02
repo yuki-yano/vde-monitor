@@ -1,4 +1,3 @@
-import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { SessionDetail } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -69,13 +68,10 @@ describe("createLaunchRoute", () => {
     }));
 
     const app = createLaunchRoute({
-      config: {
-        multiplexer: { backend: "tmux" },
-      } as unknown as AgentMonitorConfig,
       monitor: {
         registry: { getDetail },
       } as unknown as SessionRouteDeps["monitor"],
-      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
+      launchCapability: { launchAgentInSession },
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -118,13 +114,10 @@ describe("createLaunchRoute", () => {
     }));
 
     const app = createLaunchRoute({
-      config: {
-        multiplexer: { backend: "tmux" },
-      } as unknown as AgentMonitorConfig,
       monitor: {
         registry: { getDetail: () => null },
       } as unknown as SessionRouteDeps["monitor"],
-      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
+      launchCapability: { launchAgentInSession },
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -155,16 +148,10 @@ describe("createLaunchRoute", () => {
   });
 
   it("returns WEZTERM_UNAVAILABLE with resume unsupported metadata on wezterm backend", async () => {
-    const launchAgentInSession = vi.fn();
-
     const app = createLaunchRoute({
-      config: {
-        multiplexer: { backend: "wezterm" },
-      } as unknown as AgentMonitorConfig,
       monitor: {
         registry: { getDetail: () => null },
       } as unknown as SessionRouteDeps["monitor"],
-      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -195,7 +182,41 @@ describe("createLaunchRoute", () => {
     });
     expect(json.command.resume?.source).toBeNull();
     expect(json.command.resume?.failureReason).toBe("unsupported");
-    expect(launchAgentInSession).not.toHaveBeenCalled();
+  });
+
+  it("returns WEZTERM_UNAVAILABLE without resume metadata when launch capability is absent", async () => {
+    const app = createLaunchRoute({
+      monitor: {
+        registry: { getDetail: () => null },
+      } as unknown as SessionRouteDeps["monitor"],
+      sendLimiter: () => true,
+      getLimiterKey: () => "limiter-key",
+    });
+
+    const res = await app.request("/sessions/launch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionName: "dev",
+        agent: "codex",
+        requestId: "req-wezterm-no-resume",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      command: {
+        ok: false;
+        error: { code: string; message: string };
+        resume?: unknown;
+      };
+    };
+    expect(json.command.ok).toBe(false);
+    expect(json.command.error).toEqual({
+      code: "WEZTERM_UNAVAILABLE",
+      message: "launch-agent requires tmux backend",
+    });
+    expect(json.command.resume).toBeUndefined();
   });
 
   it("forwards resumeTarget to launch action when provided", async () => {
@@ -220,13 +241,10 @@ describe("createLaunchRoute", () => {
     }));
 
     const app = createLaunchRoute({
-      config: {
-        multiplexer: { backend: "tmux" },
-      } as unknown as AgentMonitorConfig,
       monitor: {
         registry: { getDetail: () => buildPane({ agentSessionId: "sess-1" }) },
       } as unknown as SessionRouteDeps["monitor"],
-      actions: { launchAgentInSession } as unknown as SessionRouteDeps["actions"],
+      launchCapability: { launchAgentInSession },
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });

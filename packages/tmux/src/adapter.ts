@@ -2,9 +2,6 @@ import { execa } from "execa";
 
 import type { AdapterRunResult } from "@vde-monitor/multiplexer";
 
-/** @deprecated Use AdapterRunResult from @vde-monitor/multiplexer */
-export type TmuxRunResult = AdapterRunResult;
-
 export type TmuxAdapter = {
   run: (args: string[]) => Promise<AdapterRunResult>;
 };

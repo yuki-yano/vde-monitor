@@ -1,5 +1,4 @@
 import { zValidator } from "@hono/zod-validator";
-import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type {
   LaunchCommandResponse,
   LaunchResumeMeta,
@@ -35,15 +34,13 @@ type LaunchIdempotencyPayload = {
 };
 
 export const createLaunchRoute = ({
-  config,
   monitor,
-  actions,
+  launchCapability,
   sendLimiter,
   getLimiterKey,
 }: {
-  config: AgentMonitorConfig;
   monitor: SessionRouteDeps["monitor"];
-  actions: SessionRouteDeps["actions"];
+  launchCapability?: SessionRouteDeps["launchCapability"];
   sendLimiter: SendLimiter;
   getLimiterKey: SessionRouteDeps["getLimiterKey"];
 }) => {
@@ -208,12 +205,14 @@ export const createLaunchRoute = ({
         });
         resumeMetaForError = resumePlan.meta;
 
-        if (resumePlan.requested && config.multiplexer.backend !== "tmux") {
+        if (!launchCapability) {
           return {
             ok: false as const,
             error: buildError("WEZTERM_UNAVAILABLE", "launch-agent requires tmux backend"),
             rollback: { attempted: false, ok: true },
-            resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy),
+            ...(resumePlan.requested
+              ? { resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy) }
+              : {}),
           };
         }
         if (resumePlan.requested && resumePlan.error) {
@@ -228,7 +227,7 @@ export const createLaunchRoute = ({
           return launchResponseWithRollback("RATE_LIMIT", "rate limited", resumePlan.meta);
         }
 
-        const response = await actions.launchAgentInSession({
+        const response = await launchCapability.launchAgentInSession({
           sessionName: body.sessionName,
           agent: body.agent,
           windowName: body.windowName,

@@ -9,13 +9,14 @@ import {
 
 import { createFingerprintCapture } from "../monitor/fingerprint";
 import { createTmuxActions } from "../tmux-actions";
-import type { MultiplexerRuntime } from "./types";
+import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 
 export const createTmuxRuntime = (config: AgentMonitorConfig): MultiplexerRuntime => {
   const adapter = createTmuxAdapter({
     socketName: config.tmux.socketName,
     socketPath: config.tmux.socketPath,
   });
+  const { launchAgentInSession, ...actions } = createTmuxActions(adapter, config);
   return {
     backend: "tmux",
     serverKey: resolveMonitorServerKey({
@@ -26,9 +27,11 @@ export const createTmuxRuntime = (config: AgentMonitorConfig): MultiplexerRuntim
     }),
     inspector: createInspector(adapter),
     screenCapture: createScreenCapture(adapter),
-    actions: createTmuxActions(adapter, config),
-    pipeManager: createPipeManager(adapter),
+    actions,
+    capabilities: {
+      pipe: createPipeManager(adapter),
+      launch: { launchAgentInSession },
+    },
     captureFingerprint: createFingerprintCapture(adapter),
-    pipeSupport: "tmux-pipe",
   };
 };
