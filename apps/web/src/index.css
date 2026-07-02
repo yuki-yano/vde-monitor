@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Remove double-tap-to-zoom delay heuristics on interactive elements. */
+  a,
+  button,
+  [role="button"],
+  input,
+  label,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+/* Suppress rubber-band overscroll while the custom pull-to-refresh owns the gesture. */
+html.pull-to-refresh-enabled,
+html.pull-to-refresh-enabled body {
+  overscroll-behavior-y: none;
+}
+
 :root {
   color-scheme: light;
   --ctp-base: 239 241 245;

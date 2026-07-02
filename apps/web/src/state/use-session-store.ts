@@ -16,18 +16,51 @@ const toUniqueSessions = (nextSessions: SessionSummary[]) => {
   return Array.from(unique.values());
 };
 
+// SessionSummary is a flat object, so shallow field equality is full equality.
+const isSameSession = (a: SessionSummary, b: SessionSummary) => {
+  if (a === b) {
+    return true;
+  }
+  const aKeys = Object.keys(a) as (keyof SessionSummary)[];
+  const bKeys = Object.keys(b) as (keyof SessionSummary)[];
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  return aKeys.every((key) => a[key] === b[key]);
+};
+
+// Server responses produce brand-new objects every time. Reuse previous references
+// when content is unchanged so downstream useMemo / React.memo can skip re-renders.
+const reconcileSessions = (prev: SessionSummary[], next: SessionSummary[]) => {
+  const prevByPane = new Map(prev.map((session) => [session.paneId, session]));
+  const reconciled = next.map((session) => {
+    const previous = prevByPane.get(session.paneId);
+    return previous != null && isSameSession(previous, session) ? previous : session;
+  });
+  const unchanged =
+    reconciled.length === prev.length &&
+    reconciled.every((session, index) => session === prev[index]);
+  return unchanged ? prev : reconciled;
+};
+
 const sessionsAtom = atom<SessionSummary[]>([]);
-const setSessionsAtom = atom(null, (_get, set, nextSessions: SessionSummary[]) => {
-  set(sessionsAtom, nextSessions);
+const setSessionsAtom = atom(null, (get, set, nextSessions: SessionSummary[]) => {
+  set(sessionsAtom, reconcileSessions(get(sessionsAtom), toUniqueSessions(nextSessions)));
 });
-const applySessionsSnapshotAtom = atom(null, (_get, set, nextSessions: SessionSummary[]) => {
-  set(sessionsAtom, toUniqueSessions(nextSessions));
+const applySessionsSnapshotAtom = atom(null, (get, set, nextSessions: SessionSummary[]) => {
+  set(sessionsAtom, reconcileSessions(get(sessionsAtom), toUniqueSessions(nextSessions)));
 });
 const updateSessionAtom = atom(null, (get, set, session: SessionSummary) => {
-  const next = new Map<string, SessionSummary>();
-  get(sessionsAtom).forEach((item) => next.set(item.paneId, item));
-  next.set(session.paneId, session);
-  set(sessionsAtom, Array.from(next.values()));
+  const prev = get(sessionsAtom);
+  const existing = prev.find((item) => item.paneId === session.paneId);
+  if (existing != null && isSameSession(existing, session)) {
+    return;
+  }
+  const next =
+    existing != null
+      ? prev.map((item) => (item.paneId === session.paneId ? session : item))
+      : [...prev, session];
+  set(sessionsAtom, next);
 });
 const removeSessionAtom = atom(null, (get, set, paneId: string) => {
   set(

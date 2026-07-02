@@ -55,6 +55,100 @@ describe("useSessionStore", () => {
     expect(result.current.getSessionDetail("pane-1")?.title).toBe("second");
   });
 
+  it("keeps the sessions array reference when a snapshot has identical content", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+    const previous = result.current.sessions;
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+
+    expect(result.current.sessions).toBe(previous);
+  });
+
+  it("keeps unchanged session references when one session changes in a snapshot", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+    const [previousFirst] = result.current.sessions;
+
+    act(() => {
+      result.current.applySessionsSnapshot([
+        createSession("pane-1"),
+        createSession("pane-2", { state: "WAITING_INPUT" }),
+      ]);
+    });
+
+    expect(result.current.sessions[0]).toBe(previousFirst);
+    expect(result.current.sessions[1]?.state).toBe("WAITING_INPUT");
+  });
+
+  it("keeps the sessions array reference when setSessions receives identical content", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.setSessions([createSession("pane-1")]);
+    });
+    const previous = result.current.sessions;
+
+    act(() => {
+      result.current.setSessions([createSession("pane-1")]);
+    });
+
+    expect(result.current.sessions).toBe(previous);
+  });
+
+  it("keeps the sessions array reference when updateSession receives an identical session", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1")]);
+    });
+    const previous = result.current.sessions;
+
+    act(() => {
+      result.current.updateSession(createSession("pane-1"));
+    });
+
+    expect(result.current.sessions).toBe(previous);
+  });
+
+  it("keeps other session references when updateSession changes one session", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+    const [, previousSecond] = result.current.sessions;
+
+    act(() => {
+      result.current.updateSession(createSession("pane-1", { state: "SHELL" }));
+    });
+
+    expect(result.current.sessions[0]?.state).toBe("SHELL");
+    expect(result.current.sessions[1]).toBe(previousSecond);
+  });
+
+  it("appends an unknown session on updateSession", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1")]);
+    });
+
+    act(() => {
+      result.current.updateSession(createSession("pane-9"));
+    });
+
+    expect(result.current.sessions.map((session) => session.paneId)).toEqual(["pane-1", "pane-9"]);
+  });
+
   it("updates and removes sessions", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
     const session = createSession("pane-1");

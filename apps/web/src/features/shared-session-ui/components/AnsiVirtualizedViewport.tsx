@@ -6,6 +6,7 @@ import {
   type MouseEvent,
   type ReactNode,
   forwardRef,
+  memo,
   useCallback,
   useMemo,
 } from "react";
@@ -54,6 +55,14 @@ const DefaultScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement
 );
 
 DefaultScroller.displayName = "DefaultScroller";
+
+// Memoized so rows whose html is unchanged skip re-rendering while the
+// screen stream replaces the lines array on every SSE event.
+const AnsiLine = memo(({ html, className }: { html: string; className?: string }) => (
+  <div className={className} dangerouslySetInnerHTML={{ __html: html || "&#x200B;" }} />
+));
+
+AnsiLine.displayName = "AnsiLine";
 
 export const AnsiVirtualizedViewport = ({
   lines,
@@ -106,6 +115,11 @@ export const AnsiVirtualizedViewport = ({
     [sanitizeCopyText],
   );
 
+  const renderLine = useCallback(
+    (_index: number, line: string) => <AnsiLine html={line} className={lineClassName} />,
+    [lineClassName],
+  );
+
   const scrollToBottom = useCallback(() => {
     if (onScrollToBottom) {
       onScrollToBottom("smooth");
@@ -141,9 +155,7 @@ export const AnsiVirtualizedViewport = ({
         }}
         className={viewportClassName}
         style={{ height }}
-        itemContent={(_index, line) => (
-          <div className={lineClassName} dangerouslySetInnerHTML={{ __html: line || "&#x200B;" }} />
-        )}
+        itemContent={renderLine}
       />
       {!isAtBottom && (
         <IconButton

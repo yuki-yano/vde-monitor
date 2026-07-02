@@ -1,8 +1,8 @@
 import { Outlet } from "@tanstack/react-router";
-import PullToRefresh from "react-simple-pull-to-refresh";
 
 import { Spinner } from "@/components/ui";
 import { AuthGate } from "@/features/auth/AuthGate";
+import { PullToRefreshContainer } from "@/features/pull-to-refresh/PullToRefreshContainer";
 import { PwaWorkspaceTabs } from "@/features/pwa-tabs/components/PwaWorkspaceTabs";
 import {
   WorkspaceTabsProvider,
@@ -28,7 +28,7 @@ const AppShell = () => {
   );
 
   const content = enablePullToRefresh ? (
-    <PullToRefresh
+    <PullToRefreshContainer
       onRefresh={async () => {
         await new Promise<void>((resolve) => {
           window.setTimeout(() => {
@@ -37,11 +37,6 @@ const AppShell = () => {
         });
         window.location.reload();
       }}
-      pullDownThreshold={72}
-      maxPullDownDistance={108}
-      resistance={1.2}
-      backgroundColor="transparent"
-      pullingContent={<></>}
       refreshingContent={
         <div className="bg-latte-base/45 pointer-events-none fixed inset-0 z-[120] flex items-center justify-center backdrop-blur-md">
           <Spinner size="md" className="h-10 w-10" />
@@ -49,7 +44,7 @@ const AppShell = () => {
       }
     >
       {outlet}
-    </PullToRefresh>
+    </PullToRefreshContainer>
   ) : (
     outlet
   );

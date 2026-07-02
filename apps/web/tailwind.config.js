@@ -3,6 +3,11 @@ const withAlpha = (variable) => `rgb(var(--ctp-${variable}) / <alpha-value>)`;
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  future: {
+    // Gate hover: styles behind @media (hover: hover) so the first tap on
+    // touch devices is not consumed by WebKit's simulated hover state.
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       colors: {

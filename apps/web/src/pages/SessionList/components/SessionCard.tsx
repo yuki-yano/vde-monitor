@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { Clock, GitBranch, Pin } from "lucide-react";
-import type { MouseEvent } from "react";
+import { type MouseEvent, memo } from "react";
 
 import { Badge, Card, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import {
@@ -63,7 +63,7 @@ const editorSessionStyle = {
   overlay: "from-latte-maroon/8",
 } as const;
 
-export const SessionCard = ({
+const SessionCardComponent = ({
   session,
   nowMs,
   onTouchPin,
@@ -179,3 +179,7 @@ export const SessionCard = ({
     </Link>
   );
 };
+
+// Session references are preserved by the store when content is unchanged,
+// so a shallow memo skips re-rendering untouched cards on every stream update.
+export const SessionCard = memo(SessionCardComponent);
