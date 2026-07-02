@@ -2,7 +2,7 @@
  * This file contains two categories of types:
  *  1. z.infer aliases – derived from the zod schemas in ./schemas (source of truth for wire shapes).
  *  2. Schema-less hand-written types – git/diff/commit types, RepoFile* types, Worktree*,
- *     RepoNote, ApiEnvelope<T>, WsEnvelope<TType,TData>, ResolvedConfig, and related config types.
+ *     RepoNote, ApiEnvelope<T>, ResolvedConfig, and related config types.
  *
  * Note: PaneMeta, HookStateSignal, StateSignals, AgentMonitorConfig, AgentMonitorConfigFile have
  * been moved to @vde-monitor/multiplexer to avoid including server-only types in the shared package.
@@ -41,7 +41,6 @@ import type {
   screenCaptureMetaSchema,
   screenDeltaSchema,
   screenResponseSchema,
-  serverHealthSchema,
   sessionDetailSchema,
   sessionStateSchema,
   sessionStateTimelineItemSchema,
@@ -50,6 +49,7 @@ import type {
   sessionStateTimelineScopeSchema,
   sessionStateTimelineSourceSchema,
   sessionSummarySchema,
+  sessionsStreamEventSchema,
   usageBillingMetaSchema,
   usageBillingSchema,
   usageConfigSchema,
@@ -104,6 +104,8 @@ export type CommandResponse = z.infer<typeof commandResponseSchema>;
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
 
+export type SessionsStreamEvent = z.infer<typeof sessionsStreamEventSchema>;
+
 export type SessionStateTimelineRange = z.infer<typeof sessionStateTimelineRangeSchema>;
 export type SessionStateTimelineScope = z.infer<typeof sessionStateTimelineScopeSchema>;
 export type SessionStateTimelineSource = z.infer<typeof sessionStateTimelineSourceSchema>;
@@ -151,7 +153,6 @@ export type ClientScreenConfig = z.infer<typeof clientConfigSchema>["screen"];
 export type ClientFileNavigatorConfig = z.infer<typeof clientConfigSchema>["fileNavigator"];
 export type ClientWorkspaceTabsConfig = z.infer<typeof clientConfigSchema>["workspaceTabs"];
 export type ClientConfig = z.infer<typeof clientConfigSchema>;
-export type ServerHealth = z.infer<typeof serverHealthSchema>;
 
 export type GeneratedConfigTemplate = z.infer<typeof generatedConfigTemplateSchema>;
 export type UserConfigReadable = z.infer<typeof configOverrideSchema>;
@@ -344,33 +345,6 @@ export type FileNavigatorConfig = {
 export type ApiEnvelope<T> = T & {
   error?: ApiError;
 };
-
-// Generic WebSocket envelope – kept hand-written because it is a generic type factory that
-// cannot be directly expressed as z.infer<...> while preserving the TType / TData parameters.
-export type WsEnvelope<TType extends string, TData> = {
-  type: TType;
-  ts: string;
-  reqId?: string;
-  data: TData;
-};
-
-export type WsClientMessage =
-  | WsEnvelope<
-      "screen.request",
-      { paneId: string; lines?: number; mode?: "text" | "image"; cursor?: string }
-    >
-  | WsEnvelope<"send.text", { paneId: string; text: string; enter?: boolean }>
-  | WsEnvelope<"send.keys", { paneId: string; keys: AllowedKey[] }>
-  | WsEnvelope<"send.raw", { paneId: string; items: RawItem[]; unsafe?: boolean }>
-  | WsEnvelope<"client.ping", Record<string, never>>;
-
-export type WsServerMessage =
-  | WsEnvelope<"sessions.snapshot", { sessions: SessionSummary[] }>
-  | WsEnvelope<"session.updated", { session: SessionSummary }>
-  | WsEnvelope<"session.removed", { paneId: string }>
-  | WsEnvelope<"server.health", ServerHealth>
-  | WsEnvelope<"screen.response", ScreenResponse>
-  | WsEnvelope<"command.response", CommandResponse>;
 
 export type ResolvedConfig = {
   bind: "127.0.0.1" | "0.0.0.0";

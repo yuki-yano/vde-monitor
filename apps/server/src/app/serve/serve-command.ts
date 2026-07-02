@@ -11,6 +11,10 @@ import { createMultiplexerRuntime } from "../../multiplexer/runtime";
 import { getLocalIP, getTailscaleDnsName, getTailscaleIP } from "../../network";
 import { createNotificationService } from "../../notifications/service";
 import { findAvailablePort } from "../../ports";
+import { createScreenCache } from "../../screen/screen-cache";
+import { createScreenStreamScheduler } from "../../streams/screen-stream-scheduler";
+import { createSessionsStreamSource } from "../../streams/sessions-stream-source";
+import { createStreamConnections } from "../../streams/stream-connections";
 import { type ParsedArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "../cli/cli";
 import {
   buildTailscaleHttpsAccessUrl,
@@ -163,9 +167,28 @@ export const runServe = async (args: ParsedArgs) => {
   });
   await monitor.start();
 
-  const { app } = createApp({ config, monitor, actions: runtime.actions, notificationService });
+  // SSE インフラのインスタンス化
+  const schedulerScreenCache = createScreenCache();
+  const streamConnections = createStreamConnections();
+  const streamSource = createSessionsStreamSource({ registry: monitor.registry });
+  const screenScheduler = createScreenStreamScheduler({
+    monitor,
+    config,
+    buildTextResponse: schedulerScreenCache.buildTextResponse,
+  });
 
-  serve({
+  const { app } = createApp({
+    config,
+    monitor,
+    actions: runtime.actions,
+    launchCapability: runtime.capabilities.launch,
+    notificationService,
+    streamSource,
+    screenScheduler,
+    streamConnections,
+  });
+
+  const server = serve({
     fetch: app.fetch,
     port,
     hostname: host,
@@ -219,8 +242,23 @@ export const runServe = async (args: ParsedArgs) => {
 
   qrcode.generate(qrUrl, { small: true });
 
-  process.on("SIGINT", () => {
+  const shutdown = () => {
+    // 1. SSE 接続を全切断し、クライアントに再接続を促す。
+    streamConnections.closeAll();
+    streamSource.dispose();
+    screenScheduler.dispose();
+    // 2. モニターを停止する。
     monitor.stop();
-    process.exit(0);
-  });
+    // 3. HTTP サーバーの新規受付を止め、既存 keep-alive を閉じる。
+    server.close(() => {
+      process.exit(0);
+    });
+    // close が keep-alive 接続待ちで完了しない場合の保険。
+    setTimeout(() => {
+      process.exit(0);
+    }, 3000).unref();
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 };

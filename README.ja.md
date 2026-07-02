@@ -264,6 +264,16 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `config prune` は YAML を `config.yml` に書き込みます。入力が `config.json` の場合、成功後に削除されます。
 - プロジェクトローカル設定（`<repo-root>/.vde/monitor/config.*`）は読み込まれません。必要な値はグローバル設定へ移行してください。
 
+## 通信方式（SSE + ポーリングフォールバック）
+
+- Web UI はセッション一覧と text screen の更新を SSE（`GET /api/streams/sessions`、`GET /api/streams/sessions/:paneId/screen`）で受信します。
+- SSE は `fetch` + `ReadableStream` で購読するため、`Authorization: Bearer` ヘッダを維持できます（native `EventSource` は不使用）。
+- SSE が利用できない場合（プロキシ問題・サーバー再起動・ネットワーク断）、UI は自動的に従来のポーリング（一覧: 1秒、text screen: 1秒）へフォールバックし、指数バックオフで再接続します。設定は不要です。
+- image モードのスクリーン取得と Chat Grid は設計上ポーリングのままです。
+- 再接続時、sessions stream は `Last-Event-ID` で差分再送、screen stream はフルスナップショットから再開します。
+- トークンローテーション（`POST /api/admin/token/rotate`）時は全ストリームが切断され、クライアントは新トークンで再接続します。
+- 切戻し手順: `/api/streams/*` ルートを無効化（または SSE 関連コミットを revert）すればクライアントはポーリングのみで動作し続けます。
+
 ## プラットフォーム挙動
 
 - テキストスクリーンキャプチャはクロスプラットフォームで動作
@@ -301,6 +311,7 @@ pnpm dev
 pnpm dev:server
 pnpm dev:web
 pnpm dev:public
+pnpm dev -- --tailscale  # serve the dev stack over Tailscale
 ```
 
 品質チェック:

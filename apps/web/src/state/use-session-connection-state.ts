@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import type { RefreshSessionsResult } from "./use-session-api";
+import type { SessionsStreamTransport } from "./use-sessions-stream";
 
 const RATE_LIMIT_BACKOFF_STEP_MS = 5000;
 const MAX_RATE_LIMIT_STEPS = 3;
@@ -14,6 +15,7 @@ export const useSessionConnectionState = (token: string | null) => {
   const [connected, setConnected] = useState(false);
   const [authBlocked, setAuthBlocked] = useState(false);
   const [pollBackoffMs, setPollBackoffMs] = useState(0);
+  const [transport, setTransport] = useState<SessionsStreamTransport>("polling");
   const backoffStepRef = useRef(0);
   const hasToken = Boolean(token);
 
@@ -93,6 +95,13 @@ export const useSessionConnectionState = (token: string | null) => {
     setConnected(false);
   }, [resetRateLimitBackoff, token]);
 
+  // When SSE is open, mark as connected regardless of polling state. When it
+  // falls back to polling the connection is unknown until the next refresh
+  // resolves, so drop the stale connected flag instead of reporting healthy.
+  useEffect(() => {
+    setConnected(transport === "sse");
+  }, [transport]);
+
   return {
     connectionIssue,
     setConnectionIssue,
@@ -100,6 +109,8 @@ export const useSessionConnectionState = (token: string | null) => {
     authBlocked,
     pollBackoffMs,
     connectionStatus,
+    transport,
+    setTransport,
     handleRefreshResult,
     reconnect,
   };

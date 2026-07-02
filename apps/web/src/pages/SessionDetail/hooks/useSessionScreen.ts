@@ -35,6 +35,10 @@ type UseSessionScreenParams = {
     paneId: string,
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
+  /** Raw API base URL (e.g. "https://host/api" or null for same-origin). */
+  apiBaseUrl?: string | null;
+  /** Bearer token for SSE. SSE is disabled when null. */
+  token?: string | null;
 };
 
 export const useSessionScreen = ({
@@ -45,6 +49,8 @@ export const useSessionScreen = ({
   sessionAgent,
   highlightCorrections,
   requestScreen,
+  apiBaseUrl = null,
+  token = null,
 }: UseSessionScreenParams) => {
   const [screenText, setScreen] = useAtom(screenTextAtom);
   const [imageBase64, setImageBase64] = useAtom(screenImageAtom);
@@ -135,26 +141,34 @@ export const useSessionScreen = ({
     onClearPending: clearPendingScreen,
   });
 
-  const { refreshScreen, error, setError, fallbackReason, pollingPauseReason } = useScreenFetch({
-    paneId,
-    connected,
-    connectionIssue,
-    requestScreen,
-    mode,
-    isAtBottom,
-    isUserScrollingRef,
-    modeLoadedRef,
-    modeSwitchRef,
-    screenRef,
-    imageRef,
-    cursorRef,
-    screenLinesRef,
-    pendingScreenRef,
-    setScreen,
-    setImageBase64,
-    dispatchScreenLoading,
-    onModeLoaded: markModeLoaded,
-  });
+  const apiBasePath = useMemo(() => {
+    const normalized = apiBaseUrl?.trim();
+    return normalized && normalized.length > 0 ? normalized : "/api";
+  }, [apiBaseUrl]);
+
+  const { refreshScreen, error, setError, fallbackReason, pollingPauseReason, transport } =
+    useScreenFetch({
+      paneId,
+      connected,
+      connectionIssue,
+      requestScreen,
+      mode,
+      isAtBottom,
+      isUserScrollingRef,
+      modeLoadedRef,
+      modeSwitchRef,
+      screenRef,
+      imageRef,
+      cursorRef,
+      screenLinesRef,
+      pendingScreenRef,
+      setScreen,
+      setImageBase64,
+      dispatchScreenLoading,
+      onModeLoaded: markModeLoaded,
+      apiBasePath,
+      token,
+    });
 
   const hasBlockingScreenError = error != null && error !== DISCONNECTED_MESSAGE;
   const isInitialModeLoading = !connectionIssue && !hasBlockingScreenError && !modeLoaded[mode];
@@ -198,6 +212,7 @@ export const useSessionScreen = ({
     fallbackReason,
     error,
     pollingPauseReason,
+    transport,
     setScreenError: setError,
     isScreenLoading,
     isAtBottom,

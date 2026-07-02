@@ -264,6 +264,16 @@ Notes:
 - `config prune` writes YAML to `config.yml`; when source is `config.json`, it is removed after successful write.
 - Project-local config (`<repo-root>/.vde/monitor/config.*`) is no longer loaded. Move required values to global config.
 
+## Transport (SSE + polling fallback)
+
+- The web UI receives session list and text screen updates over SSE (`GET /api/streams/sessions`, `GET /api/streams/sessions/:paneId/screen`) when available.
+- SSE uses `fetch` + `ReadableStream` so the `Authorization: Bearer` header is preserved. Native `EventSource` is not used.
+- If the SSE connection is unavailable (proxy issues, server restart, network loss), the UI automatically falls back to the previous polling behavior (sessions: 1s, text screen: 1s) and reconnects with exponential backoff. No configuration is required.
+- Image-mode screen capture and Chat Grid keep using polling by design.
+- Reconnection resumes the sessions stream via `Last-Event-ID`; the screen stream restarts from a full snapshot.
+- Token rotation (`POST /api/admin/token/rotate`) closes all active streams; clients reconnect with the new token.
+- Rollback procedure: disabling or removing the `/api/streams/*` routes (or reverting the SSE commits) is safe — clients detect the failure and continue on polling only.
+
 ## Platform behavior
 
 - Text screen capture works cross-platform
@@ -301,6 +311,7 @@ pnpm dev
 pnpm dev:server
 pnpm dev:web
 pnpm dev:public
+pnpm dev -- --tailscale  # serve the dev stack over Tailscale
 ```
 
 Quality checks:

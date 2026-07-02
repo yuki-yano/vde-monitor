@@ -13,6 +13,7 @@ import {
 type SessionListHeaderProps = {
   connectionStatus: "healthy" | "degraded" | "disconnected";
   connectionIssue: string | null;
+  transport?: "sse" | "polling";
   filter: string;
   searchQuery: string;
   filterOptions: { value: string; label: string }[];
@@ -155,6 +156,7 @@ const SessionListSearchInput = ({
 export const SessionListHeader = ({
   connectionStatus,
   connectionIssue,
+  transport,
   filter,
   searchQuery,
   filterOptions,
@@ -210,7 +212,7 @@ export const SessionListHeader = ({
               <LayoutGrid className="h-3.5 w-3.5" />
               Chat Grid
             </Button>
-            <ConnectionStatusPill status={connectionStatus} />
+            <ConnectionStatusPill status={connectionStatus} transport={transport} />
             <Button
               type="button"
               variant="ghost"

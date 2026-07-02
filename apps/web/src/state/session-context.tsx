@@ -48,6 +48,8 @@ import { useSessionConnectionState } from "./use-session-connection-state";
 import { useSessionPolling } from "./use-session-polling";
 import { useSessionStore } from "./use-session-store";
 import { useSessionToken } from "./use-session-token";
+import { useSessionsStream } from "./use-sessions-stream";
+import type { SessionsStreamTransport } from "./use-sessions-stream";
 
 // ---------------------------------------------------------------------------
 // Data context — reactive fields; consumers re-render when these change
@@ -61,6 +63,7 @@ type SessionDataContextValue = {
   connected: boolean;
   connectionStatus: SessionConnectionStatus;
   connectionIssue: string | null;
+  transport: SessionsStreamTransport;
   highlightCorrections: HighlightCorrectionConfig;
   fileNavigatorConfig: ClientFileNavigatorConfig;
   launchConfig: LaunchConfig;
@@ -190,6 +193,8 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     authBlocked,
     pollBackoffMs,
     connectionStatus,
+    transport,
+    setTransport,
     handleRefreshResult: handleRefreshResultFromConnection,
     reconnect: reconnectWithConnectionState,
   } = useSessionConnectionState(token);
@@ -262,8 +267,23 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     reconnectWithConnectionState(refreshSessions);
   }, [reconnectWithConnectionState, refreshSessions]);
 
-  useSessionPolling({
+  useSessionsStream({
     enabled: hasToken && !authBlocked,
+    apiBaseUrl,
+    token,
+    onSnapshot: setSessions,
+    onUpsert: updateSession,
+    onRemove: removeSession,
+    onAuthError: () => {
+      setConnectionIssue(API_ERROR_MESSAGES.unauthorized);
+    },
+    onTransportChange: setTransport,
+  });
+
+  // Polling is the fallback: it runs only when SSE is not open.
+  // It also fires the initial REST fetch on mount (before SSE connects).
+  useSessionPolling({
+    enabled: hasToken && !authBlocked && transport !== "sse",
     pollBackoffMs,
     refreshSessions,
   });
@@ -365,6 +385,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       connected,
       connectionStatus,
       connectionIssue,
+      transport,
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
@@ -378,6 +399,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       connected,
       connectionStatus,
       connectionIssue,
+      transport,
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,

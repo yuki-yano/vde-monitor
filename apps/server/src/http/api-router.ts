@@ -8,9 +8,15 @@ import { createUsageCostProvider } from "../domain/usage-cost/cost-provider";
 import { LiteLLMPricingSource } from "../domain/usage-cost/litellm-pricing-source";
 import { createUsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import { createRateLimiter } from "../limits/rate-limit";
-import type { MultiplexerInputActions } from "../multiplexer/types";
+import type {
+  MultiplexerInputActions,
+  MultiplexerLaunchCapability,
+} from "@vde-monitor/multiplexer";
 import type { NotificationService } from "../notifications/service";
 import { createScreenCache } from "../screen/screen-cache";
+import type { ScreenStreamScheduler } from "../streams/screen-stream-scheduler";
+import type { SessionsStreamSource } from "../streams/sessions-stream-source";
+import type { StreamConnections } from "../streams/stream-connections";
 import { buildError, isOriginAllowed, requireAuth } from "./helpers";
 import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
@@ -28,8 +34,12 @@ type ApiContext = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
+  launchCapability?: MultiplexerLaunchCapability;
   notificationService: NotificationService;
   usageDashboardService?: ReturnType<typeof createUsageDashboardService>;
+  streamSource: SessionsStreamSource;
+  screenScheduler: ScreenStreamScheduler;
+  streamConnections: StreamConnections;
 };
 
 const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
@@ -82,8 +92,12 @@ export const createApiRouter = ({
   config,
   monitor,
   actions,
+  launchCapability,
   notificationService,
   usageDashboardService,
+  streamSource,
+  screenScheduler,
+  streamConnections,
 }: ApiContext) => {
   const api = new Hono();
   api.onError((error, c) => {
@@ -169,6 +183,7 @@ export const createApiRouter = ({
       config,
       monitor,
       actions,
+      launchCapability,
       screenLimiter,
       sendLimiter,
       screenCache,
@@ -177,6 +192,9 @@ export const createApiRouter = ({
       resolveTitleUpdate,
       validateAttachmentContentLength,
       executeCommand,
+      streamSource,
+      screenScheduler,
+      streamConnections,
     }),
   );
   const withGitRoutes = withSessionRoutes.route(

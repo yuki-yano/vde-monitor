@@ -308,7 +308,7 @@ describe("createApiRouter", () => {
   });
 
   it("launches a new agent window in a session", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const res = await api.request("/sessions/launch", {
       method: "POST",
       headers: { ...authHeaders, "content-type": "application/json" },
@@ -325,7 +325,7 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.command.ok).toBe(true);
-    expect(actions.launchAgentInSession).toHaveBeenCalledWith({
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledWith({
       sessionName: "dev-main",
       agent: "codex",
       windowName: "codex-work",
@@ -364,7 +364,7 @@ describe("createApiRouter", () => {
   });
 
   it("rejects launch requestId reuse with different payload", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
 
     const first = await api.request("/sessions/launch", {
@@ -392,11 +392,11 @@ describe("createApiRouter", () => {
     expect(secondData.command.ok).toBe(false);
     expect(secondData.command.error.code).toBe("INVALID_PAYLOAD");
     expect(secondData.command.error.message).toBe("requestId payload mismatch");
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("passes worktree creation options to launch action", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const res = await api.request("/sessions/launch", {
       method: "POST",
       headers: { ...authHeaders, "content-type": "application/json" },
@@ -410,7 +410,7 @@ describe("createApiRouter", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(actions.launchAgentInSession).toHaveBeenCalledWith({
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledWith({
       sessionName: "dev-main",
       agent: "claude",
       windowName: undefined,
@@ -425,7 +425,7 @@ describe("createApiRouter", () => {
   });
 
   it("returns 400 for invalid launch payload", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const res = await api.request("/sessions/launch", {
       method: "POST",
       headers: { ...authHeaders, "content-type": "application/json" },
@@ -436,11 +436,11 @@ describe("createApiRouter", () => {
     });
 
     expect(res.status).toBe(400);
-    expect(actions.launchAgentInSession).not.toHaveBeenCalled();
+    expect(launchCapability.launchAgentInSession).not.toHaveBeenCalled();
   });
 
   it("returns RESUME_INVALID_INPUT when required resume fails", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const res = await api.request("/sessions/launch", {
       method: "POST",
       headers: { ...authHeaders, "content-type": "application/json" },
@@ -463,11 +463,11 @@ describe("createApiRouter", () => {
       failureReason: "invalid_input",
       policy: "required",
     });
-    expect(actions.launchAgentInSession).not.toHaveBeenCalled();
+    expect(launchCapability.launchAgentInSession).not.toHaveBeenCalled();
   });
 
   it("falls back to new launch on best_effort resume resolve failure", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const res = await api.request("/sessions/launch", {
       method: "POST",
       headers: { ...authHeaders, "content-type": "application/json" },
@@ -489,7 +489,7 @@ describe("createApiRouter", () => {
       fallbackReason: "invalid_input",
       policy: "best_effort",
     });
-    expect(actions.launchAgentInSession).toHaveBeenCalledWith(
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledWith(
       expect.objectContaining({
         resumeSessionId: undefined,
         resumeFromPaneId: "%missing",
@@ -498,7 +498,7 @@ describe("createApiRouter", () => {
   });
 
   it("returns WEZTERM_UNAVAILABLE with resume unsupported metadata on wezterm backend", async () => {
-    const { api, actions } = createTestContext({
+    const { api, launchCapability } = createTestContext({
       multiplexer: {
         ...configDefaults.multiplexer,
         backend: "wezterm",
@@ -524,11 +524,11 @@ describe("createApiRouter", () => {
       reused: false,
       failureReason: "unsupported",
     });
-    expect(actions.launchAgentInSession).not.toHaveBeenCalled();
+    expect(launchCapability.launchAgentInSession).not.toHaveBeenCalled();
   });
 
   it("deduplicates launch command by requestId and sessionName", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
     const payload = JSON.stringify({
       sessionName: "dev-main",
@@ -552,11 +552,11 @@ describe("createApiRouter", () => {
     const secondData = await second.json();
     expect(firstData.command.ok).toBe(true);
     expect(secondData.command.ok).toBe(true);
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("treats omitted resumePolicy and required as the same idempotency payload for manual resume", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
 
     const first = await api.request("/sessions/launch", {
@@ -585,11 +585,11 @@ describe("createApiRouter", () => {
     const secondData = await second.json();
     expect(firstData.command.ok).toBe(true);
     expect(secondData.command.ok).toBe(true);
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("replays cached launch response before rate-limit check", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
     const payload = JSON.stringify({
       sessionName: "dev-main",
@@ -612,13 +612,13 @@ describe("createApiRouter", () => {
     const secondData = await second.json();
     expect(firstData.command.ok).toBe(true);
     expect(secondData.command.ok).toBe(true);
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("deduplicates concurrent launch requests with same idempotency key", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
-    const launchResult: Awaited<ReturnType<typeof actions.launchAgentInSession>> = {
+    const launchResult: Awaited<ReturnType<typeof launchCapability.launchAgentInSession>> = {
       ok: true,
       result: {
         sessionName: "session",
@@ -638,14 +638,14 @@ describe("createApiRouter", () => {
       rollback: { attempted: false, ok: true },
     };
     const launchController: {
-      resolve: (value: Awaited<ReturnType<typeof actions.launchAgentInSession>>) => void;
+      resolve: (value: Awaited<ReturnType<typeof launchCapability.launchAgentInSession>>) => void;
       pending: boolean;
     } = {
       resolve: () => undefined,
       pending: true,
     };
 
-    vi.mocked(actions.launchAgentInSession).mockImplementationOnce(
+    vi.mocked(launchCapability.launchAgentInSession).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           launchController.resolve = resolve;
@@ -675,7 +675,7 @@ describe("createApiRouter", () => {
     if (launchController.pending) {
       throw new Error("launch resolver is missing");
     }
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
     launchController.resolve(launchResult);
 
     const [first, second] = await Promise.all([firstPromise, secondPromise]);
@@ -683,11 +683,11 @@ describe("createApiRouter", () => {
     const secondData = await second.json();
     expect(firstData.command.ok).toBe(true);
     expect(secondData.command.ok).toBe(true);
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(1);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("returns rate limit error on repeated launch requests", async () => {
-    const { api, actions } = createTestContext();
+    const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const response = await api.request("/sessions/launch", {
@@ -715,12 +715,12 @@ describe("createApiRouter", () => {
     expect(limitedData.command.ok).toBe(false);
     expect(limitedData.command.error.code).toBe("RATE_LIMIT");
     expect(limitedData.command.rollback).toEqual({ attempted: false, ok: true });
-    expect(actions.launchAgentInSession).toHaveBeenCalledTimes(10);
+    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(10);
   });
 
   it("returns launch command errors from actions", async () => {
-    const { api, actions } = createTestContext();
-    vi.mocked(actions.launchAgentInSession).mockResolvedValueOnce({
+    const { api, launchCapability } = createTestContext();
+    vi.mocked(launchCapability.launchAgentInSession).mockResolvedValueOnce({
       ok: false,
       error: { code: "WEZTERM_UNAVAILABLE", message: "launch-agent requires tmux backend" },
       rollback: { attempted: false, ok: true },
@@ -798,44 +798,35 @@ describe("createApiRouter", () => {
     expect(data.command.ok).toBe(true);
   });
 
-  it("returns rate limit error on repeated focus requests", async () => {
+  it.each([
+    {
+      label: "focus",
+      path: "/sessions/pane-1/focus",
+      actionKey: "focusPane" as const,
+    },
+    {
+      label: "kill pane",
+      path: "/sessions/pane-1/kill/pane",
+      actionKey: "killPane" as const,
+    },
+  ])("returns rate limit error on repeated $label requests", async ({ path, actionKey }) => {
     const { api, actions } = createTestContext();
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      const response = await api.request("/sessions/pane-1/focus", {
+      const response = await api.request(path, {
         method: "POST",
         headers: authHeaders,
       });
       const data = await response.json();
       expect(data.command.ok).toBe(true);
     }
-    const limited = await api.request("/sessions/pane-1/focus", {
+    const limited = await api.request(path, {
       method: "POST",
       headers: authHeaders,
     });
     const limitedData = await limited.json();
     expect(limitedData.command.ok).toBe(false);
     expect(limitedData.command.error.code).toBe("RATE_LIMIT");
-    expect(actions.focusPane).toHaveBeenCalledTimes(10);
-  });
-
-  it("returns rate limit error on repeated kill pane requests", async () => {
-    const { api, actions } = createTestContext();
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const response = await api.request("/sessions/pane-1/kill/pane", {
-        method: "POST",
-        headers: authHeaders,
-      });
-      const data = await response.json();
-      expect(data.command.ok).toBe(true);
-    }
-    const limited = await api.request("/sessions/pane-1/kill/pane", {
-      method: "POST",
-      headers: authHeaders,
-    });
-    const limitedData = await limited.json();
-    expect(limitedData.command.ok).toBe(false);
-    expect(limitedData.command.error.code).toBe("RATE_LIMIT");
-    expect(actions.killPane).toHaveBeenCalledTimes(10);
+    expect(actions[actionKey]).toHaveBeenCalledTimes(10);
   });
 
   it("returns kill window command errors from actions", async () => {

@@ -10,12 +10,14 @@ import {
   createWithPane,
   resolveLatestSessionResponse,
 } from "./session-routes/shared";
+import { createStreamRoutes } from "./session-routes/stream-routes";
 import type { SessionRouteDeps } from "./types";
 
 export const createSessionRoutes = ({
   config,
   monitor,
   actions,
+  launchCapability,
   screenLimiter,
   sendLimiter,
   screenCache,
@@ -24,6 +26,9 @@ export const createSessionRoutes = ({
   resolveTitleUpdate,
   validateAttachmentContentLength,
   executeCommand,
+  streamSource,
+  screenScheduler,
+  streamConnections,
 }: SessionRouteDeps) => {
   const app = new Hono();
   const withPane = createWithPane(resolvePane);
@@ -49,9 +54,8 @@ export const createSessionRoutes = ({
     .route(
       "/",
       createLaunchRoute({
-        config,
         monitor,
-        actions,
+        launchCapability,
         sendLimiter,
         getLimiterKey,
       }),
@@ -89,6 +93,15 @@ export const createSessionRoutes = ({
         resolveLatestSessionResponse: resolveLatestSession,
         resolveTitleUpdate,
         executeCommand,
+      }),
+    )
+    .route(
+      "/",
+      createStreamRoutes({
+        monitor,
+        streamSource,
+        screenScheduler,
+        streamConnections,
       }),
     );
 };

@@ -7,6 +7,7 @@ import { CHAT_GRID_MAX_PANE_COUNT } from "../model/chat-grid-layout";
 type ChatGridToolbarProps = {
   selectedCount: number;
   connectionStatus: "healthy" | "degraded" | "disconnected";
+  transport?: "sse" | "polling";
   onOpenCandidateModal: () => void;
   onRefreshAllTiles: () => void;
 };
@@ -14,6 +15,7 @@ type ChatGridToolbarProps = {
 export const ChatGridToolbar = ({
   selectedCount,
   connectionStatus,
+  transport,
   onOpenCandidateModal,
   onRefreshAllTiles,
 }: ChatGridToolbarProps) => {
@@ -27,7 +29,7 @@ export const ChatGridToolbar = ({
           </h1>
         </div>
         <div className="pt-0.5">
-          <ConnectionStatusPill status={connectionStatus} />
+          <ConnectionStatusPill status={connectionStatus} transport={transport} />
         </div>
       </div>
 

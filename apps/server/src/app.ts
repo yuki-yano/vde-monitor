@@ -8,10 +8,15 @@ import { Hono } from "hono";
 
 import { rotateToken } from "./config";
 import { createApiRouter } from "./http/api-router";
-import { buildError, isOriginAllowed, requireAuth } from "./http/helpers";
 import type { createSessionMonitor } from "./monitor";
-import type { MultiplexerInputActions } from "./multiplexer/types";
+import type {
+  MultiplexerInputActions,
+  MultiplexerLaunchCapability,
+} from "@vde-monitor/multiplexer";
 import type { NotificationService } from "./notifications/service";
+import type { ScreenStreamScheduler } from "./streams/screen-stream-scheduler";
+import type { SessionsStreamSource } from "./streams/sessions-stream-source";
+import type { StreamConnections } from "./streams/stream-connections";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
 
@@ -19,30 +24,44 @@ type AppContext = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
+  launchCapability?: MultiplexerLaunchCapability;
   notificationService: NotificationService;
+  streamSource: SessionsStreamSource;
+  screenScheduler: ScreenStreamScheduler;
+  streamConnections: StreamConnections;
 };
 
-export const createApp = ({ config, monitor, actions, notificationService }: AppContext) => {
+export const createApp = ({
+  config,
+  monitor,
+  actions,
+  launchCapability,
+  notificationService,
+  streamSource,
+  screenScheduler,
+  streamConnections,
+}: AppContext) => {
   const app = new Hono();
 
-  const api = createApiRouter({ config, monitor, actions, notificationService });
+  const api = createApiRouter({
+    config,
+    monitor,
+    actions,
+    launchCapability,
+    notificationService,
+    streamSource,
+    screenScheduler,
+    streamConnections,
+  });
   app.route("/api", api);
 
-  app.use("/api/admin/*", async (c, next) => {
-    if (!requireAuth(config, c)) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "unauthorized") }, 401);
-    }
-    const origin = c.req.header("origin");
-    const host = c.req.header("host");
-    if (!isOriginAllowed(config, origin, host)) {
-      return c.json({ error: buildError("INVALID_PAYLOAD", "origin not allowed") }, 403);
-    }
-    await next();
-  });
+  // 認証・Origin チェックは api ルーターの api.use("*") が /api/* 全体に適用される。
   app.post("/api/admin/token/rotate", (c) => {
     const next = rotateToken();
     config.token = next.token;
     notificationService.removeAllSubscriptions();
+    // 旧トークンで確立済みの SSE 接続をすべて切断する。
+    streamConnections.closeAll();
     return c.json({ token: next.token });
   });
 

@@ -4,8 +4,14 @@ import type { SessionDetail } from "@vde-monitor/shared";
 import type { createCommandResponse } from "../../command/command-response";
 import type { createRateLimiter } from "../../limits/rate-limit";
 import type { createSessionMonitor } from "../../monitor";
-import type { MultiplexerInputActions } from "../../multiplexer/types";
+import type {
+  MultiplexerInputActions,
+  MultiplexerLaunchCapability,
+} from "@vde-monitor/multiplexer";
 import type { createScreenCache } from "../../screen/screen-cache";
+import type { ScreenStreamScheduler } from "../../streams/screen-stream-scheduler";
+import type { SessionsStreamSource } from "../../streams/sessions-stream-source";
+import type { StreamConnections } from "../../streams/stream-connections";
 
 export type Monitor = ReturnType<typeof createSessionMonitor>;
 export type CommandPayload = Parameters<typeof createCommandResponse>[0]["payload"];
@@ -45,6 +51,7 @@ export type SessionRouteDeps = {
   config: AgentMonitorConfig;
   monitor: Monitor;
   actions: MultiplexerInputActions;
+  launchCapability?: MultiplexerLaunchCapability;
   screenLimiter: CommandLimiter;
   sendLimiter: CommandLimiter;
   screenCache: ScreenCache;
@@ -53,6 +60,9 @@ export type SessionRouteDeps = {
   resolveTitleUpdate: ResolveTitleUpdate;
   validateAttachmentContentLength: ValidateAttachmentContentLength;
   executeCommand: ExecuteCommand;
+  streamSource: SessionsStreamSource;
+  screenScheduler: ScreenStreamScheduler;
+  streamConnections: StreamConnections;
 };
 
 export type GitRouteDeps = {

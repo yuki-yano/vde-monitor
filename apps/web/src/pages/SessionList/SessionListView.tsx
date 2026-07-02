@@ -107,6 +107,7 @@ export const SessionListView = ({
   connected,
   connectionStatus,
   connectionIssue,
+  transport,
   requestStateTimeline,
   requestScreen,
   requestWorktrees,
@@ -277,6 +278,7 @@ export const SessionListView = ({
           <SessionListHeader
             connectionStatus={connectionStatus}
             connectionIssue={connectionIssue}
+            transport={transport}
             filter={filter}
             searchQuery={searchQuery}
             filterOptions={filterOptions}

@@ -375,6 +375,39 @@ export const sessionDetailSchema = sessionSummarySchema.extend({
   panePid: z.number().nullable(),
 });
 
+// ---------------------------------------------------------------------------
+// SSE stream contract (PLAN-20260226-003 v2)
+//
+// Wire format (text/event-stream):
+//   - sessions stream (`GET /api/streams/sessions`):
+//       event: sessions / id: <monotonic integer> / data: SessionsStreamEvent JSON
+//       接続直後に type=snapshot を送る。Last-Event-ID が replay バッファ内なら
+//       snapshot を省略して差分 (upsert/remove) のみ再送する。
+//   - screen stream (`GET /api/streams/sessions/:paneId/screen`):
+//       event: screen / data: ScreenResponse JSON
+//       接続直後は full レスポンス、以降はサーバー保持カーソルによる delta。
+//       replay は持たない (再接続時は full を再送)。
+//   - heartbeat: event: heartbeat / data: "{}" を一定間隔で送る。
+// ---------------------------------------------------------------------------
+
+export const sessionsStreamEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("snapshot"),
+    serverTime: z.string(),
+    sessions: z.array(sessionSummarySchema),
+  }),
+  z.object({
+    type: z.literal("upsert"),
+    serverTime: z.string(),
+    session: sessionSummarySchema,
+  }),
+  z.object({
+    type: z.literal("remove"),
+    serverTime: z.string(),
+    paneId: z.string(),
+  }),
+]);
+
 export const sessionStateTimelineRangeSchema = z.enum([
   "15m",
   "1h",
@@ -652,59 +685,6 @@ const resolvedUsageConfigSchema = strictObject({
     }),
   }),
 });
-
-export const serverHealthSchema = z.object({
-  version: z.string(),
-  clientConfig: clientConfigSchema.optional(),
-});
-
-export const wsEnvelopeSchema = <TType extends z.ZodTypeAny, TData extends z.ZodTypeAny>(
-  typeSchema: TType,
-  dataSchema: TData,
-) =>
-  z.object({
-    type: typeSchema,
-    ts: z.string(),
-    reqId: z.string().optional(),
-    data: dataSchema,
-  });
-
-export const wsClientMessageSchema = z.discriminatedUnion("type", [
-  wsEnvelopeSchema(
-    z.literal("screen.request"),
-    z.object({
-      paneId: z.string(),
-      lines: z.number().optional(),
-      mode: z.enum(["text", "image"]).optional(),
-      cursor: z.string().optional(),
-    }),
-  ),
-  wsEnvelopeSchema(
-    z.literal("send.text"),
-    z.object({ paneId: z.string(), text: z.string(), enter: z.boolean().optional() }),
-  ),
-  wsEnvelopeSchema(
-    z.literal("send.keys"),
-    z.object({ paneId: z.string(), keys: z.array(allowedKeySchema) }),
-  ),
-  wsEnvelopeSchema(
-    z.literal("send.raw"),
-    z.object({ paneId: z.string(), items: z.array(rawItemSchema), unsafe: z.boolean().optional() }),
-  ),
-  wsEnvelopeSchema(z.literal("client.ping"), z.object({}).strict()),
-]);
-
-export const wsServerMessageSchema = z.discriminatedUnion("type", [
-  wsEnvelopeSchema(
-    z.literal("sessions.snapshot"),
-    z.object({ sessions: z.array(sessionSummarySchema) }),
-  ),
-  wsEnvelopeSchema(z.literal("session.updated"), z.object({ session: sessionSummarySchema })),
-  wsEnvelopeSchema(z.literal("session.removed"), z.object({ paneId: z.string() })),
-  wsEnvelopeSchema(z.literal("server.health"), serverHealthSchema),
-  wsEnvelopeSchema(z.literal("screen.response"), screenResponseSchema),
-  wsEnvelopeSchema(z.literal("command.response"), commandResponseSchema),
-]);
 
 export const claudeHookEventSchema = z.object({
   ts: z.string(),

@@ -26,6 +26,7 @@ import {
   screenFetchLifecycleReducer,
 } from "./screen-fetch-lifecycle";
 import { useScreenPollingPauseReason } from "./useScreenPollingPauseReason";
+import { useScreenStream } from "./useScreenStream";
 
 const normalizeScreenText = (text: string) => text.replace(/\r\n/g, "\n");
 
@@ -68,6 +69,10 @@ type UseScreenFetchParams = {
   setImageBase64: Dispatch<SetStateAction<string | null>>;
   dispatchScreenLoading: Dispatch<ScreenLoadingEvent>;
   onModeLoaded: (mode: ScreenMode) => void;
+  /** Base path for API calls (e.g. "/api" or "https://host/api"). Defaults to "/api". */
+  apiBasePath?: string;
+  /** Bearer token for SSE authentication. SSE is disabled when null. */
+  token?: string | null;
 };
 
 export const useScreenFetch = ({
@@ -89,6 +94,8 @@ export const useScreenFetch = ({
   setImageBase64,
   dispatchScreenLoading,
   onModeLoaded,
+  apiBasePath = "/api",
+  token = null,
 }: UseScreenFetchParams) => {
   const [fallbackReason, setFallbackReason] = useAtom(screenFallbackReasonAtom);
   const [error, setError] = useAtom(screenErrorAtom);
@@ -303,6 +310,47 @@ export const useScreenFetch = ({
     void refreshScreen();
   }, [refreshScreen]);
 
+  // SSE screen event handler — applies text response without going through the
+  // REST lifecycle (no in-flight tracking needed for push events).
+  const handleSseScreenEvent = useCallback(
+    (response: ScreenResponse) => {
+      if (!response.ok) return;
+      setError(null);
+      setFallbackReason(response.fallbackReason ?? null);
+      const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
+      applyTextResponse(response, suppressRender, false);
+      onModeLoaded(mode);
+    },
+    [
+      applyTextResponse,
+      isAtBottom,
+      isUserScrollingRef,
+      mode,
+      onModeLoaded,
+      setError,
+      setFallbackReason,
+    ],
+  );
+
+  const { transport } = useScreenStream({
+    enabled: mode === "text" && connected,
+    paneId,
+    apiBasePath,
+    token,
+    onScreenEvent: handleSseScreenEvent,
+  });
+
+  // When SSE transitions back to polling (close/reconnect), reset the cursor so
+  // the next REST request fetches a full response rather than a stale delta.
+  const prevTransportRef = useRef<"sse" | "polling">("polling");
+  useEffect(() => {
+    const prev = prevTransportRef.current;
+    prevTransportRef.current = transport;
+    if (prev === "sse" && transport === "polling") {
+      cursorRef.current = null;
+    }
+  }, [cursorRef, transport]);
+
   useEffect(() => {
     refreshScreen();
   }, [refreshScreen]);
@@ -317,8 +365,10 @@ export const useScreenFetch = ({
     }
   }, [connected, error, resetDisconnectedState, setError]);
 
+  // Suspend REST polling while SSE is actively streaming text updates;
+  // image mode always uses polling (SSE is text-only).
   useVisibilityPolling({
-    enabled: Boolean(paneId) && connected,
+    enabled: Boolean(paneId) && connected && transport !== "sse",
     intervalMs: resolveScreenPollIntervalMs(mode),
     shouldPoll: canPollScreen,
     onTick: pollScreen,
@@ -331,5 +381,6 @@ export const useScreenFetch = ({
     setError,
     fallbackReason,
     pollingPauseReason,
+    transport,
   };
 };

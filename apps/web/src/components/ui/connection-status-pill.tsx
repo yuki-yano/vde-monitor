@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 
 type ConnectionStatusPillProps = HTMLAttributes<HTMLDivElement> & {
   status: "healthy" | "degraded" | "disconnected";
+  transport?: "sse" | "polling";
   healthyLabel?: string;
   degradedLabel?: string;
   disconnectedLabel?: string;
@@ -30,6 +31,7 @@ const connectionStatusClasses: Record<
 const ConnectionStatusPill = ({
   className,
   status,
+  transport,
   healthyLabel = "Connected",
   degradedLabel = "Degraded",
   disconnectedLabel = "Disconnected",
@@ -42,6 +44,7 @@ const ConnectionStatusPill = ({
   };
   const styles = connectionStatusClasses[status];
   const label = labelByStatus[status];
+  const showSseBadge = status === "healthy" && transport === "sse";
 
   return (
     <div
@@ -54,6 +57,11 @@ const ConnectionStatusPill = ({
     >
       <span className={cn("h-2 w-2 rounded-full", styles.dot)} />
       <span>{label}</span>
+      {showSseBadge && (
+        <span className="rounded bg-current/15 px-1 py-0.5 text-[10px] font-semibold leading-none tracking-wide opacity-80">
+          SSE
+        </span>
+      )}
     </div>
   );
 };

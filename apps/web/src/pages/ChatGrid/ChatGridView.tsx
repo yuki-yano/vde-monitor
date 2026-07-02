@@ -29,6 +29,7 @@ export type ChatGridViewProps = {
   connected: boolean;
   connectionStatus: "healthy" | "degraded" | "disconnected";
   connectionIssue: string | null;
+  transport?: "sse" | "polling";
   launchConfig: LaunchConfig;
   requestStateTimeline: (
     paneId: string,
@@ -82,6 +83,7 @@ export const ChatGridView = ({
   connected,
   connectionStatus,
   connectionIssue,
+  transport,
   launchConfig,
   requestStateTimeline,
   requestScreen,
@@ -169,6 +171,7 @@ export const ChatGridView = ({
           <ChatGridToolbar
             selectedCount={selectedCount}
             connectionStatus={connectionStatus}
+            transport={transport}
             onOpenCandidateModal={onOpenCandidateModal}
             onRefreshAllTiles={onRefreshAllTiles}
           />

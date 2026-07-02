@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ScreenMode } from "@/lib/screen-loading";
+import { HttpResponse, http, server } from "@/test/msw/server";
 
 import { screenErrorAtom, screenFallbackReasonAtom } from "../atoms/screenAtoms";
 import { DISCONNECTED_MESSAGE } from "../sessionDetailUtils";
@@ -251,5 +252,165 @@ describe("useScreenFetch", () => {
     expect(pendingScreenRef.current).toBe("hello");
     expect(setScreen).not.toHaveBeenCalledWith("hello");
     expect(setImageBase64).not.toHaveBeenCalledWith(null);
+  });
+
+  // ---------------------------------------------------------------------------
+  // SSE integration
+  // ---------------------------------------------------------------------------
+
+  it("suspends REST polling while SSE is open", async () => {
+    const neverEndingStream = () =>
+      new ReadableStream({
+        start() {},
+        cancel() {},
+      });
+
+    server.use(
+      http.get(
+        "/api/streams/sessions/pane-1/screen",
+        () =>
+          new HttpResponse(neverEndingStream(), {
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+      ),
+    );
+
+    const requestScreen = vi.fn().mockResolvedValue({
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "initial",
+    });
+
+    const store = createStore();
+    store.set(screenErrorAtom, null);
+    store.set(screenFallbackReasonAtom, null);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    const params = {
+      paneId: "pane-1",
+      connected: true,
+      connectionIssue: null,
+      requestScreen,
+      mode: "text" as const,
+      isAtBottom: true,
+      isUserScrollingRef: { current: false },
+      modeLoadedRef: { current: { text: false, image: false } },
+      modeSwitchRef: { current: null as "text" | "image" | null },
+      screenRef: { current: "" },
+      imageRef: { current: null as string | null },
+      cursorRef: { current: null as string | null },
+      screenLinesRef: { current: [] as string[] },
+      pendingScreenRef: { current: null as string | null },
+      setScreen: vi.fn(),
+      setImageBase64: vi.fn(),
+      dispatchScreenLoading: vi.fn(),
+      onModeLoaded: vi.fn(),
+      apiBasePath: "/api",
+      token: "test-token",
+    };
+
+    const { result } = renderHook(() => useScreenFetch(params), { wrapper });
+
+    // Wait for the initial REST fetch to complete
+    await waitFor(() => {
+      expect(requestScreen).toHaveBeenCalledTimes(1);
+    });
+
+    // Wait for SSE to open (transport === "sse")
+    await waitFor(() => {
+      expect(result.current.transport).toBe("sse");
+    });
+
+    const callsAfterSseOpen = requestScreen.mock.calls.length;
+
+    // Wait well below the polling interval (1000ms) — polling is suspended so
+    // no additional REST calls should fire.
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 200);
+    });
+
+    // REST polling should not have fired additional calls while SSE is open
+    expect(requestScreen.mock.calls.length).toBe(callsAfterSseOpen);
+  });
+
+  it("updates screen via SSE event without REST polling", async () => {
+    const enc = new TextEncoder();
+    const screenPayload: ScreenResponse = {
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      screen: "from-sse",
+      full: true,
+    };
+
+    let resolveFirstEvent!: () => void;
+    const firstEventDelivered = new Promise<void>((resolve) => {
+      resolveFirstEvent = resolve;
+    });
+
+    server.use(
+      http.get("/api/streams/sessions/pane-1/screen", () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              enc.encode(`event: screen\ndata: ${JSON.stringify(screenPayload)}\n\n`),
+            );
+          },
+          cancel() {},
+        });
+        return new HttpResponse(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+    );
+
+    // requestScreen never resolves so we can isolate the SSE path
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+    const setScreen = vi.fn().mockImplementation(() => {
+      resolveFirstEvent();
+    });
+
+    const store = createStore();
+    store.set(screenErrorAtom, null);
+    store.set(screenFallbackReasonAtom, null);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    renderHook(
+      () =>
+        useScreenFetch({
+          paneId: "pane-1",
+          connected: true,
+          connectionIssue: null,
+          requestScreen,
+          mode: "text",
+          isAtBottom: true,
+          isUserScrollingRef: { current: false },
+          modeLoadedRef: { current: { text: false, image: false } },
+          modeSwitchRef: { current: null },
+          screenRef: { current: "" },
+          imageRef: { current: null },
+          cursorRef: { current: null },
+          screenLinesRef: { current: [] },
+          pendingScreenRef: { current: null },
+          setScreen,
+          setImageBase64: vi.fn(),
+          dispatchScreenLoading: vi.fn(),
+          onModeLoaded: vi.fn(),
+          apiBasePath: "/api",
+          token: "test-token",
+        }),
+      { wrapper },
+    );
+
+    await firstEventDelivered;
+
+    expect(setScreen).toHaveBeenCalledWith("from-sse");
   });
 });

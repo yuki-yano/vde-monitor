@@ -1,4 +1,8 @@
-import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
+import type {
+  AgentMonitorConfig,
+  MultiplexerInputActions,
+  MultiplexerLaunchCapability,
+} from "@vde-monitor/multiplexer";
 import {
   type NotificationSettings,
   type RepoNote,
@@ -10,9 +14,11 @@ import { vi } from "vitest";
 
 import type { UsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import type { createSessionMonitor } from "../monitor";
-import type { MultiplexerInputActions } from "../multiplexer/types";
 import type { NotificationService } from "../notifications/service";
 import { createSessionRegistry } from "../session-registry";
+import type { ScreenStreamScheduler } from "../streams/screen-stream-scheduler";
+import type { SessionsStreamSource } from "../streams/sessions-stream-source";
+import type { StreamConnections } from "../streams/stream-connections";
 import { createApiRouter } from "./api-router";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
@@ -118,6 +124,33 @@ const buildUsageProviderSnapshot = (
   ...overrides,
 });
 
+/**
+ * Creates minimal no-op mock stream deps for tests that do not exercise SSE routes.
+ */
+export const createTestStreamDeps = () => {
+  const streamSource = {
+    subscribe: vi.fn(() => () => {}),
+    snapshot: vi.fn(() => ({
+      id: 0,
+      event: { type: "snapshot", serverTime: "2026-01-01T00:00:00.000Z", sessions: [] },
+    })),
+    replaySince: vi.fn(() => []),
+    dispose: vi.fn(),
+  } as unknown as SessionsStreamSource;
+
+  const screenScheduler = {
+    subscribe: vi.fn(() => () => {}),
+    dispose: vi.fn(),
+  } as unknown as ScreenStreamScheduler;
+
+  const streamConnections = {
+    add: vi.fn(() => () => {}),
+    closeAll: vi.fn(),
+  } as unknown as StreamConnections;
+
+  return { streamSource, screenScheduler, streamConnections };
+};
+
 export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) => {
   const config: AgentMonitorConfig = { ...configDefaults, token: "token", ...configOverrides };
   const registry = createSessionRegistry();
@@ -220,6 +253,8 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     focusPane: vi.fn(async () => ({ ok: true as const })),
     killPane: vi.fn(async () => ({ ok: true as const })),
     killWindow: vi.fn(async () => ({ ok: true as const })),
+  } as unknown as MultiplexerInputActions;
+  const launchCapability: MultiplexerLaunchCapability = {
     launchAgentInSession: vi.fn(async () => ({
       ok: true as const,
       result: {
@@ -239,7 +274,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
       },
       rollback: { attempted: false, ok: true },
     })),
-  } as unknown as MultiplexerInputActions;
+  };
   const settings: NotificationSettings = {
     pushEnabled: true,
     vapidPublicKey: "test-vapid",
@@ -273,18 +308,23 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     getDashboard,
     getProviderSnapshot,
   } as unknown as UsageDashboardService;
+  const streamDeps = createTestStreamDeps();
   const api = createApiRouter({
     config,
     monitor,
     actions,
+    launchCapability: config.multiplexer.backend === "tmux" ? launchCapability : undefined,
     notificationService,
     usageDashboardService,
+    ...streamDeps,
   });
   return {
     api,
     config,
     monitor,
     actions,
+    launchCapability,
+    notificationService,
     detail,
     getStateTimeline,
     getRepoStateTimeline,
@@ -295,6 +335,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     deleteRepoNote,
     getDashboard,
     getProviderSnapshot,
+    ...streamDeps,
   };
 };
 

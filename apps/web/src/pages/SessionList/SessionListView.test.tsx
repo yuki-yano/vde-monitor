@@ -216,6 +216,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     connected: true,
     connectionStatus: "healthy",
     connectionIssue: null,
+    transport: "polling" as const,
     requestStateTimeline: vi.fn(),
     requestScreen: vi.fn(),
     requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
