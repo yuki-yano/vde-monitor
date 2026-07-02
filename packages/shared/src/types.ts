@@ -15,6 +15,7 @@ import type {
   apiErrorSchema,
   claudeHookEventSchema,
   clientConfigSchema,
+  codexHookEventSchema,
   commandResponseSchema,
   configOverrideSchema,
   configPushEventTypeSchema,
@@ -146,6 +147,7 @@ export type LaunchConfig = z.infer<typeof launchConfigSchema>;
 
 export type ImageAttachment = z.infer<typeof imageAttachmentSchema>;
 export type ClaudeHookEvent = z.infer<typeof claudeHookEventSchema>;
+export type CodexHookEvent = z.infer<typeof codexHookEventSchema>;
 
 export type HighlightCorrectionConfig = z.infer<typeof highlightCorrectionSchema>;
 export type WorkspaceTabsDisplayMode = z.infer<typeof workspaceTabsDisplayModeSchema>;

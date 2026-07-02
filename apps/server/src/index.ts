@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "./app/cli/cli";
+import { printCodexHooksSnippet } from "./app/commands/print-codex-hooks-snippet";
 import { printHooksSnippet } from "./app/commands/print-hooks-snippet";
 import { runConfigCheckCommand } from "./app/commands/run-config-check-command";
 import { runConfigInitCommand } from "./app/commands/run-config-init-command";
@@ -17,6 +18,10 @@ export const main = async () => {
   }
   if (args.command === "claude" && args.subcommand === "hooks" && args.subcommand2 === "print") {
     printHooksSnippet();
+    return;
+  }
+  if (args.command === "codex" && args.subcommand === "hooks" && args.subcommand2 === "print") {
+    printCodexHooksSnippet();
     return;
   }
   if (args.command === "config" && args.subcommand === "regenerate") {

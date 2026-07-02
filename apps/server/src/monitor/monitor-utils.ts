@@ -50,6 +50,23 @@ export const deriveHookState = (hookEventName: string, notificationType?: string
   return null;
 };
 
+export const deriveCodexHookState = (hookEventName: string) => {
+  if (hookEventName === "PermissionRequest") {
+    return { state: "WAITING_PERMISSION" as SessionStateValue, reason: "hook:permission_request" };
+  }
+  if (hookEventName === "Stop") {
+    return { state: "WAITING_INPUT" as SessionStateValue, reason: "hook:stop" };
+  }
+  if (
+    hookEventName === "UserPromptSubmit" ||
+    hookEventName === "PreToolUse" ||
+    hookEventName === "PostToolUse"
+  ) {
+    return { state: "RUNNING" as SessionStateValue, reason: `hook:${hookEventName}` };
+  }
+  return null;
+};
+
 const findSinglePaneId = (
   panes: Array<{ paneId: string; paneTty: string | null; currentPath: string | null }>,
   predicate: (pane: {

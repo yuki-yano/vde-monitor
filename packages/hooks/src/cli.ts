@@ -6,6 +6,7 @@ import path from "node:path";
 
 import {
   type ClaudeHookEvent,
+  type CodexHookEvent,
   configDefaults,
   pickUserConfigAllowlist,
   resolveConfigDir,
@@ -24,17 +25,25 @@ type ProcessSnapshot = {
   command: string;
 };
 
-type HookPayloadFields = {
+type HookPayloadBaseFields = {
   sessionId?: string;
   cwd?: string;
   tty?: string;
   tmuxPane: string | null;
-  notificationType?: ClaudeHookEvent["notification_type"];
   transcriptPath?: string | null;
 };
 
+type HookPayloadFields = HookPayloadBaseFields & {
+  notificationType?: ClaudeHookEvent["notification_type"];
+};
+
+type CodexHookPayloadFields = HookPayloadBaseFields;
+
 export type HookEvent = ClaudeHookEvent;
 type HookEventName = ClaudeHookEvent["hook_event_name"];
+type CodexHookEventName = CodexHookEvent["hook_event_name"];
+
+export type HookAgent = "claude" | "codex";
 
 type HookServerConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
@@ -92,6 +101,33 @@ const HOOK_EVENT_NAMES = [
 const isHookEventName = (value: string): value is HookEventName =>
   HOOK_EVENT_NAMES.some((name) => name === value);
 
+const CODEX_HOOK_EVENT_NAMES = [
+  "PreToolUse",
+  "PostToolUse",
+  "PermissionRequest",
+  "Stop",
+  "UserPromptSubmit",
+] as const satisfies readonly CodexHookEventName[];
+
+const isCodexHookEventName = (value: string): value is CodexHookEventName =>
+  CODEX_HOOK_EVENT_NAMES.some((name) => name === value);
+
+export const parseHookCliArgs = (
+  argv: string[],
+): { agent: HookAgent; hookEventName: string } | null => {
+  const [first, second] = argv;
+  if (!first) {
+    return null;
+  }
+  if (first === "codex") {
+    if (!second) {
+      return null;
+    }
+    return { agent: "codex", hookEventName: second };
+  }
+  return { agent: "claude", hookEventName: first };
+};
+
 const normalizeNotificationType = (value: unknown): ClaudeHookEvent["notification_type"] =>
   value === "permission_prompt" ? value : undefined;
 
@@ -147,6 +183,13 @@ const isClaudeCommand = (command: string): boolean =>
 const hasClaudePrintFlag = (command: string): boolean =>
   /(?:^|\s)-p(?=\s|$)/.test(command) || /(?:^|\s)--print(?=\s|$)/.test(command);
 
+const isCodexCommand = (command: string): boolean => normalizeExecutableToken(command) === "codex";
+
+const hasCodexExecSubcommand = (command: string): boolean => {
+  const secondToken = command.trim().split(/\s+/)[1];
+  return secondToken === "exec";
+};
+
 const parseProcessSnapshot = (stdout: string): ProcessSnapshot | null => {
   const line = stdout.trim();
   if (!line) {
@@ -187,8 +230,10 @@ const lookupProcessSnapshotFromPs = (pid: number): ProcessSnapshot | null => {
   return parseProcessSnapshot(typeof result.stdout === "string" ? result.stdout : "");
 };
 
-const hasAncestorClaudePrintMode = (
+const hasNonInteractiveAncestor = (
   parentPid: number,
+  isTargetCommand: (command: string) => boolean,
+  isNonInteractiveCommand: (command: string) => boolean,
   lookupProcessSnapshot: (pid: number) => ProcessSnapshot | null = lookupProcessSnapshotFromPs,
   maxDepth = 32,
 ): boolean => {
@@ -207,8 +252,8 @@ const hasAncestorClaudePrintMode = (
     if (!snapshot) {
       return false;
     }
-    if (isClaudeCommand(snapshot.command)) {
-      return hasClaudePrintFlag(snapshot.command);
+    if (isTargetCommand(snapshot.command)) {
+      return isNonInteractiveCommand(snapshot.command);
     }
     currentPid = snapshot.ppid;
   }
@@ -239,8 +284,10 @@ export const isClaudeNonInteractivePayload = (
   if (hookEventName !== "Stop" && hookEventName !== "SubagentStop") {
     return false;
   }
-  return hasAncestorClaudePrintMode(
+  return hasNonInteractiveAncestor(
     options.parentPid ?? process.ppid,
+    isClaudeCommand,
+    hasClaudePrintFlag,
     options.lookupProcessSnapshot ?? lookupProcessSnapshotFromPs,
     options.maxDepth,
   );
@@ -255,6 +302,40 @@ export const shouldPersistHookPayload = (
     maxDepth?: number;
   } = {},
 ): boolean => !isClaudeNonInteractivePayload(payload, hookEventName, options);
+
+export const isCodexNonInteractivePayload = (
+  payload: HookPayload,
+  hookEventName: string,
+  options: {
+    parentPid?: number;
+    lookupProcessSnapshot?: (pid: number) => ProcessSnapshot | null;
+    maxDepth?: number;
+  } = {},
+): boolean => {
+  if (isResultLikePayload(payload)) {
+    return true;
+  }
+  if (hookEventName !== "Stop" && hookEventName !== "SubagentStop") {
+    return false;
+  }
+  return hasNonInteractiveAncestor(
+    options.parentPid ?? process.ppid,
+    isCodexCommand,
+    hasCodexExecSubcommand,
+    options.lookupProcessSnapshot ?? lookupProcessSnapshotFromPs,
+    options.maxDepth,
+  );
+};
+
+export const shouldPersistCodexHookPayload = (
+  payload: HookPayload,
+  hookEventName: string,
+  options: {
+    parentPid?: number;
+    lookupProcessSnapshot?: (pid: number) => ProcessSnapshot | null;
+    maxDepth?: number;
+  } = {},
+): boolean => !isCodexNonInteractivePayload(payload, hookEventName, options);
 
 const resolveWithDefault = <T>(value: T | undefined, fallback: T) =>
   typeof value === "undefined" ? fallback : value;
@@ -352,7 +433,24 @@ export const extractPayloadFields = (
   };
 };
 
-const buildFallback = (fields: HookPayloadFields): HookEvent["fallback"] => {
+export const extractCodexPayloadFields = (
+  payload: HookPayload,
+  env: NodeJS.ProcessEnv = process.env,
+  options: {
+    resolveTmuxPaneFn?: typeof resolveTmuxPane;
+  } = {},
+): CodexHookPayloadFields => {
+  const resolveTmuxPaneFn = options.resolveTmuxPaneFn ?? resolveTmuxPane;
+  return {
+    sessionId: toOptionalString(payload.session_id),
+    cwd: toOptionalString(payload.cwd),
+    tty: toOptionalString(payload.tty),
+    tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
+    transcriptPath: toOptionalString(payload.transcript_path) ?? null,
+  };
+};
+
+const buildFallback = (fields: HookPayloadBaseFields): HookEvent["fallback"] => {
   if (fields.tmuxPane != null) {
     return undefined;
   }
@@ -381,12 +479,30 @@ export const buildHookEvent = (
   },
 });
 
-const appendEvent = (event: HookEvent) => {
+export const buildCodexHookEvent = (
+  hookEventName: CodexHookEventName,
+  rawInput: string,
+  fields: CodexHookPayloadFields,
+): CodexHookEvent => ({
+  ts: new Date().toISOString(),
+  hook_event_name: hookEventName,
+  session_id: fields.sessionId ?? "",
+  cwd: fields.cwd,
+  tty: fields.tty,
+  tmux_pane: fields.tmuxPane,
+  transcript_path: fields.transcriptPath ?? undefined,
+  fallback: buildFallback(fields),
+  payload: {
+    raw: rawInput,
+  },
+});
+
+const appendEvent = (event: HookEvent | CodexHookEvent, fileName: string) => {
   const config = loadConfig();
   const serverKey = resolveHookServerKey(config);
   const baseDir = path.join(os.homedir(), ".vde-monitor");
   const eventsDir = path.join(baseDir, "events", serverKey);
-  const eventsPath = path.join(eventsDir, "claude.jsonl");
+  const eventsPath = path.join(eventsDir, fileName);
   ensureDir(eventsDir);
   fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, "utf8");
 };
@@ -394,11 +510,12 @@ const appendEvent = (event: HookEvent) => {
 export { isMainModule };
 
 const main = () => {
-  const hookEventName = process.argv[2];
-  if (!hookEventName) {
-    console.error("Usage: vde-monitor-hook <HookEventName>");
+  const parsedArgs = parseHookCliArgs(process.argv.slice(2));
+  if (!parsedArgs) {
+    console.error("Usage: vde-monitor-hook [codex] <HookEventName>");
     process.exit(1);
   }
+  const { agent, hookEventName } = parsedArgs;
 
   const rawInput = readStdin().trim();
   if (!rawInput) {
@@ -410,6 +527,19 @@ const main = () => {
     console.error("Invalid JSON payload");
     process.exit(1);
   }
+
+  if (agent === "codex") {
+    if (!shouldPersistCodexHookPayload(payload, hookEventName)) {
+      process.exit(0);
+    }
+    if (!isCodexHookEventName(hookEventName)) {
+      process.exit(0);
+    }
+    const fields = extractCodexPayloadFields(payload);
+    appendEvent(buildCodexHookEvent(hookEventName, rawInput, fields), "codex.jsonl");
+    return;
+  }
+
   if (!shouldPersistHookPayload(payload, hookEventName)) {
     process.exit(0);
   }
@@ -419,7 +549,7 @@ const main = () => {
 
   const fields = extractPayloadFields(payload);
   const event = buildHookEvent(hookEventName, rawInput, fields);
-  appendEvent(event);
+  appendEvent(event, "claude.jsonl");
 };
 
 if (isMainModule(import.meta.url)) {

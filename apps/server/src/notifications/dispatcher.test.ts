@@ -141,6 +141,19 @@ describe("createNotificationDispatcher", () => {
     );
   });
 
+  it("sends waiting_permission for hook:permission_request", async () => {
+    const { dispatcher, sendNotification } = createDispatcherUnderTest();
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "poll"),
+        createDetail("WAITING_PERMISSION", "hook:permission_request"),
+      ),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+  });
+
   it("sends waiting_permission for poll:codex_question_prompt", async () => {
     const { dispatcher, sendNotification } = createDispatcherUnderTest();
 

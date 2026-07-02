@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { configDefaults } from "./runtime-defaults";
 import {
+  codexHookEventSchema,
   configOverrideSchema,
   configSchema,
   generatedConfigTemplateSchema,
@@ -101,6 +102,41 @@ describe("usageGlobalTimelineResponseSchema", () => {
     const result = usageGlobalTimelineResponseSchema.safeParse({
       ...payload,
       timeline: undefined,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("codexHookEventSchema", () => {
+  const createEvent = () => ({
+    ts: "2026-07-02T00:00:00.000Z",
+    hook_event_name: "PermissionRequest",
+    session_id: "codex-session-1",
+    cwd: "/repo",
+    tmux_pane: "%1",
+    payload: { raw: "{}" },
+  });
+
+  it("accepts a codex hook event", () => {
+    const result = codexHookEventSchema.safeParse(createEvent());
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts all codex hook event names", () => {
+    const names = ["PreToolUse", "PostToolUse", "PermissionRequest", "Stop", "UserPromptSubmit"];
+    names.forEach((name) => {
+      const result = codexHookEventSchema.safeParse({
+        ...createEvent(),
+        hook_event_name: name,
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  it("rejects claude-only Notification event name", () => {
+    const result = codexHookEventSchema.safeParse({
+      ...createEvent(),
+      hook_event_name: "Notification",
     });
     expect(result.success).toBe(false);
   });

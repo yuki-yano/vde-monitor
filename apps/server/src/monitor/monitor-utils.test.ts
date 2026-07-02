@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  deriveCodexHookState,
   deriveHookState,
   hostCandidates,
   mapHookToPane,
@@ -28,6 +29,27 @@ describe("monitor-utils", () => {
     expect(deriveHookState("Stop")).toEqual({ state: "WAITING_INPUT", reason: "hook:stop" });
     expect(deriveHookState("PreToolUse")).toEqual({ state: "RUNNING", reason: "hook:PreToolUse" });
     expect(deriveHookState("UnknownEvent")).toBeNull();
+  });
+
+  it("derives codex hook state from events", () => {
+    expect(deriveCodexHookState("PermissionRequest")).toEqual({
+      state: "WAITING_PERMISSION",
+      reason: "hook:permission_request",
+    });
+    expect(deriveCodexHookState("Stop")).toEqual({ state: "WAITING_INPUT", reason: "hook:stop" });
+    expect(deriveCodexHookState("UserPromptSubmit")).toEqual({
+      state: "RUNNING",
+      reason: "hook:UserPromptSubmit",
+    });
+    expect(deriveCodexHookState("PreToolUse")).toEqual({
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+    });
+    expect(deriveCodexHookState("PostToolUse")).toEqual({
+      state: "RUNNING",
+      reason: "hook:PostToolUse",
+    });
+    expect(deriveCodexHookState("Notification")).toBeNull();
   });
 
   it("maps hook to pane by tmux pane id first", () => {

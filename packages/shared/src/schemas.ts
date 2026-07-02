@@ -710,6 +710,29 @@ export const claudeHookEventSchema = z.object({
   payload: z.object({ raw: z.string() }),
 });
 
+export const codexHookEventSchema = z.object({
+  ts: z.string(),
+  hook_event_name: z.enum([
+    "PreToolUse",
+    "PostToolUse",
+    "PermissionRequest",
+    "Stop",
+    "UserPromptSubmit",
+  ]),
+  session_id: z.string(),
+  cwd: z.string().optional(),
+  tty: z.string().optional(),
+  tmux_pane: z.string().nullable().optional(),
+  transcript_path: z.string().optional(),
+  fallback: z
+    .object({
+      cwd: z.string().optional(),
+      transcript_path: z.string().optional(),
+    })
+    .optional(),
+  payload: z.object({ raw: z.string() }),
+});
+
 export const workspaceTabsDisplayModeSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.toLowerCase() : value),
   z.enum(["all", "pwa", "none"]),

@@ -195,7 +195,9 @@ npx vde-monitor@latest config prune
 npx vde-monitor@latest config prune --dry-run
 npx vde-monitor@latest token rotate
 npx vde-monitor@latest claude hooks print
+npx vde-monitor@latest codex hooks print
 npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
+npx --package vde-monitor@latest vde-monitor-hook codex <HookEventName>
 ```
 
 - `config init`: create initial generated config only when no global config file exists
@@ -203,6 +205,8 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 - `config check`: validate global config (parse/schema/required generated keys/unused keys)
 - `config prune`: remove unused keys from global config and rewrite as `config.yml` (YAML)
 - `config prune --dry-run`: show removable keys without updating files
+- `claude hooks print`: print the hooks snippet to paste into Claude Code `.claude/settings.json`
+- `codex hooks print`: print the hooks snippet to paste into Codex CLI `~/.codex/hooks.json` (Codex requires trusting the hook via `/hooks` after registration)
 
 ## Configuration
 
@@ -286,7 +290,7 @@ Notes:
 - Session/timeline persistence: `~/.vde-monitor/state.json`
 - Push VAPID keys: `~/.vde-monitor/push-vapid.json`
 - Push subscriptions: `~/.vde-monitor/notifications.json`
-- Hook event logs: `~/.vde-monitor/events/<server-key>/claude.jsonl`
+- Hook event logs: `~/.vde-monitor/events/<server-key>/claude.jsonl`, `~/.vde-monitor/events/<server-key>/codex.jsonl`
 - Uploaded image attachments: `$TMPDIR/vde-monitor/attachments/<encoded-pane-id>/...`
 
 ## Security defaults

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   runConfigPruneCommand: vi.fn(),
   runConfigRegenerateCommand: vi.fn(),
   printHooksSnippet: vi.fn(),
+  printCodexHooksSnippet: vi.fn(),
 }));
 
 vi.mock("./app/cli/cli", () => ({
@@ -17,6 +18,10 @@ vi.mock("./app/cli/cli", () => ({
 
 vi.mock("./app/commands/print-hooks-snippet", () => ({
   printHooksSnippet: mocks.printHooksSnippet,
+}));
+
+vi.mock("./app/commands/print-codex-hooks-snippet", () => ({
+  printCodexHooksSnippet: mocks.printCodexHooksSnippet,
 }));
 
 vi.mock("./app/commands/run-config-init-command", () => ({
@@ -58,7 +63,36 @@ describe("main command routing", () => {
     mocks.runConfigPruneCommand.mockReset();
     mocks.runConfigRegenerateCommand.mockReset();
     mocks.printHooksSnippet.mockReset();
+    mocks.printCodexHooksSnippet.mockReset();
     mocks.runServe.mockResolvedValue(undefined);
+  });
+
+  it("runs claude hooks print subcommand", async () => {
+    mocks.parseArgs.mockReturnValue({
+      command: "claude",
+      subcommand: "hooks",
+      subcommand2: "print",
+    });
+
+    await main();
+
+    expect(mocks.printHooksSnippet).toHaveBeenCalledTimes(1);
+    expect(mocks.printCodexHooksSnippet).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
+  });
+
+  it("runs codex hooks print subcommand", async () => {
+    mocks.parseArgs.mockReturnValue({
+      command: "codex",
+      subcommand: "hooks",
+      subcommand2: "print",
+    });
+
+    await main();
+
+    expect(mocks.printCodexHooksSnippet).toHaveBeenCalledTimes(1);
+    expect(mocks.printHooksSnippet).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
   });
 
   it("runs config init subcommand", async () => {

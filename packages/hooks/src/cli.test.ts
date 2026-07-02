@@ -6,13 +6,18 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCodexHookEvent,
   buildHookEvent,
+  extractCodexPayloadFields,
   extractPayloadFields,
   isClaudeNonInteractivePayload,
+  isCodexNonInteractivePayload,
   isMainModule,
+  parseHookCliArgs,
   resolveHookServerKey,
   resolveTmuxPane,
   resolveTranscriptPath,
+  shouldPersistCodexHookPayload,
   shouldPersistHookPayload,
 } from "./cli";
 
@@ -272,5 +277,151 @@ describe("hooks cli helpers", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("hook cli args", () => {
+  it("treats a bare event name as a claude hook", () => {
+    expect(parseHookCliArgs(["Stop"])).toEqual({ agent: "claude", hookEventName: "Stop" });
+  });
+
+  it("parses codex agent prefix", () => {
+    expect(parseHookCliArgs(["codex", "PermissionRequest"])).toEqual({
+      agent: "codex",
+      hookEventName: "PermissionRequest",
+    });
+  });
+
+  it("returns null when event name is missing", () => {
+    expect(parseHookCliArgs([])).toBeNull();
+    expect(parseHookCliArgs(["codex"])).toBeNull();
+  });
+});
+
+describe("codex hooks cli helpers", () => {
+  it("extracts codex payload fields without claude transcript reconstruction", () => {
+    const fields = extractCodexPayloadFields(
+      {
+        session_id: "codex-session-1",
+        cwd: "/repo",
+      },
+      {},
+      {
+        resolveTmuxPaneFn: () => "%9",
+      },
+    );
+
+    expect(fields.sessionId).toBe("codex-session-1");
+    expect(fields.cwd).toBe("/repo");
+    expect(fields.tmuxPane).toBe("%9");
+    expect(fields.transcriptPath).toBeNull();
+  });
+
+  it("keeps transcript path provided by the codex payload", () => {
+    const fields = extractCodexPayloadFields(
+      {
+        session_id: "codex-session-1",
+        transcript_path: "/tmp/rollout.jsonl",
+      },
+      {},
+      {
+        resolveTmuxPaneFn: () => null,
+      },
+    );
+
+    expect(fields.transcriptPath).toBe("/tmp/rollout.jsonl");
+  });
+
+  it("builds a codex hook event", () => {
+    const event = buildCodexHookEvent("PermissionRequest", "{}", {
+      sessionId: "codex-session-1",
+      cwd: "/repo",
+      tmuxPane: "%9",
+      transcriptPath: null,
+    });
+
+    expect(event.hook_event_name).toBe("PermissionRequest");
+    expect(event.session_id).toBe("codex-session-1");
+    expect(event.tmux_pane).toBe("%9");
+    expect(event.payload).toEqual({ raw: "{}" });
+    expect(event.fallback).toBeUndefined();
+    expect("notification_type" in event).toBe(false);
+  });
+
+  it("includes fallback when codex tmux pane is missing", () => {
+    const event = buildCodexHookEvent("Stop", "{}", {
+      sessionId: "codex-session-1",
+      cwd: "/repo",
+      tmuxPane: null,
+      transcriptPath: "/tmp/rollout.jsonl",
+    });
+
+    expect(event.fallback).toEqual({
+      cwd: "/repo",
+      transcript_path: "/tmp/rollout.jsonl",
+    });
+  });
+
+  it("detects non-interactive stop when ancestor codex runs exec", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [5200, { ppid: 5100, command: "/bin/sh -c vde-monitor-hook codex Stop" }],
+      [5100, { ppid: 5000, command: "/usr/local/bin/codex exec 'run tests'" }],
+      [5000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      isCodexNonInteractivePayload(
+        {
+          session_id: "codex-session-1",
+        },
+        "Stop",
+        {
+          parentPid: 5200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("persists interactive codex stop payloads", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [6200, { ppid: 6100, command: "/bin/sh -c vde-monitor-hook codex Stop" }],
+      [6100, { ppid: 6000, command: "/usr/local/bin/codex --model gpt-5" }],
+      [6000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      shouldPersistCodexHookPayload(
+        {
+          session_id: "codex-session-1",
+        },
+        "Stop",
+        {
+          parentPid: 6200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("skips persisting codex stop payloads under codex exec", () => {
+    const processTree = new Map<number, { ppid: number; command: string }>([
+      [7200, { ppid: 7100, command: "/bin/sh -c vde-monitor-hook codex Stop" }],
+      [7100, { ppid: 7000, command: "/usr/local/bin/codex exec --json 'run tests'" }],
+      [7000, { ppid: 1, command: "zsh" }],
+    ]);
+
+    expect(
+      shouldPersistCodexHookPayload(
+        {
+          session_id: "codex-session-1",
+        },
+        "Stop",
+        {
+          parentPid: 7200,
+          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
+        },
+      ),
+    ).toBe(false);
   });
 });

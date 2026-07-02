@@ -6,14 +6,14 @@ type LoopDeps = {
 
 type LoopArgs = {
   intervalMs: number;
-  eventLogPath: string;
+  eventLogPaths: string[];
   maxEventLogBytes: number;
   retainRotations: number;
   updateFromPanes: () => Promise<void>;
 };
 
 export const createMonitorLoop = (
-  { intervalMs, eventLogPath, maxEventLogBytes, retainRotations, updateFromPanes }: LoopArgs,
+  { intervalMs, eventLogPaths, maxEventLogBytes, retainRotations, updateFromPanes }: LoopArgs,
   deps: LoopDeps = {},
 ) => {
   const rotate = deps.rotateLogIfNeeded ?? rotateLogIfNeeded;
@@ -28,7 +28,9 @@ export const createMonitorLoop = (
     try {
       await Promise.allSettled([
         updateFromPanes(),
-        rotate(eventLogPath, maxEventLogBytes, retainRotations),
+        ...eventLogPaths.map((eventLogPath) =>
+          rotate(eventLogPath, maxEventLogBytes, retainRotations),
+        ),
       ]);
     } finally {
       tickRunning = false;

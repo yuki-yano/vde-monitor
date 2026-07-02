@@ -10,7 +10,7 @@ describe("createMonitorLoop", () => {
     const loop = createMonitorLoop(
       {
         intervalMs: 1000,
-        eventLogPath: "/tmp/events.log",
+        eventLogPaths: ["/tmp/claude.jsonl", "/tmp/codex.jsonl"],
         maxEventLogBytes: 10,
         retainRotations: 1,
         updateFromPanes,
@@ -21,7 +21,8 @@ describe("createMonitorLoop", () => {
     loop.start();
     await vi.advanceTimersByTimeAsync(1000);
     expect(updateFromPanes).toHaveBeenCalled();
-    expect(rotateLogIfNeeded).toHaveBeenCalledWith("/tmp/events.log", 10, 1);
+    expect(rotateLogIfNeeded).toHaveBeenCalledWith("/tmp/claude.jsonl", 10, 1);
+    expect(rotateLogIfNeeded).toHaveBeenCalledWith("/tmp/codex.jsonl", 10, 1);
     loop.stop();
     vi.useRealTimers();
   });
@@ -37,7 +38,7 @@ describe("createMonitorLoop", () => {
     const loop = createMonitorLoop(
       {
         intervalMs: 1000,
-        eventLogPath: "/tmp/events.log",
+        eventLogPaths: ["/tmp/events.log"],
         maxEventLogBytes: 10,
         retainRotations: 1,
         updateFromPanes,

@@ -6,7 +6,7 @@ import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { SessionStateTimelineRange } from "@vde-monitor/shared";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
-import { type HookEventContext, handleHookLine } from "./monitor/hook-tailer";
+import { type HookEventContext, handleCodexHookLine, handleHookLine } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
 import {
   createRestoredSessionApplier,
@@ -53,6 +53,7 @@ export const createSessionMonitor = (
   const serverKey = runtime.serverKey;
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
+  const codexEventLogPath = path.join(eventsDir, "codex.jsonl");
   const logActivity = createLogActivityPoller(config.activity.pollIntervalMs);
   const paneLogManager = createPaneLogManager({
     baseDir,
@@ -61,6 +62,7 @@ export const createSessionMonitor = (
     logActivity,
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
+  const codexJsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
   restoreMonitorRuntimeState({
     restoredSessions: restored,
     restoredTimeline,
@@ -142,15 +144,20 @@ export const createSessionMonitor = (
   const startHookTailer = async () => {
     await ensureDir(eventsDir);
     await fs.open(eventLogPath, "a").then((handle) => handle.close());
+    await fs.open(codexEventLogPath, "a").then((handle) => handle.close());
     jsonlTailer.onLine((line) => {
       handleHookLine(line, registry.values(), handleHookEvent);
     });
     jsonlTailer.start(eventLogPath);
+    codexJsonlTailer.onLine((line) => {
+      handleCodexHookLine(line, registry.values(), handleHookEvent);
+    });
+    codexJsonlTailer.start(codexEventLogPath);
   };
 
   const monitorLoop = createMonitorLoop({
     intervalMs: config.activity.pollIntervalMs,
-    eventLogPath,
+    eventLogPaths: [eventLogPath, codexEventLogPath],
     maxEventLogBytes: 2_000_000,
     retainRotations: 5,
     updateFromPanes,
@@ -173,6 +180,7 @@ export const createSessionMonitor = (
     monitorLoop.stop();
     logActivity.stop();
     jsonlTailer.stop();
+    codexJsonlTailer.stop();
   };
 
   const getScreenCapture = () => screenCapture;

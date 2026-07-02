@@ -25,6 +25,7 @@ const DEFAULT_COOLDOWN_MS = 30_000;
 const DEFAULT_WARN_THRESHOLD = 3;
 const waitingPermissionPushReasons = new Set([
   "hook:permission_prompt",
+  "hook:permission_request",
   "poll:codex_question_prompt",
 ]);
 
