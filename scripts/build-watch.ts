@@ -1,48 +1,7 @@
 #!/usr/bin/env node
-import fs from "node:fs";
-import path from "node:path";
-
 import { execa } from "execa";
 
-import { ensureShebang, findBundle } from "./bundle-utils";
-
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const distDir = path.resolve("dist");
-const BUNDLE_SYNC_INTERVAL_MS = 500;
-const bundleBases = ["index", "vde-monitor-hook"] as const;
-
-const syncBundleJs = (base: string) => {
-  const sourcePath = findBundle(distDir, base);
-  if (!sourcePath) {
-    return;
-  }
-  const targetPath = path.join(distDir, `${base}.js`);
-  if (sourcePath !== targetPath) {
-    const shouldCopy =
-      !fs.existsSync(targetPath) ||
-      fs.statSync(sourcePath).mtimeMs > fs.statSync(targetPath).mtimeMs ||
-      fs.statSync(sourcePath).size !== fs.statSync(targetPath).size;
-    if (shouldCopy) {
-      fs.copyFileSync(sourcePath, targetPath);
-    }
-  }
-  const shebangUpdated = ensureShebang(targetPath);
-  const mode = fs.statSync(targetPath).mode & 0o777;
-  if (shebangUpdated || mode !== 0o755) {
-    fs.chmodSync(targetPath, 0o755);
-  }
-};
-
-const syncAllBundleJs = () => {
-  fs.mkdirSync(distDir, { recursive: true });
-  bundleBases.forEach((base) => {
-    try {
-      syncBundleJs(base);
-    } catch {
-      // Ignore transient errors while bundle files are being written.
-    }
-  });
-};
 
 const spawnPnpm = (args: string[]) =>
   execa(pnpmCmd, args, {
@@ -52,8 +11,9 @@ const spawnPnpm = (args: string[]) =>
 
 const main = async () => {
   let shuttingDown = false;
-  let intervalId: NodeJS.Timeout | null = null;
 
+  // バンドルの .js 同期（shebang 付与・chmod 755）は tsdown.config.ts の onSuccess が
+  // 各ビルド成功時に行うため、このスクリプトはプロセス管理のみを担当する。
   const tsdownWatch = spawnPnpm(["exec", "tsdown", "--config", "tsdown.config.ts", "--watch"]);
   const webWatch = spawnPnpm([
     "--filter",
@@ -72,10 +32,6 @@ const main = async () => {
       return;
     }
     shuttingDown = true;
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
     tsdownWatch.kill(signal);
     webWatch.kill(signal);
     process.exit(exitCode);
@@ -94,9 +50,6 @@ const main = async () => {
 
   process.on("SIGINT", () => shutdown("SIGINT", 0));
   process.on("SIGTERM", () => shutdown("SIGTERM", 0));
-
-  syncAllBundleJs();
-  intervalId = setInterval(syncAllBundleJs, BUNDLE_SYNC_INTERVAL_MS);
 
   await Promise.all([tsdownWatch, webWatch]);
 };

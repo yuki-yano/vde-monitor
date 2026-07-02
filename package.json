@@ -47,14 +47,14 @@
     "ci:fix": "pnpm run format && pnpm run typecheck && pnpm run lint:fix && pnpm run test:run"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.4",
-    "@hono/zod-validator": "^0.7.6",
-    "execa": "^9.6.0",
-    "hono": "^4.11.4",
-    "qrcode-terminal": "^0.12.0",
-    "web-push": "^3.6.7",
-    "yaml": "^2.8.1",
-    "zod": "^4.3.5"
+    "@hono/node-server": "catalog:",
+    "@hono/zod-validator": "catalog:",
+    "execa": "catalog:",
+    "hono": "catalog:",
+    "qrcode-terminal": "catalog:",
+    "web-push": "catalog:",
+    "yaml": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
@@ -66,7 +66,6 @@
     "msw": "^2.12.10",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.50.0",
-    "tailwindcss": "^3.4.19",
     "tsdown": "^0.20.1",
     "tsx": "^4.20.5",
     "typescript": "^5.8.3",

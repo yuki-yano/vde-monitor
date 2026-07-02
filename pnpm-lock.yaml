@@ -4,33 +4,60 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@hono/node-server':
+      specifier: ^1.19.4
+      version: 1.19.9
+    '@hono/zod-validator':
+      specifier: ^0.7.6
+      version: 0.7.6
+    execa:
+      specifier: ^9.6.0
+      version: 9.6.1
+    hono:
+      specifier: ^4.11.4
+      version: 4.11.7
+    qrcode-terminal:
+      specifier: ^0.12.0
+      version: 0.12.0
+    web-push:
+      specifier: ^3.6.7
+      version: 3.6.7
+    yaml:
+      specifier: ^2.8.1
+      version: 2.8.2
+    zod:
+      specifier: ^4.3.5
+      version: 4.3.6
+
 importers:
 
   .:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.4
+        specifier: 'catalog:'
         version: 1.19.9(hono@4.11.7)
       '@hono/zod-validator':
-        specifier: ^0.7.6
+        specifier: 'catalog:'
         version: 0.7.6(hono@4.11.7)(zod@4.3.6)
       execa:
-        specifier: ^9.6.0
+        specifier: 'catalog:'
         version: 9.6.1
       hono:
-        specifier: ^4.11.4
+        specifier: 'catalog:'
         version: 4.11.7
       qrcode-terminal:
-        specifier: ^0.12.0
+        specifier: 'catalog:'
         version: 0.12.0
       web-push:
-        specifier: ^3.6.7
+        specifier: 'catalog:'
         version: 3.6.7
       yaml:
-        specifier: ^2.8.1
+        specifier: 'catalog:'
         version: 2.8.2
       zod:
-        specifier: ^4.3.5
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@testing-library/react':
@@ -60,9 +87,6 @@ importers:
       oxlint:
         specifier: ^1.50.0
         version: 1.50.0
-      tailwindcss:
-        specifier: ^3.4.19
-        version: 3.4.19(tsx@4.21.0)(yaml@2.8.2)
       tsdown:
         specifier: ^0.20.1
         version: 0.20.1(@typescript/native-preview@7.0.0-dev.20260224.1)(typescript@5.9.3)
@@ -79,14 +103,11 @@ importers:
   apps/server:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.4
+        specifier: 'catalog:'
         version: 1.19.9(hono@4.11.7)
       '@hono/zod-validator':
-        specifier: ^0.7.6
+        specifier: 'catalog:'
         version: 0.7.6(hono@4.11.7)(zod@4.3.6)
-      '@vde-monitor/agents':
-        specifier: workspace:*
-        version: link:../../packages/agents
       '@vde-monitor/multiplexer':
         specifier: workspace:*
         version: link:../../packages/multiplexer
@@ -103,25 +124,25 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       execa:
-        specifier: ^9.6.0
+        specifier: 'catalog:'
         version: 9.6.1
       hono:
-        specifier: ^4.11.4
+        specifier: 'catalog:'
         version: 4.11.7
       ignore:
         specifier: ^7.0.5
         version: 7.0.5
       qrcode-terminal:
-        specifier: ^0.12.0
+        specifier: 'catalog:'
         version: 0.12.0
       web-push:
-        specifier: ^3.6.7
+        specifier: 'catalog:'
         version: 3.6.7
       yaml:
-        specifier: ^2.8.1
+        specifier: 'catalog:'
         version: 2.8.2
       zod:
-        specifier: ^4.3.5
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       tsx:
@@ -224,15 +245,6 @@ importers:
       vite:
         specifier: ^7.1.5
         version: 7.3.1(@types/node@24.10.9)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/agents:
-    dependencies:
-      '@vde-monitor/multiplexer':
-        specifier: workspace:*
-        version: link:../multiplexer
-      '@vde-monitor/shared':
-        specifier: workspace:*
-        version: link:../shared
 
   packages/hooks:
     dependencies:

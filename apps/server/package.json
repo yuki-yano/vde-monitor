@@ -8,20 +8,20 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.4",
-    "@hono/zod-validator": "^0.7.6",
+    "@hono/node-server": "catalog:",
+    "@hono/zod-validator": "catalog:",
     "@vde-monitor/multiplexer": "workspace:*",
     "@vde-monitor/shared": "workspace:*",
     "@vde-monitor/tmux": "workspace:*",
     "@vde-monitor/wezterm": "workspace:*",
     "citty": "^0.2.0",
-    "execa": "^9.6.0",
-    "hono": "^4.11.4",
+    "execa": "catalog:",
+    "hono": "catalog:",
     "ignore": "^7.0.5",
-    "qrcode-terminal": "^0.12.0",
-    "web-push": "^3.6.7",
-    "yaml": "^2.8.1",
-    "zod": "^4.3.5"
+    "qrcode-terminal": "catalog:",
+    "web-push": "catalog:",
+    "yaml": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "tsx": "^4.20.5"
