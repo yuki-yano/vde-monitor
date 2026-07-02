@@ -7,10 +7,11 @@ import type {
   SessionSummary,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { findStalePaneIds } from "@/features/shared-session-ui/model/pane-record-utils";
 import { renderAnsiLines } from "@/lib/ansi";
+import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import type { Theme } from "@/lib/theme";
 
 import {
@@ -19,7 +20,7 @@ import {
   sidebarPreviewFrameAtom,
 } from "../atoms/sidebarPreviewAtoms";
 import { selectVisibleLines } from "./sidebar-preview-geometry";
-import { useSessionPreview } from "./useSessionPreview";
+import { useScreenCache } from "./useScreenCache";
 import { useSidebarPreviewHoverController } from "./useSidebarPreviewHoverController";
 import { useSidebarPreviewTimelineCache } from "./useSidebarPreviewTimelineCache";
 
@@ -216,12 +217,36 @@ export const useSidebarPreview = ({
   resolvedTheme,
   highlightCorrections,
 }: UseSidebarPreviewParams) => {
-  const { previewCache, previewLoading, previewError, prefetchPreview, clearPreviewCache } =
-    useSessionPreview({
-      connected,
-      connectionIssue,
-      requestScreen,
-    });
+  const {
+    cache: previewCache,
+    loading: previewLoading,
+    error: previewError,
+    fetchScreen,
+    clearCache,
+  } = useScreenCache({
+    connected,
+    connectionIssue,
+    requestScreen,
+    cacheKey: "preview",
+    lines: 240,
+    ttlMs: 5000,
+    errorMessages: {
+      load: API_ERROR_MESSAGES.previewLoad,
+      requestFailed: API_ERROR_MESSAGES.previewRequestFailed,
+    },
+  });
+  const clearPreviewCache = useCallback(
+    (paneId?: string) => {
+      clearCache(paneId);
+    },
+    [clearCache],
+  );
+  const prefetchPreview = useCallback(
+    async (paneId: string) => {
+      await fetchScreen(paneId);
+    },
+    [fetchScreen],
+  );
   const [hoveredPaneId, setHoveredPaneId] = useAtom(sidebarHoveredPaneIdAtom);
   const [previewFrame, setPreviewFrame] = useAtom(sidebarPreviewFrameAtom);
 

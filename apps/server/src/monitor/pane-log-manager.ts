@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 
+import type { MultiplexerPipeCapability, MultiplexerPipeState } from "@vde-monitor/multiplexer";
 import { resolveLogPaths } from "@vde-monitor/shared";
 
 import { ensureDir, rotateLogIfNeeded } from "../logs";
@@ -16,16 +17,7 @@ type PaneLogManagerDeps = {
 type PaneLogManagerArgs = {
   baseDir: string;
   serverKey: string;
-  pipeSupport: "tmux-pipe" | "none";
-  pipeManager: {
-    hasConflict: (state: { panePipe: boolean; pipeTagValue: string | null }) => boolean;
-    attachPipe: (
-      paneId: string,
-      logPath: string,
-      state: { panePipe: boolean; pipeTagValue: string | null },
-      options?: { forceReattach?: boolean },
-    ) => Promise<{ attached: boolean; conflict: boolean }>;
-  };
+  pipeCapability?: MultiplexerPipeCapability;
   logActivity: { register: (paneId: string, filePath: string) => void };
   deps?: PaneLogManagerDeps;
 };
@@ -68,8 +60,7 @@ const resolvePaneLogDeps = (deps?: PaneLogManagerDeps) => {
 export const createPaneLogManager = ({
   baseDir,
   serverKey,
-  pipeSupport,
-  pipeManager,
+  pipeCapability,
   logActivity,
   deps,
 }: PaneLogManagerArgs) => {
@@ -96,16 +87,19 @@ export const createPaneLogManager = ({
   }: {
     paneId: string;
     logPath: string;
-    pipeState: { panePipe: boolean; pipeTagValue: string | null };
+    pipeState: MultiplexerPipeState;
     pipeAttached: boolean;
     pipeConflict: boolean;
     forceReattach: boolean;
   }) => {
+    if (!pipeCapability) {
+      return { pipeAttached: false, pipeConflict: false };
+    }
     if (pipeConflict || (pipeAttached && !forceReattach)) {
       return { pipeAttached, pipeConflict };
     }
     await ensureLogFiles(paneId);
-    const attachResult = await pipeManager.attachPipe(paneId, logPath, pipeState, {
+    const attachResult = await pipeCapability.attachPipe(paneId, logPath, pipeState, {
       forceReattach,
     });
     return {
@@ -115,7 +109,7 @@ export const createPaneLogManager = ({
   };
 
   const preparePaneLogging = async ({ paneId, panePipe, pipeTagValue }: PreparePaneLoggingArgs) => {
-    if (pipeSupport === "none") {
+    if (!pipeCapability) {
       return { pipeAttached: false, pipeConflict: false, logPath: null };
     }
 
@@ -125,7 +119,7 @@ export const createPaneLogManager = ({
     const forceReattach = isTaggedPipe && !normalizedPipeDestinations.has(paneId);
 
     let pipeAttached = isTaggedPipe;
-    let pipeConflict = pipeManager.hasConflict(pipeState);
+    let pipeConflict = pipeCapability.hasConflict(pipeState);
 
     const attachResult = await attachPipeIfNeeded({
       paneId,
@@ -151,5 +145,10 @@ export const createPaneLogManager = ({
     return { pipeAttached, pipeConflict, logPath };
   };
 
-  return { pipeSupport, getPaneLogPath, ensureLogFiles, preparePaneLogging };
+  return {
+    hasPipeCapability: pipeCapability != null,
+    getPaneLogPath,
+    ensureLogFiles,
+    preparePaneLogging,
+  };
 };

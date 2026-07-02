@@ -4,12 +4,7 @@ import { fetchDiffSummary } from "../../domain/git/git-diff";
 import { runGit } from "../../domain/git/git-utils";
 import { resolveRepoBranchCached } from "../../monitor/repo-branch";
 import { resolveVwWorktreeSnapshotCached } from "../../monitor/vw-worktree";
-import {
-  resolveRequestedWorktreePath,
-  resolveValidWorktreePath,
-  resolveWorktreeListPayload,
-  resolveWorktreePathValidationPayload,
-} from "./worktree-utils";
+import { resolveRequestedWorktreePath, resolveWorktreeListPayload } from "./worktree-utils";
 
 vi.mock("../../domain/git/git-diff", () => ({
   fetchDiffSummary: vi.fn(),
@@ -141,46 +136,7 @@ describe("worktree-utils", () => {
     expect(resolveRepoBranchCached).toHaveBeenCalledWith("/repo");
   });
 
-  it("normalizes and validates worktree path override candidates", () => {
-    const resolved = resolveValidWorktreePath(
-      {
-        entries: [
-          {
-            path: "/repo/worktree-a",
-            branch: "feature/a",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: true,
-          },
-        ],
-      },
-      "/repo/worktree-a/",
-    );
-
-    expect(resolved).toBe("/repo/worktree-a");
-    expect(
-      resolveValidWorktreePath(
-        {
-          entries: [
-            {
-              path: "/repo/worktree-a",
-              branch: "feature/a",
-              dirty: false,
-              locked: false,
-              lockOwner: null,
-              lockReason: null,
-              merged: true,
-            },
-          ],
-        },
-        "/repo/worktree-b",
-      ),
-    ).toBeNull();
-  });
-
-  it("builds worktree validation payload without diff stats collection", async () => {
+  it("validates worktree path override without diff stats collection", async () => {
     vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce({
       repoRoot: "/repo",
       baseBranch: "main",
@@ -196,37 +152,14 @@ describe("worktree-utils", () => {
       ],
     });
 
-    const payload = await resolveWorktreePathValidationPayload({
-      repoRoot: "/repo",
-      currentPath: "/repo/worktree-a",
+    const resolved = await resolveRequestedWorktreePath({
+      detail: { repoRoot: "/repo", currentPath: "/repo/worktree-a" },
+      worktreePath: "/repo/worktree-a",
+      fallbackPath: "/repo",
     });
 
-    expect(payload.entries).toEqual([
-      {
-        path: "/repo/worktree-a",
-        branch: "feature/a",
-        dirty: true,
-        locked: false,
-        lockOwner: null,
-        lockReason: null,
-        merged: false,
-        prStatus: "unknown",
-        ahead: null,
-        behind: null,
-      },
-      {
-        path: "/repo",
-        branch: null,
-        dirty: null,
-        locked: null,
-        lockOwner: null,
-        lockReason: null,
-        merged: null,
-        prStatus: null,
-        ahead: null,
-        behind: null,
-      },
-    ]);
+    expect(resolved).toEqual({ ok: true, path: "/repo/worktree-a" });
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledWith("/repo", { ghMode: "never" });
     expect(fetchDiffSummary).not.toHaveBeenCalled();
     expect(runGit).not.toHaveBeenCalled();
     expect(resolveRepoBranchCached).not.toHaveBeenCalled();

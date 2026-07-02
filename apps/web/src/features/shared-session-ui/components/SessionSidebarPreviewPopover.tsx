@@ -4,15 +4,8 @@ import { memo, useMemo } from "react";
 import { TagPill } from "@/components/ui";
 import { formatStateLabel } from "@/lib/session-format";
 
+import type { PreviewFrame } from "../atoms/sidebarPreviewAtoms";
 import { buildTimelineDisplay } from "./state-timeline-display";
-
-type PreviewFrame = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  lines: number;
-};
 
 type SessionSidebarPreviewPopoverProps = {
   frame: PreviewFrame;

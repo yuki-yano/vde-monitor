@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
-import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import {
   diffErrorAtom,
@@ -16,6 +15,7 @@ import {
 } from "../atoms/diffAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySignature } from "../sessionDetailUtils";
 import { isCurrentScopedRequest, runScopedRequest } from "./session-request-guard";
+import { useScopeGuard } from "./useScopeGuard";
 
 type UseSessionDiffsParams = {
   paneId: string;
@@ -75,6 +75,22 @@ const clearDiffFileCacheForPane = (paneId: string, worktreePath: string | null) 
   }
 };
 
+// Entries for stale revs are never read again (lookups always use the current
+// summary rev), so drop them when the rev advances to keep the cache bounded.
+const pruneDiffFileCacheToRev = (
+  paneId: string,
+  worktreePath: string | null,
+  rev: string | null,
+) => {
+  const prefix = buildDiffFileCacheKeyPrefix(paneId, worktreePath);
+  const keepPrefix = `${prefix}${rev ?? "unknown"}\x00`;
+  for (const key of diffFileCache.keys()) {
+    if (key.startsWith(prefix) && !key.startsWith(keepPrefix)) {
+      diffFileCache.delete(key);
+    }
+  }
+};
+
 // Fetch from cache or call the query function and store the result
 const fetchDiffFileWithCache = async (
   paneId: string,
@@ -108,14 +124,21 @@ export const useSessionDiffs = ({
 
   const diffOpenRef = useRef<Record<string, boolean>>({});
   const diffSignatureRef = useRef<string | null>(null);
-  const prevConnectedRef = useRef<boolean | null>(null);
-  const requestScopeKey = `${paneId}:${worktreePath ?? "__default__"}`;
-  const activeScopeRef = useRef(requestScopeKey);
+  const onReconnectRef = useRef<() => void>(() => {});
+  const pollTickRef = useRef<() => void>(() => {});
+  const { scopeKey: requestScopeKey, activeScopeRef } = useScopeGuard({
+    paneId,
+    worktreePath,
+    connected,
+    onReconnectRef,
+    pollTickRef,
+    pollIntervalMs: AUTO_REFRESH_INTERVAL_MS,
+  });
   const summaryRequestIdRef = useRef(0);
-  activeScopeRef.current = requestScopeKey;
 
   const applyDiffSummary = useCallback(
     async (summary: DiffSummary, refreshOpenFiles: boolean) => {
+      pruneDiffFileCacheToRev(paneId, worktreePath, summary.rev);
       setDiffSummary(summary);
       const fileSet = new Set(summary.files.map((file) => file.path));
       setDiffOpen((prev) => {
@@ -204,6 +227,7 @@ export const useSessionDiffs = ({
       },
     });
   }, [
+    activeScopeRef,
     applyDiffSummary,
     paneId,
     requestDiffSummary,
@@ -231,10 +255,24 @@ export const useSessionDiffs = ({
         await applyDiffSummary(summary, true);
       },
     });
-  }, [applyDiffSummary, paneId, requestDiffSummary, requestScopeKey, setDiffError, worktreePath]);
+  }, [
+    activeScopeRef,
+    applyDiffSummary,
+    paneId,
+    requestDiffSummary,
+    requestScopeKey,
+    setDiffError,
+    worktreePath,
+  ]);
   const pollDiffSummaryTick = useCallback(() => {
     void pollDiffSummary();
   }, [pollDiffSummary]);
+
+  // Keep scope-guard callback refs up to date before effects run.
+  onReconnectRef.current = () => {
+    void loadDiffSummary();
+  };
+  pollTickRef.current = pollDiffSummaryTick;
 
   const loadDiffFile = useCallback(
     async (path: string) => {
@@ -294,6 +332,7 @@ export const useSessionDiffs = ({
       }
     },
     [
+      activeScopeRef,
       diffLoadingFiles,
       diffSummary?.rev,
       paneId,
@@ -322,19 +361,6 @@ export const useSessionDiffs = ({
   useEffect(() => {
     loadDiffSummary();
   }, [loadDiffSummary]);
-
-  useEffect(() => {
-    if (prevConnectedRef.current === false && connected) {
-      void loadDiffSummary();
-    }
-    prevConnectedRef.current = connected;
-  }, [connected, loadDiffSummary]);
-
-  useVisibilityPolling({
-    enabled: Boolean(paneId) && connected,
-    intervalMs: AUTO_REFRESH_INTERVAL_MS,
-    onTick: pollDiffSummaryTick,
-  });
 
   useEffect(() => {
     setDiffSummary(null);

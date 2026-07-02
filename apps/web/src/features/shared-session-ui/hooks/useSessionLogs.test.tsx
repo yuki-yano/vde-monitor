@@ -16,7 +16,7 @@ import {
   getScreenCacheErrorAtom,
   getScreenCacheLoadingAtom,
 } from "@/features/shared-session-ui/atoms/screenCacheAtoms";
-import { createSessionDetail } from "../test-helpers";
+import { createSessionDetail } from "@/pages/SessionDetail/test-helpers";
 import { useSessionLogs } from "@/features/shared-session-ui/hooks/useSessionLogs";
 
 vi.mock("@/lib/ansi", () => ({

@@ -6,8 +6,8 @@ import { z } from "zod";
 import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../../domain/git/git-commits";
 import { fetchDiffFile, fetchDiffSummary } from "../../domain/git/git-diff";
 import { buildError } from "../helpers";
+import { resolveRequestedPath } from "./route-helpers";
 import type { GitRouteDeps, RouteContext } from "./types";
-import { resolveRequestedWorktreePath } from "./worktree-utils";
 
 type DiffSummaryResult = Awaited<ReturnType<typeof fetchDiffSummary>>;
 type CommitLogResult = Awaited<ReturnType<typeof fetchCommitLog>>;
@@ -57,23 +57,8 @@ const resolveRequestedCwd = async (
   c: RouteContext,
   detail: SessionDetail,
   worktreePath: string | undefined,
-): Promise<Response | string | null> => {
-  const resolved = await resolveRequestedWorktreePath({
-    detail,
-    worktreePath,
-    fallbackPath: detail.currentPath,
-  });
-  if (!resolved.ok) {
-    if (resolved.reason === "worktree_override_unavailable") {
-      return c.json(
-        { error: buildError("INVALID_PAYLOAD", "worktree override is unavailable") },
-        400,
-      );
-    }
-    return c.json({ error: buildError("INVALID_PAYLOAD", "invalid worktree path") }, 400);
-  }
-  return resolved.path;
-};
+): Promise<Response | string | null> =>
+  resolveRequestedPath(c, detail, worktreePath, detail.currentPath);
 
 const loadReadyDiffSummary = async (
   c: RouteContext,

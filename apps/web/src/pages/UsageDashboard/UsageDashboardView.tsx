@@ -30,7 +30,8 @@ import { cn } from "@/lib/cn";
 import { formatStateLabel, stateTone } from "@/lib/session-format";
 
 import { ProviderQuotaSection } from "./ProviderQuotaSection";
-import { formatDateTime, formatDurationMs, formatTime } from "./usage-format";
+import { formatDateTime } from "./usage-format";
+import { formatDurationMs, formatTime } from "@/lib/time-format";
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
 
 const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {

@@ -36,6 +36,16 @@ describe("updatePaneOutputState", () => {
     ...overrides,
   });
 
+  type Deps = Parameters<typeof updatePaneOutputState>[0]["deps"];
+
+  const createDeps = (overrides: Partial<Deps> = {}): Deps => ({
+    statLogMtime: async () => null,
+    resolveActivityAt: () => null,
+    captureFingerprint: async () => null,
+    now: () => new Date("2024-01-03T00:00:00.000Z"),
+    ...overrides,
+  });
+
   it("updates output timestamp from log mtime and clears stale hook state", async () => {
     const state = createState({
       hookState: { state: "RUNNING", reason: "hook:test", at: "2024-01-01T00:00:00.000Z" },
@@ -45,12 +55,7 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      deps: createDeps({ statLogMtime: async () => "2024-01-02T00:00:00.000Z" }),
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
@@ -67,12 +72,7 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      deps: createDeps({ statLogMtime: async () => "2024-01-02T00:00:00.000Z" }),
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
@@ -93,12 +93,7 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      deps: createDeps({ statLogMtime: async () => "2024-01-02T00:00:00.000Z" }),
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
@@ -117,12 +112,7 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 5000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
-        now: () => now,
-      },
+      deps: createDeps({ now: () => now }),
     });
 
     const expected = new Date(now.getTime() - 5000 - 1000).toISOString();
@@ -137,12 +127,7 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => "new",
-        now: () => now,
-      },
+      deps: createDeps({ captureFingerprint: async () => "new", now: () => now }),
     });
 
     expect(state.lastFingerprint).toBe("new");
@@ -158,12 +143,10 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
+      deps: createDeps({
         statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
         captureFingerprint,
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
@@ -180,12 +163,10 @@ describe("updatePaneOutputState", () => {
       isCodexAgentPane: true,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
+      deps: createDeps({
         statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
         captureFingerprint,
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(captureFingerprint).toHaveBeenCalledTimes(1);
@@ -200,12 +181,9 @@ describe("updatePaneOutputState", () => {
       isCodexAgentPane: true,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => "\u001b[31mQuestion 1/2 (2 unanswered)\u001b[0m",
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      deps: createDeps({
+        captureFingerprint: async () => "[31mQuestion 1/2 (2 unanswered)[0m",
+      }),
     });
 
     expect(result.codexQuestionPromptActive).toBe(true);
@@ -219,13 +197,10 @@ describe("updatePaneOutputState", () => {
       isCodexAgentPane: true,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
+      deps: createDeps({
         captureFingerprint: async () =>
           "Question 1/2 (2 unanswered)\n• Questions 2/2 answered\nanswer: バグ修正",
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      }),
     });
     expect(first.codexQuestionPromptActive).toBe(false);
 
@@ -235,13 +210,10 @@ describe("updatePaneOutputState", () => {
       isCodexAgentPane: true,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
+      deps: createDeps({
         captureFingerprint: async () =>
           "• Questions 2/2 answered\nQuestion 1/2 (2 unanswered)\n回答スタイルはどれが良いですか？",
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      }),
     });
     expect(second.codexQuestionPromptActive).toBe(true);
   });
@@ -254,12 +226,9 @@ describe("updatePaneOutputState", () => {
       isCodexAgentPane: false,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
+      deps: createDeps({
         captureFingerprint: async () => "Question 1/2 (2 unanswered)",
-        now: () => new Date("2024-01-03T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(result.codexQuestionPromptActive).toBe(false);
@@ -276,12 +245,11 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
+      deps: createDeps({
         resolveActivityAt: () => "2024-01-02T23:59:59.000Z",
         captureFingerprint,
         now: () => now,
-      },
+      }),
     });
 
     expect(captureFingerprint).toHaveBeenCalledTimes(1);
@@ -299,12 +267,7 @@ describe("updatePaneOutputState", () => {
         paneState: state,
         logPath: null,
         inactiveThresholdMs: 1000,
-        deps: {
-          statLogMtime: async () => null,
-          resolveActivityAt: () => null,
-          captureFingerprint,
-          now: () => new Date(nowMs),
-        },
+        deps: createDeps({ captureFingerprint, now: () => new Date(nowMs) }),
       });
 
     await run();
@@ -331,13 +294,11 @@ describe("updatePaneOutputState", () => {
         paneState: state,
         logPath: null,
         inactiveThresholdMs: 1000,
-        deps: {
-          statLogMtime: async () => null,
-          resolveActivityAt: () => null,
+        deps: createDeps({
           captureFingerprint,
           fingerprintIntervalMs: 20000,
           now: () => new Date(nowMs),
-        },
+        }),
       });
 
     await run();
@@ -365,12 +326,11 @@ describe("updatePaneOutputState", () => {
       paneState: state,
       logPath: null,
       inactiveThresholdMs: 1000,
-      deps: {
+      deps: createDeps({
         statLogMtime: statSpy,
-        resolveActivityAt: () => null,
         captureFingerprint: async () => "new",
         now: () => now,
-      },
+      }),
     });
 
     expect(statSpy).not.toHaveBeenCalled();
@@ -394,13 +354,10 @@ describe("updatePaneOutputState", () => {
       isAgentPane: true,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
+      deps: createDeps({
         detectExternalInputFromLogDelta,
         now: () => new Date("2024-01-04T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(detectExternalInputFromLogDelta).toHaveBeenCalledTimes(1);
@@ -432,13 +389,10 @@ describe("updatePaneOutputState", () => {
       isAgentPane: true,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
+      deps: createDeps({
         detectExternalInputFromLogDelta,
         now: () => new Date("2024-01-05T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(state.lastInputAt).toBe("2024-01-05T00:00:00.000Z");
@@ -465,13 +419,10 @@ describe("updatePaneOutputState", () => {
       isAgentPane: false,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
-        statLogMtime: async () => null,
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
+      deps: createDeps({
         detectExternalInputFromLogDelta,
         now: () => new Date("2024-01-04T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(detectExternalInputFromLogDelta).not.toHaveBeenCalled();
@@ -489,13 +440,11 @@ describe("updatePaneOutputState", () => {
       isAgentPane: true,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: {
+      deps: createDeps({
         statLogMtime: async () => "2024-01-02T00:00:00.000Z",
-        resolveActivityAt: () => null,
-        captureFingerprint: async () => null,
         detectExternalInputFromLogDelta,
         now: () => new Date("2024-01-04T00:00:00.000Z"),
-      },
+      }),
     });
 
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");

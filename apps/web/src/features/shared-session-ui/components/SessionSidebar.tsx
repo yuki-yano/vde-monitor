@@ -12,9 +12,9 @@ import { memo, useCallback } from "react";
 import { Card } from "@/components/ui";
 import { SessionSidebarMainSections } from "@/features/shared-session-ui/components/SessionSidebarMainSections";
 import { SessionSidebarPreviewPopover } from "@/features/shared-session-ui/components/SessionSidebarPreviewPopover";
+import type { SessionSidebarMainSectionsViewModel } from "@/features/shared-session-ui/components/SessionSidebarMainSections";
 import { useSessionSidebarActions } from "@/features/shared-session-ui/hooks/useSessionSidebarActions";
 import { useSessionSidebarGroups } from "@/features/shared-session-ui/hooks/useSessionSidebarGroups";
-import { useSessionSidebarMainSectionsViewModel } from "@/features/shared-session-ui/hooks/useSessionSidebarMainSectionsViewModel";
 import { useSessionSidebarPreviewPopover } from "@/features/shared-session-ui/hooks/useSessionSidebarPreviewPopover";
 import { useSidebarPreview } from "@/features/shared-session-ui/hooks/useSidebarPreview";
 import { cn } from "@/lib/cn";
@@ -144,11 +144,15 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     },
     [handlePreviewSelect, handleSelectSession],
   );
-  const mainSectionsViewModel = useSessionSidebarMainSectionsViewModel({
-    totalSessions,
-    repoCount,
-    filter,
-    onFilterChange: handleFilterChange,
+  const mainSectionsViewModel: SessionSidebarMainSectionsViewModel = {
+    header: {
+      totalSessions,
+      repoCount,
+    },
+    filter: {
+      value: filter,
+      onChange: handleFilterChange,
+    },
     list: {
       onListScroll: handleListScroll,
       sidebarGroups,
@@ -170,7 +174,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
       onTouchRepoPin: handleTouchRepoPin,
       registerItemRef,
     },
-  });
+  };
   const previewPopover = useSessionSidebarPreviewPopover({
     preview,
     currentPaneId,

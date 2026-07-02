@@ -11,6 +11,7 @@ import { GIT_CACHE_TTL_MS, GIT_PATCH_MAX_BYTES, truncateTextByLength } from "./g
 import { isBinaryPatch, parseNumstat, pickStatus } from "./git-parsers";
 import { resolveGitHead, resolveGitRepoContext, shouldReuseGitCache } from "./git-query-context";
 import { runGit } from "./git-utils";
+import { nowIso } from "../../utils/time";
 
 const LOG_CACHE_MAX_ENTRIES = 200;
 const DETAIL_CACHE_MAX_ENTRIES = 500;
@@ -18,8 +19,6 @@ const FILE_CACHE_MAX_ENTRIES = 1000;
 
 const RECORD_SEPARATOR = "\u001e";
 const FIELD_SEPARATOR = "\u001f";
-
-const nowIso = () => new Date().toISOString();
 
 const logCache = new Map<
   string,

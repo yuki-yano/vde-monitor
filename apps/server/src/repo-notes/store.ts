@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import type { RepoNote } from "@vde-monitor/shared";
+import { type RepoNote, sortNotesDesc } from "@vde-monitor/shared";
+
+import { normalizeTitle } from "../monitor/monitor-utils";
 
 export type PersistedRepoNote = RepoNote;
 export type PersistedRepoNotesRecord = Record<string, PersistedRepoNote[]>;
@@ -19,26 +21,6 @@ type StoreOptions = {
   now?: () => string;
   createId?: () => string;
 };
-
-const normalizeTitle = (title: string | null | undefined) => {
-  if (title == null) {
-    return null;
-  }
-  const trimmed = title.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
-const sortNotesDesc = (notes: RepoNote[]) =>
-  [...notes].sort((a, b) => {
-    const updatedAtDiff = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
-    if (updatedAtDiff !== 0) {
-      return updatedAtDiff;
-    }
-    if (a.updatedAt !== b.updatedAt) {
-      return b.updatedAt.localeCompare(a.updatedAt);
-    }
-    return b.id.localeCompare(a.id);
-  });
 
 const cloneRepoNote = (note: RepoNote): RepoNote => ({ ...note });
 

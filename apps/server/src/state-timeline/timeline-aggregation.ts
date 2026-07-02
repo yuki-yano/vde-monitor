@@ -8,7 +8,7 @@ type TimelineEventLike = {
   endedAt: string | null;
 };
 
-type ParseIso = (value: string | null | undefined) => number | null;
+type ParseIso = (value: unknown) => number | null;
 
 export type TimelineInterval = {
   state: SessionStateValue;

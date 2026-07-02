@@ -9,6 +9,8 @@ import { screenTextAtom } from "../atoms/screenAtoms";
 export const useSessionDetailVMState = (paneId: string) => {
   const {
     sessions,
+    token,
+    apiBaseUrl,
     connected,
     connectionStatus,
     connectionIssue,
@@ -51,6 +53,8 @@ export const useSessionDetailVMState = (paneId: string) => {
 
   return {
     sessions,
+    token,
+    apiBaseUrl,
     connected,
     connectionStatus,
     connectionIssue,

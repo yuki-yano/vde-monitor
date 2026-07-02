@@ -493,7 +493,7 @@ describe("useSessionDetailVM", () => {
     };
 
     const store = createStore();
-    store.set(screenTextAtom, "91% context left\n\u001b[32m74% context left\u001b[0m");
+    store.set(screenTextAtom, "Context 91% left\n\u001b[32mContext 74% left\u001b[0m");
     mockResolvedTheme = "mocha";
     mockSessionsContext = buildSessionContext({
       sessions: [session],
@@ -508,7 +508,7 @@ describe("useSessionDetailVM", () => {
 
     const { result } = renderHook(() => useSessionDetailVM("pane-1"), { wrapper });
 
-    expect(result.current.screen.contextLeftLabel).toBe("74% context left");
+    expect(result.current.screen.contextLeftLabel).toBe("Context 74% left");
   });
 
   it("ignores context-left label for non-codex sessions", () => {

@@ -30,7 +30,7 @@ const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntime
 });
 
 const createPaneLogManager = (overrides: Partial<PaneLogManager> = {}): PaneLogManager => ({
-  pipeSupport: "tmux-pipe",
+  hasPipeCapability: true,
   getPaneLogPath: vi.fn(() => "/tmp/log"),
   ensureLogFiles: vi.fn(async () => {}),
   preparePaneLogging: vi.fn(async () => ({
@@ -169,7 +169,7 @@ describe("processPane", () => {
     expect(resolvePanePipeTagValue).not.toHaveBeenCalled();
   });
 
-  it("passes null logPath for shell pane when pipe support is none", async () => {
+  it("passes null logPath for shell pane when pipe capability is absent", async () => {
     const updatePaneOutputState = vi.fn(async () => ({
       outputAt: "2024-01-01T00:00:00.000Z",
       hookState: null,
@@ -182,7 +182,7 @@ describe("processPane", () => {
         pane: basePane,
         config: baseConfig,
         paneStates: { get: () => createPaneState() },
-        paneLogManager: createPaneLogManager({ pipeSupport: "none" }),
+        paneLogManager: createPaneLogManager({ hasPipeCapability: false }),
         capturePaneFingerprint: vi.fn(async () => null),
         applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),

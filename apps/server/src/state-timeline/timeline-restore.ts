@@ -1,3 +1,5 @@
+import { parseIsoToMs } from "../utils/time";
+
 import type {
   SessionStateTimelineItem,
   SessionStateTimelineSource,
@@ -15,14 +17,6 @@ export type SessionTimelinePersistedEvent = Omit<TimelineEvent, "repoRoot"> & {
 export type SessionTimelinePersistedEvents = Record<string, SessionTimelinePersistedEvent[]>;
 
 export const toIso = (ms: number) => new Date(ms).toISOString();
-
-export const parseIso = (value: string | null | undefined): number | null => {
-  if (!value) {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
 
 export const parseSequenceFromId = (id: string): number => {
   const candidate = id.split(":").at(-1);
@@ -47,7 +41,7 @@ export const normalizeRestoredPaneEvents = (
 ): { events: TimelineEvent[]; maxSequence: number } => {
   const sorted = rawEvents
     .map((event) => {
-      const startedAtMs = parseIso(event.startedAt);
+      const startedAtMs = parseIsoToMs(event.startedAt);
       if (startedAtMs == null) {
         return null;
       }
@@ -62,7 +56,7 @@ export const normalizeRestoredPaneEvents = (
         source: event.source as SessionStateTimelineSource,
         repoRoot: typeof event.repoRoot === "string" ? event.repoRoot : null,
         startedAtMs,
-        endedAtMs: parseIso(event.endedAt),
+        endedAtMs: parseIsoToMs(event.endedAt),
       };
     })
     .filter(

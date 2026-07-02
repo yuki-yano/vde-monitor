@@ -5,12 +5,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
-import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 import { commitStateAtom } from "../atoms/commitAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildCommitLogSignature } from "../sessionDetailUtils";
 import { type CommitAction, commitReducer } from "./commit-state-machine";
 import { runScopedRequest } from "./session-request-guard";
+import { useScopeGuard } from "./useScopeGuard";
 
 type UseSessionCommitsParams = {
   paneId: string;
@@ -91,11 +91,17 @@ export const useSessionCommits = ({
   const commitLogRef = useRef<CommitLog | null>(null);
   const commitSignatureRef = useRef<string | null>(null);
   const commitCopyTimeoutRef = useRef<number | null>(null);
-  const prevConnectedRef = useRef<boolean | null>(null);
-  const requestScopeKey = `${paneId}:${worktreePath ?? "__default__"}`;
-  const activeScopeRef = useRef(requestScopeKey);
+  const onReconnectRef = useRef<() => void>(() => {});
+  const pollTickRef = useRef<() => void>(() => {});
+  const { scopeKey: requestScopeKey, activeScopeRef } = useScopeGuard({
+    paneId,
+    worktreePath,
+    connected,
+    onReconnectRef,
+    pollTickRef,
+    pollIntervalMs: AUTO_REFRESH_INTERVAL_MS,
+  });
   const commitLogRequestIdRef = useRef(0);
-  activeScopeRef.current = requestScopeKey;
 
   const applyCommitLog = useCallback(
     (log: CommitLog, options: { append: boolean; updateSignature: boolean }) => {
@@ -141,6 +147,7 @@ export const useSessionCommits = ({
       });
     },
     [
+      activeScopeRef,
       applyCommitLog,
       commitPageSize,
       dispatch,
@@ -180,7 +187,15 @@ export const useSessionCommits = ({
         }
       }
     },
-    [commitLoadingDetails, dispatch, paneId, requestCommitDetail, requestScopeKey, worktreePath],
+    [
+      activeScopeRef,
+      commitLoadingDetails,
+      dispatch,
+      paneId,
+      requestCommitDetail,
+      requestScopeKey,
+      worktreePath,
+    ],
   );
 
   const loadCommitFile = useCallback(
@@ -215,7 +230,15 @@ export const useSessionCommits = ({
         }
       }
     },
-    [commitFileLoading, dispatch, paneId, requestCommitFile, requestScopeKey, worktreePath],
+    [
+      activeScopeRef,
+      commitFileLoading,
+      dispatch,
+      paneId,
+      requestCommitFile,
+      requestScopeKey,
+      worktreePath,
+    ],
   );
 
   const pollCommitLog = useCallback(async () => {
@@ -242,6 +265,7 @@ export const useSessionCommits = ({
       },
     });
   }, [
+    activeScopeRef,
     applyCommitLog,
     commitPageSize,
     dispatch,
@@ -253,6 +277,12 @@ export const useSessionCommits = ({
   const pollCommitLogTick = useCallback(() => {
     void pollCommitLog();
   }, [pollCommitLog]);
+
+  // Keep scope-guard callback refs up to date before effects run.
+  onReconnectRef.current = () => {
+    void loadCommitLog({ force: true });
+  };
+  pollTickRef.current = pollCommitLogTick;
 
   const toggleCommit = useCallback(
     (hash: string) => {
@@ -309,19 +339,6 @@ export const useSessionCommits = ({
   useEffect(() => {
     loadCommitLog({ force: true });
   }, [loadCommitLog]);
-
-  useEffect(() => {
-    if (prevConnectedRef.current === false && connected) {
-      void loadCommitLog({ force: true });
-    }
-    prevConnectedRef.current = connected;
-  }, [connected, loadCommitLog]);
-
-  useVisibilityPolling({
-    enabled: Boolean(paneId) && connected,
-    intervalMs: AUTO_REFRESH_INTERVAL_MS,
-    onTick: pollCommitLogTick,
-  });
 
   useEffect(() => {
     return () => {

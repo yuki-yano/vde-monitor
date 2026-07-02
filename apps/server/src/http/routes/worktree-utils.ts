@@ -197,7 +197,7 @@ const resolveSnapshotEntries = (
   return entries;
 };
 
-export const resolveWorktreePathValidationPayload = async (
+const resolveWorktreePathValidationPayload = async (
   detail: WorktreeSource,
 ): Promise<WorktreePathValidationPayload> => {
   const snapshot = await resolveVwWorktreeSnapshotCached(resolveSnapshotCwd(detail), {
@@ -255,7 +255,7 @@ export const resolveWorktreeListPayload = async (
   };
 };
 
-export const resolveValidWorktreePath = (
+const resolveValidWorktreePath = (
   payload: WorktreePathValidationPayload,
   rawPath: string,
 ): string | null => {

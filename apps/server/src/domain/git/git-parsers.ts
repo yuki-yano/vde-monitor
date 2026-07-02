@@ -11,7 +11,7 @@ export const isBinaryPatch = (patch: string) => {
   return binaryPattern.test(patch);
 };
 
-type NumstatCounts = { additions: number | null; deletions: number | null };
+export type NumstatCounts = { additions: number | null; deletions: number | null };
 
 const parseNumstatValue = (raw: string) => {
   if (raw === "-") {

@@ -11,6 +11,57 @@ import { configDefaults } from "@vde-monitor/shared";
 
 import { createTmuxActions } from "../tmux-actions.ts";
 
+// ---------------------------------------------------------------------------
+// Test factories
+// ---------------------------------------------------------------------------
+
+type AdapterResponse = { stdout: string; stderr: string; exitCode: number };
+
+const createStandardAdapter = (overrides?: {
+  hasSession?: AdapterResponse;
+  listWindows?: AdapterResponse;
+  newWindow?: AdapterResponse;
+  listPanes?: AdapterResponse;
+  extraHandlers?: Array<(args: string[]) => AdapterResponse | null>;
+}) => ({
+  run: vi.fn(async (args: string[]) => {
+    if (overrides?.extraHandlers) {
+      for (const handler of overrides.extraHandlers) {
+        const r = handler(args);
+        if (r !== null) return r;
+      }
+    }
+    if (args[0] === "has-session") {
+      return overrides?.hasSession ?? { stdout: "", stderr: "", exitCode: 0 };
+    }
+    if (args[0] === "list-windows") {
+      return overrides?.listWindows ?? { stdout: "main\n", stderr: "", exitCode: 0 };
+    }
+    if (args[0] === "new-window") {
+      return (
+        overrides?.newWindow ?? { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 }
+      );
+    }
+    if (args[0] === "list-panes") {
+      return overrides?.listPanes ?? { stdout: "codex\n", stderr: "", exitCode: 0 };
+    }
+    return { stdout: "", stderr: "", exitCode: 0 };
+  }),
+});
+
+const createLaunchConfig = (overrides?: { codexOptions?: string[]; claudeOptions?: string[] }) => ({
+  ...configDefaults,
+  token: "test-token",
+  launch: {
+    agents: {
+      codex: { options: overrides?.codexOptions ?? ["--model", "gpt-5-codex"] },
+      claude: { options: overrides?.claudeOptions ?? [] },
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+
 describe("createTmuxActions.launchAgentInSession", () => {
   beforeEach(() => {
     vi.mocked(resolveVwWorktreeSnapshotCached).mockReset();
@@ -18,33 +69,8 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("launches codex in a new detached window", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "main\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const adapter = createStandardAdapter();
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
 
     const result = await tmuxActions.launchAgentInSession({
@@ -74,33 +100,10 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("builds resume command with quoted cwd and session id", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "", stderr: "", exitCode: 0 },
+    });
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
 
     const result = await tmuxActions.launchAgentInSession({
@@ -155,16 +158,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
     const killSpy = vi
       .spyOn(process, "kill")
@@ -255,16 +249,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
     const killSpy = vi
       .spyOn(process, "kill")
@@ -338,16 +323,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
     const killSpy = vi
       .spyOn(process, "kill")
@@ -418,16 +394,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
     const killSpy = vi
       .spyOn(process, "kill")
@@ -522,16 +489,7 @@ describe("createTmuxActions.launchAgentInSession", () => {
         return { stdout: "", stderr: "", exitCode: 0 };
       }),
     };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: [] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const config = createLaunchConfig({ codexOptions: [] });
     const tmuxActions = createTmuxActions(adapter, config);
     const killSpy = vi
       .spyOn(process, "kill")
@@ -576,33 +534,8 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("overrides configured launch options when agentOptions are provided", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "main\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const adapter = createStandardAdapter();
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
 
     const result = await tmuxActions.launchAgentInSession({
@@ -647,33 +580,8 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("passes shell fragments in agentOptions without extra quoting", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "main\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
-    const config = {
-      ...configDefaults,
-      token: "test-token",
-      launch: {
-        agents: {
-          codex: { options: ["--model", "gpt-5-codex"] },
-          claude: { options: [] },
-        },
-      },
-    };
+    const adapter = createStandardAdapter();
+    const config = createLaunchConfig();
     const tmuxActions = createTmuxActions(adapter, config);
 
     const result = await tmuxActions.launchAgentInSession({
@@ -694,27 +602,10 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("appends suffix when requested window name already exists", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return {
-            stdout: "codex-work\ncodex-work-2\n",
-            stderr: "",
-            exitCode: 0,
-          };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t4\tcodex-work-3\t%129\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "codex-work\ncodex-work-2\n", stderr: "", exitCode: 0 },
+      newWindow: { stdout: "@42\t4\tcodex-work-3\t%129\n", stderr: "", exitCode: 0 },
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -747,26 +638,17 @@ describe("createTmuxActions.launchAgentInSession", () => {
         },
       ],
     });
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
-          return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "main\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@55\t4\tcodex-work\t%155\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_command}")) {
-          return { stdout: "codex\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      newWindow: { stdout: "@55\t4\tcodex-work\t%155\n", stderr: "", exitCode: 0 },
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+            return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -787,17 +669,16 @@ describe("createTmuxActions.launchAgentInSession", () => {
 
   it("returns INVALID_PAYLOAD when vw snapshot is unavailable", async () => {
     vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce(null);
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
-          return { stdout: "/repo\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+            return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -846,26 +727,19 @@ describe("createTmuxActions.launchAgentInSession", () => {
         stdout: "/tmp\n",
         stderr: "",
       } as never);
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
-          return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@51\t2\tclaude-work\t%151\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_command}")) {
-          return { stdout: "claude\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "", stderr: "", exitCode: 0 },
+      newWindow: { stdout: "@51\t2\tclaude-work\t%151\n", stderr: "", exitCode: 0 },
+      listPanes: { stdout: "claude\n", stderr: "", exitCode: 0 },
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+            return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -936,17 +810,16 @@ describe("createTmuxActions.launchAgentInSession", () => {
         stdout: "",
         stderr: "",
       } as never);
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
-          return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+            return { stdout: "/tmp\n", stderr: "", exitCode: 0 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -1034,17 +907,16 @@ describe("createTmuxActions.launchAgentInSession", () => {
         },
       ],
     });
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
-          return { stdout: "/repo\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "list-panes" && args.includes("#{pane_current_path}")) {
+            return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -1064,14 +936,9 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("returns NOT_FOUND when session does not exist", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "missing", exitCode: 1 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      hasSession: { stdout: "", stderr: "missing", exitCode: 1 },
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -1088,26 +955,18 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("rolls back created window when send-keys fails", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t2\tclaude-work\t%130\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "send-keys" && args[1] === "-l") {
-          return { stdout: "", stderr: "send failed", exitCode: 1 };
-        }
-        if (args[0] === "kill-window") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "", stderr: "", exitCode: 0 },
+      newWindow: { stdout: "@42\t2\tclaude-work\t%130\n", stderr: "", exitCode: 0 },
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "send-keys" && args[1] === "-l") {
+            return { stdout: "", stderr: "send failed", exitCode: 1 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -1125,26 +984,21 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("reports rollback failure details when kill-window fails", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t2\tclaude-work\t%130\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "send-keys" && args[1] === "-l") {
-          return { stdout: "", stderr: "send failed", exitCode: 1 };
-        }
-        if (args[0] === "kill-window") {
-          return { stdout: "", stderr: "kill failed", exitCode: 1 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "", stderr: "", exitCode: 0 },
+      newWindow: { stdout: "@42\t2\tclaude-work\t%130\n", stderr: "", exitCode: 0 },
+      extraHandlers: [
+        (args) => {
+          if (args[0] === "send-keys" && args[1] === "-l") {
+            return { stdout: "", stderr: "send failed", exitCode: 1 };
+          }
+          if (args[0] === "kill-window") {
+            return { stdout: "", stderr: "kill failed", exitCode: 1 };
+          }
+          return null;
+        },
+      ],
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({
@@ -1162,23 +1016,11 @@ describe("createTmuxActions.launchAgentInSession", () => {
   });
 
   it("returns mismatch verification when pane_current_command does not match", async () => {
-    const adapter = {
-      run: vi.fn(async (args: string[]) => {
-        if (args[0] === "has-session") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-windows") {
-          return { stdout: "", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "new-window") {
-          return { stdout: "@42\t3\tclaude-work\t%140\n", stderr: "", exitCode: 0 };
-        }
-        if (args[0] === "list-panes") {
-          return { stdout: "zsh\n", stderr: "", exitCode: 0 };
-        }
-        return { stdout: "", stderr: "", exitCode: 0 };
-      }),
-    };
+    const adapter = createStandardAdapter({
+      listWindows: { stdout: "", stderr: "", exitCode: 0 },
+      newWindow: { stdout: "@42\t3\tclaude-work\t%140\n", stderr: "", exitCode: 0 },
+      listPanes: { stdout: "zsh\n", stderr: "", exitCode: 0 },
+    });
     const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
 
     const result = await tmuxActions.launchAgentInSession({

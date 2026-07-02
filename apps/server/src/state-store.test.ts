@@ -24,13 +24,7 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import {
-  restorePersistedState,
-  restoreRepoNotes,
-  restoreSessions,
-  restoreTimeline,
-  saveState,
-} from "./state-store";
+import { restorePersistedState, saveState } from "./state-store";
 
 const statePath = "/mock/home/.vde-monitor/state.json";
 
@@ -113,10 +107,9 @@ describe("state-store timeline persistence", () => {
     expect(parsed.version).toBe(2);
     expect(parsed.timeline["pane-1"]).toHaveLength(1);
 
-    const restoredSessions = restoreSessions();
+    const { sessions: restoredSessions, timeline: restoredTimeline } = restorePersistedState();
     expect(restoredSessions.get("pane-1")?.paneId).toBe("pane-1");
 
-    const restoredTimeline = restoreTimeline();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBe("/repo/a");
@@ -179,7 +172,7 @@ describe("state-store timeline persistence", () => {
     const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
     expect(parsed.repoNotes["/repo/a"]).toHaveLength(1);
 
-    const restoredRepoNotes = restoreRepoNotes();
+    const { repoNotes: restoredRepoNotes } = restorePersistedState();
     expect(restoredRepoNotes.get("/repo/a")).toHaveLength(1);
     expect(restoredRepoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
   });
@@ -198,9 +191,11 @@ describe("state-store timeline persistence", () => {
       )}\n`,
     );
 
-    const restoredSessions = restoreSessions();
-    const restoredTimeline = restoreTimeline();
-    const restoredRepoNotes = restoreRepoNotes();
+    const {
+      sessions: restoredSessions,
+      timeline: restoredTimeline,
+      repoNotes: restoredRepoNotes,
+    } = restorePersistedState();
     expect(restoredSessions.size).toBe(0);
     expect(restoredTimeline.size).toBe(0);
     expect(restoredRepoNotes.size).toBe(0);
@@ -245,7 +240,7 @@ describe("state-store timeline persistence", () => {
       )}\n`,
     );
 
-    const restoredTimeline = restoreTimeline();
+    const { timeline: restoredTimeline } = restorePersistedState();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBeUndefined();
   });

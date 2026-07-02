@@ -5,14 +5,19 @@ import type { DiffFile, DiffFileStatus, DiffSummary, DiffSummaryFile } from "@vd
 
 import { setMapEntryWithLimit } from "../../cache";
 import { GIT_CACHE_TTL_MS, GIT_PATCH_MAX_BYTES, truncateTextByLength } from "./git-common";
-import { isBinaryPatch, parseNumstat, parseNumstatLine, pickStatus } from "./git-parsers";
+import {
+  type NumstatCounts,
+  isBinaryPatch,
+  parseNumstat,
+  parseNumstatLine,
+  pickStatus,
+} from "./git-parsers";
 import { resolveGitRepoContext, shouldReuseGitCache } from "./git-query-context";
 import { runGit } from "./git-utils";
+import { nowIso } from "../../utils/time";
 
 const SUMMARY_CACHE_MAX_ENTRIES = 200;
 const FILE_CACHE_MAX_ENTRIES = 500;
-
-const nowIso = () => new Date().toISOString();
 
 const summaryCache = new Map<string, { at: number; summary: DiffSummary; statusOutput: string }>();
 const fileCache = new Map<string, { at: number; rev: string; file: DiffFile }>();
@@ -107,8 +112,6 @@ const resolveSafePath = (repoRoot: string, filePath: string) => {
   return resolved;
 };
 
-type NumstatResult = { additions: number | null; deletions: number | null };
-
 const buildDiffSummary = (
   repoRoot: string,
   rev: string | null,
@@ -151,7 +154,7 @@ const getCachedSummary = (repoRoot: string, force: boolean | undefined, nowMs: n
 const fetchUntrackedNumstat = async (
   repoRoot: string,
   filePath: string,
-): Promise<NumstatResult | null> => {
+): Promise<NumstatCounts | null> => {
   const safePath = resolveSafePath(repoRoot, filePath);
   if (!safePath) {
     return null;
@@ -170,7 +173,7 @@ const fetchUntrackedNumstat = async (
 const collectUntrackedStats = async (repoRoot: string, files: DiffSummaryFile[]) => {
   const untrackedFiles = files.filter((file) => file.status === "?");
   if (untrackedFiles.length === 0) {
-    return new Map<string, NumstatResult>();
+    return new Map<string, NumstatCounts>();
   }
   const resolved = await Promise.all(
     untrackedFiles.map(async (file) => {
@@ -178,7 +181,7 @@ const collectUntrackedStats = async (repoRoot: string, files: DiffSummaryFile[])
       return parsed ? ({ path: file.path, parsed } as const) : null;
     }),
   );
-  const untrackedStats = new Map<string, NumstatResult>();
+  const untrackedStats = new Map<string, NumstatCounts>();
   resolved.forEach((item) => {
     if (!item) {
       return;
@@ -190,8 +193,8 @@ const collectUntrackedStats = async (repoRoot: string, files: DiffSummaryFile[])
 
 const attachFileStats = (
   files: DiffSummaryFile[],
-  trackedStats: Map<string, NumstatResult>,
-  untrackedStats: Map<string, NumstatResult>,
+  trackedStats: Map<string, NumstatCounts>,
+  untrackedStats: Map<string, NumstatCounts>,
 ) =>
   files.map((file) => {
     const stat = file.status === "?" ? untrackedStats.get(file.path) : trackedStats.get(file.path);
@@ -260,7 +263,7 @@ const buildDiffFileFromPatch = (
   file: DiffSummaryFile,
   rev: string,
   patch: string,
-  numstat: NumstatResult | null,
+  numstat: NumstatCounts | null,
 ): DiffFile => {
   const truncatedPatch = truncateTextByLength({
     text: patch,
@@ -330,7 +333,7 @@ export const fetchDiffFile = async (
     return buildEmptyDiffFile(file, rev);
   }
   let patch = "";
-  let numstat: NumstatResult | null = null;
+  let numstat: NumstatCounts | null = null;
   try {
     const patchData = await fetchPatchData(repoRoot, file, safePath);
     patch = patchData.patch;

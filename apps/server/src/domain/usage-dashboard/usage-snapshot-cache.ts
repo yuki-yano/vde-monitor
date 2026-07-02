@@ -13,9 +13,9 @@ import {
   type UsageProviderErrorCode,
 } from "../usage-shared/usage-error";
 
-// Local aliases kept in sync with usage-dashboard-service.ts
-type SupportedProviderId = "codex" | "claude";
-type UsageSnapshotCore = Omit<UsageProviderSnapshot, "fetchedAt" | "staleAt">;
+export const SUPPORTED_PROVIDERS = ["codex", "claude"] as const;
+export type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number];
+export type UsageSnapshotCore = Omit<UsageProviderSnapshot, "fetchedAt" | "staleAt">;
 
 type CoreCacheEntry = {
   snapshot: UsageProviderSnapshot;
@@ -30,10 +30,10 @@ type BillingCacheEntry = {
 };
 
 // ---------------------------------------------------------------------------
-// Shared snapshot helpers (also exported for use by snapshot builders)
+// Shared snapshot helpers
 // ---------------------------------------------------------------------------
 
-export const emptyBillingMeta = (): UsageBillingMeta => ({
+const emptyBillingMeta = (): UsageBillingMeta => ({
   source: "unavailable",
   sourceLabel: null,
   confidence: null,

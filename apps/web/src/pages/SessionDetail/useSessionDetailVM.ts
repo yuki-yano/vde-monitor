@@ -20,6 +20,8 @@ export const useSessionDetailVM = (paneId: string) => {
 
   const {
     sessions,
+    token,
+    apiBaseUrl,
     connected,
     connectionStatus,
     connectionIssue,
@@ -125,6 +127,8 @@ export const useSessionDetailVM = (paneId: string) => {
     killPane,
     killWindow,
     uploadImageAttachment,
+    apiBaseUrl,
+    token,
   });
 
   const virtualWorktree = useSessionVirtualWorktree({

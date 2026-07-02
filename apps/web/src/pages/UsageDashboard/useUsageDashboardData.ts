@@ -1,4 +1,4 @@
-import type { UsageDashboardResponse, UsageIssue } from "@vde-monitor/shared";
+import type { UsageDashboardResponse } from "@vde-monitor/shared";
 import {
   type Dispatch,
   type SetStateAction,
@@ -11,25 +11,16 @@ import {
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
-import { type BillingProviderId, FALLBACK_BILLING_PROVIDERS } from "./useUsageBillingData";
+import {
+  type BillingProviderId,
+  FALLBACK_BILLING_PROVIDERS,
+  mergeIssues,
+} from "./useUsageBillingData";
 
 const DASHBOARD_POLL_INTERVAL_MS = 30_000;
 
 const isBillingProviderId = (providerId: string): providerId is BillingProviderId =>
   providerId === "codex" || providerId === "claude";
-
-const mergeIssues = (current: UsageIssue[], next: UsageIssue[]): UsageIssue[] => {
-  if (next.length === 0) {
-    return current;
-  }
-  const merged = [...current];
-  for (const issue of next) {
-    if (!merged.some((item) => item.code === issue.code && item.message === issue.message)) {
-      merged.push(issue);
-    }
-  }
-  return merged;
-};
 
 const mergeDashboardCore = (
   current: UsageDashboardResponse | null,

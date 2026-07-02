@@ -1,8 +1,7 @@
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 
 export { buildError } from "../errors";
-
-export const nowIso = () => new Date().toISOString();
+export { nowIso } from "../utils/time";
 
 export const requireAuth = (
   config: AgentMonitorConfig,

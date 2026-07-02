@@ -1,4 +1,4 @@
-import type { RepoNote } from "@vde-monitor/shared";
+import { type RepoNote, sortNotesDesc } from "@vde-monitor/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -24,18 +24,6 @@ type UseSessionRepoNotesParams = {
 type RefreshNotesOptions = {
   silent?: boolean;
 };
-
-const sortNotesDesc = (notes: RepoNote[]) =>
-  [...notes].sort((a, b) => {
-    const updatedAtDiff = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
-    if (updatedAtDiff !== 0) {
-      return updatedAtDiff;
-    }
-    if (a.updatedAt !== b.updatedAt) {
-      return b.updatedAt.localeCompare(a.updatedAt);
-    }
-    return b.id.localeCompare(a.id);
-  });
 
 export const useSessionRepoNotes = ({
   paneId,

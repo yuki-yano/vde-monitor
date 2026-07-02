@@ -27,21 +27,6 @@ export const normalizeTitle = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export const buildDefaultTitle = (
-  currentPath: string | null,
-  paneId: string,
-  sessionName: string,
-  windowIndex: number,
-) => {
-  if (!currentPath) {
-    return `${sessionName}:w${windowIndex}:${paneId}`;
-  }
-  const normalized = currentPath.replace(/\/+$/, "");
-  const parts = normalized.split("/");
-  const name = parts.pop() || "unknown";
-  return `${name}:w${windowIndex}:${paneId}`;
-};
-
 export const hostCandidates = (() => {
   const host = os.hostname();
   const short = host.split(".")[0] ?? host;

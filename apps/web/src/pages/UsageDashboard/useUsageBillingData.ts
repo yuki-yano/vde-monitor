@@ -13,7 +13,7 @@ const BILLING_POLL_INTERVAL_MS = 180_000;
 export type BillingProviderId = "codex" | "claude";
 export const FALLBACK_BILLING_PROVIDERS: BillingProviderId[] = ["codex", "claude"];
 
-const mergeIssues = (current: UsageIssue[], next: UsageIssue[]): UsageIssue[] => {
+export const mergeIssues = (current: UsageIssue[], next: UsageIssue[]): UsageIssue[] => {
   if (next.length === 0) {
     return current;
   }

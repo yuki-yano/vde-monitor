@@ -14,7 +14,7 @@ export const extractCodexContextLeft = (screenText: string): string | null => {
     return null;
   }
   const normalized = normalizeScreenTextForSearch(screenText);
-  const pattern = /(\d{1,3}(?:\.\d+)?)%\s+((?:context\s+)?left)\b/gi;
+  const pattern = /\bcontext\s+(\d{1,3}(?:\.\d+)?)%\s+left\b/gi;
   let match: RegExpExecArray | null = null;
   let lastLabel: string | null = null;
   while (true) {
@@ -23,10 +23,8 @@ export const extractCodexContextLeft = (screenText: string): string | null => {
       break;
     }
     const value = match[1];
-    const leftLabel = match[2];
-    if (value && leftLabel) {
-      const normalizedLeftLabel = leftLabel.toLowerCase().replace(/\s+/g, " ").trim();
-      lastLabel = `${value}% ${normalizedLeftLabel}`;
+    if (value) {
+      lastLabel = `Context ${value}% left`;
     }
   }
   return lastLabel;

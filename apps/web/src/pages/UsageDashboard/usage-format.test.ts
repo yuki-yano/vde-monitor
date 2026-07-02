@@ -1,10 +1,11 @@
 import type { UsageMetricWindow, UsageProviderSnapshot } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
+import { formatDurationMs } from "@/lib/time-format";
+
 import {
   aggregateBillingBreakdownRows,
   clampPercent,
-  formatDurationMs,
   formatPercent,
   formatResetIn,
   formatTokenCount,

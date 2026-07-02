@@ -5,14 +5,16 @@ import { asNonEmptyString } from "../parse-utils";
 import { createInterface } from "node:readline";
 
 import {
+  type CachedResult,
+  type MutableModelEntry,
   addUsageTokenCounters,
   createEmptyUsageTokenCounters,
   listJsonlFilesRecursively,
   parseFiniteNumber,
-  parseIsoTimestamp,
   resolveAllowedJsonlPath,
   toUsageWindowBoundaries,
 } from "./token-source-utils";
+import { parseIsoToMs } from "../../utils/time";
 import type { UsageTokenModelEntry, UsageTokenSource, UsageTokenUsageResult } from "./types";
 
 export type CodexSessionTokenSourceOptions = {
@@ -25,17 +27,6 @@ type RawUsage = {
   cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
-};
-
-type MutableModelEntry = {
-  today: ReturnType<typeof createEmptyUsageTokenCounters>;
-  last30days: ReturnType<typeof createEmptyUsageTokenCounters>;
-  daily: Map<string, ReturnType<typeof createEmptyUsageTokenCounters>>;
-};
-
-type CachedResult = {
-  fetchedAtMs: number;
-  result: UsageTokenUsageResult;
 };
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
@@ -208,7 +199,7 @@ export class CodexSessionTokenSource implements UsageTokenSource {
           continue;
         }
 
-        const timestampMs = parseIsoTimestamp(record.timestamp);
+        const timestampMs = parseIsoToMs(record.timestamp);
         if (timestampMs == null || timestampMs < boundaries.last30daysStartMs) {
           continue;
         }

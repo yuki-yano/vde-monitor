@@ -16,10 +16,14 @@ import {
   pickPrimaryWindowCandidate,
 } from "./codex-window-selector";
 import { createUsageMetricWindow } from "./pace-calculator";
-import { baseCapabilities, createUsageSnapshotCache, emptyBilling } from "./usage-snapshot-cache";
-
-const SUPPORTED_PROVIDERS = ["codex", "claude"] as const;
-type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number];
+import {
+  SUPPORTED_PROVIDERS,
+  type SupportedProviderId,
+  type UsageSnapshotCore,
+  baseCapabilities,
+  createUsageSnapshotCache,
+  emptyBilling,
+} from "./usage-snapshot-cache";
 
 const DEFAULT_CACHE_TTL_MS = 180_000;
 const DEFAULT_BILLING_CACHE_TTL_MS = 180_000;
@@ -27,8 +31,6 @@ const CODEX_BILLING_CACHE_TTL_MS = 600_000;
 const DEFAULT_BACKOFF_MS = 30_000;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 5_000;
 const DEFAULT_PACE_BALANCED_THRESHOLD_PERCENT = 10;
-
-type UsageSnapshotCore = Omit<UsageProviderSnapshot, "fetchedAt" | "staleAt">;
 
 type UsageDashboardServiceOptions = {
   cacheTtlMs?: number;
@@ -51,7 +53,7 @@ type DashboardOptions = {
 };
 
 const isSupportedProvider = (value: UsageProviderId | undefined): value is SupportedProviderId =>
-  value === "codex" || value === "claude";
+  value != null && (SUPPORTED_PROVIDERS as readonly UsageProviderId[]).includes(value);
 
 const toIsoFromEpoch = (value: number | null): string | null => {
   if (value == null || !Number.isFinite(value)) {

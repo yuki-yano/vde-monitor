@@ -57,6 +57,64 @@ const createTransition = (
   source,
 });
 
+type SendNotificationFn = NonNullable<
+  Parameters<typeof createNotificationDispatcher>[0]["sendNotification"]
+>;
+
+const createDispatcherUnderTest = ({
+  enabledEventTypes = ["pane.waiting_permission", "pane.task_completed"] as ConfigPushEventType[],
+  cooldownMs,
+  nowMs = () => 1000,
+  sendNotification = vi.fn(async () => undefined) as SendNotificationFn,
+  sleep = async () => undefined,
+}: {
+  enabledEventTypes?: ConfigPushEventType[];
+  cooldownMs?: number;
+  nowMs?: () => number;
+  sendNotification?: SendNotificationFn;
+  sleep?: (ms: number) => Promise<void>;
+} = {}) => {
+  const config = {
+    ...configDefaults,
+    token: "token",
+    notifications: {
+      ...configDefaults.notifications,
+      pushEnabled: true,
+      enabledEventTypes,
+    },
+  };
+  const store = createNotificationSubscriptionStore({
+    filePath: createTempStorePath(),
+    createId: () => "sub-1",
+    now: () => "2026-02-20T00:00:00.000Z",
+  });
+  store.upsert({
+    deviceId: "device-1",
+    subscription: {
+      endpoint: "https://push.example/sub/1",
+      expirationTime: null,
+      keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
+    },
+    scope: { paneIds: ["%1"], eventTypes: null },
+    client: { platform: "desktop", standalone: false },
+  });
+  const logger = {
+    log: vi.fn(),
+    warn: vi.fn(),
+  };
+  const dispatcher = createNotificationDispatcher({
+    config,
+    subscriptionStore: store,
+    sendNotification,
+    logger,
+    now: () => "2026-02-20T00:00:01.000Z",
+    nowMs,
+    sleep,
+    ...(cooldownMs !== undefined ? { cooldownMs } : {}),
+  });
+  return { dispatcher, store, logger, sendNotification };
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -67,47 +125,7 @@ afterEach(() => {
 
 describe("createNotificationDispatcher", () => {
   it("sends waiting_permission notifications for eligible subscriptions", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const logger = {
-      log: vi.fn(),
-      warn: vi.fn(),
-    };
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      logger,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-    });
+    const { dispatcher, store, logger, sendNotification } = createDispatcherUnderTest();
 
     await dispatcher.dispatchTransition(
       createTransition(
@@ -124,43 +142,7 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("sends waiting_permission for poll:codex_question_prompt", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
-    });
+    const { dispatcher, sendNotification } = createDispatcherUnderTest();
 
     await dispatcher.dispatchTransition(
       createTransition(
@@ -173,43 +155,7 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("does not send waiting_permission for unsupported poll reason", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
-    });
+    const { dispatcher, sendNotification } = createDispatcherUnderTest();
 
     await dispatcher.dispatchTransition(
       createTransition(createDetail("RUNNING", "poll"), createDetail("WAITING_PERMISSION", "poll")),
@@ -219,39 +165,8 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("follows global enabledEventTypes when scope.eventTypes is null", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
+    const { dispatcher, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
     });
 
     await dispatcher.dispatchTransition(
@@ -265,43 +180,8 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("sends task_completed on RUNNING -> WAITING_INPUT transition", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: ["pane.task_completed"] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const logger = {
-      log: vi.fn(),
-      warn: vi.fn(),
-    };
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      logger,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
+    const { dispatcher, logger, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
     });
 
     await dispatcher.dispatchTransition(
@@ -318,49 +198,14 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("retries transient failures with backoff", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
     const sendNotification = vi
       .fn(async () => undefined)
       .mockRejectedValueOnce({ statusCode: 503 })
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce(undefined) as SendNotificationFn;
     const sleep = vi.fn(async () => undefined);
-    const logger = {
-      log: vi.fn(),
-      warn: vi.fn(),
-    };
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
+    const { dispatcher, logger } = createDispatcherUnderTest({
       sendNotification,
       sleep,
-      logger,
-      now: () => "2026-02-20T00:00:01.000Z",
       nowMs: (() => {
         let current = 1000;
         return () => current++;
@@ -380,45 +225,10 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("removes subscription immediately on 410", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
     const sendNotification = vi.fn(async () => {
       throw { statusCode: 410 };
-    });
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
-    });
+    }) as SendNotificationFn;
+    const { dispatcher, store } = createDispatcherUnderTest({ sendNotification });
 
     await dispatcher.dispatchTransition(
       createTransition(
@@ -432,48 +242,16 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("cleans subscription caches when expired subscription is removed", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
     const sendNotification = vi
       .fn(async () => undefined)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce({ statusCode: 410 })
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce(undefined) as SendNotificationFn;
     let currentNowMs = 1000;
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
+    const { dispatcher, store } = createDispatcherUnderTest({
       sendNotification,
       cooldownMs: 10_000,
-      now: () => "2026-02-20T00:00:01.000Z",
       nowMs: () => currentNowMs,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
     });
 
     await dispatcher.dispatchTransition(
@@ -515,45 +293,12 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("reconciles stale caches after external subscription removal", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-
-    const sendNotification = vi.fn(async () => undefined);
+    const sendNotification = vi.fn(async () => undefined) as SendNotificationFn;
     let currentNowMs = 1000;
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
+    const { dispatcher, store } = createDispatcherUnderTest({
       sendNotification,
       cooldownMs: 60_000,
-      now: () => "2026-02-20T00:00:01.000Z",
       nowMs: () => currentNowMs,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
     });
 
     await dispatcher.dispatchTransition(
@@ -588,43 +333,7 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("skips transitions from restore source and first observation", async () => {
-    const config = {
-      ...configDefaults,
-      token: "token",
-      notifications: {
-        ...configDefaults.notifications,
-        pushEnabled: true,
-        enabledEventTypes: [
-          "pane.waiting_permission",
-          "pane.task_completed",
-        ] as ConfigPushEventType[],
-      },
-    };
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempStorePath(),
-      createId: () => "sub-1",
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert({
-      deviceId: "device-1",
-      subscription: {
-        endpoint: "https://push.example/sub/1",
-        expirationTime: null,
-        keys: { p256dh: "abc_DEF-123", auth: "xyz_DEF-456" },
-      },
-      scope: { paneIds: ["%1"], eventTypes: null },
-      client: { platform: "desktop", standalone: false },
-    });
-    const sendNotification = vi.fn(async () => undefined);
-    const dispatcher = createNotificationDispatcher({
-      config,
-      subscriptionStore: store,
-      sendNotification,
-      now: () => "2026-02-20T00:00:01.000Z",
-      nowMs: () => 1000,
-      sleep: async () => undefined,
-      logger: { log: vi.fn(), warn: vi.fn() },
-    });
+    const { dispatcher, sendNotification } = createDispatcherUnderTest();
 
     await dispatcher.dispatchTransition(
       createTransition(null, createDetail("WAITING_PERMISSION", "hook:permission_prompt"), "poll"),

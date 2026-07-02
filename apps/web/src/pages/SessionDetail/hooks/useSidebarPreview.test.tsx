@@ -28,13 +28,13 @@ const previewCache: Record<
   },
 };
 
-vi.mock("@/features/shared-session-ui/hooks/useSessionPreview", () => ({
-  useSessionPreview: () => ({
-    previewCache,
-    previewLoading: {},
-    previewError: {},
-    prefetchPreview,
-    clearPreviewCache: vi.fn(),
+vi.mock("@/features/shared-session-ui/hooks/useScreenCache", () => ({
+  useScreenCache: () => ({
+    cache: previewCache,
+    loading: {},
+    error: {},
+    fetchScreen: prefetchPreview,
+    clearCache: vi.fn(),
   }),
 }));
 

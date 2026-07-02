@@ -20,8 +20,7 @@ describe("pane-log-manager", () => {
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      pipeSupport: "tmux-pipe",
-      pipeManager,
+      pipeCapability: pipeManager,
       logActivity,
       deps: {
         resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
@@ -60,8 +59,7 @@ describe("pane-log-manager", () => {
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      pipeSupport: "tmux-pipe",
-      pipeManager,
+      pipeCapability: pipeManager,
       logActivity,
       deps: {
         resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
@@ -107,8 +105,7 @@ describe("pane-log-manager", () => {
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      pipeSupport: "tmux-pipe",
-      pipeManager,
+      pipeCapability: pipeManager,
       logActivity,
       deps: {
         resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
@@ -146,8 +143,7 @@ describe("pane-log-manager", () => {
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      pipeSupport: "tmux-pipe",
-      pipeManager,
+      pipeCapability: pipeManager,
       logActivity,
       deps: {
         resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
@@ -167,7 +163,7 @@ describe("pane-log-manager", () => {
     expect(result.pipeConflict).toBe(true);
   });
 
-  it("skips pipe and log registration when pipe support is none", async () => {
+  it("skips pipe and log registration when pipe capability is absent", async () => {
     const pipeManager = {
       hasConflict: vi.fn(() => false),
       attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
@@ -176,8 +172,6 @@ describe("pane-log-manager", () => {
     const manager = createPaneLogManager({
       baseDir: "/base",
       serverKey: "key",
-      pipeSupport: "none",
-      pipeManager,
       logActivity,
       deps: {
         resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),

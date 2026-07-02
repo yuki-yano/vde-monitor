@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildDefaultTitle,
   deriveHookState,
   hostCandidates,
   mapHookToPane,
@@ -19,11 +18,6 @@ describe("monitor-utils", () => {
     expect(normalizeTitle("  hello  ")).toBe("hello");
     expect(normalizeTitle("   ")).toBeNull();
     expect(normalizeTitle(null)).toBeNull();
-  });
-
-  it("builds default titles from path or session name", () => {
-    expect(buildDefaultTitle("/Users/test/project", "1", "main", 2)).toBe("project:w2:1");
-    expect(buildDefaultTitle(null, "2", "dev", 0)).toBe("dev:w0:2");
   });
 
   it("derives hook state from events", () => {

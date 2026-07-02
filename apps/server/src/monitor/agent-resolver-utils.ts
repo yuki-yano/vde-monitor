@@ -44,4 +44,4 @@ export const isShellCommand = (command: string | null | undefined) => {
   return shellCommandNames.has(binary);
 };
 
-export const normalizeTty = (tty: string) => tty.replace(/^\/dev\//, "");
+export const stripDevPrefix = (tty: string) => tty.replace(/^\/dev\//, "");

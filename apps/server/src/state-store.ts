@@ -214,15 +214,3 @@ export const restorePersistedState = (): RestoredPersistedState => {
     repoNotes: restorePersistedRepoNotesMap(state),
   };
 };
-
-export const restoreSessions = () => {
-  return restorePersistedState().sessions;
-};
-
-export const restoreTimeline = (): PersistedTimelineMap => {
-  return restorePersistedState().timeline;
-};
-
-export const restoreRepoNotes = (): PersistedRepoNotesMap => {
-  return restorePersistedState().repoNotes;
-};

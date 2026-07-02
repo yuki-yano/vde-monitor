@@ -1,7 +1,7 @@
 import { execa } from "execa";
 
 import { setMapEntryWithLimit } from "../cache";
-import { type AgentType, buildAgent, normalizeTty } from "./agent-resolver-utils";
+import { type AgentType, buildAgent, stripDevPrefix } from "./agent-resolver-utils";
 
 const runPs = async (args: string[], timeout: number) =>
   execa("ps", args, { reject: false, timeout });
@@ -165,7 +165,7 @@ export const getAgentFromTty = async (tty: string | null) => {
   if (!tty) {
     return "unknown" as const;
   }
-  const normalized = normalizeTty(tty);
+  const normalized = stripDevPrefix(tty);
   const cached = ttyAgentCache.get(normalized);
   const nowMs = Date.now();
   if (cached && nowMs - cached.at < processCacheTtlMs) {

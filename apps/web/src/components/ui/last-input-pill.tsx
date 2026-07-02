@@ -1,11 +1,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-
-type LastInputTone = {
-  pill: string;
-  dot: string;
-};
+import type { LastInputTone } from "@/lib/session-format";
 
 const sizeClass = {
   md: "px-3 py-1 text-xs",

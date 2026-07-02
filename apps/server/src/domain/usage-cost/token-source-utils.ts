@@ -2,7 +2,18 @@ import type { Dirent } from "node:fs";
 import { readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 
-import type { UsageTokenCounters } from "./types";
+import type { UsageTokenCounters, UsageTokenUsageResult } from "./types";
+
+export type CachedResult = {
+  fetchedAtMs: number;
+  result: UsageTokenUsageResult;
+};
+
+export type MutableModelEntry = {
+  today: UsageTokenCounters;
+  last30days: UsageTokenCounters;
+  daily: Map<string, UsageTokenCounters>;
+};
 
 export const createEmptyUsageTokenCounters = (): UsageTokenCounters => ({
   inputTokens: 0,
@@ -10,14 +21,6 @@ export const createEmptyUsageTokenCounters = (): UsageTokenCounters => ({
   cacheReadInputTokens: 0,
   cacheCreationInputTokens: 0,
   totalTokens: 0,
-});
-
-export const cloneUsageTokenCounters = (value: UsageTokenCounters): UsageTokenCounters => ({
-  inputTokens: value.inputTokens,
-  outputTokens: value.outputTokens,
-  cacheReadInputTokens: value.cacheReadInputTokens,
-  cacheCreationInputTokens: value.cacheCreationInputTokens,
-  totalTokens: value.totalTokens,
 });
 
 export const addUsageTokenCounters = (target: UsageTokenCounters, delta: UsageTokenCounters) => {
@@ -45,14 +48,6 @@ export const toUsageWindowBoundaries = (now: Date) => {
     todayStartMs,
     last30daysStartMs,
   };
-};
-
-export const parseIsoTimestamp = (value: unknown): number | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
 };
 
 export const parseFiniteNumber = (value: unknown) =>

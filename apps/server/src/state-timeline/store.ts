@@ -16,9 +16,9 @@ import {
   type SessionTimelinePersistedEvents,
   type TimelineEvent,
   normalizeRestoredPaneEvents,
-  parseIso,
   toIso,
 } from "./timeline-restore";
+import { parseIsoToMs } from "../utils/time";
 
 const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
@@ -116,7 +116,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
   };
 
   const resolveAtMs = (at: string | undefined, fallbackMs: number) => {
-    const parsed = parseIso(at);
+    const parsed = parseIsoToMs(at);
     return parsed == null ? fallbackMs : parsed;
   };
 
@@ -140,7 +140,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       if (!event.endedAt) {
         return true;
       }
-      const endedAtMs = parseIso(event.endedAt);
+      const endedAtMs = parseIsoToMs(event.endedAt);
       if (endedAtMs == null) {
         return true;
       }
@@ -168,8 +168,8 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
     let atMs = resolveAtMs(at, nowMs);
     const last = events.at(-1);
     if (last) {
-      const lastStartMs = parseIso(last.startedAt) ?? atMs;
-      const lastBoundaryMs = parseIso(last.endedAt) ?? lastStartMs;
+      const lastStartMs = parseIsoToMs(last.startedAt) ?? atMs;
+      const lastBoundaryMs = parseIsoToMs(last.endedAt) ?? lastStartMs;
       if (atMs < lastBoundaryMs) {
         atMs = lastBoundaryMs;
       }
@@ -214,7 +214,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       return;
     }
     const nowMs = now().getTime();
-    const startedAtMs = parseIso(last.startedAt) ?? nowMs;
+    const startedAtMs = parseIsoToMs(last.startedAt) ?? nowMs;
     const atMs = resolveAtMs(at, nowMs);
     last.endedAt = toIso(Math.max(startedAtMs, atMs));
     prunePane(paneId, nowMs);
@@ -238,7 +238,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
           event,
           rangeStartMs,
           nowMs,
-          parseIso,
+          parseIso: parseIsoToMs,
         });
         if (!interval) {
           return null;
@@ -258,8 +258,8 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
       })
       .filter((event): event is SessionStateTimelineItem => event != null)
       .sort((a, b) => {
-        const aMs = parseIso(a.startedAt) ?? 0;
-        const bMs = parseIso(b.startedAt) ?? 0;
+        const aMs = parseIsoToMs(a.startedAt) ?? 0;
+        const bMs = parseIsoToMs(b.startedAt) ?? 0;
         return bMs - aMs;
       });
 
@@ -322,7 +322,7 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
             event,
             rangeStartMs,
             nowMs,
-            parseIso,
+            parseIso: parseIsoToMs,
           }),
         )
         .filter((item): item is NonNullable<typeof item> => item != null);
@@ -365,8 +365,8 @@ export const createSessionTimelineStore = (options: StoreOptions = {}) => {
         };
       })
       .sort((left, right) => {
-        const leftMs = parseIso(left.startedAt) ?? 0;
-        const rightMs = parseIso(right.startedAt) ?? 0;
+        const leftMs = parseIsoToMs(left.startedAt) ?? 0;
+        const rightMs = parseIsoToMs(right.startedAt) ?? 0;
         return rightMs - leftMs;
       })
       .slice(0, resolvedLimit);

@@ -43,6 +43,58 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     }
   });
 
+  const setupStaleCredentials = () => {
+    mocks.readFile.mockResolvedValue(
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "file-stale-token",
+        },
+      }),
+    );
+  };
+
+  const setupFetchMock401Then200 = (utilization: { fiveHour: number; sevenDay: number }) => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "authentication_error", message: "Invalid bearer token" },
+          }),
+          {
+            status: 401,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            five_hour: {
+              utilization: utilization.fiveHour,
+              resets_at: "2026-02-25T10:00:00.000Z",
+            },
+            seven_day: {
+              utilization: utilization.sevenDay,
+              resets_at: "2026-03-01T10:00:00.000Z",
+            },
+            seven_day_sonnet: null,
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
   it("reads ~/.claude/.credentials.json first and uses its token for usage API", async () => {
     mocks.readFile.mockResolvedValue(
       JSON.stringify({
@@ -89,16 +141,10 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
 
   it("falls back to Keychain when .credentials.json token fails and saves retrieved credentials", async () => {
     setProcessPlatform("darwin");
-    mocks.readFile.mockResolvedValue(
-      JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "file-stale-token",
-        },
-      }),
-    );
+    setupStaleCredentials();
 
     const keychainPayload =
-      `\u0007"claudeAiOauth":${JSON.stringify({
+      `"claudeAiOauth":${JSON.stringify({
         accessToken: "keychain-token",
         refreshToken: "keychain-refresh-token",
         expiresAt: 1_773_000_000_000,
@@ -106,44 +152,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
       })},` + `"mcpOAuth":{"cloudflare-browser":{"resource_name":0`;
     mocks.execa.mockImplementation(async () => ({ stdout: toHex(keychainPayload), stderr: "" }));
 
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            type: "error",
-            error: { type: "authentication_error", message: "Invalid bearer token" },
-          }),
-          {
-            status: 401,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            five_hour: {
-              utilization: 30,
-              resets_at: "2026-02-25T10:00:00.000Z",
-            },
-            seven_day: {
-              utilization: 40,
-              resets_at: "2026-03-01T10:00:00.000Z",
-            },
-            seven_day_sonnet: null,
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = setupFetchMock401Then200({ fiveHour: 30, sevenDay: 40 });
 
     const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
 
@@ -167,13 +176,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
 
   it("extracts keychain oauth credentials from json array payload", async () => {
     setProcessPlatform("darwin");
-    mocks.readFile.mockResolvedValue(
-      JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "file-stale-token",
-        },
-      }),
-    );
+    setupStaleCredentials();
 
     mocks.execa.mockImplementation(async () => ({
       stdout: JSON.stringify([
@@ -188,44 +191,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
       stderr: "",
     }));
 
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            type: "error",
-            error: { type: "authentication_error", message: "Invalid bearer token" },
-          }),
-          {
-            status: 401,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            five_hour: {
-              utilization: 31,
-              resets_at: "2026-02-25T10:00:00.000Z",
-            },
-            seven_day: {
-              utilization: 41,
-              resets_at: "2026-03-01T10:00:00.000Z",
-            },
-            seven_day_sonnet: null,
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = setupFetchMock401Then200({ fiveHour: 31, sevenDay: 41 });
 
     const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
 
@@ -243,13 +209,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
 
   it("extracts keychain oauth credentials from embedded balanced json and normalizes epoch seconds", async () => {
     setProcessPlatform("darwin");
-    mocks.readFile.mockResolvedValue(
-      JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "file-stale-token",
-        },
-      }),
-    );
+    setupStaleCredentials();
 
     const embeddedCredential = JSON.stringify({
       accessToken: "keychain-embedded-token",
@@ -262,44 +222,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
       stderr: "",
     }));
 
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            type: "error",
-            error: { type: "authentication_error", message: "Invalid bearer token" },
-          }),
-          {
-            status: 401,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            five_hour: {
-              utilization: 32,
-              resets_at: "2026-02-25T10:00:00.000Z",
-            },
-            seven_day: {
-              utilization: 42,
-              resets_at: "2026-03-01T10:00:00.000Z",
-            },
-            seven_day_sonnet: null,
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = setupFetchMock401Then200({ fiveHour: 32, sevenDay: 42 });
 
     const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
 
@@ -320,13 +243,7 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
 
   it("discovers suffixed Claude keychain service via dump-keychain and uses it", async () => {
     setProcessPlatform("darwin");
-    mocks.readFile.mockResolvedValue(
-      JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "file-stale-token",
-        },
-      }),
-    );
+    setupStaleCredentials();
 
     const keychainDump = `class: "genp"
 attributes:
@@ -362,44 +279,7 @@ attributes:
       throw new Error("service not found");
     });
 
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            type: "error",
-            error: { type: "authentication_error", message: "Invalid bearer token" },
-          }),
-          {
-            status: 401,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            five_hour: {
-              utilization: 12,
-              resets_at: "2026-03-01T10:00:00.000Z",
-            },
-            seven_day: {
-              utilization: 34,
-              resets_at: "2026-03-08T10:00:00.000Z",
-            },
-            seven_day_sonnet: null,
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = setupFetchMock401Then200({ fiveHour: 12, sevenDay: 34 });
 
     const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
 
@@ -431,13 +311,7 @@ attributes:
 
   it("refreshes with Keychain refresh token when Keychain access token is invalid", async () => {
     setProcessPlatform("darwin");
-    mocks.readFile.mockResolvedValue(
-      JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "file-stale-token",
-        },
-      }),
-    );
+    setupStaleCredentials();
     mocks.execa.mockImplementation(async () => ({
       stdout: JSON.stringify({
         claudeAiOauth: {

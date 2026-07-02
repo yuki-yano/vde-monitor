@@ -3,23 +3,23 @@ import { describe, expect, it } from "vitest";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
 describe("extractCodexContextLeft", () => {
-  it("keeps extracting the latest 'context left' label", () => {
-    const input = "91% context left\n\u001b[32m74% context left\u001b[0m";
+  it("keeps extracting the latest 'Context % left' label", () => {
+    const input = "Context 91% left\n\u001b[32mContext 74% left\u001b[0m";
 
-    expect(extractCodexContextLeft(input)).toBe("74% context left");
+    expect(extractCodexContextLeft(input)).toBe("Context 74% left");
   });
 
-  it("extracts the latest '% left' label even when it is not at line end", () => {
+  it("ignores plain '% left' labels", () => {
     const input =
       "❯ prompt 78% left | model info\nstatusline: cpu=9% mem=63% context | tokens 43% left | mode";
 
-    expect(extractCodexContextLeft(input)).toBe("43% left");
+    expect(extractCodexContextLeft(input)).toBeNull();
   });
 
-  it("prefers the latest match when 'context left' and 'left' are mixed", () => {
-    const input = "81% context left\nstatus 49% left";
+  it("prefers the latest 'Context % left' match over a later plain '% left' label", () => {
+    const input = "Context 81% left\nstatus 49% left";
 
-    expect(extractCodexContextLeft(input)).toBe("49% left");
+    expect(extractCodexContextLeft(input)).toBe("Context 81% left");
   });
 
   it("returns null when no context-left style label exists", () => {

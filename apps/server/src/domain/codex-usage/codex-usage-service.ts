@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { isRecord } from "../parse-utils";
+import { asNumber, isRecord } from "../parse-utils";
 
 import { UsageProviderError } from "../usage-shared/usage-error";
 import { type CodexAppServerPort, defaultCodexAppServerPort } from "./codex-app-server-process";
@@ -50,19 +50,6 @@ type FetchCodexRateLimitsOptions = {
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 
-const asFiniteNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-};
-
 const asNullableString = (value: unknown): string | null => {
   if (value == null) {
     return null;
@@ -77,12 +64,12 @@ const parseWindow = (value: unknown): CodexRateLimitWindow | null => {
   if (!isRecord(value)) {
     return null;
   }
-  const usedPercent = asFiniteNumber(value.usedPercent);
+  const usedPercent = asNumber(value.usedPercent);
   if (usedPercent == null) {
     return null;
   }
-  const windowDurationMins = asFiniteNumber(value.windowDurationMins);
-  const resetsAt = asFiniteNumber(value.resetsAt);
+  const windowDurationMins = asNumber(value.windowDurationMins);
+  const resetsAt = asNumber(value.resetsAt);
   return {
     usedPercent,
     windowDurationMins: windowDurationMins == null ? null : Math.round(windowDurationMins),

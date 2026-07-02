@@ -2,17 +2,51 @@ import { Link } from "@tanstack/react-router";
 import { memo } from "react";
 
 import { FilterToggleGroup, TagPill } from "@/components/ui";
-import type {
-  SessionSidebarListSectionViewModel,
-  SessionSidebarMainSectionsViewModel,
-} from "@/features/shared-session-ui/hooks/useSessionSidebarMainSectionsViewModel";
 import {
   DEFAULT_SESSION_LIST_FILTER,
   SESSION_LIST_FILTER_VALUES,
   type SessionListFilter,
 } from "@/features/shared-session-ui/model/session-list-filters";
+import type { LaunchConfig, WorktreeList } from "@vde-monitor/shared";
+
+import type { SidebarRepoGroup } from "../hooks/useSessionSidebarGroups";
+import type { LaunchAgentHandler } from "@/state/launch-agent-options";
 
 import { SessionSidebarGroupList } from "./SessionSidebarGroupList";
+
+export type SessionSidebarListSectionViewModel = {
+  onListScroll: () => void;
+  sidebarGroups: SidebarRepoGroup[];
+  sidebarWidth?: number;
+  nowMs: number;
+  currentPaneId?: string | null;
+  focusPendingPaneIds: Set<string>;
+  launchPendingSessions: Set<string>;
+  launchConfig: LaunchConfig;
+  requestWorktrees: (paneId: string) => Promise<WorktreeList>;
+  onHoverStart: (paneId: string) => void;
+  onHoverEnd: (paneId: string) => void;
+  onFocus: (paneId: string) => void;
+  onBlur: (paneId: string) => void;
+  onSelect: (paneId: string) => void;
+  onFocusPane: (paneId: string) => Promise<void> | void;
+  onLaunchAgentInSession: LaunchAgentHandler;
+  onTouchSession: (paneId: string) => void;
+  onTouchRepoPin: (repoRoot: string | null) => void;
+  registerItemRef: (paneId: string, node: HTMLDivElement | null) => void;
+};
+
+export type SessionSidebarMainSectionsViewModel = {
+  header: {
+    totalSessions: number;
+    repoCount: number;
+  };
+  filter: {
+    value: SessionListFilter;
+    onChange: (next: string) => void;
+  };
+  list: SessionSidebarListSectionViewModel;
+};
 
 type SessionSidebarHeaderProps = {
   totalSessions: number;

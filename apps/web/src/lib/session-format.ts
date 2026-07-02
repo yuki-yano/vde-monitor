@@ -109,7 +109,7 @@ export const formatRelativeTime = (value: string | null, nowMs: number) => {
   return `${diffDay}d ago`;
 };
 
-type LastInputTone = {
+export type LastInputTone = {
   pill: string;
   dot: string;
 };

@@ -34,6 +34,8 @@ type UseSessionDetailScreenControlsArgs = {
   killPane: (paneId: string) => Promise<CommandResponse>;
   killWindow: (paneId: string) => Promise<CommandResponse>;
   uploadImageAttachment?: (paneId: string, file: File) => Promise<ImageAttachment>;
+  apiBaseUrl?: string | null;
+  token?: string | null;
 };
 
 export const useSessionDetailScreenControls = ({
@@ -50,6 +52,8 @@ export const useSessionDetailScreenControls = ({
   killPane,
   killWindow,
   uploadImageAttachment,
+  apiBaseUrl,
+  token,
 }: UseSessionDetailScreenControlsArgs) => {
   const screen = useSessionScreen({
     paneId,
@@ -59,6 +63,8 @@ export const useSessionDetailScreenControls = ({
     sessionAgent,
     highlightCorrections,
     requestScreen,
+    apiBaseUrl,
+    token,
   });
 
   const controls = useSessionControls({

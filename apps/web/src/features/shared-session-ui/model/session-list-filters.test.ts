@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { isSessionListFilter, matchesSessionListFilter } from "./sessionListFilters";
+import { isSessionListFilter, matchesSessionListFilter } from "./session-list-filters";
 
-describe("sessionListFilters", () => {
+describe("session-list-filters", () => {
   it("recognizes EDITOR filter value", () => {
     expect(isSessionListFilter("EDITOR")).toBe(true);
   });

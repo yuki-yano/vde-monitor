@@ -29,9 +29,6 @@ export const useUsageTimelineData = ({
     useState<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
   const [compactTimeline, setCompactTimeline] = useState(true);
   const timelineRequestIdRef = useRef(0);
-  // Ref mirror of timelineRange so that polling ticks always read the current value
-  // without becoming stale dependencies of the polling callbacks.
-  const timelineRangeRef = useRef<SessionStateTimelineRange>(TIMELINE_DEFAULT_RANGE);
 
   const loadTimeline = useCallback(
     async ({
@@ -47,7 +44,7 @@ export const useUsageTimelineData = ({
         setTimelineError(API_ERROR_MESSAGES.missingToken);
         return;
       }
-      const nextRange = range ?? timelineRangeRef.current;
+      const nextRange = range ?? timelineRange;
       if (!silent) {
         setTimelineLoading(true);
       }
@@ -69,13 +66,8 @@ export const useUsageTimelineData = ({
         }
       }
     },
-    [canRequest, requestUsageGlobalTimeline, resolveErrorMessage],
+    [canRequest, requestUsageGlobalTimeline, resolveErrorMessage, timelineRange],
   );
-
-  // Keep the ref in sync so that polling callbacks always read the latest range.
-  useEffect(() => {
-    timelineRangeRef.current = timelineRange;
-  }, [timelineRange]);
 
   // Reload whenever the user switches range.
   useEffect(() => {

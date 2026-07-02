@@ -63,6 +63,30 @@ const createSession = (
   ...overrides,
 });
 
+const setupNetworkErrorRoute = (path: string) => {
+  server.use(
+    http.post(pathToUrl(path), () => {
+      return HttpResponse.error();
+    }),
+  );
+};
+
+const expectInternalError = (
+  response: { ok: boolean; error?: { code: string; message: string } },
+  mocks: {
+    onConnectionIssue: ReturnType<typeof vi.fn>;
+    handleSessionMissing: ReturnType<typeof vi.fn>;
+    onSessionRemoved: ReturnType<typeof vi.fn>;
+  },
+) => {
+  expect(response.ok).toBe(false);
+  expect(response.error?.code).toBe("INTERNAL");
+  expect(response.error?.message).toEqual(expect.any(String));
+  expect(mocks.onConnectionIssue).toHaveBeenCalledWith(response.error?.message);
+  expect(mocks.handleSessionMissing).not.toHaveBeenCalled();
+  expect(mocks.onSessionRemoved).not.toHaveBeenCalled();
+};
+
 describe("session-api-request-executors", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -251,11 +275,7 @@ describe("session-api-request-executors", () => {
     const onConnectionIssue = vi.fn();
     const handleSessionMissing = vi.fn();
     const onSessionRemoved = vi.fn();
-    server.use(
-      http.post(pathToUrl("/tests/command-network-error"), () => {
-        return HttpResponse.error();
-      }),
-    );
+    setupNetworkErrorRoute("/tests/command-network-error");
 
     const response = await requestCommand({
       paneId: "pane-1",
@@ -269,12 +289,7 @@ describe("session-api-request-executors", () => {
       onSessionRemoved,
     });
 
-    expect(response.ok).toBe(false);
-    expect(response.error?.code).toBe("INTERNAL");
-    expect(response.error?.message).toEqual(expect.any(String));
-    expect(onConnectionIssue).toHaveBeenCalledWith(response.error?.message);
-    expect(handleSessionMissing).not.toHaveBeenCalled();
-    expect(onSessionRemoved).not.toHaveBeenCalled();
+    expectInternalError(response, { onConnectionIssue, handleSessionMissing, onSessionRemoved });
   });
 
   it("requestLaunchCommand returns launch payload on success", async () => {
@@ -324,11 +339,7 @@ describe("session-api-request-executors", () => {
   it("requestLaunchCommand returns INTERNAL response when request fails", async () => {
     const ensureToken = vi.fn();
     const onConnectionIssue = vi.fn();
-    server.use(
-      http.post(pathToUrl("/tests/launch-command-network-error"), () => {
-        return HttpResponse.error();
-      }),
-    );
+    setupNetworkErrorRoute("/tests/launch-command-network-error");
 
     const response = await requestLaunchCommand({
       request: postRequestWithSignal("/tests/launch-command-network-error"),
@@ -418,11 +429,7 @@ describe("session-api-request-executors", () => {
     const onConnectionIssue = vi.fn();
     const handleSessionMissing = vi.fn();
     const onSessionRemoved = vi.fn();
-    server.use(
-      http.post(pathToUrl("/tests/screen-network-error"), () => {
-        return HttpResponse.error();
-      }),
-    );
+    setupNetworkErrorRoute("/tests/screen-network-error");
 
     const response = await requestScreenResponse({
       paneId: "pane-1",
@@ -436,12 +443,7 @@ describe("session-api-request-executors", () => {
       buildApiError: (code, message) => ({ code, message }),
     });
 
-    expect(response.ok).toBe(false);
-    expect(response.error?.code).toBe("INTERNAL");
-    expect(response.error?.message).toEqual(expect.any(String));
-    expect(onConnectionIssue).toHaveBeenCalledWith(response.error?.message);
-    expect(handleSessionMissing).not.toHaveBeenCalled();
-    expect(onSessionRemoved).not.toHaveBeenCalled();
+    expectInternalError(response, { onConnectionIssue, handleSessionMissing, onSessionRemoved });
   });
 
   it("requestImageAttachment returns parsed attachment payload", async () => {
