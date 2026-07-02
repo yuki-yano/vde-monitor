@@ -8,6 +8,7 @@ import { resolveGitRepoContext, shouldReuseGitCache } from "./git-query-context"
 import { runGit } from "./git-utils";
 
 const LIST_CACHE_MAX_ENTRIES = 50;
+const STATS_CACHE_MAX_ENTRIES = 1000;
 const STRICT_GIT_OPTIONS = {
   timeoutMs: 10_000,
   maxBuffer: 1_000_000,
@@ -15,6 +16,8 @@ const STRICT_GIT_OPTIONS = {
 } as const;
 
 const listCache = new Map<string, { at: number; list: BranchList }>();
+// Stats for a (base sha, branch sha) pair never change, so entries need no TTL.
+const statsCache = new Map<string, BranchStats>();
 
 export class GitCommandError extends Error {}
 
@@ -35,6 +38,7 @@ export type ParsedBranchRef = {
   name: string;
   committedAt: string | null;
   current: boolean;
+  sha: string | null;
 };
 
 export const parseForEachRefBranches = (output: string): ParsedBranchRef[] =>
@@ -43,7 +47,7 @@ export const parseForEachRefBranches = (output: string): ParsedBranchRef[] =>
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .flatMap((line) => {
-      const [name, committedAt, headMarker] = line.split("\x00");
+      const [name, committedAt, headMarker, sha] = line.split("\x00");
       if (!name) {
         return [];
       }
@@ -52,6 +56,7 @@ export const parseForEachRefBranches = (output: string): ParsedBranchRef[] =>
           name,
           committedAt: committedAt && committedAt.length > 0 ? committedAt : null,
           current: headMarker === "*",
+          sha: sha && sha.length > 0 ? sha : null,
         },
       ];
     });
@@ -197,7 +202,7 @@ const resolveBranchStats = async (
   repoRoot: string,
   baseBranch: string,
   branch: string,
-): Promise<BranchStats> => {
+): Promise<BranchStats | null> => {
   try {
     const [aheadBehindOutput, nameStatusOutput, numstatOutput] = await Promise.all([
       runGit(repoRoot, ["rev-list", "--left-right", "--count", `${baseBranch}...${branch}`], {
@@ -213,8 +218,31 @@ const resolveBranchStats = async (
       ...parseBranchDiffStats(nameStatusOutput, numstatOutput),
     };
   } catch {
+    return null;
+  }
+};
+
+const resolveBranchStatsCached = async (
+  repoRoot: string,
+  baseBranch: string,
+  ref: ParsedBranchRef,
+  baseSha: string | null,
+): Promise<BranchStats> => {
+  const cacheKey = baseSha && ref.sha ? `${repoRoot}\0${baseSha}\0${ref.sha}` : null;
+  if (cacheKey) {
+    const cached = statsCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+  const stats = await resolveBranchStats(repoRoot, baseBranch, ref.name);
+  if (!stats) {
     return buildEmptyBranchStats();
   }
+  if (cacheKey) {
+    setMapEntryWithLimit(statsCache, cacheKey, stats, STATS_CACHE_MAX_ENTRIES);
+  }
+  return stats;
 };
 
 const buildEmptyBranchList = (): BranchList => ({
@@ -255,7 +283,7 @@ export const fetchBranchList = async (
       runGit(repoRoot, [
         "for-each-ref",
         "refs/heads",
-        "--format=%(refname:short)%00%(committerdate:iso-strict)%00%(HEAD)",
+        "--format=%(refname:short)%00%(committerdate:iso-strict)%00%(HEAD)%00%(objectname)",
       ]),
       runGit(repoRoot, ["worktree", "list", "--porcelain"]),
       resolveDefaultBranch(repoRoot),
@@ -266,6 +294,9 @@ export const fetchBranchList = async (
     const mergedNames = defaultBranch
       ? parseMergedBranchNames(await runGit(repoRoot, ["branch", "--merged", defaultBranch]))
       : new Set<string>();
+    const baseSha = defaultBranch
+      ? (refs.find((ref) => ref.name === defaultBranch)?.sha ?? null)
+      : null;
     const branches = await mapWithConcurrencyLimit(
       refs,
       8,
@@ -274,7 +305,7 @@ export const fetchBranchList = async (
         const stats =
           isDefault || !defaultBranch
             ? buildEmptyBranchStats()
-            : await resolveBranchStats(repoRoot, defaultBranch, ref.name);
+            : await resolveBranchStatsCached(repoRoot, defaultBranch, ref, baseSha);
         return {
           name: ref.name,
           current: ref.current,

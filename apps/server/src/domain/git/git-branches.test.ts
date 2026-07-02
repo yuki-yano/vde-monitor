@@ -8,7 +8,17 @@ vi.mock("./git-utils", () => ({
   runGit: mocks.runGit,
 }));
 
+vi.mock("./git-query-context", () => ({
+  resolveGitRepoContext: vi.fn(async () => ({ repoRoot: "/repo" })),
+  shouldReuseGitCache: () => false,
+}));
+
+vi.mock("./branch-pr-status", () => ({
+  fetchBranchPrMap: vi.fn(async () => null),
+}));
+
 import {
+  fetchBranchList,
   parseAheadBehindOutput,
   parseBranchDiffStats,
   parseForEachRefBranches,
@@ -23,15 +33,27 @@ afterEach(() => {
 });
 
 describe("parseForEachRefBranches", () => {
-  it("parses name, committedAt, and HEAD marker", () => {
+  it("parses name, committedAt, HEAD marker, and sha", () => {
     const output = [
-      "main\x002026-07-01T10:00:00+09:00\x00*",
-      "feature/foo\x002026-06-30T09:00:00+09:00\x00 ",
+      "main\x002026-07-01T10:00:00+09:00\x00*\x00aaaa111",
+      "feature/foo\x002026-06-30T09:00:00+09:00\x00 \x00bbbb222",
       "",
     ].join("\n");
     expect(parseForEachRefBranches(output)).toEqual([
-      { name: "main", committedAt: "2026-07-01T10:00:00+09:00", current: true },
-      { name: "feature/foo", committedAt: "2026-06-30T09:00:00+09:00", current: false },
+      { name: "main", committedAt: "2026-07-01T10:00:00+09:00", current: true, sha: "aaaa111" },
+      {
+        name: "feature/foo",
+        committedAt: "2026-06-30T09:00:00+09:00",
+        current: false,
+        sha: "bbbb222",
+      },
+    ]);
+  });
+
+  it("parses lines without a sha field as sha null", () => {
+    const output = "main\x002026-07-01T10:00:00+09:00\x00*";
+    expect(parseForEachRefBranches(output)).toEqual([
+      { name: "main", committedAt: "2026-07-01T10:00:00+09:00", current: true, sha: null },
     ]);
   });
 
@@ -160,6 +182,55 @@ describe("parseBranchDiffStats", () => {
     expect(stats.fileChanges).toEqual({ add: 0, m: 0, d: 0 });
     expect(stats.additions).toBe(0);
     expect(stats.deletions).toBe(0);
+  });
+});
+
+describe("fetchBranchList", () => {
+  it("reuses sha-keyed stats and skips diff/rev-list git calls on refetch", async () => {
+    const refsOutput = [
+      "main\x002026-07-01T10:00:00+09:00\x00*\x00basesha1",
+      "feature/foo\x002026-06-30T09:00:00+09:00\x00 \x00branchsha1",
+    ].join("\n");
+    mocks.runGit.mockImplementation((_cwd: string, args: string[]) => {
+      const command = args.join(" ");
+      if (args[0] === "for-each-ref") {
+        return Promise.resolve(refsOutput);
+      }
+      if (args[0] === "worktree") {
+        return Promise.resolve("");
+      }
+      if (command === "symbolic-ref --short refs/remotes/origin/HEAD") {
+        return Promise.resolve("origin/main\n");
+      }
+      if (args[0] === "branch") {
+        return Promise.resolve("  main\n");
+      }
+      if (args[0] === "rev-list") {
+        return Promise.resolve("0\t2");
+      }
+      if (command.startsWith("diff --name-status")) {
+        return Promise.resolve("A\tfile.ts");
+      }
+      if (args[0] === "diff") {
+        return Promise.resolve("2\t0\tfile.ts");
+      }
+      throw new Error(`unexpected args: ${command}`);
+    });
+
+    const first = await fetchBranchList("/repo", { force: true });
+    const second = await fetchBranchList("/repo", { force: true });
+
+    const countCalls = (name: string) =>
+      mocks.runGit.mock.calls.filter((call) => (call[1] as string[])[0] === name).length;
+    expect(countCalls("for-each-ref")).toBe(2);
+    expect(countCalls("rev-list")).toBe(1);
+    expect(countCalls("diff")).toBe(2);
+
+    const featureFirst = first.entries.find((entry) => entry.name === "feature/foo");
+    const featureSecond = second.entries.find((entry) => entry.name === "feature/foo");
+    expect(featureFirst?.ahead).toBe(2);
+    expect(featureFirst?.fileChanges).toEqual({ add: 1, m: 0, d: 0 });
+    expect(featureSecond).toEqual(featureFirst);
   });
 });
 

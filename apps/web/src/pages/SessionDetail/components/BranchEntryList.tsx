@@ -68,23 +68,6 @@ export const BranchEntryList = ({
                 className="min-w-0 flex-1 text-left"
               />
             </span>
-            {prLinkUrl ? (
-              <a
-                href={prLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open pull request for ${entry.name}`}
-                title="Open pull request on GitHub"
-                className="focus-visible:ring-latte-lavender/30 group relative -m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2"
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                <span className="border-latte-surface2/70 text-latte-subtext0 group-hover:border-latte-lavender/60 group-hover:text-latte-text inline-flex h-5 w-5 items-center justify-center rounded-full border transition">
-                  <Github className="h-3 w-3" />
-                </span>
-              </a>
-            ) : null}
             {!entry.isDefault ? (
               <span className="flex shrink-0 items-center gap-1">
                 {fileChangeCategories.map((item) => (
@@ -171,6 +154,20 @@ export const BranchEntryList = ({
             ) : null}
           </span>
         </button>
+        {prLinkUrl ? (
+          <a
+            href={prLinkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open pull request for ${entry.name}`}
+            title="Open pull request on GitHub"
+            className="focus-visible:ring-latte-lavender/30 group relative -m-1.5 mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full focus-visible:outline-none focus-visible:ring-2"
+          >
+            <span className="border-latte-surface2/70 text-latte-subtext0 group-hover:border-latte-lavender/60 group-hover:text-latte-text inline-flex h-5 w-5 items-center justify-center rounded-full border transition">
+              <Github className="h-3 w-3" />
+            </span>
+          </a>
+        ) : null}
         <span className="flex shrink-0 items-center gap-1 self-start">
           {isVirtualSelected ? (
             <Check className="text-latte-lavender mt-0.5 h-3.5 w-3.5 shrink-0" />
