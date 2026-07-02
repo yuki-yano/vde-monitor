@@ -167,6 +167,19 @@ const trackRepoRoot = (cwd: string, repoRoot: string | null) => {
   ghLookupAt.delete(cwd);
 };
 
+export const clearVwWorktreeSnapshotCache = (cwd: string | null) => {
+  const normalizedCwd = normalizeAbsolutePath(cwd);
+  if (!normalizedCwd) {
+    return;
+  }
+  const repoRoot = repoRootByCwd.get(normalizedCwd) ?? normalizedCwd;
+  for (const key of vwSnapshotCache.keys()) {
+    if (key === normalizedCwd || key === repoRoot || repoRootByCwd.get(key) === repoRoot) {
+      vwSnapshotCache.delete(key);
+    }
+  }
+};
+
 const buildCachedStateByBranch = (entries: VwWorktreeEntry[]) => {
   const byBranch = new Map<
     string,

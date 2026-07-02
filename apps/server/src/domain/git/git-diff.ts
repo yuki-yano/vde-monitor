@@ -25,6 +25,15 @@ const fileCache = new Map<string, { at: number; rev: string; file: DiffFile }>()
 const createRevision = (statusOutput: string) =>
   crypto.createHash("sha1").update(statusOutput).digest("hex");
 
+export const clearDiffCachesForRepo = (repoRoot: string) => {
+  summaryCache.delete(repoRoot);
+  for (const key of fileCache.keys()) {
+    if (key.startsWith(`${repoRoot}:`)) {
+      fileCache.delete(key);
+    }
+  }
+};
+
 type ParsedStatusToken = {
   statusCode: string;
   rawPath: string;

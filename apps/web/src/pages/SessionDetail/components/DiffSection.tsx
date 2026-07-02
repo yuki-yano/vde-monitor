@@ -1,12 +1,13 @@
 import { type DiffFile, type DiffSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { FileCheck, RefreshCw } from "lucide-react";
+import { FileCheck, RefreshCw, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
 
 import {
   Button,
   Callout,
   EmptyState,
+  IconButton,
   LoadingOverlay,
   TagPill,
   TruncatedSegmentText,
@@ -29,11 +30,13 @@ type DiffSectionState = {
   diffFiles: Record<string, DiffFile>;
   diffOpen: Record<string, boolean>;
   diffLoadingFiles: Record<string, boolean>;
+  virtualBranch: string | null;
 };
 
 type DiffSectionActions = {
   onRefresh: () => void;
   onToggle: (path: string) => void;
+  onClearVirtualBranch: () => void;
   onResolveFileReference?: (rawToken: string) => Promise<void>;
   onResolveFileReferenceCandidates?: (rawTokens: string[]) => Promise<string[]>;
 };
@@ -118,6 +121,37 @@ const DiffCleanState = memo(({ visible }: { visible: boolean }) =>
 );
 
 DiffCleanState.displayName = "DiffCleanState";
+
+const DiffVirtualBranchNotice = memo(
+  ({ virtualBranch, onClear }: { virtualBranch: string | null; onClear: () => void }) => {
+    if (virtualBranch == null) {
+      return null;
+    }
+    return (
+      <div
+        className="-mt-1 flex items-center justify-between gap-2"
+        data-testid="diff-virtual-branch-notice"
+      >
+        <span className="text-latte-subtext0/80 min-w-0 truncate font-mono text-xs">
+          Virtual active · {virtualBranch}
+        </span>
+        <IconButton
+          type="button"
+          size="xs"
+          variant="dangerOutline"
+          aria-label="Clear virtual branch"
+          title="Clear virtual branch"
+          className="shrink-0"
+          onClick={onClear}
+        >
+          <X className="h-3 w-3" />
+        </IconButton>
+      </div>
+    );
+  },
+);
+
+DiffVirtualBranchNotice.displayName = "DiffVirtualBranchNotice";
 
 const DiffRepoRoot = memo(({ repoRoot }: { repoRoot: string | null | undefined }) =>
   repoRoot ? <p className="text-latte-subtext0 text-xs">Repo: {formatPath(repoRoot)}</p> : null,
@@ -225,9 +259,23 @@ const DiffSummaryDescription = memo(
 DiffSummaryDescription.displayName = "DiffSummaryDescription";
 
 export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
-  const { diffSummary, diffBranch, diffError, diffLoading, diffFiles, diffOpen, diffLoadingFiles } =
-    state;
-  const { onRefresh, onToggle, onResolveFileReference, onResolveFileReferenceCandidates } = actions;
+  const {
+    diffSummary,
+    diffBranch,
+    diffError,
+    diffLoading,
+    diffFiles,
+    diffOpen,
+    diffLoadingFiles,
+    virtualBranch,
+  } = state;
+  const {
+    onRefresh,
+    onToggle,
+    onClearVirtualBranch,
+    onResolveFileReference,
+    onResolveFileReferenceCandidates,
+  } = actions;
   const [expandedDiffs, setExpandedDiffs] = useAtom(diffExpandedAtom);
   const totals = useMemo(() => sumFileStats(diffSummary?.files), [diffSummary]);
   const fileChangeCategories = useMemo(
@@ -281,6 +329,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
       }
       status={
         <>
+          <DiffVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
           <DiffRepoRoot repoRoot={diffSummary?.repoRoot} />
           <DiffSummaryReasonCallout reason={diffSummary?.reason} />
           <DiffErrorCallout diffError={diffError} />

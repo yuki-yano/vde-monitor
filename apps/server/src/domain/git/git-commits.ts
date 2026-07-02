@@ -39,6 +39,28 @@ const resolveCommitCount = async (repoRoot: string) => {
   }
 };
 
+const resolveGitRevision = async (repoRoot: string, rev: string) => {
+  try {
+    const output = await runGit(repoRoot, ["rev-parse", rev]);
+    const trimmed = output.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveCommitRangeCount = async (repoRoot: string, range: string) => {
+  try {
+    const output = await runGit(repoRoot, ["rev-list", "--count", range]);
+    const trimmed = output.trim();
+    if (!trimmed) return 0;
+    const count = Number.parseInt(trimmed, 10);
+    return Number.isFinite(count) ? count : 0;
+  } catch {
+    return 0;
+  }
+};
+
 const toOptionalText = (value: string) => (value.trim().length > 0 ? value : null);
 
 const readCommitLogField = (fields: string[], index: number) => fields[index] ?? "";
@@ -255,7 +277,12 @@ const loadCommitPatch = async (repoRoot: string, hash: string, file: CommitFile)
 
 export const fetchCommitLog = async (
   cwd: string | null,
-  options?: { limit?: number; skip?: number; force?: boolean },
+  options?: {
+    limit?: number;
+    skip?: number;
+    force?: boolean;
+    range?: { base: string; branch: string };
+  },
 ): Promise<CommitLog> => {
   const context = await resolveCommitLogContext(cwd);
   if (context.earlyResult) {
@@ -271,14 +298,22 @@ export const fetchCommitLog = async (
     });
   }
   const { limit, skip } = resolveCommitLogPaging(options);
-  const head = await resolveGitHead(repoRoot);
-  const cacheKey = `${repoRoot}:${limit}:${skip}`;
+  const rangeOption = options?.range;
+  const range = rangeOption ? `${rangeOption.base}..${rangeOption.branch}` : null;
+  const head = rangeOption
+    ? await resolveGitRevision(repoRoot, rangeOption.branch)
+    : await resolveGitHead(repoRoot);
+  const cacheKey = `${repoRoot}:${range ?? "HEAD"}:${limit}:${skip}`;
   const cached = logCache.get(cacheKey);
   const nowMs = Date.now();
   if (cached && shouldUseCachedCommitLog({ force: options?.force, cached, nowMs, head })) {
     return cached.log;
   }
-  const totalCount = head ? await resolveCommitCount(repoRoot) : 0;
+  const totalCount = range
+    ? await resolveCommitRangeCount(repoRoot, range)
+    : head
+      ? await resolveCommitCount(repoRoot)
+      : 0;
   try {
     const output = await runGit(repoRoot, [
       "log",
@@ -288,6 +323,7 @@ export const fetchCommitLog = async (
       String(skip),
       "--date=iso-strict",
       `--format=${commitLogFormat}`,
+      ...(range ? [range] : []),
     ]);
     const commits = parseCommitLogOutput(output);
     const log = createCommitLog({

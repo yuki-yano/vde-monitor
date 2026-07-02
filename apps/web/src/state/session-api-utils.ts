@@ -379,6 +379,13 @@ const applyWorktreePathQuery = <T extends { worktreePath?: string }>(
   return query;
 };
 
+const applyBranchQuery = <T extends { branch?: string }>(query: T, branch?: string): T => {
+  if (branch) {
+    query.branch = branch;
+  }
+  return query;
+};
+
 const assignNumberAsStringIfTruthy = <T extends object, K extends keyof T>(
   query: T,
   key: K,
@@ -389,19 +396,29 @@ const assignNumberAsStringIfTruthy = <T extends object, K extends keyof T>(
   }
 };
 
-export const buildForceQuery = (options?: { force?: boolean; worktreePath?: string }): ForceQuery =>
-  applyWorktreePathQuery(applyForceQuery({}, options?.force), options?.worktreePath);
+export const buildForceQuery = (options?: {
+  force?: boolean;
+  worktreePath?: string;
+  branch?: string;
+}): ForceQuery =>
+  applyBranchQuery(
+    applyWorktreePathQuery(applyForceQuery({}, options?.force), options?.worktreePath),
+    options?.branch,
+  );
 
 export const buildDiffFileQuery = (
   path: string,
   rev?: string | null,
-  options?: { force?: boolean; worktreePath?: string },
+  options?: { force?: boolean; worktreePath?: string; branch?: string },
 ): DiffFileQuery => {
   const query: DiffFileQuery = { path };
   if (rev) {
     query.rev = rev;
   }
-  return applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath);
+  return applyBranchQuery(
+    applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath),
+    options?.branch,
+  );
 };
 
 export const buildCommitLogQuery = (options?: {
@@ -409,11 +426,15 @@ export const buildCommitLogQuery = (options?: {
   skip?: number;
   force?: boolean;
   worktreePath?: string;
+  branch?: string;
 }): CommitLogQuery => {
   const query: CommitLogQuery = {};
   assignNumberAsStringIfTruthy(query, "limit", options?.limit);
   assignNumberAsStringIfTruthy(query, "skip", options?.skip);
-  return applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath);
+  return applyBranchQuery(
+    applyWorktreePathQuery(applyForceQuery(query, options?.force), options?.worktreePath),
+    options?.branch,
+  );
 };
 
 export const buildCommitFileQuery = (

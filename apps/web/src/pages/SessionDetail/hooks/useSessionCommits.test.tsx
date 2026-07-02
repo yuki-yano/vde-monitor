@@ -51,6 +51,40 @@ describe("useSessionCommits", () => {
     });
   });
 
+  it("passes branch (not worktreePath) to requestCommitLog when branch is set", async () => {
+    const commitLog = createCommitLog();
+    const requestCommitLog = vi.fn().mockResolvedValue(commitLog);
+    const requestCommitDetail = vi.fn().mockResolvedValue(createCommitDetail());
+    const requestCommitFile = vi.fn().mockResolvedValue(createCommitFileDiff());
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionCommits({
+          paneId: "pane-1",
+          connected: true,
+          worktreePath: "/repo/worktree",
+          branch: "feature/foo",
+          requestCommitLog,
+          requestCommitDetail,
+          requestCommitFile,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.commitLog).not.toBeNull();
+    });
+
+    expect(requestCommitLog).toHaveBeenCalledWith("pane-1", {
+      limit: 10,
+      skip: 0,
+      force: true,
+      branch: "feature/foo",
+    });
+    expect(requestCommitLog.mock.calls[0]?.[1]).not.toHaveProperty("worktreePath");
+  });
+
   it("loads commit detail on toggle", async () => {
     const commitLog = createCommitLog();
     const requestCommitLog = vi.fn().mockResolvedValue(commitLog);

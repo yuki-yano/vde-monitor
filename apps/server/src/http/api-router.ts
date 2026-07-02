@@ -18,6 +18,7 @@ import type { ScreenStreamScheduler } from "../streams/screen-stream-scheduler";
 import type { SessionsStreamSource } from "../streams/sessions-stream-source";
 import type { StreamConnections } from "../streams/stream-connections";
 import { buildError, isOriginAllowed, requireAuth } from "./helpers";
+import { createBranchRoutes } from "./routes/branch-routes";
 import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
 import { createNotificationRoutes } from "./routes/notification-routes";
@@ -203,7 +204,13 @@ export const createApiRouter = ({
       resolvePane,
     }),
   );
-  const withFileRoutes = withGitRoutes.route(
+  const withBranchRoutes = withGitRoutes.route(
+    "/",
+    createBranchRoutes({
+      resolvePane,
+    }),
+  );
+  const withFileRoutes = withBranchRoutes.route(
     "/",
     createFileRoutes({
       resolvePane,

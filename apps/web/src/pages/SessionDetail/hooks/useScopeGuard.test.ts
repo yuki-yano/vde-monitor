@@ -31,7 +31,7 @@ describe("useScopeGuard", () => {
       }),
     );
 
-    expect(result.current.scopeKey).toBe("pane1:/repo/branch");
+    expect(result.current.scopeKey).toBe("pane1:/repo/branch:__no_branch__");
   });
 
   it("uses __default__ when worktreePath is null", () => {
@@ -49,7 +49,7 @@ describe("useScopeGuard", () => {
       }),
     );
 
-    expect(result.current.scopeKey).toBe("pane2:__default__");
+    expect(result.current.scopeKey).toBe("pane2:__default__:__no_branch__");
   });
 
   it("updates activeScopeRef.current when paneId changes", () => {
@@ -69,11 +69,11 @@ describe("useScopeGuard", () => {
       { initialProps: { paneId: "pane-a" } },
     );
 
-    expect(result.current.activeScopeRef.current).toBe("pane-a:__default__");
+    expect(result.current.activeScopeRef.current).toBe("pane-a:__default__:__no_branch__");
 
     rerender({ paneId: "pane-b" });
 
-    expect(result.current.activeScopeRef.current).toBe("pane-b:__default__");
+    expect(result.current.activeScopeRef.current).toBe("pane-b:__default__:__no_branch__");
   });
 
   it("calls onReconnectRef.current when connected transitions false→true", () => {

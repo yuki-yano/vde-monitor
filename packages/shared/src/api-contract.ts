@@ -30,6 +30,7 @@ export type SubscriptionIdParam = {
 export type ForceQuery = {
   force?: string;
   worktreePath?: string;
+  branch?: string;
 };
 
 export type DiffFileQuery = ForceQuery & {
@@ -96,6 +97,10 @@ export type TimelineQuery = {
   range?: SessionStateTimelineRange;
   limit?: string;
 };
+
+export type BranchCheckoutJson = { branch: string };
+export type BranchCreateJson = { name: string; base?: string };
+export type BranchDeleteJson = { name: string; force?: boolean };
 
 export type RepoNotePayloadJson = {
   title: string | null;
@@ -192,6 +197,16 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
     };
     content: {
       $get: ApiRequest<{ param: PaneParam; query: RepoFileContentQuery }, TRequestInit, TResponse>;
+    };
+  };
+  branches: {
+    $get: ApiRequest<{ param: PaneParam; query: ForceQuery }, TRequestInit, TResponse>;
+    $post: ApiRequest<{ param: PaneParam; json: BranchCreateJson }, TRequestInit, TResponse>;
+    checkout: {
+      $post: ApiRequest<{ param: PaneParam; json: BranchCheckoutJson }, TRequestInit, TResponse>;
+    };
+    delete: {
+      $post: ApiRequest<{ param: PaneParam; json: BranchDeleteJson }, TRequestInit, TResponse>;
     };
   };
   worktrees: { $get: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };

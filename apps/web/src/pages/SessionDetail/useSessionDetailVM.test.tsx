@@ -318,6 +318,15 @@ describe("useSessionDetailVM", () => {
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: "/repo",
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
       createRepoNote: vi.fn(),
       updateRepoNote: vi.fn(),
       deleteRepoNote: vi.fn(),
@@ -377,6 +386,15 @@ describe("useSessionDetailVM", () => {
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: "/repo",
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
       createRepoNote: vi.fn(),
       updateRepoNote: vi.fn(),
       deleteRepoNote: vi.fn(),
@@ -433,6 +451,15 @@ describe("useSessionDetailVM", () => {
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: "/repo",
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
       createRepoNote: vi.fn(),
       updateRepoNote: vi.fn(),
       deleteRepoNote: vi.fn(),
@@ -487,6 +514,15 @@ describe("useSessionDetailVM", () => {
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: "/repo",
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
       createRepoNote: vi.fn(),
       updateRepoNote: vi.fn(),
       deleteRepoNote: vi.fn(),
@@ -538,6 +574,15 @@ describe("useSessionDetailVM", () => {
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: "/repo",
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
       createRepoNote: vi.fn(),
       updateRepoNote: vi.fn(),
       deleteRepoNote: vi.fn(),
@@ -560,5 +605,212 @@ describe("useSessionDetailVM", () => {
     const { result } = renderHook(() => useSessionDetailVM("pane-1"), { wrapper });
 
     expect(result.current.screen.contextLeftLabel).toBeNull();
+  });
+
+  it("keeps virtual branch and virtual worktree selection mutually exclusive", async () => {
+    window.localStorage.clear();
+    const sessionApi = {
+      reconnect: vi.fn(),
+      refreshSessions: vi.fn(),
+      requestDiffSummary: vi.fn(),
+      requestDiffFile: vi.fn(),
+      requestCommitLog: vi.fn(),
+      requestCommitDetail: vi.fn(),
+      requestCommitFile: vi.fn(),
+      requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
+      requestRepoFileTree: vi.fn(),
+      requestRepoFileSearch: vi.fn(),
+      requestRepoFileContent: vi.fn(),
+      requestScreen: vi.fn(),
+      focusPane: vi.fn(),
+      killPane: vi.fn(),
+      killWindow: vi.fn(),
+      launchAgentInSession: vi.fn(),
+      uploadImageAttachment: vi.fn(),
+      sendText: vi.fn(),
+      sendKeys: vi.fn(),
+      sendRaw: vi.fn(),
+      touchSession: vi.fn(),
+      updateSessionTitle: vi.fn(),
+      resetSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({
+        repoRoot: session.repoRoot,
+        currentPath: null,
+        baseBranch: "main",
+        entries: [
+          {
+            path: "/Users/test/repo-worktrees/wt-a",
+            branch: "feature/wt-a",
+            dirty: false,
+            locked: false,
+            lockOwner: null,
+            lockReason: null,
+            merged: false,
+          },
+        ],
+      })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: session.repoRoot,
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [
+          {
+            name: "main",
+            current: true,
+            isDefault: true,
+            ahead: null,
+            behind: null,
+            fileChanges: null,
+            additions: null,
+            deletions: null,
+            merged: null,
+            pr: null,
+            worktreePath: null,
+            committedAt: null,
+          },
+          {
+            name: "feature/a",
+            current: false,
+            isDefault: false,
+            ahead: null,
+            behind: null,
+            fileChanges: null,
+            additions: null,
+            deletions: null,
+            merged: null,
+            pr: null,
+            worktreePath: null,
+            committedAt: null,
+          },
+        ],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
+    };
+
+    const store = createStore();
+    mockResolvedTheme = "mocha";
+    mockSessionsContext = buildSessionContext({
+      sessions: [session],
+      sessionApi,
+      connected: true,
+      connectionIssue: null,
+    });
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    const { result } = renderHook(() => useSessionDetailVM("pane-1"), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.screen.selectVirtualWorktree("/Users/test/repo-worktrees/wt-a");
+    });
+
+    expect(result.current.screen.virtualWorktreePath).toBe("/Users/test/repo-worktrees/wt-a");
+    expect(result.current.screen.virtualBranch).toBeNull();
+
+    act(() => {
+      result.current.screen.selectVirtualBranch("feature/a");
+    });
+
+    expect(result.current.screen.virtualBranch).toBe("feature/a");
+    expect(result.current.screen.virtualWorktreePath).toBeNull();
+
+    act(() => {
+      result.current.screen.selectVirtualWorktree("/Users/test/repo-worktrees/wt-a");
+    });
+
+    expect(result.current.screen.virtualWorktreePath).toBe("/Users/test/repo-worktrees/wt-a");
+    expect(result.current.screen.virtualBranch).toBeNull();
+  });
+
+  it("refreshes diff and commit log after a successful branch checkout", async () => {
+    window.localStorage.clear();
+    const sessionApi = {
+      reconnect: vi.fn(),
+      refreshSessions: vi.fn(),
+      requestDiffSummary: vi.fn(),
+      requestDiffFile: vi.fn(),
+      requestCommitLog: vi.fn(),
+      requestCommitDetail: vi.fn(),
+      requestCommitFile: vi.fn(),
+      requestStateTimeline: vi.fn(),
+      requestRepoNotes: vi.fn(),
+      requestRepoFileTree: vi.fn(),
+      requestRepoFileSearch: vi.fn(),
+      requestRepoFileContent: vi.fn(),
+      requestScreen: vi.fn(),
+      focusPane: vi.fn(),
+      killPane: vi.fn(),
+      killWindow: vi.fn(),
+      launchAgentInSession: vi.fn(),
+      uploadImageAttachment: vi.fn(),
+      sendText: vi.fn(),
+      sendKeys: vi.fn(),
+      sendRaw: vi.fn(),
+      touchSession: vi.fn(),
+      updateSessionTitle: vi.fn(),
+      resetSessionTitle: vi.fn(),
+      requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+      requestBranches: vi.fn(async () => ({
+        repoRoot: session.repoRoot,
+        defaultBranch: "main",
+        currentBranch: "main",
+        entries: [],
+      })),
+      requestBranchCheckout: vi.fn(async () => undefined),
+      requestBranchCreate: vi.fn(async () => undefined),
+      requestBranchDelete: vi.fn(async () => undefined),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
+    };
+
+    const store = createStore();
+    mockResolvedTheme = "mocha";
+    mockSessionsContext = buildSessionContext({
+      sessions: [session],
+      sessionApi,
+      connected: true,
+      connectionIssue: null,
+    });
+
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    );
+
+    const { result } = renderHook(() => useSessionDetailVM("pane-1"), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const refreshDiffMock = result.current.diffs.refreshDiff;
+    const refreshCommitLogMock = result.current.commits.refreshCommitLog;
+    const checkoutBranch = result.current.screen.checkoutBranch;
+    const worktreeCallsBeforeCheckout = sessionApi.requestWorktrees.mock.calls.length;
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await checkoutBranch("feature/a");
+    });
+
+    expect(ok).toBe(true);
+    expect(sessionApi.requestBranchCheckout).toHaveBeenCalledWith("pane-1", "feature/a");
+    expect(refreshDiffMock).toHaveBeenCalled();
+    expect(refreshCommitLogMock).toHaveBeenCalled();
+    expect(sessionApi.requestWorktrees.mock.calls.length).toBeGreaterThan(
+      worktreeCallsBeforeCheckout,
+    );
   });
 });

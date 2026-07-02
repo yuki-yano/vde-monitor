@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { usePushNotifications } from "@/features/notifications/use-push-notifications";
 
+import { useSessionBranches } from "./hooks/useSessionBranches";
 import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
@@ -12,6 +13,7 @@ import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionRepoNotes } from "./hooks/useSessionRepoNotes";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
 import { useSessionTitleEditor } from "./hooks/useSessionTitleEditor";
+import { useSessionVirtualBranch } from "./hooks/useSessionVirtualBranch";
 import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
 import { extractCodexContextLeft } from "./sessionDetailUtils";
 
@@ -36,6 +38,10 @@ export const useSessionDetailVM = (paneId: string) => {
     requestCommitFile,
     requestCommitLog,
     requestWorktrees,
+    requestBranches,
+    requestBranchCheckout,
+    requestBranchCreate,
+    requestBranchDelete,
     requestDiffFile,
     requestDiffSummary,
     requestRepoNotes,
@@ -137,10 +143,47 @@ export const useSessionDetailVM = (paneId: string) => {
     requestWorktrees,
   });
 
+  const branchesState = useSessionBranches({
+    paneId,
+    connected,
+    session,
+    requestBranches,
+    requestBranchCheckout,
+    requestBranchCreate,
+    requestBranchDelete,
+  });
+
+  const virtualBranch = useSessionVirtualBranch({
+    paneId,
+    branchList: branchesState.branchList,
+  });
+
+  // 仮想 branch と仮想 worktree は排他
+  const selectVirtualBranchExclusive = useCallback(
+    (name: string) => {
+      virtualWorktree.clearVirtualWorktree();
+      virtualBranch.selectVirtualBranch(name);
+    },
+    [virtualBranch, virtualWorktree],
+  );
+  const selectVirtualWorktreeExclusive = useCallback(
+    (path: string) => {
+      virtualBranch.clearVirtualBranch();
+      virtualWorktree.selectVirtualWorktree(path);
+    },
+    [virtualBranch, virtualWorktree],
+  );
+
+  const effectiveBranchScope = virtualBranch.virtualBranch;
+  const effectiveWorktreeScope = effectiveBranchScope
+    ? null
+    : virtualWorktree.effectiveWorktreePath;
+
   const diffs = useSessionDiffs({
     paneId,
     connected,
-    worktreePath: virtualWorktree.effectiveWorktreePath,
+    worktreePath: effectiveWorktreeScope,
+    branch: effectiveBranchScope,
     requestDiffSummary,
     requestDiffFile,
   });
@@ -158,11 +201,48 @@ export const useSessionDetailVM = (paneId: string) => {
   const commits = useSessionCommits({
     paneId,
     connected,
-    worktreePath: virtualWorktree.effectiveWorktreePath,
+    worktreePath: effectiveWorktreeScope,
+    branch: effectiveBranchScope,
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
   });
+
+  const checkoutBranchAndClear = useCallback(
+    async (name: string) => {
+      const ok = await branchesState.checkoutBranch(name);
+      if (ok) {
+        virtualBranch.clearVirtualBranch();
+        void diffs.refreshDiff();
+        void commits.refreshCommitLog();
+        void virtualWorktree.refreshWorktrees();
+      }
+      return ok;
+    },
+    [branchesState, commits, diffs, virtualBranch, virtualWorktree],
+  );
+
+  const createBranchAndRefresh = useCallback(
+    async (name: string, base?: string) => {
+      const ok = await branchesState.createBranch(name, base);
+      if (ok) {
+        void virtualWorktree.refreshWorktrees();
+      }
+      return ok;
+    },
+    [branchesState, virtualWorktree],
+  );
+
+  const deleteBranchAndRefresh = useCallback(
+    async (name: string, options?: { force?: boolean }) => {
+      const ok = await branchesState.deleteBranch(name, options);
+      if (ok) {
+        void virtualWorktree.refreshWorktrees();
+      }
+      return ok;
+    },
+    [branchesState, virtualWorktree],
+  );
 
   const currentRepoRoot = session?.repoRoot ?? null;
   const {
@@ -346,8 +426,23 @@ export const useSessionDetailVM = (paneId: string) => {
       worktreeEntries: virtualWorktree.entries,
       actualWorktreePath: virtualWorktree.actualWorktreePath,
       virtualWorktreePath: virtualWorktree.virtualWorktreePath,
-      selectVirtualWorktree: virtualWorktree.selectVirtualWorktree,
+      selectVirtualWorktree: selectVirtualWorktreeExclusive,
       clearVirtualWorktree: virtualWorktree.clearVirtualWorktree,
+      branches: branchesState.branches,
+      branchRepoRoot: branchesState.branchList?.repoRoot ?? null,
+      currentBranch: branchesState.currentBranch,
+      virtualBranch: virtualBranch.virtualBranch,
+      branchesLoading: branchesState.branchesLoading,
+      branchesError: branchesState.branchesError,
+      branchMutating: branchesState.mutating,
+      branchMutationError: branchesState.mutationError,
+      clearBranchMutationError: branchesState.clearMutationError,
+      refreshBranches: branchesState.refreshBranches,
+      checkoutBranch: checkoutBranchAndClear,
+      createBranch: createBranchAndRefresh,
+      deleteBranch: deleteBranchAndRefresh,
+      selectVirtualBranch: selectVirtualBranchExclusive,
+      clearVirtualBranch: virtualBranch.clearVirtualBranch,
       notificationStatus: pushNotifications.status,
       notificationPushEnabled: pushNotifications.pushEnabled,
       notificationSubscribed: pushNotifications.isSubscribed,

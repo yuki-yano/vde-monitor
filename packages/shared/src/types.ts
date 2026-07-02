@@ -330,6 +330,36 @@ export type WorktreeList = {
   entries: WorktreeListEntry[];
 };
 
+export type BranchPrState = "open" | "merged" | "closed_unmerged" | "none";
+
+export type BranchPrInfo = {
+  state: BranchPrState;
+  url: string | null;
+  number: number | null;
+};
+
+export type BranchListEntry = {
+  name: string;
+  current: boolean;
+  isDefault: boolean;
+  ahead: number | null;
+  behind: number | null;
+  fileChanges: { add: number; m: number; d: number } | null;
+  additions: number | null;
+  deletions: number | null;
+  merged: boolean | null;
+  pr: BranchPrInfo | null;
+  worktreePath: string | null;
+  committedAt: string | null;
+};
+
+export type BranchList = {
+  repoRoot: string | null;
+  defaultBranch: string | null;
+  currentBranch: string | null;
+  entries: BranchListEntry[];
+};
+
 export type RepoNote = {
   id: string;
   repoRoot: string;

@@ -5,6 +5,7 @@ import {
   FolderOpen,
   GitBranch,
   GitCommitHorizontal,
+  GitFork,
   Keyboard,
   X,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionDocumentTitle } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 
+import { BranchSection } from "./components/BranchSection";
 import { CommitSection } from "./components/CommitSection";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { DiffSection } from "./components/DiffSection";
@@ -63,6 +65,7 @@ const MOBILE_SECTION_TAB_GRID_POSITIONS = [
   "col-start-1 row-start-2",
   "col-start-2 row-start-2",
   "col-start-3 row-start-2",
+  "col-start-4 row-start-2",
 ] as const;
 
 const CONFIG_VALIDATION_ERROR_PATTERN = /invalid (?:project )?config(?: JSON)?: /i;
@@ -220,6 +223,29 @@ export const SessionDetailView = ({
       onClearVirtualWorktree: screen.clearVirtualWorktree,
     },
   };
+  const branchSectionProps = {
+    state: {
+      branches: screen.branches ?? [],
+      repoRoot: screen.branchRepoRoot ?? null,
+      currentBranch: screen.currentBranch ?? null,
+      virtualBranch: screen.virtualBranch ?? null,
+      branchesLoading: screen.branchesLoading ?? false,
+      branchesError: screen.branchesError ?? null,
+      mutating: screen.branchMutating ?? null,
+      mutationError: screen.branchMutationError ?? null,
+    },
+    actions: {
+      onRefreshBranches: () => {
+        void screen.refreshBranches?.();
+      },
+      onSelectVirtualBranch: screen.selectVirtualBranch,
+      onClearVirtualBranch: screen.clearVirtualBranch,
+      onCheckoutBranch: screen.checkoutBranch,
+      onCreateBranch: screen.createBranch,
+      onDeleteBranch: screen.deleteBranch,
+      onClearMutationError: screen.clearBranchMutationError,
+    },
+  };
   const mobileSectionTabs: DetailSectionTabDefinition[] = [
     {
       value: "keys",
@@ -262,6 +288,13 @@ export const SessionDetailView = ({
       label: "Commits",
       icon: GitCommitHorizontal,
       render: () => <CommitSection {...commitSectionProps} />,
+    },
+    {
+      value: "branches",
+      ariaLabel: "Branches panel",
+      label: "Branches",
+      icon: GitFork,
+      render: () => <BranchSection {...branchSectionProps} />,
     },
     {
       value: "worktrees",
@@ -424,6 +457,7 @@ export const SessionDetailView = ({
                   <DiffSection {...diffSectionProps} />
                   <FileNavigatorSection {...fileNavigatorSectionProps} />
                   <CommitSection {...commitSectionProps} />
+                  <BranchSection {...branchSectionProps} />
                   <WorktreeSection {...worktreeSectionProps} />
                 </div>
               </div>

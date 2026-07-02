@@ -1,9 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { parseCommitLogOutput, parseNameStatusOutput } from "./git-commits";
+const mocks = vi.hoisted(() => ({
+  runGit: vi.fn(),
+  resolveRepoRoot: vi.fn(),
+}));
+
+vi.mock("./git-utils", () => ({
+  runGit: mocks.runGit,
+  resolveRepoRoot: mocks.resolveRepoRoot,
+}));
+
+import { fetchCommitLog, parseCommitLogOutput, parseNameStatusOutput } from "./git-commits";
 
 const RS = "\u001e";
 const FS = "\u001f";
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("parseCommitLogOutput", () => {
   it("parses commit log records", () => {
@@ -56,5 +70,45 @@ describe("parseNameStatusOutput", () => {
     const files = parseNameStatusOutput(output);
     expect(files).toHaveLength(1);
     expect(files[0]).toMatchObject({ status: "?", path: "weird.txt" });
+  });
+});
+
+describe("fetchCommitLog", () => {
+  it("appends base..branch to git log args when range is specified", async () => {
+    mocks.resolveRepoRoot.mockResolvedValue("/repo");
+    mocks.runGit.mockImplementation((_cwd: string, args: string[]) => {
+      const command = args.join(" ");
+      if (command === "rev-parse feature") {
+        return Promise.resolve("branchsha\n");
+      }
+      if (command === "rev-list --count main..feature") {
+        return Promise.resolve("2\n");
+      }
+      if (
+        command.startsWith("log -n 10 --skip 0 --date=iso-strict --format=") &&
+        command.endsWith("main..feature")
+      ) {
+        return Promise.resolve(
+          `${RS}hash1${FS}h1${FS}Alice${FS}alice@example.com${FS}2024-01-01T00:00:00Z${FS}Subject one${FS}`,
+        );
+      }
+      throw new Error(`unexpected args: ${command}`);
+    });
+
+    const log = await fetchCommitLog("/repo", {
+      range: { base: "main", branch: "feature" },
+      force: true,
+    });
+
+    expect(mocks.runGit).toHaveBeenCalledWith("/repo", ["rev-parse", "feature"]);
+    expect(mocks.runGit).toHaveBeenCalledWith("/repo", ["rev-list", "--count", "main..feature"]);
+    expect(mocks.runGit).toHaveBeenCalledWith(
+      "/repo",
+      expect.arrayContaining(["log", "main..feature"]),
+    );
+    expect(log.rev).toBe("branchsha");
+    expect(log.totalCount).toBe(2);
+    expect(log.commits).toHaveLength(1);
+    expect(log.commits[0]).toMatchObject({ hash: "hash1", subject: "Subject one" });
   });
 });
