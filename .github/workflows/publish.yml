@@ -52,4 +52,7 @@ jobs:
         run: npm install -g npm@11.5.1
 
       - name: Publish
-        run: npm publish
+        # npm publish alone leaves catalog: specifiers unresolved; pnpm pack rewrites them
+        run: |
+          pnpm pack
+          npm publish ./vde-monitor-*.tgz
