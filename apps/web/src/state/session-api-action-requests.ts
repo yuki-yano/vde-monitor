@@ -265,6 +265,38 @@ export const createSessionActionRequests = ({
       fallbackMessage: API_ERROR_MESSAGES.deleteRepoNote,
     });
 
+  const requestBranchCheckout = async (paneId: string, branch: string): Promise<void> => {
+    await runPaneMutation(paneId, "Failed to checkout branch", (param) =>
+      apiClient.sessions[":paneId"].branches.checkout.$post({ param, json: { branch } }),
+    );
+  };
+
+  const requestBranchCreate = async (
+    paneId: string,
+    name: string,
+    base?: string,
+  ): Promise<void> => {
+    await runPaneMutation(paneId, "Failed to create branch", (param) =>
+      apiClient.sessions[":paneId"].branches.$post({
+        param,
+        json: { name, ...(base ? { base } : {}) },
+      }),
+    );
+  };
+
+  const requestBranchDelete = async (
+    paneId: string,
+    name: string,
+    options?: { force?: boolean },
+  ): Promise<void> => {
+    await runPaneMutation(paneId, "Failed to delete branch", (param) =>
+      apiClient.sessions[":paneId"].branches.delete.$post({
+        param,
+        json: { name, ...(options?.force ? { force: true } : {}) },
+      }),
+    );
+  };
+
   return {
     sendText,
     launchAgentInSession,
@@ -280,5 +312,8 @@ export const createSessionActionRequests = ({
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
+    requestBranchCheckout,
+    requestBranchCreate,
+    requestBranchDelete,
   };
 };

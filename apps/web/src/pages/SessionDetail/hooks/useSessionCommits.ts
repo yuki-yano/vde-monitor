@@ -1,6 +1,6 @@
 import type { CommitDetail, CommitFileDiff, CommitLog } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -16,9 +16,16 @@ type UseSessionCommitsParams = {
   paneId: string;
   connected: boolean;
   worktreePath?: string | null;
+  branch?: string | null;
   requestCommitLog: (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
+    options?: {
+      limit?: number;
+      skip?: number;
+      force?: boolean;
+      worktreePath?: string;
+      branch?: string;
+    },
   ) => Promise<CommitLog>;
   requestCommitDetail: (
     paneId: string,
@@ -61,6 +68,7 @@ export const useSessionCommits = ({
   paneId,
   connected,
   worktreePath = null,
+  branch = null,
   requestCommitLog,
   requestCommitDetail,
   requestCommitFile,
@@ -96,12 +104,18 @@ export const useSessionCommits = ({
   const { scopeKey: requestScopeKey, activeScopeRef } = useScopeGuard({
     paneId,
     worktreePath,
+    branch,
     connected,
     onReconnectRef,
     pollTickRef,
     pollIntervalMs: AUTO_REFRESH_INTERVAL_MS,
   });
   const commitLogRequestIdRef = useRef(0);
+
+  const commitLogScopeOptions = useMemo(
+    () => (branch ? { branch } : worktreePath ? { worktreePath } : {}),
+    [branch, worktreePath],
+  );
 
   const applyCommitLog = useCallback(
     (log: CommitLog, options: { append: boolean; updateSignature: boolean }) => {
@@ -130,7 +144,7 @@ export const useSessionCommits = ({
             limit: commitPageSize,
             skip,
             force,
-            ...(worktreePath ? { worktreePath } : {}),
+            ...commitLogScopeOptions,
           });
         },
         onSuccess: (log) => {
@@ -149,12 +163,12 @@ export const useSessionCommits = ({
     [
       activeScopeRef,
       applyCommitLog,
+      commitLogScopeOptions,
       commitPageSize,
       dispatch,
       paneId,
       requestCommitLog,
       requestScopeKey,
-      worktreePath,
     ],
   );
 
@@ -253,7 +267,7 @@ export const useSessionCommits = ({
           limit: commitPageSize,
           skip: 0,
           force: true,
-          ...(worktreePath ? { worktreePath } : {}),
+          ...commitLogScopeOptions,
         }),
       onSuccess: (log) => {
         const signature = buildCommitLogSignature(log);
@@ -267,12 +281,12 @@ export const useSessionCommits = ({
   }, [
     activeScopeRef,
     applyCommitLog,
+    commitLogScopeOptions,
     commitPageSize,
     dispatch,
     paneId,
     requestCommitLog,
     requestScopeKey,
-    worktreePath,
   ]);
   const pollCommitLogTick = useCallback(() => {
     void pollCommitLog();
@@ -334,7 +348,7 @@ export const useSessionCommits = ({
       window.clearTimeout(commitCopyTimeoutRef.current);
       commitCopyTimeoutRef.current = null;
     }
-  }, [dispatch, paneId, worktreePath]);
+  }, [branch, dispatch, paneId, worktreePath]);
 
   useEffect(() => {
     loadCommitLog({ force: true });

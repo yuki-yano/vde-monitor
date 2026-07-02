@@ -166,6 +166,21 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       virtualWorktreePath: null,
       selectVirtualWorktree: vi.fn(),
       clearVirtualWorktree: vi.fn(),
+      branches: [],
+      branchRepoRoot: null,
+      currentBranch: null,
+      virtualBranch: null,
+      branchesLoading: false,
+      branchesError: null,
+      branchMutating: null,
+      branchMutationError: null,
+      clearBranchMutationError: vi.fn(),
+      refreshBranches: vi.fn(),
+      checkoutBranch: vi.fn(async () => true),
+      createBranch: vi.fn(async () => true),
+      deleteBranch: vi.fn(async () => true),
+      selectVirtualBranch: vi.fn(),
+      clearVirtualBranch: vi.fn(),
       notificationStatus: "idle",
       notificationPushEnabled: true,
       notificationSubscribed: false,
@@ -422,6 +437,7 @@ describe("SessionDetailView", () => {
     expect(screen.getByText("Changes")).toBeTruthy();
     expect(screen.getByText("File Navigator")).toBeTruthy();
     expect(screen.getByText("Commit Log")).toBeTruthy();
+    expect(screen.getByText("Branches")).toBeTruthy();
     expect(screen.getByText("Worktrees")).toBeTruthy();
     expect(screen.getByText("Notes")).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "Timeline panel" })).toBeNull();
@@ -519,8 +535,11 @@ describe("SessionDetailView", () => {
     expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("row-start-2");
     expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("col-start-2");
 
+    expect(screen.getByRole("tab", { name: "Branches panel" }).className).toContain("row-start-2");
+    expect(screen.getByRole("tab", { name: "Branches panel" }).className).toContain("col-start-3");
+
     expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("row-start-2");
-    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("col-start-3");
+    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("col-start-4");
   });
 
   it("restores last selected tab from localStorage", () => {

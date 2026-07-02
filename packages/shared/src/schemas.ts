@@ -29,6 +29,7 @@ export const apiErrorSchema = z.object({
     "RESUME_INVALID_INPUT",
     "RATE_LIMIT",
     "PUSH_DISABLED",
+    "GIT_COMMAND_FAILED",
     "INTERNAL",
   ]),
   message: z.string(),

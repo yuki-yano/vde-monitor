@@ -1,8 +1,8 @@
 import type { CommitDetail, CommitFileDiff, CommitLog } from "@vde-monitor/shared";
-import { GitCommitHorizontal, RefreshCw } from "lucide-react";
+import { GitCommitHorizontal, RefreshCw, X } from "lucide-react";
 import { memo, useMemo } from "react";
 
-import { Button, Callout, EmptyState, LoadingOverlay } from "@/components/ui";
+import { Button, Callout, EmptyState, IconButton, LoadingOverlay } from "@/components/ui";
 import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSectionShell";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
@@ -31,6 +31,7 @@ type CommitSectionState = {
   commitOpen: Record<string, boolean>;
   commitLoadingDetails: Record<string, boolean>;
   copiedHash: string | null;
+  virtualBranch: string | null;
 };
 
 type CommitSectionActions = {
@@ -39,6 +40,7 @@ type CommitSectionActions = {
   onToggleCommit: (hash: string) => void;
   onToggleCommitFile: (hash: string, path: string) => void;
   onCopyHash: (hash: string) => void;
+  onClearVirtualBranch: () => void;
   onResolveFileReference?: (rawToken: string) => Promise<void>;
   onResolveFileReferenceCandidates?: (rawTokens: string[]) => Promise<string[]>;
 };
@@ -74,6 +76,37 @@ const CommitReasonCallout = memo(({ reason }: { reason: CommitLog["reason"] | un
 });
 
 CommitReasonCallout.displayName = "CommitReasonCallout";
+
+const CommitVirtualBranchNotice = memo(
+  ({ virtualBranch, onClear }: { virtualBranch: string | null; onClear: () => void }) => {
+    if (virtualBranch == null) {
+      return null;
+    }
+    return (
+      <div
+        className="-mt-1 flex items-center justify-between gap-2"
+        data-testid="commit-virtual-branch-notice"
+      >
+        <span className="text-latte-subtext0/80 min-w-0 truncate font-mono text-xs">
+          Virtual active · {virtualBranch}
+        </span>
+        <IconButton
+          type="button"
+          size="xs"
+          variant="dangerOutline"
+          aria-label="Clear virtual branch"
+          title="Clear virtual branch"
+          className="shrink-0"
+          onClick={onClear}
+        >
+          <X className="h-3 w-3" />
+        </IconButton>
+      </div>
+    );
+  },
+);
+
+CommitVirtualBranchNotice.displayName = "CommitVirtualBranchNotice";
 
 const CommitRepoRoot = memo(({ repoRoot }: { repoRoot?: string | null }) => {
   if (!repoRoot) {
@@ -136,6 +169,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
     commitOpen,
     commitLoadingDetails,
     copiedHash,
+    virtualBranch,
   } = state;
   const {
     onRefresh,
@@ -143,6 +177,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
     onToggleCommit,
     onToggleCommitFile,
     onCopyHash,
+    onClearVirtualBranch,
     onResolveFileReference,
     onResolveFileReferenceCandidates,
   } = actions;
@@ -185,6 +220,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
       }
       status={
         <>
+          <CommitVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
           <CommitRepoRoot repoRoot={commitLog?.repoRoot} />
           <CommitReasonCallout reason={commitLog?.reason} />
           <CommitErrorCallout commitError={commitError} />

@@ -22,6 +22,7 @@ describe("CommitSection", () => {
     commitOpen: {},
     commitLoadingDetails: {},
     copiedHash: null,
+    virtualBranch: null,
     ...overrides,
   });
 
@@ -31,6 +32,7 @@ describe("CommitSection", () => {
     onToggleCommit: vi.fn(),
     onToggleCommitFile: vi.fn(),
     onCopyHash: vi.fn(),
+    onClearVirtualBranch: vi.fn(),
     ...overrides,
   });
 
@@ -105,6 +107,20 @@ describe("CommitSection", () => {
     render(<CommitSection state={state} actions={actions} />);
 
     expect(screen.getByText("Current directory is not a git repository.")).toBeTruthy();
+  });
+
+  it("shows virtual branch badge with clear button when a virtual branch is active", () => {
+    const commitLog = createCommitLog();
+    const onClearVirtualBranch = vi.fn();
+    const state = buildState({ commitLog, virtualBranch: "feature/virtual" });
+    const actions = buildActions({ onClearVirtualBranch });
+    render(<CommitSection state={state} actions={actions} />);
+
+    const notice = screen.getByTestId("commit-virtual-branch-notice");
+    expect(notice.textContent).toContain("feature/virtual");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear virtual branch" }));
+    expect(onClearVirtualBranch).toHaveBeenCalled();
   });
 
   it("shows missing detail message when expanded commit has no details", () => {

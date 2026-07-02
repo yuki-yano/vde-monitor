@@ -71,6 +71,8 @@ export const useSessionDetailViewDataSectionProps = ({
     removeNote,
   } = notes;
   const sessionBranch = screen.effectiveBranch ?? session?.branch ?? null;
+  const virtualBranch = screen.virtualBranch ?? null;
+  const onClearVirtualBranch = screen.clearVirtualBranch;
 
   const handleResolveFileReference = useCallback(
     (rawToken: string) =>
@@ -102,10 +104,12 @@ export const useSessionDetailViewDataSectionProps = ({
         diffOpen,
         diffLoadingFiles,
         diffBranch: sessionBranch,
+        virtualBranch,
       },
       actions: {
         onRefresh: refreshDiff,
         onToggle: toggleDiff,
+        onClearVirtualBranch,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
       },
@@ -113,6 +117,7 @@ export const useSessionDetailViewDataSectionProps = ({
     [
       diffSummary,
       sessionBranch,
+      virtualBranch,
       diffError,
       diffLoading,
       diffFiles,
@@ -120,6 +125,7 @@ export const useSessionDetailViewDataSectionProps = ({
       diffLoadingFiles,
       refreshDiff,
       toggleDiff,
+      onClearVirtualBranch,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,
     ],
@@ -176,6 +182,7 @@ export const useSessionDetailViewDataSectionProps = ({
         commitLoadingDetails,
         copiedHash,
         commitBranch: sessionBranch,
+        virtualBranch,
       },
       actions: {
         onRefresh: refreshCommitLog,
@@ -183,6 +190,7 @@ export const useSessionDetailViewDataSectionProps = ({
         onToggleCommit: toggleCommit,
         onToggleCommitFile: toggleCommitFile,
         onCopyHash: copyHash,
+        onClearVirtualBranch,
         onResolveFileReference: handleResolveFileReference,
         onResolveFileReferenceCandidates: handleResolveFileReferenceCandidates,
       },
@@ -190,6 +198,7 @@ export const useSessionDetailViewDataSectionProps = ({
     [
       commitLog,
       sessionBranch,
+      virtualBranch,
       commitError,
       commitLoading,
       commitLoadingMore,
@@ -206,6 +215,7 @@ export const useSessionDetailViewDataSectionProps = ({
       toggleCommit,
       toggleCommitFile,
       copyHash,
+      onClearVirtualBranch,
       handleResolveFileReference,
       handleResolveFileReferenceCandidates,
     ],

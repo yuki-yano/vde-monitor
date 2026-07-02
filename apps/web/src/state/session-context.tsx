@@ -1,5 +1,6 @@
 import type {
   AllowedKey,
+  BranchList,
   ClientFileNavigatorConfig,
   CommandResponse,
   CommitDetail,
@@ -79,19 +80,26 @@ type SessionApiContextValue = {
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
+  requestBranches: (paneId: string, options?: { force?: boolean }) => Promise<BranchList>;
   requestDiffSummary: (
     paneId: string,
-    options?: { force?: boolean; worktreePath?: string },
+    options?: { force?: boolean; worktreePath?: string; branch?: string },
   ) => Promise<DiffSummary>;
   requestDiffFile: (
     paneId: string,
     path: string,
     rev?: string | null,
-    options?: { force?: boolean; worktreePath?: string },
+    options?: { force?: boolean; worktreePath?: string; branch?: string },
   ) => Promise<DiffFile>;
   requestCommitLog: (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
+    options?: {
+      limit?: number;
+      skip?: number;
+      force?: boolean;
+      worktreePath?: string;
+      branch?: string;
+    },
   ) => Promise<CommitLog>;
   requestCommitDetail: (
     paneId: string,
@@ -162,6 +170,13 @@ type SessionApiContextValue = {
     input: { title?: string | null; body: string },
   ) => Promise<RepoNote>;
   deleteRepoNote: (paneId: string, noteId: string) => Promise<string>;
+  requestBranchCheckout: (paneId: string, branch: string) => Promise<void>;
+  requestBranchCreate: (paneId: string, name: string, base?: string) => Promise<void>;
+  requestBranchDelete: (
+    paneId: string,
+    name: string,
+    options?: { force?: boolean },
+  ) => Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -217,6 +232,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const {
     refreshSessions: refreshSessionsApi,
     requestWorktrees,
+    requestBranches,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,
@@ -242,6 +258,9 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
+    requestBranchCheckout,
+    requestBranchCreate,
+    requestBranchDelete,
   } = useSessionApiHook({
     token,
     apiBaseUrl,
@@ -316,6 +335,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       reconnect,
       refreshSessions,
       requestWorktrees,
+      requestBranches,
       requestDiffSummary,
       requestDiffFile,
       requestCommitLog,
@@ -341,12 +361,16 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       createRepoNote,
       updateRepoNote,
       deleteRepoNote,
+      requestBranchCheckout,
+      requestBranchCreate,
+      requestBranchDelete,
     }),
     [
       setToken,
       reconnect,
       refreshSessions,
       requestWorktrees,
+      requestBranches,
       requestDiffSummary,
       requestDiffFile,
       requestCommitLog,
@@ -372,6 +396,9 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       createRepoNote,
       updateRepoNote,
       deleteRepoNote,
+      requestBranchCheckout,
+      requestBranchCreate,
+      requestBranchDelete,
     ],
   );
 

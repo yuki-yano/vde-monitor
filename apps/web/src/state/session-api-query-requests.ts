@@ -1,4 +1,5 @@
 import type {
+  BranchList,
   CommitDetail,
   CommitFileDiff,
   CommitLog,
@@ -101,7 +102,7 @@ export const createSessionQueryRequests = ({
 
   const requestDiffSummary = async (
     paneId: string,
-    options?: { force?: boolean; worktreePath?: string },
+    options?: { force?: boolean; worktreePath?: string; branch?: string },
   ) => {
     const query = buildForceQuery(options);
     return requestPaneQueryValue<{ summary?: DiffSummary }, "summary">({
@@ -116,7 +117,7 @@ export const createSessionQueryRequests = ({
     paneId: string,
     filePath: string,
     rev?: string | null,
-    options?: { force?: boolean; worktreePath?: string },
+    options?: { force?: boolean; worktreePath?: string; branch?: string },
   ) => {
     const query = buildDiffFileQuery(filePath, rev, options);
     return requestPaneQueryValue<{ file?: DiffFile }, "file">({
@@ -129,7 +130,13 @@ export const createSessionQueryRequests = ({
 
   const requestCommitLog = async (
     paneId: string,
-    options?: { limit?: number; skip?: number; force?: boolean; worktreePath?: string },
+    options?: {
+      limit?: number;
+      skip?: number;
+      force?: boolean;
+      worktreePath?: string;
+      branch?: string;
+    },
   ) => {
     const query = buildCommitLogQuery(options);
     return requestPaneQueryValue<{ log?: CommitLog }, "log">({
@@ -248,8 +255,22 @@ export const createSessionQueryRequests = ({
     });
   };
 
+  const requestBranches = async (
+    paneId: string,
+    options?: { force?: boolean },
+  ): Promise<BranchList> => {
+    const query = buildForceQuery(options);
+    return requestPaneQueryValue<{ branches?: BranchList }, "branches">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].branches.$get({ param, query }),
+      field: "branches",
+      fallbackMessage: "Failed to load branches",
+    });
+  };
+
   return {
     requestWorktrees,
+    requestBranches,
     requestDiffSummary,
     requestDiffFile,
     requestCommitLog,

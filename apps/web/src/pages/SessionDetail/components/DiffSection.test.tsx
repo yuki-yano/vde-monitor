@@ -27,12 +27,14 @@ describe("DiffSection", () => {
     diffFiles: {},
     diffOpen: {},
     diffLoadingFiles: {},
+    virtualBranch: null,
     ...overrides,
   });
 
   const buildActions = (overrides: Partial<DiffSectionActions> = {}): DiffSectionActions => ({
     onRefresh: vi.fn(),
     onToggle: vi.fn(),
+    onClearVirtualBranch: vi.fn(),
     ...overrides,
   });
 
@@ -205,6 +207,23 @@ describe("DiffSection", () => {
     fireEvent.click(screen.getByText("Render full diff"));
 
     expect(screen.getByText("+line-300")).toBeTruthy();
+  });
+
+  it("shows virtual branch badge with clear button when a virtual branch is active", () => {
+    const onClearVirtualBranch = vi.fn();
+    const state = buildState({
+      diffSummary: createDiffSummary(),
+      virtualBranch: "feature/virtual",
+    });
+    const actions = buildActions({ onClearVirtualBranch });
+    const wrapper = createWrapper();
+    render(<DiffSection state={state} actions={actions} />, { wrapper });
+
+    const notice = screen.getByTestId("diff-virtual-branch-notice");
+    expect(notice.textContent).toContain("feature/virtual");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear virtual branch" }));
+    expect(onClearVirtualBranch).toHaveBeenCalled();
   });
 
   it("renders repository reason callout", () => {

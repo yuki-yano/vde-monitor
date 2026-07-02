@@ -3,6 +3,12 @@ import type { SessionDetail } from "@vde-monitor/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 
+import {
+  fetchBranchDiffFile,
+  fetchBranchDiffSummary,
+  resolveBranchDiffScope,
+} from "../../domain/git/git-branch-diff";
+import type { BranchDiffScope } from "../../domain/git/git-branch-diff";
 import { fetchCommitDetail, fetchCommitFile, fetchCommitLog } from "../../domain/git/git-commits";
 import { fetchDiffFile, fetchDiffSummary } from "../../domain/git/git-diff";
 import { buildError } from "../helpers";
@@ -15,18 +21,21 @@ type CommitLogResult = Awaited<ReturnType<typeof fetchCommitLog>>;
 const forceQuerySchema = z.object({
   force: z.string().optional(),
   worktreePath: z.string().optional(),
+  branch: z.string().optional(),
 });
 const diffFileQuerySchema = z.object({
   path: z.string(),
   rev: z.string().optional(),
   force: z.string().optional(),
   worktreePath: z.string().optional(),
+  branch: z.string().optional(),
 });
 const commitLogQuerySchema = z.object({
   limit: z.string().optional(),
   skip: z.string().optional(),
   force: z.string().optional(),
   worktreePath: z.string().optional(),
+  branch: z.string().optional(),
 });
 const commitDetailQuerySchema = z.object({
   force: z.string().optional(),
@@ -59,6 +68,28 @@ const resolveRequestedCwd = async (
   worktreePath: string | undefined,
 ): Promise<Response | string | null> =>
   resolveRequestedPath(c, detail, worktreePath, detail.currentPath);
+
+const resolveBranchScopeOrError = async (
+  c: RouteContext,
+  detail: SessionDetail,
+  branch: string,
+  worktreePath: string | undefined,
+): Promise<Response | BranchDiffScope> => {
+  if (worktreePath) {
+    return c.json(
+      { error: buildError("INVALID_PAYLOAD", "branch and worktreePath are exclusive") },
+      400,
+    );
+  }
+  const resolved = await resolveBranchDiffScope(detail.currentPath ?? detail.repoRoot, branch);
+  if (!resolved.ok) {
+    return c.json(
+      { error: buildError("INVALID_PAYLOAD", `branch scope: ${resolved.reason}`) },
+      400,
+    );
+  }
+  return resolved.scope;
+};
 
 const loadReadyDiffSummary = async (
   c: RouteContext,
@@ -99,6 +130,19 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       }
       const query = c.req.valid("query");
       const force = isForceRequested(query.force);
+      if (query.branch) {
+        const scope = await resolveBranchScopeOrError(
+          c,
+          pane.detail,
+          query.branch,
+          query.worktreePath,
+        );
+        if (scope instanceof Response) {
+          return scope;
+        }
+        const summary = await fetchBranchDiffSummary(scope, { force });
+        return c.json({ summary });
+      }
       const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
       if (cwd instanceof Response) {
         return cwd;
@@ -114,6 +158,27 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       const query = c.req.valid("query");
       const pathParam = query.path;
       const force = isForceRequested(query.force);
+      if (query.branch) {
+        const scope = await resolveBranchScopeOrError(
+          c,
+          pane.detail,
+          query.branch,
+          query.worktreePath,
+        );
+        if (scope instanceof Response) {
+          return scope;
+        }
+        const summary = await fetchBranchDiffSummary(scope, { force });
+        if (!summary.rev || summary.reason) {
+          return c.json({ error: buildError("INVALID_PAYLOAD", "diff summary unavailable") }, 400);
+        }
+        const target = summary.files.find((file) => file.path === pathParam);
+        if (!target) {
+          return c.json({ error: buildError("NOT_FOUND", "file not found") }, 404);
+        }
+        const file = await fetchBranchDiffFile(scope, target, summary.rev, { force });
+        return c.json({ file });
+      }
       const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
       if (cwd instanceof Response) {
         return cwd;
@@ -138,6 +203,24 @@ export const createGitRoutes = ({ resolvePane }: GitRouteDeps) =>
       const limit = parseQueryInteger(query.limit, 10);
       const skip = parseQueryInteger(query.skip, 0);
       const force = isForceRequested(query.force);
+      if (query.branch) {
+        const scope = await resolveBranchScopeOrError(
+          c,
+          pane.detail,
+          query.branch,
+          query.worktreePath,
+        );
+        if (scope instanceof Response) {
+          return scope;
+        }
+        const log = await fetchCommitLog(scope.repoRoot, {
+          limit,
+          skip,
+          force,
+          range: { base: scope.baseBranch, branch: scope.branch },
+        });
+        return c.json({ log });
+      }
       const cwd = await resolveRequestedCwd(c, pane.detail, query.worktreePath);
       if (cwd instanceof Response) {
         return cwd;

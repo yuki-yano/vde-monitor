@@ -47,3 +47,11 @@ export const resolveRepoBranchCached = async (cwd: string | null) => {
   inflight.set(normalized, request);
   return request;
 };
+
+export const clearRepoBranchCache = (cwd: string | null) => {
+  const normalized = normalizeAbsolutePath(cwd);
+  if (!normalized) {
+    return;
+  }
+  repoBranchCache.delete(normalized);
+};

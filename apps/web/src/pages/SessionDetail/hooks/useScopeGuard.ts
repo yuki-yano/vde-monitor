@@ -6,6 +6,7 @@ import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 type UseScopeGuardParams = {
   paneId: string;
   worktreePath?: string | null;
+  branch?: string | null;
   connected: boolean;
   /**
    * Ref to the callback invoked when the connection transitions from
@@ -22,7 +23,7 @@ type UseScopeGuardParams = {
 };
 
 type UseScopeGuardResult = {
-  /** `${paneId}:${worktreePath ?? "__default__"}` */
+  /** `${paneId}:${worktreePath ?? "__default__"}:${branch ?? "__no_branch__"}` */
   scopeKey: string;
   /** Ref whose `.current` is always the latest scopeKey. */
   activeScopeRef: MutableRefObject<string>;
@@ -39,12 +40,13 @@ type UseScopeGuardResult = {
 export const useScopeGuard = ({
   paneId,
   worktreePath = null,
+  branch = null,
   connected,
   onReconnectRef,
   pollTickRef,
   pollIntervalMs,
 }: UseScopeGuardParams): UseScopeGuardResult => {
-  const scopeKey = `${paneId}:${worktreePath ?? "__default__"}`;
+  const scopeKey = `${paneId}:${worktreePath ?? "__default__"}:${branch ?? "__no_branch__"}`;
   const activeScopeRef = useRef(scopeKey);
   const prevConnectedRef = useRef<boolean | null>(null);
 

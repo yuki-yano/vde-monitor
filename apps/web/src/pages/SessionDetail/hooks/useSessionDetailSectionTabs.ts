@@ -6,6 +6,7 @@ const DETAIL_SECTION_TAB_VALUES = [
   "file",
   "changes",
   "commits",
+  "branches",
   "worktrees",
   "notes",
 ] as const;
