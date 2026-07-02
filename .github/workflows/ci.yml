@@ -10,14 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read Node.js version from mise.toml
-        id: node-version
-        run: echo "version=$(sed -n 's/^node[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' mise.toml)" >> "$GITHUB_OUTPUT"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.node-version.outputs.version }}
+      - name: Setup mise
+        uses: jdx/mise-action@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
