@@ -1,5 +1,5 @@
 import type { BranchListEntry } from "@vde-monitor/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Button,
@@ -28,16 +28,16 @@ export const BranchDeleteDialog = ({
 }: BranchDeleteDialogProps) => {
   const [force, setForce] = useState(false);
 
+  // Reset on close (including programmatic close after a successful delete,
+  // which bypasses Dialog's onOpenChange).
+  useEffect(() => {
+    if (entry == null) {
+      setForce(false);
+    }
+  }, [entry]);
+
   return (
-    <Dialog
-      open={entry != null}
-      onOpenChange={(open) => {
-        if (!open) {
-          setForce(false);
-        }
-        onOpenChange(open);
-      }}
-    >
+    <Dialog open={entry != null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Delete branch</DialogTitle>

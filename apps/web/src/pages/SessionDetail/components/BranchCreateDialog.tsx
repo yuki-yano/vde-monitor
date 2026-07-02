@@ -1,5 +1,5 @@
 import type { BranchListEntry } from "@vde-monitor/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Button,
@@ -32,6 +32,15 @@ export const BranchCreateDialog = ({
 }: BranchCreateDialogProps) => {
   const [name, setName] = useState("");
   const [base, setBase] = useState<string>("");
+
+  // Reset inputs on close (including programmatic close after a successful
+  // create, which bypasses Dialog's onOpenChange).
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setBase("");
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

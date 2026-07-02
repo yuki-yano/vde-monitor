@@ -124,6 +124,17 @@ describe("sortBranchEntries", () => {
     ]);
     expect(sorted.map((e) => e.name)).toEqual(["dated", "nodate"]);
   });
+
+  it("compares committedAt by timestamp across timezone offsets", () => {
+    // 2026-07-01T00:00:00+09:00 (= 2026-06-30T15:00:00Z) is older than
+    // 2026-06-30T20:00:00-05:00 (= 2026-07-01T01:00:00Z) even though the
+    // former is lexicographically larger.
+    const sorted = sortBranchEntries([
+      entry("jst", "2026-07-01T00:00:00+09:00"),
+      entry("est", "2026-06-30T20:00:00-05:00"),
+    ]);
+    expect(sorted.map((e) => e.name)).toEqual(["est", "jst"]);
+  });
 });
 
 describe("parseAheadBehindOutput", () => {

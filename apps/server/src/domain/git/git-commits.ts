@@ -49,6 +49,22 @@ const resolveGitRevision = async (repoRoot: string, rev: string) => {
   }
 };
 
+// Covers both tips so the cache also invalidates when the base branch moves
+// (e.g. the branch gets merged and base..branch shrinks to empty).
+const resolveRangeRevision = async (
+  repoRoot: string,
+  range: { base: string; branch: string },
+): Promise<string | null> => {
+  const [baseSha, branchSha] = await Promise.all([
+    resolveGitRevision(repoRoot, range.base),
+    resolveGitRevision(repoRoot, range.branch),
+  ]);
+  if (!baseSha || !branchSha) {
+    return null;
+  }
+  return `${baseSha}..${branchSha}`;
+};
+
 const resolveCommitRangeCount = async (repoRoot: string, range: string) => {
   try {
     const output = await runGit(repoRoot, ["rev-list", "--count", range]);
@@ -301,7 +317,7 @@ export const fetchCommitLog = async (
   const rangeOption = options?.range;
   const range = rangeOption ? `${rangeOption.base}..${rangeOption.branch}` : null;
   const head = rangeOption
-    ? await resolveGitRevision(repoRoot, rangeOption.branch)
+    ? await resolveRangeRevision(repoRoot, rangeOption)
     : await resolveGitHead(repoRoot);
   const cacheKey = `${repoRoot}:${range ?? "HEAD"}:${limit}:${skip}`;
   const cached = logCache.get(cacheKey);

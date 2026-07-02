@@ -210,11 +210,18 @@ export const useSessionDetailVM = (paneId: string) => {
 
   const checkoutBranchAndClear = useCallback(
     async (name: string) => {
+      const wasVirtualBranchActive = virtualBranch.virtualBranch != null;
       const ok = await branchesState.checkoutBranch(name);
       if (ok) {
         virtualBranch.clearVirtualBranch();
-        void diffs.refreshDiff();
-        void commits.refreshCommitLog();
+        // Clearing an active virtual branch changes the diff/commit scope key,
+        // which re-triggers their load effects with the new scope. Explicitly
+        // refreshing here would fire the captured stale branch-scoped requests,
+        // so only refresh when the scope stays the same.
+        if (!wasVirtualBranchActive) {
+          void diffs.refreshDiff();
+          void commits.refreshCommitLog();
+        }
         void virtualWorktree.refreshWorktrees();
       }
       return ok;

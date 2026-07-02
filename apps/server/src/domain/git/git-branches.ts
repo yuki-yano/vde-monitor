@@ -88,21 +88,34 @@ export const parseMergedBranchNames = (output: string): Set<string> =>
       .filter((line) => line.length > 0),
   );
 
+const toCommittedAtEpoch = (value: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 export const sortBranchEntries = (entries: BranchListEntry[]): BranchListEntry[] =>
   [...entries].sort((a, b) => {
     if (a.isDefault !== b.isDefault) {
       return a.isDefault ? -1 : 1;
     }
-    if (a.committedAt == null && b.committedAt == null) {
+    const aEpoch = toCommittedAtEpoch(a.committedAt);
+    const bEpoch = toCommittedAtEpoch(b.committedAt);
+    if (aEpoch == null && bEpoch == null) {
       return a.name.localeCompare(b.name);
     }
-    if (a.committedAt == null) {
+    if (aEpoch == null) {
       return 1;
     }
-    if (b.committedAt == null) {
+    if (bEpoch == null) {
       return -1;
     }
-    return b.committedAt.localeCompare(a.committedAt);
+    if (aEpoch !== bEpoch) {
+      return bEpoch - aEpoch;
+    }
+    return a.name.localeCompare(b.name);
   });
 
 export const resolveDefaultBranch = async (repoRoot: string): Promise<string | null> => {

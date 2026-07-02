@@ -78,6 +78,9 @@ describe("fetchCommitLog", () => {
     mocks.resolveRepoRoot.mockResolvedValue("/repo");
     mocks.runGit.mockImplementation((_cwd: string, args: string[]) => {
       const command = args.join(" ");
+      if (command === "rev-parse main") {
+        return Promise.resolve("basesha\n");
+      }
       if (command === "rev-parse feature") {
         return Promise.resolve("branchsha\n");
       }
@@ -100,13 +103,14 @@ describe("fetchCommitLog", () => {
       force: true,
     });
 
+    expect(mocks.runGit).toHaveBeenCalledWith("/repo", ["rev-parse", "main"]);
     expect(mocks.runGit).toHaveBeenCalledWith("/repo", ["rev-parse", "feature"]);
     expect(mocks.runGit).toHaveBeenCalledWith("/repo", ["rev-list", "--count", "main..feature"]);
     expect(mocks.runGit).toHaveBeenCalledWith(
       "/repo",
       expect.arrayContaining(["log", "main..feature"]),
     );
-    expect(log.rev).toBe("branchsha");
+    expect(log.rev).toBe("basesha..branchsha");
     expect(log.totalCount).toBe(2);
     expect(log.commits).toHaveLength(1);
     expect(log.commits[0]).toMatchObject({ hash: "hash1", subject: "Subject one" });

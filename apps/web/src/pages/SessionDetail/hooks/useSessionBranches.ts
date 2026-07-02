@@ -45,6 +45,7 @@ export const useSessionBranches = ({
     hasLoadedRef.current = false;
     setBranchList(null);
     setError(null);
+    setMutating(null);
     setMutationError(null);
     setLoading(false);
   }, [paneId]);
