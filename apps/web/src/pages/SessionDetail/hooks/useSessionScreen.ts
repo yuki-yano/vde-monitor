@@ -153,7 +153,6 @@ export const useSessionScreen = ({
       connectionIssue,
       requestScreen,
       mode,
-      isAtBottom,
       isUserScrollingRef,
       modeLoadedRef,
       modeSwitchRef,

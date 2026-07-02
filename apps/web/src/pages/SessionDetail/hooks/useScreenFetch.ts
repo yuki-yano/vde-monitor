@@ -41,11 +41,12 @@ const buildScreenOptions = (mode: ScreenMode, cursor: string | null) => {
   return options;
 };
 
-const shouldSuppressTextRender = (
-  mode: ScreenMode,
-  isAtBottom: boolean,
-  isUserScrolling: boolean,
-) => mode === "text" && !isAtBottom && isUserScrolling;
+// Suppress renders while the user is actively scrolling (any axis, even at the
+// bottom): committing screen updates mid-gesture triggers stick-to-bottom
+// scrolls that cancel scroll momentum and clamp horizontal position.
+// Pending screens are flushed when the user-scroll state ends.
+const shouldSuppressTextRender = (mode: ScreenMode, isUserScrolling: boolean) =>
+  mode === "text" && isUserScrolling;
 
 type UseScreenFetchParams = {
   paneId: string;
@@ -56,7 +57,6 @@ type UseScreenFetchParams = {
     options: { lines?: number; mode?: "text" | "image"; cursor?: string },
   ) => Promise<ScreenResponse>;
   mode: ScreenMode;
-  isAtBottom: boolean;
   isUserScrollingRef: MutableRefObject<boolean>;
   modeLoadedRef: MutableRefObject<{ text: boolean; image: boolean }>;
   modeSwitchRef: MutableRefObject<ScreenMode | null>;
@@ -81,7 +81,6 @@ export const useScreenFetch = ({
   connectionIssue,
   requestScreen,
   mode,
-  isAtBottom,
   isUserScrollingRef,
   modeLoadedRef,
   modeSwitchRef,
@@ -285,7 +284,7 @@ export const useScreenFetch = ({
       if (refreshLifecycleRef.current.inFlight?.id !== attempt.requestId) {
         return;
       }
-      const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
+      const suppressRender = shouldSuppressTextRender(mode, isUserScrollingRef.current);
       applyRefreshResponse(response, suppressRender, attempt.shouldShowLoading);
     } catch (err) {
       setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.screenRequestFailed));
@@ -298,7 +297,6 @@ export const useScreenFetch = ({
     connected,
     cursorRef,
     finishRefreshAttempt,
-    isAtBottom,
     isUserScrollingRef,
     mode,
     paneId,
@@ -317,19 +315,11 @@ export const useScreenFetch = ({
       if (!response.ok) return;
       setError(null);
       setFallbackReason(response.fallbackReason ?? null);
-      const suppressRender = shouldSuppressTextRender(mode, isAtBottom, isUserScrollingRef.current);
+      const suppressRender = shouldSuppressTextRender(mode, isUserScrollingRef.current);
       applyTextResponse(response, suppressRender, false);
       onModeLoaded(mode);
     },
-    [
-      applyTextResponse,
-      isAtBottom,
-      isUserScrollingRef,
-      mode,
-      onModeLoaded,
-      setError,
-      setFallbackReason,
-    ],
+    [applyTextResponse, isUserScrollingRef, mode, onModeLoaded, setError, setFallbackReason],
   );
 
   const { transport } = useScreenStream({

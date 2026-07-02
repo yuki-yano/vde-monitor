@@ -32,7 +32,6 @@ describe("useScreenFetch", () => {
       connectionIssue: null,
       requestScreen,
       mode: "text" as const,
-      isAtBottom: true,
       isUserScrollingRef: { current: false },
       modeLoadedRef: { current: { text: false, image: false } },
       modeSwitchRef: { current: null as "text" | "image" | null },
@@ -136,7 +135,6 @@ describe("useScreenFetch", () => {
           connectionIssue: null,
           requestScreen,
           mode,
-          isAtBottom: true,
           isUserScrollingRef: { current: false },
           modeLoadedRef: { current: { text: false, image: false } },
           modeSwitchRef: { current: null },
@@ -232,13 +230,12 @@ describe("useScreenFetch", () => {
     expect(result.current.pollingPauseReason).toBe("disconnected");
   });
 
-  it("defers text render while user is scrolling away from bottom", async () => {
+  it("defers text render while user is scrolling, even at the bottom", async () => {
     const pendingScreenRef = { current: null as string | null };
     const setScreen = vi.fn();
     const setImageBase64 = vi.fn();
 
     const { params } = setup({
-      isAtBottom: false,
       isUserScrollingRef: { current: true },
       pendingScreenRef,
       setScreen,
@@ -296,7 +293,6 @@ describe("useScreenFetch", () => {
       connectionIssue: null,
       requestScreen,
       mode: "text" as const,
-      isAtBottom: true,
       isUserScrollingRef: { current: false },
       modeLoadedRef: { current: { text: false, image: false } },
       modeSwitchRef: { current: null as "text" | "image" | null },
@@ -390,7 +386,6 @@ describe("useScreenFetch", () => {
           connectionIssue: null,
           requestScreen,
           mode: "text",
-          isAtBottom: true,
           isUserScrollingRef: { current: false },
           modeLoadedRef: { current: { text: false, image: false } },
           modeSwitchRef: { current: null },

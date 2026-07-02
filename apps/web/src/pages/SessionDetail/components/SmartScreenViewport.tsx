@@ -88,6 +88,12 @@ export const SmartScreenViewport = ({
     if (!node) {
       return;
     }
+    // Writing scrollTop cancels in-flight scroll momentum (including
+    // horizontal gestures on the same element), so skip the redundant
+    // write when the scroller is already at the bottom.
+    if (resolveIsAtBottom(node)) {
+      return;
+    }
     node.scrollTop = node.scrollHeight;
   }, [decoratedLines, isAtBottom, scrollerRef]);
 
