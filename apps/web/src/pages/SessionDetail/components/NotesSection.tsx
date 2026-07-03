@@ -67,7 +67,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
     setEditingBody,
     beginEdit: autoSaveBeginEdit,
     finishEdit: autoSaveFinishEdit,
-    requestClose,
+    guardToggleClose,
     discardEditing,
     forceStartEditing,
   } = useNoteAutoSave({ notes, onSave });
@@ -102,9 +102,9 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
 
   const toggleNoteOpen = useCallback(
     (noteId: string) => {
-      void requestClose(noteId, () => applyToggleNoteOpen(noteId));
+      void guardToggleClose(noteId, () => applyToggleNoteOpen(noteId));
     },
-    [applyToggleNoteOpen, requestClose],
+    [applyToggleNoteOpen, guardToggleClose],
   );
 
   const beginEdit = useCallback(

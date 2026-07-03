@@ -34,6 +34,15 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     editingBodyRef.current = editingBody;
   }, [editingBody]);
 
+  // Resets the editing target back to "nothing being edited". Shared by every
+  // call site that clears editing state outright (as opposed to switching to
+  // a different note), so the same three fields never drift out of sync.
+  const clearEditingState = useCallback(() => {
+    setEditingNoteId(null);
+    setEditingBody("");
+    lastSavedBodyRef.current = "";
+  }, []);
+
   const runAutoSave = useCallback(
     (noteId: string, body: string) => {
       const queuedSave = saveQueueRef.current.then(async () => {
@@ -79,10 +88,8 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
       return;
     }
     debouncedSave.cancel();
-    setEditingNoteId(null);
-    setEditingBody("");
-    lastSavedBodyRef.current = "";
-  }, [debouncedSave, editingNoteId, notes]);
+    clearEditingState();
+  }, [clearEditingState, debouncedSave, editingNoteId, notes]);
 
   const flushPendingAutoSave = useCallback(async () => {
     const noteId = editingNoteIdRef.current;
@@ -130,18 +137,20 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     if (!ok) {
       return false;
     }
-    setEditingNoteId(null);
-    setEditingBody("");
-    lastSavedBodyRef.current = "";
+    clearEditingState();
     return true;
-  }, [flushPendingAutoSave]);
+  }, [clearEditingState, flushPendingAutoSave]);
 
-  // Same non-`async` shape as `beginEdit`: closing a note that is not the one
-  // being edited resolves `onClosed` synchronously with no flush involved.
-  const requestClose = useCallback(
-    (noteId: string, onClosed?: () => void): Promise<boolean> => {
+  // This is the pre-toggle guard for collapsing an open note's accordion, not
+  // a "close/finish editing" action in its own right: when the target note
+  // isn't the one being edited, it just waves the toggle through immediately;
+  // only when it matches does it flush the pending edit before allowing the
+  // collapse. Same non-`async` shape as `beginEdit` so the common (no-flush)
+  // case calls `onGuarded` synchronously in the caller's tick.
+  const guardToggleClose = useCallback(
+    (noteId: string, onGuarded?: () => void): Promise<boolean> => {
       if (editingNoteIdRef.current !== noteId) {
-        onClosed?.();
+        onGuarded?.();
         return Promise.resolve(true);
       }
       return (async () => {
@@ -149,14 +158,12 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
         if (!ok) {
           return false;
         }
-        setEditingNoteId(null);
-        setEditingBody("");
-        lastSavedBodyRef.current = "";
-        onClosed?.();
+        clearEditingState();
+        onGuarded?.();
         return true;
       })();
     },
-    [flushPendingAutoSave],
+    [clearEditingState, flushPendingAutoSave],
   );
 
   const discardEditing = useCallback(
@@ -165,13 +172,14 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
         return;
       }
       debouncedSave.cancel();
-      setEditingNoteId(null);
-      setEditingBody("");
-      lastSavedBodyRef.current = "";
+      clearEditingState();
     },
-    [debouncedSave],
+    [clearEditingState, debouncedSave],
   );
 
+  // New-note auto-edit intentionally skips flushPendingAutoSave: unlike
+  // beginEdit, it switches the editing target immediately without trying to
+  // save whatever was being edited before (matches the pre-split behavior).
   const forceStartEditing = useCallback((note: RepoNote) => {
     setEditingNoteId(note.id);
     setEditingBody(note.body);
@@ -184,7 +192,7 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     setEditingBody,
     beginEdit,
     finishEdit,
-    requestClose,
+    guardToggleClose,
     discardEditing,
     forceStartEditing,
   };

@@ -244,7 +244,7 @@ describe("useNoteAutoSave", () => {
     expect(result.current.editingNoteId).toBeNull();
   });
 
-  it("requestClose flushes and clears editing only when the target note matches", async () => {
+  it("guardToggleClose flushes and clears editing only when the target note matches", async () => {
     vi.useFakeTimers();
     const onSave = vi.fn(async () => true);
     const noteA = buildNote({ id: "note-a" });
@@ -260,7 +260,7 @@ describe("useNoteAutoSave", () => {
 
     let okForOther = false;
     await act(async () => {
-      okForOther = await result.current.requestClose("note-b");
+      okForOther = await result.current.guardToggleClose("note-b");
     });
     expect(okForOther).toBe(true);
     expect(onSave).not.toHaveBeenCalled();
@@ -268,7 +268,7 @@ describe("useNoteAutoSave", () => {
 
     let okForCurrent = false;
     await act(async () => {
-      okForCurrent = await result.current.requestClose("note-a");
+      okForCurrent = await result.current.guardToggleClose("note-a");
     });
     expect(okForCurrent).toBe(true);
     expect(onSave).toHaveBeenCalledWith("note-a", { title: null, body: "a-draft" });
