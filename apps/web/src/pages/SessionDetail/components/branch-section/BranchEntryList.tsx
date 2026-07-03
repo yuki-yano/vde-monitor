@@ -12,7 +12,7 @@ import {
   resolveBranchPrStatus,
   resolveBranchWorktreeRelativePath,
 } from "./branch-view-model";
-import { formatGitMetric, resolveWorktreeFlagClassName } from "./worktree-view-model";
+import { formatGitMetric, resolveWorktreeFlagClassName } from "../worktree-view-model";
 
 type BranchEntryListProps = {
   entries: BranchListEntry[];

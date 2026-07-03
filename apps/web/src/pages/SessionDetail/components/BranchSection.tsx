@@ -4,10 +4,10 @@ import { memo, useEffect, useState } from "react";
 
 import { Button, Card, IconButton } from "@/components/ui";
 
-import { BranchCheckoutDialog } from "./BranchCheckoutDialog";
-import { BranchCreateDialog } from "./BranchCreateDialog";
-import { BranchDeleteDialog } from "./BranchDeleteDialog";
-import { BranchEntryList } from "./BranchEntryList";
+import { BranchCheckoutDialog } from "./branch-section/BranchCheckoutDialog";
+import { BranchCreateDialog } from "./branch-section/BranchCreateDialog";
+import { BranchDeleteDialog } from "./branch-section/BranchDeleteDialog";
+import { BranchEntryList } from "./branch-section/BranchEntryList";
 import { WorktreeStatusStack } from "./WorktreeStatusStack";
 
 type BranchSectionState = {
