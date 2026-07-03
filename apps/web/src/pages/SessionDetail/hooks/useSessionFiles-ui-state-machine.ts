@@ -1,11 +1,15 @@
-import type { RepoFileContent, RepoFileSearchPage } from "@vde-monitor/shared";
-import type { SetStateAction } from "react";
+import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
+import type { Dispatch, SetStateAction } from "react";
 
 import type { LogFileCandidateItem } from "./useSessionFiles-log-resolve-state";
 
-type SessionFilesUiStateKey = keyof SessionFilesUiState;
-
-type SessionFilesUiState = {
+// Single reducer backing all SessionDetail file-navigator state: fuzzy search,
+// file content modal, log-reference resolution, and (since T7) tree browsing
+// (treePages/expandedDirSet/etc., formerly separate useState calls). Keeping
+// everything in one state object lets a context switch (pane/worktree change)
+// reset the whole navigator with a single `contextReset` dispatch instead of
+// ~30 individual setter calls.
+export type SessionFilesUiState = {
   selectedFilePath: string | null;
   searchQuery: string;
   searchResult: RepoFileSearchPage | null;
@@ -28,11 +32,42 @@ type SessionFilesUiState = {
   logFileCandidatePaneId: string | null;
   logFileCandidateLine: number | null;
   logFileCandidateItems: LogFileCandidateItem[];
+  expandedDirSet: Set<string>;
+  searchExpandedDirSet: Set<string>;
+  searchCollapsedDirSet: Set<string>;
+  treePages: Record<string, RepoFileTreePage>;
+  treeLoadingByPath: Record<string, boolean>;
+  treeError: string | null;
 };
 
-type SessionFilesUiAction =
-  | { type: "set"; key: SessionFilesUiStateKey; value: unknown }
-  | { type: "reset" };
+type SessionFilesUiStateKey = keyof SessionFilesUiState;
+
+export type SessionFilesUiAction =
+  | {
+      type: "set";
+      key: SessionFilesUiStateKey;
+      value: unknown;
+    }
+  | { type: "contextReset" }
+  | { type: "openFileModal"; path: string; highlightLine: number | null }
+  | {
+      type: "fileModalLoaded";
+      file: RepoFileContent;
+      markdownViewMode: "code" | "preview";
+    }
+  | { type: "fileModalLoadFailed"; message: string }
+  | { type: "closeFileModal" }
+  | { type: "startLogResolve" }
+  | {
+      type: "openLogFileCandidate";
+      reference: string;
+      paneId: string;
+      line: number | null;
+      items: LogFileCandidateItem[];
+    }
+  | { type: "closeLogFileCandidate" };
+
+export type SessionFilesUiDispatch = Dispatch<SessionFilesUiAction>;
 
 const applySetStateAction = <T>(prev: T, action: unknown): T => {
   if (typeof action === "function") {
@@ -64,40 +99,125 @@ export const createInitialSessionFilesUiState = (): SessionFilesUiState => ({
   logFileCandidatePaneId: null,
   logFileCandidateLine: null,
   logFileCandidateItems: [],
+  expandedDirSet: new Set(),
+  searchExpandedDirSet: new Set(),
+  searchCollapsedDirSet: new Set(),
+  treePages: {},
+  treeLoadingByPath: {},
+  treeError: null,
 });
+
+const closedLogFileCandidateFields = {
+  logFileCandidateModalOpen: false,
+  logFileCandidateReference: null,
+  logFileCandidatePaneId: null,
+  logFileCandidateLine: null,
+  logFileCandidateItems: [] as LogFileCandidateItem[],
+} satisfies Partial<SessionFilesUiState>;
 
 export const reduceSessionFilesUiState = (
   state: SessionFilesUiState,
   action: SessionFilesUiAction,
 ): SessionFilesUiState => {
-  if (action.type === "reset") {
-    return createInitialSessionFilesUiState();
-  }
+  switch (action.type) {
+    case "contextReset":
+      return createInitialSessionFilesUiState();
 
-  const key = action.key;
-  const previousValue = state[key];
-  const nextValue = applySetStateAction(previousValue as never, action.value);
-  if (Object.is(previousValue, nextValue)) {
-    return state;
+    case "openFileModal":
+      return {
+        ...state,
+        fileModalOpen: true,
+        fileModalPath: action.path,
+        fileModalLoading: true,
+        fileModalError: null,
+        fileModalShowLineNumbers: true,
+        fileModalCopyError: null,
+        fileModalCopiedPath: false,
+        fileModalFile: null,
+        fileModalHighlightLine: action.highlightLine,
+      };
+
+    case "fileModalLoaded":
+      return {
+        ...state,
+        fileModalFile: action.file,
+        fileModalLoading: false,
+        fileModalError: null,
+        fileModalMarkdownViewMode: action.markdownViewMode,
+      };
+
+    case "fileModalLoadFailed":
+      return {
+        ...state,
+        fileModalFile: null,
+        fileModalLoading: false,
+        fileModalError: action.message,
+      };
+
+    case "closeFileModal":
+      return {
+        ...state,
+        fileModalOpen: false,
+        fileModalLoading: false,
+        fileModalError: null,
+        fileModalShowLineNumbers: true,
+        fileModalCopyError: null,
+        fileModalCopiedPath: false,
+        fileModalHighlightLine: null,
+      };
+
+    case "startLogResolve":
+      return {
+        ...state,
+        fileResolveError: null,
+        ...closedLogFileCandidateFields,
+      };
+
+    case "openLogFileCandidate":
+      return {
+        ...state,
+        logFileCandidateModalOpen: true,
+        logFileCandidateReference: action.reference,
+        logFileCandidatePaneId: action.paneId,
+        logFileCandidateLine: action.line,
+        logFileCandidateItems: action.items,
+      };
+
+    case "closeLogFileCandidate":
+      return {
+        ...state,
+        ...closedLogFileCandidateFields,
+      };
+
+    case "set": {
+      const key = action.key;
+      const previousValue = state[key];
+      const nextValue = applySetStateAction(previousValue as never, action.value);
+      if (Object.is(previousValue, nextValue)) {
+        return state;
+      }
+      return {
+        ...state,
+        [key]: nextValue,
+      };
+    }
+
+    default:
+      return state;
   }
-  return {
-    ...state,
-    [key]: nextValue,
-  };
 };
 
-export const createSessionFilesUiSetter = <T>({
-  dispatch,
-  key,
-}: {
-  dispatch: (action: SessionFilesUiAction) => void;
-  key: SessionFilesUiStateKey;
-}) => {
-  return (value: SetStateAction<T>) => {
-    dispatch({
-      type: "set",
-      key,
-      value,
-    });
-  };
+/**
+ * Dispatches a single-field update. Used directly by sub-hooks in place of
+ * per-field setter props: `setUiState(dispatch, "searchQuery", "foo")` instead
+ * of threading a `setSearchQuery` callback through props. `dispatch` from
+ * `useReducer` is referentially stable, so this can be called inline from any
+ * callback without becoming an extra dependency-array concern.
+ */
+export const setUiState = <K extends SessionFilesUiStateKey>(
+  dispatch: SessionFilesUiDispatch,
+  key: K,
+  value: SetStateAction<SessionFilesUiState[K]>,
+) => {
+  dispatch({ type: "set", key, value });
 };

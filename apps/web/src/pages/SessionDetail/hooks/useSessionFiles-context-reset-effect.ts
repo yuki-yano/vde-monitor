@@ -1,65 +1,38 @@
 import { useEffect } from "react";
 
-import {
-  type ResetSessionFilesRefsInput,
-  type ResetSessionFilesStateInput,
-  resetSessionFilesRefs,
-  resetSessionFilesState,
-} from "./session-files-reset";
+import { type ResetSessionFilesRefsInput, resetSessionFilesRefs } from "./session-files-reset";
+import type { SessionFilesUiDispatch } from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesContextResetEffectArgs = {
+type UseSessionFilesContextResetEffectDeps = {
   paneId: string;
   repoRoot: string | null;
   worktreePath: string | null;
   loadTree: (targetPath: string) => Promise<unknown>;
-} & ResetSessionFilesRefsInput &
-  ResetSessionFilesStateInput;
+} & ResetSessionFilesRefsInput;
 
-export const useSessionFilesContextResetEffect = ({
-  paneId,
-  repoRoot,
-  worktreePath,
-  loadTree,
-  treePageRequestMapRef,
-  searchRequestMapRef,
-  fileContentRequestMapRef,
-  logReferenceLinkableCacheRef,
-  logReferenceLinkableRequestMapRef,
-  activeSearchRequestIdRef,
-  activeFileContentRequestIdRef,
-  activeLogResolveRequestIdRef,
-  contextVersionRef,
-  treePagesRef,
-  fileModalCopyTimeoutRef,
-  setSelectedFilePath,
-  setExpandedDirSet,
-  setSearchExpandedDirSet,
-  setSearchCollapsedDirSet,
-  setTreePages,
-  setTreeLoadingByPath,
-  setTreeError,
-  setSearchQuery,
-  setSearchResult,
-  setSearchLoading,
-  setSearchError,
-  setSearchActiveIndex,
-  setFileModalOpen,
-  setFileModalPath,
-  setFileModalLoading,
-  setFileModalError,
-  setFileModalFile,
-  setFileModalMarkdownViewMode,
-  setFileModalShowLineNumbers,
-  setFileModalCopiedPath,
-  setFileModalCopyError,
-  setFileModalHighlightLine,
-  setFileResolveError,
-  setLogFileCandidateModalOpen,
-  setLogFileCandidateReference,
-  setLogFileCandidatePaneId,
-  setLogFileCandidateLine,
-  setLogFileCandidateItems,
-}: UseSessionFilesContextResetEffectArgs) => {
+// Pane/worktree switch reset: was ~30 individual setter calls, now a single
+// `contextReset` dispatch (reducer state) + the ref bookkeeping that can't
+// live in reducer state (in-flight request maps, request-id counters).
+export const useSessionFilesContextResetEffect = (
+  dispatch: SessionFilesUiDispatch,
+  {
+    paneId,
+    repoRoot,
+    worktreePath,
+    loadTree,
+    treePageRequestMapRef,
+    searchRequestMapRef,
+    fileContentRequestMapRef,
+    logReferenceLinkableCacheRef,
+    logReferenceLinkableRequestMapRef,
+    activeSearchRequestIdRef,
+    activeFileContentRequestIdRef,
+    activeLogResolveRequestIdRef,
+    contextVersionRef,
+    treePagesRef,
+    cancelFileModalCopyTimeout,
+  }: UseSessionFilesContextResetEffectDeps,
+) => {
   useEffect(() => {
     resetSessionFilesRefs({
       treePageRequestMapRef,
@@ -72,38 +45,9 @@ export const useSessionFilesContextResetEffect = ({
       activeLogResolveRequestIdRef,
       contextVersionRef,
       treePagesRef,
-      fileModalCopyTimeoutRef,
+      cancelFileModalCopyTimeout,
     });
-    resetSessionFilesState({
-      setSelectedFilePath,
-      setExpandedDirSet,
-      setSearchExpandedDirSet,
-      setSearchCollapsedDirSet,
-      setTreePages,
-      setTreeLoadingByPath,
-      setTreeError,
-      setSearchQuery,
-      setSearchResult,
-      setSearchLoading,
-      setSearchError,
-      setSearchActiveIndex,
-      setFileModalOpen,
-      setFileModalPath,
-      setFileModalLoading,
-      setFileModalError,
-      setFileModalFile,
-      setFileModalMarkdownViewMode,
-      setFileModalShowLineNumbers,
-      setFileModalCopiedPath,
-      setFileModalCopyError,
-      setFileModalHighlightLine,
-      setFileResolveError,
-      setLogFileCandidateModalOpen,
-      setLogFileCandidateReference,
-      setLogFileCandidatePaneId,
-      setLogFileCandidateLine,
-      setLogFileCandidateItems,
-    });
+    dispatch({ type: "contextReset" });
 
     if (!repoRoot) {
       return;
@@ -113,9 +57,10 @@ export const useSessionFilesContextResetEffect = ({
     activeFileContentRequestIdRef,
     activeLogResolveRequestIdRef,
     activeSearchRequestIdRef,
+    cancelFileModalCopyTimeout,
     contextVersionRef,
+    dispatch,
     fileContentRequestMapRef,
-    fileModalCopyTimeoutRef,
     loadTree,
     logReferenceLinkableCacheRef,
     logReferenceLinkableRequestMapRef,
@@ -123,34 +68,6 @@ export const useSessionFilesContextResetEffect = ({
     repoRoot,
     worktreePath,
     searchRequestMapRef,
-    setExpandedDirSet,
-    setFileModalCopiedPath,
-    setFileModalCopyError,
-    setFileModalError,
-    setFileModalFile,
-    setFileModalHighlightLine,
-    setFileModalLoading,
-    setFileModalMarkdownViewMode,
-    setFileModalOpen,
-    setFileModalPath,
-    setFileModalShowLineNumbers,
-    setFileResolveError,
-    setLogFileCandidateItems,
-    setLogFileCandidateLine,
-    setLogFileCandidateModalOpen,
-    setLogFileCandidatePaneId,
-    setLogFileCandidateReference,
-    setSearchActiveIndex,
-    setSearchCollapsedDirSet,
-    setSearchError,
-    setSearchExpandedDirSet,
-    setSearchLoading,
-    setSearchQuery,
-    setSearchResult,
-    setSelectedFilePath,
-    setTreeError,
-    setTreeLoadingByPath,
-    setTreePages,
     treePageRequestMapRef,
     treePagesRef,
   ]);

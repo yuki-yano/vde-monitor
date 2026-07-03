@@ -1,21 +1,21 @@
 import type { RepoFileTreePage } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import { collectAncestorDirectories } from "./session-files-tree-utils";
+import { type SessionFilesUiDispatch, setUiState } from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesTreeRevealArgs = {
+type UseSessionFilesTreeRevealDeps = {
   repoRoot: string | null;
   treePagesRef: MutableRefObject<Record<string, RepoFileTreePage>>;
   loadTree: (targetPath: string, cursor?: string) => Promise<RepoFileTreePage | null>;
-  setExpandedDirSet: Dispatch<SetStateAction<Set<string>>>;
 };
 
-export const useSessionFilesTreeReveal = ({
-  repoRoot,
-  treePagesRef,
-  loadTree,
-  setExpandedDirSet,
-}: UseSessionFilesTreeRevealArgs) => {
+// Write-only w.r.t. reducer state (expands ancestor directories), so it only
+// needs `dispatch`, not the full state.
+export const useSessionFilesTreeReveal = (
+  dispatch: SessionFilesUiDispatch,
+  { repoRoot, treePagesRef, loadTree }: UseSessionFilesTreeRevealDeps,
+) => {
   const loadTreeRemainingPages = useCallback(
     async (targetPath: string) => {
       if (!repoRoot) {
@@ -42,7 +42,7 @@ export const useSessionFilesTreeReveal = ({
       if (ancestors.length === 0) {
         return;
       }
-      setExpandedDirSet((prev) => {
+      setUiState(dispatch, "expandedDirSet", (prev) => {
         const next = new Set(prev);
         ancestors.forEach((ancestor) => next.add(ancestor));
         return next;
@@ -54,7 +54,7 @@ export const useSessionFilesTreeReveal = ({
         }
       });
     },
-    [loadTreeRemainingPages, setExpandedDirSet, treePagesRef],
+    [dispatch, loadTreeRemainingPages, treePagesRef],
   );
 
   return {

@@ -1,4 +1,3 @@
-import type { RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
 import {
@@ -6,26 +5,29 @@ import {
   buildSearchRenderNodes,
   resolveTreeLoadMoreTarget,
 } from "./session-files-tree-utils";
+import type { SessionFilesUiState } from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesTreeRenderNodesArgs = {
+type UseSessionFilesTreeRenderNodesState = Pick<
+  SessionFilesUiState,
+  "searchResult" | "searchActiveIndex" | "selectedFilePath" | "treePages" | "expandedDirSet"
+>;
+
+type UseSessionFilesTreeRenderNodesDeps = {
   isSearchActive: boolean;
-  searchResult: RepoFileSearchPage | null;
-  searchActiveIndex: number;
-  selectedFilePath: string | null;
   effectiveSearchExpandedDirSet: Set<string>;
-  treePages: Record<string, RepoFileTreePage>;
-  expandedDirSet: Set<string>;
 };
 
-export const useSessionFilesTreeRenderNodes = ({
-  isSearchActive,
-  searchResult,
-  searchActiveIndex,
-  selectedFilePath,
-  effectiveSearchExpandedDirSet,
-  treePages,
-  expandedDirSet,
-}: UseSessionFilesTreeRenderNodesArgs) => {
+// Pure derivation from state, no dispatch needed.
+export const useSessionFilesTreeRenderNodes = (
+  {
+    searchResult,
+    searchActiveIndex,
+    selectedFilePath,
+    treePages,
+    expandedDirSet,
+  }: UseSessionFilesTreeRenderNodesState,
+  { isSearchActive, effectiveSearchExpandedDirSet }: UseSessionFilesTreeRenderNodesDeps,
+) => {
   const searchActivePath = searchResult?.items[searchActiveIndex]?.path ?? null;
   const searchTreeNodes = useMemo(
     () =>

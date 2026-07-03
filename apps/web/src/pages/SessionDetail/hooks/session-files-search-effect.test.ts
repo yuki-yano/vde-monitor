@@ -5,13 +5,17 @@ import {
   applyEmptySearchState,
   createNextSearchRequestId,
   resetSearchExpandOverrides,
-  scheduleSearchRequest,
+  runSearchRequest,
 } from "./session-files-search-effect";
+import type { SessionFilesUiAction } from "./useSessionFiles-ui-state-machine";
 
-const flushMicrotasks = async () => {
-  await Promise.resolve();
-  await Promise.resolve();
-};
+const findSetAction = (dispatch: ReturnType<typeof vi.fn>, key: string) =>
+  dispatch.mock.calls
+    .map(([action]) => action as SessionFilesUiAction)
+    .filter(
+      (action): action is Extract<SessionFilesUiAction, { type: "set" }> => action.type === "set",
+    )
+    .filter((action) => action.key === key);
 
 describe("useSessionFiles search effect helpers", () => {
   it("increments request id ref", () => {
@@ -22,35 +26,22 @@ describe("useSessionFiles search effect helpers", () => {
   });
 
   it("resets search expand overrides", () => {
-    const setSearchExpandedDirSet = vi.fn();
-    const setSearchCollapsedDirSet = vi.fn();
-    resetSearchExpandOverrides({
-      setSearchExpandedDirSet,
-      setSearchCollapsedDirSet,
-    });
-    expect((setSearchExpandedDirSet.mock.calls[0] ?? [])[0]).toBeInstanceOf(Set);
-    expect((setSearchCollapsedDirSet.mock.calls[0] ?? [])[0]).toBeInstanceOf(Set);
+    const dispatch = vi.fn();
+    resetSearchExpandOverrides(dispatch);
+    expect(findSetAction(dispatch, "searchExpandedDirSet")[0]?.value).toBeInstanceOf(Set);
+    expect(findSetAction(dispatch, "searchCollapsedDirSet")[0]?.value).toBeInstanceOf(Set);
   });
 
   it("applies empty search state", () => {
-    const setSearchResult = vi.fn();
-    const setSearchError = vi.fn();
-    const setSearchLoading = vi.fn();
-    const setSearchActiveIndex = vi.fn();
-    applyEmptySearchState({
-      setSearchResult,
-      setSearchError,
-      setSearchLoading,
-      setSearchActiveIndex,
-    });
-    expect(setSearchResult).toHaveBeenCalledWith(null);
-    expect(setSearchError).toHaveBeenCalledWith(null);
-    expect(setSearchLoading).toHaveBeenCalledWith(false);
-    expect(setSearchActiveIndex).toHaveBeenCalledWith(0);
+    const dispatch = vi.fn();
+    applyEmptySearchState(dispatch);
+    expect(findSetAction(dispatch, "searchResult")[0]?.value).toBeNull();
+    expect(findSetAction(dispatch, "searchError")[0]?.value).toBeNull();
+    expect(findSetAction(dispatch, "searchLoading")[0]?.value).toBe(false);
+    expect(findSetAction(dispatch, "searchActiveIndex")[0]?.value).toBe(0);
   });
 
-  it("schedules debounced search and applies response when request is current", async () => {
-    vi.useFakeTimers();
+  it("runs the search request and applies response when request is current", async () => {
     const page: RepoFileSearchPage = {
       query: "index",
       items: [],
@@ -58,38 +49,29 @@ describe("useSessionFiles search effect helpers", () => {
       totalMatchedCount: 0,
     };
     const fetchSearchPage = vi.fn(async () => page);
-    const setSearchLoading = vi.fn();
-    const setSearchError = vi.fn();
-    const setSearchResult = vi.fn();
-    const setSearchActiveIndex = vi.fn();
+    const dispatch = vi.fn();
     const activeSearchRequestIdRef = { current: 10 };
 
-    scheduleSearchRequest({
+    await runSearchRequest({
       requestId: 10,
       activeSearchRequestIdRef,
       normalizedQuery: "index",
-      debounceMs: 120,
       fetchSearchPage,
       resolveErrorMessage: () => "error",
-      setSearchLoading,
-      setSearchError,
-      setSearchResult,
-      setSearchActiveIndex,
+      dispatch,
     });
-    vi.advanceTimersByTime(120);
-    await flushMicrotasks();
 
     expect(fetchSearchPage).toHaveBeenCalledWith("index");
-    expect(setSearchLoading).toHaveBeenCalledWith(true);
-    expect(setSearchError).toHaveBeenCalledWith(null);
-    expect(setSearchResult).toHaveBeenCalledWith(page);
-    expect(setSearchActiveIndex).toHaveBeenCalledWith(0);
-    expect(setSearchLoading).toHaveBeenLastCalledWith(false);
-    vi.useRealTimers();
+    expect(findSetAction(dispatch, "searchLoading").map((action) => action.value)).toEqual([
+      true,
+      false,
+    ]);
+    expect(findSetAction(dispatch, "searchError")[0]?.value).toBeNull();
+    expect(findSetAction(dispatch, "searchResult")[0]?.value).toEqual(page);
+    expect(findSetAction(dispatch, "searchActiveIndex")[0]?.value).toBe(0);
   });
 
   it("ignores stale search result update when request id changed", async () => {
-    vi.useFakeTimers();
     const deferred = { resolve: (() => undefined) as (value: RepoFileSearchPage) => void };
     const fetchSearchPage = vi.fn(
       () =>
@@ -97,25 +79,17 @@ describe("useSessionFiles search effect helpers", () => {
           deferred.resolve = nextResolve;
         }),
     );
-    const setSearchLoading = vi.fn();
-    const setSearchError = vi.fn();
-    const setSearchResult = vi.fn();
-    const setSearchActiveIndex = vi.fn();
+    const dispatch = vi.fn();
     const activeSearchRequestIdRef = { current: 20 };
 
-    scheduleSearchRequest({
+    const runPromise = runSearchRequest({
       requestId: 20,
       activeSearchRequestIdRef,
       normalizedQuery: "index",
-      debounceMs: 120,
       fetchSearchPage,
       resolveErrorMessage: () => "error",
-      setSearchLoading,
-      setSearchError,
-      setSearchResult,
-      setSearchActiveIndex,
+      dispatch,
     });
-    vi.advanceTimersByTime(120);
     activeSearchRequestIdRef.current = 21;
     deferred.resolve({
       query: "index",
@@ -123,12 +97,10 @@ describe("useSessionFiles search effect helpers", () => {
       truncated: false,
       totalMatchedCount: 0,
     });
-    await flushMicrotasks();
+    await runPromise;
 
-    expect(setSearchLoading).toHaveBeenCalledWith(true);
-    expect(setSearchResult).not.toHaveBeenCalled();
-    expect(setSearchActiveIndex).not.toHaveBeenCalled();
-    expect(setSearchLoading).not.toHaveBeenCalledWith(false);
-    vi.useRealTimers();
+    expect(findSetAction(dispatch, "searchLoading").map((action) => action.value)).toEqual([true]);
+    expect(findSetAction(dispatch, "searchResult")).toHaveLength(0);
+    expect(findSetAction(dispatch, "searchActiveIndex")).toHaveLength(0);
   });
 });

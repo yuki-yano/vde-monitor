@@ -1,10 +1,18 @@
 import type { RepoFileContent } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
+import { useTimeout } from "@/lib/use-timeout";
+
+import type {
+  SessionFilesUiDispatch,
+  SessionFilesUiState,
+} from "./useSessionFiles-ui-state-machine";
+import { setUiState } from "./useSessionFiles-ui-state-machine";
 
 const markdownPathPattern = /\.(md|markdown)$/i;
+const FILE_MODAL_COPY_INDICATOR_MS = 1200;
 
 const isMarkdownFileContent = (file: RepoFileContent) => {
   if (file.languageHint === "markdown") {
@@ -13,49 +21,34 @@ const isMarkdownFileContent = (file: RepoFileContent) => {
   return markdownPathPattern.test(file.path);
 };
 
-type UseSessionFilesFileModalActionsArgs = {
+type UseSessionFilesFileModalActionsDeps = {
   paneId: string;
-  fileModalPath: string | null;
   fetchFileContent: (targetPaneId: string, targetPath: string) => Promise<RepoFileContent>;
   revealFilePath: (targetPath: string) => void;
   resolveUnknownErrorMessage: (error: unknown, fallbackMessage: string) => string;
   contextVersionRef: MutableRefObject<number>;
   activeFileContentRequestIdRef: MutableRefObject<number>;
-  fileModalCopyTimeoutRef: MutableRefObject<number | null>;
-  setSelectedFilePath: Dispatch<SetStateAction<string | null>>;
-  setFileModalOpen: Dispatch<SetStateAction<boolean>>;
-  setFileModalPath: Dispatch<SetStateAction<string | null>>;
-  setFileModalLoading: Dispatch<SetStateAction<boolean>>;
-  setFileModalError: Dispatch<SetStateAction<string | null>>;
-  setFileModalShowLineNumbers: Dispatch<SetStateAction<boolean>>;
-  setFileModalCopyError: Dispatch<SetStateAction<string | null>>;
-  setFileModalCopiedPath: Dispatch<SetStateAction<boolean>>;
-  setFileModalFile: Dispatch<SetStateAction<RepoFileContent | null>>;
-  setFileModalHighlightLine: Dispatch<SetStateAction<number | null>>;
-  setFileModalMarkdownViewMode: Dispatch<SetStateAction<"code" | "preview" | "diff">>;
 };
 
-export const useSessionFilesFileModalActions = ({
-  paneId,
-  fileModalPath,
-  fetchFileContent,
-  revealFilePath,
-  resolveUnknownErrorMessage,
-  contextVersionRef,
-  activeFileContentRequestIdRef,
-  fileModalCopyTimeoutRef,
-  setSelectedFilePath,
-  setFileModalOpen,
-  setFileModalPath,
-  setFileModalLoading,
-  setFileModalError,
-  setFileModalShowLineNumbers,
-  setFileModalCopyError,
-  setFileModalCopiedPath,
-  setFileModalFile,
-  setFileModalHighlightLine,
-  setFileModalMarkdownViewMode,
-}: UseSessionFilesFileModalActionsArgs) => {
+export const useSessionFilesFileModalActions = (
+  state: Pick<SessionFilesUiState, "fileModalPath">,
+  dispatch: SessionFilesUiDispatch,
+  {
+    paneId,
+    fetchFileContent,
+    revealFilePath,
+    resolveUnknownErrorMessage,
+    contextVersionRef,
+    activeFileContentRequestIdRef,
+  }: UseSessionFilesFileModalActionsDeps,
+) => {
+  // Owns the "Copied!" indicator's auto-hide timer. A pending timer must be
+  // cancelled on context reset (pane/worktree switch) so a stale timeout from
+  // the previous context can't clobber a fresh copy indicator in the new one
+  // -- see useSessionFiles.ts wiring of `cancelCopyTimeout` into the
+  // context-reset effect.
+  const copyIndicatorTimeout = useTimeout();
+
   const openFileModalByPath = useCallback(
     (
       targetPath: string,
@@ -70,19 +63,15 @@ export const useSessionFilesFileModalActions = ({
       activeFileContentRequestIdRef.current = requestId;
 
       if (options.origin === "navigator") {
-        setSelectedFilePath(targetPath);
+        setUiState(dispatch, "selectedFilePath", targetPath);
         revealFilePath(targetPath);
       }
 
-      setFileModalOpen(true);
-      setFileModalPath(targetPath);
-      setFileModalLoading(true);
-      setFileModalError(null);
-      setFileModalShowLineNumbers(true);
-      setFileModalCopyError(null);
-      setFileModalCopiedPath(false);
-      setFileModalFile(null);
-      setFileModalHighlightLine(options.highlightLine ?? null);
+      dispatch({
+        type: "openFileModal",
+        path: targetPath,
+        highlightLine: options.highlightLine ?? null,
+      });
 
       void fetchFileContent(options.paneId, targetPath)
         .then((file) => {
@@ -92,16 +81,16 @@ export const useSessionFilesFileModalActions = ({
           ) {
             return;
           }
-          setFileModalFile(file);
-          setFileModalLoading(false);
-          setFileModalError(null);
-          setFileModalMarkdownViewMode(
-            options.highlightLine != null && options.highlightLine > 0
-              ? "code"
-              : isMarkdownFileContent(file)
-                ? "preview"
-                : "code",
-          );
+          dispatch({
+            type: "fileModalLoaded",
+            file,
+            markdownViewMode:
+              options.highlightLine != null && options.highlightLine > 0
+                ? "code"
+                : isMarkdownFileContent(file)
+                  ? "preview"
+                  : "code",
+          });
         })
         .catch((error) => {
           if (
@@ -110,28 +99,19 @@ export const useSessionFilesFileModalActions = ({
           ) {
             return;
           }
-          setFileModalFile(null);
-          setFileModalLoading(false);
-          setFileModalError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileContent));
+          dispatch({
+            type: "fileModalLoadFailed",
+            message: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileContent),
+          });
         });
     },
     [
       activeFileContentRequestIdRef,
       contextVersionRef,
+      dispatch,
       fetchFileContent,
-      revealFilePath,
       resolveUnknownErrorMessage,
-      setFileModalCopiedPath,
-      setFileModalCopyError,
-      setFileModalError,
-      setFileModalFile,
-      setFileModalHighlightLine,
-      setFileModalLoading,
-      setFileModalMarkdownViewMode,
-      setFileModalOpen,
-      setFileModalPath,
-      setFileModalShowLineNumbers,
-      setSelectedFilePath,
+      revealFilePath,
     ],
   );
 
@@ -144,60 +124,38 @@ export const useSessionFilesFileModalActions = ({
 
   const onCloseFileModal = useCallback(() => {
     activeFileContentRequestIdRef.current += 1;
-    setFileModalOpen(false);
-    setFileModalLoading(false);
-    setFileModalError(null);
-    setFileModalShowLineNumbers(true);
-    setFileModalCopyError(null);
-    setFileModalCopiedPath(false);
-    setFileModalHighlightLine(null);
-    if (fileModalCopyTimeoutRef.current != null) {
-      window.clearTimeout(fileModalCopyTimeoutRef.current);
-      fileModalCopyTimeoutRef.current = null;
-    }
-  }, [
-    activeFileContentRequestIdRef,
-    fileModalCopyTimeoutRef,
-    setFileModalCopiedPath,
-    setFileModalCopyError,
-    setFileModalError,
-    setFileModalHighlightLine,
-    setFileModalLoading,
-    setFileModalOpen,
-    setFileModalShowLineNumbers,
-  ]);
+    dispatch({ type: "closeFileModal" });
+    copyIndicatorTimeout.cancel();
+  }, [activeFileContentRequestIdRef, copyIndicatorTimeout, dispatch]);
 
   const onSetFileModalMarkdownViewMode = useCallback(
     (mode: "code" | "preview" | "diff") => {
-      setFileModalMarkdownViewMode(mode);
+      setUiState(dispatch, "fileModalMarkdownViewMode", mode);
     },
-    [setFileModalMarkdownViewMode],
+    [dispatch],
   );
 
   const onToggleFileModalLineNumbers = useCallback(() => {
-    setFileModalShowLineNumbers((prev) => !prev);
-  }, [setFileModalShowLineNumbers]);
+    setUiState(dispatch, "fileModalShowLineNumbers", (prev) => !prev);
+  }, [dispatch]);
 
   const onCopyFileModalPath = useCallback(async () => {
+    const fileModalPath = state.fileModalPath;
     if (!fileModalPath) {
       return;
     }
-    setFileModalCopyError(null);
+    setUiState(dispatch, "fileModalCopyError", null);
     const copied = await copyToClipboard(fileModalPath);
     if (!copied) {
-      setFileModalCopiedPath(false);
-      setFileModalCopyError("Failed to copy the file path.");
+      setUiState(dispatch, "fileModalCopiedPath", false);
+      setUiState(dispatch, "fileModalCopyError", "Failed to copy the file path.");
       return;
     }
-    setFileModalCopiedPath(true);
-    if (fileModalCopyTimeoutRef.current != null) {
-      window.clearTimeout(fileModalCopyTimeoutRef.current);
-    }
-    fileModalCopyTimeoutRef.current = window.setTimeout(() => {
-      setFileModalCopiedPath(false);
-      fileModalCopyTimeoutRef.current = null;
-    }, 1200);
-  }, [fileModalCopyTimeoutRef, fileModalPath, setFileModalCopiedPath, setFileModalCopyError]);
+    setUiState(dispatch, "fileModalCopiedPath", true);
+    copyIndicatorTimeout.set(() => {
+      setUiState(dispatch, "fileModalCopiedPath", false);
+    }, FILE_MODAL_COPY_INDICATOR_MS);
+  }, [copyIndicatorTimeout, dispatch, state.fileModalPath]);
 
   return {
     openFileModalByPath,
@@ -206,5 +164,6 @@ export const useSessionFilesFileModalActions = ({
     onSetFileModalMarkdownViewMode,
     onToggleFileModalLineNumbers,
     onCopyFileModalPath,
+    cancelCopyTimeout: copyIndicatorTimeout.cancel,
   };
 };
