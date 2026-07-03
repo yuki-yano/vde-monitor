@@ -1,13 +1,21 @@
 // Orchestrator for the SessionDetail file navigator. All state lives in the
-// useSessionFiles-ui-state-machine reducer; the useSessionFiles-* sub-hooks each own one
+// useSessionFiles-ui-state-machine reducer (fuzzy search / file modal / log
+// resolution / tree browsing); the useSessionFiles-* sub-hooks each own one
 // concern and are wired here in dependency order:
-//   tree-loader -> tree-actions/tree-reveal/tree-render-nodes   (tree browsing)
-//   search-actions -> search-effects/search-expand-state        (fuzzy search)
-//   file-modal-actions                                          (content modal)
-//   log-resolve-* / log-linkable-actions                        (log path resolution)
+//   tree-loader -> request-actions -> tree-reveal -> file-modal-actions
+//     -> context-reset-effect (needs loadTree + file-modal-actions' copy timer)
+//   -> search-effects -> search-expand-state -> tree-actions -> onSelectFile
+//     -> search-actions -> onRefresh
+//   -> log-resolve-search -> log-linkable-actions -> log-resolve-actions
+//   -> tree-render-nodes
+// Sub-hooks take `(state, dispatch, deps)` rather than individual setter
+// props: reads come from a `Pick<SessionFilesUiState, ...>` slice, writes go
+// through the shared `dispatch` (stable identity from useReducer), and `deps`
+// carries the small set of external inputs (API functions, refs, other
+// sub-hooks' outputs) each one actually needs.
 // Guarded by useSessionFiles.test.tsx (session-file-tree-fuzzy-finder spec).
 import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -18,7 +26,6 @@ import { useSessionFilesFileModalActions } from "./useSessionFiles-file-modal-ac
 import { useSessionFilesLogLinkableActions } from "./useSessionFiles-log-linkable-actions";
 import { useSessionFilesLogResolveActions } from "./useSessionFiles-log-resolve-actions";
 import { useSessionFilesLogResolveSearch } from "./useSessionFiles-log-resolve-search";
-import { resetLogFileCandidateState as resetLogFileCandidateStateValue } from "./useSessionFiles-log-resolve-state";
 import { useSessionFilesRequestActions } from "./useSessionFiles-request-actions";
 import { useSessionFilesSearchActions } from "./useSessionFiles-search-actions";
 import { useSessionFilesSearchEffects } from "./useSessionFiles-search-effects";
@@ -27,10 +34,10 @@ import { useSessionFilesTreeActions } from "./useSessionFiles-tree-actions";
 import { useSessionFilesTreeLoader } from "./useSessionFiles-tree-loader";
 import { useSessionFilesTreeRenderNodes } from "./useSessionFiles-tree-render-nodes";
 import { useSessionFilesTreeReveal } from "./useSessionFiles-tree-reveal";
-import { useSessionFilesUiSetters } from "./useSessionFiles-ui-setters";
 import {
   createInitialSessionFilesUiState,
   reduceSessionFilesUiState,
+  setUiState,
 } from "./useSessionFiles-ui-state-machine";
 
 const TREE_PAGE_LIMIT = 200;
@@ -75,68 +82,15 @@ export const useSessionFiles = ({
   requestRepoFileContent,
 }: UseSessionFilesParams) => {
   const requestScopeId = `${paneId}:${worktreePath ?? "__default__"}`;
-  const [uiState, dispatchUiState] = useReducer(
+  const [state, dispatch] = useReducer(
     reduceSessionFilesUiState,
     undefined,
     createInitialSessionFilesUiState,
   );
-  const {
-    setSelectedFilePath,
-    setSearchQuery,
-    setSearchResult,
-    setSearchLoading,
-    setSearchError,
-    setSearchActiveIndex,
-    setFileModalOpen,
-    setFileModalPath,
-    setFileModalLoading,
-    setFileModalError,
-    setFileModalFile,
-    setFileModalMarkdownViewMode,
-    setFileModalShowLineNumbers,
-    setFileModalCopiedPath,
-    setFileModalCopyError,
-    setFileModalHighlightLine,
-    setFileResolveError,
-    setLogFileCandidateModalOpen,
-    setLogFileCandidateReference,
-    setLogFileCandidatePaneId,
-    setLogFileCandidateLine,
-    setLogFileCandidateItems,
-  } = useSessionFilesUiSetters(dispatchUiState);
 
-  const {
-    selectedFilePath,
-    searchQuery,
-    searchResult,
-    searchLoading,
-    searchError,
-    searchActiveIndex,
-    fileModalOpen,
-    fileModalPath,
-    fileModalLoading,
-    fileModalError,
-    fileModalFile,
-    fileModalMarkdownViewMode,
-    fileModalShowLineNumbers,
-    fileModalCopiedPath,
-    fileModalCopyError,
-    fileModalHighlightLine,
-    fileResolveError,
-    logFileCandidateModalOpen,
-    logFileCandidateReference,
-    logFileCandidatePaneId,
-    logFileCandidateLine,
-    logFileCandidateItems,
-  } = uiState;
-
-  const [expandedDirSet, setExpandedDirSet] = useState<Set<string>>(new Set());
-  const [searchExpandedDirSet, setSearchExpandedDirSet] = useState<Set<string>>(new Set());
-  const [searchCollapsedDirSet, setSearchCollapsedDirSet] = useState<Set<string>>(new Set());
-  const [treePages, setTreePages] = useState<Record<string, RepoFileTreePage>>({});
-  const [treeLoadingByPath, setTreeLoadingByPath] = useState<Record<string, boolean>>({});
-  const [treeError, setTreeError] = useState<string | null>(null);
-
+  // Refs hold in-flight request bookkeeping only (request maps, request-id
+  // counters, a mirror of treePages for synchronous reads from callbacks).
+  // None of this should trigger a re-render, so it stays outside the reducer.
   const treePageRequestMapRef = useRef(new Map<string, Promise<RepoFileTreePage>>());
   const searchRequestMapRef = useRef(new Map<string, Promise<RepoFileSearchPage>>());
   const fileContentRequestMapRef = useRef(new Map<string, Promise<RepoFileContent>>());
@@ -147,18 +101,17 @@ export const useSessionFiles = ({
   const logReferenceLinkableRequestMapRef = useRef(new Map<string, Promise<boolean>>());
   const contextVersionRef = useRef(0);
   const treePagesRef = useRef<Record<string, RepoFileTreePage>>({});
-  const fileModalCopyTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    treePagesRef.current = treePages;
-  }, [treePages]);
+    treePagesRef.current = state.treePages;
+  }, [state.treePages]);
 
   const resolveWorktreePathForPane = useCallback(
     (targetPaneId: string) => (targetPaneId === paneId ? (worktreePath ?? undefined) : undefined),
     [paneId, worktreePath],
   );
 
-  const { loadTree } = useSessionFilesTreeLoader({
+  const { loadTree } = useSessionFilesTreeLoader(dispatch, {
     paneId,
     requestScopeId,
     repoRoot,
@@ -167,9 +120,6 @@ export const useSessionFiles = ({
     requestRepoFileTree,
     treePageRequestMapRef,
     contextVersionRef,
-    setTreeLoadingByPath,
-    setTreePages,
-    setTreeError,
     resolveUnknownErrorMessage,
   });
 
@@ -186,7 +136,30 @@ export const useSessionFiles = ({
     fileContentRequestMapRef,
   });
 
-  useSessionFilesContextResetEffect({
+  const { revealFilePath } = useSessionFilesTreeReveal(dispatch, {
+    repoRoot,
+    treePagesRef,
+    loadTree,
+  });
+
+  const {
+    openFileModalByPath,
+    onOpenFileModal,
+    onCloseFileModal,
+    onSetFileModalMarkdownViewMode,
+    onToggleFileModalLineNumbers,
+    onCopyFileModalPath,
+    cancelCopyTimeout,
+  } = useSessionFilesFileModalActions({ fileModalPath: state.fileModalPath }, dispatch, {
+    paneId,
+    fetchFileContent,
+    revealFilePath,
+    resolveUnknownErrorMessage,
+    contextVersionRef,
+    activeFileContentRequestIdRef,
+  });
+
+  useSessionFilesContextResetEffect(dispatch, {
     paneId,
     repoRoot,
     worktreePath,
@@ -201,35 +174,7 @@ export const useSessionFiles = ({
     activeLogResolveRequestIdRef,
     contextVersionRef,
     treePagesRef,
-    fileModalCopyTimeoutRef,
-    setSelectedFilePath,
-    setExpandedDirSet,
-    setSearchExpandedDirSet,
-    setSearchCollapsedDirSet,
-    setTreePages,
-    setTreeLoadingByPath,
-    setTreeError,
-    setSearchQuery,
-    setSearchResult,
-    setSearchLoading,
-    setSearchError,
-    setSearchActiveIndex,
-    setFileModalOpen,
-    setFileModalPath,
-    setFileModalLoading,
-    setFileModalError,
-    setFileModalFile,
-    setFileModalMarkdownViewMode,
-    setFileModalShowLineNumbers,
-    setFileModalCopiedPath,
-    setFileModalCopyError,
-    setFileModalHighlightLine,
-    setFileResolveError,
-    setLogFileCandidateModalOpen,
-    setLogFileCandidateReference,
-    setLogFileCandidatePaneId,
-    setLogFileCandidateLine,
-    setLogFileCandidateItems,
+    cancelFileModalCopyTimeout: cancelCopyTimeout,
   });
 
   const resolveSearchErrorMessage = useCallback(
@@ -237,103 +182,60 @@ export const useSessionFiles = ({
     [],
   );
 
-  useSessionFilesSearchEffects({
-    repoRoot,
-    searchQuery,
-    searchResult,
-    searchDebounceMs: SEARCH_DEBOUNCE_MS,
-    activeSearchRequestIdRef,
-    fetchSearchPage,
-    resolveSearchErrorMessage,
-    setSearchExpandedDirSet,
-    setSearchCollapsedDirSet,
-    setSearchResult,
-    setSearchLoading,
-    setSearchError,
-    setSearchActiveIndex,
-  });
-
-  const { revealFilePath } = useSessionFilesTreeReveal({
-    repoRoot,
-    treePagesRef,
-    loadTree,
-    setExpandedDirSet,
-  });
+  useSessionFilesSearchEffects(
+    { searchQuery: state.searchQuery, searchResult: state.searchResult },
+    dispatch,
+    {
+      repoRoot,
+      searchDebounceMs: SEARCH_DEBOUNCE_MS,
+      activeSearchRequestIdRef,
+      fetchSearchPage,
+      resolveSearchErrorMessage,
+    },
+  );
 
   const { searchExpandPlan, effectiveSearchExpandedDirSet, isSearchActive } =
-    useSessionFilesSearchExpandState({
-      searchResult,
-      searchActiveIndex,
-      autoExpandMatchLimit,
-      searchExpandedDirSet,
-      searchCollapsedDirSet,
-      searchQuery,
-    });
+    useSessionFilesSearchExpandState(
+      {
+        searchResult: state.searchResult,
+        searchActiveIndex: state.searchActiveIndex,
+        searchExpandedDirSet: state.searchExpandedDirSet,
+        searchCollapsedDirSet: state.searchCollapsedDirSet,
+        searchQuery: state.searchQuery,
+      },
+      { autoExpandMatchLimit },
+    );
 
-  const { onToggleDirectory, onLoadMoreTreeRoot } = useSessionFilesTreeActions({
-    isSearchActive,
-    effectiveSearchExpandedDirSet,
-    expandedDirSet,
-    treePages,
-    setSearchExpandedDirSet,
-    setSearchCollapsedDirSet,
-    setExpandedDirSet,
-    treePagesRef,
-    loadTree,
-  });
+  const { onToggleDirectory, onLoadMoreTreeRoot } = useSessionFilesTreeActions(
+    { expandedDirSet: state.expandedDirSet, treePages: state.treePages },
+    dispatch,
+    { isSearchActive, effectiveSearchExpandedDirSet, treePagesRef, loadTree },
+  );
 
   const onSelectFile = useCallback(
     (targetPath: string) => {
-      setSelectedFilePath(targetPath);
+      setUiState(dispatch, "selectedFilePath", targetPath);
       revealFilePath(targetPath);
     },
-    [revealFilePath, setSelectedFilePath],
+    [revealFilePath],
   );
 
-  const {
-    openFileModalByPath,
-    onOpenFileModal,
-    onCloseFileModal,
-    onSetFileModalMarkdownViewMode,
-    onToggleFileModalLineNumbers,
-    onCopyFileModalPath,
-  } = useSessionFilesFileModalActions({
-    paneId,
-    fileModalPath,
-    fetchFileContent,
-    revealFilePath,
-    resolveUnknownErrorMessage,
-    contextVersionRef,
-    activeFileContentRequestIdRef,
-    fileModalCopyTimeoutRef,
-    setSelectedFilePath,
-    setFileModalOpen,
-    setFileModalPath,
-    setFileModalLoading,
-    setFileModalError,
-    setFileModalShowLineNumbers,
-    setFileModalCopyError,
-    setFileModalCopiedPath,
-    setFileModalFile,
-    setFileModalHighlightLine,
-    setFileModalMarkdownViewMode,
-  });
-
-  const { onSearchMove, onSearchConfirm, onLoadMoreSearch } = useSessionFilesSearchActions({
-    searchResult,
-    searchActiveIndex,
-    searchLoading,
-    fetchSearchPage,
-    resolveUnknownErrorMessage,
-    activeSearchRequestIdRef,
-    setSearchActiveIndex,
-    setSearchResult,
-    setSearchLoading,
-    setSearchError,
-    onToggleDirectory,
-    onSelectFile,
-    onOpenFileModal,
-  });
+  const { onSearchMove, onSearchConfirm, onLoadMoreSearch } = useSessionFilesSearchActions(
+    {
+      searchResult: state.searchResult,
+      searchActiveIndex: state.searchActiveIndex,
+      searchLoading: state.searchLoading,
+    },
+    dispatch,
+    {
+      fetchSearchPage,
+      resolveUnknownErrorMessage,
+      activeSearchRequestIdRef,
+      onToggleDirectory,
+      onSelectFile,
+      onOpenFileModal,
+    },
+  );
 
   const onRefresh = useCallback(() => {
     if (!repoRoot) {
@@ -341,61 +243,34 @@ export const useSessionFiles = ({
     }
     void loadTree(".");
 
-    const normalizedQuery = searchQuery.trim();
+    const normalizedQuery = state.searchQuery.trim();
     if (normalizedQuery.length === 0) {
       return;
     }
     const requestId = createNextSearchRequestId(activeSearchRequestIdRef);
-    setSearchLoading(true);
-    setSearchError(null);
+    setUiState(dispatch, "searchLoading", true);
+    setUiState(dispatch, "searchError", null);
     void fetchSearchPage(normalizedQuery)
       .then((nextPage) => {
         if (activeSearchRequestIdRef.current !== requestId) {
           return;
         }
-        setSearchResult(nextPage);
-        setSearchActiveIndex(0);
+        setUiState(dispatch, "searchResult", nextPage);
+        setUiState(dispatch, "searchActiveIndex", 0);
       })
       .catch((error) => {
         if (activeSearchRequestIdRef.current !== requestId) {
           return;
         }
-        setSearchError(resolveSearchErrorMessage(error));
+        setUiState(dispatch, "searchError", resolveSearchErrorMessage(error));
       })
       .finally(() => {
         if (activeSearchRequestIdRef.current !== requestId) {
           return;
         }
-        setSearchLoading(false);
+        setUiState(dispatch, "searchLoading", false);
       });
-  }, [
-    activeSearchRequestIdRef,
-    fetchSearchPage,
-    loadTree,
-    repoRoot,
-    resolveSearchErrorMessage,
-    searchQuery,
-    setSearchActiveIndex,
-    setSearchError,
-    setSearchLoading,
-    setSearchResult,
-  ]);
-
-  const resetLogFileCandidateState = useCallback(() => {
-    resetLogFileCandidateStateValue({
-      setLogFileCandidateModalOpen,
-      setLogFileCandidateReference,
-      setLogFileCandidatePaneId,
-      setLogFileCandidateLine,
-      setLogFileCandidateItems,
-    });
-  }, [
-    setLogFileCandidateItems,
-    setLogFileCandidateLine,
-    setLogFileCandidateModalOpen,
-    setLogFileCandidatePaneId,
-    setLogFileCandidateReference,
-  ]);
+  }, [fetchSearchPage, loadTree, repoRoot, resolveSearchErrorMessage, state.searchQuery]);
 
   const { hasExactPathMatch, findExactNameMatches, tryOpenExistingPath } =
     useSessionFilesLogResolveSearch({
@@ -417,76 +292,70 @@ export const useSessionFiles = ({
   });
 
   const { onResolveLogFileReference, onSelectLogFileCandidate, onCloseLogFileCandidateModal } =
-    useSessionFilesLogResolveActions({
-      paneId,
-      logFileResolveMatchLimit: LOG_FILE_RESOLVE_MATCH_LIMIT,
-      logFileResolvePageLimit: LOG_FILE_RESOLVE_PAGE_LIMIT,
-      activeLogResolveRequestIdRef,
-      logFileCandidatePaneId,
-      logFileCandidateLine,
-      setFileResolveError,
-      setLogFileCandidateModalOpen,
-      setLogFileCandidateReference,
-      setLogFileCandidatePaneId,
-      setLogFileCandidateLine,
-      setLogFileCandidateItems,
-      findExactNameMatches,
-      tryOpenExistingPath,
-      openFileModalByPath,
-      resetLogFileCandidateState,
-    });
+    useSessionFilesLogResolveActions(
+      {
+        logFileCandidatePaneId: state.logFileCandidatePaneId,
+        logFileCandidateLine: state.logFileCandidateLine,
+      },
+      dispatch,
+      {
+        paneId,
+        logFileResolveMatchLimit: LOG_FILE_RESOLVE_MATCH_LIMIT,
+        logFileResolvePageLimit: LOG_FILE_RESOLVE_PAGE_LIMIT,
+        activeLogResolveRequestIdRef,
+        findExactNameMatches,
+        tryOpenExistingPath,
+        openFileModalByPath,
+      },
+    );
 
-  const clearFileModalCopyTimeout = useCallback(() => {
-    const copyTimeoutId = fileModalCopyTimeoutRef.current;
-    if (copyTimeoutId != null) {
-      window.clearTimeout(copyTimeoutId);
-      fileModalCopyTimeoutRef.current = null;
-    }
-  }, []);
+  const onSearchQueryChange = useCallback(
+    (value: string) => setUiState(dispatch, "searchQuery", value),
+    [],
+  );
 
-  useEffect(() => clearFileModalCopyTimeout, [clearFileModalCopyTimeout]);
-
-  const { treeNodes, rootTreeHasMore } = useSessionFilesTreeRenderNodes({
-    isSearchActive,
-    searchResult,
-    searchActiveIndex,
-    selectedFilePath,
-    effectiveSearchExpandedDirSet,
-    treePages,
-    expandedDirSet,
-  });
+  const { treeNodes, rootTreeHasMore } = useSessionFilesTreeRenderNodes(
+    {
+      searchResult: state.searchResult,
+      searchActiveIndex: state.searchActiveIndex,
+      selectedFilePath: state.selectedFilePath,
+      treePages: state.treePages,
+      expandedDirSet: state.expandedDirSet,
+    },
+    { isSearchActive, effectiveSearchExpandedDirSet },
+  );
 
   return {
     unavailable: !repoRoot,
-    selectedFilePath,
-    searchQuery,
-    searchActiveIndex,
-    searchResult,
-    searchLoading,
-    searchError,
+    selectedFilePath: state.selectedFilePath,
+    searchQuery: state.searchQuery,
+    searchActiveIndex: state.searchActiveIndex,
+    searchResult: state.searchResult,
+    searchLoading: state.searchLoading,
+    searchError: state.searchError,
     searchMode: searchExpandPlan.mode,
-    treeLoading: Boolean(treeLoadingByPath["."]),
-    treeError,
+    treeLoading: Boolean(state.treeLoadingByPath["."]),
+    treeError: state.treeError,
     treeNodes,
     rootTreeHasMore,
-    searchHasMore: Boolean(searchResult?.nextCursor),
-    fileModalOpen,
-    fileModalPath,
-    fileModalLoading,
-    fileModalError,
-    fileModalFile,
-    fileModalMarkdownViewMode,
-    fileModalShowLineNumbers,
-    fileModalCopiedPath,
-    fileModalCopyError,
-    fileModalHighlightLine,
-    fileResolveError,
-    logFileCandidateModalOpen,
-    logFileCandidateReference,
-    logFileCandidatePaneId,
-    logFileCandidateItems,
+    searchHasMore: Boolean(state.searchResult?.nextCursor),
+    fileModalOpen: state.fileModalOpen,
+    fileModalPath: state.fileModalPath,
+    fileModalLoading: state.fileModalLoading,
+    fileModalError: state.fileModalError,
+    fileModalFile: state.fileModalFile,
+    fileModalMarkdownViewMode: state.fileModalMarkdownViewMode,
+    fileModalShowLineNumbers: state.fileModalShowLineNumbers,
+    fileModalCopiedPath: state.fileModalCopiedPath,
+    fileModalCopyError: state.fileModalCopyError,
+    fileModalHighlightLine: state.fileModalHighlightLine,
+    fileResolveError: state.fileResolveError,
+    logFileCandidateModalOpen: state.logFileCandidateModalOpen,
+    logFileCandidateReference: state.logFileCandidateReference,
+    logFileCandidatePaneId: state.logFileCandidatePaneId,
+    logFileCandidateItems: state.logFileCandidateItems,
     onRefresh,
-    onSearchQueryChange: setSearchQuery,
+    onSearchQueryChange,
     onSearchMove,
     onSearchConfirm,
     onToggleDirectory,

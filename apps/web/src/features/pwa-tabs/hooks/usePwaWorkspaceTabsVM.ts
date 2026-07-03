@@ -1,7 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
-import { useSessions } from "@/state/session-context";
+import { useSessionStreamData } from "@/state/session-context";
 
 import {
   buildSessionGroupLabelByName,
@@ -69,7 +69,7 @@ const sortWorkspaceTabGroups = (groups: WorkspaceTabGroup[]) =>
     .map((entry) => entry.group);
 
 export const usePwaWorkspaceTabsVM = (tabs: WorkspaceTab[]) => {
-  const { sessions } = useSessions();
+  const { sessions } = useSessionStreamData();
   const sessionByPaneId = useMemo(
     () => new Map(sessions.map((session) => [session.paneId, session])),
     [sessions],

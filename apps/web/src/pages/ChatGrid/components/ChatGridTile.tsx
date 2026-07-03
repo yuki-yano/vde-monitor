@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { AllowedKey, RawItem, SessionSummary } from "@vde-monitor/shared";
+import type { SessionSummary } from "@vde-monitor/shared";
 import { ArrowRight, Clock, GitBranch, X } from "lucide-react";
 import {
   type CompositionEvent,
@@ -27,17 +27,11 @@ import {
   TextButton,
 } from "@/components/ui";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
-import {
-  PaneTextComposer,
-  type PermissionShortcutValue,
-} from "@/features/shared-session-ui/components/PaneTextComposer";
+import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTextComposer";
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
+import { useTerminalControls } from "@/features/shared-session-ui/hooks/useTerminalControls";
 import { useTitleEditor } from "@/features/shared-session-ui/hooks/useTitleEditor";
-import {
-  confirmDangerousKey,
-  confirmDangerousText,
-} from "@/features/shared-session-ui/model/danger-confirm";
-import { mapKeyWithModifiers } from "@/features/shared-session-ui/hooks/session-control-keys";
+import { confirmDangerousText } from "@/features/shared-session-ui/model/danger-confirm";
 import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
 import {
   linkifyLogLineFileReferences,
@@ -48,7 +42,7 @@ import {
   resolveSessionStateTone,
 } from "@/features/shared-session-ui/model/session-display";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
-import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import {
   agentLabelFor,
   agentToneFor,
@@ -57,7 +51,7 @@ import {
   getLastInputTone,
   isKnownAgent,
 } from "@/lib/session-format";
-import { useSessionApi } from "@/state/session-context";
+import { useSessionCoreApi } from "@/state/session-context";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -87,10 +81,9 @@ export const ChatGridTile = ({
     updateSessionTitle,
     resetSessionTitle,
     uploadImageAttachment,
-  } = useSessionApi();
+  } = useSessionCoreApi();
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const previousAutoEnterRef = useRef<boolean | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [autoEnter, setAutoEnter] = useState(true);
@@ -215,66 +208,29 @@ export const ChatGridTile = ({
     [session.paneId, uploadImageAttachment],
   );
 
-  const handleToggleRawMode = useCallback(() => {
-    setRawMode((prevRawMode) => {
-      const nextRawMode = !prevRawMode;
-      if (nextRawMode) {
-        previousAutoEnterRef.current = autoEnter;
-        setAutoEnter(false);
-      } else {
-        if (previousAutoEnterRef.current != null) {
-          setAutoEnter(previousAutoEnterRef.current);
-          previousAutoEnterRef.current = null;
-        }
-        setAllowDangerKeys(false);
-      }
-      return nextRawMode;
-    });
-  }, [autoEnter]);
-
-  const handleSendKey = useCallback(
-    async (key: string) => {
-      const mappedKey = mapKeyWithModifiers(key, ctrlHeld, shiftHeld) as AllowedKey;
-      if (rawMode) {
-        const rawResult = await sendRaw(
-          session.paneId,
-          [{ kind: "key", value: mappedKey }],
-          allowDangerKeys,
-        );
-        if (!rawResult.ok) {
-          setComposerError(resolveResultErrorMessage(rawResult, API_ERROR_MESSAGES.sendRaw));
-          return;
-        }
-        setComposerError(null);
-        return;
-      }
-      if (!confirmDangerousKey(mappedKey)) {
-        return;
-      }
-      const keyResult = await sendKeys(session.paneId, [mappedKey]);
-      if (!keyResult.ok) {
-        setComposerError(resolveResultErrorMessage(keyResult, API_ERROR_MESSAGES.sendKeys));
-        return;
-      }
-      setComposerError(null);
+  // ChatGridTile clears the (locally scoped) composer error after every
+  // successful send and touches the session (to bump list recency) after a
+  // successful permission shortcut — neither applies to SessionDetail, whose
+  // screenError is shared with connection-status display and has no
+  // list-recency concept.
+  const { handleSendKey, handleSendPermissionShortcut, toggleRawMode } = useTerminalControls({
+    paneId: session.paneId,
+    ctrlHeld,
+    shiftHeld,
+    rawMode,
+    allowDangerKeys,
+    autoEnter,
+    sendKeys,
+    sendRaw,
+    setAutoEnter,
+    setRawMode,
+    setAllowDangerKeys,
+    setScreenError: setComposerError,
+    clearErrorOnSendSuccess: true,
+    onSendPermissionShortcutSuccess: (touchedPaneId) => {
+      void onTouchSession?.(touchedPaneId);
     },
-    [allowDangerKeys, ctrlHeld, rawMode, sendKeys, sendRaw, session.paneId, shiftHeld],
-  );
-
-  const handleSendPermissionShortcut = useCallback(
-    async (value: PermissionShortcutValue) => {
-      const item: RawItem =
-        value === "Escape" ? { kind: "key", value: "Escape" } : { kind: "text", value };
-      const result = await sendRaw(session.paneId, [item], false);
-      if (!result.ok) {
-        setComposerError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
-        return;
-      }
-      setComposerError(null);
-      void onTouchSession?.(session.paneId);
-    },
-    [onTouchSession, sendRaw, session.paneId],
-  );
+  });
 
   const handleRemoveFromGrid = useCallback(() => {
     onRemoveFromGrid?.(session.paneId);
@@ -322,7 +278,7 @@ export const ChatGridTile = ({
                   maxLength={80}
                   enterKeyHint="done"
                   disabled={titleSaving}
-                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Custom session title"
                 />
               ) : (
@@ -447,7 +403,7 @@ export const ChatGridTile = ({
             onSendPermissionShortcut: handleSendPermissionShortcut,
             onPickImage: handlePickImage,
             onToggleAutoEnter: () => setAutoEnter((prev) => !prev),
-            onToggleRawMode: handleToggleRawMode,
+            onToggleRawMode: toggleRawMode,
             onToggleAllowDangerKeys: () => setAllowDangerKeys((prev) => !prev),
             keyPanel: {
               onToggleShift: () => setShiftHeld((prev) => !prev),

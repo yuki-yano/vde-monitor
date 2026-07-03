@@ -27,7 +27,7 @@ const CommandInput = forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "placeholder:text-latte-overlay0 text-latte-text w-full bg-transparent px-1.5 py-1 text-sm outline-none sm:px-2 sm:py-1.5",
+        "placeholder:text-latte-overlay0 text-latte-text w-full bg-transparent px-1.5 py-1 text-sm outline-hidden sm:px-2 sm:py-1.5",
         className,
       )}
       {...props}
@@ -78,7 +78,7 @@ const CommandItem = forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "aria-selected:bg-latte-lavender/18 aria-selected:text-latte-lavender relative flex cursor-default select-none items-center rounded-xl px-2.5 py-1.5 text-sm outline-none sm:px-3 sm:py-2",
+      "aria-selected:bg-latte-lavender/18 aria-selected:text-latte-lavender relative flex cursor-default select-none items-center rounded-xl px-2.5 py-1.5 text-sm outline-hidden sm:px-3 sm:py-2",
       className,
     )}
     {...props}

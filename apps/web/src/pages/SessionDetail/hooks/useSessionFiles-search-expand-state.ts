@@ -1,25 +1,32 @@
-import type { RepoFileSearchPage } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
 import { buildSearchExpandPlan } from "../file-tree-search-expand";
+import type { SessionFilesUiState } from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesSearchExpandStateArgs = {
-  searchResult: RepoFileSearchPage | null;
-  searchActiveIndex: number;
+type UseSessionFilesSearchExpandStateState = Pick<
+  SessionFilesUiState,
+  | "searchResult"
+  | "searchActiveIndex"
+  | "searchExpandedDirSet"
+  | "searchCollapsedDirSet"
+  | "searchQuery"
+>;
+
+type UseSessionFilesSearchExpandStateDeps = {
   autoExpandMatchLimit: number;
-  searchExpandedDirSet: Set<string>;
-  searchCollapsedDirSet: Set<string>;
-  searchQuery: string;
 };
 
-export const useSessionFilesSearchExpandState = ({
-  searchResult,
-  searchActiveIndex,
-  autoExpandMatchLimit,
-  searchExpandedDirSet,
-  searchCollapsedDirSet,
-  searchQuery,
-}: UseSessionFilesSearchExpandStateArgs) => {
+// Pure derivation from state, no dispatch needed.
+export const useSessionFilesSearchExpandState = (
+  {
+    searchResult,
+    searchActiveIndex,
+    searchExpandedDirSet,
+    searchCollapsedDirSet,
+    searchQuery,
+  }: UseSessionFilesSearchExpandStateState,
+  { autoExpandMatchLimit }: UseSessionFilesSearchExpandStateDeps,
+) => {
   const searchExpandPlan = useMemo(
     () =>
       buildSearchExpandPlan({

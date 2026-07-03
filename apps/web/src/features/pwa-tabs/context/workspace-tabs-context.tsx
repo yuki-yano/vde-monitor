@@ -13,7 +13,7 @@ import {
 } from "react";
 
 import { PWA_DISPLAY_MODE_QUERIES, isPwaDisplayMode } from "@/lib/pwa-display-mode";
-import { useSessionData } from "@/state/session-context";
+import { useSessionStreamData } from "@/state/session-context";
 import { sessionWorkspaceTabsDisplayModeAtom } from "@/state/session-state-atoms";
 
 import {
@@ -103,7 +103,7 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
   const [tabsState, setTabsState] = useState<WorkspaceTabsState>(() =>
     buildInitialState(workspaceTabsDisplayMode),
   );
-  const { sessions, connected } = useSessionData();
+  const { sessions, connected } = useSessionStreamData();
   const [missingPaneCheckTick, setMissingPaneCheckTick] = useState(0);
   const missingPaneSinceRef = useRef(new Map<string, number>());
   const livePaneIds = useMemo(() => new Set(sessions.map((session) => session.paneId)), [sessions]);

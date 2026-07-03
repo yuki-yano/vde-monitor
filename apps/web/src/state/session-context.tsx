@@ -26,7 +26,7 @@ import type {
   WorktreeList,
 } from "@vde-monitor/shared";
 import { Provider as JotaiProvider, createStore, useAtomValue, useSetAtom } from "jotai";
-import type { ReactNode } from "react";
+import type { Context, ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -53,34 +53,106 @@ import { useSessionsStream } from "./use-sessions-stream";
 import type { SessionsStreamTransport } from "./use-sessions-stream";
 
 // ---------------------------------------------------------------------------
-// Data context — reactive fields; consumers re-render when these change
+// Domain split rationale (T9)
+//
+// The former single SessionDataContext + SessionApiContext pair carried 45
+// fields and forced every consumer (AuthGate, push notifications, workspace
+// tabs, session list/chat-grid/usage VMs, session detail) to re-render on any
+// field change, even fields it never read. Two axes drove this split:
+//
+//  1. Data vs. API: data fields mutate at very different frequencies (sessions
+//     stream on every SSE tick; token/config barely change), while API
+//     functions are effectively stable references (they only change identity
+//     when the underlying apiClient/token changes). Keeping data and API in
+//     separate contexts means a sessions update no longer invalidates the
+//     (stable) API function objects for unrelated consumers.
+//  2. Consumption clusters measured from actual call sites (see the
+//     implementation-plan doc for the full table): AuthGate only needs
+//     auth/config; push notifications need token/apiBaseUrl/authError;
+//     workspace tabs need only the live sessions list; ChatGridTile needs a
+//     handful of pane-action functions; the list/grid/usage VMs need a
+//     recurring cluster of stream data + core actions + branches(worktrees)
+//     + launch; SessionDetail alone needs virtually everything, matching
+//     its role as the single "does it all" page-level consumer.
+//
+// Result: 2 data contexts (stream / config) + 5 API contexts (core /
+// branches-commits-diffs / files / notes / launch), matching the plan's
+// initial 5-way API split, confirmed against measured consumption.
 // ---------------------------------------------------------------------------
 
-type SessionDataContextValue = {
-  token: string | null;
-  apiBaseUrl: string | null;
-  authError: string | null;
+// ---------------------------------------------------------------------------
+// Data contexts — reactive fields; consumers re-render when these change
+// ---------------------------------------------------------------------------
+
+/** High-frequency data: the live session list and its connection/stream state. */
+export type SessionStreamDataContextValue = {
   sessions: SessionSummary[];
   connected: boolean;
   connectionStatus: SessionConnectionStatus;
   connectionIssue: string | null;
   transport: SessionsStreamTransport;
-  highlightCorrections: HighlightCorrectionConfig;
-  fileNavigatorConfig: ClientFileNavigatorConfig;
-  launchConfig: LaunchConfig;
   getSessionDetail: (paneId: string) => SessionDetail | null;
 };
 
+/** Low-frequency data: auth/token state and server-provided client config. */
+export type SessionConfigDataContextValue = {
+  token: string | null;
+  apiBaseUrl: string | null;
+  authError: string | null;
+  highlightCorrections: HighlightCorrectionConfig;
+  fileNavigatorConfig: ClientFileNavigatorConfig;
+  launchConfig: LaunchConfig;
+};
+
 // ---------------------------------------------------------------------------
-// API context — stable method references; identity does not change on data updates
+// API contexts — stable method references; identity does not change on data updates
 // ---------------------------------------------------------------------------
 
-type SessionApiContextValue = {
+/** Core session lifecycle/interaction: connection, screen, messaging, pane control. */
+export type SessionCoreApiContextValue = {
   setToken: (token: string | null) => void;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
+  requestStateTimeline: (
+    paneId: string,
+    options?: {
+      scope?: SessionStateTimelineScope;
+      range?: SessionStateTimelineRange;
+      limit?: number;
+    },
+  ) => Promise<SessionStateTimeline>;
+  requestScreen: (
+    paneId: string,
+    options: { lines?: number; mode?: "text" | "image"; cursor?: string },
+  ) => Promise<ScreenResponse>;
+  focusPane: (paneId: string) => Promise<CommandResponse>;
+  killPane: (paneId: string) => Promise<CommandResponse>;
+  killWindow: (paneId: string) => Promise<CommandResponse>;
+  uploadImageAttachment: (paneId: string, file: File) => Promise<ImageAttachment>;
+  sendText: (
+    paneId: string,
+    text: string,
+    enter?: boolean,
+    requestId?: string,
+  ) => Promise<CommandResponse>;
+  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
+  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
+  touchSession: (paneId: string) => Promise<void>;
+  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
+  resetSessionTitle: (paneId: string) => Promise<void>;
+};
+
+/** Worktrees/branches/commits/diffs — the repo-history exploration surface. */
+export type SessionBranchesApiContextValue = {
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   requestBranches: (paneId: string, options?: { force?: boolean }) => Promise<BranchList>;
+  requestBranchCheckout: (paneId: string, branch: string) => Promise<void>;
+  requestBranchCreate: (paneId: string, name: string, base?: string) => Promise<void>;
+  requestBranchDelete: (
+    paneId: string,
+    name: string,
+    options?: { force?: boolean },
+  ) => Promise<void>;
   requestDiffSummary: (
     paneId: string,
     options?: { force?: boolean; worktreePath?: string; branch?: string },
@@ -112,15 +184,10 @@ type SessionApiContextValue = {
     path: string,
     options?: { force?: boolean; worktreePath?: string },
   ) => Promise<CommitFileDiff>;
-  requestStateTimeline: (
-    paneId: string,
-    options?: {
-      scope?: SessionStateTimelineScope;
-      range?: SessionStateTimelineRange;
-      limit?: number;
-    },
-  ) => Promise<SessionStateTimeline>;
-  requestRepoNotes: (paneId: string) => Promise<RepoNote[]>;
+};
+
+/** Repo file navigator surface. */
+export type SessionFilesApiContextValue = {
   requestRepoFileTree: (
     paneId: string,
     options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
@@ -135,31 +202,11 @@ type SessionApiContextValue = {
     path: string,
     options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
-  requestScreen: (
-    paneId: string,
-    options: { lines?: number; mode?: "text" | "image"; cursor?: string },
-  ) => Promise<ScreenResponse>;
-  focusPane: (paneId: string) => Promise<CommandResponse>;
-  killPane: (paneId: string) => Promise<CommandResponse>;
-  killWindow: (paneId: string) => Promise<CommandResponse>;
-  launchAgentInSession: (
-    sessionName: string,
-    agent: "codex" | "claude",
-    requestId: string,
-    options?: LaunchAgentRequestOptions,
-  ) => Promise<LaunchCommandResponse>;
-  uploadImageAttachment: (paneId: string, file: File) => Promise<ImageAttachment>;
-  sendText: (
-    paneId: string,
-    text: string,
-    enter?: boolean,
-    requestId?: string,
-  ) => Promise<CommandResponse>;
-  sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
-  sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
-  touchSession: (paneId: string) => Promise<void>;
-  updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
-  resetSessionTitle: (paneId: string) => Promise<void>;
+};
+
+/** Repo notes CRUD. */
+export type SessionNotesApiContextValue = {
+  requestRepoNotes: (paneId: string) => Promise<RepoNote[]>;
   createRepoNote: (
     paneId: string,
     input: { title?: string | null; body: string },
@@ -170,21 +217,30 @@ type SessionApiContextValue = {
     input: { title?: string | null; body: string },
   ) => Promise<RepoNote>;
   deleteRepoNote: (paneId: string, noteId: string) => Promise<string>;
-  requestBranchCheckout: (paneId: string, branch: string) => Promise<void>;
-  requestBranchCreate: (paneId: string, name: string, base?: string) => Promise<void>;
-  requestBranchDelete: (
-    paneId: string,
-    name: string,
-    options?: { force?: boolean },
-  ) => Promise<void>;
+};
+
+/** Agent launch — kept separate: broadly consumed (list/grid/usage VMs) yet
+ * conceptually distinct (worktree-creation options, longer request timeout). */
+export type SessionLaunchApiContextValue = {
+  launchAgentInSession: (
+    sessionName: string,
+    agent: "codex" | "claude",
+    requestId: string,
+    options?: LaunchAgentRequestOptions,
+  ) => Promise<LaunchCommandResponse>;
 };
 
 // ---------------------------------------------------------------------------
 // Contexts
 // ---------------------------------------------------------------------------
 
-const SessionDataContext = createContext<SessionDataContextValue | null>(null);
-const SessionApiContext = createContext<SessionApiContextValue | null>(null);
+const SessionStreamDataContext = createContext<SessionStreamDataContextValue | null>(null);
+const SessionConfigDataContext = createContext<SessionConfigDataContextValue | null>(null);
+const SessionCoreApiContext = createContext<SessionCoreApiContextValue | null>(null);
+const SessionBranchesApiContext = createContext<SessionBranchesApiContextValue | null>(null);
+const SessionFilesApiContext = createContext<SessionFilesApiContextValue | null>(null);
+const SessionNotesApiContext = createContext<SessionNotesApiContextValue | null>(null);
+const SessionLaunchApiContext = createContext<SessionLaunchApiContextValue | null>(null);
 
 // ---------------------------------------------------------------------------
 // Provider implementation
@@ -230,37 +286,11 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const notificationTitleFingerprintRef = useRef<string>("");
 
   const {
-    refreshSessions: refreshSessionsApi,
-    requestWorktrees,
-    requestBranches,
-    requestDiffSummary,
-    requestDiffFile,
-    requestCommitLog,
-    requestCommitDetail,
-    requestCommitFile,
-    requestStateTimeline,
-    requestRepoNotes,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-    requestScreen,
-    focusPane,
-    killPane,
-    killWindow,
-    launchAgentInSession,
-    uploadImageAttachment,
-    sendText,
-    sendKeys,
-    sendRaw,
-    updateSessionTitle,
-    resetSessionTitle,
-    touchSession,
-    createRepoNote,
-    updateRepoNote,
-    deleteRepoNote,
-    requestBranchCheckout,
-    requestBranchCreate,
-    requestBranchDelete,
+    core: coreApi,
+    branches: branchesApi,
+    files: filesApi,
+    notes: notesApi,
+    launch: launchApi,
   } = useSessionApiHook({
     token,
     apiBaseUrl,
@@ -278,9 +308,9 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     if (!hasToken || authBlocked) {
       return;
     }
-    const result = await refreshSessionsApi();
+    const result = await coreApi.refreshSessions();
     handleRefreshResultFromConnection(result);
-  }, [authBlocked, handleRefreshResultFromConnection, hasToken, refreshSessionsApi]);
+  }, [authBlocked, coreApi, handleRefreshResultFromConnection, hasToken]);
 
   const reconnect = useCallback(() => {
     reconnectWithConnectionState(refreshSessions);
@@ -327,117 +357,69 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     void syncLocalNotificationSessionTitles(nextEntries).catch(() => undefined);
   }, [hasToken, sessions]);
 
-  // Stable API context — memoized so its identity only changes when API deps change,
-  // not on every data update (sessions, connected, etc.)
-  const sessionApiValue = useMemo<SessionApiContextValue>(
+  // Stable API contexts — memoized per domain so identity only changes when
+  // that domain's own deps change, not on every data update (sessions, connected, etc.)
+  // Each namespace from useSessionApiHook (`coreApi`/`branchesApi`/etc.) is
+  // already memoized 1:1 against its own dependencies, so branches/files/
+  // notes/launch pass straight through; core layers in the 3 fields
+  // (setToken/reconnect/refreshSessions) that live outside useSessionApiHook.
+  const sessionCoreApiValue = useMemo<SessionCoreApiContextValue>(
     () => ({
+      ...coreApi,
       setToken,
       reconnect,
       refreshSessions,
-      requestWorktrees,
-      requestBranches,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-      requestStateTimeline,
-      requestRepoNotes,
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
-      requestScreen,
-      focusPane,
-      killPane,
-      killWindow,
-      launchAgentInSession,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-      resetSessionTitle,
-      createRepoNote,
-      updateRepoNote,
-      deleteRepoNote,
-      requestBranchCheckout,
-      requestBranchCreate,
-      requestBranchDelete,
     }),
-    [
-      setToken,
-      reconnect,
-      refreshSessions,
-      requestWorktrees,
-      requestBranches,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-      requestStateTimeline,
-      requestRepoNotes,
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
-      requestScreen,
-      focusPane,
-      killPane,
-      killWindow,
-      launchAgentInSession,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-      resetSessionTitle,
-      createRepoNote,
-      updateRepoNote,
-      deleteRepoNote,
-      requestBranchCheckout,
-      requestBranchCreate,
-      requestBranchDelete,
-    ],
+    [coreApi, setToken, reconnect, refreshSessions],
   );
 
-  // Data context — updates whenever reactive state changes
-  const sessionDataValue = useMemo<SessionDataContextValue>(
+  const sessionBranchesApiValue = branchesApi;
+  const sessionFilesApiValue = filesApi;
+  const sessionNotesApiValue = notesApi;
+  const sessionLaunchApiValue = launchApi;
+
+  // Data contexts — split by update frequency: stream data changes on every
+  // sessions update (SSE/polling); config data changes only on auth/config events.
+  const sessionStreamDataValue = useMemo<SessionStreamDataContextValue>(
+    () => ({
+      sessions,
+      connected,
+      connectionStatus,
+      connectionIssue,
+      transport,
+      getSessionDetail,
+    }),
+    [sessions, connected, connectionStatus, connectionIssue, transport, getSessionDetail],
+  );
+
+  const sessionConfigDataValue = useMemo<SessionConfigDataContextValue>(
     () => ({
       token,
       apiBaseUrl,
       authError,
-      sessions,
-      connected,
-      connectionStatus,
-      connectionIssue,
-      transport,
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
-      getSessionDetail,
     }),
-    [
-      token,
-      apiBaseUrl,
-      authError,
-      sessions,
-      connected,
-      connectionStatus,
-      connectionIssue,
-      transport,
-      highlightCorrections,
-      fileNavigatorConfig,
-      launchConfig,
-      getSessionDetail,
-    ],
+    [token, apiBaseUrl, authError, highlightCorrections, fileNavigatorConfig, launchConfig],
   );
 
   return (
-    <SessionDataContext.Provider value={sessionDataValue}>
-      <SessionApiContext.Provider value={sessionApiValue}>{children}</SessionApiContext.Provider>
-    </SessionDataContext.Provider>
+    <SessionStreamDataContext.Provider value={sessionStreamDataValue}>
+      <SessionConfigDataContext.Provider value={sessionConfigDataValue}>
+        <SessionCoreApiContext.Provider value={sessionCoreApiValue}>
+          <SessionBranchesApiContext.Provider value={sessionBranchesApiValue}>
+            <SessionFilesApiContext.Provider value={sessionFilesApiValue}>
+              <SessionNotesApiContext.Provider value={sessionNotesApiValue}>
+                <SessionLaunchApiContext.Provider value={sessionLaunchApiValue}>
+                  {children}
+                </SessionLaunchApiContext.Provider>
+              </SessionNotesApiContext.Provider>
+            </SessionFilesApiContext.Provider>
+          </SessionBranchesApiContext.Provider>
+        </SessionCoreApiContext.Provider>
+      </SessionConfigDataContext.Provider>
+    </SessionStreamDataContext.Provider>
   );
 };
 
@@ -458,25 +440,38 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 // Hooks
 // ---------------------------------------------------------------------------
 
-export const useSessionData = (): SessionDataContextValue => {
-  const context = useContext(SessionDataContext);
-  if (context == null) {
+const useRequiredContext = <T,>(context: Context<T | null>): T => {
+  const value = useContext(context);
+  if (value == null) {
     throw new Error("SessionProvider is required");
   }
-  return context;
+  return value;
 };
 
-export const useSessionApi = (): SessionApiContextValue => {
-  const context = useContext(SessionApiContext);
-  if (context == null) {
-    throw new Error("SessionProvider is required");
-  }
-  return context;
-};
+/** High-frequency: live sessions list + connection/stream status. */
+export const useSessionStreamData = (): SessionStreamDataContextValue =>
+  useRequiredContext(SessionStreamDataContext);
 
-/** Backward-compatible hook — merges data and API. Prefer useSessionData/useSessionApi in new code. */
-export const useSessions = (): SessionDataContextValue & SessionApiContextValue => {
-  const data = useSessionData();
-  const api = useSessionApi();
-  return { ...data, ...api };
-};
+/** Low-frequency: auth/token state and server-provided client config. */
+export const useSessionConfigData = (): SessionConfigDataContextValue =>
+  useRequiredContext(SessionConfigDataContext);
+
+/** Core session lifecycle/interaction API (connection, screen, messaging, pane control). */
+export const useSessionCoreApi = (): SessionCoreApiContextValue =>
+  useRequiredContext(SessionCoreApiContext);
+
+/** Worktrees/branches/commits/diffs API. */
+export const useSessionBranchesApi = (): SessionBranchesApiContextValue =>
+  useRequiredContext(SessionBranchesApiContext);
+
+/** Repo file navigator API. */
+export const useSessionFilesApi = (): SessionFilesApiContextValue =>
+  useRequiredContext(SessionFilesApiContext);
+
+/** Repo notes CRUD API. */
+export const useSessionNotesApi = (): SessionNotesApiContextValue =>
+  useRequiredContext(SessionNotesApiContext);
+
+/** Agent launch API. */
+export const useSessionLaunchApi = (): SessionLaunchApiContextValue =>
+  useRequiredContext(SessionLaunchApiContext);

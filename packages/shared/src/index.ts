@@ -1,4 +1,5 @@
 export * from "./api-contract";
+export * from "./coercion";
 export * from "./config-allowlist";
 export * from "./config-path-resolver";
 export * from "./constants";

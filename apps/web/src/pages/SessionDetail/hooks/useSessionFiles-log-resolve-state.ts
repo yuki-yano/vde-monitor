@@ -1,44 +1,27 @@
 import type { RepoFileSearchPage } from "@vde-monitor/shared";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { MutableRefObject } from "react";
+
+import { type SessionFilesUiDispatch, setUiState } from "./useSessionFiles-ui-state-machine";
 
 export type LogFileCandidateItem = Pick<
   RepoFileSearchPage["items"][number],
   "path" | "name" | "isIgnored"
 >;
 
-type SetState<T> = Dispatch<SetStateAction<T>>;
-
-type LogResolveStateSetters = {
-  setFileResolveError: SetState<string | null>;
-  setLogFileCandidateModalOpen: SetState<boolean>;
-  setLogFileCandidateReference: SetState<string | null>;
-  setLogFileCandidatePaneId: SetState<string | null>;
-  setLogFileCandidateLine: SetState<number | null>;
-  setLogFileCandidateItems: SetState<LogFileCandidateItem[]>;
-};
-
 type SetLogResolveErrorIfCurrentInput = {
   activeLogResolveRequestIdRef: MutableRefObject<number>;
   requestId: number;
-  setFileResolveError: SetState<string | null>;
+  dispatch: SessionFilesUiDispatch;
   message: string;
 };
 
-type OpenLogFileCandidateModalStateInput = {
-  setLogFileCandidateModalOpen: SetState<boolean>;
-  setLogFileCandidateReference: SetState<string | null>;
-  setLogFileCandidatePaneId: SetState<string | null>;
-  setLogFileCandidateLine: SetState<number | null>;
-  setLogFileCandidateItems: SetState<LogFileCandidateItem[]>;
+type OpenLogFileCandidateInput = {
+  dispatch: SessionFilesUiDispatch;
   reference: string;
   paneId: string;
   line: number | null;
   items: LogFileCandidateItem[];
 };
-
-type InitializeLogResolveRequestInput = {
-  activeLogResolveRequestIdRef: MutableRefObject<number>;
-} & LogResolveStateSetters;
 
 export const createNextLogResolveRequestId = (
   activeLogResolveRequestIdRef: MutableRefObject<number>,
@@ -56,67 +39,43 @@ export const isCurrentLogResolveRequest = ({
   requestId: number;
 }) => activeLogResolveRequestIdRef.current === requestId;
 
-export const resetLogFileCandidateState = ({
-  setLogFileCandidateModalOpen,
-  setLogFileCandidateReference,
-  setLogFileCandidatePaneId,
-  setLogFileCandidateLine,
-  setLogFileCandidateItems,
-}: Omit<LogResolveStateSetters, "setFileResolveError">) => {
-  setLogFileCandidateModalOpen(false);
-  setLogFileCandidateReference(null);
-  setLogFileCandidatePaneId(null);
-  setLogFileCandidateLine(null);
-  setLogFileCandidateItems([]);
+export const closeLogFileCandidate = (dispatch: SessionFilesUiDispatch) => {
+  dispatch({ type: "closeLogFileCandidate" });
 };
 
+// Starts a new log-reference resolution: bumps the request id (so any
+// in-flight resolution becomes stale) and clears the previous error/candidate
+// picker in a single dispatch.
 export const initializeLogResolveRequest = ({
   activeLogResolveRequestIdRef,
-  setFileResolveError,
-  setLogFileCandidateModalOpen,
-  setLogFileCandidateReference,
-  setLogFileCandidatePaneId,
-  setLogFileCandidateLine,
-  setLogFileCandidateItems,
-}: InitializeLogResolveRequestInput) => {
+  dispatch,
+}: {
+  activeLogResolveRequestIdRef: MutableRefObject<number>;
+  dispatch: SessionFilesUiDispatch;
+}) => {
   const requestId = createNextLogResolveRequestId(activeLogResolveRequestIdRef);
-  setFileResolveError(null);
-  resetLogFileCandidateState({
-    setLogFileCandidateModalOpen,
-    setLogFileCandidateReference,
-    setLogFileCandidatePaneId,
-    setLogFileCandidateLine,
-    setLogFileCandidateItems,
-  });
+  dispatch({ type: "startLogResolve" });
   return requestId;
 };
 
 export const setLogResolveErrorIfCurrent = ({
   activeLogResolveRequestIdRef,
   requestId,
-  setFileResolveError,
+  dispatch,
   message,
 }: SetLogResolveErrorIfCurrentInput) => {
   if (!isCurrentLogResolveRequest({ activeLogResolveRequestIdRef, requestId })) {
     return;
   }
-  setFileResolveError(message);
+  setUiState(dispatch, "fileResolveError", message);
 };
 
 export const openLogFileCandidateModalState = ({
-  setLogFileCandidateModalOpen,
-  setLogFileCandidateReference,
-  setLogFileCandidatePaneId,
-  setLogFileCandidateLine,
-  setLogFileCandidateItems,
+  dispatch,
   reference,
   paneId,
   line,
   items,
-}: OpenLogFileCandidateModalStateInput) => {
-  setLogFileCandidateReference(reference);
-  setLogFileCandidatePaneId(paneId);
-  setLogFileCandidateLine(line);
-  setLogFileCandidateItems(items);
-  setLogFileCandidateModalOpen(true);
+}: OpenLogFileCandidateInput) => {
+  dispatch({ type: "openLogFileCandidate", reference, paneId, line, items });
 };

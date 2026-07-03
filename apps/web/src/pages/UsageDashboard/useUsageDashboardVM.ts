@@ -10,7 +10,13 @@ import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
-import { useSessions } from "@/state/session-context";
+import {
+  useSessionBranchesApi,
+  useSessionConfigData,
+  useSessionCoreApi,
+  useSessionLaunchApi,
+  useSessionStreamData,
+} from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 import { useUsageApi } from "@/state/use-usage-api";
 
@@ -19,20 +25,11 @@ import { useUsageDashboardData } from "./useUsageDashboardData";
 import { useUsageTimelineData } from "./useUsageTimelineData";
 
 export const useUsageDashboardVM = () => {
-  const {
-    token,
-    apiBaseUrl,
-    sessions,
-    connected,
-    connectionIssue,
-    launchConfig,
-    requestWorktrees,
-    requestStateTimeline,
-    requestScreen,
-    launchAgentInSession,
-    touchSession,
-    highlightCorrections,
-  } = useSessions();
+  const { sessions, connected, connectionIssue } = useSessionStreamData();
+  const { token, apiBaseUrl, launchConfig, highlightCorrections } = useSessionConfigData();
+  const { requestStateTimeline, requestScreen, touchSession } = useSessionCoreApi();
+  const { requestWorktrees } = useSessionBranchesApi();
+  const { launchAgentInSession } = useSessionLaunchApi();
   const navigate = useNavigate();
   const { enabled: pwaTabsEnabled, openSessionTab } = useWorkspaceTabs();
   const { resolvedTheme } = useTheme();

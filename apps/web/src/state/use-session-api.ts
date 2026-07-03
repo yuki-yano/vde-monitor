@@ -390,15 +390,78 @@ export const useSessionApi = ({
     ],
   );
 
-  // The dep array lists only the 4 group references instead of all 24 individual functions,
-  // eliminating the duplication. All group objects are already memoized above.
-  return useMemo(
+  // Domain-scoped return: the 7 Contexts in session-context.tsx are backed by
+  // 5 namespaces here (core / branches / files / notes / launch) matching the
+  // measured API-context split 1:1; Stream/Config are data-only contexts
+  // assembled in session-context.tsx itself, not here. Each namespace is its
+  // own useMemo so SessionRuntime's per-Context useMemo can depend on
+  // `api.<namespace>` directly instead of re-listing every individual
+  // function in its own dependency array (the prior "flat 24 functions"
+  // duplication this replaces).
+  const core = useMemo(
     () => ({
       refreshSessions,
-      ...queryRequests,
+      requestStateTimeline: queryRequests.requestStateTimeline,
       requestScreen,
-      ...actionRequests,
+      focusPane: actionRequests.focusPane,
+      killPane: actionRequests.killPane,
+      killWindow: actionRequests.killWindow,
+      uploadImageAttachment: actionRequests.uploadImageAttachment,
+      sendText: actionRequests.sendText,
+      sendKeys: actionRequests.sendKeys,
+      sendRaw: actionRequests.sendRaw,
+      touchSession: actionRequests.touchSession,
+      updateSessionTitle: actionRequests.updateSessionTitle,
+      resetSessionTitle: actionRequests.resetSessionTitle,
     }),
     [refreshSessions, queryRequests, requestScreen, actionRequests],
+  );
+
+  const branches = useMemo(
+    () => ({
+      requestWorktrees: queryRequests.requestWorktrees,
+      requestBranches: queryRequests.requestBranches,
+      requestBranchCheckout: actionRequests.requestBranchCheckout,
+      requestBranchCreate: actionRequests.requestBranchCreate,
+      requestBranchDelete: actionRequests.requestBranchDelete,
+      requestDiffSummary: queryRequests.requestDiffSummary,
+      requestDiffFile: queryRequests.requestDiffFile,
+      requestCommitLog: queryRequests.requestCommitLog,
+      requestCommitDetail: queryRequests.requestCommitDetail,
+      requestCommitFile: queryRequests.requestCommitFile,
+    }),
+    [queryRequests, actionRequests],
+  );
+
+  const files = useMemo(
+    () => ({
+      requestRepoFileTree: queryRequests.requestRepoFileTree,
+      requestRepoFileSearch: queryRequests.requestRepoFileSearch,
+      requestRepoFileContent: queryRequests.requestRepoFileContent,
+    }),
+    [queryRequests],
+  );
+
+  const notes = useMemo(
+    () => ({
+      requestRepoNotes: queryRequests.requestRepoNotes,
+      createRepoNote: actionRequests.createRepoNote,
+      updateRepoNote: actionRequests.updateRepoNote,
+      deleteRepoNote: actionRequests.deleteRepoNote,
+    }),
+    [queryRequests, actionRequests],
+  );
+
+  const launch = useMemo(
+    () => ({ launchAgentInSession: actionRequests.launchAgentInSession }),
+    [actionRequests],
+  );
+
+  // The dep array lists only the 5 namespace references instead of all ~29
+  // individual functions, eliminating the duplication. All namespace objects
+  // are already memoized above.
+  return useMemo(
+    () => ({ core, branches, files, notes, launch }),
+    [core, branches, files, notes, launch],
   );
 };

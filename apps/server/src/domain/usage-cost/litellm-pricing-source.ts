@@ -1,3 +1,5 @@
+import { toNullableNumber } from "@vde-monitor/shared";
+
 import { resolveModelId } from "./model-resolver";
 import { PROVIDER_PREFIX_CANDIDATES } from "./provider-alias";
 import type { ModelPriceLookupFailure, ModelPriceLookupResult, UsagePricingSource } from "./types";
@@ -39,9 +41,6 @@ const DEFAULT_STALE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SOURCE_LABEL = "LiteLLM";
 const STALE_SOURCE_LABEL = "LiteLLM (stale-cache)";
 const VERSION_TOKEN_PATTERN = /\d+(?:\.\d+)*/;
-
-const toNullableNumber = (value: unknown): number | null =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 const normalizePricingMap = (input: unknown): Record<string, LiteLLMModelPricing> => {
   if (!input || typeof input !== "object") {

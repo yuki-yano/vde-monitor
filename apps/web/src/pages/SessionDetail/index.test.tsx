@@ -4,8 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SessionDetailPage } from "./SessionDetailPage";
 
-const viewModel = { meta: { paneId: "pane-1" } };
-
 const providerSpy = vi.fn();
 const viewSpy = vi.fn();
 
@@ -24,13 +22,9 @@ vi.mock("./SessionDetailProvider", () => ({
   },
 }));
 
-vi.mock("./useSessionDetailVM", () => ({
-  useSessionDetailVM: () => viewModel,
-}));
-
 vi.mock("./SessionDetailView", () => ({
-  SessionDetailView: (props: typeof viewModel) => {
-    viewSpy(props);
+  SessionDetailView: () => {
+    viewSpy();
     return <div data-testid="view">view</div>;
   },
 }));
@@ -42,6 +36,6 @@ describe("SessionDetailPage", () => {
     expect(screen.getByTestId("provider").dataset.paneid).toBe("pane-1");
     expect(screen.getByTestId("view")).toBeTruthy();
     expect(providerSpy).toHaveBeenCalledWith("pane-1");
-    expect(viewSpy).toHaveBeenCalledWith(viewModel);
+    expect(viewSpy).toHaveBeenCalled();
   });
 });

@@ -1,12 +1,13 @@
 import type { RepoFileTreePage } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { buildTreePageRequestKey, fetchWithRequestMap } from "./session-files-request-cache";
 import { mergeTreeEntries } from "./session-files-tree-utils";
+import { type SessionFilesUiDispatch, setUiState } from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesTreeLoaderArgs = {
+type UseSessionFilesTreeLoaderDeps = {
   paneId: string;
   requestScopeId: string;
   repoRoot: string | null;
@@ -18,26 +19,25 @@ type UseSessionFilesTreeLoaderArgs = {
   ) => Promise<RepoFileTreePage>;
   treePageRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileTreePage>>>;
   contextVersionRef: MutableRefObject<number>;
-  setTreeLoadingByPath: Dispatch<SetStateAction<Record<string, boolean>>>;
-  setTreePages: Dispatch<SetStateAction<Record<string, RepoFileTreePage>>>;
-  setTreeError: Dispatch<SetStateAction<string | null>>;
   resolveUnknownErrorMessage: (error: unknown, fallbackMessage: string) => string;
 };
 
-export const useSessionFilesTreeLoader = ({
-  paneId,
-  requestScopeId,
-  repoRoot,
-  worktreePath,
-  treePageLimit,
-  requestRepoFileTree,
-  treePageRequestMapRef,
-  contextVersionRef,
-  setTreeLoadingByPath,
-  setTreePages,
-  setTreeError,
-  resolveUnknownErrorMessage,
-}: UseSessionFilesTreeLoaderArgs) => {
+// Write-only w.r.t. reducer state (loads and records tree pages), so it only
+// needs `dispatch`, not the full state.
+export const useSessionFilesTreeLoader = (
+  dispatch: SessionFilesUiDispatch,
+  {
+    paneId,
+    requestScopeId,
+    repoRoot,
+    worktreePath,
+    treePageLimit,
+    requestRepoFileTree,
+    treePageRequestMapRef,
+    contextVersionRef,
+    resolveUnknownErrorMessage,
+  }: UseSessionFilesTreeLoaderDeps,
+) => {
   const fetchTreePage = useCallback(
     async (targetPath: string, cursor?: string) => {
       return fetchWithRequestMap({
@@ -68,13 +68,13 @@ export const useSessionFilesTreeLoader = ({
         return null;
       }
       const contextVersion = contextVersionRef.current;
-      setTreeLoadingByPath((prev) => ({ ...prev, [targetPath]: true }));
+      setUiState(dispatch, "treeLoadingByPath", (prev) => ({ ...prev, [targetPath]: true }));
       try {
         const page = await fetchTreePage(targetPath, cursor);
         if (contextVersion !== contextVersionRef.current) {
           return null;
         }
-        setTreePages((prev) => {
+        setUiState(dispatch, "treePages", (prev) => {
           if (!cursor) {
             return { ...prev, [targetPath]: page };
           }
@@ -88,29 +88,25 @@ export const useSessionFilesTreeLoader = ({
           };
           return { ...prev, [targetPath]: merged };
         });
-        setTreeError(null);
+        setUiState(dispatch, "treeError", null);
         return page;
       } catch (error) {
         if (contextVersion !== contextVersionRef.current) {
           return null;
         }
-        setTreeError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileTree));
+        setUiState(
+          dispatch,
+          "treeError",
+          resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileTree),
+        );
         return null;
       } finally {
         if (contextVersion === contextVersionRef.current) {
-          setTreeLoadingByPath((prev) => ({ ...prev, [targetPath]: false }));
+          setUiState(dispatch, "treeLoadingByPath", (prev) => ({ ...prev, [targetPath]: false }));
         }
       }
     },
-    [
-      contextVersionRef,
-      fetchTreePage,
-      repoRoot,
-      resolveUnknownErrorMessage,
-      setTreeError,
-      setTreeLoadingByPath,
-      setTreePages,
-    ],
+    [contextVersionRef, dispatch, fetchTreePage, repoRoot, resolveUnknownErrorMessage],
   );
 
   return {

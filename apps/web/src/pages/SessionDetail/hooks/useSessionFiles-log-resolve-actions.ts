@@ -1,4 +1,4 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import {
   extractLogReferenceLocation,
@@ -6,27 +6,27 @@ import {
 } from "@/features/shared-session-ui/lib/log-file-reference";
 import {
   type LogFileCandidateItem,
+  closeLogFileCandidate,
   initializeLogResolveRequest,
   isCurrentLogResolveRequest,
   openLogFileCandidateModalState,
   setLogResolveErrorIfCurrent,
 } from "./useSessionFiles-log-resolve-state";
+import type {
+  SessionFilesUiDispatch,
+  SessionFilesUiState,
+} from "./useSessionFiles-ui-state-machine";
 
-type SetState<T> = Dispatch<SetStateAction<T>>;
+type UseSessionFilesLogResolveActionsState = Pick<
+  SessionFilesUiState,
+  "logFileCandidatePaneId" | "logFileCandidateLine"
+>;
 
-type UseSessionFilesLogResolveActionsArgs = {
+type UseSessionFilesLogResolveActionsDeps = {
   paneId: string;
   logFileResolveMatchLimit: number;
   logFileResolvePageLimit: number;
   activeLogResolveRequestIdRef: MutableRefObject<number>;
-  logFileCandidatePaneId: string | null;
-  logFileCandidateLine: number | null;
-  setFileResolveError: SetState<string | null>;
-  setLogFileCandidateModalOpen: SetState<boolean>;
-  setLogFileCandidateReference: SetState<string | null>;
-  setLogFileCandidatePaneId: SetState<string | null>;
-  setLogFileCandidateLine: SetState<number | null>;
-  setLogFileCandidateItems: SetState<LogFileCandidateItem[]>;
   findExactNameMatches: (args: {
     paneId: string;
     filename: string;
@@ -48,27 +48,21 @@ type UseSessionFilesLogResolveActionsArgs = {
       highlightLine?: number | null;
     },
   ) => void;
-  resetLogFileCandidateState: () => void;
 };
 
-export const useSessionFilesLogResolveActions = ({
-  paneId,
-  logFileResolveMatchLimit,
-  logFileResolvePageLimit,
-  activeLogResolveRequestIdRef,
-  logFileCandidatePaneId,
-  logFileCandidateLine,
-  setFileResolveError,
-  setLogFileCandidateModalOpen,
-  setLogFileCandidateReference,
-  setLogFileCandidatePaneId,
-  setLogFileCandidateLine,
-  setLogFileCandidateItems,
-  findExactNameMatches,
-  tryOpenExistingPath,
-  openFileModalByPath,
-  resetLogFileCandidateState,
-}: UseSessionFilesLogResolveActionsArgs) => {
+export const useSessionFilesLogResolveActions = (
+  { logFileCandidatePaneId, logFileCandidateLine }: UseSessionFilesLogResolveActionsState,
+  dispatch: SessionFilesUiDispatch,
+  {
+    paneId,
+    logFileResolveMatchLimit,
+    logFileResolvePageLimit,
+    activeLogResolveRequestIdRef,
+    findExactNameMatches,
+    tryOpenExistingPath,
+    openFileModalByPath,
+  }: UseSessionFilesLogResolveActionsDeps,
+) => {
   const onResolveLogFileReference = useCallback(
     async ({
       rawToken,
@@ -81,19 +75,14 @@ export const useSessionFilesLogResolveActions = ({
     }) => {
       const requestId = initializeLogResolveRequest({
         activeLogResolveRequestIdRef,
-        setFileResolveError,
-        setLogFileCandidateModalOpen,
-        setLogFileCandidateReference,
-        setLogFileCandidatePaneId,
-        setLogFileCandidateLine,
-        setLogFileCandidateItems,
+        dispatch,
       });
 
       if (sourcePaneId.trim().length === 0) {
         setLogResolveErrorIfCurrent({
           activeLogResolveRequestIdRef,
           requestId,
-          setFileResolveError,
+          dispatch,
           message: "Session context is unavailable.",
         });
         return;
@@ -105,7 +94,7 @@ export const useSessionFilesLogResolveActions = ({
         setLogResolveErrorIfCurrent({
           activeLogResolveRequestIdRef,
           requestId,
-          setFileResolveError,
+          dispatch,
           message: "No file reference found in token.",
         });
         return;
@@ -135,7 +124,7 @@ export const useSessionFilesLogResolveActions = ({
         setLogResolveErrorIfCurrent({
           activeLogResolveRequestIdRef,
           requestId,
-          setFileResolveError,
+          dispatch,
           message: "File not found.",
         });
         return;
@@ -154,7 +143,7 @@ export const useSessionFilesLogResolveActions = ({
         setLogResolveErrorIfCurrent({
           activeLogResolveRequestIdRef,
           requestId,
-          setFileResolveError,
+          dispatch,
           message: "Failed to resolve file reference.",
         });
         return;
@@ -174,7 +163,7 @@ export const useSessionFilesLogResolveActions = ({
         setLogResolveErrorIfCurrent({
           activeLogResolveRequestIdRef,
           requestId,
-          setFileResolveError,
+          dispatch,
           message: `No file matched: ${reference.filename}`,
         });
         return;
@@ -189,11 +178,7 @@ export const useSessionFilesLogResolveActions = ({
       }
 
       openLogFileCandidateModalState({
-        setLogFileCandidateModalOpen,
-        setLogFileCandidateReference,
-        setLogFileCandidatePaneId,
-        setLogFileCandidateLine,
-        setLogFileCandidateItems,
+        dispatch,
         reference: reference.display,
         paneId: sourcePaneId,
         line: location.line,
@@ -202,16 +187,11 @@ export const useSessionFilesLogResolveActions = ({
     },
     [
       activeLogResolveRequestIdRef,
+      dispatch,
       findExactNameMatches,
       logFileResolveMatchLimit,
       logFileResolvePageLimit,
       openFileModalByPath,
-      setFileResolveError,
-      setLogFileCandidateItems,
-      setLogFileCandidateLine,
-      setLogFileCandidateModalOpen,
-      setLogFileCandidatePaneId,
-      setLogFileCandidateReference,
       tryOpenExistingPath,
     ],
   );
@@ -220,25 +200,19 @@ export const useSessionFilesLogResolveActions = ({
     (path: string) => {
       const targetPaneId = logFileCandidatePaneId ?? paneId;
       const targetLine = logFileCandidateLine;
-      resetLogFileCandidateState();
+      closeLogFileCandidate(dispatch);
       openFileModalByPath(path, {
         paneId: targetPaneId,
         origin: "log",
         highlightLine: targetLine,
       });
     },
-    [
-      logFileCandidateLine,
-      logFileCandidatePaneId,
-      openFileModalByPath,
-      paneId,
-      resetLogFileCandidateState,
-    ],
+    [dispatch, logFileCandidateLine, logFileCandidatePaneId, openFileModalByPath, paneId],
   );
 
   const onCloseLogFileCandidateModal = useCallback(() => {
-    resetLogFileCandidateState();
-  }, [resetLogFileCandidateState]);
+    closeLogFileCandidate(dispatch);
+  }, [dispatch]);
 
   return {
     onResolveLogFileReference,

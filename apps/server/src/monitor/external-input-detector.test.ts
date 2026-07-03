@@ -29,6 +29,30 @@ describe("detectExternalInputFromLogDelta", () => {
     expect(readLogSlice).not.toHaveBeenCalled();
   });
 
+  it("skips detection for empty-string logPath", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 128 }));
+    const readLogSlice = vi.fn(async () => "\u203A hello");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "",
+      previousCursorBytes: 64,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("SKIP_NON_AGENT_OR_NO_LOG");
+    expect(result.errorMessage).toBeNull();
+    expect(result.detectedAt).toBeNull();
+    expect(result.nextCursorBytes).toBe(64);
+    expect(result.signature).toBe("prev");
+    expect(statLogSize).not.toHaveBeenCalled();
+    expect(readLogSlice).not.toHaveBeenCalled();
+  });
+
   it("advances cursor only on first observation without detection", async () => {
     const statLogSize = vi.fn(async () => ({ size: 128 }));
     const readLogSlice = vi.fn(async () => "\u203A hello");
@@ -267,6 +291,77 @@ describe("detectExternalInputFromLogDelta", () => {
     expect(result.errorMessage).toBeNull();
     expect(readLogSlice).toHaveBeenNthCalledWith(1, "/tmp/pane.log", 0, 16);
     expect(readLogSlice).toHaveBeenNthCalledWith(2, "/tmp/pane.log", 100, 20);
+  });
+
+  it("returns no-log when log stat is unavailable", async () => {
+    const statLogSize = vi.fn(async () => null);
+    const readLogSlice = vi.fn(async () => "");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 50,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("LOG_STAT_UNAVAILABLE");
+    expect(result.errorMessage).toBeNull();
+    expect(result.detectedAt).toBeNull();
+    expect(result.nextCursorBytes).toBe(50);
+    expect(result.signature).toBe("prev");
+    expect(readLogSlice).not.toHaveBeenCalled();
+  });
+
+  it("returns no-log when log file is empty", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 0 }));
+    const readLogSlice = vi.fn(async () => "");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 10,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("LOG_EMPTY");
+    expect(result.errorMessage).toBeNull();
+    expect(result.detectedAt).toBeNull();
+    expect(result.nextCursorBytes).toBe(0);
+    expect(result.signature).toBe("prev");
+    expect(readLogSlice).not.toHaveBeenCalled();
+  });
+
+  it("returns detector exception details when stat lookup throws", async () => {
+    const statLogSize = vi.fn(async () => {
+      throw new Error("stat lookup failed");
+    });
+    const readLogSlice = vi.fn(async () => "");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "/tmp/pane.log",
+      previousCursorBytes: 30,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("DETECTOR_EXCEPTION");
+    expect(result.errorMessage).toBe("stat lookup failed");
+    expect(result.detectedAt).toBeNull();
+    expect(result.nextCursorBytes).toBe(30);
+    expect(result.signature).toBe("prev");
+    expect(readLogSlice).not.toHaveBeenCalled();
   });
 
   it("returns read error details when reading log delta fails", async () => {

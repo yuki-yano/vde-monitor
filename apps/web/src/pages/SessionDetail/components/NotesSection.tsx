@@ -1,6 +1,6 @@
 import type { RepoNote } from "@vde-monitor/shared";
 import { BookText, Plus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import {
   Callout,
@@ -12,7 +12,11 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
+import { useTimeout } from "@/lib/use-timeout";
 
+import { useNoteAutoFocus } from "../hooks/useNoteAutoFocus";
+import { useNoteAutoSave } from "../hooks/useNoteAutoSave";
+import { useNotesPolling } from "../hooks/useNotesPolling";
 import { NotesDeleteDialog, NotesSectionList } from "./notes-section-list";
 
 type NotesSectionState = {
@@ -37,9 +41,7 @@ type NotesSectionProps = {
   actions: NotesSectionActions;
 };
 
-const AUTO_SAVE_DEBOUNCE_MS = 700;
 const COPY_FEEDBACK_MS = 1200;
-const AUTO_SYNC_INTERVAL_MS = 10_000;
 const EMPTY_NOTE_PREVIEW = "(empty note)";
 
 const formatPreviewBody = (body: string) => {
@@ -48,80 +50,43 @@ const formatPreviewBody = (body: string) => {
   return normalized.length > 0 ? normalized : EMPTY_NOTE_PREVIEW;
 };
 
-export const NotesSection = ({ state, actions }: NotesSectionProps) => {
+export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
   const { repoRoot, notes, notesLoading, notesError, creatingNote, savingNoteId, deletingNoteId } =
     state;
   const { onRefresh, onCreate, onSave, onDelete } = actions;
 
   const [openNoteIdSet, setOpenNoteIdSet] = useState<Set<string>>(() => new Set());
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingBody, setEditingBody] = useState("");
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
   const [deleteDialogNoteId, setDeleteDialogNoteId] = useState<string | null>(null);
 
-  const editingNoteIdRef = useRef<string | null>(null);
-  const editingBodyRef = useRef("");
-  const lastSavedBodyRef = useRef("");
-  const autoSaveTimerRef = useRef<number | null>(null);
-  const copyResetTimerRef = useRef<number | null>(null);
-  const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const pendingNewNoteAutoEditRef = useRef(false);
-  const previousNoteIdSetRef = useRef<Set<string>>(new Set(notes.map((note) => note.id)));
+  const copyResetTimer = useTimeout();
 
-  useEffect(() => {
-    editingNoteIdRef.current = editingNoteId;
-  }, [editingNoteId]);
+  const {
+    editingNoteId,
+    editingBody,
+    setEditingBody,
+    beginEdit: autoSaveBeginEdit,
+    finishEdit: autoSaveFinishEdit,
+    guardToggleClose,
+    discardEditing,
+    forceStartEditing,
+  } = useNoteAutoSave({ notes, onSave });
 
-  useEffect(() => {
-    editingBodyRef.current = editingBody;
-  }, [editingBody]);
-
-  const clearAutoSaveTimer = useCallback(() => {
-    if (autoSaveTimerRef.current != null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-  }, []);
-
-  const clearCopyResetTimer = useCallback(() => {
-    if (copyResetTimerRef.current != null) {
-      window.clearTimeout(copyResetTimerRef.current);
-      copyResetTimerRef.current = null;
-    }
-  }, []);
-
-  const runAutoSave = useCallback(
-    (noteId: string, body: string) => {
-      const queuedSave = saveQueueRef.current.then(async () => {
-        try {
-          const ok = await onSave(noteId, { title: null, body });
-          if (ok && editingNoteIdRef.current === noteId) {
-            lastSavedBodyRef.current = body;
-          }
-          return ok;
-        } catch {
-          return false;
-        }
-      });
-      saveQueueRef.current = queuedSave;
-      return queuedSave;
+  const handleNoteAutoEdit = useCallback(
+    (note: RepoNote) => {
+      setOpenNoteIdSet((prev) => new Set(prev).add(note.id));
+      forceStartEditing(note);
     },
-    [onSave],
+    [forceStartEditing],
   );
 
-  const flushPendingAutoSave = useCallback(async () => {
-    const noteId = editingNoteIdRef.current;
-    if (!noteId) {
-      return true;
-    }
-    clearAutoSaveTimer();
-    const currentBody = editingBodyRef.current;
-    if (currentBody === lastSavedBodyRef.current) {
-      return true;
-    }
-    return runAutoSave(noteId, currentBody);
-  }, [clearAutoSaveTimer, runAutoSave]);
+  const { editingTextareaRef, markPendingAutoEdit, cancelPendingAutoEdit } = useNoteAutoFocus({
+    notes,
+    editingNoteId,
+    onAutoEdit: handleNoteAutoEdit,
+  });
+
+  useNotesPolling({ repoRoot, onRefresh });
 
   const applyToggleNoteOpen = useCallback((noteId: string) => {
     setOpenNoteIdSet((prev) => {
@@ -137,61 +102,33 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
 
   const toggleNoteOpen = useCallback(
     (noteId: string) => {
-      void (async () => {
-        if (editingNoteIdRef.current === noteId) {
-          const ok = await flushPendingAutoSave();
-          if (!ok) {
-            return;
-          }
-          setEditingNoteId(null);
-          setEditingBody("");
-          lastSavedBodyRef.current = "";
-        }
-        applyToggleNoteOpen(noteId);
-      })();
+      void guardToggleClose(noteId, () => applyToggleNoteOpen(noteId));
     },
-    [applyToggleNoteOpen, flushPendingAutoSave],
+    [applyToggleNoteOpen, guardToggleClose],
   );
 
   const beginEdit = useCallback(
     (note: RepoNote) => {
-      void (async () => {
-        if (editingNoteIdRef.current && editingNoteIdRef.current !== note.id) {
-          const ok = await flushPendingAutoSave();
-          if (!ok) {
-            return;
-          }
-        }
-        setEditingNoteId(note.id);
-        setEditingBody(note.body);
-        lastSavedBodyRef.current = note.body;
+      void autoSaveBeginEdit(note, () => {
         setOpenNoteIdSet((prev) => new Set(prev).add(note.id));
-      })();
+      });
     },
-    [flushPendingAutoSave],
+    [autoSaveBeginEdit],
   );
 
   const finishEdit = useCallback(() => {
-    void (async () => {
-      const ok = await flushPendingAutoSave();
-      if (!ok) {
-        return;
-      }
-      setEditingNoteId(null);
-      setEditingBody("");
-      lastSavedBodyRef.current = "";
-    })();
-  }, [flushPendingAutoSave]);
+    void autoSaveFinishEdit();
+  }, [autoSaveFinishEdit]);
 
   const handleAddNote = useCallback(() => {
     void (async () => {
-      pendingNewNoteAutoEditRef.current = true;
+      markPendingAutoEdit();
       const ok = await onCreate({ title: null, body: "" });
       if (!ok) {
-        pendingNewNoteAutoEditRef.current = false;
+        cancelPendingAutoEdit();
       }
     })();
-  }, [onCreate]);
+  }, [markPendingAutoEdit, cancelPendingAutoEdit, onCreate]);
 
   const handleCopyNote = useCallback(
     (note: RepoNote) => {
@@ -201,13 +138,12 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
           return;
         }
         setCopiedNoteId(note.id);
-        clearCopyResetTimer();
-        copyResetTimerRef.current = window.setTimeout(() => {
+        copyResetTimer.set(() => {
           setCopiedNoteId((prev) => (prev === note.id ? null : prev));
         }, COPY_FEEDBACK_MS);
       })();
     },
-    [clearCopyResetTimer],
+    [copyResetTimer],
   );
 
   const handleDeleteNote = useCallback(
@@ -226,15 +162,10 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
           next.delete(noteId);
           return next;
         });
-        if (editingNoteIdRef.current === noteId) {
-          clearAutoSaveTimer();
-          setEditingNoteId(null);
-          setEditingBody("");
-          lastSavedBodyRef.current = "";
-        }
+        discardEditing(noteId);
       })();
     },
-    [clearAutoSaveTimer, onDelete],
+    [discardEditing, onDelete],
   );
 
   const openDeleteDialog = useCallback((noteId: string) => {
@@ -244,92 +175,6 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
   const closeDeleteDialog = useCallback(() => {
     setDeleteDialogNoteId(null);
   }, []);
-
-  useEffect(() => {
-    if (!editingNoteId) {
-      clearAutoSaveTimer();
-      return;
-    }
-    if (editingBody === lastSavedBodyRef.current) {
-      clearAutoSaveTimer();
-      return;
-    }
-    clearAutoSaveTimer();
-    const targetNoteId = editingNoteId;
-    const targetBody = editingBody;
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      autoSaveTimerRef.current = null;
-      void runAutoSave(targetNoteId, targetBody);
-    }, AUTO_SAVE_DEBOUNCE_MS);
-    return clearAutoSaveTimer;
-  }, [clearAutoSaveTimer, editingBody, editingNoteId, runAutoSave]);
-
-  useEffect(() => {
-    if (!editingNoteId) {
-      return;
-    }
-    const exists = notes.some((note) => note.id === editingNoteId);
-    if (exists) {
-      return;
-    }
-    clearAutoSaveTimer();
-    setEditingNoteId(null);
-    setEditingBody("");
-    lastSavedBodyRef.current = "";
-  }, [clearAutoSaveTimer, editingNoteId, notes]);
-
-  useEffect(() => {
-    const previousIds = previousNoteIdSetRef.current;
-    if (pendingNewNoteAutoEditRef.current && notes.length > 0) {
-      const createdNote = notes.find((note) => !previousIds.has(note.id));
-      if (createdNote) {
-        setOpenNoteIdSet((prev) => new Set(prev).add(createdNote.id));
-        setEditingNoteId(createdNote.id);
-        setEditingBody(createdNote.body);
-        lastSavedBodyRef.current = createdNote.body;
-        pendingNewNoteAutoEditRef.current = false;
-      }
-    }
-    previousNoteIdSetRef.current = new Set(notes.map((note) => note.id));
-  }, [notes]);
-
-  useEffect(() => {
-    if (!editingNoteId) {
-      return;
-    }
-    const textarea = editingTextareaRef.current;
-    if (!textarea) {
-      return;
-    }
-    const rafId = window.requestAnimationFrame(() => {
-      const end = textarea.value.length;
-      textarea.focus();
-      textarea.setSelectionRange(end, end);
-    });
-    return () => {
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [editingNoteId]);
-
-  useEffect(() => {
-    return () => {
-      clearAutoSaveTimer();
-      clearCopyResetTimer();
-    };
-  }, [clearAutoSaveTimer, clearCopyResetTimer]);
-
-  useEffect(() => {
-    if (!repoRoot) {
-      return;
-    }
-    onRefresh({ silent: true });
-    const intervalId = window.setInterval(() => {
-      onRefresh({ silent: true });
-    }, AUTO_SYNC_INTERVAL_MS);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [onRefresh, repoRoot]);
 
   return (
     <Card className="relative flex min-w-0 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
@@ -349,7 +194,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
             type="button"
             size="sm"
             variant="base"
-            className="border-latte-lavender/70 bg-latte-lavender text-latte-base shadow-glow hover:border-latte-lavender/80 hover:bg-latte-lavender hover:translate-y-[-1px]"
+            className="border-latte-lavender/70 bg-latte-lavender text-latte-base shadow-glow hover:border-latte-lavender/80 hover:bg-latte-lavender hover:-translate-y-px"
             aria-label="Add note"
             onClick={handleAddNote}
             disabled={!repoRoot || creatingNote}
@@ -419,4 +264,6 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
       />
     </Card>
   );
-};
+});
+
+NotesSection.displayName = "NotesSection";

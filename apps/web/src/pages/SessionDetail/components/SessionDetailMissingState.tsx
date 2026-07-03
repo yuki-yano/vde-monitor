@@ -71,7 +71,7 @@ export const SessionDetailMissingState = ({
           className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
           style={{ width: `${sidebarWidth}px` }}
         >
-          <div className="border-latte-surface1/60 bg-latte-base/80 flex h-full w-full flex-col gap-2 border-r px-2 py-3 backdrop-blur sm:px-3 sm:py-4">
+          <div className="border-latte-surface1/60 bg-latte-base/80 flex h-full w-full flex-col gap-2 border-r px-2 py-3 backdrop-blur-sm sm:px-3 sm:py-4">
             <LoadingBar className="h-7 w-full" shimmerClassName="w-20" />
             <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-24 rounded-2xl" />
             <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-24 rounded-2xl" />
@@ -98,7 +98,7 @@ export const SessionDetailMissingState = ({
 
             <header
               data-testid="session-detail-loading-header"
-              className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur sm:gap-3 sm:p-4"
+              className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur-sm sm:gap-3 sm:p-4"
             >
               <p className="text-latte-subtext0 text-sm">Loading session...</p>
               <div className="space-y-2">

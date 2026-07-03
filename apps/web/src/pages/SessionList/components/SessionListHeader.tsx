@@ -183,7 +183,7 @@ export const SessionListHeader = ({
   });
 
   return (
-    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 animate-fade-in stagger-1 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur sm:gap-4 sm:p-6">
+    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 animate-fade-in stagger-1 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:gap-4 sm:p-6">
       <Toolbar className="gap-3">
         <div>
           <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>

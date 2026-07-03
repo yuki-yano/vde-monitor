@@ -284,7 +284,7 @@ export const LaunchAgentButton = ({
         Launch Agent
       </button>
       <Dialog open={open} onOpenChange={(nextOpen) => (nextOpen ? setOpen(true) : closeModal())}>
-        <DialogContent className="top-[50%] z-[110] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-y-auto sm:w-[min(760px,calc(100vw-1.5rem))]">
+        <DialogContent className="top-[50%] z-110 max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-y-auto sm:w-[min(760px,calc(100vw-1.5rem))]">
           <DialogHeader>
             <DialogTitle>Launch Agent</DialogTitle>
             <DialogDescription>
@@ -335,7 +335,7 @@ export const LaunchAgentButton = ({
                     <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
                       <ZoomSafeTextarea
                         aria-label="Agent options override"
-                        className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-none"
+                        className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-hidden"
                         value={agentOptionsText}
                         onChange={(event) => setAgentOptionsText(event.target.value)}
                         spellCheck={false}

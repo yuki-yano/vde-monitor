@@ -192,9 +192,9 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
         }}
         data-log-modal-panel="true"
         data-testid="log-modal-panel"
-        className="top-[50%] z-[111] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[min(760px,calc(100vw-1.5rem))]"
+        className="top-[50%] z-111 flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[min(760px,calc(100vw-1.5rem))]"
       >
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-[min(720px,calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem))] max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
+        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-[min(720px,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
           <DialogTitle className="sr-only">Session Log</DialogTitle>
           <DialogDescription className="sr-only">
             Scroll and inspect the selected session log output.

@@ -122,7 +122,7 @@ export const NotesSectionList = ({
                     <ZoomSafeTextarea
                       ref={editingTextareaRef}
                       aria-label={`Edit note body ${note.id}`}
-                      className="text-latte-text min-h-[96px] w-full resize-y bg-transparent px-3 py-2 text-base outline-none"
+                      className="text-latte-text min-h-[96px] w-full resize-y bg-transparent px-3 py-2 text-base outline-hidden"
                       maxLength={10_000}
                       value={editingBody}
                       onChange={(event) => onSetEditingBody(event.target.value)}
@@ -134,7 +134,7 @@ export const NotesSectionList = ({
                 <button
                   type="button"
                   aria-label={`Start editing note ${note.id}`}
-                  className="text-latte-subtext0 hover:bg-latte-surface0/60 focus-visible:ring-latte-lavender/30 w-full whitespace-pre-wrap break-words rounded-xl px-2 py-1 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2"
+                  className="text-latte-subtext0 hover:bg-latte-surface0/60 focus-visible:ring-latte-lavender/30 w-full whitespace-pre-wrap wrap-break-word rounded-xl px-2 py-1 text-left text-sm transition focus-visible:outline-hidden focus-visible:ring-2"
                   onClick={() => onBeginEdit(note)}
                 >
                   {note.body.length > 0 ? note.body : emptyNotePreview}
@@ -222,7 +222,7 @@ export const NotesDeleteDialog = ({
           <div className="border-latte-surface2/70 bg-latte-base/70 mt-1.5 rounded-xl border px-2.5 py-2">
             <div className="text-latte-subtext0 flex flex-col gap-0.5 text-[13px] leading-5">
               {deleteTargetPreviewRows.map((item) => (
-                <p key={item.key} className="whitespace-pre-wrap break-words">
+                <p key={item.key} className="whitespace-pre-wrap wrap-break-word">
                   {item.line}
                 </p>
               ))}

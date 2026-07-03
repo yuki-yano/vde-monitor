@@ -1,37 +1,18 @@
 import { useMemo } from "react";
 
-import type { SessionDetailViewShellSectionsInput } from "./session-detail-view-contract";
+import { useSessionDetailContext } from "../SessionDetailProvider";
+import { useSessionTitleEditor } from "./useSessionTitleEditor";
 
-export const useSessionDetailViewShellSectionProps = ({
-  meta,
-  sidebar,
-  controls,
-  logs,
-  title,
-  actions,
-}: SessionDetailViewShellSectionsInput) => {
-  const { paneId, session, nowMs, connectionIssue } = meta;
-  const {
-    sessionGroups,
-    getRepoSortAnchorAt,
-    connected,
-    connectionIssue: sidebarConnectionIssue,
-    launchConfig,
-    requestWorktrees,
-    requestStateTimeline,
-    requestScreen,
-    highlightCorrections,
-    resolvedTheme,
-  } = sidebar;
+export const useSessionDetailViewShellSectionProps = () => {
+  const { base, repoPins, terminal, timelineLogsActions } = useSessionDetailContext();
+  const { paneId, session, nowMs, connectionIssue } = base;
+  const { sessionGroups, getRepoSortAnchorAt } = repoPins;
+  const { connected, launchConfig, requestWorktrees, requestStateTimeline, requestScreen } = base;
+  const { highlightCorrections, resolvedTheme } = base;
+  const { controls } = terminal;
+  const { autoEnter, shiftHeld, ctrlHeld, rawMode, allowDangerKeys, isSendingText } = controls;
   const {
     textInputRef,
-    autoEnter,
-    shiftHeld,
-    ctrlHeld,
-    rawMode,
-    allowDangerKeys,
-    isSendingText,
-    interactive,
     handleSendKey,
     handleSendPermissionShortcut,
     handleKillPane,
@@ -48,7 +29,6 @@ export const useSessionDetailViewShellSectionProps = ({
     toggleCtrl,
     toggleRawMode,
     toggleAllowDangerKeys,
-    handleTouchSession,
   } = controls;
   const {
     quickPanelOpen,
@@ -61,7 +41,18 @@ export const useSessionDetailViewShellSectionProps = ({
     closeLogModal,
     toggleQuickPanel,
     closeQuickPanel,
-  } = logs;
+  } = timelineLogsActions.logs;
+  const {
+    handleFocusPane,
+    handleLaunchAgentInSession,
+    handleTouchRepoPin,
+    handleOpenPaneHere,
+    handleOpenPaneInNewWindow,
+    handleOpenHere,
+    handleOpenInNewTab,
+    handleTouchCurrentSession,
+    handleTouchPaneWithRepoAnchor,
+  } = timelineLogsActions.actions;
   const {
     titleDraft,
     titleEditing,
@@ -72,17 +63,12 @@ export const useSessionDetailViewShellSectionProps = ({
     updateTitleDraft,
     saveTitle,
     resetTitle,
-  } = title;
-  const {
-    handleFocusPane,
-    handleLaunchAgentInSession,
-    handleTouchPane,
-    handleTouchRepoPin,
-    handleOpenPaneHere,
-    handleOpenPaneInNewWindow,
-    handleOpenHere,
-    handleOpenInNewTab,
-  } = actions;
+  } = useSessionTitleEditor({
+    session,
+    paneId,
+    updateSessionTitle: base.updateSessionTitle,
+    resetSessionTitle: base.resetSessionTitle,
+  });
 
   const quickPanelProps = useMemo(
     () => ({
@@ -162,7 +148,7 @@ export const useSessionDetailViewShellSectionProps = ({
         onTitleReset: resetTitle,
         onOpenTitleEditor: openTitleEditor,
         onCloseTitleEditor: closeTitleEditor,
-        onTouchSession: handleTouchSession,
+        onTouchSession: handleTouchCurrentSession,
       },
     };
   }, [
@@ -178,7 +164,7 @@ export const useSessionDetailViewShellSectionProps = ({
     resetTitle,
     openTitleEditor,
     closeTitleEditor,
-    handleTouchSession,
+    handleTouchCurrentSession,
   ]);
 
   const sessionSidebarProps = useMemo(
@@ -188,7 +174,7 @@ export const useSessionDetailViewShellSectionProps = ({
         getRepoSortAnchorAt,
         nowMs,
         connected,
-        connectionIssue: sidebarConnectionIssue,
+        connectionIssue,
         launchConfig,
         requestWorktrees,
         requestStateTimeline,
@@ -201,7 +187,7 @@ export const useSessionDetailViewShellSectionProps = ({
       actions: {
         onFocusPane: handleFocusPane,
         onLaunchAgentInSession: handleLaunchAgentInSession,
-        onTouchSession: handleTouchPane,
+        onTouchSession: handleTouchPaneWithRepoAnchor,
         onTouchRepoPin: handleTouchRepoPin,
       },
     }),
@@ -210,7 +196,7 @@ export const useSessionDetailViewShellSectionProps = ({
       getRepoSortAnchorAt,
       nowMs,
       connected,
-      sidebarConnectionIssue,
+      connectionIssue,
       launchConfig,
       requestWorktrees,
       requestStateTimeline,
@@ -220,7 +206,7 @@ export const useSessionDetailViewShellSectionProps = ({
       paneId,
       handleFocusPane,
       handleLaunchAgentInSession,
-      handleTouchPane,
+      handleTouchPaneWithRepoAnchor,
       handleTouchRepoPin,
     ],
   );
@@ -228,7 +214,7 @@ export const useSessionDetailViewShellSectionProps = ({
   const controlsPanelProps = useMemo(
     () => ({
       state: {
-        interactive,
+        interactive: base.connectionStatus !== "disconnected",
         textInputRef,
         autoEnter,
         rawMode,
@@ -258,7 +244,7 @@ export const useSessionDetailViewShellSectionProps = ({
       },
     }),
     [
-      interactive,
+      base.connectionStatus,
       textInputRef,
       autoEnter,
       rawMode,

@@ -17,7 +17,13 @@ import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
-import { useSessions } from "@/state/session-context";
+import {
+  useSessionBranchesApi,
+  useSessionConfigData,
+  useSessionCoreApi,
+  useSessionLaunchApi,
+  useSessionStreamData,
+} from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import {
@@ -32,21 +38,13 @@ const FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
 }));
 
 export const useSessionListVM = () => {
-  const {
-    sessions,
-    connected,
-    connectionStatus,
-    connectionIssue,
-    transport,
-    refreshSessions,
-    requestStateTimeline,
-    requestScreen,
-    requestWorktrees,
-    launchAgentInSession,
-    touchSession,
-    highlightCorrections,
-    launchConfig,
-  } = useSessions();
+  const { sessions, connected, connectionStatus, connectionIssue, transport } =
+    useSessionStreamData();
+  const { highlightCorrections, launchConfig } = useSessionConfigData();
+  const { refreshSessions, requestStateTimeline, requestScreen, touchSession } =
+    useSessionCoreApi();
+  const { requestWorktrees } = useSessionBranchesApi();
+  const { launchAgentInSession } = useSessionLaunchApi();
   const nowMs = useNowMs();
   const search = useSearch({ from: "/" });
   const filter = isSessionListFilter(search.filter) ? search.filter : DEFAULT_SESSION_LIST_FILTER;

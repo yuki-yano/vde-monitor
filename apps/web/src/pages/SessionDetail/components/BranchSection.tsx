@@ -1,6 +1,6 @@
 import type { BranchListEntry } from "@vde-monitor/shared";
 import { Plus, RefreshCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 
 import { Button, Card, IconButton } from "@/components/ui";
 
@@ -36,7 +36,7 @@ type BranchSectionProps = {
   actions: BranchSectionActions;
 };
 
-export const BranchSection = ({ state, actions }: BranchSectionProps) => {
+export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
   const {
     branches,
     repoRoot,
@@ -201,4 +201,6 @@ export const BranchSection = ({ state, actions }: BranchSectionProps) => {
       />
     </Card>
   );
-};
+});
+
+BranchSection.displayName = "BranchSection";

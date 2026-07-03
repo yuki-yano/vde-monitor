@@ -6,7 +6,7 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { SessionSummary } from "@vde-monitor/shared";
+import type { CommandResponse, SessionSummary } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -45,16 +45,16 @@ vi.mock("@/features/shared-session-ui/hooks/useRawInputHandlers", () => ({
 
 // Stable mock for useSessionApi — individual methods can be replaced per test via vi.mocked
 const mockSessionApi = {
-  sendText: vi.fn(async () => ({ ok: true as const })),
-  sendKeys: vi.fn(async () => ({ ok: true as const })),
-  sendRaw: vi.fn(async () => ({ ok: true as const })),
+  sendText: vi.fn(async (): Promise<CommandResponse> => ({ ok: true })),
+  sendKeys: vi.fn(async (): Promise<CommandResponse> => ({ ok: true })),
+  sendRaw: vi.fn(async (): Promise<CommandResponse> => ({ ok: true })),
   updateSessionTitle: vi.fn(async () => undefined),
   resetSessionTitle: vi.fn(async () => undefined),
   uploadImageAttachment: vi.fn(async () => ({ path: "/tmp/img.png" })),
 };
 
 vi.mock("@/state/session-context", () => ({
-  useSessionApi: () => mockSessionApi,
+  useSessionCoreApi: () => mockSessionApi,
 }));
 
 const renderWithRouter = (ui: ReactNode) => {
@@ -280,6 +280,7 @@ describe("ChatGridTile", () => {
 
   it("shows permission shortcuts and sends selected number or Esc", async () => {
     mockSessionApi.sendRaw.mockClear();
+    const onTouchSession = vi.fn(async () => undefined);
     renderWithRouter(
       <ChatGridTile
         session={buildSession({ state: "WAITING_PERMISSION" })}
@@ -288,7 +289,7 @@ describe("ChatGridTile", () => {
         screenLines={["line 1"]}
         screenLoading={false}
         screenError={null}
-        onTouchSession={vi.fn(async () => undefined)}
+        onTouchSession={onTouchSession}
       />,
     );
 
@@ -308,6 +309,74 @@ describe("ChatGridTile", () => {
         [{ kind: "key", value: "Escape" }],
         false,
       );
+    });
+
+    // Locks in ChatGridTile-specific behavior: onTouchSession fires after every
+    // successful permission shortcut send (SessionDetail has no equivalent callback).
+    await waitFor(() => {
+      expect(onTouchSession).toHaveBeenCalledTimes(2);
+      expect(onTouchSession).toHaveBeenNthCalledWith(1, "pane-1");
+      expect(onTouchSession).toHaveBeenNthCalledWith(2, "pane-1");
+    });
+  });
+
+  it("does not call onTouchSession when a permission shortcut send fails", async () => {
+    mockSessionApi.sendRaw.mockClear();
+    mockSessionApi.sendRaw.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "raw failed" },
+    });
+    const onTouchSession = vi.fn(async () => undefined);
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession({ state: "WAITING_PERMISSION" })}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={onTouchSession}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("raw failed")).toBeTruthy();
+    });
+    expect(onTouchSession).not.toHaveBeenCalled();
+  });
+
+  it("clears the composer error banner after a send succeeds following a failure", async () => {
+    mockSessionApi.sendKeys.mockClear();
+    mockSessionApi.sendKeys.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom" },
+    });
+    mockSessionApi.sendKeys.mockResolvedValueOnce({ ok: true });
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession()}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show key options" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("boom")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("boom")).toBeNull();
     });
   });
 

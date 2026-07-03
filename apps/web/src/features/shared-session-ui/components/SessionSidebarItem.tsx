@@ -21,7 +21,7 @@ import {
 } from "@/lib/session-format";
 
 const surfaceLinkClass =
-  "border-latte-surface2/70 bg-latte-base/70 focus-visible:ring-latte-lavender block w-full rounded-2xl border px-3 py-3.5 text-left transition-all duration-200 hover:border-latte-lavender/50 hover:bg-latte-mantle/70 hover:shadow-surface-hover focus-visible:outline-none focus-visible:ring-2";
+  "border-latte-surface2/70 bg-latte-base/70 focus-visible:ring-latte-lavender block w-full rounded-2xl border px-3 py-3.5 text-left transition-all duration-200 hover:border-latte-lavender/50 hover:bg-latte-mantle/70 hover:shadow-surface-hover focus-visible:outline-hidden focus-visible:ring-2";
 
 const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> = {
   RUNNING: "border-green-500/50",

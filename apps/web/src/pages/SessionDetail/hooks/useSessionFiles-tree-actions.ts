@@ -1,54 +1,55 @@
 import type { RepoFileTreePage } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import { resolveTreeLoadMoreTarget } from "./session-files-tree-utils";
+import {
+  type SessionFilesUiDispatch,
+  type SessionFilesUiState,
+  setUiState,
+} from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesTreeActionsArgs = {
+type UseSessionFilesTreeActionsState = Pick<SessionFilesUiState, "expandedDirSet" | "treePages">;
+
+type UseSessionFilesTreeActionsDeps = {
   isSearchActive: boolean;
   effectiveSearchExpandedDirSet: Set<string>;
-  expandedDirSet: Set<string>;
-  treePages: Record<string, RepoFileTreePage>;
-  setSearchExpandedDirSet: Dispatch<SetStateAction<Set<string>>>;
-  setSearchCollapsedDirSet: Dispatch<SetStateAction<Set<string>>>;
-  setExpandedDirSet: Dispatch<SetStateAction<Set<string>>>;
   treePagesRef: MutableRefObject<Record<string, RepoFileTreePage>>;
   loadTree: (targetPath: string, cursor?: string) => Promise<RepoFileTreePage | null>;
 };
 
-export const useSessionFilesTreeActions = ({
-  isSearchActive,
-  effectiveSearchExpandedDirSet,
-  expandedDirSet,
-  treePages,
-  setSearchExpandedDirSet,
-  setSearchCollapsedDirSet,
-  setExpandedDirSet,
-  treePagesRef,
-  loadTree,
-}: UseSessionFilesTreeActionsArgs) => {
+export const useSessionFilesTreeActions = (
+  { expandedDirSet, treePages }: UseSessionFilesTreeActionsState,
+  dispatch: SessionFilesUiDispatch,
+  {
+    isSearchActive,
+    effectiveSearchExpandedDirSet,
+    treePagesRef,
+    loadTree,
+  }: UseSessionFilesTreeActionsDeps,
+) => {
   const onToggleDirectory = useCallback(
     (targetPath: string) => {
       if (isSearchActive) {
         const isExpanded = effectiveSearchExpandedDirSet.has(targetPath);
         if (isExpanded) {
-          setSearchExpandedDirSet((prev) => {
+          setUiState(dispatch, "searchExpandedDirSet", (prev) => {
             const next = new Set(prev);
             next.delete(targetPath);
             return next;
           });
-          setSearchCollapsedDirSet((prev) => {
+          setUiState(dispatch, "searchCollapsedDirSet", (prev) => {
             const next = new Set(prev);
             next.add(targetPath);
             return next;
           });
           return;
         }
-        setSearchCollapsedDirSet((prev) => {
+        setUiState(dispatch, "searchCollapsedDirSet", (prev) => {
           const next = new Set(prev);
           next.delete(targetPath);
           return next;
         });
-        setSearchExpandedDirSet((prev) => {
+        setUiState(dispatch, "searchExpandedDirSet", (prev) => {
           const next = new Set(prev);
           next.add(targetPath);
           return next;
@@ -57,7 +58,7 @@ export const useSessionFilesTreeActions = ({
       }
 
       const alreadyExpanded = expandedDirSet.has(targetPath);
-      setExpandedDirSet((prev) => {
+      setUiState(dispatch, "expandedDirSet", (prev) => {
         const next = new Set(prev);
         if (next.has(targetPath)) {
           next.delete(targetPath);
@@ -71,13 +72,11 @@ export const useSessionFilesTreeActions = ({
       }
     },
     [
+      dispatch,
       effectiveSearchExpandedDirSet,
       expandedDirSet,
       isSearchActive,
       loadTree,
-      setExpandedDirSet,
-      setSearchCollapsedDirSet,
-      setSearchExpandedDirSet,
       treePagesRef,
     ],
   );

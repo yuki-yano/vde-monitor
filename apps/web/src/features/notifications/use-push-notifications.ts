@@ -1,7 +1,7 @@
 import { type NotificationSettings, dedupeStrings } from "@vde-monitor/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useSessions } from "@/state/session-context";
+import { useSessionConfigData } from "@/state/session-context";
 
 const DEVICE_ID_STORAGE_KEY = "vde-monitor-push-device-id";
 const SUBSCRIPTION_ID_STORAGE_KEY = "vde-monitor-push-subscription-id";
@@ -109,7 +109,7 @@ type UsePushNotificationsArgs = {
 };
 
 export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
-  const { token, apiBaseUrl, authError } = useSessions();
+  const { token, apiBaseUrl, authError } = useSessionConfigData();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [status, setStatus] = useState<PushUiStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

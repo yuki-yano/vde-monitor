@@ -26,18 +26,18 @@ export const resolveSessionCardTitleTextClass = (title: string): string => {
 export const resolveSessionDetailTitleTextClass = (title: string): string => {
   const visualLength = estimateVisualLength(title);
   if (visualLength >= 96) {
-    return "!text-xs";
+    return "text-xs!";
   }
   if (visualLength >= 78) {
-    return "!text-sm";
+    return "text-sm!";
   }
   if (visualLength >= 64) {
-    return "!text-base";
+    return "text-base!";
   }
   if (visualLength >= 48) {
-    return "!text-lg";
+    return "text-lg!";
   }
-  return "!text-xl";
+  return "text-xl!";
 };
 
 export const resolveSessionSidebarTitleTextClass = (title: string): string => {

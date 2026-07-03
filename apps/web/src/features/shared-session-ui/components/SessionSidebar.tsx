@@ -66,8 +66,8 @@ const SidebarBackdrop = memo(() => (
   <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-none rounded-r-3xl">
     <div className="bg-latte-lavender/15 absolute -left-10 top-10 h-32 w-32 rounded-full blur-3xl" />
     <div className="bg-latte-peach/15 absolute -right-12 top-40 h-36 w-36 rounded-full blur-3xl" />
-    <div className="from-latte-lavender/70 via-latte-peach/40 absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b to-transparent" />
-    <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/5 to-transparent" />
+    <div className="from-latte-lavender/70 via-latte-peach/40 absolute left-0 top-0 h-full w-[2px] bg-linear-to-b to-transparent" />
+    <div className="absolute inset-x-0 top-0 h-24 bg-linear-to-b from-white/5 to-transparent" />
   </div>
 ));
 

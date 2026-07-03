@@ -88,7 +88,7 @@ export const SortableTabItem = ({
       {showCloseButton && (
         <button
           type="button"
-          className="text-latte-overlay1 hover:text-latte-text hover:bg-latte-surface1/55 absolute right-[3px] top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-sm transition"
+          className="text-latte-overlay1 hover:text-latte-text hover:bg-latte-surface1/55 absolute right-[3px] top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-xs transition"
           aria-label={`Close ${label}`}
           onPointerDown={(event) => {
             event.stopPropagation();

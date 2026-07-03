@@ -2,11 +2,31 @@ import type { SessionDetail, SessionSummary } from "@vde-monitor/shared";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
 
-const toSessionDetail = (session: SessionSummary): SessionDetail => ({
-  ...session,
-  startCommand: null,
-  panePid: null,
-});
+// Cached by the SessionSummary object identity so that repeated lookups of
+// the *same* summary reference (e.g. across re-renders where nothing about
+// this pane changed) return the *same* SessionDetail reference too. Without
+// this, every call recreated a brand-new object via spread, which defeated
+// downstream useMemo/React.memo for any consumer keying off `session`
+// (e.g. SessionDetailProvider's `base`, SessionHeader's props) even when the
+// underlying data was untouched. Safe only because nothing mutates the
+// returned SessionDetail in place (session/session-detail objects are always
+// read or spread into new objects, never written to) — reconcileSessions
+// already guarantees a *new* SessionSummary reference whenever content
+// actually changes, so the cache naturally invalidates on real updates.
+const sessionDetailCache = new WeakMap<SessionSummary, SessionDetail>();
+const toSessionDetail = (session: SessionSummary): SessionDetail => {
+  const cached = sessionDetailCache.get(session);
+  if (cached) {
+    return cached;
+  }
+  const detail: SessionDetail = {
+    ...session,
+    startCommand: null,
+    panePid: null,
+  };
+  sessionDetailCache.set(session, detail);
+  return detail;
+};
 
 const toUniqueSessions = (nextSessions: SessionSummary[]) => {
   const unique = new Map<string, SessionSummary>();

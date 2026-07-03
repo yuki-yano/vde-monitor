@@ -1,18 +1,23 @@
 import { useCallback, useMemo } from "react";
 
-import type { SessionDetailViewDataSectionsInput } from "./session-detail-view-contract";
+import { useSessionDetailContext } from "../SessionDetailProvider";
+import { useSessionRepoNotes } from "./useSessionRepoNotes";
+
+type UseSessionDetailViewDataSectionPropsArgs = {
+  isMobile: boolean;
+};
 
 export const useSessionDetailViewDataSectionProps = ({
-  meta,
-  timeline,
-  screen,
-  diffs,
-  files,
-  commits,
-  notes,
-}: SessionDetailViewDataSectionsInput) => {
-  const { paneId, session } = meta;
-  const sourceRepoRoot = screen.effectiveWorktreePath ?? session?.repoRoot ?? null;
+  isMobile,
+}: UseSessionDetailViewDataSectionPropsArgs) => {
+  const { base, scope, diffs, files, commits, timelineLogsActions } = useSessionDetailContext();
+  const { paneId, session } = base;
+  // Mirrors the old VM's `screen.effectiveBranch` / `screen.effectiveWorktreePath`:
+  // these are the worktree selector's effective values, independent from the
+  // virtual-branch/virtual-worktree exclusivity scope used to parameterize the
+  // diffs/commits requests themselves.
+  const screenEffectiveBranch = scope.virtualWorktree.effectiveBranch;
+  const sourceRepoRoot = scope.virtualWorktree.effectiveWorktreePath ?? session?.repoRoot ?? null;
   const {
     timeline: stateTimeline,
     timelineScope,
@@ -21,12 +26,11 @@ export const useSessionDetailViewDataSectionProps = ({
     timelineError,
     timelineLoading,
     timelineExpanded,
-    isMobile,
     setTimelineScope,
     setTimelineRange,
     toggleTimelineExpanded,
     refreshTimeline,
-  } = timeline;
+  } = timelineLogsActions.timeline;
   const {
     diffSummary,
     diffError,
@@ -58,7 +62,6 @@ export const useSessionDetailViewDataSectionProps = ({
     copyHash,
   } = commits;
   const {
-    repoRoot,
     notes: repoNotes,
     notesLoading,
     notesError,
@@ -69,10 +72,18 @@ export const useSessionDetailViewDataSectionProps = ({
     createNote,
     saveNote,
     removeNote,
-  } = notes;
-  const sessionBranch = screen.effectiveBranch ?? session?.branch ?? null;
-  const virtualBranch = screen.virtualBranch ?? null;
-  const onClearVirtualBranch = screen.clearVirtualBranch;
+  } = useSessionRepoNotes({
+    paneId,
+    repoRoot: session?.repoRoot ?? null,
+    connected: base.connected,
+    requestRepoNotes: base.requestRepoNotes,
+    createRepoNote: base.createRepoNote,
+    updateRepoNote: base.updateRepoNote,
+    deleteRepoNote: base.deleteRepoNote,
+  });
+  const sessionBranch = screenEffectiveBranch ?? session?.branch ?? null;
+  const virtualBranch = scope.virtualBranch.virtualBranch;
+  const onClearVirtualBranch = scope.virtualBranch.clearVirtualBranch;
 
   const handleResolveFileReference = useCallback(
     (rawToken: string) =>
@@ -224,7 +235,7 @@ export const useSessionDetailViewDataSectionProps = ({
   const notesSectionProps = useMemo(
     () => ({
       state: {
-        repoRoot,
+        repoRoot: session?.repoRoot ?? null,
         notes: repoNotes,
         notesLoading,
         notesError,
@@ -248,7 +259,7 @@ export const useSessionDetailViewDataSectionProps = ({
       refreshNotes,
       removeNote,
       repoNotes,
-      repoRoot,
+      session?.repoRoot,
       saveNote,
       savingNoteId,
     ],

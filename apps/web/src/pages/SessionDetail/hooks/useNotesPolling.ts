@@ -1,0 +1,32 @@
+import { useEffect } from "react";
+
+const AUTO_SYNC_INTERVAL_MS = 10_000;
+
+type UseNotesPollingParams = {
+  repoRoot: string | null;
+  onRefresh: (options?: { silent?: boolean }) => void;
+  intervalMs?: number;
+};
+
+/**
+ * Silently refetches notes on mount and every `intervalMs` while a repo root
+ * is available; stops (and does not fire once) when there is none.
+ */
+export const useNotesPolling = ({
+  repoRoot,
+  onRefresh,
+  intervalMs = AUTO_SYNC_INTERVAL_MS,
+}: UseNotesPollingParams) => {
+  useEffect(() => {
+    if (!repoRoot) {
+      return;
+    }
+    onRefresh({ silent: true });
+    const intervalId = window.setInterval(() => {
+      onRefresh({ silent: true });
+    }, intervalMs);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [intervalMs, onRefresh, repoRoot]);
+};

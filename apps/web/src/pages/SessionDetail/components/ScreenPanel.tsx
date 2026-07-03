@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type RefObject,
   forwardRef,
+  memo,
   useCallback,
   useMemo,
   useState,
@@ -202,7 +203,7 @@ const RawModeIndicator = ({
   );
 };
 
-export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
+export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps) => {
   const {
     mode,
     wrapMode,
@@ -402,7 +403,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     <Card
       className={cn(
         "relative flex min-w-0 flex-col gap-2 overflow-visible p-2 sm:gap-3 sm:p-4",
-        isWorktreeSelectorOpen && "z-[70]",
+        isWorktreeSelectorOpen && "z-70",
       )}
     >
       <Toolbar className="gap-2 sm:gap-3">
@@ -548,4 +549,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
       <div>{controls}</div>
     </Card>
   );
-};
+});
+
+ScreenPanel.displayName = "ScreenPanel";

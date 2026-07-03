@@ -215,7 +215,7 @@ export const SessionSidebarPreviewPopover = memo(
       aria-hidden="true"
     >
       <div className="border-latte-surface1/80 bg-latte-base shadow-popover relative flex h-full flex-col rounded-2xl border p-4">
-        <div className="from-latte-lavender/12 absolute inset-x-0 top-0 h-14 rounded-t-2xl bg-gradient-to-b to-transparent" />
+        <div className="from-latte-lavender/12 absolute inset-x-0 top-0 h-14 rounded-t-2xl bg-linear-to-b to-transparent" />
         <div className="relative flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.28em]">

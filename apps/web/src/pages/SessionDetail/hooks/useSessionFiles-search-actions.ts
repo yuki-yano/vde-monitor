@@ -1,44 +1,44 @@
 import type { RepoFileSearchPage } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from "react";
+import { type MutableRefObject, useCallback } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { mergeSearchItems } from "./session-files-tree-utils";
+import {
+  type SessionFilesUiDispatch,
+  type SessionFilesUiState,
+  setUiState,
+} from "./useSessionFiles-ui-state-machine";
 
-type UseSessionFilesSearchActionsArgs = {
-  searchResult: RepoFileSearchPage | null;
-  searchActiveIndex: number;
-  searchLoading: boolean;
+type UseSessionFilesSearchActionsState = Pick<
+  SessionFilesUiState,
+  "searchResult" | "searchActiveIndex" | "searchLoading"
+>;
+
+type UseSessionFilesSearchActionsDeps = {
   fetchSearchPage: (query: string, cursor?: string) => Promise<RepoFileSearchPage>;
   resolveUnknownErrorMessage: (error: unknown, fallbackMessage: string) => string;
   activeSearchRequestIdRef: MutableRefObject<number>;
-  setSearchActiveIndex: Dispatch<SetStateAction<number>>;
-  setSearchResult: Dispatch<SetStateAction<RepoFileSearchPage | null>>;
-  setSearchLoading: Dispatch<SetStateAction<boolean>>;
-  setSearchError: Dispatch<SetStateAction<string | null>>;
   onToggleDirectory: (targetPath: string) => void;
   onSelectFile: (targetPath: string) => void;
   onOpenFileModal: (targetPath: string) => void;
 };
 
-export const useSessionFilesSearchActions = ({
-  searchResult,
-  searchActiveIndex,
-  searchLoading,
-  fetchSearchPage,
-  resolveUnknownErrorMessage,
-  activeSearchRequestIdRef,
-  setSearchActiveIndex,
-  setSearchResult,
-  setSearchLoading,
-  setSearchError,
-  onToggleDirectory,
-  onSelectFile,
-  onOpenFileModal,
-}: UseSessionFilesSearchActionsArgs) => {
+export const useSessionFilesSearchActions = (
+  { searchResult, searchActiveIndex, searchLoading }: UseSessionFilesSearchActionsState,
+  dispatch: SessionFilesUiDispatch,
+  {
+    fetchSearchPage,
+    resolveUnknownErrorMessage,
+    activeSearchRequestIdRef,
+    onToggleDirectory,
+    onSelectFile,
+    onOpenFileModal,
+  }: UseSessionFilesSearchActionsDeps,
+) => {
   const onSearchMove = useCallback(
     (delta: number) => {
-      setSearchActiveIndex((prev) => {
+      setUiState(dispatch, "searchActiveIndex", (prev) => {
         const items = searchResult?.items ?? [];
         if (items.length === 0) {
           return 0;
@@ -53,7 +53,7 @@ export const useSessionFilesSearchActions = ({
         return next;
       });
     },
-    [searchResult?.items, setSearchActiveIndex],
+    [dispatch, searchResult?.items],
   );
 
   const onSearchConfirm = useCallback(() => {
@@ -77,13 +77,13 @@ export const useSessionFilesSearchActions = ({
       return;
     }
     const currentRequestId = activeSearchRequestIdRef.current;
-    setSearchLoading(true);
+    setUiState(dispatch, "searchLoading", true);
     void fetchSearchPage(searchResult.query, searchResult.nextCursor)
       .then((nextPage) => {
         if (activeSearchRequestIdRef.current !== currentRequestId) {
           return;
         }
-        setSearchResult((prev) => {
+        setUiState(dispatch, "searchResult", (prev) => {
           if (!prev) {
             return nextPage;
           }
@@ -97,23 +97,25 @@ export const useSessionFilesSearchActions = ({
         if (activeSearchRequestIdRef.current !== currentRequestId) {
           return;
         }
-        setSearchError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileSearch));
+        setUiState(
+          dispatch,
+          "searchError",
+          resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.fileSearch),
+        );
       })
       .finally(() => {
         if (activeSearchRequestIdRef.current !== currentRequestId) {
           return;
         }
-        setSearchLoading(false);
+        setUiState(dispatch, "searchLoading", false);
       });
   }, [
     activeSearchRequestIdRef,
+    dispatch,
     fetchSearchPage,
     resolveUnknownErrorMessage,
     searchLoading,
     searchResult,
-    setSearchError,
-    setSearchLoading,
-    setSearchResult,
   ]);
 
   return {

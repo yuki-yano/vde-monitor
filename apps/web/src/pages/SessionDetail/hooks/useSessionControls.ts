@@ -12,10 +12,7 @@ import {
 } from "@/features/shared-session-ui/lib/textarea-insert";
 
 import { usePaneSendText } from "@/features/shared-session-ui/hooks/usePaneSendText";
-import {
-  confirmDangerousKey,
-  confirmDangerousText,
-} from "@/features/shared-session-ui/model/danger-confirm";
+import { confirmDangerousText } from "@/features/shared-session-ui/model/danger-confirm";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
 import type { ScreenMode } from "@/lib/screen-loading";
@@ -27,7 +24,7 @@ import {
   controlsRawModeAtom,
   controlsShiftHeldAtom,
 } from "../atoms/controlAtoms";
-import { mapKeyWithModifiers } from "@/features/shared-session-ui/hooks/session-control-keys";
+import { useTerminalControls } from "@/features/shared-session-ui/hooks/useTerminalControls";
 import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
 
 type UseSessionControlsParams = {
@@ -47,8 +44,6 @@ type UseSessionControlsParams = {
   setScreenError: (error: string | null) => void;
   scrollToBottom: (behavior?: "auto" | "smooth") => void;
 };
-
-type PermissionShortcutValue = "1" | "2" | "3" | "4" | "5" | "6" | "Escape";
 
 const handleCommandFailure = (
   response: CommandResponse,
@@ -84,7 +79,6 @@ export const useSessionControls = ({
   scrollToBottom,
 }: UseSessionControlsParams) => {
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const prevAutoEnterRef = useRef<boolean | null>(null);
   const [autoEnter, setAutoEnter] = useAtom(controlsAutoEnterAtom);
   const [shiftHeld, setShiftHeld] = useAtom(controlsShiftHeldAtom);
   const [ctrlHeld, setCtrlHeld] = useAtom(controlsCtrlHeldAtom);
@@ -92,20 +86,12 @@ export const useSessionControls = ({
   const [allowDangerKeys, setAllowDangerKeys] = useAtom(controlsAllowDangerKeysAtom);
 
   useEffect(() => {
-    prevAutoEnterRef.current = null;
     setAutoEnter(true);
     setShiftHeld(false);
     setCtrlHeld(false);
     setRawMode(false);
     setAllowDangerKeys(false);
   }, [paneId, setAllowDangerKeys, setAutoEnter, setCtrlHeld, setRawMode, setShiftHeld]);
-
-  useEffect(() => {
-    if (!rawMode && prevAutoEnterRef.current != null) {
-      setAutoEnter(prevAutoEnterRef.current);
-      prevAutoEnterRef.current = null;
-    }
-  }, [rawMode, setAutoEnter]);
 
   const { send: sendPaneText, isSending: isSendingText } = usePaneSendText({
     paneId,
@@ -115,34 +101,24 @@ export const useSessionControls = ({
     scrollToBottom,
   });
 
-  const handleSendKey = useCallback(
-    async (key: string) => {
-      const mapped = mapKeyWithModifiers(key, ctrlHeld, shiftHeld);
-      if (rawMode) {
-        const result = await sendRaw(
-          paneId,
-          [{ kind: "key", value: mapped as AllowedKey }],
-          allowDangerKeys,
-        );
-        handleCommandFailure(result, API_ERROR_MESSAGES.sendRaw, setScreenError);
-        return;
-      }
-      if (!confirmDangerousKey(mapped)) return;
-      const result = await sendKeys(paneId, [mapped as AllowedKey]);
-      handleCommandFailure(result, API_ERROR_MESSAGES.sendKeys, setScreenError);
-    },
-    [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setScreenError, shiftHeld],
-  );
-
-  const handleSendPermissionShortcut = useCallback(
-    async (value: PermissionShortcutValue) => {
-      const item: RawItem =
-        value === "Escape" ? { kind: "key", value: "Escape" } : { kind: "text", value };
-      const result = await sendRaw(paneId, [item], false);
-      handleCommandFailure(result, API_ERROR_MESSAGES.sendRaw, setScreenError);
-    },
-    [paneId, sendRaw, setScreenError],
-  );
+  // SessionDetail's screenError is shared with connection-status display, so a
+  // successful key/permission send intentionally leaves it untouched (default
+  // clearErrorOnSendSuccess: false), and there is no session-touch callback
+  // here (that concept only exists for the ChatGrid tile list).
+  const { handleSendKey, handleSendPermissionShortcut, toggleRawMode } = useTerminalControls({
+    paneId,
+    ctrlHeld,
+    shiftHeld,
+    rawMode,
+    allowDangerKeys,
+    autoEnter,
+    sendKeys,
+    sendRaw,
+    setAutoEnter,
+    setRawMode,
+    setAllowDangerKeys,
+    setScreenError,
+  });
 
   const handleKillPane = useCallback(async () => {
     if (!killPane) {
@@ -207,19 +183,6 @@ export const useSessionControls = ({
   const toggleCtrl = useCallback(() => {
     setCtrlHeld((prev) => !prev);
   }, [setCtrlHeld]);
-
-  const toggleRawMode = useCallback(() => {
-    setRawMode((prev) => {
-      const next = !prev;
-      if (next) {
-        prevAutoEnterRef.current = autoEnter;
-        setAutoEnter(false);
-      } else {
-        setAllowDangerKeys(false);
-      }
-      return next;
-    });
-  }, [autoEnter, setAllowDangerKeys, setAutoEnter, setRawMode]);
 
   const toggleAllowDangerKeys = useCallback(() => {
     setAllowDangerKeys((prev) => !prev);

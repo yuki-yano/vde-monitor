@@ -1,20 +1,14 @@
 import { useCallback, useMemo } from "react";
 
+import { useSessionDetailContext } from "../SessionDetailProvider";
 import { sumFileStats } from "../sessionDetailUtils";
-import type { SessionDetailViewExplorerSectionsInput } from "./session-detail-view-contract";
+import { useScreenPanelState } from "./useScreenPanelState";
 
-export const useSessionDetailViewExplorerSectionProps = ({
-  meta,
-  sidebar,
-  screen,
-  controls,
-  files,
-  diffs,
-  actions,
-}: SessionDetailViewExplorerSectionsInput) => {
-  const { paneId, session, connectionIssue } = meta;
-  const { resolvedTheme, launchConfig } = sidebar;
-  const { handleLaunchAgentInSession } = actions;
+export const useSessionDetailViewExplorerSectionProps = () => {
+  const { base, diffs, files, terminal, timelineLogsActions } = useSessionDetailContext();
+  const screen = useScreenPanelState();
+  const { paneId, session, connectionIssue, resolvedTheme, launchConfig } = base;
+  const { handleLaunchAgentInSession } = timelineLogsActions.actions;
   const {
     mode,
     wrapMode,
@@ -36,29 +30,29 @@ export const useSessionDetailViewExplorerSectionProps = ({
     scrollerRef,
     handleRefreshScreen,
     handleRefreshWorktrees,
-    effectiveBranch = null,
-    effectiveWorktreePath = null,
-    worktreeRepoRoot = null,
-    worktreeBaseBranch = null,
-    worktreeSelectorEnabled = false,
-    worktreeSelectorLoading = false,
-    worktreeSelectorError = null,
-    worktreeEntries = [],
-    actualWorktreePath = null,
-    virtualWorktreePath = null,
+    effectiveBranch,
+    effectiveWorktreePath,
+    worktreeRepoRoot,
+    worktreeBaseBranch,
+    worktreeSelectorEnabled,
+    worktreeSelectorLoading,
+    worktreeSelectorError,
+    worktreeEntries,
+    actualWorktreePath,
+    virtualWorktreePath,
     selectVirtualWorktree,
     clearVirtualWorktree,
-    notificationStatus = "idle",
-    notificationPushEnabled = true,
-    notificationSubscribed = false,
-    notificationPaneEnabled = false,
+    notificationStatus,
+    notificationPushEnabled,
+    notificationSubscribed,
+    notificationPaneEnabled,
     requestNotificationPermission,
     togglePaneNotification,
   } = screen;
   const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
   const screenAgent = session?.agent ?? "unknown";
   const { diffSummary, diffError, diffFiles, diffLoadingFiles, ensureDiffFile } = diffs;
-  const { rawMode, allowDangerKeys } = controls;
+  const { rawMode, allowDangerKeys } = terminal.controls;
   const {
     unavailable,
     selectedFilePath,
@@ -327,7 +321,7 @@ export const useSessionDetailViewExplorerSectionProps = ({
         onToggleWrapMode: toggleWrapMode,
         onRefresh: handleRefreshScreen,
         onRefreshWorktrees: () => {
-          void (handleRefreshWorktrees ?? handleRefreshScreen)();
+          void handleRefreshWorktrees();
         },
         onAtBottomChange: handleAtBottomChange,
         onScrollToBottom: scrollToBottom,

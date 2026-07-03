@@ -381,6 +381,152 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.items[1]?.durationMs).toBe(10 * 60 * 1000);
   });
 
+  it("clamps an out-of-order record onto the open event's start boundary", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T04:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%out-of-order",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T04:00:30.000Z",
+      source: "hook",
+    });
+    // Arrives with an earlier `at` than the still-open previous event's start.
+    store.record({
+      paneId: "%out-of-order",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-06T04:00:10.000Z",
+      source: "hook",
+    });
+
+    // Raw storage: the previous open event is closed at its own start
+    // (closeAtMs clamps up to lastStartMs), collapsing it to zero duration,
+    // and the new event's start is clamped up to that same boundary.
+    const persisted = store.serialize();
+    expect(persisted["%out-of-order"]).toEqual([
+      expect.objectContaining({
+        state: "RUNNING",
+        startedAt: "2026-02-06T04:00:30.000Z",
+        endedAt: "2026-02-06T04:00:30.000Z",
+      }),
+      expect.objectContaining({
+        state: "WAITING_INPUT",
+        startedAt: "2026-02-06T04:00:30.000Z",
+        endedAt: null,
+      }),
+    ]);
+
+    clock.set("2026-02-06T04:01:00.000Z");
+    const timeline = store.getTimeline({ paneId: "%out-of-order", range: "1h" });
+
+    // The zero-duration RUNNING event has no observable interval, so it does
+    // not surface in the queried timeline at all.
+    expect(timeline.items).toHaveLength(1);
+    expect(timeline.items[0]?.state).toBe("WAITING_INPUT");
+    expect(timeline.items[0]?.startedAt).toBe("2026-02-06T04:00:30.000Z");
+    expect(timeline.items[0]?.endedAt).toBeNull();
+  });
+
+  it("clamps an out-of-order record onto a previously closed event's end boundary", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T05:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%out-of-order-closed",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T05:00:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%out-of-order-closed",
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-02-06T05:00:20.000Z",
+      source: "hook",
+    });
+    // Arrives with an `at` earlier than the previous (still open) event's
+    // start, so it clamps onto that event's start boundary (05:00:20), not
+    // its own requested time (05:00:10).
+    store.record({
+      paneId: "%out-of-order-closed",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T05:00:10.000Z",
+      source: "hook",
+    });
+
+    const persisted = store.serialize();
+    expect(persisted["%out-of-order-closed"]).toEqual([
+      expect.objectContaining({
+        state: "RUNNING",
+        startedAt: "2026-02-06T05:00:00.000Z",
+        endedAt: "2026-02-06T05:00:20.000Z",
+      }),
+      expect.objectContaining({
+        state: "WAITING_INPUT",
+        startedAt: "2026-02-06T05:00:20.000Z",
+        endedAt: "2026-02-06T05:00:20.000Z",
+      }),
+      expect.objectContaining({
+        state: "RUNNING",
+        startedAt: "2026-02-06T05:00:20.000Z",
+        endedAt: null,
+      }),
+    ]);
+
+    clock.set("2026-02-06T05:01:00.000Z");
+    const timeline = store.getTimeline({ paneId: "%out-of-order-closed", range: "1h" });
+
+    // The intervening zero-duration WAITING_INPUT event is dropped, and the
+    // two RUNNING events remain separate (not merged) because they are not
+    // adjacent in the underlying event list.
+    expect(timeline.items).toHaveLength(2);
+    expect(timeline.items[0]?.state).toBe("RUNNING");
+    expect(timeline.items[0]?.startedAt).toBe("2026-02-06T05:00:20.000Z");
+    expect(timeline.items[0]?.endedAt).toBeNull();
+    expect(timeline.items[1]?.state).toBe("RUNNING");
+    expect(timeline.items[1]?.startedAt).toBe("2026-02-06T05:00:00.000Z");
+    expect(timeline.items[1]?.endedAt).toBe("2026-02-06T05:00:20.000Z");
+    expect(timeline.items[1]?.durationMs).toBe(20_000);
+  });
+
+  it("clamps closePane's endedAt to the event's own start when `at` is earlier", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T06:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%close-early",
+      state: "RUNNING",
+      reason: "hook:PreToolUse",
+      at: "2026-02-06T06:00:30.000Z",
+      source: "hook",
+    });
+
+    clock.set("2026-02-06T06:01:00.000Z");
+    store.closePane({ paneId: "%close-early", at: "2026-02-06T06:00:00.000Z" });
+
+    const persisted = store.serialize();
+    expect(persisted["%close-early"]).toEqual([
+      expect.objectContaining({
+        state: "RUNNING",
+        startedAt: "2026-02-06T06:00:30.000Z",
+        endedAt: "2026-02-06T06:00:30.000Z",
+      }),
+    ]);
+
+    // The collapsed zero-duration event has no observable interval and no
+    // longer counts as "current".
+    const timeline = store.getTimeline({ paneId: "%close-early", range: "1h" });
+    expect(timeline.items).toHaveLength(0);
+    expect(timeline.current).toBeNull();
+  });
+
   it("prunes events only by retention window", () => {
     const clock = nowAt;
     clock.set("2026-02-06T01:00:00.000Z");

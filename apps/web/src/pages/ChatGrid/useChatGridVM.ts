@@ -14,7 +14,13 @@ import { buildSessionGroups } from "@/lib/session-group";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
-import { useSessions } from "@/state/session-context";
+import {
+  useSessionBranchesApi,
+  useSessionConfigData,
+  useSessionCoreApi,
+  useSessionLaunchApi,
+  useSessionStreamData,
+} from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import { normalizeChatGridPaneParam, serializeChatGridPaneParam } from "./chatGridSearch";
@@ -26,21 +32,13 @@ import {
 } from "./model/chat-grid-layout";
 
 export const useChatGridVM = () => {
-  const {
-    sessions,
-    connected,
-    connectionStatus,
-    connectionIssue,
-    transport,
-    launchConfig,
-    requestStateTimeline,
-    requestScreen,
-    requestWorktrees,
-    launchAgentInSession,
-    touchSession,
-    highlightCorrections,
-    refreshSessions,
-  } = useSessions();
+  const { sessions, connected, connectionStatus, connectionIssue, transport } =
+    useSessionStreamData();
+  const { launchConfig, highlightCorrections } = useSessionConfigData();
+  const { requestStateTimeline, requestScreen, touchSession, refreshSessions } =
+    useSessionCoreApi();
+  const { requestWorktrees } = useSessionBranchesApi();
+  const { launchAgentInSession } = useSessionLaunchApi();
   const { resolvedTheme } = useTheme();
   const nowMs = useNowMs();
   const search = useSearch({ from: "/chat-grid" });

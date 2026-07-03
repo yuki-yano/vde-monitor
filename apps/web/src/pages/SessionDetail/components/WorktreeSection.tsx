@@ -1,6 +1,6 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
 import { GitBranch, RefreshCw, X } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { Button, Card, IconButton } from "@/components/ui";
 
@@ -30,7 +30,7 @@ type WorktreeSectionProps = {
   actions: WorktreeSectionActions;
 };
 
-export const WorktreeSection = ({ state, actions }: WorktreeSectionProps) => {
+export const WorktreeSection = memo(({ state, actions }: WorktreeSectionProps) => {
   const {
     worktreeSelectorEnabled,
     worktreeSelectorLoading,
@@ -127,4 +127,6 @@ export const WorktreeSection = ({ state, actions }: WorktreeSectionProps) => {
       ) : null}
     </Card>
   );
-};
+});
+
+WorktreeSection.displayName = "WorktreeSection";

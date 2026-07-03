@@ -6,7 +6,7 @@ import type {
   SessionStateValue,
 } from "@vde-monitor/shared";
 import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import {
   Badge,
@@ -138,7 +138,7 @@ const timelineScopeTabs = (
 const resolveWaitingMs = (totalsMs: Record<SessionStateValue, number>) =>
   totalsMs.WAITING_INPUT + totalsMs.WAITING_PERMISSION;
 
-export const StateTimelineSection = ({ state, actions }: StateTimelineSectionProps) => {
+export const StateTimelineSection = memo(({ state, actions }: StateTimelineSectionProps) => {
   const {
     timeline,
     timelineScope,
@@ -285,4 +285,6 @@ export const StateTimelineSection = ({ state, actions }: StateTimelineSectionPro
       </div>
     </Card>
   );
-};
+});
+
+StateTimelineSection.displayName = "StateTimelineSection";

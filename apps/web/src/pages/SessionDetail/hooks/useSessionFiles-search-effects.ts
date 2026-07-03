@@ -1,95 +1,77 @@
 import type { RepoFileSearchPage } from "@vde-monitor/shared";
-import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect } from "react";
+import { type MutableRefObject, useEffect } from "react";
+
+import { useTimeout } from "@/lib/use-timeout";
 
 import {
   applyEmptySearchState,
   createNextSearchRequestId,
   resetSearchExpandOverrides,
-  scheduleSearchRequest,
+  runSearchRequest,
 } from "./session-files-search-effect";
+import {
+  type SessionFilesUiDispatch,
+  type SessionFilesUiState,
+  setUiState,
+} from "./useSessionFiles-ui-state-machine";
 
-type SetState<T> = Dispatch<SetStateAction<T>>;
+type UseSessionFilesSearchEffectsState = Pick<SessionFilesUiState, "searchQuery" | "searchResult">;
 
-type UseSessionFilesSearchEffectsArgs = {
+type UseSessionFilesSearchEffectsDeps = {
   repoRoot: string | null;
-  searchQuery: string;
-  searchResult: RepoFileSearchPage | null;
   searchDebounceMs: number;
   activeSearchRequestIdRef: MutableRefObject<number>;
   fetchSearchPage: (query: string, cursor?: string) => Promise<RepoFileSearchPage>;
   resolveSearchErrorMessage: (error: unknown) => string;
-  setSearchExpandedDirSet: SetState<Set<string>>;
-  setSearchCollapsedDirSet: SetState<Set<string>>;
-  setSearchResult: SetState<RepoFileSearchPage | null>;
-  setSearchLoading: SetState<boolean>;
-  setSearchError: SetState<string | null>;
-  setSearchActiveIndex: SetState<number>;
 };
 
-export const useSessionFilesSearchEffects = ({
-  repoRoot,
-  searchQuery,
-  searchResult,
-  searchDebounceMs,
-  activeSearchRequestIdRef,
-  fetchSearchPage,
-  resolveSearchErrorMessage,
-  setSearchExpandedDirSet,
-  setSearchCollapsedDirSet,
-  setSearchResult,
-  setSearchLoading,
-  setSearchError,
-  setSearchActiveIndex,
-}: UseSessionFilesSearchEffectsArgs) => {
+export const useSessionFilesSearchEffects = (
+  state: UseSessionFilesSearchEffectsState,
+  dispatch: SessionFilesUiDispatch,
+  {
+    repoRoot,
+    searchDebounceMs,
+    activeSearchRequestIdRef,
+    fetchSearchPage,
+    resolveSearchErrorMessage,
+  }: UseSessionFilesSearchEffectsDeps,
+) => {
+  const debounce = useTimeout();
+  const { searchQuery, searchResult } = state;
+
   useEffect(() => {
     if (!repoRoot) {
       return;
     }
     const normalized = searchQuery.trim();
     const requestId = createNextSearchRequestId(activeSearchRequestIdRef);
-    resetSearchExpandOverrides({
-      setSearchExpandedDirSet,
-      setSearchCollapsedDirSet,
-    });
+    resetSearchExpandOverrides(dispatch);
     if (normalized.length === 0) {
-      applyEmptySearchState({
-        setSearchResult,
-        setSearchError,
-        setSearchLoading,
-        setSearchActiveIndex,
-      });
-      return;
+      applyEmptySearchState(dispatch);
+      return () => debounce.cancel();
     }
 
-    const timerId = scheduleSearchRequest({
-      requestId,
-      activeSearchRequestIdRef,
-      normalizedQuery: normalized,
-      debounceMs: searchDebounceMs,
-      fetchSearchPage,
-      resolveErrorMessage: resolveSearchErrorMessage,
-      setSearchLoading,
-      setSearchError,
-      setSearchResult,
-      setSearchActiveIndex,
-    });
+    debounce.set(() => {
+      void runSearchRequest({
+        requestId,
+        activeSearchRequestIdRef,
+        normalizedQuery: normalized,
+        fetchSearchPage,
+        resolveErrorMessage: resolveSearchErrorMessage,
+        dispatch,
+      });
+    }, searchDebounceMs);
 
-    return () => {
-      window.clearTimeout(timerId);
-    };
+    return () => debounce.cancel();
   }, [
     activeSearchRequestIdRef,
+    debounce,
+    dispatch,
     fetchSearchPage,
     repoRoot,
     resolveSearchErrorMessage,
     searchDebounceMs,
     searchQuery,
-    setSearchActiveIndex,
-    setSearchCollapsedDirSet,
-    setSearchError,
-    setSearchExpandedDirSet,
-    setSearchLoading,
-    setSearchResult,
   ]);
 
   useEffect(() => {
@@ -97,10 +79,10 @@ export const useSessionFilesSearchEffects = ({
       return;
     }
     if (searchResult.items.length === 0) {
-      setSearchActiveIndex(0);
+      setUiState(dispatch, "searchActiveIndex", 0);
       return;
     }
-    setSearchActiveIndex((prev) => {
+    setUiState(dispatch, "searchActiveIndex", (prev) => {
       if (prev < 0) {
         return 0;
       }
@@ -109,5 +91,5 @@ export const useSessionFilesSearchEffects = ({
       }
       return prev;
     });
-  }, [searchResult, setSearchActiveIndex]);
+  }, [dispatch, searchResult]);
 };
