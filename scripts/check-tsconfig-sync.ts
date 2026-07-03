@@ -44,6 +44,25 @@ const normalizePaths = (
   return normalized;
 };
 
+const isPlainObject = (value: unknown): value is JsonRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// オブジェクトのキー順は意味を持たない (JSON.stringify の比較のみキー順に影響される) ため
+// 再帰的にソートして正規化する。配列の要素順は意味を持ちうるのでソートしない。
+const sortKeysDeep = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep);
+  }
+  if (isPlainObject(value)) {
+    const sorted: JsonRecord = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortKeysDeep(value[key]);
+    }
+    return sorted;
+  }
+  return value;
+};
+
 const normalizeConfig = (config: JsonRecord): JsonRecord => {
   const compilerOptions = { ...(config.compilerOptions as JsonRecord | undefined) };
   // baseUrl はどちらか一方 (tsconfig.json) にのみ存在してよい既知の差分
@@ -51,10 +70,10 @@ const normalizeConfig = (config: JsonRecord): JsonRecord => {
   if (compilerOptions.paths) {
     compilerOptions.paths = normalizePaths(compilerOptions.paths as Record<string, string[]>);
   }
-  return {
+  return sortKeysDeep({
     ...config,
     compilerOptions,
-  };
+  }) as JsonRecord;
 };
 
 const main = (): void => {
