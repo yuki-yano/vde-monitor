@@ -307,6 +307,112 @@ const detectPromptFromSegment = async ({
   return { matched: true as const, duplicate: false as const, signature };
 };
 
+/**
+ * セグメント走査ループ本体。detected / duplicate / no-pattern / DELTA_READ_ERROR の
+ * いずれかに帰着するまで各セグメントを順に読み、プロンプト検知を試みる。
+ */
+const scanSegmentsForExternalInput = async ({
+  paneId,
+  logPath,
+  segments,
+  fileSize,
+  previousCursor,
+  maxPromptLines,
+  prevSignature,
+  promptStartPatterns,
+  readLogSlice,
+  now,
+}: {
+  paneId: string;
+  logPath: string;
+  segments: DeltaSegment[];
+  fileSize: number;
+  previousCursor: number;
+  maxPromptLines: number;
+  prevSignature: string | null;
+  promptStartPatterns: readonly RegExp[];
+  readLogSlice: (logPath: string, offsetBytes: number, lengthBytes: number) => Promise<string>;
+  now: () => Date;
+}): Promise<ExternalInputDetectResult> => {
+  let duplicateSignature: string | null = null;
+  for (const segment of segments) {
+    const segmentResult = await detectPromptFromSegment({
+      paneId,
+      logPath,
+      segment,
+      fileSize,
+      maxPromptLines,
+      prevSignature,
+      promptStartPatterns,
+      readLogSlice,
+    }).catch((error: unknown) => {
+      return {
+        error,
+        matched: false as const,
+        duplicate: false as const,
+        signature: prevSignature,
+      };
+    });
+    if ("error" in segmentResult) {
+      return createResult({
+        reason: "no-log",
+        reasonCode: "DELTA_READ_ERROR",
+        nextCursorBytes: previousCursor,
+        signature: prevSignature,
+        errorMessage: toErrorMessage(segmentResult.error),
+      });
+    }
+    if (!segmentResult.matched) {
+      continue;
+    }
+    if (segmentResult.duplicate) {
+      duplicateSignature = segmentResult.signature;
+      continue;
+    }
+    return createResult({
+      reason: "detected",
+      reasonCode: "PROMPT_DETECTED",
+      detectedAt: now().toISOString(),
+      nextCursorBytes: fileSize,
+      signature: segmentResult.signature,
+    });
+  }
+
+  if (duplicateSignature) {
+    return createResult({
+      reason: "duplicate",
+      reasonCode: "DUPLICATE_PROMPT_SIGNATURE",
+      nextCursorBytes: fileSize,
+      signature: duplicateSignature,
+    });
+  }
+  return createResult({
+    reason: "no-pattern",
+    reasonCode: "NO_PROMPT_PATTERN",
+    nextCursorBytes: fileSize,
+    signature: prevSignature,
+  });
+};
+
+// 以降のガードは前段の非同期処理（stat 取得など）に依存して段階的に状態が
+// 確定していくため、テーブル駆動ではなく「型ガード付きの named predicate + 早期
+// return」で表現する。型ガードにすることで isAgentPane/logPath・stat・
+// previousCursor の non-null 化が後続コードにそのまま伝播し、余分な null
+// チェックや non-null assertion を増やさずに済む。
+const hasAgentLogPath = (isAgentPane: boolean, logPath: string | null): logPath is string =>
+  isAgentPane && logPath != null;
+
+const hasLogStat = (stat: { size: number } | null): stat is { size: number } => stat != null;
+
+const isLogEmpty = (fileSize: number) => fileSize <= 0;
+
+const hasPreviousCursor = (previousCursor: number | null): previousCursor is number =>
+  previousCursor != null;
+
+const hasNoLogGrowth = (fileSize: number, previousCursor: number) => fileSize <= previousCursor;
+
+const hasNoSegments = (segments: DeltaSegment[]) => segments.length === 0;
+
 export const detectExternalInputFromLogDelta = async ({
   paneId,
   isAgentPane,
@@ -322,7 +428,7 @@ export const detectExternalInputFromLogDelta = async ({
   const previousCursor = normalizeCursorBytes(previousCursorBytes);
   const prevSignature = previousSignature ?? null;
 
-  if (!isAgentPane || !logPath) {
+  if (!hasAgentLogPath(isAgentPane, logPath)) {
     return createResult({
       reason: "no-log",
       reasonCode: "SKIP_NON_AGENT_OR_NO_LOG",
@@ -344,7 +450,7 @@ export const detectExternalInputFromLogDelta = async ({
 
   try {
     const stat = await statLogSize(logPath);
-    if (!stat) {
+    if (!hasLogStat(stat)) {
       return createResult({
         reason: "no-log",
         reasonCode: "LOG_STAT_UNAVAILABLE",
@@ -354,7 +460,7 @@ export const detectExternalInputFromLogDelta = async ({
     }
 
     const fileSize = Math.max(0, Math.floor(stat.size));
-    if (fileSize <= 0) {
+    if (isLogEmpty(fileSize)) {
       return createResult({
         reason: "no-log",
         reasonCode: "LOG_EMPTY",
@@ -363,7 +469,7 @@ export const detectExternalInputFromLogDelta = async ({
       });
     }
 
-    if (previousCursor == null) {
+    if (!hasPreviousCursor(previousCursor)) {
       return createResult({
         reason: "no-growth",
         reasonCode: "FIRST_CURSOR_SYNC",
@@ -372,7 +478,7 @@ export const detectExternalInputFromLogDelta = async ({
       });
     }
 
-    if (fileSize <= previousCursor) {
+    if (hasNoLogGrowth(fileSize, previousCursor)) {
       return createResult({
         reason: "no-growth",
         reasonCode: "NO_LOG_GROWTH",
@@ -386,7 +492,7 @@ export const detectExternalInputFromLogDelta = async ({
       fileSize,
       maxReadBytes: safeMaxReadBytes,
     });
-    if (segments.length === 0) {
+    if (hasNoSegments(segments)) {
       return createResult({
         reason: "no-growth",
         reasonCode: "NO_LOG_GROWTH",
@@ -395,63 +501,17 @@ export const detectExternalInputFromLogDelta = async ({
       });
     }
 
-    let duplicateSignature: string | null = null;
-    for (const segment of segments) {
-      const segmentResult = await detectPromptFromSegment({
-        paneId,
-        logPath,
-        segment,
-        fileSize,
-        maxPromptLines: safeMaxPromptLines,
-        prevSignature,
-        promptStartPatterns,
-        readLogSlice,
-      }).catch((error: unknown) => {
-        return {
-          error,
-          matched: false as const,
-          duplicate: false as const,
-          signature: prevSignature,
-        };
-      });
-      if ("error" in segmentResult) {
-        return createResult({
-          reason: "no-log",
-          reasonCode: "DELTA_READ_ERROR",
-          nextCursorBytes: previousCursor,
-          signature: prevSignature,
-          errorMessage: toErrorMessage(segmentResult.error),
-        });
-      }
-      if (!segmentResult.matched) {
-        continue;
-      }
-      if (segmentResult.duplicate) {
-        duplicateSignature = segmentResult.signature;
-        continue;
-      }
-      return createResult({
-        reason: "detected",
-        reasonCode: "PROMPT_DETECTED",
-        detectedAt: now().toISOString(),
-        nextCursorBytes: fileSize,
-        signature: segmentResult.signature,
-      });
-    }
-
-    if (duplicateSignature) {
-      return createResult({
-        reason: "duplicate",
-        reasonCode: "DUPLICATE_PROMPT_SIGNATURE",
-        nextCursorBytes: fileSize,
-        signature: duplicateSignature,
-      });
-    }
-    return createResult({
-      reason: "no-pattern",
-      reasonCode: "NO_PROMPT_PATTERN",
-      nextCursorBytes: fileSize,
-      signature: prevSignature,
+    return await scanSegmentsForExternalInput({
+      paneId,
+      logPath,
+      segments,
+      fileSize,
+      previousCursor,
+      maxPromptLines: safeMaxPromptLines,
+      prevSignature,
+      promptStartPatterns,
+      readLogSlice,
+      now,
     });
   } catch (error) {
     return createResult({
