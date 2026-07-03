@@ -502,6 +502,100 @@ describe("useSessionControls", () => {
     expect(sendRaw).toHaveBeenNthCalledWith(2, "pane-1", [{ kind: "key", value: "Escape" }], false);
   });
 
+  it("does not clear screen error after a successful (non-raw) key send", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.handleSendKey("Enter");
+    });
+
+    expect(sendKeys).toHaveBeenCalledWith("pane-1", ["Enter"]);
+    expect(setScreenError).not.toHaveBeenCalled();
+  });
+
+  it("does not clear screen error after a successful raw-mode key send", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.toggleRawMode();
+    });
+
+    await act(async () => {
+      await result.current.handleSendKey("Enter");
+    });
+
+    expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "key", value: "Enter" }], false);
+    expect(setScreenError).not.toHaveBeenCalled();
+  });
+
+  it("does not clear screen error after a successful permission shortcut send", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.handleSendPermissionShortcut("1");
+    });
+
+    expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "text", value: "1" }], false);
+    expect(setScreenError).not.toHaveBeenCalled();
+  });
+
   it("sends raw ctrl key input from beforeinput", async () => {
     vi.useFakeTimers();
     const sendText = vi.fn().mockResolvedValue({ ok: true });
