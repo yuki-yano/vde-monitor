@@ -1,23 +1,40 @@
 import { useAtomValue } from "jotai";
 
 import { useNowMs } from "@/lib/use-now-ms";
-import { useSessions } from "@/state/session-context";
+import {
+  useSessionBranchesApi,
+  useSessionConfigData,
+  useSessionCoreApi,
+  useSessionFilesApi,
+  useSessionLaunchApi,
+  useSessionNotesApi,
+  useSessionStreamData,
+} from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
 
 import { screenTextAtom } from "../atoms/screenAtoms";
 
 export const useSessionDetailVMState = (paneId: string) => {
+  const { sessions, connected, connectionStatus, connectionIssue, getSessionDetail } =
+    useSessionStreamData();
+  const { token, apiBaseUrl, highlightCorrections, fileNavigatorConfig, launchConfig } =
+    useSessionConfigData();
   const {
-    sessions,
-    token,
-    apiBaseUrl,
-    connected,
-    connectionStatus,
-    connectionIssue,
-    highlightCorrections,
-    fileNavigatorConfig,
-    launchConfig,
     refreshSessions,
+    requestStateTimeline,
+    requestScreen,
+    focusPane,
+    killPane,
+    killWindow,
+    uploadImageAttachment,
+    sendText,
+    sendKeys,
+    sendRaw,
+    touchSession,
+    updateSessionTitle,
+    resetSessionTitle,
+  } = useSessionCoreApi();
+  const {
     requestWorktrees,
     requestBranches,
     requestBranchCheckout,
@@ -28,28 +45,11 @@ export const useSessionDetailVMState = (paneId: string) => {
     requestCommitLog,
     requestCommitDetail,
     requestCommitFile,
-    requestStateTimeline,
-    requestRepoNotes,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-    requestScreen,
-    focusPane,
-    killPane,
-    killWindow,
-    launchAgentInSession,
-    uploadImageAttachment,
-    sendText,
-    sendKeys,
-    sendRaw,
-    touchSession,
-    updateSessionTitle,
-    resetSessionTitle,
-    createRepoNote,
-    updateRepoNote,
-    deleteRepoNote,
-    getSessionDetail,
-  } = useSessions();
+  } = useSessionBranchesApi();
+  const { requestRepoFileTree, requestRepoFileSearch, requestRepoFileContent } =
+    useSessionFilesApi();
+  const { requestRepoNotes, createRepoNote, updateRepoNote, deleteRepoNote } = useSessionNotesApi();
+  const { launchAgentInSession } = useSessionLaunchApi();
   const { resolvedTheme } = useTheme();
   const screenText = useAtomValue(screenTextAtom);
   const nowMs = useNowMs();

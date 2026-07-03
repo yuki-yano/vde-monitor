@@ -54,7 +54,7 @@ const mockSessionApi = {
 };
 
 vi.mock("@/state/session-context", () => ({
-  useSessionApi: () => mockSessionApi,
+  useSessionCoreApi: () => mockSessionApi,
 }));
 
 const renderWithRouter = (ui: ReactNode) => {

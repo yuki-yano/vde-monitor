@@ -75,7 +75,11 @@ const mockUseWorkspaceTabs = vi.hoisted(
 );
 
 vi.mock("@/state/session-context", () => ({
-  useSessions: () => mockUseSessions(),
+  useSessionStreamData: () => mockUseSessions(),
+  useSessionConfigData: () => mockUseSessions(),
+  useSessionCoreApi: () => mockUseSessions(),
+  useSessionBranchesApi: () => mockUseSessions(),
+  useSessionLaunchApi: () => mockUseSessions(),
 }));
 
 vi.mock("@/state/theme-context", () => ({

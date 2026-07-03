@@ -84,7 +84,13 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/state/session-context", () => ({
-  useSessions: () => mockSessionsContext,
+  useSessionStreamData: () => mockSessionsContext,
+  useSessionConfigData: () => mockSessionsContext,
+  useSessionCoreApi: () => mockSessionsContext,
+  useSessionBranchesApi: () => mockSessionsContext,
+  useSessionFilesApi: () => mockSessionsContext,
+  useSessionNotesApi: () => mockSessionsContext,
+  useSessionLaunchApi: () => mockSessionsContext,
 }));
 
 vi.mock("@/state/theme-context", () => ({

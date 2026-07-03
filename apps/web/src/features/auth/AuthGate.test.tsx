@@ -6,7 +6,8 @@ import { AuthGate } from "./AuthGate";
 const useSessionsMock = vi.fn();
 
 vi.mock("@/state/session-context", () => ({
-  useSessions: () => useSessionsMock(),
+  useSessionConfigData: () => useSessionsMock(),
+  useSessionCoreApi: () => useSessionsMock(),
 }));
 
 describe("AuthGate", () => {

@@ -51,7 +51,7 @@ import {
   getLastInputTone,
   isKnownAgent,
 } from "@/lib/session-format";
-import { useSessionApi } from "@/state/session-context";
+import { useSessionCoreApi } from "@/state/session-context";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -81,7 +81,7 @@ export const ChatGridTile = ({
     updateSessionTitle,
     resetSessionTitle,
     uploadImageAttachment,
-  } = useSessionApi();
+  } = useSessionCoreApi();
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);

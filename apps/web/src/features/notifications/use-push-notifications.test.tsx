@@ -6,7 +6,7 @@ import { usePushNotifications } from "./use-push-notifications";
 const useSessionsMock = vi.fn();
 
 vi.mock("@/state/session-context", () => ({
-  useSessions: () => useSessionsMock(),
+  useSessionConfigData: () => useSessionsMock(),
 }));
 
 describe("usePushNotifications", () => {
