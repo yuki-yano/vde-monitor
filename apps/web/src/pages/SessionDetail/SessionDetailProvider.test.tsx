@@ -164,9 +164,17 @@ vi.mock("./hooks/useSessionControls", () => ({
   }),
 }));
 
-const renderContext = (sessions: Array<typeof session>, sessionApi: Record<string, unknown>) => {
+const renderContext = (
+  sessions: Array<typeof session>,
+  sessionApi: Record<string, unknown>,
+  options: { connectionIssue?: string | null } = {},
+) => {
   const store = createStore();
-  mockSessionsContext = buildSessionContext({ sessions, sessionApi });
+  mockSessionsContext = buildSessionContext({
+    sessions,
+    sessionApi,
+    connectionIssue: options.connectionIssue ?? null,
+  });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <JotaiProvider store={store}>
       <SessionDetailProvider paneId="pane-1">{children}</SessionDetailProvider>
@@ -192,10 +200,11 @@ describe("SessionDetailProvider", () => {
 
   it("exposes base state via context", () => {
     mockResolvedTheme = "mocha";
-    const { result } = renderContext([session], buildSessionApi());
+    const { result } = renderContext([session], buildSessionApi(), { connectionIssue: "issue" });
 
     expect(result.current.base.paneId).toBe("pane-1");
     expect(result.current.base.connected).toBe(true);
+    expect(result.current.base.connectionIssue).toBe("issue");
     expect(result.current.base.session?.paneId).toBe("pane-1");
     expect(result.current.repoPins.sessionGroups).toBe(sessionGroups);
   });

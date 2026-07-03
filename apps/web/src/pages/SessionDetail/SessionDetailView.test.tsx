@@ -199,13 +199,12 @@ const buildDefaultContextValue = () => {
         virtualWorktreePath: null as string | null,
         effectiveWorktreePath: null as string | null,
         effectiveBranch: null as string | null,
-        selectVirtualWorktree: vi.fn(),
         clearVirtualWorktree: vi.fn(),
         refreshWorktrees: vi.fn(),
       },
       branches: {
         branches: [] as unknown[],
-        branchList: null,
+        repoRoot: null as string | null,
         currentBranch: null as string | null,
         branchesLoading: false,
         branchesError: null as string | null,
@@ -216,7 +215,6 @@ const buildDefaultContextValue = () => {
       },
       virtualBranch: {
         virtualBranch: null as string | null,
-        selectVirtualBranch: vi.fn(),
         clearVirtualBranch: vi.fn(),
       },
       effectiveBranchScope: null as string | null,

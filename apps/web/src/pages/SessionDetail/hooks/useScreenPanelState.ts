@@ -4,13 +4,17 @@ import { useSessionDetailContext } from "../SessionDetailProvider";
 import { extractCodexContextLeft } from "../sessionDetailUtils";
 
 // Dedicated ScreenPanel state hook. This is the single place that reshapes the
-// worktree/branch/screen/notification subhook outputs into the flat, disambiguated
-// shape ScreenPanel (and the Worktree/Branch sections built alongside it) expect,
-// replacing the ad-hoc renaming that used to live inline inside the God Hook.
+// screen/worktree-selector/notification subhook outputs into the flat,
+// disambiguated shape ScreenPanel expects, replacing the ad-hoc renaming that
+// used to live inline inside the God Hook. Branch section state is not
+// ScreenPanel's concern and lives in useSessionDetailViewWorktreeBranchSectionProps
+// instead. This hook should only ever be called from
+// useSessionDetailViewExplorerSectionProps (ScreenPanel's props builder) so the
+// underlying screen/controls subhooks are read from a single call site.
 export const useScreenPanelState = () => {
   const { base, terminal, scope, pushNotifications } = useSessionDetailContext();
   const { screen, handleRefreshScreen } = terminal;
-  const { virtualWorktree, branches, virtualBranch } = scope;
+  const { virtualWorktree } = scope;
 
   const contextLeftLabel = useMemo(
     () => (base.session?.agent === "codex" ? extractCodexContextLeft(base.screenText) : null),
@@ -51,21 +55,6 @@ export const useScreenPanelState = () => {
       virtualWorktreePath: virtualWorktree.virtualWorktreePath,
       selectVirtualWorktree: scope.selectVirtualWorktree,
       clearVirtualWorktree: virtualWorktree.clearVirtualWorktree,
-      branches: branches.branches,
-      branchRepoRoot: branches.branchList?.repoRoot ?? null,
-      currentBranch: branches.currentBranch,
-      virtualBranch: virtualBranch.virtualBranch,
-      branchesLoading: branches.branchesLoading,
-      branchesError: branches.branchesError,
-      branchMutating: branches.mutating,
-      branchMutationError: branches.mutationError,
-      clearBranchMutationError: branches.clearMutationError,
-      refreshBranches: branches.refreshBranches,
-      checkoutBranch: scope.checkoutBranch,
-      createBranch: scope.createBranch,
-      deleteBranch: scope.deleteBranch,
-      selectVirtualBranch: scope.selectVirtualBranch,
-      clearVirtualBranch: virtualBranch.clearVirtualBranch,
       notificationStatus: pushNotifications.status,
       notificationPushEnabled: pushNotifications.pushEnabled,
       notificationSubscribed: pushNotifications.isSubscribed,
@@ -73,15 +62,6 @@ export const useScreenPanelState = () => {
       requestNotificationPermission: pushNotifications.requestPermissionAndSubscribe,
       togglePaneNotification: pushNotifications.togglePaneEnabled,
     }),
-    [
-      screen,
-      handleRefreshScreen,
-      virtualWorktree,
-      branches,
-      virtualBranch,
-      scope,
-      pushNotifications,
-      contextLeftLabel,
-    ],
+    [screen, handleRefreshScreen, virtualWorktree, scope, pushNotifications, contextLeftLabel],
   );
 };

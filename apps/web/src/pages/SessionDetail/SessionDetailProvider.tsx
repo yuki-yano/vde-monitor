@@ -180,11 +180,46 @@ const useSessionDetailContextValue = (paneId: string) => {
 
   const pushNotifications = usePushNotifications({ paneId });
 
+  // Only the fields consumers actually read are exposed here. The raw
+  // checkoutBranch/createBranch/deleteBranch/selectVirtualBranch/
+  // selectVirtualWorktree from the underlying subhooks are intentionally
+  // omitted: they skip the diff/commit refresh and mutual-exclusivity wiring
+  // above, so reaching them by mistake through scope.branches /
+  // scope.virtualWorktree / scope.virtualBranch would be a footgun. Callers
+  // must use the wrapped scope.checkoutBranch / scope.createBranch /
+  // scope.deleteBranch / scope.selectVirtualBranch / scope.selectVirtualWorktree
+  // instead.
   const scope = useMemo(
     () => ({
-      virtualWorktree,
-      branches,
-      virtualBranch,
+      virtualWorktree: {
+        selectorEnabled: virtualWorktree.selectorEnabled,
+        loading: virtualWorktree.loading,
+        error: virtualWorktree.error,
+        entries: virtualWorktree.entries,
+        repoRoot: virtualWorktree.repoRoot,
+        baseBranch: virtualWorktree.baseBranch,
+        actualWorktreePath: virtualWorktree.actualWorktreePath,
+        virtualWorktreePath: virtualWorktree.virtualWorktreePath,
+        effectiveWorktreePath: virtualWorktree.effectiveWorktreePath,
+        effectiveBranch: virtualWorktree.effectiveBranch,
+        clearVirtualWorktree: virtualWorktree.clearVirtualWorktree,
+        refreshWorktrees: virtualWorktree.refreshWorktrees,
+      },
+      branches: {
+        branches: branches.branches,
+        repoRoot: branches.branchList?.repoRoot ?? null,
+        currentBranch: branches.currentBranch,
+        branchesLoading: branches.branchesLoading,
+        branchesError: branches.branchesError,
+        mutating: branches.mutating,
+        mutationError: branches.mutationError,
+        clearMutationError: branches.clearMutationError,
+        refreshBranches: branches.refreshBranches,
+      },
+      virtualBranch: {
+        virtualBranch: virtualBranch.virtualBranch,
+        clearVirtualBranch: virtualBranch.clearVirtualBranch,
+      },
       effectiveBranchScope,
       effectiveWorktreeScope,
       selectVirtualBranch,

@@ -46,7 +46,7 @@ import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState
 import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 import { useSessionDetailViewExplorerSectionProps } from "./hooks/useSessionDetailViewExplorerSectionProps";
 import { useSessionDetailViewShellSectionProps } from "./hooks/useSessionDetailViewShellSectionProps";
-import { useScreenPanelState } from "./hooks/useScreenPanelState";
+import { useSessionDetailViewWorktreeBranchSectionProps } from "./hooks/useSessionDetailViewWorktreeBranchSectionProps";
 
 const MISSING_SESSION_GRACE_MS = 1600;
 
@@ -151,7 +151,8 @@ export const SessionDetailView = () => {
     sessionSidebarProps,
     controlsPanelProps,
   } = useSessionDetailViewShellSectionProps();
-  const screenState = useScreenPanelState();
+  const { worktreeSectionProps, branchSectionProps } =
+    useSessionDetailViewWorktreeBranchSectionProps();
   const controlsPanelKeysSection = useMemo(
     () => (
       <Card className="p-3 sm:p-4">
@@ -172,48 +173,6 @@ export const SessionDetailView = () => {
   const isSessionMissing = !session || !sessionHeaderProps;
   const isInitialSessionLoading = isSessionMissing && !connected && !hasConnectionIssue;
   const shouldDelayMissingState = isSessionMissing && connected && !hasConnectionIssue;
-  const worktreeSectionProps = {
-    state: {
-      worktreeSelectorEnabled: screenState.worktreeSelectorEnabled ?? false,
-      worktreeSelectorLoading: screenState.worktreeSelectorLoading ?? false,
-      worktreeSelectorError: screenState.worktreeSelectorError ?? null,
-      worktreeEntries: screenState.worktreeEntries ?? [],
-      worktreeRepoRoot: screenState.worktreeRepoRoot ?? null,
-      worktreeBaseBranch: screenState.worktreeBaseBranch ?? null,
-      actualWorktreePath: screenState.actualWorktreePath ?? null,
-      virtualWorktreePath: screenState.virtualWorktreePath ?? null,
-    },
-    actions: {
-      onRefreshWorktrees: () => {
-        void (screenState.handleRefreshWorktrees ?? screenState.handleRefreshScreen)();
-      },
-      onSelectVirtualWorktree: screenState.selectVirtualWorktree,
-      onClearVirtualWorktree: screenState.clearVirtualWorktree,
-    },
-  };
-  const branchSectionProps = {
-    state: {
-      branches: screenState.branches ?? [],
-      repoRoot: screenState.branchRepoRoot ?? null,
-      currentBranch: screenState.currentBranch ?? null,
-      virtualBranch: screenState.virtualBranch ?? null,
-      branchesLoading: screenState.branchesLoading ?? false,
-      branchesError: screenState.branchesError ?? null,
-      mutating: screenState.branchMutating ?? null,
-      mutationError: screenState.branchMutationError ?? null,
-    },
-    actions: {
-      onRefreshBranches: () => {
-        void screenState.refreshBranches?.();
-      },
-      onSelectVirtualBranch: screenState.selectVirtualBranch,
-      onClearVirtualBranch: screenState.clearVirtualBranch,
-      onCheckoutBranch: screenState.checkoutBranch,
-      onCreateBranch: screenState.createBranch,
-      onDeleteBranch: screenState.deleteBranch,
-      onClearMutationError: screenState.clearBranchMutationError,
-    },
-  };
   const mobileSectionTabs: DetailSectionTabDefinition[] = [
     {
       value: "keys",

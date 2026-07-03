@@ -62,26 +62,7 @@ const buildContextValue = (
         virtualWorktreePath: null,
         clearVirtualWorktree: vi.fn(),
       },
-      branches: {
-        branches: [],
-        branchList: null,
-        currentBranch: null,
-        branchesLoading: false,
-        branchesError: null,
-        mutating: null,
-        mutationError: null,
-        clearMutationError: vi.fn(),
-        refreshBranches: vi.fn(),
-      },
-      virtualBranch: {
-        virtualBranch: null,
-        clearVirtualBranch: vi.fn(),
-      },
       selectVirtualWorktree: vi.fn(),
-      selectVirtualBranch: vi.fn(),
-      checkoutBranch: vi.fn(async () => true),
-      createBranch: vi.fn(async () => true),
-      deleteBranch: vi.fn(async () => true),
     },
     pushNotifications: {
       status: "idle",
@@ -117,7 +98,7 @@ describe("useScreenPanelState", () => {
     expect(result.current.contextLeftLabel).toBeNull();
   });
 
-  it("maps worktree/branch subhook fields into the disambiguated ScreenPanel shape", () => {
+  it("maps worktree subhook fields into the disambiguated ScreenPanel shape", () => {
     mockContextValue = buildContextValue();
     (mockContextValue.scope as { virtualWorktree: Record<string, unknown> }).virtualWorktree = {
       ...(mockContextValue.scope as { virtualWorktree: Record<string, unknown> }).virtualWorktree,

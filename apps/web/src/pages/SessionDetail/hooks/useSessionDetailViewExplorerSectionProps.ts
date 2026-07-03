@@ -321,7 +321,7 @@ export const useSessionDetailViewExplorerSectionProps = () => {
         onToggleWrapMode: toggleWrapMode,
         onRefresh: handleRefreshScreen,
         onRefreshWorktrees: () => {
-          void (handleRefreshWorktrees ?? handleRefreshScreen)();
+          void handleRefreshWorktrees();
         },
         onAtBottomChange: handleAtBottomChange,
         onScrollToBottom: scrollToBottom,
