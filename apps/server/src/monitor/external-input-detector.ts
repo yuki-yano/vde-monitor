@@ -400,7 +400,7 @@ const scanSegmentsForExternalInput = async ({
 // previousCursor の non-null 化が後続コードにそのまま伝播し、余分な null
 // チェックや non-null assertion を増やさずに済む。
 const hasAgentLogPath = (isAgentPane: boolean, logPath: string | null): logPath is string =>
-  isAgentPane && logPath != null;
+  isAgentPane && Boolean(logPath);
 
 const hasLogStat = (stat: { size: number } | null): stat is { size: number } => stat != null;
 

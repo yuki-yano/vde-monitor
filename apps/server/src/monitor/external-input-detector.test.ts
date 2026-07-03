@@ -29,6 +29,30 @@ describe("detectExternalInputFromLogDelta", () => {
     expect(readLogSlice).not.toHaveBeenCalled();
   });
 
+  it("skips detection for empty-string logPath", async () => {
+    const statLogSize = vi.fn(async () => ({ size: 128 }));
+    const readLogSlice = vi.fn(async () => "\u203A hello");
+
+    const result = await detectExternalInputFromLogDelta({
+      paneId: "%1",
+      isAgentPane: true,
+      logPath: "",
+      previousCursorBytes: 64,
+      previousSignature: "prev",
+      now: () => new Date(FIXED_NOW_ISO),
+      deps: { statLogSize, readLogSlice },
+    });
+
+    expect(result.reason).toBe("no-log");
+    expect(result.reasonCode).toBe("SKIP_NON_AGENT_OR_NO_LOG");
+    expect(result.errorMessage).toBeNull();
+    expect(result.detectedAt).toBeNull();
+    expect(result.nextCursorBytes).toBe(64);
+    expect(result.signature).toBe("prev");
+    expect(statLogSize).not.toHaveBeenCalled();
+    expect(readLogSlice).not.toHaveBeenCalled();
+  });
+
   it("advances cursor only on first observation without detection", async () => {
     const statLogSize = vi.fn(async () => ({ size: 128 }));
     const readLogSlice = vi.fn(async () => "\u203A hello");
