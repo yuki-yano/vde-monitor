@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 /**
- * Manages a single delayed callback with imperative `set`/`cancel` control.
- *
- * - `set` clears any pending timer and schedules a new one.
- * - `cancel` clears a pending timer without running the callback.
- * - The pending timer is cleared automatically on unmount.
+ * Manages a single delayed callback. `set` replaces any pending timer with a
+ * new one; `cancel` discards a pending timer. Unmount clears it automatically.
  */
 export const useTimeout = () => {
   const timerRef = useRef<number | null>(null);

@@ -25,6 +25,26 @@ describe("useDebouncedCallback", () => {
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fire before delayMs elapses, then fires exactly at the boundary", () => {
+    vi.useFakeTimers();
+    const callback = vi.fn();
+    const { result } = renderHook(() => useDebouncedCallback(callback, 500));
+
+    act(() => {
+      result.current();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(499);
+    });
+    expect(callback).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
   it("collapses rapid successive calls and uses the latest arguments", () => {
     vi.useFakeTimers();
     const callback = vi.fn();
