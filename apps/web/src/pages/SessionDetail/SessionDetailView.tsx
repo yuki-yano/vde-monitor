@@ -16,6 +16,7 @@ import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionDocumentTitle } from "@/lib/brand";
 import { cn } from "@/lib/cn";
+import { useTimeout } from "@/lib/use-timeout";
 
 import { BranchSection } from "./components/BranchSection";
 import { CommitSection } from "./components/CommitSection";
@@ -146,6 +147,7 @@ export const SessionDetailView = ({
     scope: { repoRoot: session?.repoRoot, branch: session?.branch },
   });
   const [missingSessionGraceElapsed, setMissingSessionGraceElapsed] = useState(false);
+  const missingSessionGraceTimer = useTimeout();
   const { diffSectionProps, stateTimelineSectionProps, commitSectionProps, notesSectionProps } =
     useSessionDetailViewDataSectionProps({
       meta,
@@ -311,14 +313,14 @@ export const SessionDetailView = ({
     if (!shouldDelayMissingState) {
       return;
     }
-    const timeoutId = window.setTimeout(() => {
+    missingSessionGraceTimer.set(() => {
       setMissingSessionGraceElapsed(true);
     }, MISSING_SESSION_GRACE_MS);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      missingSessionGraceTimer.cancel();
     };
-  }, [shouldDelayMissingState]);
+  }, [missingSessionGraceTimer, shouldDelayMissingState]);
 
   useEffect(() => {
     if (shouldDelayMissingState) {

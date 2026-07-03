@@ -3,6 +3,7 @@ import { type MutableRefObject, useCallback, useEffect, useLayoutEffect, useRef 
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import type { ScreenMode } from "@/lib/screen-loading";
+import { useTimeout } from "@/lib/use-timeout";
 
 import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
 
@@ -30,18 +31,15 @@ export const useScreenScroll = ({
 
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const forceFollowTimerRef = useRef<number | null>(null);
+  const forceFollowTimer = useTimeout();
   const prevModeRef = useRef<ScreenMode>(mode);
   const prevPaneIdRef = useRef<string>(paneId);
   const snapToBottomRef = useRef(false);
 
   const stopForceFollow = useCallback(() => {
     setForceFollow(false);
-    if (forceFollowTimerRef.current != null) {
-      window.clearTimeout(forceFollowTimerRef.current);
-      forceFollowTimerRef.current = null;
-    }
-  }, [setForceFollow]);
+    forceFollowTimer.cancel();
+  }, [forceFollowTimer, setForceFollow]);
 
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "auto") => {
@@ -59,10 +57,7 @@ export const useScreenScroll = ({
         stopForceFollow();
       } else {
         setForceFollow(true);
-        if (forceFollowTimerRef.current != null) {
-          window.clearTimeout(forceFollowTimerRef.current);
-        }
-        forceFollowTimerRef.current = window.setTimeout(() => {
+        forceFollowTimer.set(() => {
           stopForceFollow();
         }, FORCE_FOLLOW_FALLBACK_MS);
       }
@@ -76,7 +71,7 @@ export const useScreenScroll = ({
       }
       return true;
     },
-    [isAtBottom, screenLinesLength, setForceFollow, stopForceFollow],
+    [forceFollowTimer, isAtBottom, screenLinesLength, setForceFollow, stopForceFollow],
   );
 
   const handleAtBottomChange = useCallback(
