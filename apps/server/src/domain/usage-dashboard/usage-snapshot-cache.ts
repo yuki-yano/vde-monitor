@@ -242,6 +242,10 @@ export const createUsageSnapshotCache = (
   const coreCache = new Map<SupportedProviderId, CoreCacheEntry>();
   const billingCache = new Map<SupportedProviderId, BillingCacheEntry>();
 
+  const writeCoreCache = (providerId: SupportedProviderId, entry: CoreCacheEntry): void => {
+    coreCache.set(providerId, entry);
+  };
+
   const getProviderCoreSnapshot = async (
     providerId: SupportedProviderId,
     providerOptions: { forceRefresh?: boolean } = {},
@@ -269,7 +273,7 @@ export const createUsageSnapshotCache = (
     try {
       const freshCore = await fetchSnapshotCore(providerId, nowMs);
       const fresh = withTimestamps(freshCore, nowMs, cacheTtlMs);
-      coreCache.set(providerId, {
+      writeCoreCache(providerId, {
         snapshot: fresh,
         expiresAtMs: nowMs + cacheTtlMs,
         backoffUntilMs: 0,
@@ -280,7 +284,7 @@ export const createUsageSnapshotCache = (
       const issue = issueFromError(error);
       if (cached) {
         const degraded = withStatusIssue(cached.snapshot, issue, "degraded");
-        coreCache.set(providerId, {
+        writeCoreCache(providerId, {
           snapshot: degraded,
           expiresAtMs: cached.expiresAtMs,
           backoffUntilMs: nowMs + backoffMs,
@@ -298,7 +302,7 @@ export const createUsageSnapshotCache = (
         nowMs,
         issue: normalizedIssue,
       });
-      coreCache.set(providerId, {
+      writeCoreCache(providerId, {
         snapshot: failedSnapshot,
         expiresAtMs: nowMs + Math.min(cacheTtlMs, 30_000),
         backoffUntilMs: nowMs + backoffMs,
