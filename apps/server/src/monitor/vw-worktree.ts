@@ -2,6 +2,8 @@ import path from "node:path";
 
 import { execa } from "execa";
 
+import { toNullableBoolean, toNullableString } from "@vde-monitor/shared";
+
 import { setMapEntryWithLimit } from "../cache";
 import { normalizeAbsolutePath } from "../path-normalization";
 
@@ -82,11 +84,6 @@ const isWithinPath = (targetPath: string, rootPath: string) => {
   if (targetPath === rootPath) return true;
   return targetPath.startsWith(`${rootPath}${path.sep}`);
 };
-
-const toNullableBoolean = (value: unknown) => (typeof value === "boolean" ? value : null);
-
-const toNullableString = (value: unknown) =>
-  typeof value === "string" && value.trim().length > 0 ? value : null;
 
 const vwPrStatuses = new Set<VwPrStatus>(["none", "open", "merged", "closed_unmerged", "unknown"]);
 

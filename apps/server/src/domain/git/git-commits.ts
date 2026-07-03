@@ -1,9 +1,10 @@
-import type {
-  CommitDetail,
-  CommitFile,
-  CommitFileDiff,
-  CommitLog,
-  CommitSummary,
+import {
+  type CommitDetail,
+  type CommitFile,
+  type CommitFileDiff,
+  type CommitLog,
+  type CommitSummary,
+  toNullableString,
 } from "@vde-monitor/shared";
 
 import { setMapEntryWithLimit } from "../../cache";
@@ -77,8 +78,6 @@ const resolveCommitRangeCount = async (repoRoot: string, range: string) => {
   }
 };
 
-const toOptionalText = (value: string) => (value.trim().length > 0 ? value : null);
-
 const readCommitLogField = (fields: string[], index: number) => fields[index] ?? "";
 
 const parseCommitLogRecord = (record: string): CommitSummary | null => {
@@ -97,9 +96,9 @@ const parseCommitLogRecord = (record: string): CommitSummary | null => {
     hash,
     shortHash,
     subject,
-    body: toOptionalText(bodyRaw),
+    body: toNullableString(bodyRaw),
     authorName,
-    authorEmail: toOptionalText(authorEmailRaw),
+    authorEmail: toNullableString(authorEmailRaw),
     authoredAt,
   };
 };
