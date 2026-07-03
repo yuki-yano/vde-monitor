@@ -1,7 +1,7 @@
 import type { SessionDetail } from "@vde-monitor/shared";
 
 import type { AgentType } from "./agent-resolver-utils";
-import { hostCandidates, normalizeTitle } from "./monitor-utils";
+import { hostCandidates, sanitizePaneTitle } from "./monitor-utils";
 
 export type PaneSnapshot = {
   paneId: string;
@@ -25,7 +25,7 @@ const hostCandidatesNormalized = new Set(
 );
 
 const resolveSessionTitle = (paneTitle: string | null) => {
-  const normalized = normalizeTitle(paneTitle);
+  const normalized = sanitizePaneTitle(paneTitle);
   if (!normalized || hostCandidatesNormalized.has(normalized.toLowerCase())) {
     return null;
   }

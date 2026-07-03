@@ -91,6 +91,25 @@ describe("buildSessionDetail", () => {
     expect(detail.lastMessage).toBe("msg");
   });
 
+  it("returns null title for kitty graphics protocol artifacts", () => {
+    const pane = buildPane({ paneTitle: "Ga=q,s=1,v=1" });
+    const detail = buildSessionDetail({
+      pane,
+      agent: "claude",
+      state: "RUNNING",
+      stateReason: "test",
+      lastMessage: null,
+      lastOutputAt: null,
+      lastEventAt: null,
+      lastInputAt: null,
+      pipeAttached: false,
+      pipeConflict: false,
+      customTitle: null,
+      repoRoot: null,
+    });
+    expect(detail.title).toBeNull();
+  });
+
   it("treats host-like pane title as case-insensitive", () => {
     const hostTitle = [...hostCandidates][0] ?? "localhost";
     const pane = buildPane({ paneTitle: hostTitle.toUpperCase() });

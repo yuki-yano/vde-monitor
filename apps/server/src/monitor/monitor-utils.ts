@@ -27,6 +27,29 @@ export const normalizeTitle = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+// tmux applies APC sequences (ESC _ ... ESC \) to the pane title, so kitty
+// graphics protocol probes (ESC _ G a=q,... ESC \) emitted without tmux
+// passthrough end up recorded as titles like "Ga=q,s=1,v=1".
+const kittyGraphicsArtifactPattern = /^G[a-zA-Z]=[^,;]*(?:,[a-zA-Z]=[^,;]*)*(?:;[\s\S]*)?$/;
+const containsControlCharacter = (value: string) => {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const sanitizePaneTitle = (value: string | null | undefined) => {
+  const normalized = normalizeTitle(value);
+  if (!normalized) return null;
+  if (containsControlCharacter(normalized) || kittyGraphicsArtifactPattern.test(normalized)) {
+    return null;
+  }
+  return normalized;
+};
+
 export const hostCandidates = (() => {
   const host = os.hostname();
   const short = host.split(".")[0] ?? host;

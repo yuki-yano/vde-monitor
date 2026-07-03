@@ -7,6 +7,7 @@ import {
   mapHookToPane,
   normalizeFingerprint,
   normalizeTitle,
+  sanitizePaneTitle,
 } from "./monitor-utils";
 
 describe("monitor-utils", () => {
@@ -19,6 +20,30 @@ describe("monitor-utils", () => {
     expect(normalizeTitle("  hello  ")).toBe("hello");
     expect(normalizeTitle("   ")).toBeNull();
     expect(normalizeTitle(null)).toBeNull();
+  });
+
+  it("sanitizes pane titles", () => {
+    expect(sanitizePaneTitle("  hello  ")).toBe("hello");
+    expect(sanitizePaneTitle("   ")).toBeNull();
+    expect(sanitizePaneTitle(null)).toBeNull();
+  });
+
+  it("rejects kitty graphics protocol artifacts as pane titles", () => {
+    expect(sanitizePaneTitle("Ga=q,s=1,v=1")).toBeNull();
+    expect(sanitizePaneTitle("Ga=q,s=1,v=1,i=31")).toBeNull();
+    expect(sanitizePaneTitle("Ga=T,f=100,s=10,v=20;QUFBQQ==")).toBeNull();
+    expect(sanitizePaneTitle("Gi=1,a=d")).toBeNull();
+  });
+
+  it("rejects pane titles containing control characters", () => {
+    expect(sanitizePaneTitle("abc\u001b[0m")).toBeNull();
+    expect(sanitizePaneTitle("abc\u0007def")).toBeNull();
+  });
+
+  it("keeps ordinary pane titles that merely start with G", () => {
+    expect(sanitizePaneTitle("Go")).toBe("Go");
+    expect(sanitizePaneTitle("Gemini answers")).toBe("Gemini answers");
+    expect(sanitizePaneTitle("G=1")).toBe("G=1");
   });
 
   it("derives hook state from events", () => {
