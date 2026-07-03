@@ -34,6 +34,7 @@ import { SessionHeader } from "./components/SessionHeader";
 import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
 import { StateTimelineSection } from "./components/StateTimelineSection";
 import { WorktreeSection } from "./components/WorktreeSection";
+import { useSessionDetailContext } from "./SessionDetailProvider";
 import {
   CLOSE_DETAIL_TAB_VALUE,
   type DetailSectionTab,
@@ -41,12 +42,11 @@ import {
   SECTION_TAB_TEXT_CLASS,
   useSessionDetailSectionTabs,
 } from "./hooks/useSessionDetailSectionTabs";
+import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
 import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 import { useSessionDetailViewExplorerSectionProps } from "./hooks/useSessionDetailViewExplorerSectionProps";
 import { useSessionDetailViewShellSectionProps } from "./hooks/useSessionDetailViewShellSectionProps";
-import type { SessionDetailVM } from "./useSessionDetailVM";
-
-export type SessionDetailViewProps = SessionDetailVM;
+import { useScreenPanelState } from "./hooks/useScreenPanelState";
 
 const MISSING_SESSION_GRACE_MS = 1600;
 
@@ -108,36 +108,24 @@ const resolveMissingSessionState = (connectionIssue: string | null) => {
   };
 };
 
-export const SessionDetailView = ({
-  meta,
-  sidebar,
-  layout,
-  timeline,
-  screen,
-  controls,
-  diffs,
-  files,
-  commits,
-  notes,
-  logs,
-  title,
-  actions,
-}: SessionDetailViewProps) => {
-  const { session } = meta;
-  const missingSessionState = resolveMissingSessionState(meta.connectionIssue);
+export const SessionDetailView = () => {
+  const { base } = useSessionDetailContext();
+  const { session, connectionIssue, connected } = base;
+  const missingSessionState = resolveMissingSessionState(connectionIssue);
   const sessionDisplayTitle =
     session?.customTitle ?? session?.title ?? session?.sessionName ?? null;
   const documentTitle = buildSessionDocumentTitle(sessionDisplayTitle);
   const backToListSearch = useMemo(() => ({ filter: readStoredSessionListFilter() }), []);
   const {
     is2xlUp,
+    isMobile,
     sidebarWidth,
     handleSidebarPointerDown,
     detailSplitRatio,
     detailSplitRef,
     handleDetailSplitPointerDown,
-  } = layout;
-  const isMobileDetailLayout = timeline.isMobile;
+  } = useSessionDetailLayoutState();
+  const isMobileDetailLayout = isMobile;
   const {
     selectedSectionTabValue,
     sectionTabsIconOnly,
@@ -149,43 +137,21 @@ export const SessionDetailView = ({
   const [missingSessionGraceElapsed, setMissingSessionGraceElapsed] = useState(false);
   const missingSessionGraceTimer = useTimeout();
   const { diffSectionProps, stateTimelineSectionProps, commitSectionProps, notesSectionProps } =
-    useSessionDetailViewDataSectionProps({
-      meta,
-      timeline,
-      screen,
-      diffs,
-      files,
-      commits,
-      notes,
-    });
+    useSessionDetailViewDataSectionProps({ isMobile });
   const {
     fileNavigatorSectionProps,
     fileContentModalProps,
     screenPanelProps,
     logFileCandidateModalProps,
-  } = useSessionDetailViewExplorerSectionProps({
-    meta,
-    sidebar,
-    screen,
-    controls,
-    files,
-    diffs,
-    actions,
-  });
+  } = useSessionDetailViewExplorerSectionProps();
   const {
     quickPanelProps,
     logModalProps,
     sessionHeaderProps,
     sessionSidebarProps,
     controlsPanelProps,
-  } = useSessionDetailViewShellSectionProps({
-    meta,
-    sidebar,
-    controls,
-    logs,
-    title,
-    actions,
-  });
+  } = useSessionDetailViewShellSectionProps();
+  const screenState = useScreenPanelState();
   const controlsPanelKeysSection = useMemo(
     () => (
       <Card className="p-3 sm:p-4">
@@ -202,50 +168,50 @@ export const SessionDetailView = ({
     () => <ControlsPanel {...controlsPanelProps} />,
     [controlsPanelProps],
   );
-  const hasConnectionIssue = splitConnectionIssueLines(meta.connectionIssue).length > 0;
+  const hasConnectionIssue = splitConnectionIssueLines(connectionIssue).length > 0;
   const isSessionMissing = !session || !sessionHeaderProps;
-  const isInitialSessionLoading = isSessionMissing && !meta.connected && !hasConnectionIssue;
-  const shouldDelayMissingState = isSessionMissing && meta.connected && !hasConnectionIssue;
+  const isInitialSessionLoading = isSessionMissing && !connected && !hasConnectionIssue;
+  const shouldDelayMissingState = isSessionMissing && connected && !hasConnectionIssue;
   const worktreeSectionProps = {
     state: {
-      worktreeSelectorEnabled: screen.worktreeSelectorEnabled ?? false,
-      worktreeSelectorLoading: screen.worktreeSelectorLoading ?? false,
-      worktreeSelectorError: screen.worktreeSelectorError ?? null,
-      worktreeEntries: screen.worktreeEntries ?? [],
-      worktreeRepoRoot: screen.worktreeRepoRoot ?? null,
-      worktreeBaseBranch: screen.worktreeBaseBranch ?? null,
-      actualWorktreePath: screen.actualWorktreePath ?? null,
-      virtualWorktreePath: screen.virtualWorktreePath ?? null,
+      worktreeSelectorEnabled: screenState.worktreeSelectorEnabled ?? false,
+      worktreeSelectorLoading: screenState.worktreeSelectorLoading ?? false,
+      worktreeSelectorError: screenState.worktreeSelectorError ?? null,
+      worktreeEntries: screenState.worktreeEntries ?? [],
+      worktreeRepoRoot: screenState.worktreeRepoRoot ?? null,
+      worktreeBaseBranch: screenState.worktreeBaseBranch ?? null,
+      actualWorktreePath: screenState.actualWorktreePath ?? null,
+      virtualWorktreePath: screenState.virtualWorktreePath ?? null,
     },
     actions: {
       onRefreshWorktrees: () => {
-        void (screen.handleRefreshWorktrees ?? screen.handleRefreshScreen)();
+        void (screenState.handleRefreshWorktrees ?? screenState.handleRefreshScreen)();
       },
-      onSelectVirtualWorktree: screen.selectVirtualWorktree,
-      onClearVirtualWorktree: screen.clearVirtualWorktree,
+      onSelectVirtualWorktree: screenState.selectVirtualWorktree,
+      onClearVirtualWorktree: screenState.clearVirtualWorktree,
     },
   };
   const branchSectionProps = {
     state: {
-      branches: screen.branches ?? [],
-      repoRoot: screen.branchRepoRoot ?? null,
-      currentBranch: screen.currentBranch ?? null,
-      virtualBranch: screen.virtualBranch ?? null,
-      branchesLoading: screen.branchesLoading ?? false,
-      branchesError: screen.branchesError ?? null,
-      mutating: screen.branchMutating ?? null,
-      mutationError: screen.branchMutationError ?? null,
+      branches: screenState.branches ?? [],
+      repoRoot: screenState.branchRepoRoot ?? null,
+      currentBranch: screenState.currentBranch ?? null,
+      virtualBranch: screenState.virtualBranch ?? null,
+      branchesLoading: screenState.branchesLoading ?? false,
+      branchesError: screenState.branchesError ?? null,
+      mutating: screenState.branchMutating ?? null,
+      mutationError: screenState.branchMutationError ?? null,
     },
     actions: {
       onRefreshBranches: () => {
-        void screen.refreshBranches?.();
+        void screenState.refreshBranches?.();
       },
-      onSelectVirtualBranch: screen.selectVirtualBranch,
-      onClearVirtualBranch: screen.clearVirtualBranch,
-      onCheckoutBranch: screen.checkoutBranch,
-      onCreateBranch: screen.createBranch,
-      onDeleteBranch: screen.deleteBranch,
-      onClearMutationError: screen.clearBranchMutationError,
+      onSelectVirtualBranch: screenState.selectVirtualBranch,
+      onClearVirtualBranch: screenState.clearVirtualBranch,
+      onCheckoutBranch: screenState.checkoutBranch,
+      onCreateBranch: screenState.createBranch,
+      onDeleteBranch: screenState.deleteBranch,
+      onClearMutationError: screenState.clearBranchMutationError,
     },
   };
   const mobileSectionTabs: DetailSectionTabDefinition[] = [

@@ -1,0 +1,135 @@
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { createSessionDetail } from "../test-helpers";
+import { useScreenPanelState } from "./useScreenPanelState";
+
+let mockContextValue: Record<string, unknown> = {};
+
+vi.mock("../SessionDetailProvider", () => ({
+  useSessionDetailContext: () => mockContextValue,
+}));
+
+const buildContextValue = (
+  overrides: {
+    sessionAgent?: "codex" | "claude" | "unknown";
+    screenText?: string;
+  } = {},
+) => {
+  const session = createSessionDetail({
+    paneId: "pane-1",
+    agent: overrides.sessionAgent ?? "codex",
+  });
+  return {
+    base: {
+      session,
+      screenText: overrides.screenText ?? "",
+    },
+    terminal: {
+      screen: {
+        mode: "text",
+        wrapMode: "off",
+        screenLines: ["line"],
+        imageBase64: null,
+        fallbackReason: null,
+        error: null,
+        pollingPauseReason: null,
+        isScreenLoading: false,
+        isAtBottom: true,
+        handleAtBottomChange: vi.fn(),
+        handleUserScrollStateChange: vi.fn(),
+        forceFollow: false,
+        scrollToBottom: vi.fn(),
+        handleModeChange: vi.fn(),
+        toggleWrapMode: vi.fn(),
+        virtuosoRef: { current: null },
+        scrollerRef: { current: null },
+      },
+      handleRefreshScreen: vi.fn(),
+    },
+    scope: {
+      virtualWorktree: {
+        refreshWorktrees: vi.fn(),
+        effectiveBranch: null,
+        effectiveWorktreePath: null,
+        repoRoot: null,
+        baseBranch: null,
+        selectorEnabled: false,
+        loading: false,
+        error: null,
+        entries: [],
+        actualWorktreePath: null,
+        virtualWorktreePath: null,
+        clearVirtualWorktree: vi.fn(),
+      },
+      branches: {
+        branches: [],
+        branchList: null,
+        currentBranch: null,
+        branchesLoading: false,
+        branchesError: null,
+        mutating: null,
+        mutationError: null,
+        clearMutationError: vi.fn(),
+        refreshBranches: vi.fn(),
+      },
+      virtualBranch: {
+        virtualBranch: null,
+        clearVirtualBranch: vi.fn(),
+      },
+      selectVirtualWorktree: vi.fn(),
+      selectVirtualBranch: vi.fn(),
+      checkoutBranch: vi.fn(async () => true),
+      createBranch: vi.fn(async () => true),
+      deleteBranch: vi.fn(async () => true),
+    },
+    pushNotifications: {
+      status: "idle",
+      pushEnabled: true,
+      isSubscribed: false,
+      isPaneEnabled: false,
+      requestPermissionAndSubscribe: vi.fn(),
+      togglePaneEnabled: vi.fn(),
+    },
+  };
+};
+
+describe("useScreenPanelState", () => {
+  it("derives latest codex context-left label from screen text", () => {
+    mockContextValue = buildContextValue({
+      sessionAgent: "codex",
+      screenText: "Context 91% left\n[32mContext 74% left[0m",
+    });
+
+    const { result } = renderHook(() => useScreenPanelState());
+
+    expect(result.current.contextLeftLabel).toBe("Context 74% left");
+  });
+
+  it("ignores context-left label for non-codex sessions", () => {
+    mockContextValue = buildContextValue({
+      sessionAgent: "claude",
+      screenText: "63% context left",
+    });
+
+    const { result } = renderHook(() => useScreenPanelState());
+
+    expect(result.current.contextLeftLabel).toBeNull();
+  });
+
+  it("maps worktree/branch subhook fields into the disambiguated ScreenPanel shape", () => {
+    mockContextValue = buildContextValue();
+    (mockContextValue.scope as { virtualWorktree: Record<string, unknown> }).virtualWorktree = {
+      ...(mockContextValue.scope as { virtualWorktree: Record<string, unknown> }).virtualWorktree,
+      selectorEnabled: true,
+      repoRoot: "/repo",
+      baseBranch: "main",
+    };
+
+    const { result } = renderHook(() => useScreenPanelState());
+
+    expect(result.current.worktreeSelectorEnabled).toBe(true);
+    expect(result.current.worktreeRepoRoot).toBe("/repo");
+    expect(result.current.worktreeBaseBranch).toBe("main");
+  });
+});

@@ -6,7 +6,7 @@ import {
   createRouter,
 } from "@tanstack/react-router";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import type { LaunchCommandResponse } from "@vde-monitor/shared";
+import type { LaunchCommandResponse, SessionDetail } from "@vde-monitor/shared";
 import type { MutableRefObject, ReactNode } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,11 +15,76 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionGroups } from "@/lib/session-group";
 import { ThemeProvider } from "@/state/theme-context";
 
-import { SessionDetailView, type SessionDetailViewProps } from "./SessionDetailView";
+import { SessionDetailView } from "./SessionDetailView";
 import { createSessionDetail } from "./test-helpers";
 
 vi.mock("./components/SessionSidebar", () => ({
   SessionSidebar: () => <div data-testid="session-sidebar" />,
+}));
+
+const defaultLaunchResponse: LaunchCommandResponse = {
+  ok: true as const,
+  result: {
+    sessionName: "session",
+    agent: "codex" as const,
+    windowId: "@1",
+    windowIndex: 1,
+    windowName: "codex-work",
+    paneId: "%1",
+    launchedCommand: "codex" as const,
+    resolvedOptions: [],
+    verification: {
+      status: "verified" as const,
+      observedCommand: "codex",
+      attempts: 1,
+    },
+  },
+  rollback: { attempted: false, ok: true as const },
+};
+
+// SessionDetailView now reads SessionDetailContext + a handful of dedicated
+// hooks directly instead of receiving one namespaced VM props object. These
+// module-level mocks stand in for that context/hooks so the view can still be
+// exercised as a pure function of "what state currently exists", the same way
+// the old prop-based tests did.
+let mockContextValue: ReturnType<typeof buildDefaultContextValue>;
+let mockLayoutValue: ReturnType<typeof buildDefaultLayoutValue>;
+
+vi.mock("./SessionDetailProvider", () => ({
+  useSessionDetailContext: () => mockContextValue,
+}));
+
+vi.mock("./hooks/useSessionDetailLayoutState", () => ({
+  useSessionDetailLayoutState: () => mockLayoutValue,
+}));
+
+vi.mock("./hooks/useSessionTitleEditor", () => ({
+  useSessionTitleEditor: () => ({
+    titleDraft: "",
+    titleEditing: false,
+    titleSaving: false,
+    titleError: null,
+    openTitleEditor: vi.fn(),
+    closeTitleEditor: vi.fn(),
+    updateTitleDraft: vi.fn(),
+    saveTitle: vi.fn(),
+    resetTitle: vi.fn(),
+  }),
+}));
+
+vi.mock("./hooks/useSessionRepoNotes", () => ({
+  useSessionRepoNotes: () => ({
+    notes: [],
+    notesLoading: false,
+    notesError: null,
+    creatingNote: false,
+    savingNoteId: null,
+    deletingNoteId: null,
+    refreshNotes: vi.fn(),
+    createNote: vi.fn(async () => true),
+    saveNote: vi.fn(async () => true),
+    removeNote: vi.fn(async () => true),
+  }),
 }));
 
 const DETAIL_SECTION_TAB_STORAGE_KEY = "vde-monitor-session-detail-section-tab";
@@ -50,170 +115,117 @@ const renderWithRouter = (ui: ReactNode) => {
   );
 };
 
-type SessionDetailViewOverrides = {
-  meta?: Partial<SessionDetailViewProps["meta"]>;
-  sidebar?: Partial<SessionDetailViewProps["sidebar"]>;
-  layout?: Partial<SessionDetailViewProps["layout"]>;
-  timeline?: Partial<SessionDetailViewProps["timeline"]>;
-  screen?: Partial<SessionDetailViewProps["screen"]>;
-  controls?: Partial<SessionDetailViewProps["controls"]>;
-  diffs?: Partial<SessionDetailViewProps["diffs"]>;
-  files?: Partial<SessionDetailViewProps["files"]>;
-  commits?: Partial<SessionDetailViewProps["commits"]>;
-  notes?: Partial<SessionDetailViewProps["notes"]>;
-  logs?: Partial<SessionDetailViewProps["logs"]>;
-  title?: Partial<SessionDetailViewProps["title"]>;
-  actions?: Partial<SessionDetailViewProps["actions"]>;
+const buildDefaultLayoutValue = () => {
+  return {
+    is2xlUp: false,
+    isMobile: false,
+    sidebarWidth: 240,
+    handleSidebarPointerDown: vi.fn(),
+    detailSplitRatio: 0.5,
+    detailSplitRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
+    handleDetailSplitPointerDown: vi.fn(),
+  };
 };
 
-const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDetailViewProps => {
-  const defaultLaunchResponse: LaunchCommandResponse = {
-    ok: true as const,
-    result: {
-      sessionName: "session",
-      agent: "codex" as const,
-      windowId: "@1",
-      windowIndex: 1,
-      windowName: "codex-work",
-      paneId: "%1",
-      launchedCommand: "codex" as const,
-      resolvedOptions: [],
-      verification: {
-        status: "verified" as const,
-        observedCommand: "codex",
-        attempts: 1,
-      },
-    },
-    rollback: { attempted: false, ok: true as const },
-  };
-  const base: SessionDetailViewProps = {
-    meta: {
+const buildDefaultContextValue = () => {
+  return {
+    base: {
       paneId: "pane-1",
-      session: null,
+      session: null as SessionDetail | null,
       nowMs: 0,
       connected: false,
-      connectionIssue: null,
-    },
-    sidebar: {
-      sessionGroups: buildSessionGroups([]),
-      getRepoSortAnchorAt: () => null,
-      connected: false,
-      connectionIssue: null,
+      connectionStatus: "healthy" as const,
+      connectionIssue: null as string | null,
+      highlightCorrections: { codex: true, claude: true },
+      fileNavigatorConfig: { autoExpandMatchLimit: 100 },
       launchConfig: {
         agents: {
           codex: { options: [] },
           claude: { options: [] },
         },
       },
+      resolvedTheme: "latte" as const,
+      screenText: "",
+      sessions: [] as SessionDetail[],
+      token: null,
+      apiBaseUrl: null,
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),
-      highlightCorrections: { codex: true, claude: true },
-      resolvedTheme: "latte",
+      requestBranches: vi.fn(),
+      requestBranchCheckout: vi.fn(),
+      requestBranchCreate: vi.fn(),
+      requestBranchDelete: vi.fn(),
+      requestDiffSummary: vi.fn(),
+      requestDiffFile: vi.fn(),
+      requestCommitLog: vi.fn(),
+      requestCommitDetail: vi.fn(),
+      requestCommitFile: vi.fn(),
+      requestRepoNotes: vi.fn(),
+      requestRepoFileTree: vi.fn(),
+      requestRepoFileSearch: vi.fn(),
+      requestRepoFileContent: vi.fn(),
+      focusPane: vi.fn(),
+      killPane: vi.fn(),
+      killWindow: vi.fn(),
+      refreshSessions: vi.fn(),
+      launchAgentInSession: vi.fn(async () => defaultLaunchResponse),
+      uploadImageAttachment: vi.fn(),
+      sendText: vi.fn(),
+      sendKeys: vi.fn(),
+      sendRaw: vi.fn(),
+      touchSession: vi.fn(),
+      updateSessionTitle: vi.fn(),
+      resetSessionTitle: vi.fn(),
+      createRepoNote: vi.fn(),
+      updateRepoNote: vi.fn(),
+      deleteRepoNote: vi.fn(),
     },
-    layout: {
-      is2xlUp: false,
-      sidebarWidth: 240,
-      handleSidebarPointerDown: vi.fn(),
-      detailSplitRatio: 0.5,
-      detailSplitRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
-      handleDetailSplitPointerDown: vi.fn(),
+    repoPins: {
+      sessionGroups: buildSessionGroups([]),
+      getRepoSortAnchorAt: () => null,
+      paneRepoRootMap: new Map<string, string | null>(),
+      touchRepoSortAnchor: vi.fn(),
     },
-    timeline: {
-      timeline: null,
-      timelineScope: "pane",
-      timelineRange: "1h",
-      hasRepoTimeline: true,
-      timelineError: null,
-      timelineLoading: false,
-      timelineExpanded: true,
-      isMobile: false,
-      setTimelineScope: vi.fn(),
-      setTimelineRange: vi.fn(),
-      toggleTimelineExpanded: vi.fn(),
-      refreshTimeline: vi.fn(),
-    },
-    screen: {
-      mode: "text",
-      wrapMode: "off",
-      screenLines: [],
-      imageBase64: null,
-      fallbackReason: null,
-      error: null,
-      pollingPauseReason: null,
-      contextLeftLabel: null,
-      isScreenLoading: false,
-      isAtBottom: true,
-      handleAtBottomChange: vi.fn(),
-      handleUserScrollStateChange: vi.fn(),
-      forceFollow: false,
-      scrollToBottom: vi.fn(),
-      handleModeChange: vi.fn(),
-      toggleWrapMode: vi.fn(),
-      virtuosoRef: { current: null } as MutableRefObject<VirtuosoHandle | null>,
-      scrollerRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
-      handleRefreshScreen: vi.fn(),
-      handleRefreshWorktrees: vi.fn(),
-      effectiveBranch: null,
-      effectiveWorktreePath: null,
-      worktreeRepoRoot: null,
-      worktreeBaseBranch: null,
-      worktreeSelectorEnabled: false,
-      worktreeSelectorLoading: false,
-      worktreeSelectorError: null,
-      worktreeEntries: [],
-      actualWorktreePath: null,
-      virtualWorktreePath: null,
+    scope: {
+      virtualWorktree: {
+        selectorEnabled: false,
+        loading: false,
+        error: null as string | null,
+        repoRoot: null as string | null,
+        baseBranch: null as string | null,
+        entries: [] as unknown[],
+        actualWorktreePath: null as string | null,
+        virtualWorktreePath: null as string | null,
+        effectiveWorktreePath: null as string | null,
+        effectiveBranch: null as string | null,
+        selectVirtualWorktree: vi.fn(),
+        clearVirtualWorktree: vi.fn(),
+        refreshWorktrees: vi.fn(),
+      },
+      branches: {
+        branches: [] as unknown[],
+        branchList: null,
+        currentBranch: null as string | null,
+        branchesLoading: false,
+        branchesError: null as string | null,
+        mutating: null,
+        mutationError: null as string | null,
+        clearMutationError: vi.fn(),
+        refreshBranches: vi.fn(),
+      },
+      virtualBranch: {
+        virtualBranch: null as string | null,
+        selectVirtualBranch: vi.fn(),
+        clearVirtualBranch: vi.fn(),
+      },
+      effectiveBranchScope: null as string | null,
+      effectiveWorktreeScope: null as string | null,
+      selectVirtualBranch: vi.fn(),
       selectVirtualWorktree: vi.fn(),
-      clearVirtualWorktree: vi.fn(),
-      branches: [],
-      branchRepoRoot: null,
-      currentBranch: null,
-      virtualBranch: null,
-      branchesLoading: false,
-      branchesError: null,
-      branchMutating: null,
-      branchMutationError: null,
-      clearBranchMutationError: vi.fn(),
-      refreshBranches: vi.fn(),
       checkoutBranch: vi.fn(async () => true),
       createBranch: vi.fn(async () => true),
       deleteBranch: vi.fn(async () => true),
-      selectVirtualBranch: vi.fn(),
-      clearVirtualBranch: vi.fn(),
-      notificationStatus: "idle",
-      notificationPushEnabled: true,
-      notificationSubscribed: false,
-      notificationPaneEnabled: false,
-      requestNotificationPermission: vi.fn(async () => undefined),
-      togglePaneNotification: vi.fn(async () => undefined),
-    },
-    controls: {
-      interactive: true,
-      isSendingText: false,
-      textInputRef: { current: null } as MutableRefObject<HTMLTextAreaElement | null>,
-      autoEnter: false,
-      shiftHeld: false,
-      ctrlHeld: false,
-      rawMode: false,
-      allowDangerKeys: false,
-      handleSendKey: vi.fn(),
-      handleSendPermissionShortcut: vi.fn(),
-      handleKillPane: vi.fn(),
-      handleKillWindow: vi.fn(),
-      handleSendText: vi.fn(),
-      handleUploadImage: vi.fn(),
-      handleRawBeforeInput: vi.fn(),
-      handleRawInput: vi.fn(),
-      handleRawKeyDown: vi.fn(),
-      handleRawCompositionStart: vi.fn(),
-      handleRawCompositionEnd: vi.fn(),
-      toggleAutoEnter: vi.fn(),
-      toggleShift: vi.fn(),
-      toggleCtrl: vi.fn(),
-      toggleRawMode: vi.fn(),
-      toggleAllowDangerKeys: vi.fn(),
-      handleTouchSession: vi.fn(),
     },
     diffs: {
       diffSummary: null,
@@ -292,70 +304,129 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}): SessionDet
       toggleCommitFile: vi.fn(),
       copyHash: vi.fn(),
     },
-    notes: {
-      repoRoot: null,
-      notes: [],
-      notesLoading: false,
-      notesError: null,
-      creatingNote: false,
-      savingNoteId: null,
-      deletingNoteId: null,
-      refreshNotes: vi.fn(),
-      createNote: vi.fn(async () => true),
-      saveNote: vi.fn(async () => true),
-      removeNote: vi.fn(async () => true),
+    timelineLogsActions: {
+      timeline: {
+        timeline: null,
+        timelineScope: "pane",
+        timelineRange: "1h",
+        hasRepoTimeline: true,
+        timelineError: null,
+        timelineLoading: false,
+        timelineExpanded: true,
+        setTimelineScope: vi.fn(),
+        setTimelineRange: vi.fn(),
+        toggleTimelineExpanded: vi.fn(),
+        refreshTimeline: vi.fn(),
+      },
+      logs: {
+        quickPanelOpen: false,
+        logModalOpen: false,
+        selectedSession: null,
+        selectedLogLines: [],
+        selectedLogLoading: false,
+        selectedLogError: null,
+        openLogModal: vi.fn(),
+        closeLogModal: vi.fn(),
+        toggleQuickPanel: vi.fn(),
+        closeQuickPanel: vi.fn(),
+      },
+      actions: {
+        handleOpenPaneInNewWindow: vi.fn(),
+        handleOpenInNewTab: vi.fn(),
+        handleFocusPane: vi.fn(),
+        handleOpenPaneHere: vi.fn(),
+        handleOpenHere: vi.fn(),
+        handleTouchRepoPin: vi.fn(),
+        handleLaunchAgentInSession: vi.fn(async () => defaultLaunchResponse),
+        handleTouchCurrentSession: vi.fn(),
+        handleTouchPaneWithRepoAnchor: vi.fn(),
+      },
     },
-    logs: {
-      quickPanelOpen: false,
-      logModalOpen: false,
-      selectedSession: null,
-      selectedLogLines: [],
-      selectedLogLoading: false,
-      selectedLogError: null,
-      openLogModal: vi.fn(),
-      closeLogModal: vi.fn(),
-      toggleQuickPanel: vi.fn(),
-      closeQuickPanel: vi.fn(),
+    terminal: {
+      screen: {
+        mode: "text",
+        wrapMode: "off",
+        screenLines: [] as string[],
+        imageBase64: null,
+        fallbackReason: null,
+        error: null as string | null,
+        pollingPauseReason: null,
+        setScreenError: vi.fn(),
+        isScreenLoading: false,
+        isAtBottom: true,
+        handleAtBottomChange: vi.fn(),
+        handleUserScrollStateChange: vi.fn(),
+        forceFollow: false,
+        scrollToBottom: vi.fn(),
+        handleModeChange: vi.fn(),
+        toggleWrapMode: vi.fn(),
+        virtuosoRef: { current: null } as MutableRefObject<VirtuosoHandle | null>,
+        scrollerRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
+      },
+      controls: {
+        textInputRef: { current: null } as MutableRefObject<HTMLTextAreaElement | null>,
+        autoEnter: false,
+        shiftHeld: false,
+        ctrlHeld: false,
+        rawMode: false,
+        allowDangerKeys: false,
+        isSendingText: false,
+        handleSendKey: vi.fn(),
+        handleSendPermissionShortcut: vi.fn(),
+        handleKillPane: vi.fn(),
+        handleKillWindow: vi.fn(),
+        handleSendText: vi.fn(),
+        handleUploadImage: vi.fn(),
+        handleRawBeforeInput: vi.fn(),
+        handleRawInput: vi.fn(),
+        handleRawKeyDown: vi.fn(),
+        handleRawCompositionStart: vi.fn(),
+        handleRawCompositionEnd: vi.fn(),
+        toggleAutoEnter: vi.fn(),
+        toggleShift: vi.fn(),
+        toggleCtrl: vi.fn(),
+        toggleRawMode: vi.fn(),
+        toggleAllowDangerKeys: vi.fn(),
+      },
+      handleRefreshScreen: vi.fn(),
     },
-    title: {
-      titleDraft: "",
-      titleEditing: false,
-      titleSaving: false,
-      titleError: null,
-      openTitleEditor: vi.fn(),
-      closeTitleEditor: vi.fn(),
-      updateTitleDraft: vi.fn(),
-      saveTitle: vi.fn(),
-      resetTitle: vi.fn(),
-    },
-    actions: {
-      handleFocusPane: vi.fn(),
-      handleLaunchAgentInSession: vi.fn(async () => defaultLaunchResponse),
-      handleTouchPane: vi.fn(),
-      handleTouchRepoPin: vi.fn(),
-      handleOpenPaneHere: vi.fn(),
-      handleOpenPaneInNewWindow: vi.fn(),
-      handleOpenHere: vi.fn(),
-      handleOpenInNewTab: vi.fn(),
+    pushNotifications: {
+      status: "idle",
+      pushEnabled: true,
+      isSubscribed: false,
+      isPaneEnabled: false,
+      requestPermissionAndSubscribe: vi.fn(async () => undefined),
+      togglePaneEnabled: vi.fn(async () => undefined),
     },
   };
+};
 
-  return {
-    ...base,
-    meta: { ...base.meta, ...overrides.meta },
-    sidebar: { ...base.sidebar, ...overrides.sidebar },
-    layout: { ...base.layout, ...overrides.layout },
-    timeline: { ...base.timeline, ...overrides.timeline },
-    screen: { ...base.screen, ...overrides.screen },
-    controls: { ...base.controls, ...overrides.controls },
-    diffs: { ...base.diffs, ...overrides.diffs },
-    files: { ...base.files, ...overrides.files },
-    commits: { ...base.commits, ...overrides.commits },
-    notes: { ...base.notes, ...overrides.notes },
-    logs: { ...base.logs, ...overrides.logs },
-    title: { ...base.title, ...overrides.title },
-    actions: { ...base.actions, ...overrides.actions },
-  };
+type SessionDetailViewOverrides = {
+  meta?: { session?: SessionDetail | null; connected?: boolean; connectionIssue?: string | null };
+  timeline?: { isMobile?: boolean };
+  screen?: { worktreeSelectorEnabled?: boolean };
+};
+
+// Rebuilds the mocked SessionDetailContext + layout state consumed by
+// SessionDetailView for each test. Kept as a drop-in replacement for the old
+// prop-object builder so individual `it()` bodies (which only ever override
+// meta/timeline/screen) did not need to change.
+const createViewProps = (overrides: SessionDetailViewOverrides = {}) => {
+  mockContextValue = buildDefaultContextValue();
+  mockLayoutValue = buildDefaultLayoutValue();
+
+  if (overrides.meta) {
+    Object.assign(mockContextValue.base, overrides.meta);
+  }
+  if (overrides.timeline?.isMobile !== undefined) {
+    mockLayoutValue.isMobile = overrides.timeline.isMobile;
+  }
+  if (overrides.screen?.worktreeSelectorEnabled !== undefined) {
+    mockContextValue.scope.virtualWorktree.selectorEnabled =
+      overrides.screen.worktreeSelectorEnabled;
+  }
+
+  return {};
 };
 
 describe("SessionDetailView", () => {
