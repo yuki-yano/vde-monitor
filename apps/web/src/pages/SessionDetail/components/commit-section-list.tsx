@@ -232,7 +232,7 @@ const CommitFileRow = memo(
           }
           onClick={toggleFile}
           onKeyDown={handleFileKeyDown}
-          className="focus-visible:ring-latte-lavender/30 grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2"
+          className="focus-visible:ring-latte-lavender/30 grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md focus-visible:outline-hidden focus-visible:ring-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <TagPill tone="status" className={cn(diffStatusClass(statusLabel), "shrink-0")}>
@@ -409,7 +409,7 @@ const CommitItem = memo(
           aria-label={
             isOpen ? `Collapse commit ${commit.shortHash}` : `Expand commit ${commit.shortHash}`
           }
-          className="focus-visible:ring-latte-lavender/30 flex w-full cursor-pointer flex-wrap items-start gap-2.5 rounded-md px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 sm:gap-3 sm:px-3 sm:py-2"
+          className="focus-visible:ring-latte-lavender/30 flex w-full cursor-pointer flex-wrap items-start gap-2.5 rounded-md px-2.5 py-1.5 focus-visible:outline-hidden focus-visible:ring-2 sm:gap-3 sm:px-3 sm:py-2"
           onClick={toggleCommit}
           onKeyDown={handleCommitKeyDown}
         >

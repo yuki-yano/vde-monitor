@@ -53,7 +53,7 @@ const SessionListLoadingSkeleton = () => (
           contentClassName="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-gradient-to-br">
+            <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-linear-to-br">
               <div className="animate-skeleton-shimmer bg-latte-lavender/40 absolute inset-y-0 left-0 w-5 rounded-2xl" />
             </div>
             <div className="min-w-0 space-y-1">

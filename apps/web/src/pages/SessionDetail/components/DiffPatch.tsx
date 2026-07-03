@@ -210,7 +210,7 @@ const DiffPatch = memo(
     return (
       <MonoBlock onClick={handleResolveFileReference} onKeyDown={handleResolveFileReferenceKeyDown}>
         {renderedLines.map((line) => (
-          <div key={line.key} className={cn(line.className, "-mx-2 block w-full rounded-sm px-2")}>
+          <div key={line.key} className={cn(line.className, "-mx-2 block w-full rounded-xs px-2")}>
             {line.content}
           </div>
         ))}

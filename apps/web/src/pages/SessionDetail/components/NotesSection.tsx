@@ -349,7 +349,7 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
             type="button"
             size="sm"
             variant="base"
-            className="border-latte-lavender/70 bg-latte-lavender text-latte-base shadow-glow hover:border-latte-lavender/80 hover:bg-latte-lavender hover:translate-y-[-1px]"
+            className="border-latte-lavender/70 bg-latte-lavender text-latte-base shadow-glow hover:border-latte-lavender/80 hover:bg-latte-lavender hover:-translate-y-px"
             aria-label="Add note"
             onClick={handleAddNote}
             disabled={!repoRoot || creatingNote}

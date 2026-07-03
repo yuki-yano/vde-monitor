@@ -59,7 +59,7 @@ const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarH
       <Link
         to="/"
         search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
-        className="hover:text-latte-lavender focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-none transition focus-visible:ring-2"
+        className="hover:text-latte-lavender focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-hidden transition focus-visible:ring-2"
         aria-label="Go to top"
       >
         <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>

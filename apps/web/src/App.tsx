@@ -38,7 +38,7 @@ const AppShell = () => {
         window.location.reload();
       }}
       refreshingContent={
-        <div className="bg-latte-base/45 pointer-events-none fixed inset-0 z-[120] flex items-center justify-center backdrop-blur-md">
+        <div className="bg-latte-base/45 pointer-events-none fixed inset-0 z-120 flex items-center justify-center backdrop-blur-md">
           <Spinner size="md" className="h-10 w-10" />
         </div>
       }

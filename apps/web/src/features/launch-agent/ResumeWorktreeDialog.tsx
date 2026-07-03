@@ -288,7 +288,7 @@ export const ResumeWorktreeDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[50%] flex max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom)_-_3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] flex-col overflow-hidden sm:w-[min(760px,calc(100vw-1.5rem))]">
+      <DialogContent className="top-[50%] flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] flex-col overflow-hidden sm:w-[min(760px,calc(100vw-1.5rem))]">
         <DialogHeader>
           <DialogTitle>Resume / Move Worktree</DialogTitle>
           <DialogDescription>
@@ -312,7 +312,7 @@ export const ResumeWorktreeDialog = ({
                 <label className="border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition">
                   <input
                     aria-label="Override agent options"
-                    className="accent-latte-lavender border-latte-surface2 bg-latte-base focus:ring-latte-lavender/40 h-3.5 w-3.5 rounded border outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="accent-latte-lavender border-latte-surface2 bg-latte-base focus:ring-latte-lavender/40 h-3.5 w-3.5 rounded-sm border outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
                     type="checkbox"
                     checked={overrideAgentOptions}
                     onChange={(event) => setOverrideAgentOptions(event.currentTarget.checked)}
@@ -339,7 +339,7 @@ export const ResumeWorktreeDialog = ({
                       <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
                         <ZoomSafeTextarea
                           aria-label="Agent options override"
-                          className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-none"
+                          className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-hidden"
                           value={agentOptionsText}
                           onChange={(event) => {
                             setAgentOptionsText(event.target.value);

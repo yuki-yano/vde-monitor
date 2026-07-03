@@ -25,7 +25,7 @@ export const SessionWindowSection = ({
     <InsetPanel className="p-2.5 sm:p-4">
       <div className="flex items-center justify-between gap-2.5 pb-1.5 sm:gap-3 sm:pb-2 sm:pl-1">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-gradient-to-br">
+          <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-linear-to-br">
             <div className="bg-latte-sky/25 pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-full blur-xl" />
             <LayoutGrid className="text-latte-sky h-5 w-5" />
           </div>

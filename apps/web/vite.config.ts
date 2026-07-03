@@ -1,12 +1,13 @@
 import path from "node:path";
 
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://localhost:11080";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 24180,
     allowedHosts: [".ts.net"],

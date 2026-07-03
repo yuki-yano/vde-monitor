@@ -127,7 +127,7 @@ export const FileNavigatorSection = ({ state, actions }: FileNavigatorSectionPro
             onClick={() => actions.onSearchQueryChange("")}
             aria-label="Clear search query"
             title="Clear search query"
-            className="text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender/30 absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 transition focus-visible:outline-none focus-visible:ring-2"
+            className="text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender/30 absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 transition focus-visible:outline-hidden focus-visible:ring-2"
           >
             <X className="h-4 w-4" />
           </button>

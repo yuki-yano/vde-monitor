@@ -107,7 +107,7 @@ export const ScreenPanelPromptContext = ({
       <span
         ref={contextLabelMeasureRef}
         aria-hidden="true"
-        className="pointer-events-none fixed -left-[9999px] -top-[9999px] whitespace-nowrap px-1 text-[12px] font-medium tracking-[0.14em]"
+        className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap px-1 text-[12px] font-medium tracking-[0.14em]"
       >
         {contextLeftLabel}
       </span>
@@ -115,7 +115,7 @@ export const ScreenPanelPromptContext = ({
     <span
       ref={branchLabelMeasureRef}
       aria-hidden="true"
-      className="pointer-events-none fixed -left-[9999px] -top-[9999px] whitespace-nowrap font-mono text-[10px] font-semibold tracking-[0.05em]"
+      className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap font-mono text-[10px] font-semibold tracking-wider"
     />
     {promptGitContext || contextLeftLabel ? (
       <div
@@ -145,7 +145,7 @@ export const ScreenPanelPromptContext = ({
               <button
                 type="button"
                 className={cn(
-                  "border-latte-surface2/70 bg-latte-base/70 text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[10px] font-semibold tracking-[0.05em]",
+                  "border-latte-surface2/70 bg-latte-base/70 text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-[3px] text-[10px] font-semibold tracking-wider",
                   branchTriggerWidthClassName,
                 )}
                 title={gitBranchLabel ?? undefined}
@@ -163,7 +163,7 @@ export const ScreenPanelPromptContext = ({
               <TagPill
                 tone="neutral"
                 className={cn(
-                  "text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 px-2 py-[3px] text-[10px] font-semibold tracking-[0.05em]",
+                  "text-latte-text inline-flex min-w-0 max-w-full items-center gap-1 px-2 py-[3px] text-[10px] font-semibold tracking-wider",
                   branchTriggerWidthClassName,
                 )}
                 title={gitBranchLabel ?? undefined}

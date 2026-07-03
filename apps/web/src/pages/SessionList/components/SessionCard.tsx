@@ -100,7 +100,7 @@ const SessionCardComponent = ({
       >
         <div
           className={cn(
-            "pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br to-transparent opacity-50",
+            "pointer-events-none absolute inset-0 rounded-3xl bg-linear-to-br to-transparent opacity-50",
             stateStyle.overlay,
           )}
         />

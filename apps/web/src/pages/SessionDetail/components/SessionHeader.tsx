@@ -149,7 +149,7 @@ const SessionTitleInput = ({
       maxLength={80}
       enterKeyHint="done"
       disabled={titleSaving}
-      className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 min-w-[180px] flex-1 rounded-2xl border px-2.5 py-1 text-xl outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
+      className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 min-w-[180px] flex-1 rounded-2xl border px-2.5 py-1 text-xl outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
       aria-label="Custom session title"
     />
   );
@@ -297,7 +297,7 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
         </Link>
         <ThemeToggle />
       </div>
-      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur sm:gap-3 sm:p-4">
+      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
         <div className="flex flex-col gap-1.5 sm:gap-2">
           <SessionTitleArea
             canResetTitle={canResetTitle}

@@ -1,6 +1,72 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-latte-base: rgb(var(--ctp-base));
+  --color-latte-mantle: rgb(var(--ctp-mantle));
+  --color-latte-crust: rgb(var(--ctp-crust));
+  --color-latte-text: rgb(var(--ctp-text));
+  --color-latte-subtext1: rgb(var(--ctp-subtext1));
+  --color-latte-subtext0: rgb(var(--ctp-subtext0));
+  --color-latte-surface0: rgb(var(--ctp-surface0));
+  --color-latte-surface1: rgb(var(--ctp-surface1));
+  --color-latte-surface2: rgb(var(--ctp-surface2));
+  --color-latte-overlay0: rgb(var(--ctp-overlay0));
+  --color-latte-overlay1: rgb(var(--ctp-overlay1));
+  --color-latte-overlay2: rgb(var(--ctp-overlay2));
+  --color-latte-blue: rgb(var(--ctp-blue));
+  --color-latte-lavender: rgb(var(--ctp-lavender));
+  --color-latte-peach: rgb(var(--ctp-peach));
+  --color-latte-red: rgb(var(--ctp-red));
+  --color-latte-green: rgb(var(--ctp-green));
+  --color-latte-yellow: rgb(var(--ctp-yellow));
+  --color-latte-mauve: rgb(var(--ctp-mauve));
+  --color-latte-maroon: rgb(var(--ctp-maroon));
+
+  --font-display: Fraunces, serif;
+  --font-body: IBM Plex Sans, sans-serif;
+  --font-mono:
+    IBM Plex Mono, M PLUS 1 Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    Liberation Mono, monospace;
+
+  --shadow-elev-1: var(--shadow-elev-1);
+  --shadow-elev-2: var(--shadow-elev-2);
+  --shadow-elev-3: var(--shadow-elev-3);
+  --shadow-elev-4: var(--shadow-elev-4);
+  --shadow-elev-5: var(--shadow-elev-5);
+  --shadow-elev-6: var(--shadow-elev-6);
+  --shadow-inner-soft: var(--shadow-inner);
+  --shadow-glass: var(--shadow-glass);
+  --shadow-glow: var(--shadow-glow);
+  --shadow-accent-inset: var(--shadow-accent-inset);
+  --shadow-accent-outline: var(--shadow-accent-outline);
+  --shadow-accent-sm: var(--shadow-accent-sm);
+  --shadow-accent: var(--shadow-accent);
+  --shadow-accent-lg: var(--shadow-accent-lg);
+  --shadow-accent-panel: var(--shadow-accent-panel);
+  --shadow-surface-hover: var(--shadow-surface-hover);
+  --shadow-modal: var(--shadow-modal);
+  --shadow-popover: var(--shadow-popover);
+  --shadow-danger-outline: var(--shadow-danger-outline);
+  --shadow-inner-highlight: var(--shadow-inner-highlight);
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 @layer base {
   /* Remove double-tap-to-zoom delay heuristics on interactive elements. */

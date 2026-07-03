@@ -282,7 +282,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-1.5 sm:p-3 md:p-6">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-1.5 sm:p-3 md:p-6">
       <button
         type="button"
         aria-label="Close file content modal backdrop"

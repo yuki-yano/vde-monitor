@@ -20,7 +20,7 @@ export const ChatGridToolbar = ({
   onRefreshAllTiles,
 }: ChatGridToolbarProps) => {
   return (
-    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur sm:gap-4 sm:p-5">
+    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:gap-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-latte-subtext0 text-xs tracking-[0.24em]">VDE Monitor</p>

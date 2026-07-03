@@ -78,7 +78,7 @@ export const PwaWorkspaceTabs = () => {
   return (
     <div
       ref={rootRef}
-      className="pointer-events-none fixed inset-x-0 top-0 z-[90] pb-2 pt-[env(safe-area-inset-top)]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-90 pb-2 pt-[env(safe-area-inset-top)]"
     >
       <div
         aria-hidden="true"

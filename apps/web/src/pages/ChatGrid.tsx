@@ -24,7 +24,7 @@ export const ChatGridPage = () => {
       <>
         <title>{APP_DISPLAY_NAME}</title>
         <main className="flex min-h-screen items-center justify-center p-4">
-          <div className="border-latte-surface1/70 bg-latte-base/80 max-w-md space-y-3 rounded-2xl border p-5 text-center shadow-sm backdrop-blur">
+          <div className="border-latte-surface1/70 bg-latte-base/80 max-w-md space-y-3 rounded-2xl border p-5 text-center shadow-xs backdrop-blur-sm">
             <h1 className="font-display text-latte-text text-2xl">Chat Grid is desktop only</h1>
             <p className="text-latte-subtext1 text-sm leading-relaxed">
               Chat Grid is available on larger screens. Please open this page from a desktop

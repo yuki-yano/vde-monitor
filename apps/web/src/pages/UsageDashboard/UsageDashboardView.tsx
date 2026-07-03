@@ -207,7 +207,7 @@ export const UsageDashboardView = ({
             </Link>
             <ThemeToggle />
           </div>
-          <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur sm:p-6">
+          <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur-sm sm:p-6">
             <div>
               <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
               <h1 className="font-display text-latte-text text-3xl font-semibold tracking-tight sm:text-4xl">

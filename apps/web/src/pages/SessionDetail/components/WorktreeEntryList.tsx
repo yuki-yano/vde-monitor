@@ -104,7 +104,7 @@ export const WorktreeEntryList = ({
                 rel="noopener noreferrer"
                 aria-label={`Open pull request for ${entryBranchLabel}`}
                 title="Open pull request on GitHub"
-                className="focus-visible:ring-latte-lavender/30 group relative -m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2"
+                className="focus-visible:ring-latte-lavender/30 group relative -m-1.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2"
                 onClick={(event) => {
                   event.stopPropagation();
                 }}

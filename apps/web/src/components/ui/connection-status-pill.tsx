@@ -58,7 +58,7 @@ const ConnectionStatusPill = ({
       <span className={cn("h-2 w-2 rounded-full", styles.dot)} />
       <span>{label}</span>
       {showSseBadge && (
-        <span className="rounded bg-current/15 px-1 py-0.5 text-[10px] font-semibold leading-none tracking-wide opacity-80">
+        <span className="rounded-sm bg-current/15 px-1 py-0.5 text-[10px] font-semibold leading-none tracking-wide opacity-80">
           SSE
         </span>
       )}

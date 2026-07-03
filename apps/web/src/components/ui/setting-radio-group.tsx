@@ -60,7 +60,7 @@ const SettingRadioGroup = <T extends string>({
               value={option.value}
               disabled={option.disabled}
               className={cn(
-                "border-latte-surface2 text-latte-subtext0 inline-flex h-4 w-4 items-center justify-center rounded-full border outline-none transition",
+                "border-latte-surface2 text-latte-subtext0 inline-flex h-4 w-4 items-center justify-center rounded-full border outline-hidden transition",
                 "focus-visible:ring-latte-lavender/45 focus-visible:ring-2",
                 checked ? "border-latte-lavender text-latte-lavender bg-latte-lavender/15" : null,
               )}

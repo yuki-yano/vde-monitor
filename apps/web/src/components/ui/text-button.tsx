@@ -4,7 +4,7 @@ import { type ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/cn";
 
 const textButtonVariants = cva(
-  "inline-flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-latte-lavender disabled:pointer-events-none disabled:opacity-70",
+  "inline-flex items-center gap-1 transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-latte-lavender disabled:pointer-events-none disabled:opacity-70",
   {
     variants: {
       variant: {

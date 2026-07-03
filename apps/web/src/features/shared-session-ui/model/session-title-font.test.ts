@@ -9,14 +9,14 @@ import {
 describe("session title font helpers", () => {
   it("returns larger classes for short titles", () => {
     expect(resolveSessionCardTitleTextClass("short title")).toBe("text-[15px]");
-    expect(resolveSessionDetailTitleTextClass("short title")).toBe("!text-xl");
+    expect(resolveSessionDetailTitleTextClass("short title")).toBe("text-xl!");
     expect(resolveSessionSidebarTitleTextClass("short title")).toBe("text-sm");
   });
 
   it("returns compact classes for long latin titles", () => {
     const longTitle = "very-long-title-for-session-card-and-detail-header";
     expect(resolveSessionCardTitleTextClass(longTitle)).toBe("text-[12px]");
-    expect(resolveSessionDetailTitleTextClass(longTitle.repeat(2))).toBe("!text-xs");
+    expect(resolveSessionDetailTitleTextClass(longTitle.repeat(2))).toBe("text-xs!");
     expect(resolveSessionSidebarTitleTextClass(longTitle)).toBe("text-[11px]");
   });
 
@@ -29,7 +29,7 @@ describe("session title font helpers", () => {
   it("uses minimum classes for very long titles", () => {
     const extreme = "extremely-long-title-".repeat(6);
     expect(resolveSessionCardTitleTextClass(extreme)).toBe("text-[11px]");
-    expect(resolveSessionDetailTitleTextClass(extreme)).toBe("!text-xs");
+    expect(resolveSessionDetailTitleTextClass(extreme)).toBe("text-xs!");
     expect(resolveSessionSidebarTitleTextClass(extreme)).toBe("text-[10px]");
   });
 });

@@ -402,7 +402,7 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
     <Card
       className={cn(
         "relative flex min-w-0 flex-col gap-2 overflow-visible p-2 sm:gap-3 sm:p-4",
-        isWorktreeSelectorOpen && "z-[70]",
+        isWorktreeSelectorOpen && "z-70",
       )}
     >
       <Toolbar className="gap-2 sm:gap-3">
