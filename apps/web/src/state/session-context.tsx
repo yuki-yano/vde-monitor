@@ -85,7 +85,7 @@ import type { SessionsStreamTransport } from "./use-sessions-stream";
 // ---------------------------------------------------------------------------
 
 /** High-frequency data: the live session list and its connection/stream state. */
-type SessionStreamDataContextValue = {
+export type SessionStreamDataContextValue = {
   sessions: SessionSummary[];
   connected: boolean;
   connectionStatus: SessionConnectionStatus;
@@ -95,7 +95,7 @@ type SessionStreamDataContextValue = {
 };
 
 /** Low-frequency data: auth/token state and server-provided client config. */
-type SessionConfigDataContextValue = {
+export type SessionConfigDataContextValue = {
   token: string | null;
   apiBaseUrl: string | null;
   authError: string | null;
@@ -109,7 +109,7 @@ type SessionConfigDataContextValue = {
 // ---------------------------------------------------------------------------
 
 /** Core session lifecycle/interaction: connection, screen, messaging, pane control. */
-type SessionCoreApiContextValue = {
+export type SessionCoreApiContextValue = {
   setToken: (token: string | null) => void;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
@@ -143,7 +143,7 @@ type SessionCoreApiContextValue = {
 };
 
 /** Worktrees/branches/commits/diffs — the repo-history exploration surface. */
-type SessionBranchesApiContextValue = {
+export type SessionBranchesApiContextValue = {
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   requestBranches: (paneId: string, options?: { force?: boolean }) => Promise<BranchList>;
   requestBranchCheckout: (paneId: string, branch: string) => Promise<void>;
@@ -187,7 +187,7 @@ type SessionBranchesApiContextValue = {
 };
 
 /** Repo file navigator surface. */
-type SessionFilesApiContextValue = {
+export type SessionFilesApiContextValue = {
   requestRepoFileTree: (
     paneId: string,
     options?: { path?: string; cursor?: string; limit?: number; worktreePath?: string },
@@ -205,7 +205,7 @@ type SessionFilesApiContextValue = {
 };
 
 /** Repo notes CRUD. */
-type SessionNotesApiContextValue = {
+export type SessionNotesApiContextValue = {
   requestRepoNotes: (paneId: string) => Promise<RepoNote[]>;
   createRepoNote: (
     paneId: string,
@@ -221,7 +221,7 @@ type SessionNotesApiContextValue = {
 
 /** Agent launch — kept separate: broadly consumed (list/grid/usage VMs) yet
  * conceptually distinct (worktree-creation options, longer request timeout). */
-type SessionLaunchApiContextValue = {
+export type SessionLaunchApiContextValue = {
   launchAgentInSession: (
     sessionName: string,
     agent: "codex" | "claude",
@@ -286,37 +286,11 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const notificationTitleFingerprintRef = useRef<string>("");
 
   const {
-    refreshSessions: refreshSessionsApi,
-    requestWorktrees,
-    requestBranches,
-    requestDiffSummary,
-    requestDiffFile,
-    requestCommitLog,
-    requestCommitDetail,
-    requestCommitFile,
-    requestStateTimeline,
-    requestRepoNotes,
-    requestRepoFileTree,
-    requestRepoFileSearch,
-    requestRepoFileContent,
-    requestScreen,
-    focusPane,
-    killPane,
-    killWindow,
-    launchAgentInSession,
-    uploadImageAttachment,
-    sendText,
-    sendKeys,
-    sendRaw,
-    updateSessionTitle,
-    resetSessionTitle,
-    touchSession,
-    createRepoNote,
-    updateRepoNote,
-    deleteRepoNote,
-    requestBranchCheckout,
-    requestBranchCreate,
-    requestBranchDelete,
+    core: coreApi,
+    branches: branchesApi,
+    files: filesApi,
+    notes: notesApi,
+    launch: launchApi,
   } = useSessionApiHook({
     token,
     apiBaseUrl,
@@ -334,9 +308,9 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     if (!hasToken || authBlocked) {
       return;
     }
-    const result = await refreshSessionsApi();
+    const result = await coreApi.refreshSessions();
     handleRefreshResultFromConnection(result);
-  }, [authBlocked, handleRefreshResultFromConnection, hasToken, refreshSessionsApi]);
+  }, [authBlocked, coreApi, handleRefreshResultFromConnection, hasToken]);
 
   const reconnect = useCallback(() => {
     reconnectWithConnectionState(refreshSessions);
@@ -385,93 +359,24 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
 
   // Stable API contexts — memoized per domain so identity only changes when
   // that domain's own deps change, not on every data update (sessions, connected, etc.)
+  // Each namespace from useSessionApiHook (`coreApi`/`branchesApi`/etc.) is
+  // already memoized 1:1 against its own dependencies, so branches/files/
+  // notes/launch pass straight through; core layers in the 3 fields
+  // (setToken/reconnect/refreshSessions) that live outside useSessionApiHook.
   const sessionCoreApiValue = useMemo<SessionCoreApiContextValue>(
     () => ({
+      ...coreApi,
       setToken,
       reconnect,
       refreshSessions,
-      requestStateTimeline,
-      requestScreen,
-      focusPane,
-      killPane,
-      killWindow,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-      resetSessionTitle,
     }),
-    [
-      setToken,
-      reconnect,
-      refreshSessions,
-      requestStateTimeline,
-      requestScreen,
-      focusPane,
-      killPane,
-      killWindow,
-      uploadImageAttachment,
-      sendText,
-      sendKeys,
-      sendRaw,
-      touchSession,
-      updateSessionTitle,
-      resetSessionTitle,
-    ],
+    [coreApi, setToken, reconnect, refreshSessions],
   );
 
-  const sessionBranchesApiValue = useMemo<SessionBranchesApiContextValue>(
-    () => ({
-      requestWorktrees,
-      requestBranches,
-      requestBranchCheckout,
-      requestBranchCreate,
-      requestBranchDelete,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-    }),
-    [
-      requestWorktrees,
-      requestBranches,
-      requestBranchCheckout,
-      requestBranchCreate,
-      requestBranchDelete,
-      requestDiffSummary,
-      requestDiffFile,
-      requestCommitLog,
-      requestCommitDetail,
-      requestCommitFile,
-    ],
-  );
-
-  const sessionFilesApiValue = useMemo<SessionFilesApiContextValue>(
-    () => ({
-      requestRepoFileTree,
-      requestRepoFileSearch,
-      requestRepoFileContent,
-    }),
-    [requestRepoFileTree, requestRepoFileSearch, requestRepoFileContent],
-  );
-
-  const sessionNotesApiValue = useMemo<SessionNotesApiContextValue>(
-    () => ({
-      requestRepoNotes,
-      createRepoNote,
-      updateRepoNote,
-      deleteRepoNote,
-    }),
-    [requestRepoNotes, createRepoNote, updateRepoNote, deleteRepoNote],
-  );
-
-  const sessionLaunchApiValue = useMemo<SessionLaunchApiContextValue>(
-    () => ({ launchAgentInSession }),
-    [launchAgentInSession],
-  );
+  const sessionBranchesApiValue = branchesApi;
+  const sessionFilesApiValue = filesApi;
+  const sessionNotesApiValue = notesApi;
+  const sessionLaunchApiValue = launchApi;
 
   // Data contexts — split by update frequency: stream data changes on every
   // sessions update (SSE/polling); config data changes only on auth/config events.

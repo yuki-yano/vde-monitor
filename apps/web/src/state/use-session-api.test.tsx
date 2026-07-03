@@ -52,7 +52,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.refreshSessions()).resolves.toMatchObject({ ok: true });
+    await expect(result.current.core.refreshSessions()).resolves.toMatchObject({ ok: true });
     expect(requestedAuthorization).toBe("Bearer token");
   });
 
@@ -88,8 +88,8 @@ describe("useSessionApi", () => {
       }),
     );
 
-    const promise1 = result.current.requestScreen("pane-1", { mode: "text" });
-    const promise2 = result.current.requestScreen("pane-1", { mode: "text" });
+    const promise1 = result.current.core.requestScreen("pane-1", { mode: "text" });
+    const promise2 = result.current.core.requestScreen("pane-1", { mode: "text" });
 
     await waitFor(() => {
       expect(requestCount).toBe(1);
@@ -136,10 +136,10 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestDiffSummary("pane-1")).rejects.toThrow("boom");
+    await expect(result.current.branches.requestDiffSummary("pane-1")).rejects.toThrow("boom");
     expect(onConnectionIssue).toHaveBeenCalledWith("boom");
 
-    await expect(result.current.requestDiffSummary("pane-1")).resolves.toEqual(summary);
+    await expect(result.current.branches.requestDiffSummary("pane-1")).resolves.toEqual(summary);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 
@@ -179,7 +179,7 @@ describe("useSessionApi", () => {
     );
 
     await expect(
-      result.current.requestStateTimeline("pane-1", { range: "15m", limit: 50 }),
+      result.current.core.requestStateTimeline("pane-1", { range: "15m", limit: 50 }),
     ).resolves.toEqual(timeline);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
@@ -241,14 +241,14 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestRepoNotes("pane-1")).resolves.toEqual(notes);
+    await expect(result.current.notes.requestRepoNotes("pane-1")).resolves.toEqual(notes);
     await expect(
-      result.current.createRepoNote("pane-1", { title: "new", body: "memo" }),
+      result.current.notes.createRepoNote("pane-1", { title: "new", body: "memo" }),
     ).resolves.toMatchObject({ id: "note-2", title: "new", body: "memo" });
     await expect(
-      result.current.updateRepoNote("pane-1", "note-1", { title: null, body: "updated" }),
+      result.current.notes.updateRepoNote("pane-1", "note-1", { title: null, body: "updated" }),
     ).resolves.toMatchObject({ id: "note-1", title: null, body: "updated" });
-    await expect(result.current.deleteRepoNote("pane-1", "note-1")).resolves.toBe("note-1");
+    await expect(result.current.notes.deleteRepoNote("pane-1", "note-1")).resolves.toBe("note-1");
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 
@@ -287,10 +287,10 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestCommitLog("pane-1")).rejects.toThrow("bad");
+    await expect(result.current.branches.requestCommitLog("pane-1")).rejects.toThrow("bad");
     expect(onConnectionIssue).toHaveBeenCalledWith("bad");
 
-    await expect(result.current.requestCommitLog("pane-1")).resolves.toEqual(log);
+    await expect(result.current.branches.requestCommitLog("pane-1")).resolves.toEqual(log);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 
@@ -318,7 +318,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestCommitDetail("pane-1", "hash")).rejects.toThrow(
+    await expect(result.current.branches.requestCommitDetail("pane-1", "hash")).rejects.toThrow(
       "commit not found",
     );
     expect(onSessionRemoved).not.toHaveBeenCalled();
@@ -348,7 +348,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestCommitDetail("pane-1", "hash")).rejects.toThrow(
+    await expect(result.current.branches.requestCommitDetail("pane-1", "hash")).rejects.toThrow(
       "pane not found",
     );
     expect(onSessionRemoved).toHaveBeenCalledWith("pane-1");
@@ -375,7 +375,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.requestDiffSummary("pane-1")).rejects.toThrow(
+    await expect(result.current.branches.requestDiffSummary("pane-1")).rejects.toThrow(
       `${API_ERROR_MESSAGES.diffSummary} (410)`,
     );
     expect(onSessionRemoved).toHaveBeenCalledWith("pane-1");
@@ -406,7 +406,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.touchSession("pane-1")).resolves.toBeUndefined();
+    await expect(result.current.core.touchSession("pane-1")).resolves.toBeUndefined();
     expect(onSessionUpdated).not.toHaveBeenCalled();
     expect(onSessions).toHaveBeenCalledWith([]);
   });
@@ -436,7 +436,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.updateSessionTitle("pane-1", "next")).resolves.toBeUndefined();
+    await expect(result.current.core.updateSessionTitle("pane-1", "next")).resolves.toBeUndefined();
     expect(onSessionUpdated).not.toHaveBeenCalled();
     expect(onSessions).toHaveBeenCalledWith([]);
   });
@@ -466,7 +466,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.resetSessionTitle("pane-1")).resolves.toBeUndefined();
+    await expect(result.current.core.resetSessionTitle("pane-1")).resolves.toBeUndefined();
     expect(onSessionUpdated).not.toHaveBeenCalled();
     expect(onSessions).toHaveBeenCalledWith([]);
   });
@@ -494,7 +494,9 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.sendText("pane-1", "echo hello")).resolves.toEqual({ ok: true });
+    await expect(result.current.core.sendText("pane-1", "echo hello")).resolves.toEqual({
+      ok: true,
+    });
     expect(payload).toMatchObject({ text: "echo hello", enter: true });
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
@@ -525,7 +527,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.focusPane("pane-1")).resolves.toMatchObject({
+    await expect(result.current.core.focusPane("pane-1")).resolves.toMatchObject({
       ok: false,
       error: { code: "RATE_LIMIT", message: "rate limited" },
     });
@@ -553,7 +555,7 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.killPane("pane-1")).resolves.toEqual({ ok: true });
+    await expect(result.current.core.killPane("pane-1")).resolves.toEqual({ ok: true });
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
   });
 });

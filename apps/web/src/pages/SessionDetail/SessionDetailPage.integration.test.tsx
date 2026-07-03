@@ -10,9 +10,9 @@ import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { defaultLaunchConfig } from "@/state/launch-agent-options";
 import { ThemeProvider } from "@/state/theme-context";
 
+import { createSessionContextMock } from "./session-context-mock";
 import { SessionDetailProvider } from "./SessionDetailProvider";
 import { SessionDetailView } from "./SessionDetailView";
 import { createSessionDetail } from "./test-helpers";
@@ -41,81 +41,70 @@ import { createSessionDetail } from "./test-helpers";
 // `EventSource`.
 const session = createSessionDetail({ paneId: "pane-1" });
 
-const sessionContextValue = {
-  token: null as string | null,
-  apiBaseUrl: null as string | null,
-  authError: null as string | null,
-  sessions: [session],
-  connected: true,
-  connectionStatus: "healthy" as const,
-  connectionIssue: null as string | null,
-  highlightCorrections: { codex: true, claude: true },
-  fileNavigatorConfig: { autoExpandMatchLimit: 100 },
-  launchConfig: defaultLaunchConfig,
-  getSessionDetail: (paneId: string) => (paneId === session.paneId ? session : null),
-  reconnect: vi.fn(),
-  refreshSessions: vi.fn(),
-  requestScreen: vi.fn(async () => ({
-    ok: true as const,
-    paneId: session.paneId,
-    mode: "text" as const,
-    capturedAt: new Date(0).toISOString(),
-    screen: "",
-    full: true,
-  })),
-  requestStateTimeline: vi.fn(async () => ({
-    paneId: session.paneId,
-    now: new Date(0).toISOString(),
-    range: "1h" as const,
-    items: [],
-    totalsMs: {},
-    current: null,
-  })),
-  requestDiffSummary: vi.fn(async () => ({
-    repoRoot: session.repoRoot,
-    rev: "HEAD",
-    generatedAt: new Date(0).toISOString(),
-    files: [],
-  })),
-  requestDiffFile: vi.fn(),
-  requestCommitLog: vi.fn(async () => ({
-    repoRoot: session.repoRoot,
-    rev: "HEAD",
-    generatedAt: new Date(0).toISOString(),
-    commits: [],
-    totalCount: 0,
-  })),
-  requestCommitDetail: vi.fn(),
-  requestCommitFile: vi.fn(),
-  requestRepoNotes: vi.fn(async () => []),
-  requestRepoFileTree: vi.fn(async () => ({ basePath: ".", entries: [] })),
-  requestRepoFileSearch: vi.fn(),
-  requestRepoFileContent: vi.fn(),
-  focusPane: vi.fn(),
-  killPane: vi.fn(),
-  killWindow: vi.fn(),
-  launchAgentInSession: vi.fn(),
-  uploadImageAttachment: vi.fn(),
-  sendText: vi.fn(),
-  sendKeys: vi.fn(),
-  sendRaw: vi.fn(),
-  touchSession: vi.fn(),
-  updateSessionTitle: vi.fn(),
-  resetSessionTitle: vi.fn(),
-  requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
-  requestBranches: vi.fn(async () => ({
-    repoRoot: session.repoRoot,
-    defaultBranch: "main",
-    currentBranch: "main",
-    entries: [],
-  })),
-  requestBranchCheckout: vi.fn(),
-  requestBranchCreate: vi.fn(),
-  requestBranchDelete: vi.fn(),
-  createRepoNote: vi.fn(),
-  updateRepoNote: vi.fn(),
-  deleteRepoNote: vi.fn(),
-};
+const sessionContextValue = createSessionContextMock({
+  stream: {
+    sessions: [session],
+    getSessionDetail: (paneId: string) => (paneId === session.paneId ? session : null),
+  },
+  config: {
+    token: null,
+    apiBaseUrl: null,
+    authError: null,
+    highlightCorrections: { codex: true, claude: true },
+  },
+  core: {
+    requestScreen: vi.fn(async () => ({
+      ok: true as const,
+      paneId: session.paneId,
+      mode: "text" as const,
+      capturedAt: new Date(0).toISOString(),
+      screen: "",
+      full: true,
+    })),
+    requestStateTimeline: vi.fn(async () => ({
+      paneId: session.paneId,
+      now: new Date(0).toISOString(),
+      range: "1h" as const,
+      items: [],
+      totalsMs: {
+        RUNNING: 0,
+        WAITING_INPUT: 0,
+        WAITING_PERMISSION: 0,
+        SHELL: 0,
+        UNKNOWN: 0,
+      },
+      current: null,
+    })),
+  },
+  branches: {
+    requestDiffSummary: vi.fn(async () => ({
+      repoRoot: session.repoRoot,
+      rev: "HEAD",
+      generatedAt: new Date(0).toISOString(),
+      files: [],
+    })),
+    requestCommitLog: vi.fn(async () => ({
+      repoRoot: session.repoRoot,
+      rev: "HEAD",
+      generatedAt: new Date(0).toISOString(),
+      commits: [],
+      totalCount: 0,
+    })),
+    requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
+    requestBranches: vi.fn(async () => ({
+      repoRoot: session.repoRoot,
+      defaultBranch: "main",
+      currentBranch: "main",
+      entries: [],
+    })),
+  },
+  files: {
+    requestRepoFileTree: vi.fn(async () => ({ basePath: ".", entries: [] })),
+  },
+  notes: {
+    requestRepoNotes: vi.fn(async () => []),
+  },
+});
 
 vi.mock("@/state/session-context", () => ({
   useSessionStreamData: () => sessionContextValue,

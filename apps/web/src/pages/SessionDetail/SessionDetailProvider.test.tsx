@@ -4,11 +4,19 @@ import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { defaultLaunchConfig } from "@/state/launch-agent-options";
-
 import { NotesSection } from "./components/NotesSection";
 import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
+import {
+  type SessionContextMockOverrides,
+  createSessionBranchesApiMock,
+  createSessionConfigDataMock,
+  createSessionCoreApiMock,
+  createSessionFilesApiMock,
+  createSessionLaunchApiMock,
+  createSessionNotesApiMock,
+  createSessionStreamDataMock,
+} from "./session-context-mock";
 import { SessionDetailProvider, useSessionDetailContext } from "./SessionDetailProvider";
 import { createSessionDetail } from "./test-helpers";
 
@@ -36,6 +44,28 @@ const toMockSessionDetail = (source: typeof session) => {
   return detail;
 };
 
+// Only the API-domain slices (core/branches/files/notes/launch) are
+// caller-configurable here; stream/config are always derived from
+// sessions/connected/connectionIssue in buildSessionContext below.
+type SessionApiMockOverrides = Pick<
+  SessionContextMockOverrides,
+  "core" | "branches" | "files" | "notes" | "launch"
+>;
+
+// Resolves defaults + overrides into a single flat object *once*. Callers
+// that need identical function references across repeated buildSessionContext
+// calls within one test (see the T15a re-render-suppression case below) must
+// build this once and reuse it, rather than re-resolving per render -- each
+// call to the create*Mock factories mints fresh vi.fn() for any field the
+// caller didn't override.
+const buildSessionApi = (overrides: SessionApiMockOverrides = {}) => ({
+  ...createSessionCoreApiMock(overrides.core),
+  ...createSessionBranchesApiMock(overrides.branches),
+  ...createSessionFilesApiMock(overrides.files),
+  ...createSessionNotesApiMock(overrides.notes),
+  ...createSessionLaunchApiMock(overrides.launch),
+});
+
 const buildSessionContext = ({
   sessions,
   sessionApi,
@@ -43,64 +73,22 @@ const buildSessionContext = ({
   connectionIssue = null,
 }: {
   sessions: Array<typeof session>;
-  sessionApi: Record<string, unknown>;
+  sessionApi: ReturnType<typeof buildSessionApi>;
   connected?: boolean;
   connectionIssue?: string | null;
 }) => ({
-  token: "token",
-  sessions,
-  connected,
-  connectionStatus: connected ? "healthy" : "degraded",
-  connectionIssue,
-  highlightCorrections: { codex: false, claude: true },
-  fileNavigatorConfig: { autoExpandMatchLimit: 100 },
-  launchConfig: defaultLaunchConfig,
+  ...createSessionConfigDataMock(),
+  ...createSessionStreamDataMock({
+    sessions,
+    connected,
+    connectionStatus: connected ? "healthy" : "degraded",
+    connectionIssue,
+    getSessionDetail: (paneId: string) => {
+      const found = sessions.find((item) => item.paneId === paneId) ?? null;
+      return found ? toMockSessionDetail(found) : null;
+    },
+  }),
   ...sessionApi,
-  getSessionDetail: (paneId: string) => {
-    const found = sessions.find((item) => item.paneId === paneId) ?? null;
-    return found ? toMockSessionDetail(found) : null;
-  },
-});
-
-const buildSessionApi = (overrides: Record<string, unknown> = {}) => ({
-  reconnect: vi.fn(),
-  refreshSessions: vi.fn(),
-  requestDiffSummary: vi.fn(),
-  requestDiffFile: vi.fn(),
-  requestCommitLog: vi.fn(),
-  requestCommitDetail: vi.fn(),
-  requestCommitFile: vi.fn(),
-  requestStateTimeline: vi.fn(),
-  requestRepoNotes: vi.fn(),
-  requestRepoFileTree: vi.fn(async () => ({ basePath: ".", entries: [] })),
-  requestRepoFileSearch: vi.fn(),
-  requestRepoFileContent: vi.fn(),
-  requestScreen: vi.fn(),
-  focusPane: vi.fn(),
-  killPane: vi.fn(),
-  killWindow: vi.fn(),
-  launchAgentInSession: vi.fn(),
-  uploadImageAttachment: vi.fn(),
-  sendText: vi.fn(),
-  sendKeys: vi.fn(),
-  sendRaw: vi.fn(),
-  touchSession: vi.fn(),
-  updateSessionTitle: vi.fn(),
-  resetSessionTitle: vi.fn(),
-  requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
-  requestBranches: vi.fn(async () => ({
-    repoRoot: "/repo",
-    defaultBranch: "main",
-    currentBranch: "main",
-    entries: [],
-  })),
-  requestBranchCheckout: vi.fn(async () => undefined),
-  requestBranchCreate: vi.fn(async () => undefined),
-  requestBranchDelete: vi.fn(async () => undefined),
-  createRepoNote: vi.fn(),
-  updateRepoNote: vi.fn(),
-  deleteRepoNote: vi.fn(),
-  ...overrides,
 });
 
 vi.mock("@tanstack/react-router", () => ({
@@ -216,13 +204,13 @@ const NotesProbe = () => {
 
 const renderContext = (
   sessions: Array<typeof session>,
-  sessionApi: Record<string, unknown>,
+  sessionApi: SessionApiMockOverrides,
   options: { connectionIssue?: string | null } = {},
 ) => {
   const store = createStore();
   mockSessionsContext = buildSessionContext({
     sessions,
-    sessionApi,
+    sessionApi: buildSessionApi(sessionApi),
     connectionIssue: options.connectionIssue ?? null,
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -250,7 +238,7 @@ describe("SessionDetailProvider", () => {
 
   it("exposes base state via context", () => {
     mockResolvedTheme = "mocha";
-    const { result } = renderContext([session], buildSessionApi(), { connectionIssue: "issue" });
+    const { result } = renderContext([session], {}, { connectionIssue: "issue" });
 
     expect(result.current.base.paneId).toBe("pane-1");
     expect(result.current.base.connected).toBe(true);
@@ -265,7 +253,7 @@ describe("SessionDetailProvider", () => {
       ok: false,
       error: { code: "RATE_LIMIT", message: "rate limited" },
     });
-    const { result } = renderContext([session], buildSessionApi({ focusPane }));
+    const { result } = renderContext([session], { core: { focusPane } });
 
     await act(async () => {
       await result.current.timelineLogsActions.actions.handleFocusPane("pane-1");
@@ -277,10 +265,9 @@ describe("SessionDetailProvider", () => {
 
   it("touches target pane when sidebar pin action is triggered", () => {
     const touchSession = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderContext(
-      [session],
-      buildSessionApi({ touchSession, focusPane: vi.fn().mockResolvedValue({ ok: true }) }),
-    );
+    const { result } = renderContext([session], {
+      core: { touchSession, focusPane: vi.fn().mockResolvedValue({ ok: true }) },
+    });
 
     act(() => {
       result.current.timelineLogsActions.actions.handleTouchPaneWithRepoAnchor("pane-2");
@@ -291,59 +278,61 @@ describe("SessionDetailProvider", () => {
 
   it("keeps virtual branch and virtual worktree selection mutually exclusive", async () => {
     window.localStorage.clear();
-    const sessionApi = buildSessionApi({
-      requestWorktrees: vi.fn(async () => ({
-        repoRoot: session.repoRoot,
-        currentPath: null,
-        baseBranch: "main",
-        entries: [
-          {
-            path: "/Users/test/repo-worktrees/wt-a",
-            branch: "feature/wt-a",
-            dirty: false,
-            locked: false,
-            lockOwner: null,
-            lockReason: null,
-            merged: false,
-          },
-        ],
-      })),
-      requestBranches: vi.fn(async () => ({
-        repoRoot: session.repoRoot,
-        defaultBranch: "main",
-        currentBranch: "main",
-        entries: [
-          {
-            name: "main",
-            current: true,
-            isDefault: true,
-            ahead: null,
-            behind: null,
-            fileChanges: null,
-            additions: null,
-            deletions: null,
-            merged: null,
-            pr: null,
-            worktreePath: null,
-            committedAt: null,
-          },
-          {
-            name: "feature/a",
-            current: false,
-            isDefault: false,
-            ahead: null,
-            behind: null,
-            fileChanges: null,
-            additions: null,
-            deletions: null,
-            merged: null,
-            pr: null,
-            worktreePath: null,
-            committedAt: null,
-          },
-        ],
-      })),
-    });
+    const sessionApi: SessionApiMockOverrides = {
+      branches: {
+        requestWorktrees: vi.fn(async () => ({
+          repoRoot: session.repoRoot,
+          currentPath: null,
+          baseBranch: "main",
+          entries: [
+            {
+              path: "/Users/test/repo-worktrees/wt-a",
+              branch: "feature/wt-a",
+              dirty: false,
+              locked: false,
+              lockOwner: null,
+              lockReason: null,
+              merged: false,
+            },
+          ],
+        })),
+        requestBranches: vi.fn(async () => ({
+          repoRoot: session.repoRoot,
+          defaultBranch: "main",
+          currentBranch: "main",
+          entries: [
+            {
+              name: "main",
+              current: true,
+              isDefault: true,
+              ahead: null,
+              behind: null,
+              fileChanges: null,
+              additions: null,
+              deletions: null,
+              merged: null,
+              pr: null,
+              worktreePath: null,
+              committedAt: null,
+            },
+            {
+              name: "feature/a",
+              current: false,
+              isDefault: false,
+              ahead: null,
+              behind: null,
+              fileChanges: null,
+              additions: null,
+              deletions: null,
+              merged: null,
+              pr: null,
+              worktreePath: null,
+              committedAt: null,
+            },
+          ],
+        })),
+      },
+    };
     const { result } = renderContext([session], sessionApi);
 
     await act(async () => {
@@ -397,18 +386,20 @@ describe("SessionDetailProvider", () => {
       commits: [],
       totalCount: 0,
     }));
-    const sessionApi = buildSessionApi({
-      requestBranchCheckout,
-      requestWorktrees,
-      requestDiffSummary,
-      requestCommitLog,
-      requestBranches: vi.fn(async () => ({
-        repoRoot: session.repoRoot,
-        defaultBranch: "main",
-        currentBranch: "main",
-        entries: [],
-      })),
-    });
+    const sessionApi: SessionApiMockOverrides = {
+      branches: {
+        requestBranchCheckout,
+        requestWorktrees,
+        requestDiffSummary,
+        requestCommitLog,
+        requestBranches: vi.fn(async () => ({
+          repoRoot: session.repoRoot,
+          defaultBranch: "main",
+          currentBranch: "main",
+          entries: [],
+        })),
+      },
+    };
     const { result } = renderContext([session], sessionApi);
 
     await act(async () => {
@@ -456,7 +447,11 @@ describe("SessionDetailProvider", () => {
 
   it("does not re-render the memoized NotesSection when an unrelated sessions tick updates base state (T15a)", async () => {
     notesPollingCallCount = 0;
-    const sessionApi = buildSessionApi({ requestRepoNotes: vi.fn(async () => []) });
+    // Resolved once and reused across both buildSessionContext calls below so
+    // notes-domain function identity (createRepoNote/updateRepoNote/
+    // deleteRepoNote) stays stable across the "unrelated tick" re-render --
+    // the whole point of this assertion.
+    const sessionApi = buildSessionApi({ notes: { requestRepoNotes: vi.fn(async () => []) } });
     mockSessionsContext = buildSessionContext({ sessions: [session], sessionApi });
 
     let renderResult!: ReturnType<typeof render>;
