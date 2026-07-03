@@ -149,6 +149,66 @@ describe("useSessionStore", () => {
     expect(result.current.sessions.map((session) => session.paneId)).toEqual(["pane-1", "pane-9"]);
   });
 
+  // Regression coverage for the toSessionDetail cache. getSessionDetail used
+  // to build a brand-new object via spread on every single call, so even
+  // when the underlying SessionSummary reference for a pane never changed
+  // (e.g. an SSE tick that only touched a *different* pane), every consumer
+  // reading `session` saw a new object every render and could never bail out
+  // of useMemo/React.memo. This exercises the real useSessionStore path
+  // (not a hand-rolled mock) so it reflects actual production behavior.
+  it("returns a stable SessionDetail reference across repeated getSessionDetail calls for an unchanged session", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+
+    const first = result.current.getSessionDetail("pane-1");
+    const second = result.current.getSessionDetail("pane-1");
+
+    expect(first).not.toBeNull();
+    expect(second).toBe(first);
+  });
+
+  it("returns a new SessionDetail reference once the underlying session actually changes", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1")]);
+    });
+    const before = result.current.getSessionDetail("pane-1");
+
+    act(() => {
+      result.current.updateSession(createSession("pane-1", { state: "WAITING_INPUT" }));
+    });
+    const after = result.current.getSessionDetail("pane-1");
+
+    expect(after).not.toBe(before);
+    expect(after?.state).toBe("WAITING_INPUT");
+  });
+
+  it("keeps pane-1's SessionDetail reference stable when an unrelated pane-2 tick occurs", () => {
+    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
+
+    act(() => {
+      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+    });
+    const paneOneBefore = result.current.getSessionDetail("pane-1");
+
+    // Simulate an SSE tick that re-parses the whole sessions payload but only
+    // pane-2's content actually changed; reconcileSessions should keep
+    // pane-1's SessionSummary reference, and the detail cache should follow.
+    act(() => {
+      result.current.applySessionsSnapshot([
+        createSession("pane-1"),
+        createSession("pane-2", { state: "WAITING_INPUT" }),
+      ]);
+    });
+    const paneOneAfter = result.current.getSessionDetail("pane-1");
+
+    expect(paneOneAfter).toBe(paneOneBefore);
+  });
+
   it("updates and removes sessions", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
     const session = createSession("pane-1");

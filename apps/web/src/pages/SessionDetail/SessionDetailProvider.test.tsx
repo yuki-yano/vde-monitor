@@ -18,6 +18,24 @@ const setScreenErrorMock = vi.fn();
 let mockResolvedTheme: "latte" | "mocha" = "mocha";
 let mockSessionsContext: Record<string, unknown> = {};
 
+// Mirrors use-session-store.ts's real toSessionDetail cache: the same
+// underlying session object reference must resolve to the same "detail" view
+// reference across repeated getSessionDetail calls. Without this, `.find()`
+// alone happens to already return a stable reference (since it's just an
+// array lookup), which would make it impossible for this mock to ever
+// exhibit -- or guard against -- the "getSessionDetail returns a fresh
+// object on every call" bug that real production has without its own cache.
+const sessionDetailViewCache = new WeakMap<typeof session, typeof session>();
+const toMockSessionDetail = (source: typeof session) => {
+  const cached = sessionDetailViewCache.get(source);
+  if (cached) {
+    return cached;
+  }
+  const detail = { ...source };
+  sessionDetailViewCache.set(source, detail);
+  return detail;
+};
+
 const buildSessionContext = ({
   sessions,
   sessionApi,
@@ -38,7 +56,10 @@ const buildSessionContext = ({
   fileNavigatorConfig: { autoExpandMatchLimit: 100 },
   launchConfig: defaultLaunchConfig,
   ...sessionApi,
-  getSessionDetail: (paneId: string) => sessions.find((item) => item.paneId === paneId) ?? null,
+  getSessionDetail: (paneId: string) => {
+    const found = sessions.find((item) => item.paneId === paneId) ?? null;
+    return found ? toMockSessionDetail(found) : null;
+  },
 });
 
 const buildSessionApi = (overrides: Record<string, unknown> = {}) => ({
