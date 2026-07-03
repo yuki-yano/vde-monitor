@@ -233,6 +233,27 @@ describe("reduceSessionFilesUiState", () => {
       expect(next.fileModalPath).toBe("README.md");
     });
 
+    it("fileModalLoadFailed clears the file and loading state while recording the error message", () => {
+      const state = reduceSessionFilesUiState(createInitialSessionFilesUiState(), {
+        type: "openFileModal",
+        path: "src/index.ts",
+        highlightLine: 12,
+      });
+
+      const next = reduceSessionFilesUiState(state, {
+        type: "fileModalLoadFailed",
+        message: "not found",
+      });
+
+      expect(next.fileModalFile).toBeNull();
+      expect(next.fileModalLoading).toBe(false);
+      expect(next.fileModalError).toBe("not found");
+      // Fields untouched by this action should keep the state openFileModal set up.
+      expect(next.fileModalOpen).toBe(true);
+      expect(next.fileModalPath).toBe("src/index.ts");
+      expect(next.fileModalHighlightLine).toBe(12);
+    });
+
     it("closeFileModal resets modal chrome but preserves the last-loaded file/path", () => {
       const file = {
         path: "README.md",

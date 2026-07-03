@@ -471,71 +471,20 @@ describe("useSessionControls", () => {
     expect(sendKeys).toHaveBeenNthCalledWith(2, "pane-1", ["C-Left"]);
   });
 
-  it("sends permission shortcuts via raw input channel", async () => {
+  // The success/failure error-clearing contract for handleSendKey (both raw
+  // and non-raw) and handleSendPermissionShortcut, plus the digit-vs-Escape
+  // sendRaw item shape, are useTerminalControls's own responsibility and are
+  // covered by its unit tests (useTerminalControls.test.ts). This test only
+  // asserts that useSessionControls actually wires its own paneId / sendKeys /
+  // sendRaw / setScreenError into useTerminalControls (and routes through it
+  // for both the plain-key and raw-mode paths), rather than re-verifying that
+  // internal contract here.
+  it("wires paneId/sendKeys/sendRaw/setScreenError into the delegated useTerminalControls", async () => {
     const sendText = vi.fn().mockResolvedValue({ ok: true });
     const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
-    const setScreenError = vi.fn();
-    const scrollToBottom = vi.fn();
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionControls({
-          paneId: "pane-1",
-          mode: "text",
-          sendText,
-          sendKeys,
-          sendRaw,
-          setScreenError,
-          scrollToBottom,
-        }),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await result.current.handleSendPermissionShortcut("1");
-      await result.current.handleSendPermissionShortcut("Escape");
-    });
-
-    expect(sendRaw).toHaveBeenNthCalledWith(1, "pane-1", [{ kind: "text", value: "1" }], false);
-    expect(sendRaw).toHaveBeenNthCalledWith(2, "pane-1", [{ kind: "key", value: "Escape" }], false);
-  });
-
-  it("does not clear screen error after a successful (non-raw) key send", async () => {
-    const sendText = vi.fn().mockResolvedValue({ ok: true });
-    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
-    const setScreenError = vi.fn();
-    const scrollToBottom = vi.fn();
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionControls({
-          paneId: "pane-1",
-          mode: "text",
-          sendText,
-          sendKeys,
-          sendRaw,
-          setScreenError,
-          scrollToBottom,
-        }),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await result.current.handleSendKey("Enter");
-    });
-
-    expect(sendKeys).toHaveBeenCalledWith("pane-1", ["Enter"]);
-    expect(setScreenError).not.toHaveBeenCalled();
-  });
-
-  it("does not clear screen error after a successful raw-mode key send", async () => {
-    const sendText = vi.fn().mockResolvedValue({ ok: true });
-    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, error: { code: "INTERNAL", message: "boom" } });
     const setScreenError = vi.fn();
     const scrollToBottom = vi.fn();
 
@@ -562,38 +511,16 @@ describe("useSessionControls", () => {
       await result.current.handleSendKey("Enter");
     });
 
+    expect(sendKeys).not.toHaveBeenCalled();
     expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "key", value: "Enter" }], false);
-    expect(setScreenError).not.toHaveBeenCalled();
-  });
+    expect(setScreenError).toHaveBeenCalledWith("boom");
 
-  it("does not clear screen error after a successful permission shortcut send", async () => {
-    const sendText = vi.fn().mockResolvedValue({ ok: true });
-    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
-    const setScreenError = vi.fn();
-    const scrollToBottom = vi.fn();
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionControls({
-          paneId: "pane-1",
-          mode: "text",
-          sendText,
-          sendKeys,
-          sendRaw,
-          setScreenError,
-          scrollToBottom,
-        }),
-      { wrapper },
-    );
-
+    sendRaw.mockResolvedValueOnce({ ok: true });
     await act(async () => {
-      await result.current.handleSendPermissionShortcut("1");
+      await result.current.handleSendPermissionShortcut("Escape");
     });
 
-    expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "text", value: "1" }], false);
-    expect(setScreenError).not.toHaveBeenCalled();
+    expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "key", value: "Escape" }], false);
   });
 
   it("sends raw ctrl key input from beforeinput", async () => {
@@ -839,45 +766,6 @@ describe("useSessionControls", () => {
 
     expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "text", value: "?" }], false);
     vi.useRealTimers();
-  });
-
-  it("restores auto-enter after toggling raw mode off", () => {
-    const sendText = vi.fn().mockResolvedValue({ ok: true });
-    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
-    const setScreenError = vi.fn();
-    const scrollToBottom = vi.fn();
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionControls({
-          paneId: "pane-1",
-          mode: "text",
-          sendText,
-          sendKeys,
-          sendRaw,
-          setScreenError,
-          scrollToBottom,
-        }),
-      { wrapper },
-    );
-
-    expect(result.current.autoEnter).toBe(true);
-
-    act(() => {
-      result.current.toggleRawMode();
-    });
-
-    expect(result.current.rawMode).toBe(true);
-    expect(result.current.autoEnter).toBe(false);
-
-    act(() => {
-      result.current.toggleRawMode();
-    });
-
-    expect(result.current.rawMode).toBe(false);
-    expect(result.current.autoEnter).toBe(true);
   });
 
   it("resets prompt input mode state when pane changes", () => {

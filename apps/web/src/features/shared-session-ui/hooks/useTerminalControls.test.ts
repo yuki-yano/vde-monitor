@@ -101,8 +101,8 @@ describe("useTerminalControls", () => {
     expect(setScreenError).toHaveBeenCalledWith(null);
   });
 
-  it("routes key sends through sendRaw with the danger flag while in raw mode", async () => {
-    const { result, sendKeys, sendRaw } = renderControls();
+  it("routes key sends through sendRaw with the danger flag while in raw mode, without clearing the screen error by default", async () => {
+    const { result, sendKeys, sendRaw, setScreenError } = renderControls();
 
     act(() => {
       result.current.controls.toggleRawMode();
@@ -114,6 +114,7 @@ describe("useTerminalControls", () => {
 
     expect(sendKeys).not.toHaveBeenCalled();
     expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "key", value: "Enter" }], false);
+    expect(setScreenError).not.toHaveBeenCalled();
   });
 
   it("sends permission shortcut digits as text and Escape as a key", async () => {
@@ -146,15 +147,16 @@ describe("useTerminalControls", () => {
     expect(onSendPermissionShortcutSuccess).not.toHaveBeenCalled();
   });
 
-  it("invokes the success callback after a successful permission shortcut send", async () => {
+  it("invokes the success callback after a successful permission shortcut send, without clearing the screen error by default", async () => {
     const onSendPermissionShortcutSuccess = vi.fn();
-    const { result } = renderControls({ onSendPermissionShortcutSuccess });
+    const { result, setScreenError } = renderControls({ onSendPermissionShortcutSuccess });
 
     await act(async () => {
       await result.current.controls.handleSendPermissionShortcut("1");
     });
 
     expect(onSendPermissionShortcutSuccess).toHaveBeenCalledWith("pane-1");
+    expect(setScreenError).not.toHaveBeenCalled();
   });
 
   it("saves auto-enter and disables it when raw mode is switched on, then restores it on switch off", () => {

@@ -15,6 +15,8 @@ import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { buildSessionGroups } from "@/lib/session-group";
 import { ThemeProvider } from "@/state/theme-context";
 
+import { useSessionDetailLayoutState } from "./hooks/useSessionDetailLayoutState";
+import type { SessionDetailContextValue } from "./SessionDetailProvider";
 import { SessionDetailView } from "./SessionDetailView";
 import { createSessionDetail } from "./test-helpers";
 
@@ -47,8 +49,8 @@ const defaultLaunchResponse: LaunchCommandResponse = {
 // module-level mocks stand in for that context/hooks so the view can still be
 // exercised as a pure function of "what state currently exists", the same way
 // the old prop-based tests did.
-let mockContextValue: ReturnType<typeof buildDefaultContextValue>;
-let mockLayoutValue: ReturnType<typeof buildDefaultLayoutValue>;
+let mockContextValue: SessionDetailContextValue;
+let mockLayoutValue: ReturnType<typeof useSessionDetailLayoutState>;
 
 vi.mock("./SessionDetailProvider", () => ({
   useSessionDetailContext: () => mockContextValue,
@@ -124,7 +126,7 @@ const buildDefaultLayoutValue = () => {
     detailSplitRatio: 0.5,
     detailSplitRef: { current: null } as MutableRefObject<HTMLDivElement | null>,
     handleDetailSplitPointerDown: vi.fn(),
-  };
+  } satisfies ReturnType<typeof useSessionDetailLayoutState>;
 };
 
 const buildDefaultContextValue = () => {
@@ -194,7 +196,7 @@ const buildDefaultContextValue = () => {
         error: null as string | null,
         repoRoot: null as string | null,
         baseBranch: null as string | null,
-        entries: [] as unknown[],
+        entries: [],
         actualWorktreePath: null as string | null,
         virtualWorktreePath: null as string | null,
         effectiveWorktreePath: null as string | null,
@@ -203,7 +205,7 @@ const buildDefaultContextValue = () => {
         refreshWorktrees: vi.fn(),
       },
       branches: {
-        branches: [] as unknown[],
+        branches: [],
         repoRoot: null as string | null,
         currentBranch: null as string | null,
         branchesLoading: false,
@@ -319,6 +321,7 @@ const buildDefaultContextValue = () => {
       logs: {
         quickPanelOpen: false,
         logModalOpen: false,
+        selectedPaneId: null,
         selectedSession: null,
         selectedLogLines: [],
         selectedLogLoading: false,
@@ -349,12 +352,14 @@ const buildDefaultContextValue = () => {
         fallbackReason: null,
         error: null as string | null,
         pollingPauseReason: null,
+        transport: "polling",
         setScreenError: vi.fn(),
         isScreenLoading: false,
         isAtBottom: true,
         handleAtBottomChange: vi.fn(),
         handleUserScrollStateChange: vi.fn(),
         forceFollow: false,
+        refreshScreen: vi.fn(),
         scrollToBottom: vi.fn(),
         handleModeChange: vi.fn(),
         toggleWrapMode: vi.fn(),
@@ -393,10 +398,12 @@ const buildDefaultContextValue = () => {
       pushEnabled: true,
       isSubscribed: false,
       isPaneEnabled: false,
+      errorMessage: null as string | null,
       requestPermissionAndSubscribe: vi.fn(async () => undefined),
+      disableNotifications: vi.fn(async () => undefined),
       togglePaneEnabled: vi.fn(async () => undefined),
     },
-  };
+  } satisfies SessionDetailContextValue;
 };
 
 type SessionDetailViewOverrides = {
