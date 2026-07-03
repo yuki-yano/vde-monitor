@@ -28,6 +28,17 @@
     IBM Plex Mono, M PLUS 1 Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     Liberation Mono, monospace;
 
+  /*
+    These are aliases that re-expose the raw shadow values defined in :root /
+    [data-theme="mocha"] under the Tailwind `@theme` namespace. `@theme` lives
+    in `@layer theme`, while the real values below are unlayered, so cascade
+    order makes the unlayered (real) values win — this is not a circular
+    reference.
+    `--shadow-inner-soft` is named differently from the source `--shadow-inner`
+    var on purpose: Tailwind v4 ships a built-in `--shadow-inner` theme value
+    (used by the `shadow-inner` utility), so reusing that name here would
+    silently override the built-in utility instead of adding a new one.
+  */
   --shadow-elev-1: var(--shadow-elev-1);
   --shadow-elev-2: var(--shadow-elev-2);
   --shadow-elev-3: var(--shadow-elev-3);
