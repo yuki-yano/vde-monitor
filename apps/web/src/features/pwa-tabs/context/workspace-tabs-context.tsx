@@ -8,10 +8,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { PWA_DISPLAY_MODE_QUERIES, isPwaDisplayMode } from "@/lib/pwa-display-mode";
+import { useSessionData } from "@/state/session-context";
 import { sessionWorkspaceTabsDisplayModeAtom } from "@/state/session-state-atoms";
 
 import {
@@ -25,6 +27,7 @@ import {
   createInitialWorkspaceTabsState,
   deserializeWorkspaceTabsState,
   dismissWorkspaceSessionTabByPaneId,
+  dismissWorkspaceSessionTabsByPaneIds,
   reorderWorkspaceTabs,
   reorderWorkspaceTabsByClosableOrder,
   resolveWorkspaceTabPath,
@@ -62,6 +65,10 @@ const WORKSPACE_TABS_FALLBACK: WorkspaceTabsContextValue = {
   reorderTabsByClosableOrder: () => undefined,
 };
 
+// Grace period before auto-closing a tab whose pane is missing from the live
+// session list: a freshly launched pane can take a moment to show up there.
+const MISSING_PANE_TAB_DISMISS_GRACE_MS = 5000;
+
 const buildInitialState = (displayMode: WorkspaceTabsDisplayMode): WorkspaceTabsState => {
   const now = Date.now();
   if (typeof window === "undefined") {
@@ -96,6 +103,10 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
   const [tabsState, setTabsState] = useState<WorkspaceTabsState>(() =>
     buildInitialState(workspaceTabsDisplayMode),
   );
+  const { sessions, connected } = useSessionData();
+  const [missingPaneCheckTick, setMissingPaneCheckTick] = useState(0);
+  const missingPaneSinceRef = useRef(new Map<string, number>());
+  const livePaneIds = useMemo(() => new Set(sessions.map((session) => session.paneId)), [sessions]);
 
   const navigateToWorkspaceTab = useCallback(
     (tab: WorkspaceTab) => {
@@ -160,6 +171,91 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
     }
     window.localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, serializeWorkspaceTabsState(tabsState));
   }, [enabled, tabsState]);
+
+  const dismissSessionTabsByPaneIds = useCallback(
+    (paneIds: string[]) => {
+      let shouldNavigate = false;
+      let nextActiveTab: WorkspaceTab | null = null;
+      setTabsState((previous) => {
+        const dismissed = dismissWorkspaceSessionTabsByPaneIds(previous, paneIds, Date.now());
+        if (!dismissed.changed) {
+          return previous;
+        }
+        shouldNavigate = dismissed.state.activeTabId !== previous.activeTabId;
+        nextActiveTab =
+          dismissed.state.tabs.find((tab) => tab.id === dismissed.state.activeTabId) ?? null;
+        return dismissed.state;
+      });
+      if (shouldNavigate && nextActiveTab) {
+        navigateToWorkspaceTab(nextActiveTab);
+      }
+    },
+    [navigateToWorkspaceTab],
+  );
+
+  // Auto-close session tabs whose pane no longer exists (e.g. the pane was
+  // killed while the PWA was closed). Panes must stay missing for the grace
+  // period before their tabs are dismissed.
+  useEffect(() => {
+    const missingSince = missingPaneSinceRef.current;
+    if (!enabled || !connected) {
+      missingSince.clear();
+      return;
+    }
+    const missingPaneIds = tabsState.tabs
+      .filter(
+        (tab): tab is WorkspaceTab & { paneId: string } =>
+          tab.kind === "session" &&
+          tab.closable &&
+          tab.paneId != null &&
+          !livePaneIds.has(tab.paneId),
+      )
+      .map((tab) => tab.paneId);
+    const missingPaneIdSet = new Set(missingPaneIds);
+    [...missingSince.keys()].forEach((paneId) => {
+      if (!missingPaneIdSet.has(paneId)) {
+        missingSince.delete(paneId);
+      }
+    });
+    if (missingPaneIds.length === 0) {
+      return;
+    }
+    const now = Date.now();
+    missingPaneIds.forEach((paneId) => {
+      if (!missingSince.has(paneId)) {
+        missingSince.set(paneId, now);
+      }
+    });
+    const expiredPaneIds = missingPaneIds.filter(
+      (paneId) => now - (missingSince.get(paneId) ?? now) >= MISSING_PANE_TAB_DISMISS_GRACE_MS,
+    );
+    if (expiredPaneIds.length > 0) {
+      expiredPaneIds.forEach((paneId) => {
+        missingSince.delete(paneId);
+      });
+      dismissSessionTabsByPaneIds(expiredPaneIds);
+      return;
+    }
+    const earliestMissingAt = Math.min(
+      ...missingPaneIds.map((paneId) => missingSince.get(paneId) ?? now),
+    );
+    const timer = window.setTimeout(
+      () => {
+        setMissingPaneCheckTick((tick) => tick + 1);
+      },
+      Math.max(earliestMissingAt + MISSING_PANE_TAB_DISMISS_GRACE_MS - now, 0) + 50,
+    );
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    connected,
+    dismissSessionTabsByPaneIds,
+    enabled,
+    livePaneIds,
+    missingPaneCheckTick,
+    tabsState.tabs,
+  ]);
 
   const openSessionTab = useCallback(
     (paneId: string) => {

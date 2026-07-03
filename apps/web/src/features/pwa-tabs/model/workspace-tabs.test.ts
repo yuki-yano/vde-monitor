@@ -8,6 +8,7 @@ import {
   createInitialWorkspaceTabsState,
   deserializeWorkspaceTabsState,
   dismissWorkspaceSessionTabByPaneId,
+  dismissWorkspaceSessionTabsByPaneIds,
   reorderWorkspaceTabs,
   reorderWorkspaceTabsByClosableOrder,
   serializeWorkspaceTabsState,
@@ -88,6 +89,30 @@ describe("workspace-tabs model", () => {
       "session:b",
     ]);
     expect(dismissed.state.activeTabId).toBe("session:b");
+  });
+
+  it("dismisses multiple session tabs by pane ids", () => {
+    let state = createInitialWorkspaceTabsState(0);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/a", 1);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/b", 2);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/c", 3);
+
+    const dismissed = dismissWorkspaceSessionTabsByPaneIds(state, ["a", "c"], 999);
+    expect(dismissed.changed).toBe(true);
+    expect(dismissed.state.tabs.map((tab) => tab.id)).toEqual([
+      SYSTEM_SESSIONS_TAB_ID,
+      "session:b",
+    ]);
+    expect(dismissed.state.activeTabId).toBe("session:b");
+  });
+
+  it("reports no change when pane ids have no matching session tabs", () => {
+    let state = createInitialWorkspaceTabsState(0);
+    state = syncWorkspaceTabsWithPathname(state, "/sessions/a", 1);
+
+    const dismissed = dismissWorkspaceSessionTabsByPaneIds(state, ["missing"], 999);
+    expect(dismissed.changed).toBe(false);
+    expect(dismissed.state).toBe(state);
   });
 
   it("reorders closable tabs without moving fixed sessions tab", () => {
