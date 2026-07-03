@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, GitBranch, Github, Pin, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, memo, useEffect, useId, useRef, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -263,7 +263,7 @@ const SessionTitleArea = ({
   );
 };
 
-export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
+export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsSectionId = useId();
   const { session, connectionIssue, nowMs, titleDraft, titleEditing, titleSaving, titleError } =
@@ -395,4 +395,6 @@ export const SessionHeader = ({ state, actions }: SessionHeaderProps) => {
       </header>
     </>
   );
-};
+});
+
+SessionHeader.displayName = "SessionHeader";

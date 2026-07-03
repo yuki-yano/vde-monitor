@@ -6,6 +6,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { defaultLaunchConfig } from "@/state/launch-agent-options";
 
+import { NotesSection } from "./components/NotesSection";
+import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
+import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
 import { SessionDetailProvider, useSessionDetailContext } from "./SessionDetailProvider";
 import { createSessionDetail } from "./test-helpers";
 
@@ -142,6 +145,18 @@ vi.mock("./hooks/useSessionScreen", () => ({
   }),
 }));
 
+// Counts how many times NotesSection's own function body actually executes
+// (as opposed to how many times its parent re-renders). useNotesPolling is
+// called unconditionally at the top of NotesSection, so replacing it with a
+// counting stub gives a reliable signal for "did NotesSection's memo bail?"
+// without relying on ambiguous Profiler semantics.
+let notesPollingCallCount = 0;
+vi.mock("./hooks/useNotesPolling", () => ({
+  useNotesPolling: () => {
+    notesPollingCallCount += 1;
+  },
+}));
+
 vi.mock("./hooks/useSessionControls", () => ({
   useSessionControls: () => ({
     textInputRef: { current: null },
@@ -169,6 +184,14 @@ vi.mock("./hooks/useSessionControls", () => ({
     toggleAllowDangerKeys: vi.fn(),
   }),
 }));
+
+// Renders NotesSection through the real collector hook
+// (useSessionDetailViewDataSectionProps) exactly the way SessionDetailView
+// does, so the memo-effectiveness of the real props chain is exercised.
+const NotesProbe = () => {
+  const { notesSectionProps } = useSessionDetailViewDataSectionProps({ isMobile: false });
+  return <NotesSection {...notesSectionProps} />;
+};
 
 const renderContext = (
   sessions: Array<typeof session>,
@@ -385,5 +408,62 @@ describe("SessionDetailProvider", () => {
     expect(requestDiffSummary.mock.calls.length).toBeGreaterThan(diffCallsBeforeCheckout);
     expect(requestCommitLog.mock.calls.length).toBeGreaterThan(commitCallsBeforeCheckout);
     expect(requestWorktrees.mock.calls.length).toBeGreaterThan(worktreeCallsBeforeCheckout);
+  });
+
+  // Render-suppression regression coverage for T15a. useSessionDetailVMState's
+  // return value ("base") used to be a plain object literal (never
+  // memoized), so it produced a new reference on every render for any reason
+  // at all -- which made SessionDetailProvider's final context-value useMemo
+  // (whose deps include `base`) cache-miss unconditionally, forcing every
+  // SessionDetailContext consumer (View + 5 props/state hooks) to re-run on
+  // every SSE tick. This checks useSessionDetailVMState's own output
+  // directly (rather than the Provider's combined context value, which also
+  // depends on several other subhooks outside this task's scope and so is
+  // not usable as a stability signal for `base` specifically).
+  it("keeps the useSessionDetailVMState return reference stable across a re-render where nothing changed (T15a)", () => {
+    mockSessionsContext = buildSessionContext({
+      sessions: [session],
+      sessionApi: buildSessionApi(),
+    });
+    const { result, rerender } = renderHook(() => useSessionDetailVMState("pane-1"));
+    const first = result.current;
+
+    rerender();
+
+    expect(result.current).toBe(first);
+  });
+
+  it("does not re-render the memoized NotesSection when an unrelated sessions tick updates base state (T15a)", async () => {
+    notesPollingCallCount = 0;
+    const sessionApi = buildSessionApi({ requestRepoNotes: vi.fn(async () => []) });
+    mockSessionsContext = buildSessionContext({ sessions: [session], sessionApi });
+
+    let renderResult!: ReturnType<typeof render>;
+    await act(async () => {
+      renderResult = render(
+        <SessionDetailProvider paneId="pane-1">
+          <NotesProbe />
+        </SessionDetailProvider>,
+      );
+    });
+
+    const notesRendersAfterMount = notesPollingCallCount;
+    expect(notesRendersAfterMount).toBeGreaterThan(0);
+
+    // Simulate an unrelated SSE tick: a freshly parsed session object for the
+    // same pane with an unrelated field changed (lastEventAt), while
+    // notes-relevant data (repoRoot) stays the same.
+    const tickedSession = { ...session, lastEventAt: "2026-01-01T00:00:01.000Z" };
+    mockSessionsContext = buildSessionContext({ sessions: [tickedSession], sessionApi });
+
+    await act(async () => {
+      renderResult.rerender(
+        <SessionDetailProvider paneId="pane-1">
+          <NotesProbe />
+        </SessionDetailProvider>,
+      );
+    });
+
+    expect(notesPollingCallCount).toBe(notesRendersAfterMount);
   });
 });

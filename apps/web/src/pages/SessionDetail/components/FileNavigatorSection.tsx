@@ -61,7 +61,7 @@ const FileTreeIcon = memo(({ node }: { node: FileTreeRenderNode }) => {
 
 FileTreeIcon.displayName = "FileTreeIcon";
 
-export const FileNavigatorSection = ({ state, actions }: FileNavigatorSectionProps) => {
+export const FileNavigatorSection = memo(({ state, actions }: FileNavigatorSectionProps) => {
   const isSearchActive = state.searchQuery.trim().length > 0;
   const showClearSearchButton = state.searchQuery.length > 0;
   const isRefreshing = state.treeLoading || state.searchLoading;
@@ -243,4 +243,6 @@ export const FileNavigatorSection = ({ state, actions }: FileNavigatorSectionPro
       )}
     </PaneSectionShell>
   );
-};
+});
+
+FileNavigatorSection.displayName = "FileNavigatorSection";

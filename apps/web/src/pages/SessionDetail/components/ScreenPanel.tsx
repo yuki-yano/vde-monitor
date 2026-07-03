@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type RefObject,
   forwardRef,
+  memo,
   useCallback,
   useMemo,
   useState,
@@ -202,7 +203,7 @@ const RawModeIndicator = ({
   );
 };
 
-export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
+export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps) => {
   const {
     mode,
     wrapMode,
@@ -548,4 +549,6 @@ export const ScreenPanel = ({ state, actions, controls }: ScreenPanelProps) => {
       <div>{controls}</div>
     </Card>
   );
-};
+});
+
+ScreenPanel.displayName = "ScreenPanel";

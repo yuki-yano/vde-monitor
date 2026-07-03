@@ -1,6 +1,6 @@
 import type { RepoNote } from "@vde-monitor/shared";
 import { BookText, Plus, RefreshCw } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 
 import {
   Callout,
@@ -50,7 +50,7 @@ const formatPreviewBody = (body: string) => {
   return normalized.length > 0 ? normalized : EMPTY_NOTE_PREVIEW;
 };
 
-export const NotesSection = ({ state, actions }: NotesSectionProps) => {
+export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
   const { repoRoot, notes, notesLoading, notesError, creatingNote, savingNoteId, deletingNoteId } =
     state;
   const { onRefresh, onCreate, onSave, onDelete } = actions;
@@ -264,4 +264,6 @@ export const NotesSection = ({ state, actions }: NotesSectionProps) => {
       />
     </Card>
   );
-};
+});
+
+NotesSection.displayName = "NotesSection";
