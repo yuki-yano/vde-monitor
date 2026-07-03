@@ -181,6 +181,11 @@ export const ChatGridTile = ({
         if (textInputRef.current) {
           textInputRef.current.value = "";
         }
+        // usePaneSendText only clears its own internal error state on
+        // success, not the setScreenError callback it was given (that
+        // callback fires on failure only) — so composerError has to be
+        // cleared here explicitly, matching SessionDetail's handleSendText.
+        setComposerError(null);
         void onTouchSession?.(session.paneId);
       },
     });
@@ -224,7 +229,7 @@ export const ChatGridTile = ({
     setAutoEnter,
     setRawMode,
     setAllowDangerKeys,
-    setScreenError: setComposerError,
+    setSendError: setComposerError,
     onSendPermissionShortcutSuccess: (touchedPaneId) => {
       void onTouchSession?.(touchedPaneId);
     },

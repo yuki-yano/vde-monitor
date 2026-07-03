@@ -53,7 +53,7 @@ type ScreenPanelState = {
    * raw-mode direct typing / image upload), cleared on the next successful
    * send. Distinct from `error` (connection status / screen-fetch failures),
    * and shown in the same Callout slot with priority over it when both are
-   * present — see shouldShowErrorMessage.
+   * present — see resolveDisplayedError.
    */
   sendError: string | null;
   pollingPauseReason: "disconnected" | "unauthorized" | "offline" | "hidden" | null;

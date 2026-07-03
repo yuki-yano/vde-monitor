@@ -28,7 +28,7 @@ type UseTerminalControlsParams = {
    * clear-on-success contract, so this hook doesn't need to know which
    * store backs it.
    */
-  setScreenError: (error: string | null) => void;
+  setSendError: (error: string | null) => void;
   /**
    * ChatGridTile touches the session (to bump list recency) after a
    * successful permission shortcut send; SessionDetail has no equivalent.
@@ -48,7 +48,7 @@ export const useTerminalControls = ({
   setAutoEnter,
   setRawMode,
   setAllowDangerKeys,
-  setScreenError,
+  setSendError,
   onSendPermissionShortcutSuccess,
 }: UseTerminalControlsParams) => {
   const prevAutoEnterRef = useRef<boolean | null>(null);
@@ -59,10 +59,10 @@ export const useTerminalControls = ({
       if (rawMode) {
         const result = await sendRaw(paneId, [{ kind: "key", value: mapped }], allowDangerKeys);
         if (!result.ok) {
-          setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
+          setSendError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
           return;
         }
-        setScreenError(null);
+        setSendError(null);
         return;
       }
       if (!confirmDangerousKey(mapped)) {
@@ -70,12 +70,12 @@ export const useTerminalControls = ({
       }
       const result = await sendKeys(paneId, [mapped]);
       if (!result.ok) {
-        setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendKeys));
+        setSendError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendKeys));
         return;
       }
-      setScreenError(null);
+      setSendError(null);
     },
-    [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setScreenError, shiftHeld],
+    [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setSendError, shiftHeld],
   );
 
   const handleSendPermissionShortcut = useCallback(
@@ -84,13 +84,13 @@ export const useTerminalControls = ({
         value === "Escape" ? { kind: "key", value: "Escape" } : { kind: "text", value };
       const result = await sendRaw(paneId, [item], false);
       if (!result.ok) {
-        setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
+        setSendError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
         return;
       }
-      setScreenError(null);
+      setSendError(null);
       onSendPermissionShortcutSuccess?.(paneId);
     },
-    [onSendPermissionShortcutSuccess, paneId, sendRaw, setScreenError],
+    [onSendPermissionShortcutSuccess, paneId, sendRaw, setSendError],
   );
 
   const toggleRawMode = useCallback(() => {

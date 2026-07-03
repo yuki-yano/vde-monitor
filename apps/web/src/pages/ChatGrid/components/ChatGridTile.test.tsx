@@ -380,6 +380,44 @@ describe("ChatGridTile", () => {
     });
   });
 
+  it("clears a stale composer error from an unrelated key-send failure after a text send succeeds", async () => {
+    mockSessionApi.sendKeys.mockClear();
+    mockSessionApi.sendText.mockClear();
+    mockSessionApi.sendKeys.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL", message: "boom" },
+    });
+    mockSessionApi.sendText.mockResolvedValueOnce({ ok: true });
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession()}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Show key options" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("boom")).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hello from tile" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(mockSessionApi.sendText).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("boom")).toBeNull();
+    });
+  });
+
   it("does not show empty fallback while screen is loading", () => {
     renderWithRouter(
       <ChatGridTile

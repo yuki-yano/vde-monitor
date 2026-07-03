@@ -86,10 +86,10 @@ export const useSessionControls = ({
   const [allowDangerKeys, setAllowDangerKeys] = useAtom(controlsAllowDangerKeysAtom);
   // Send-scoped error state: key send / permission shortcut / text send /
   // raw-mode direct typing / image upload failures all land here instead of
-  // the shared screenError, so a successful retry clears them without
-  // disturbing an unrelated connection/screen-fetch error that screenError
-  // may be showing at the same time (see controlAtoms.ts and
-  // useSessionScreen's screenErrorAtom usage). Kill pane/window are
+  // the shared screenError (screenErrorAtom, defined in ../atoms/screenAtoms.ts
+  // and driven by useSessionScreen/useScreenFetch), so a successful retry
+  // clears them without disturbing an unrelated connection/screen-fetch error
+  // that screenError may be showing at the same time. Kill pane/window are
   // deliberately excluded — those are one-off operations, not part of the
   // send flow, so screenError remains their error channel.
   const [sendError, setSendError] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export const useSessionControls = ({
     setAutoEnter,
     setRawMode,
     setAllowDangerKeys,
-    setScreenError: setSendError,
+    setSendError,
   });
 
   const handleKillPane = useCallback(async () => {
@@ -214,6 +214,10 @@ export const useSessionControls = ({
   // otherwise a failed raw keystroke would leave a stale message that a later
   // successful button send wouldn't clear, the same asymmetry ChatGridTile
   // avoids by wiring composerError into useRawInputHandlers.
+  // Limitation: useRawInputHandlers only calls this setter on failure, never
+  // on success, so a successful raw keystroke does not itself clear a
+  // previously-set sendError — it stays until some other successful send
+  // (button key, permission shortcut, text, or upload) clears it.
   const {
     handleRawBeforeInput,
     handleRawInput,
