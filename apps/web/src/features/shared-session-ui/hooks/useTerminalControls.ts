@@ -21,14 +21,14 @@ type UseTerminalControlsParams = {
   setAutoEnter: BooleanSetter;
   setRawMode: BooleanSetter;
   setAllowDangerKeys: BooleanSetter;
-  setScreenError: (error: string | null) => void;
   /**
-   * SessionDetail leaves the shared screen error alone on a successful send
-   * (it's also driven by connection status elsewhere), while ChatGridTile's
-   * composer error is local and gets cleared after every successful send.
-   * Defaults to false to match SessionDetail's existing behavior.
+   * Reports send-scoped failures and is cleared on every successful send.
+   * Both callers (ChatGridTile's local composer error, SessionDetail's
+   * dedicated send-error state) wire in a setter with that same
+   * clear-on-success contract, so this hook doesn't need to know which
+   * store backs it.
    */
-  clearErrorOnSendSuccess?: boolean;
+  setScreenError: (error: string | null) => void;
   /**
    * ChatGridTile touches the session (to bump list recency) after a
    * successful permission shortcut send; SessionDetail has no equivalent.
@@ -49,7 +49,6 @@ export const useTerminalControls = ({
   setRawMode,
   setAllowDangerKeys,
   setScreenError,
-  clearErrorOnSendSuccess = false,
   onSendPermissionShortcutSuccess,
 }: UseTerminalControlsParams) => {
   const prevAutoEnterRef = useRef<boolean | null>(null);
@@ -63,9 +62,7 @@ export const useTerminalControls = ({
           setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
           return;
         }
-        if (clearErrorOnSendSuccess) {
-          setScreenError(null);
-        }
+        setScreenError(null);
         return;
       }
       if (!confirmDangerousKey(mapped)) {
@@ -76,21 +73,9 @@ export const useTerminalControls = ({
         setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendKeys));
         return;
       }
-      if (clearErrorOnSendSuccess) {
-        setScreenError(null);
-      }
+      setScreenError(null);
     },
-    [
-      allowDangerKeys,
-      clearErrorOnSendSuccess,
-      ctrlHeld,
-      paneId,
-      rawMode,
-      sendKeys,
-      sendRaw,
-      setScreenError,
-      shiftHeld,
-    ],
+    [allowDangerKeys, ctrlHeld, paneId, rawMode, sendKeys, sendRaw, setScreenError, shiftHeld],
   );
 
   const handleSendPermissionShortcut = useCallback(
@@ -102,12 +87,10 @@ export const useTerminalControls = ({
         setScreenError(resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendRaw));
         return;
       }
-      if (clearErrorOnSendSuccess) {
-        setScreenError(null);
-      }
+      setScreenError(null);
       onSendPermissionShortcutSuccess?.(paneId);
     },
-    [clearErrorOnSendSuccess, onSendPermissionShortcutSuccess, paneId, sendRaw, setScreenError],
+    [onSendPermissionShortcutSuccess, paneId, sendRaw, setScreenError],
   );
 
   const toggleRawMode = useCallback(() => {

@@ -13,7 +13,7 @@ import { extractCodexContextLeft } from "../sessionDetailUtils";
 // underlying screen/controls subhooks are read from a single call site.
 export const useScreenPanelState = () => {
   const { base, terminal, scope, pushNotifications } = useSessionDetailContext();
-  const { screen, handleRefreshScreen } = terminal;
+  const { screen, controls, handleRefreshScreen } = terminal;
   const { virtualWorktree } = scope;
 
   const contextLeftLabel = useMemo(
@@ -29,6 +29,7 @@ export const useScreenPanelState = () => {
       imageBase64: screen.imageBase64,
       fallbackReason: screen.fallbackReason,
       error: screen.error,
+      sendError: controls.sendError,
       pollingPauseReason: screen.pollingPauseReason,
       contextLeftLabel,
       isScreenLoading: screen.isScreenLoading,
@@ -62,6 +63,14 @@ export const useScreenPanelState = () => {
       requestNotificationPermission: pushNotifications.requestPermissionAndSubscribe,
       togglePaneNotification: pushNotifications.togglePaneEnabled,
     }),
-    [screen, handleRefreshScreen, virtualWorktree, scope, pushNotifications, contextLeftLabel],
+    [
+      screen,
+      controls,
+      handleRefreshScreen,
+      virtualWorktree,
+      scope,
+      pushNotifications,
+      contextLeftLabel,
+    ],
   );
 };

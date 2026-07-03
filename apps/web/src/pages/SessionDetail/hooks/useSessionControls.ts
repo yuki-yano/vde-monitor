@@ -5,7 +5,7 @@ import {
   type RawItem,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildImagePathInsertText,
   insertIntoTextarea,
@@ -84,6 +84,12 @@ export const useSessionControls = ({
   const [ctrlHeld, setCtrlHeld] = useAtom(controlsCtrlHeldAtom);
   const [rawMode, setRawMode] = useAtom(controlsRawModeAtom);
   const [allowDangerKeys, setAllowDangerKeys] = useAtom(controlsAllowDangerKeysAtom);
+  // Send-scoped error state: key send / permission shortcut / text send
+  // failures land here instead of the shared screenError, so a successful
+  // retry clears them without disturbing an unrelated connection/screen-fetch
+  // error that screenError may be showing at the same time (see
+  // controlAtoms.ts and useSessionScreen's screenErrorAtom usage).
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     setAutoEnter(true);
@@ -91,20 +97,23 @@ export const useSessionControls = ({
     setCtrlHeld(false);
     setRawMode(false);
     setAllowDangerKeys(false);
+    setSendError(null);
   }, [paneId, setAllowDangerKeys, setAutoEnter, setCtrlHeld, setRawMode, setShiftHeld]);
 
   const { send: sendPaneText, isSending: isSendingText } = usePaneSendText({
     paneId,
     mode,
     sendText,
-    setScreenError,
+    setScreenError: setSendError,
     scrollToBottom,
   });
 
-  // SessionDetail's screenError is shared with connection-status display, so a
-  // successful key/permission send intentionally leaves it untouched (default
-  // clearErrorOnSendSuccess: false), and there is no session-touch callback
-  // here (that concept only exists for the ChatGrid tile list).
+  // Key sends and permission shortcuts report failures into the dedicated
+  // sendError state above (via useTerminalControls's default
+  // clear-on-success behavior) rather than the shared screenError, so a
+  // successful retry clears them the same way ChatGridTile's composer error
+  // does. There is no session-touch callback here (that concept only exists
+  // for the ChatGrid tile list).
   const { handleSendKey, handleSendPermissionShortcut, toggleRawMode } = useTerminalControls({
     paneId,
     ctrlHeld,
@@ -117,7 +126,7 @@ export const useSessionControls = ({
     setAutoEnter,
     setRawMode,
     setAllowDangerKeys,
-    setScreenError,
+    setScreenError: setSendError,
   });
 
   const handleKillPane = useCallback(async () => {
@@ -147,6 +156,12 @@ export const useSessionControls = ({
       confirm: () => confirmDangerousText(currentValue),
       onSuccess: () => {
         clearPromptValue(textInputRef);
+        // usePaneSendText only clears its own internal error state on
+        // success, not the setScreenError callback it was given (that
+        // callback is fire-on-failure only) — so the send-error state has to
+        // be cleared here explicitly to satisfy the same
+        // clear-on-successful-send contract as key/permission sends.
+        setSendError(null);
       },
     });
   }, [autoEnter, rawMode, sendPaneText]);
@@ -212,6 +227,7 @@ export const useSessionControls = ({
     rawMode,
     allowDangerKeys,
     isSendingText,
+    sendError,
     handleSendKey,
     handleSendPermissionShortcut,
     handleKillPane,

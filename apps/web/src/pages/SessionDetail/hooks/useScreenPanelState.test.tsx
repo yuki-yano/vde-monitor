@@ -45,6 +45,9 @@ const buildContextValue = (
         virtuosoRef: { current: null },
         scrollerRef: { current: null },
       },
+      controls: {
+        sendError: null,
+      },
       handleRefreshScreen: vi.fn(),
     },
     scope: {
@@ -96,6 +99,19 @@ describe("useScreenPanelState", () => {
     const { result } = renderHook(() => useScreenPanelState());
 
     expect(result.current.contextLeftLabel).toBeNull();
+  });
+
+  it("maps the send-scoped error separately from the screen error", () => {
+    mockContextValue = buildContextValue();
+    (mockContextValue.terminal as { screen: Record<string, unknown> }).screen.error =
+      "Disconnected. Reconnecting...";
+    (mockContextValue.terminal as { controls: Record<string, unknown> }).controls.sendError =
+      "Failed to send keys.";
+
+    const { result } = renderHook(() => useScreenPanelState());
+
+    expect(result.current.error).toBe("Disconnected. Reconnecting...");
+    expect(result.current.sendError).toBe("Failed to send keys.");
   });
 
   it("maps worktree subhook fields into the disambiguated ScreenPanel shape", () => {
