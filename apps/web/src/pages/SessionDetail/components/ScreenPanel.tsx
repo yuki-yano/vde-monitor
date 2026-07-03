@@ -48,6 +48,14 @@ type ScreenPanelState = {
   connectionIssue: string | null;
   fallbackReason: string | null;
   error: string | null;
+  /**
+   * Send-scoped failure (key send / permission shortcut / text send /
+   * raw-mode direct typing / image upload), cleared on the next successful
+   * send. Distinct from `error` (connection status / screen-fetch failures),
+   * and shown in the same Callout slot with priority over it when both are
+   * present — see resolveDisplayedError.
+   */
+  sendError: string | null;
   pollingPauseReason: "disconnected" | "unauthorized" | "offline" | "hidden" | null;
   promptGitContext: {
     branch: string | null;
@@ -112,6 +120,22 @@ type ScreenPanelProps = {
 const shouldShowErrorMessage = (error: string | null, connectionIssue: string | null) =>
   Boolean(error) &&
   (!connectionIssue || (error !== connectionIssue && error !== DISCONNECTED_MESSAGE));
+
+// Send errors (key/permission/text send failures) and screenError
+// (connection/screen-fetch failures) share one Callout slot at the same
+// visual position sends have always used. Send errors take priority: they
+// are the more actionable, most-recent user action, and mirror
+// ChatGridTile's `composerError ?? screenError` precedence.
+const resolveDisplayedError = (
+  sendError: string | null,
+  error: string | null,
+  connectionIssue: string | null,
+) => {
+  if (sendError) {
+    return sendError;
+  }
+  return shouldShowErrorMessage(error, connectionIssue) ? error : null;
+};
 
 const pollingPauseLabelMap: Record<
   NonNullable<ScreenPanelState["pollingPauseReason"]>,
@@ -214,6 +238,7 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     connectionIssue,
     fallbackReason,
     error,
+    sendError,
     pollingPauseReason,
     promptGitContext,
     contextLeftLabel,
@@ -258,7 +283,7 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     onResolveFileReference,
     onResolveFileReferenceCandidates,
   } = actions;
-  const showError = shouldShowErrorMessage(error, connectionIssue);
+  const displayedError = resolveDisplayedError(sendError, error, connectionIssue);
   const effectiveWrapMode: ScreenWrapMode =
     mode === "text" && wrapMode === "smart" ? "smart" : "off";
   const pollingPauseMeta = pollingPauseReason ? pollingPauseLabelMap[pollingPauseReason] : null;
@@ -483,9 +508,9 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
           Image fallback: {fallbackReason}
         </Callout>
       )}
-      {showError && (
+      {displayedError && (
         <Callout tone="error" size="xs">
-          {error}
+          {displayedError}
         </Callout>
       )}
       {fileResolveError && (

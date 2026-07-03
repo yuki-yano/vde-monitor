@@ -181,6 +181,11 @@ export const ChatGridTile = ({
         if (textInputRef.current) {
           textInputRef.current.value = "";
         }
+        // usePaneSendText only clears its own internal error state on
+        // success, not the setScreenError callback it was given (that
+        // callback fires on failure only) — so composerError has to be
+        // cleared here explicitly, matching SessionDetail's handleSendText.
+        setComposerError(null);
         void onTouchSession?.(session.paneId);
       },
     });
@@ -208,11 +213,10 @@ export const ChatGridTile = ({
     [session.paneId, uploadImageAttachment],
   );
 
-  // ChatGridTile clears the (locally scoped) composer error after every
-  // successful send and touches the session (to bump list recency) after a
-  // successful permission shortcut — neither applies to SessionDetail, whose
-  // screenError is shared with connection-status display and has no
-  // list-recency concept.
+  // useTerminalControls clears the (locally scoped) composer error after
+  // every successful send by default; ChatGridTile additionally touches the
+  // session (to bump list recency) after a successful permission shortcut,
+  // which SessionDetail has no equivalent for.
   const { handleSendKey, handleSendPermissionShortcut, toggleRawMode } = useTerminalControls({
     paneId: session.paneId,
     ctrlHeld,
@@ -225,8 +229,7 @@ export const ChatGridTile = ({
     setAutoEnter,
     setRawMode,
     setAllowDangerKeys,
-    setScreenError: setComposerError,
-    clearErrorOnSendSuccess: true,
+    setSendError: setComposerError,
     onSendPermissionShortcutSuccess: (touchedPaneId) => {
       void onTouchSession?.(touchedPaneId);
     },

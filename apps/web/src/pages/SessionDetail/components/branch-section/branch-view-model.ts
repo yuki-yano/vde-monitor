@@ -4,7 +4,7 @@ import {
   buildVisibleFileChangeCategories,
   formatRelativeWorktreePath,
   resolveWorktreePrStatus,
-} from "./worktree-view-model";
+} from "../worktree-view-model";
 
 export const resolveBranchPrStatus = (
   entry: BranchListEntry,

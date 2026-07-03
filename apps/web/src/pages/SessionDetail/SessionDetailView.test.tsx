@@ -374,6 +374,7 @@ const buildDefaultContextValue = () => {
         rawMode: false,
         allowDangerKeys: false,
         isSendingText: false,
+        sendError: null,
         handleSendKey: vi.fn(),
         handleSendPermissionShortcut: vi.fn(),
         handleKillPane: vi.fn(),

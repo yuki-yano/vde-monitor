@@ -71,6 +71,7 @@ describe("ScreenPanel", () => {
     connectionIssue: null,
     fallbackReason: null,
     error: null,
+    sendError: null,
     pollingPauseReason: null,
     promptGitContext: {
       branch: "feature/session-detail",
@@ -350,6 +351,35 @@ describe("ScreenPanel", () => {
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.queryByText("Disconnected. Reconnecting...")).toBeNull();
+  });
+
+  it("shows the send-scoped error in the same Callout slot", () => {
+    const state = buildState({ sendError: "Failed to send keys." });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByText("Failed to send keys.")).toBeTruthy();
+  });
+
+  it("prioritizes the send-scoped error over a concurrent screen error", () => {
+    const state = buildState({ sendError: "Failed to send keys.", error: "Screen error" });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByText("Failed to send keys.")).toBeTruthy();
+    expect(screen.queryByText("Screen error")).toBeNull();
+  });
+
+  it("still shows the send-scoped error even when it matches the disconnected message", () => {
+    const state = buildState({
+      connectionIssue: "Disconnected. Reconnecting...",
+      error: "Disconnected. Reconnecting...",
+      sendError: "Disconnected. Reconnecting...",
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    expect(screen.getByText("Disconnected. Reconnecting...")).toBeTruthy();
   });
 
   it("shows prompt git context row", () => {

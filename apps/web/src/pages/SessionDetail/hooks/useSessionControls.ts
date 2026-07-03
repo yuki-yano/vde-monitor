@@ -5,7 +5,7 @@ import {
   type RawItem,
 } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildImagePathInsertText,
   insertIntoTextarea,
@@ -84,6 +84,15 @@ export const useSessionControls = ({
   const [ctrlHeld, setCtrlHeld] = useAtom(controlsCtrlHeldAtom);
   const [rawMode, setRawMode] = useAtom(controlsRawModeAtom);
   const [allowDangerKeys, setAllowDangerKeys] = useAtom(controlsAllowDangerKeysAtom);
+  // Send-scoped error state: key send / permission shortcut / text send /
+  // raw-mode direct typing / image upload failures all land here instead of
+  // the shared screenError (screenErrorAtom, defined in ../atoms/screenAtoms.ts
+  // and driven by useSessionScreen/useScreenFetch), so a successful retry
+  // clears them without disturbing an unrelated connection/screen-fetch error
+  // that screenError may be showing at the same time. Kill pane/window are
+  // deliberately excluded — those are one-off operations, not part of the
+  // send flow, so screenError remains their error channel.
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     setAutoEnter(true);
@@ -91,20 +100,23 @@ export const useSessionControls = ({
     setCtrlHeld(false);
     setRawMode(false);
     setAllowDangerKeys(false);
+    setSendError(null);
   }, [paneId, setAllowDangerKeys, setAutoEnter, setCtrlHeld, setRawMode, setShiftHeld]);
 
   const { send: sendPaneText, isSending: isSendingText } = usePaneSendText({
     paneId,
     mode,
     sendText,
-    setScreenError,
+    setScreenError: setSendError,
     scrollToBottom,
   });
 
-  // SessionDetail's screenError is shared with connection-status display, so a
-  // successful key/permission send intentionally leaves it untouched (default
-  // clearErrorOnSendSuccess: false), and there is no session-touch callback
-  // here (that concept only exists for the ChatGrid tile list).
+  // Key sends and permission shortcuts report failures into the dedicated
+  // sendError state above (via useTerminalControls's default
+  // clear-on-success behavior) rather than the shared screenError, so a
+  // successful retry clears them the same way ChatGridTile's composer error
+  // does. There is no session-touch callback here (that concept only exists
+  // for the ChatGrid tile list).
   const { handleSendKey, handleSendPermissionShortcut, toggleRawMode } = useTerminalControls({
     paneId,
     ctrlHeld,
@@ -117,7 +129,7 @@ export const useSessionControls = ({
     setAutoEnter,
     setRawMode,
     setAllowDangerKeys,
-    setScreenError,
+    setSendError,
   });
 
   const handleKillPane = useCallback(async () => {
@@ -147,10 +159,19 @@ export const useSessionControls = ({
       confirm: () => confirmDangerousText(currentValue),
       onSuccess: () => {
         clearPromptValue(textInputRef);
+        // usePaneSendText only clears its own internal error state on
+        // success, not the setScreenError callback it was given (that
+        // callback is fire-on-failure only) — so the send-error state has to
+        // be cleared here explicitly to satisfy the same
+        // clear-on-successful-send contract as key/permission sends.
+        setSendError(null);
       },
     });
   }, [autoEnter, rawMode, sendPaneText]);
 
+  // Image upload is part of the composer's send flow (like ChatGridTile's
+  // handlePickImage, which reports into composerError), so failures land on
+  // the dedicated send-error state and get cleared on success too.
   const handleUploadImage = useCallback(
     async (file: File) => {
       const textarea = textInputRef.current;
@@ -158,18 +179,18 @@ export const useSessionControls = ({
         return;
       }
       if (!uploadImageAttachment) {
-        setScreenError(API_ERROR_MESSAGES.uploadImage);
+        setSendError(API_ERROR_MESSAGES.uploadImage);
         return;
       }
       try {
         const attachment = await uploadImageAttachment(paneId, file);
         insertIntoTextarea(textarea, buildImagePathInsertText(textarea, attachment.path));
-        setScreenError(null);
+        setSendError(null);
       } catch (error) {
-        setScreenError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.uploadImage));
+        setSendError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.uploadImage));
       }
     },
-    [paneId, setScreenError, uploadImageAttachment],
+    [paneId, uploadImageAttachment],
   );
 
   const toggleAutoEnter = useCallback(() => {
@@ -188,6 +209,15 @@ export const useSessionControls = ({
     setAllowDangerKeys((prev) => !prev);
   }, [setAllowDangerKeys]);
 
+  // Raw-mode direct typing is another send path (like handleSendKey in raw
+  // mode), so its failures report into the dedicated send-error state too —
+  // otherwise a failed raw keystroke would leave a stale message that a later
+  // successful button send wouldn't clear, the same asymmetry ChatGridTile
+  // avoids by wiring composerError into useRawInputHandlers.
+  // Limitation: useRawInputHandlers only calls this setter on failure, never
+  // on success, so a successful raw keystroke does not itself clear a
+  // previously-set sendError — it stays until some other successful send
+  // (button key, permission shortcut, text, or upload) clears it.
   const {
     handleRawBeforeInput,
     handleRawInput,
@@ -201,7 +231,7 @@ export const useSessionControls = ({
     ctrlHeld,
     shiftHeld,
     sendRaw,
-    setScreenError,
+    setScreenError: setSendError,
   });
 
   return {
@@ -212,6 +242,7 @@ export const useSessionControls = ({
     rawMode,
     allowDangerKeys,
     isSendingText,
+    sendError,
     handleSendKey,
     handleSendPermissionShortcut,
     handleKillPane,
