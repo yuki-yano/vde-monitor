@@ -49,10 +49,11 @@ type ScreenPanelState = {
   fallbackReason: string | null;
   error: string | null;
   /**
-   * Send-scoped failure (key send / permission shortcut / text send),
-   * cleared on the next successful send. Distinct from `error` (connection
-   * status / screen-fetch failures), and shown in the same Callout slot with
-   * priority over it when both are present — see shouldShowErrorMessage.
+   * Send-scoped failure (key send / permission shortcut / text send /
+   * raw-mode direct typing / image upload), cleared on the next successful
+   * send. Distinct from `error` (connection status / screen-fetch failures),
+   * and shown in the same Callout slot with priority over it when both are
+   * present — see shouldShowErrorMessage.
    */
   sendError: string | null;
   pollingPauseReason: "disconnected" | "unauthorized" | "offline" | "hidden" | null;

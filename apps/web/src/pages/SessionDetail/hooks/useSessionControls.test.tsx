@@ -316,7 +316,10 @@ describe("useSessionControls", () => {
     });
 
     expect(textarea.value).toBe("prefix /tmp/image.png\n suffix");
-    expect(setScreenError).toHaveBeenCalledWith(null);
+    // Upload success clears the dedicated send-error state, not the shared
+    // screenError passed in from the caller.
+    expect(setScreenError).not.toHaveBeenCalled();
+    expect(result.current.sendError).toBeNull();
   });
 
   it("does not prepend newline when previous character is full-width space", async () => {
@@ -400,7 +403,59 @@ describe("useSessionControls", () => {
     });
 
     expect(textarea.value).toBe("keep this");
-    expect(setScreenError).toHaveBeenCalledWith("upload failed");
+    // Upload failures land on the dedicated send-error state, not the shared
+    // screenError, matching ChatGridTile's handlePickImage -> composerError.
+    expect(setScreenError).not.toHaveBeenCalled();
+    expect(result.current.sendError).toBe("upload failed");
+  });
+
+  it("clears an upload failure's send-error after a subsequent successful send", async () => {
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const uploadImageAttachment = vi.fn().mockRejectedValue(new Error("upload failed"));
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          uploadImageAttachment,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "keep this";
+    act(() => {
+      result.current.textInputRef.current = textarea;
+    });
+
+    await act(async () => {
+      await result.current.handleUploadImage(createImageFile());
+    });
+    expect(result.current.sendError).toBe("upload failed");
+
+    uploadImageAttachment.mockResolvedValueOnce({
+      path: "/tmp/image.png",
+      mimeType: "image/png",
+      size: 3,
+      createdAt: "2026-02-06T00:00:00.000Z",
+      insertText: "/tmp/ignored-by-client.png ",
+    });
+    await act(async () => {
+      await result.current.handleUploadImage(createImageFile());
+    });
+
+    expect(result.current.sendError).toBeNull();
+    expect(setScreenError).not.toHaveBeenCalled();
   });
 
   it("shows fallback error when upload API is unavailable", async () => {
@@ -435,7 +490,8 @@ describe("useSessionControls", () => {
     });
 
     expect(textarea.value).toBe("keep this");
-    expect(setScreenError).toHaveBeenCalledWith(API_ERROR_MESSAGES.uploadImage);
+    expect(setScreenError).not.toHaveBeenCalled();
+    expect(result.current.sendError).toBe(API_ERROR_MESSAGES.uploadImage);
   });
 
   it("blocks dangerous text when confirmation is canceled", async () => {
@@ -622,6 +678,70 @@ describe("useSessionControls", () => {
 
     expect(preventDefault).toHaveBeenCalled();
     expect(sendRaw).toHaveBeenCalledWith("pane-1", [{ kind: "key", value: "C-d" }], false);
+    vi.useRealTimers();
+  });
+
+  it("surfaces a raw-mode direct-typing failure via the dedicated send-error state and clears it on a subsequent successful button key send", async () => {
+    vi.useFakeTimers();
+    const sendText = vi.fn().mockResolvedValue({ ok: true });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: "INTERNAL", message: "raw typing failed" },
+      })
+      .mockResolvedValueOnce({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result } = renderHook(
+      () =>
+        useSessionControls({
+          paneId: "pane-1",
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    act(() => {
+      result.current.textInputRef.current = textarea;
+      result.current.toggleRawMode();
+    });
+
+    act(() => {
+      result.current.handleRawBeforeInput({
+        currentTarget: textarea,
+        nativeEvent: { inputType: "insertText", data: "d" },
+        preventDefault: vi.fn(),
+      } as unknown as FormEvent<HTMLTextAreaElement>);
+    });
+
+    await act(async () => {
+      vi.runAllTimers();
+      await Promise.resolve();
+    });
+
+    expect(result.current.sendError).toBe("raw typing failed");
+    expect(setScreenError).not.toHaveBeenCalled();
+
+    // A later successful send via the key panel button (routed through
+    // useTerminalControls's handleSendKey, not useRawInputHandlers) clears
+    // the same send-error state — the two entry points must not diverge.
+    await act(async () => {
+      await result.current.handleSendKey("Enter");
+    });
+
+    expect(sendRaw).toHaveBeenLastCalledWith("pane-1", [{ kind: "key", value: "Enter" }], false);
+    expect(result.current.sendError).toBeNull();
+    expect(setScreenError).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
