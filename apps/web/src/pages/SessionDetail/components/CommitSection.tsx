@@ -7,7 +7,8 @@ import { PaneSectionShell } from "@/features/shared-session-ui/components/PaneSe
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
 import { formatBranchLabel, formatPath } from "@/lib/session-format";
-import { CommitList, CommitLoadMoreButton } from "./commit-section-list";
+import { CommitList } from "./commit-section/commit-list";
+import { CommitLoadMoreButton } from "./commit-section/commit-load-more-button";
 import {
   buildCommitListClassName,
   buildRenderedPatches,
