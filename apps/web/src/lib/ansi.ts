@@ -5,6 +5,7 @@ import AnsiToHtml from "ansi-to-html";
 import type { Theme } from "@/lib/theme";
 
 import { applyAdjacentBackgroundPadding } from "./ansi-background-padding";
+import { applyAnsiSgrCarryover } from "./ansi-sgr-carryover";
 import { applyClaudeDiffMask, buildClaudeDiffMask, renderClaudeDiffLine } from "./ansi-claude-diff";
 import { blendRgb, contrastRatio, luminance, parseColor } from "./ansi-colors";
 import {
@@ -396,7 +397,7 @@ export const renderAnsiLines = (
   options?: RenderAnsiOptions,
 ): string[] => {
   const converter = buildAnsiToHtml(theme, { stream: false });
-  const lines = splitLines(sanitizeAnsiForHtml(text));
+  const lines = applyAnsiSgrCarryover(splitLines(sanitizeAnsiForHtml(text)));
   const shouldNormalizeUnicodeTable = options?.agent === "claude" || options?.agent === "unknown";
   const unicodeNormalizedLines = shouldNormalizeUnicodeTable
     ? normalizeUnicodeTableLines(lines)

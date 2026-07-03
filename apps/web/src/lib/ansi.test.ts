@@ -134,6 +134,75 @@ describe("renderAnsiLines", () => {
     expect(lines[1]).not.toContain("display:block; width:100%");
   });
 
+  it("highlights continuation lines when the prompt background carries over from the previous line", () => {
+    // tmux capture-pane -e leaves the background open at EOL; continuation
+    // lines re-declare only the foreground.
+    const text = [
+      "[38;5;239m[48;5;237m❯ [38;5;231mfirst line[39m",
+      "  [38;5;231msecond line[39m",
+      "[49m",
+      "  [38;5;246mThought for 5s[39m",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    const readBg = (line: string) =>
+      line
+        .match(/background-color:\s*([^;"']+)/i)?.[1]
+        ?.trim()
+        .toLowerCase() ?? null;
+    const blockColor = readBg(lines[0] ?? "");
+    expect(blockColor).not.toBeNull();
+    expect(readBg(lines[1] ?? "")).toBe(blockColor);
+    expect(lines[1]).toContain("display:block; width:100%");
+    expect(lines[2]).not.toContain("background-color:");
+    expect(lines[3]).not.toContain("background-color:");
+  });
+
+  it("highlights continuation lines when the prompt background opens on a separator line", () => {
+    // tmux may serialize the background start on an otherwise empty line and
+    // reset it at the start of the following output line.
+    const text = [
+      "[38;5;239m[48;5;237m❯ [38;5;231mfirst[39m      [49m",
+      "[48;5;237m",
+      "  [38;5;231msecond[39m      [49m",
+      "[48;5;237m",
+      "",
+      "[49m  [38;5;246mThought for 16s[39m",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    const readBg = (line: string) =>
+      line
+        .match(/background-color:\s*([^;"']+)/i)?.[1]
+        ?.trim()
+        .toLowerCase() ?? null;
+    const blockColor = readBg(lines[0] ?? "");
+    expect(blockColor).not.toBeNull();
+    expect(readBg(lines[2] ?? "")).toBe(blockColor);
+    expect(lines[2]).toContain("display:block; width:100%");
+    expect(lines[4]).not.toContain("background-color:");
+    expect(lines[5]).not.toContain("background-color:");
+    expect(lines[5]).not.toContain("display:block; width:100%");
+  });
+
+  it("paints whitespace padding rows inside a multi-line prompt block", () => {
+    const text = [
+      "[38;5;239m[48;5;237m❯ [38;5;231mfirst[39m",
+      "     [49m",
+      "[48;5;237m  [38;5;231msecond[39m",
+      "     [49m",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "claude" });
+    const readBg = (line: string) =>
+      line
+        .match(/background-color:\s*([^;"']+)/i)?.[1]
+        ?.trim()
+        .toLowerCase() ?? null;
+    const blockColor = readBg(lines[0] ?? "");
+    expect(blockColor).not.toBeNull();
+    expect(readBg(lines[1] ?? "")).toBe(blockColor);
+    expect(readBg(lines[2] ?? "")).toBe(blockColor);
+    expect(readBg(lines[3] ?? "")).toBe(blockColor);
+  });
+
   it("does not add Claude prompt highlight to neighboring non-highlight lines", () => {
     const text = [
       "\u001b[48;2;55;55;55m❯ hello\u001b[49m",
@@ -228,7 +297,7 @@ describe("renderAnsiLines", () => {
   });
 
   it("applies background padding only for codex", () => {
-    const text = ["\u001b[41mfirst", "second"].join("\n");
+    const text = ["\u001b[41mfirst\u001b[0m", ""].join("\n");
     const codexLines = renderAnsiLines(text, "latte", { agent: "codex" });
     expect(codexLines[0]).toContain("background-color");
     expect(codexLines[1]).toContain("background-color");
@@ -388,7 +457,7 @@ describe("renderAnsiLines", () => {
   });
 
   it("skips codex highlight padding when disabled", () => {
-    const text = ["\u001b[41mfirst", "second"].join("\n");
+    const text = ["\u001b[41mfirst\u001b[0m", ""].join("\n");
     const lines = renderAnsiLines(text, "latte", {
       agent: "codex",
       highlightCorrections: { codex: false, claude: true },
