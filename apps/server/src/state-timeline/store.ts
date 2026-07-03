@@ -10,20 +10,13 @@ import { type RecordStateTransitionInput, recordStateTransition } from "./record
 import {
   type SessionTimelinePersistedEvent,
   type SessionTimelinePersistedEvents,
-  type TimelineEvent,
   normalizeRestoredPaneEvents,
 } from "./timeline-restore";
+import type { TimelineState } from "./types";
 
 type StoreOptions = {
   now?: () => Date;
   retentionMs?: number;
-};
-
-export type TimelineState = {
-  eventsByPane: Map<string, TimelineEvent[]>;
-  sequence: number;
-  now: () => Date;
-  retentionMs: number;
 };
 
 export const createSessionTimelineStore = (options: StoreOptions = {}) => {

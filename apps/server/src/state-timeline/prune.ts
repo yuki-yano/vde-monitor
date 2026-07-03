@@ -1,8 +1,7 @@
 import { parseIsoToMs } from "../utils/time";
 
 import { toIso } from "./timeline-restore";
-
-import type { TimelineState } from "./store";
+import type { TimelineState } from "./types";
 
 export type ClosePaneInput = {
   paneId: string;

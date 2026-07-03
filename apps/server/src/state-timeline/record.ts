@@ -4,8 +4,7 @@ import { parseIsoToMs } from "../utils/time";
 
 import { prunePane, resolveAtMs } from "./prune";
 import { type TimelineEvent, toIso } from "./timeline-restore";
-
-import type { TimelineState } from "./store";
+import type { TimelineState } from "./types";
 
 export type RecordStateTransitionInput = {
   paneId: string;

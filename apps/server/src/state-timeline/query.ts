@@ -15,8 +15,7 @@ import {
   clipTimelineEventToInterval,
 } from "./timeline-aggregation";
 import { toIso } from "./timeline-restore";
-
-import type { TimelineState } from "./store";
+import type { TimelineState } from "./types";
 
 export const RANGE_MS: Record<SessionStateTimelineRange, number> = {
   "15m": 15 * 60 * 1000,
