@@ -108,6 +108,9 @@ importers:
       '@hono/zod-validator':
         specifier: 'catalog:'
         version: 0.7.6(hono@4.11.7)(zod@4.3.6)
+      '@vde-monitor/herdr':
+        specifier: workspace:*
+        version: link:../../packages/herdr
       '@vde-monitor/multiplexer':
         specifier: workspace:*
         version: link:../../packages/multiplexer

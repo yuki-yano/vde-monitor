@@ -1,4 +1,4 @@
-import { createConnection, type Socket } from "node:net";
+import { type Socket, createConnection } from "node:net";
 
 export const resolveSocketPath = (
   env: Record<string, string | undefined>,

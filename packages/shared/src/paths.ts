@@ -48,11 +48,15 @@ export const normalizeWeztermTarget = (value: string | null | undefined): string
 export const resolveWeztermServerKey = (target: string | null | undefined): string =>
   sanitizeServerKey(`wezterm:${normalizeWeztermTarget(target)}`);
 
+export const resolveHerdrServerKey = (socketPath: string): string =>
+  sanitizeServerKey(`herdr:${socketPath}`);
+
 type MonitorServerKeyParams = {
-  multiplexerBackend: "tmux" | "wezterm";
+  multiplexerBackend: "tmux" | "wezterm" | "herdr";
   tmuxSocketName: string | null;
   tmuxSocketPath: string | null;
   weztermTarget: string | null | undefined;
+  herdrSocketPath?: string;
 };
 
 export const resolveMonitorServerKey = ({
@@ -60,7 +64,11 @@ export const resolveMonitorServerKey = ({
   tmuxSocketName,
   tmuxSocketPath,
   weztermTarget,
+  herdrSocketPath,
 }: MonitorServerKeyParams): string => {
+  if (multiplexerBackend === "herdr") {
+    return resolveHerdrServerKey(herdrSocketPath ?? "default");
+  }
   if (multiplexerBackend === "wezterm") {
     return resolveWeztermServerKey(weztermTarget);
   }

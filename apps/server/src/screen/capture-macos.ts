@@ -31,7 +31,7 @@ export type CaptureOptions = {
   paneId?: string;
   tmux?: TmuxOptions;
   wezterm?: WeztermOptions;
-  multiplexerBackend?: "tmux" | "wezterm";
+  multiplexerBackend?: "tmux" | "wezterm" | "herdr";
   cropPane?: boolean;
   backend?: TerminalBackend;
 };

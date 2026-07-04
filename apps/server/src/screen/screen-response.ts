@@ -23,7 +23,9 @@ type ScreenResponseParams = {
 };
 
 const resolveCaptureBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] =>
-  config.multiplexer.backend === "tmux" || config.multiplexer.backend === "wezterm"
+  config.multiplexer.backend === "tmux" ||
+  config.multiplexer.backend === "wezterm" ||
+  config.multiplexer.backend === "herdr"
     ? config.multiplexer.backend
     : "unknown";
 
@@ -56,9 +58,17 @@ const buildTextCaptureMeta = ({
         : "physical"
       : backend === "wezterm"
         ? "physical"
-        : "none";
+        : backend === "herdr"
+          ? "physical"
+          : "none";
   const captureMethod =
-    backend === "tmux" ? "tmux-capture-pane" : backend === "wezterm" ? "wezterm-get-text" : "none";
+    backend === "tmux"
+      ? "tmux-capture-pane"
+      : backend === "wezterm"
+        ? "wezterm-get-text"
+        : backend === "herdr"
+          ? "herdr-pane-read"
+          : "none";
 
   return {
     backend,

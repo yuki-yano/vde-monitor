@@ -114,7 +114,7 @@ export const screenDeltaSchema = z.object({
 });
 
 export const screenCaptureMetaSchema = z.object({
-  backend: z.enum(["tmux", "wezterm", "unknown"]),
+  backend: z.enum(["tmux", "wezterm", "herdr", "unknown"]),
   // "logical" is reserved for future backends/modes that can return logical lines.
   lineModel: z.enum(["joined-physical", "physical", "logical", "none"]),
   joinLinesApplied: z.boolean().nullable(),
@@ -123,6 +123,7 @@ export const screenCaptureMetaSchema = z.object({
     "tmux-capture-pane",
     "wezterm-get-text",
     "wezterm-logical-lines",
+    "herdr-pane-read",
     "terminal-image",
     "none",
   ]),
@@ -739,7 +740,7 @@ export const workspaceTabsDisplayModeSchema = z.preprocess(
 );
 
 const multiplexerConfigSchema = strictObject({
-  backend: z.enum(["tmux", "wezterm"]),
+  backend: z.enum(["tmux", "wezterm", "herdr"]),
   wezterm: strictObject({
     cliPath: z.string(),
     target: z.string().nullable(),
@@ -791,7 +792,7 @@ export const configSchema = strictObject({
 
 export const generatedConfigTemplateSchema = strictObject({
   multiplexer: strictObject({
-    backend: z.enum(["tmux", "wezterm"]),
+    backend: z.enum(["tmux", "wezterm", "herdr"]),
   }),
   screen: strictObject({
     image: strictObject({
@@ -825,7 +826,7 @@ export const configOverrideSchema = strictObject({
     }).optional(),
   }).optional(),
   multiplexer: strictObject({
-    backend: z.enum(["tmux", "wezterm"]).optional(),
+    backend: z.enum(["tmux", "wezterm", "herdr"]).optional(),
     wezterm: strictObject({
       cliPath: z.string().optional(),
       target: z.string().nullable().optional(),

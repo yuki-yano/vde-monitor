@@ -2,7 +2,7 @@ import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { ArgsDef, ParsedArgs as CittyParsedArgs } from "citty";
 import { parseArgs as parseCittyArgs } from "citty";
 
-const multiplexerBackends = ["tmux", "wezterm"] as const;
+const multiplexerBackends = ["tmux", "wezterm", "herdr"] as const;
 const imageBackends = ["alacritty", "terminal", "iterm", "wezterm", "ghostty"] as const;
 
 const cliArgDefinitions = {

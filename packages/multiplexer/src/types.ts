@@ -62,7 +62,7 @@ export type StateSignals = {
 
 // ---- Multiplexer abstraction types (formerly in apps/server/src/multiplexer/types.ts) ----
 
-export type MultiplexerBackend = "tmux" | "wezterm";
+export type MultiplexerBackend = "tmux" | "wezterm" | "herdr";
 
 export type MultiplexerInspector = {
   listPanes: () => Promise<PaneMeta[]>;

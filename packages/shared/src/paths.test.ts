@@ -4,6 +4,7 @@ import {
   decodePaneId,
   encodePaneId,
   normalizeWeztermTarget,
+  resolveHerdrServerKey,
   resolveLogPaths,
   resolveMonitorServerKey,
   resolveServerKey,
@@ -106,6 +107,18 @@ describe("resolveMonitorServerKey", () => {
         weztermTarget: "dev",
       }),
     ).toBe(resolveWeztermServerKey("dev"));
+  });
+
+  it("uses herdr socket path key when backend is herdr", () => {
+    expect(
+      resolveMonitorServerKey({
+        multiplexerBackend: "herdr",
+        tmuxSocketName: "my/socket",
+        tmuxSocketPath: "/tmp/tmux.sock",
+        weztermTarget: "dev",
+        herdrSocketPath: "/Users/u/.config/herdr/herdr.sock",
+      }),
+    ).toBe(resolveHerdrServerKey("/Users/u/.config/herdr/herdr.sock"));
   });
 });
 

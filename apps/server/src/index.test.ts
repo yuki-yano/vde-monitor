@@ -1,9 +1,11 @@
 import { configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tmuxRun, weztermRun } = vi.hoisted(() => ({
+const { tmuxRun, weztermRun, herdrRequest, herdrClose } = vi.hoisted(() => ({
   tmuxRun: vi.fn(),
   weztermRun: vi.fn(),
+  herdrRequest: vi.fn(),
+  herdrClose: vi.fn(),
 }));
 
 vi.mock("@vde-monitor/tmux", () => ({
@@ -25,6 +27,14 @@ vi.mock("@vde-monitor/wezterm", () => ({
   }),
 }));
 
+vi.mock("@vde-monitor/herdr", () => ({
+  HerdrClient: vi.fn(() => ({
+    request: herdrRequest,
+    close: herdrClose,
+  })),
+  resolveSocketPath: vi.fn(() => "/tmp/herdr.sock"),
+}));
+
 import {
   buildAccessUrl,
   buildTailscaleHttpsAccessUrl,
@@ -35,6 +45,9 @@ describe("ensureBackendAvailable", () => {
   beforeEach(() => {
     tmuxRun.mockReset();
     weztermRun.mockReset();
+    herdrRequest.mockReset();
+    herdrClose.mockReset();
+    herdrClose.mockResolvedValue(undefined);
   });
 
   it("checks tmux availability when backend is tmux", async () => {
@@ -89,6 +102,24 @@ describe("ensureBackendAvailable", () => {
         },
       }),
     ).rejects.toThrow("no running wezterm instance");
+  });
+
+  it("checks herdr availability when backend is herdr", async () => {
+    herdrRequest.mockResolvedValueOnce({ type: "pong" });
+
+    await ensureBackendAvailable({
+      ...configDefaults,
+      token: "token",
+      multiplexer: {
+        ...configDefaults.multiplexer,
+        backend: "herdr",
+      },
+    });
+
+    expect(herdrRequest).toHaveBeenCalledWith("ping", {});
+    expect(herdrClose).toHaveBeenCalled();
+    expect(tmuxRun).not.toHaveBeenCalled();
+    expect(weztermRun).not.toHaveBeenCalled();
   });
 });
 

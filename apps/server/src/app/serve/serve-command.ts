@@ -1,6 +1,8 @@
+import { HerdrClient, resolveSocketPath } from "@vde-monitor/herdr";
 import { normalizeWeztermTarget } from "@vde-monitor/shared";
 import { createTmuxAdapter } from "@vde-monitor/tmux";
 import { createWeztermAdapter } from "@vde-monitor/wezterm";
+import os from "node:os";
 import { serve } from "@hono/node-server";
 import qrcode from "qrcode-terminal";
 
@@ -51,6 +53,14 @@ export const ensureWeztermAvailable = async (adapter: ReturnType<typeof createWe
   }
 };
 
+export const ensureHerdrAvailable = async (client: Pick<HerdrClient, "request" | "close">) => {
+  try {
+    await client.request("ping", {});
+  } finally {
+    await client.close();
+  }
+};
+
 export const ensureBackendAvailable = async (
   config: ReturnType<typeof ensureConfig>,
 ): Promise<void> => {
@@ -60,6 +70,11 @@ export const ensureBackendAvailable = async (
       socketPath: config.tmux.socketPath,
     });
     await ensureTmuxAvailable(tmuxAdapter);
+    return;
+  }
+  if (config.multiplexer.backend === "herdr") {
+    const client = new HerdrClient(resolveSocketPath(process.env, os.homedir()));
+    await ensureHerdrAvailable(client);
     return;
   }
   const weztermAdapter = createWeztermAdapter({

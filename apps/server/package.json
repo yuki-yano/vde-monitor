@@ -11,6 +11,7 @@
     "@hono/node-server": "catalog:",
     "@hono/zod-validator": "catalog:",
     "@vde-monitor/multiplexer": "workspace:*",
+    "@vde-monitor/herdr": "workspace:*",
     "@vde-monitor/shared": "workspace:*",
     "@vde-monitor/tmux": "workspace:*",
     "@vde-monitor/wezterm": "workspace:*",

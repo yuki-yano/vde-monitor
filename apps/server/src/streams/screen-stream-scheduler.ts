@@ -34,7 +34,7 @@ const resolveAltScreen = (
 
 const resolveBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] => {
   const b = config.multiplexer.backend;
-  return b === "tmux" || b === "wezterm" ? b : "unknown";
+  return b === "tmux" || b === "wezterm" || b === "herdr" ? b : "unknown";
 };
 
 const buildTextCaptureMeta = (
@@ -48,9 +48,17 @@ const buildTextCaptureMeta = (
         : "physical"
       : backend === "wezterm"
         ? "physical"
-        : "none";
+        : backend === "herdr"
+          ? "physical"
+          : "none";
   const captureMethod: ScreenCaptureMeta["captureMethod"] =
-    backend === "tmux" ? "tmux-capture-pane" : backend === "wezterm" ? "wezterm-get-text" : "none";
+    backend === "tmux"
+      ? "tmux-capture-pane"
+      : backend === "wezterm"
+        ? "wezterm-get-text"
+        : backend === "herdr"
+          ? "herdr-pane-read"
+          : "none";
   return { backend, lineModel, joinLinesApplied, captureMethod };
 };
 
@@ -64,7 +72,7 @@ export const createScreenStreamScheduler = ({
   buildTextResponse: BuildTextResponse;
 }) => {
   const backend = resolveBackend(config);
-  // tmux uses join-lines; wezterm physical lines are not joined.
+  // tmux uses join-lines; wezterm/herdr physical lines are not joined.
   const joinLinesApplied = backend === "tmux";
   const lineCount = config.screen.maxLines;
   const captureMeta = buildTextCaptureMeta(backend, joinLinesApplied);

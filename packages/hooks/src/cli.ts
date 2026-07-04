@@ -48,7 +48,7 @@ export type HookAgent = "claude" | "codex";
 type HookServerConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
-  multiplexerBackend: "tmux" | "wezterm";
+  multiplexerBackend: "tmux" | "wezterm" | "herdr";
   tmuxSocketName: string | null;
   tmuxSocketPath: string | null;
   weztermTarget: string | null;

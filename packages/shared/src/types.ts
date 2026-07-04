@@ -396,7 +396,7 @@ export type ResolvedConfig = {
     };
   };
   multiplexer: {
-    backend: "tmux" | "wezterm";
+    backend: "tmux" | "wezterm" | "herdr";
     wezterm: {
       cliPath: string;
       target: string | null;

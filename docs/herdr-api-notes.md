@@ -228,6 +228,7 @@ Raw response:
 
 - `cwd` / `foreground_cwd` / foreground process は取れる。
 - `tty` は `pane.list` / `pane.get` / `pane.process_info` の応答には出ない。
+- `pane.read` は `source: "visible"` / `"recent"` / `"recent-unwrapped"` を選べるが、tmux の alternate screen flag 相当の入力はない。vde-monitor の `captureText` では常に表示中の内容として扱い、`alternateOn: false` を返す。
 
 ### U2: 通常ペイン内の herdr 環境変数
 
