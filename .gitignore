@@ -3,3 +3,4 @@ dist
 node_modules
 /.worktree
 /.vde
+/.playwright-cli
