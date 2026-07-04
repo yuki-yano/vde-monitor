@@ -397,7 +397,9 @@ export const renderAnsiLines = (
   options?: RenderAnsiOptions,
 ): string[] => {
   const converter = buildAnsiToHtml(theme, { stream: false });
-  const lines = applyAnsiSgrCarryover(splitLines(sanitizeAnsiForHtml(text)));
+  const sanitizedLines = splitLines(sanitizeAnsiForHtml(text));
+  const shouldApplyClaudeHighlight = shouldApplyHighlight(options, "claude");
+  const lines = shouldApplyClaudeHighlight ? applyAnsiSgrCarryover(sanitizedLines) : sanitizedLines;
   const shouldNormalizeUnicodeTable = options?.agent === "claude" || options?.agent === "unknown";
   const unicodeNormalizedLines = shouldNormalizeUnicodeTable
     ? normalizeUnicodeTableLines(lines)
@@ -407,7 +409,6 @@ export const renderAnsiLines = (
     ? normalizeMarkdownPipeTableLines(unicodeNormalizedLines)
     : unicodeNormalizedLines;
   const shouldApplyCodexHighlight = shouldApplyHighlight(options, "codex");
-  const shouldApplyClaudeHighlight = shouldApplyHighlight(options, "claude");
   if (!shouldApplyClaudeHighlight) {
     return renderDefaultLines(
       normalizedLines,

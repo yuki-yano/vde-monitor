@@ -315,6 +315,16 @@ describe("renderAnsiLines", () => {
     expect(lines[2]).toContain("background-color");
   });
 
+  it("does not apply Claude SGR carryover to codex rendering", () => {
+    const text = ["\u001b[48;5;237mfirst\u001b[39m", "  second"].join("\n");
+    const lines = renderAnsiLines(text, "latte", {
+      agent: "codex",
+      highlightCorrections: { codex: false, claude: true },
+    });
+    expect(lines[0]).toContain("background-color");
+    expect(lines[1]).not.toContain("background-color");
+  });
+
   it("keeps codex prompt padding across trailing empty lines", () => {
     const text = ["\u001b[41m\u203A first\u001b[0m", "", ""].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "codex" });
