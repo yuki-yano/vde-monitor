@@ -1,4 +1,8 @@
-import type { HookStateSignal, StateSignals } from "@vde-monitor/multiplexer";
+import type {
+  HerdrAgentStatusSignal,
+  HookStateSignal,
+  StateSignals,
+} from "@vde-monitor/multiplexer";
 import type { SessionStateValue } from "@vde-monitor/shared";
 
 const toTimestamp = (value: string | null): number | null => {
@@ -16,6 +20,18 @@ const mapHookState = (hookState: HookStateSignal): { state: SessionStateValue; r
   };
 };
 
+const mapHerdrAgentStatus = (
+  signal: HerdrAgentStatusSignal,
+): { state: SessionStateValue; reason: string } => {
+  if (signal.agentStatus === "working") {
+    return { state: "RUNNING", reason: "herdr:agent_status:working" };
+  }
+  return {
+    state: "WAITING_INPUT",
+    reason: `herdr:agent_status:${signal.agentStatus}`,
+  };
+};
+
 export const estimateState = (
   signals: StateSignals,
 ): { state: SessionStateValue; reason: string } => {
@@ -28,6 +44,9 @@ export const estimateState = (
   }
   if (signals.codexQuestionPromptActive) {
     return { state: "WAITING_PERMISSION", reason: "poll:codex_question_prompt" };
+  }
+  if (signals.herdrAgentStatus) {
+    return mapHerdrAgentStatus(signals.herdrAgentStatus);
   }
 
   const lastOutputTs = toTimestamp(signals.lastOutputAt);

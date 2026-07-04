@@ -65,12 +65,25 @@ export class HerdrClient {
   }
 
   private async ensureConnected(): Promise<Socket> {
-    if (this.socket != null && !this.socket.destroyed) return this.socket;
+    if (
+      this.socket != null &&
+      !this.socket.destroyed &&
+      !this.socket.closed &&
+      !this.socket.readableEnded &&
+      !this.socket.writableEnded
+    ) {
+      return this.socket;
+    }
 
     const socket = createConnection(this.socketPath);
     socket.setEncoding("utf8");
     socket.on("data", (chunk: string) => this.onData(chunk));
     socket.on("error", (error) => this.rejectAll(error));
+    socket.on("end", () => {
+      if (this.socket === socket) {
+        this.socket = null;
+      }
+    });
     socket.on("close", () => {
       if (this.socket === socket) {
         this.socket = null;
@@ -120,8 +133,11 @@ export class HerdrClient {
     this.pending.delete(message.id);
 
     if (message.error != null) {
-      const prefix = message.error.code == null ? "herdr error" : `herdr error ${message.error.code}`;
-      entry.reject(new Error(message.error.message == null ? prefix : `${prefix}: ${message.error.message}`));
+      const prefix =
+        message.error.code == null ? "herdr error" : `herdr error ${message.error.code}`;
+      entry.reject(
+        new Error(message.error.message == null ? prefix : `${prefix}: ${message.error.message}`),
+      );
       return;
     }
 

@@ -70,7 +70,15 @@ printf '%s\n' '{"id":"req_1","method":"ping","params":{}}' | nc -U /Users/yuki-y
 Raw response:
 
 ```json
-{"id":"req_1","result":{"type":"pong","version":"0.7.1","protocol":14,"capabilities":{"live_handoff":true}}}
+{
+  "id": "req_1",
+  "result": {
+    "type": "pong",
+    "version": "0.7.1",
+    "protocol": 14,
+    "capabilities": { "live_handoff": true }
+  }
+}
 ```
 
 ### method 文字列の収集
@@ -138,25 +146,25 @@ src/api/schema.rs:174:    #[serde(rename = "events.subscribe")]
 
 ### vde-monitor で使う method 対応表
 
-| method | params | result fields |
-| --- | --- | --- |
-| `ping` | `{}` | `type`, `version`, `protocol`, `capabilities` |
-| `workspace.list` | `{}` | `type`, `workspaces[]` |
-| `tab.list` | `{ workspace_id? }` | `type`, `tabs[]` |
-| `tab.close` | `{ tab_id }` | `type: "ok"` |
-| `pane.list` | `{ workspace_id? }` | `type`, `panes[]` |
-| `pane.get` | `{ pane_id }` | `type`, `pane` |
-| `pane.process_info` | `{ pane_id? }` | `type`, `process_info` |
-| `pane.focus` | `{ pane_id }` | `type: "ok"` |
-| `pane.rename` | `{ pane_id, label? }` | `type: "ok"` |
-| `pane.send_text` | `{ pane_id, text }` | `type: "ok"` |
-| `pane.send_keys` | `{ pane_id, keys[] }` | `type: "ok"` or error |
-| `pane.send_input` | `{ pane_id, text?, keys?[] }` | `type: "ok"` |
-| `pane.read` | `{ pane_id, source, lines?, format, strip_ansi }` | `type`, `read` |
-| `pane.report_agent` | `{ pane_id, source, agent, state, message?, custom_status?, seq?, agent_session_id?, agent_session_path? }` | `type: "ok"` |
-| `pane.release_agent` | `{ pane_id, source, agent, seq? }` | `type: "ok"` |
-| `pane.close` | `{ pane_id }` | `type: "ok"` |
-| `events.subscribe` | `{ subscriptions: [{ type, ... }] }` | `type: "subscription_started"` followed by push events |
+| method               | params                                                                                                      | result fields                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `ping`               | `{}`                                                                                                        | `type`, `version`, `protocol`, `capabilities`          |
+| `workspace.list`     | `{}`                                                                                                        | `type`, `workspaces[]`                                 |
+| `tab.list`           | `{ workspace_id? }`                                                                                         | `type`, `tabs[]`                                       |
+| `tab.close`          | `{ tab_id }`                                                                                                | `type: "ok"`                                           |
+| `pane.list`          | `{ workspace_id? }`                                                                                         | `type`, `panes[]`                                      |
+| `pane.get`           | `{ pane_id }`                                                                                               | `type`, `pane`                                         |
+| `pane.process_info`  | `{ pane_id? }`                                                                                              | `type`, `process_info`                                 |
+| `pane.focus`         | `{ pane_id }`                                                                                               | `type: "ok"`                                           |
+| `pane.rename`        | `{ pane_id, label? }`                                                                                       | `type: "ok"`                                           |
+| `pane.send_text`     | `{ pane_id, text }`                                                                                         | `type: "ok"`                                           |
+| `pane.send_keys`     | `{ pane_id, keys[] }`                                                                                       | `type: "ok"` or error                                  |
+| `pane.send_input`    | `{ pane_id, text?, keys?[] }`                                                                               | `type: "ok"`                                           |
+| `pane.read`          | `{ pane_id, source, lines?, format, strip_ansi }`                                                           | `type`, `read`                                         |
+| `pane.report_agent`  | `{ pane_id, source, agent, state, message?, custom_status?, seq?, agent_session_id?, agent_session_path? }` | `type: "ok"`                                           |
+| `pane.release_agent` | `{ pane_id, source, agent, seq? }`                                                                          | `type: "ok"`                                           |
+| `pane.close`         | `{ pane_id }`                                                                                               | `type: "ok"`                                           |
+| `events.subscribe`   | `{ subscriptions: [{ type, ... }] }`                                                                        | `type: "subscription_started"` followed by push events |
 
 `pane.output_matched` は通常の `EventKind` ではなく `events.subscribe` の subscription type として定義されている。
 
@@ -173,7 +181,25 @@ herdr pane list
 Raw response:
 
 ```json
-{"id":"cli:pane:list","result":{"panes":[{"agent_status":"unknown","cwd":"/Users/yuki-yano","focused":true,"foreground_cwd":"/Users/yuki-yano","pane_id":"wB:p1","revision":0,"tab_id":"wB:t1","terminal_id":"term_655c8afa5a1d91","workspace_id":"wB"}],"type":"pane_list"}}
+{
+  "id": "cli:pane:list",
+  "result": {
+    "panes": [
+      {
+        "agent_status": "unknown",
+        "cwd": "/Users/yuki-yano",
+        "focused": true,
+        "foreground_cwd": "/Users/yuki-yano",
+        "pane_id": "wB:p1",
+        "revision": 0,
+        "tab_id": "wB:t1",
+        "terminal_id": "term_655c8afa5a1d91",
+        "workspace_id": "wB"
+      }
+    ],
+    "type": "pane_list"
+  }
+}
 ```
 
 Command:
@@ -185,7 +211,25 @@ printf '%s\n' '{"id":"pane_list_1","method":"pane.list","params":{}}' | nc -U /U
 Raw response:
 
 ```json
-{"id":"pane_list_1","result":{"type":"pane_list","panes":[{"pane_id":"wB:p1","terminal_id":"term_655c8afa5a1d91","workspace_id":"wB","tab_id":"wB:t1","focused":true,"cwd":"/Users/yuki-yano","foreground_cwd":"/Users/yuki-yano","agent_status":"unknown","revision":0}]}}
+{
+  "id": "pane_list_1",
+  "result": {
+    "type": "pane_list",
+    "panes": [
+      {
+        "pane_id": "wB:p1",
+        "terminal_id": "term_655c8afa5a1d91",
+        "workspace_id": "wB",
+        "tab_id": "wB:t1",
+        "focused": true,
+        "cwd": "/Users/yuki-yano",
+        "foreground_cwd": "/Users/yuki-yano",
+        "agent_status": "unknown",
+        "revision": 0
+      }
+    ]
+  }
+}
 ```
 
 Command:
@@ -197,7 +241,23 @@ printf '%s\n' '{"id":"pane_get_1","method":"pane.get","params":{"pane_id":"wB:p1
 Raw response:
 
 ```json
-{"id":"pane_get_1","result":{"type":"pane_info","pane":{"pane_id":"wB:p1","terminal_id":"term_655c8afa5a1d91","workspace_id":"wB","tab_id":"wB:t1","focused":true,"cwd":"/Users/yuki-yano","foreground_cwd":"/Users/yuki-yano","agent_status":"unknown","revision":0}}}
+{
+  "id": "pane_get_1",
+  "result": {
+    "type": "pane_info",
+    "pane": {
+      "pane_id": "wB:p1",
+      "terminal_id": "term_655c8afa5a1d91",
+      "workspace_id": "wB",
+      "tab_id": "wB:t1",
+      "focused": true,
+      "cwd": "/Users/yuki-yano",
+      "foreground_cwd": "/Users/yuki-yano",
+      "agent_status": "unknown",
+      "revision": 0
+    }
+  }
+}
 ```
 
 Command:
@@ -209,7 +269,22 @@ printf '%s\n' '{"id":"pane_read_1","method":"pane.read","params":{"pane_id":"wB:
 Raw response:
 
 ```json
-{"id":"pane_read_1","result":{"type":"pane_read","read":{"pane_id":"wB:p1","workspace_id":"wB","tab_id":"wB:t1","source":"visible","format":"text","text":"~\n$\n","revision":0,"truncated":false}}}
+{
+  "id": "pane_read_1",
+  "result": {
+    "type": "pane_read",
+    "read": {
+      "pane_id": "wB:p1",
+      "workspace_id": "wB",
+      "tab_id": "wB:t1",
+      "source": "visible",
+      "format": "text",
+      "text": "~\n$\n",
+      "revision": 0,
+      "truncated": false
+    }
+  }
+}
 ```
 
 Command:
@@ -221,7 +296,27 @@ printf '%s\n' '{"id":"pane_process_1","method":"pane.process_info","params":{"pa
 Raw response:
 
 ```json
-{"id":"pane_process_1","result":{"type":"pane_process_info","process_info":{"pane_id":"wB:p1","shell_pid":70549,"foreground_process_group_id":70549,"foreground_processes":[{"pid":70549,"name":"zsh","argv0":"zsh","argv":["-zsh"],"cmdline":"-zsh","cwd":"/Users/yuki-yano"}]}}}
+{
+  "id": "pane_process_1",
+  "result": {
+    "type": "pane_process_info",
+    "process_info": {
+      "pane_id": "wB:p1",
+      "shell_pid": 70549,
+      "foreground_process_group_id": 70549,
+      "foreground_processes": [
+        {
+          "pid": 70549,
+          "name": "zsh",
+          "argv0": "zsh",
+          "argv": ["-zsh"],
+          "cmdline": "-zsh",
+          "cwd": "/Users/yuki-yano"
+        }
+      ]
+    }
+  }
+}
 ```
 
 判定:
@@ -522,6 +617,7 @@ EVENT_COUNT 5
 
 - `pane.report_agent` は pane 単位で `working` / `blocked` / `idle` / `unknown` 相当を外部 author できる。
 - `events.subscribe` で `pane.agent_status_changed` が push される。
+- Phase 3 の実機 smoke では `pane.agent_status_changed` を `pane_id` なしで購読しても status push を受け取れず、Phase 0 の生ログと同じく `{ type: "pane.agent_status_changed", pane_id }` で購読すると push を受け取れた。
 
 ### U6: copy-mode 相当
 

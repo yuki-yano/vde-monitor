@@ -1,4 +1,4 @@
-import type { HookStateSignal } from "@vde-monitor/multiplexer";
+import type { HerdrAgentStatusSignal, HookStateSignal } from "@vde-monitor/multiplexer";
 
 import type {
   ExternalInputDetectReason,
@@ -7,6 +7,7 @@ import type {
 
 export type PaneRuntimeState = {
   hookState: HookStateSignal | null;
+  herdrAgentStatus?: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive: boolean;
   lastOutputAt: string | null;
   lastEventAt: string | null;
@@ -29,6 +30,7 @@ export type PaneRuntimeState = {
 
 const createDefaultState = (): PaneRuntimeState => ({
   hookState: null,
+  herdrAgentStatus: null,
   codexQuestionPromptActive: false,
   lastOutputAt: null,
   lastEventAt: null,

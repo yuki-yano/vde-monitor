@@ -62,7 +62,45 @@ describe("HerdrClient", () => {
     await expect(client.request("ping")).resolves.toEqual({ type: "pong" });
     await client.close();
 
-    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
     expect(received).toEqual([{ id: "vdem_1", method: "ping", params: {} }]);
+  });
+
+  it("server がレスポンス後に接続を閉じた場合は次の request で再接続する", async () => {
+    const socketPath = await makeTempSocketPath();
+    const received: string[] = [];
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      let buffer = "";
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex < 0) return;
+        const line = buffer.slice(0, newlineIndex);
+        const request = JSON.parse(line) as { id: string; method: string };
+        received.push(request.method);
+        socket.write(`${JSON.stringify({ id: request.id, result: { type: "ok" } })}\n`, () => {
+          socket.end();
+        });
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("pane.list")).resolves.toEqual({ type: "ok" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await expect(client.request("pane.read")).resolves.toEqual({ type: "ok" });
+    await client.close();
+
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+    expect(received).toEqual(["pane.list", "pane.read"]);
   });
 });

@@ -21,6 +21,7 @@ type ParsedHookEvent = {
   cwd?: string;
   tty?: string;
   tmux_pane?: string | null;
+  herdr_pane?: string | null;
 };
 
 const dispatchHookEvent = (
@@ -34,6 +35,7 @@ const dispatchHookEvent = (
   }
   const paneId = mapHookToPane(panes, {
     tmux_pane: event.tmux_pane ?? null,
+    herdr_pane: event.herdr_pane ?? null,
     tty: event.tty,
     cwd: event.cwd,
   });

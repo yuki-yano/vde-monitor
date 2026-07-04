@@ -1,5 +1,5 @@
 import { estimateState } from "./state-estimator";
-import type { HookStateSignal } from "@vde-monitor/multiplexer";
+import type { HerdrAgentStatusSignal, HookStateSignal } from "@vde-monitor/multiplexer";
 
 import type { AgentType } from "./agent-resolver-utils";
 
@@ -12,6 +12,7 @@ type EstimateSessionStateArgs = {
   paneDead: boolean;
   lastOutputAt: string | null;
   hookState: HookStateSignal | null;
+  herdrAgentStatus?: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive: boolean;
   activity: ActivityThresholds;
 };
@@ -21,6 +22,7 @@ export const estimateSessionState = ({
   paneDead,
   lastOutputAt,
   hookState,
+  herdrAgentStatus = null,
   codexQuestionPromptActive,
   activity,
 }: EstimateSessionStateArgs) => {
@@ -30,6 +32,7 @@ export const estimateSessionState = ({
     paneDead,
     lastOutputAt,
     hookState,
+    herdrAgentStatus,
     codexQuestionPromptActive: agent === "codex" && codexQuestionPromptActive,
     thresholds: {
       runningThresholdMs,

@@ -46,9 +46,13 @@ describe("createHerdrActions", () => {
 
   it("focusPane / killPane / killWindow を herdr method に変換する", async () => {
     const client = {
-      request: vi.fn().mockResolvedValueOnce({ type: "ok" }).mockResolvedValueOnce({
-        type: "ok",
-      }).mockResolvedValueOnce({ type: "ok" }),
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({ type: "ok" })
+        .mockResolvedValueOnce({
+          type: "ok",
+        })
+        .mockResolvedValueOnce({ type: "ok" }),
     };
     const actions = createHerdrActions(client, makeConfig());
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { createConnection as createNetConnection } from "node:net";
 import os from "node:os";
 import path from "node:path";
 
@@ -30,6 +31,7 @@ type HookPayloadBaseFields = {
   cwd?: string;
   tty?: string;
   tmuxPane: string | null;
+  herdrPane?: string | null;
   transcriptPath?: string | null;
 };
 
@@ -44,6 +46,7 @@ type HookEventName = ClaudeHookEvent["hook_event_name"];
 type CodexHookEventName = CodexHookEvent["hook_event_name"];
 
 export type HookAgent = "claude" | "codex";
+type HerdrAgentStatus = "working" | "blocked" | "idle";
 
 type HookServerConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
@@ -392,7 +395,10 @@ export const loadConfig = (): HookServerConfig | null => {
   }
 };
 
-export const resolveHookServerKey = (config: HookServerConfig | null): string => {
+export const resolveHookServerKey = (
+  config: HookServerConfig | null,
+  env: NodeJS.ProcessEnv = process.env,
+): string => {
   if (!config) {
     return resolveMonitorServerKey({
       multiplexerBackend: "tmux",
@@ -406,6 +412,7 @@ export const resolveHookServerKey = (config: HookServerConfig | null): string =>
     tmuxSocketName: config.tmuxSocketName,
     tmuxSocketPath: config.tmuxSocketPath,
     weztermTarget: config.weztermTarget,
+    herdrSocketPath: env.HERDR_SOCKET_PATH,
   });
 };
 
@@ -428,6 +435,7 @@ export const extractPayloadFields = (
     cwd,
     tty: toOptionalString(payload.tty),
     tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
+    herdrPane: toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null,
     notificationType: normalizeNotificationType(payload.notification_type),
     transcriptPath,
   };
@@ -446,6 +454,7 @@ export const extractCodexPayloadFields = (
     cwd: toOptionalString(payload.cwd),
     tty: toOptionalString(payload.tty),
     tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
+    herdrPane: toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null,
     transcriptPath: toOptionalString(payload.transcript_path) ?? null,
   };
 };
@@ -460,6 +469,109 @@ const buildFallback = (fields: HookPayloadBaseFields): HookEvent["fallback"] => 
   };
 };
 
+export const deriveHerdrAgentStatus = (
+  agent: HookAgent,
+  hookEventName: string,
+  notificationType?: ClaudeHookEvent["notification_type"],
+): HerdrAgentStatus | null => {
+  if (agent === "claude" && hookEventName === "Notification") {
+    return notificationType === "permission_prompt" ? "blocked" : null;
+  }
+  if (agent === "codex" && hookEventName === "PermissionRequest") {
+    return "blocked";
+  }
+  if (hookEventName === "Stop") {
+    return "idle";
+  }
+  if (
+    hookEventName === "PreToolUse" ||
+    hookEventName === "PostToolUse" ||
+    hookEventName === "UserPromptSubmit"
+  ) {
+    return "working";
+  }
+  return null;
+};
+
+type HerdrReportSocket = {
+  destroyed?: boolean;
+  setEncoding: (encoding: BufferEncoding) => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => unknown;
+  once: (event: string, listener: (...args: unknown[]) => void) => unknown;
+  write: (line: string, callback?: (error?: Error | null) => void) => unknown;
+  end: () => unknown;
+};
+
+type HerdrReporterOptions = {
+  socketPath: string;
+  paneId: string;
+  createConnection?: (socketPath: string) => HerdrReportSocket;
+  now?: () => number;
+};
+
+export const createHerdrReporter = ({
+  socketPath,
+  paneId,
+  createConnection = (pathValue) => createNetConnection(pathValue),
+  now = () => Date.now(),
+}: HerdrReporterOptions) => {
+  let seq = 0;
+
+  const report = async ({
+    agent,
+    status,
+    message,
+  }: {
+    agent: HookAgent;
+    status: HerdrAgentStatus;
+    message: string;
+  }): Promise<void> => {
+    const socket = createConnection(socketPath);
+    socket.setEncoding("utf8");
+    await connectHerdrReportSocket(socket);
+    const request = {
+      id: `hook_report_${++seq}`,
+      method: "pane.report_agent",
+      params: {
+        pane_id: paneId,
+        source: "vde-monitor-hook",
+        agent,
+        state: status,
+        message,
+        seq: now(),
+      },
+    };
+    await new Promise<void>((resolve, reject) => {
+      socket.write(`${JSON.stringify(request)}\n`, (error) => {
+        if (error == null) {
+          resolve();
+          return;
+        }
+        reject(error);
+      });
+    });
+    if (!socket.destroyed) {
+      socket.end();
+    }
+  };
+
+  return { report };
+};
+
+const connectHerdrReportSocket = async (socket: HerdrReportSocket): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("herdr report timeout")), 500);
+    socket.once("connect", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    socket.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    });
+  });
+};
+
 export const buildHookEvent = (
   hookEventName: HookEventName,
   rawInput: string,
@@ -472,6 +584,7 @@ export const buildHookEvent = (
   cwd: fields.cwd,
   tty: fields.tty,
   tmux_pane: fields.tmuxPane,
+  herdr_pane: fields.herdrPane ?? null,
   transcript_path: fields.transcriptPath ?? undefined,
   fallback: buildFallback(fields),
   payload: {
@@ -490,6 +603,7 @@ export const buildCodexHookEvent = (
   cwd: fields.cwd,
   tty: fields.tty,
   tmux_pane: fields.tmuxPane,
+  herdr_pane: fields.herdrPane ?? null,
   transcript_path: fields.transcriptPath ?? undefined,
   fallback: buildFallback(fields),
   payload: {
@@ -497,19 +611,58 @@ export const buildCodexHookEvent = (
   },
 });
 
-const appendEvent = (event: HookEvent | CodexHookEvent, fileName: string) => {
-  const config = loadConfig();
-  const serverKey = resolveHookServerKey(config);
+const appendEvent = (
+  event: HookEvent | CodexHookEvent,
+  fileName: string,
+  env: NodeJS.ProcessEnv = process.env,
+  config: HookServerConfig | null = loadConfig(),
+): HookServerConfig | null => {
+  const serverKey = resolveHookServerKey(config, env);
   const baseDir = path.join(os.homedir(), ".vde-monitor");
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventsPath = path.join(eventsDir, fileName);
   ensureDir(eventsDir);
   fs.appendFileSync(eventsPath, `${JSON.stringify(event)}\n`, "utf8");
+  return config;
+};
+
+const reportHerdrHook = async ({
+  config,
+  agent,
+  hookEventName,
+  notificationType,
+  env,
+}: {
+  config: HookServerConfig | null;
+  agent: HookAgent;
+  hookEventName: string;
+  notificationType?: ClaudeHookEvent["notification_type"];
+  env: NodeJS.ProcessEnv;
+}): Promise<void> => {
+  if (config?.multiplexerBackend !== "herdr" || !env.HERDR_SOCKET_PATH || !env.HERDR_PANE_ID) {
+    return;
+  }
+  const status = deriveHerdrAgentStatus(agent, hookEventName, notificationType);
+  if (status == null) {
+    return;
+  }
+  try {
+    await createHerdrReporter({
+      socketPath: env.HERDR_SOCKET_PATH,
+      paneId: env.HERDR_PANE_ID,
+    }).report({
+      agent,
+      status,
+      message: `hook:${hookEventName}`,
+    });
+  } catch {
+    // Hook JSONL remains authoritative for vde-monitor; direct herdr reporting is best effort.
+  }
 };
 
 export { isMainModule };
 
-const main = () => {
+const main = async () => {
   const parsedArgs = parseHookCliArgs(process.argv.slice(2));
   if (!parsedArgs) {
     console.error("Usage: vde-monitor-hook [codex] <HookEventName>");
@@ -527,6 +680,9 @@ const main = () => {
     console.error("Invalid JSON payload");
     process.exit(1);
   }
+  const config = loadConfig();
+  const extractOptions =
+    config?.multiplexerBackend === "herdr" ? { resolveTmuxPaneFn: () => null } : undefined;
 
   if (agent === "codex") {
     if (!shouldPersistCodexHookPayload(payload, hookEventName)) {
@@ -535,8 +691,19 @@ const main = () => {
     if (!isCodexHookEventName(hookEventName)) {
       process.exit(0);
     }
-    const fields = extractCodexPayloadFields(payload);
-    appendEvent(buildCodexHookEvent(hookEventName, rawInput, fields), "codex.jsonl");
+    const fields = extractCodexPayloadFields(payload, process.env, extractOptions);
+    appendEvent(
+      buildCodexHookEvent(hookEventName, rawInput, fields),
+      "codex.jsonl",
+      process.env,
+      config,
+    );
+    await reportHerdrHook({
+      config,
+      agent,
+      hookEventName,
+      env: process.env,
+    });
     return;
   }
 
@@ -547,11 +714,18 @@ const main = () => {
     process.exit(0);
   }
 
-  const fields = extractPayloadFields(payload);
+  const fields = extractPayloadFields(payload, process.env, extractOptions);
   const event = buildHookEvent(hookEventName, rawInput, fields);
-  appendEvent(event, "claude.jsonl");
+  appendEvent(event, "claude.jsonl", process.env, config);
+  await reportHerdrHook({
+    config,
+    agent,
+    hookEventName,
+    notificationType: event.notification_type,
+    env: process.env,
+  });
 };
 
 if (isMainModule(import.meta.url)) {
-  main();
+  main().catch(() => process.exit(1));
 }

@@ -11,6 +11,7 @@ describe("estimateSessionState", () => {
         paneDead: false,
         lastOutputAt: new Date().toISOString(),
         hookState: null,
+        herdrAgentStatus: null,
         codexQuestionPromptActive: false,
         activity: { runningThresholdMs: 20000, inactiveThresholdMs: 60000 },
       };
@@ -19,6 +20,7 @@ describe("estimateSessionState", () => {
         paneDead: args.paneDead,
         lastOutputAt: args.lastOutputAt,
         hookState: args.hookState,
+        herdrAgentStatus: args.herdrAgentStatus,
         codexQuestionPromptActive: false,
         thresholds: { runningThresholdMs: 10000, inactiveThresholdMs: 60000 },
       });
@@ -32,6 +34,7 @@ describe("estimateSessionState", () => {
       paneDead: false,
       lastOutputAt: "2026-01-01T00:00:00.000Z",
       hookState: null,
+      herdrAgentStatus: null,
       codexQuestionPromptActive: true,
       activity: { runningThresholdMs: 5000 },
     });
@@ -45,6 +48,7 @@ describe("estimateSessionState", () => {
       paneDead: false,
       lastOutputAt: "2026-01-01T00:00:00.000Z",
       hookState: null,
+      herdrAgentStatus: null,
       codexQuestionPromptActive: true,
       activity: { runningThresholdMs: 5000 },
     });
@@ -58,6 +62,7 @@ describe("estimateSessionState", () => {
       paneDead: false,
       lastOutputAt: "2026-01-01T00:00:00.000Z",
       hookState: null,
+      herdrAgentStatus: null,
       codexQuestionPromptActive: true,
       activity: { runningThresholdMs: 5000 },
     });
@@ -77,12 +82,29 @@ describe("estimateSessionState", () => {
         reason: "hook:permission_prompt",
         at: "2026-01-01T00:00:01.000Z",
       },
+      herdrAgentStatus: { agentStatus: "working", at: "2026-01-01T00:00:02.000Z" },
       codexQuestionPromptActive: true,
       activity: { runningThresholdMs: 5000 },
     });
     expect(result).toEqual({
       state: "WAITING_PERMISSION",
       reason: "hook:permission_prompt",
+    });
+  });
+
+  it("passes herdr agent status through session state estimation", () => {
+    const result = estimateSessionState({
+      agent: "claude",
+      paneDead: false,
+      lastOutputAt: null,
+      hookState: null,
+      herdrAgentStatus: { agentStatus: "idle", at: "2026-01-01T00:00:01.000Z" },
+      codexQuestionPromptActive: false,
+      activity: { runningThresholdMs: 5000 },
+    });
+    expect(result).toEqual({
+      state: "WAITING_INPUT",
+      reason: "herdr:agent_status:idle",
     });
   });
 });

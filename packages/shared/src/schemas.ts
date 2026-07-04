@@ -701,6 +701,7 @@ export const claudeHookEventSchema = z.object({
   cwd: z.string().optional(),
   tty: z.string().optional(),
   tmux_pane: z.string().nullable().optional(),
+  herdr_pane: z.string().nullable().optional(),
   transcript_path: z.string().optional(),
   fallback: z
     .object({
@@ -724,6 +725,7 @@ export const codexHookEventSchema = z.object({
   cwd: z.string().optional(),
   tty: z.string().optional(),
   tmux_pane: z.string().nullable().optional(),
+  herdr_pane: z.string().nullable().optional(),
   transcript_path: z.string().optional(),
   fallback: z
     .object({

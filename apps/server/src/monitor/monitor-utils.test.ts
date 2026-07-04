@@ -82,6 +82,11 @@ describe("monitor-utils", () => {
     expect(mapHookToPane(panes, { tmux_pane: "1" })).toBe("1");
   });
 
+  it("maps hook to pane by herdr pane id before fallback matching", () => {
+    const panes = [{ paneId: "wA:p1", paneTty: null, currentPath: "/tmp" }];
+    expect(mapHookToPane(panes, { herdr_pane: "wB:p2", cwd: "/tmp" })).toBe("wB:p2");
+  });
+
   it("maps hook to pane by tty when unique", () => {
     const panes = [
       { paneId: "1", paneTty: "tty1", currentPath: "/tmp" },

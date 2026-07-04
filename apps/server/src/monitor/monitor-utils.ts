@@ -107,10 +107,13 @@ const findSinglePaneId = (
 
 export const mapHookToPane = (
   panes: Array<{ paneId: string; paneTty: string | null; currentPath: string | null }>,
-  hook: { tmux_pane?: string | null; tty?: string; cwd?: string },
+  hook: { tmux_pane?: string | null; herdr_pane?: string | null; tty?: string; cwd?: string },
 ) => {
   if (hook.tmux_pane) {
     return hook.tmux_pane;
+  }
+  if (hook.herdr_pane) {
+    return hook.herdr_pane;
   }
   if (hook.tty) {
     return findSinglePaneId(panes, (pane) => pane.paneTty === hook.tty);

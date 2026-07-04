@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveSocketPath, subscribeHerdrEvents } from "@vde-monitor/herdr";
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { SessionStateTimelineRange } from "@vde-monitor/shared";
 
@@ -63,6 +64,8 @@ export const createSessionMonitor = (
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
   const codexJsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
+  let herdrEventSubscription: Awaited<ReturnType<typeof subscribeHerdrEvents>> | null = null;
+  let herdrEventSubscriptionRefresh: Promise<void> | null = null;
   restoreMonitorRuntimeState({
     restoredSessions: restored,
     restoredTimeline,
@@ -126,6 +129,20 @@ export const createSessionMonitor = (
     state.agentSessionObservedAt = context.hookState.at;
   };
 
+  const handleHerdrStateSignal = (signal: {
+    paneId: string;
+    agentStatus: "working" | "blocked" | "done" | "idle";
+    at: string;
+  }) => {
+    const state = paneStates.get(signal.paneId);
+    state.herdrAgentStatus = {
+      agentStatus: signal.agentStatus,
+      at: signal.at,
+    };
+    state.lastEventAt = signal.at;
+    void updateFromPanes().catch(() => undefined);
+  };
+
   const recordInput = (paneId: string, at = new Date().toISOString()) => {
     const state = paneStates.get(paneId);
     state.lastInputAt = at;
@@ -155,6 +172,38 @@ export const createSessionMonitor = (
     codexJsonlTailer.start(codexEventLogPath);
   };
 
+  const refreshHerdrEventSubscription = async () => {
+    if (runtime.backend !== "herdr") {
+      return;
+    }
+    if (herdrEventSubscriptionRefresh != null) {
+      return herdrEventSubscriptionRefresh;
+    }
+    herdrEventSubscriptionRefresh = (async () => {
+      const previous = herdrEventSubscription;
+      herdrEventSubscription = null;
+      await previous?.stop();
+
+      const panes = await inspector.listPanes();
+      herdrEventSubscription = await subscribeHerdrEvents({
+        socketPath: resolveSocketPath(process.env, os.homedir()),
+        paneIds: panes.map((pane) => pane.paneId),
+        onSignal: handleHerdrStateSignal,
+        onLifecycleEvent: () => {
+          void updateFromPanes().catch(() => undefined);
+          void refreshHerdrEventSubscription();
+        },
+      });
+    })().finally(() => {
+      herdrEventSubscriptionRefresh = null;
+    });
+    return herdrEventSubscriptionRefresh;
+  };
+
+  const startHerdrEventSubscription = async () => {
+    await refreshHerdrEventSubscription();
+  };
+
   const monitorLoop = createMonitorLoop({
     intervalMs: config.activity.pollIntervalMs,
     eventLogPaths: [eventLogPath, codexEventLogPath],
@@ -170,6 +219,7 @@ export const createSessionMonitor = (
     });
     logActivity.start();
     await startHookTailer();
+    await startHerdrEventSubscription();
 
     monitorLoop.start();
 
@@ -181,6 +231,8 @@ export const createSessionMonitor = (
     logActivity.stop();
     jsonlTailer.stop();
     codexJsonlTailer.stop();
+    void herdrEventSubscription?.stop();
+    herdrEventSubscription = null;
   };
 
   const getScreenCapture = () => screenCapture;

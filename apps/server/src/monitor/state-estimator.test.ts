@@ -59,6 +59,46 @@ describe("estimateState", () => {
     });
   });
 
+  it("prioritizes hook state over herdr agent status", () => {
+    const result = estimateState({
+      paneDead: false,
+      lastOutputAt: null,
+      hookState: {
+        state: "WAITING_PERMISSION",
+        reason: "hook:permission_prompt",
+        at: "2026-01-01T00:00:01Z",
+      },
+      herdrAgentStatus: { agentStatus: "working", at: "2026-01-01T00:00:02Z" },
+      thresholds: { runningThresholdMs: 1000, inactiveThresholdMs: 2000 },
+    });
+    expect(result).toEqual({
+      state: "WAITING_PERMISSION",
+      reason: "hook:permission_prompt",
+    });
+  });
+
+  it("uses herdr working status before activity threshold", () => {
+    const result = estimateState({
+      paneDead: false,
+      lastOutputAt: "2026-01-01T00:00:00Z",
+      hookState: null,
+      herdrAgentStatus: { agentStatus: "working", at: "2026-01-01T00:00:30Z" },
+      thresholds: { runningThresholdMs: 1000, inactiveThresholdMs: 2000 },
+    });
+    expect(result).toEqual({ state: "RUNNING", reason: "herdr:agent_status:working" });
+  });
+
+  it("maps herdr blocked status to WAITING_INPUT", () => {
+    const result = estimateState({
+      paneDead: false,
+      lastOutputAt: null,
+      hookState: null,
+      herdrAgentStatus: { agentStatus: "blocked", at: "2026-01-01T00:00:30Z" },
+      thresholds: { runningThresholdMs: 1000, inactiveThresholdMs: 2000 },
+    });
+    expect(result).toEqual({ state: "WAITING_INPUT", reason: "herdr:agent_status:blocked" });
+  });
+
   it("returns RUNNING when recent output is within threshold", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:10Z"));

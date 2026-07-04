@@ -196,7 +196,10 @@ export const createHerdrActions = (client: HerdrRequester, config: AgentMonitorC
     if (tabId == null) {
       return {
         ok: false,
-        error: buildError("TMUX_UNAVAILABLE", "kill-window requires a herdr pane id with workspace"),
+        error: buildError(
+          "TMUX_UNAVAILABLE",
+          "kill-window requires a herdr pane id with workspace",
+        ),
       };
     }
     try {

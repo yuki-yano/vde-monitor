@@ -52,10 +52,16 @@ export type HookStateSignal = {
   at: string;
 };
 
+export type HerdrAgentStatusSignal = {
+  agentStatus: "working" | "blocked" | "done" | "idle";
+  at: string;
+};
+
 export type StateSignals = {
   paneDead: boolean;
   lastOutputAt: string | null;
   hookState: HookStateSignal | null;
+  herdrAgentStatus?: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive?: boolean;
   thresholds: { runningThresholdMs: number; inactiveThresholdMs: number };
 };

@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildCodexHookEvent,
   buildHookEvent,
+  createHerdrReporter,
+  deriveHerdrAgentStatus,
   extractCodexPayloadFields,
   extractPayloadFields,
   isClaudeNonInteractivePayload,
@@ -128,6 +130,74 @@ describe("hooks cli helpers", () => {
         weztermTarget: " dev ",
       }),
     ).toBe("wezterm-dev");
+  });
+
+  it("resolves herdr server key from HERDR_SOCKET_PATH", () => {
+    expect(
+      resolveHookServerKey(
+        {
+          bind: "127.0.0.1",
+          port: 11080,
+          multiplexerBackend: "herdr",
+          tmuxSocketName: null,
+          tmuxSocketPath: null,
+          weztermTarget: null,
+        },
+        { HERDR_SOCKET_PATH: "/tmp/herdr.sock" },
+      ),
+    ).toBe("herdr-_tmp_herdr-sock");
+  });
+
+  it("maps hook events to herdr agent statuses", () => {
+    expect(deriveHerdrAgentStatus("claude", "PreToolUse")).toBe("working");
+    expect(deriveHerdrAgentStatus("claude", "Notification", "permission_prompt")).toBe("blocked");
+    expect(deriveHerdrAgentStatus("claude", "Stop")).toBe("idle");
+    expect(deriveHerdrAgentStatus("codex", "PermissionRequest")).toBe("blocked");
+  });
+
+  it("reports herdr agent status over the socket protocol", async () => {
+    const writes: string[] = [];
+    const reporter = createHerdrReporter({
+      socketPath: "/tmp/herdr.sock",
+      paneId: "wB:p1",
+      createConnection: () => ({
+        setEncoding: () => undefined,
+        on: () => undefined,
+        once: (event: string, listener: (...args: unknown[]) => void) => {
+          if (event === "connect") {
+            queueMicrotask(() => listener());
+          }
+        },
+        write: (line: string, callback?: (error?: Error) => void) => {
+          writes.push(line);
+          callback?.();
+        },
+        end: () => undefined,
+        destroyed: false,
+      }),
+      now: () => 1783170444243,
+    });
+
+    await reporter.report({
+      agent: "claude",
+      status: "blocked",
+      message: "hook:Notification",
+    });
+
+    expect(writes).toEqual([
+      `${JSON.stringify({
+        id: "hook_report_1",
+        method: "pane.report_agent",
+        params: {
+          pane_id: "wB:p1",
+          source: "vde-monitor-hook",
+          agent: "claude",
+          state: "blocked",
+          message: "hook:Notification",
+          seq: 1783170444243,
+        },
+      })}\n`,
+    ]);
   });
 
   it("treats symlink entrypoint as main module", () => {

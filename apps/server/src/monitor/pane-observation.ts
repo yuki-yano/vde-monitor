@@ -1,4 +1,9 @@
-import type { AgentMonitorConfig, HookStateSignal, PaneMeta } from "@vde-monitor/multiplexer";
+import type {
+  AgentMonitorConfig,
+  HerdrAgentStatusSignal,
+  HookStateSignal,
+  PaneMeta,
+} from "@vde-monitor/multiplexer";
 import type { SessionDetail } from "@vde-monitor/shared";
 
 import { resolvePaneAgent } from "./agent-resolver";
@@ -101,6 +106,7 @@ const resolveEstimatedState = ({
   paneDead,
   outputAt,
   hookState,
+  herdrAgentStatus,
   codexQuestionPromptActive,
   activity,
   estimateState,
@@ -111,6 +117,7 @@ const resolveEstimatedState = ({
   paneDead: boolean;
   outputAt: string | null;
   hookState: HookStateSignal | null;
+  herdrAgentStatus: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive: boolean;
   activity: AgentMonitorConfig["activity"];
   estimateState: typeof estimateSessionState;
@@ -121,6 +128,7 @@ const resolveEstimatedState = ({
       paneDead,
       lastOutputAt: outputAt,
       hookState,
+      herdrAgentStatus,
       codexQuestionPromptActive,
       activity,
     });
@@ -222,6 +230,7 @@ export const observePane = async (
     paneDead: pane.paneDead,
     outputAt,
     hookState,
+    herdrAgentStatus: paneState.herdrAgentStatus ?? null,
     codexQuestionPromptActive,
     activity: config.activity,
     estimateState,

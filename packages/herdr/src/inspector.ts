@@ -15,6 +15,7 @@ type HerdrPane = {
   focused?: unknown;
   cwd?: unknown;
   foreground_cwd?: unknown;
+  agent?: unknown;
   label?: unknown;
   title?: unknown;
   revision?: unknown;
@@ -49,7 +50,7 @@ const toPaneMeta = (pane: HerdrPane): PaneMeta | null => {
     windowActivity: null,
     paneActivity: toNumber(pane.revision),
     paneActive: pane.focused === true,
-    currentCommand: null,
+    currentCommand: toNullable(pane.agent),
     currentPath,
     paneTty: null,
     paneDead: false,
