@@ -1,6 +1,6 @@
 # vde-monitor
 
-Monitor tmux/WezTerm coding sessions from a browser with a single CLI.
+Monitor tmux/WezTerm/herdr coding sessions from a browser with a single CLI.
 It is designed for Codex CLI / Claude Code workflows and optimized for quick checks and control from both desktop and mobile devices.
 Mobile application-grade UI/UX is a first-class goal, with touch-friendly controls and compact layouts prioritized for small screens.
 
@@ -14,7 +14,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 - Use image mode on macOS terminals (when enabled)
 - Track session/repo timeline and activity history across restarts
 - Inspect Git diff/commits and keep repo-scoped notes while monitoring
-- Launch Codex/Claude agents into tmux sessions
+- Launch Codex/Claude agents into tmux or herdr sessions
 - Resume existing Codex/Claude sessions on a source pane and move context to another `vw` worktree (when available)
 - Switch worktree context per session when reviewing timeline, diffs, commits, and files ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
 - Open Usage Dashboard to monitor provider limits pace and billing trends
@@ -34,7 +34,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 ## Requirements
 
 - Node.js `22.12+`
-- tmux `2.0+` or WezTerm with `wezterm cli`
+- tmux `2.0+`, WezTerm with `wezterm cli`, or herdr `0.7.1+`
 - Worktree integration requires [`vde-worktree`](https://github.com/yuki-yano/vde-worktree) CLI (`vw`) and is unavailable when `vw` snapshot cannot be resolved
 - macOS-only features (image capture / pane focus) require `osascript`
 - On macOS, Screen Recording and Accessibility permissions may be required
@@ -159,7 +159,7 @@ Common options:
 --tailscale             Use Tailscale IP for access URL
 --https                 Enable Tailscale HTTPS guidance/QR (effective with `--tailscale`)
 --bind <ip>             Bind to specific IPv4
---multiplexer <name>    `tmux` or `wezterm`
+--multiplexer <name>    `tmux`, `wezterm`, or `herdr`
 --backend <name>        image backend (`alacritty`, `terminal`, `iterm`, `wezterm`, `ghostty`)
 ```
 
@@ -227,7 +227,7 @@ Auto-generated required settings (`config.yml`):
 
 | Key                            | Default                     | Meaning                                                                             |
 | ------------------------------ | --------------------------- | ----------------------------------------------------------------------------------- |
-| `multiplexer.backend`          | `tmux`                      | Multiplexer backend (`tmux` or `wezterm`)                                           |
+| `multiplexer.backend`          | `tmux`                      | Multiplexer backend (`tmux`, `wezterm`, or `herdr`)                                 |
 | `screen.image.backend`         | `terminal`                  | Image capture backend on macOS (`alacritty`/`terminal`/`iterm`/`wezterm`/`ghostty`) |
 | `dangerKeys`                   | `["C-c","C-d","C-z"]`       | Blocked danger keys                                                                 |
 | `dangerCommandPatterns`        | existing default regex list | Regex list for dangerous command detection                                          |
@@ -267,6 +267,40 @@ Notes:
 - `config check` exits with code `1` when any issue is found (including unused keys).
 - `config prune` writes YAML to `config.yml`; when source is `config.json`, it is removed after successful write.
 - Project-local config (`<repo-root>/.vde/monitor/config.*`) is no longer loaded. Move required values to global config.
+
+### herdr backend
+
+The herdr backend requires herdr `0.7.1+` and is enabled with either CLI args or global config:
+
+```bash
+npx vde-monitor@latest --multiplexer herdr
+```
+
+```yaml
+# ~/.config/vde/monitor/config.yml
+multiplexer:
+  backend: herdr
+```
+
+Socket resolution order:
+
+1. `HERDR_SOCKET_PATH`
+2. `~/.config/herdr/sessions/$HERDR_SESSION/herdr.sock`
+3. `~/.config/herdr/herdr.sock`
+
+Supported:
+
+- pane list, text capture, send text, send keys/raw input, focus pane, kill pane/window
+- Codex/Claude launch through `herdr agent start`, including launch verification
+- launch worktree cwd resolution through `vw` when `worktreePath` / `worktreeBranch` is used
+- state detection from herdr agent status, plus Claude/Codex hook events when the agent process has `HERDR_PANE_ID`
+
+Current limitations:
+
+- tmux pipe mode is unavailable on herdr; hook events are read from JSONL and also reported through herdr when `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` are present
+- herdr does not expose tmux-style copy-mode release; input is sent without a copy-mode escape step
+- herdr does not expose pane TTY or alternate-screen state through the verified socket API
+- resume into a new window is unsupported on herdr; normal launch and Codex/Claude session resume arguments are supported
 
 ## Transport (SSE + polling fallback)
 

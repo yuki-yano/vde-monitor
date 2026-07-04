@@ -305,6 +305,20 @@ describe("ensureConfig", () => {
     expect(writtenPaths).toEqual([tokenPath]);
   });
 
+  it("accepts herdr as a global multiplexer backend", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "herdr" },
+    });
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.multiplexer.backend).toBe("herdr");
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
   it("applies global > default precedence", () => {
     setConfigFile({
       ...expectedGeneratedTemplate,
@@ -416,6 +430,27 @@ describe("regenerateConfig", () => {
     expect(result.config).toEqual(expectedGeneratedTemplate);
     expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
   });
+
+  it("preserves herdr backend while regenerating required keys", () => {
+    setConfigFile({
+      multiplexer: { backend: "herdr" },
+      dangerKeys: ["C-c", "C-d", "C-z"],
+      dangerCommandPatterns: configDefaults.dangerCommandPatterns,
+      launch: configDefaults.launch,
+      workspaceTabs: { displayMode: "all" },
+    });
+
+    const result = regenerateConfig();
+
+    expect(result.config).toEqual({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "herdr" },
+    });
+    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "herdr" },
+    });
+  });
 });
 
 describe("initConfig", () => {
@@ -491,6 +526,19 @@ describe("runConfigCheck", () => {
 
   it("passes when config has no issues", () => {
     setConfigFile(expectedGeneratedTemplate);
+
+    const result = runConfigCheck();
+
+    expect(result.ok).toBe(true);
+    expect(result.configPath).toBe(configPath);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("passes when generated config uses herdr backend", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      multiplexer: { backend: "herdr" },
+    });
 
     const result = runConfigCheck();
 
