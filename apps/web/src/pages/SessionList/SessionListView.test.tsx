@@ -169,7 +169,6 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   sessionName: "session-1",
   windowIndex: 1,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: null,
   currentPath: "/Users/test/repo",

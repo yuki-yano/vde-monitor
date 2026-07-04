@@ -33,7 +33,6 @@ describe("ScreenPanel", () => {
     sessionName: "dev-main",
     windowIndex: 0,
     paneIndex: 0,
-    windowActivity: null,
     paneActive: true,
     currentCommand: "codex",
     currentPath: "/repo/.worktree/feature/current",

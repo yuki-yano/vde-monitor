@@ -12,7 +12,6 @@ export const createSessionDetail = (overrides: Partial<SessionDetail> = {}): Ses
   sessionName: "session-1",
   windowIndex: 1,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: "bash",
   currentPath: "/Users/test/repo",

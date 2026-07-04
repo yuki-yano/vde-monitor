@@ -20,7 +20,6 @@ const codexQuestionsAnsweredLinePattern = /^Questions\s+\d+\s*\/\s*\d+\s+answere
 type PaneOutputSnapshot = {
   paneId: string;
   paneActivity: number | null;
-  windowActivity: number | null;
   paneActive: boolean;
   paneDead: boolean;
   alternateOn: boolean;

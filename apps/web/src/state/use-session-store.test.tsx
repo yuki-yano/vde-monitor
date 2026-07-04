@@ -11,7 +11,6 @@ const createSession = (paneId: string, overrides?: Partial<SessionSummary>): Ses
   sessionName: "session",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: null,
   currentPath: null,

@@ -22,7 +22,6 @@ const createDetail = (state: SessionDetail["state"], stateReason: string): Sessi
   sessionName: "backend",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: null,
   currentPath: "/repo",

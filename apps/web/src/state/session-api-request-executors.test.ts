@@ -41,7 +41,6 @@ const createSession = (
   sessionName: "session",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: null,
   currentPath: null,

@@ -29,7 +29,6 @@ const buildSession = (paneId: string): SessionSummary => ({
   sessionName: paneId,
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: null,
   currentPath: null,

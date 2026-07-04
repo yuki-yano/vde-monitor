@@ -339,7 +339,6 @@ export const sessionSummarySchema = z.object({
   sessionName: z.string(),
   windowIndex: z.number(),
   paneIndex: z.number(),
-  windowActivity: z.number().nullable(),
   paneActive: z.boolean(),
   currentCommand: z.string().nullable(),
   currentPath: z.string().nullable(),

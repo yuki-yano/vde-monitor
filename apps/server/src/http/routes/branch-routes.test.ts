@@ -51,7 +51,6 @@ const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   sessionName: "dev",
   windowIndex: 1,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: "claude",
   currentPath: "/repo",

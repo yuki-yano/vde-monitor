@@ -8,7 +8,6 @@ export type PaneSnapshot = {
   sessionName: string;
   windowIndex: number;
   paneIndex: number;
-  windowActivity: number | null;
   paneActive: boolean;
   currentCommand: string | null;
   currentPath: string | null;
@@ -87,7 +86,6 @@ export const buildSessionDetail = ({
   sessionName: pane.sessionName,
   windowIndex: pane.windowIndex,
   paneIndex: pane.paneIndex,
-  windowActivity: pane.windowActivity,
   paneActive: pane.paneActive,
   currentCommand: pane.currentCommand,
   currentPath: pane.currentPath,

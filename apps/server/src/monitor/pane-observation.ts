@@ -198,7 +198,6 @@ export const observePane = async (
     pane: {
       paneId: pane.paneId,
       paneActivity: pane.paneActivity,
-      windowActivity: pane.windowActivity,
       paneActive: pane.paneActive,
       paneDead: pane.paneDead,
       alternateOn: pane.alternateOn,

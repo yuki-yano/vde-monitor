@@ -46,7 +46,6 @@ const createDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => 
   sessionName: "session",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: true,
   currentCommand: "codex",
   currentPath: "/repo/default",

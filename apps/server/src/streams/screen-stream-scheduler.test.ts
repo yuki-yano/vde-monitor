@@ -17,7 +17,6 @@ const makeDetail = (paneId = "pane-1") => ({
   sessionName: "session",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null as number | null,
   paneActive: true,
   currentPath: "/tmp" as string | null,
   paneTty: "tty1" as string | null,

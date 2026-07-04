@@ -89,7 +89,6 @@ describe("useSidebarPreview", () => {
     sessionName: "session-1",
     windowIndex: 1,
     paneIndex: 1,
-    windowActivity: null,
     paneActive: true,
     currentCommand: null,
     currentPath: null,

@@ -12,7 +12,6 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   sessionName: "main",
   windowIndex: 0,
   paneIndex: 0,
-  windowActivity: null,
   paneActive: false,
   currentCommand: null,
   currentPath: null,

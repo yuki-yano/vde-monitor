@@ -8,7 +8,6 @@ const buildPane = (overrides: Partial<PaneSnapshot> = {}): PaneSnapshot => ({
   sessionName: "main",
   windowIndex: 0,
   paneIndex: 1,
-  windowActivity: null,
   paneActive: true,
   currentCommand: "bash",
   currentPath: "/Users/test/project",

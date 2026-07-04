@@ -7,7 +7,6 @@ describe("updatePaneOutputState", () => {
   const basePane = {
     paneId: "1",
     paneActivity: null,
-    windowActivity: null,
     paneActive: false,
     paneDead: false,
     alternateOn: false,
