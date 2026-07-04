@@ -240,6 +240,15 @@ importers:
         specifier: ^7.1.5
         version: 7.3.1(@types/node@24.10.9)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/herdr:
+    dependencies:
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../multiplexer
+      '@vde-monitor/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/hooks:
     dependencies:
       '@vde-monitor/shared':

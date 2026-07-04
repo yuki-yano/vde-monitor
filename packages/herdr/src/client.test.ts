@@ -1,0 +1,68 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:net";
+import { afterEach, describe, expect, it } from "vitest";
+import { HerdrClient, resolveSocketPath } from "./client";
+
+const tempDirs: string[] = [];
+
+const makeTempSocketPath = async (): Promise<string> => {
+  const dir = await mkdtemp(join(tmpdir(), "vde-herdr-client-"));
+  tempDirs.push(dir);
+  return join(dir, "herdr.sock");
+};
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+describe("resolveSocketPath", () => {
+  it("HERDR_SOCKET_PATH を最優先で使う", () => {
+    expect(
+      resolveSocketPath({ HERDR_SOCKET_PATH: "/tmp/x.sock", HERDR_SESSION: "work" }, "/home/u"),
+    ).toBe("/tmp/x.sock");
+  });
+
+  it("HERDR_SESSION から named session の socket を解決する", () => {
+    expect(resolveSocketPath({ HERDR_SESSION: "work" }, "/home/u")).toBe(
+      "/home/u/.config/herdr/sessions/work/herdr.sock",
+    );
+  });
+
+  it("既定は default session の socket", () => {
+    expect(resolveSocketPath({}, "/home/u")).toBe("/home/u/.config/herdr/herdr.sock");
+  });
+});
+
+describe("HerdrClient", () => {
+  it("request が同一 id のレスポンスを解決する", async () => {
+    const socketPath = await makeTempSocketPath();
+    const received: unknown[] = [];
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      let buffer = "";
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex < 0) return;
+        const line = buffer.slice(0, newlineIndex);
+        const request = JSON.parse(line) as { id: string; method: string; params: unknown };
+        received.push(request);
+        socket.write(`${JSON.stringify({ id: request.id, result: { type: "pong" } })}\n`);
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("ping")).resolves.toEqual({ type: "pong" });
+    await client.close();
+
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    expect(received).toEqual([{ id: "vdem_1", method: "ping", params: {} }]);
+  });
+});

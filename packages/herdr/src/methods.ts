@@ -1,0 +1,20 @@
+// Keep this table in sync with docs/herdr-api-notes.md.
+export const HERDR_METHODS = {
+  ping: "ping",
+  workspaceList: "workspace.list",
+  tabList: "tab.list",
+  tabClose: "tab.close",
+  paneList: "pane.list",
+  paneGet: "pane.get",
+  paneProcessInfo: "pane.process_info",
+  paneFocus: "pane.focus",
+  paneRename: "pane.rename",
+  paneSendText: "pane.send_text",
+  paneSendKeys: "pane.send_keys",
+  paneSendInput: "pane.send_input",
+  paneRead: "pane.read",
+  paneReportAgent: "pane.report_agent",
+  paneReleaseAgent: "pane.release_agent",
+  paneClose: "pane.close",
+  eventsSubscribe: "events.subscribe",
+} as const;
