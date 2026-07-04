@@ -34,6 +34,18 @@ export class HerdrClient {
   constructor(private readonly socketPath: string) {}
 
   async request<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    try {
+      return await this.requestOnce<T>(method, params);
+    } catch (error) {
+      if (isRecoverableConnectionError(error)) {
+        this.socket = null;
+        return await this.requestOnce<T>(method, params);
+      }
+      throw error;
+    }
+  }
+
+  private async requestOnce<T>(method: string, params: Record<string, unknown>): Promise<T> {
     const socket = await this.ensureConnected();
     const id = `vdem_${++this.seq}`;
     const line = `${JSON.stringify({ id, method, params })}\n`;
@@ -78,16 +90,23 @@ export class HerdrClient {
     const socket = createConnection(this.socketPath);
     socket.setEncoding("utf8");
     socket.on("data", (chunk: string) => this.onData(chunk));
-    socket.on("error", (error) => this.rejectAll(error));
+    socket.on("error", (error) => {
+      if (this.socket === socket) {
+        this.socket = null;
+      }
+      this.rejectAll(error);
+    });
     socket.on("end", () => {
       if (this.socket === socket) {
         this.socket = null;
       }
+      this.rejectAll(new Error("herdr socket closed"));
     });
     socket.on("close", () => {
       if (this.socket === socket) {
         this.socket = null;
       }
+      this.rejectAll(new Error("herdr socket closed"));
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -151,3 +170,16 @@ export class HerdrClient {
     this.pending.clear();
   }
 }
+
+const isRecoverableConnectionError = (error: unknown): error is Error & { code?: string } => {
+  if (!(error instanceof Error)) return false;
+  const code = (error as { code?: string }).code;
+  return (
+    code === "EPIPE" ||
+    code === "ECONNRESET" ||
+    code === "ERR_STREAM_DESTROYED" ||
+    error.message.includes("socket has been ended") ||
+    error.message.includes("herdr socket closed") ||
+    error.message.includes("write EPIPE")
+  );
+};

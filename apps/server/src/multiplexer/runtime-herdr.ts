@@ -5,6 +5,7 @@ import {
   HerdrClient,
   createHerdrActions,
   createHerdrInspector,
+  createHerdrLaunchCapability,
   createHerdrScreenCapture,
   resolveSocketPath,
 } from "@vde-monitor/herdr";
@@ -18,6 +19,7 @@ export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRunti
   const inspector = createHerdrInspector(client);
   const screenCapture = createHerdrScreenCapture(client);
   const actions = createHerdrActions(client, config);
+  const launch = createHerdrLaunchCapability({ client, config });
   const captureFingerprint = async (paneId: string, useAlt: boolean) => {
     try {
       const captured = await screenCapture.captureText({
@@ -46,7 +48,7 @@ export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRunti
     inspector,
     screenCapture,
     actions,
-    capabilities: {},
+    capabilities: { launch },
     captureFingerprint,
   };
 };

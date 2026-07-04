@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createHerdrRuntime } from "./runtime-herdr";
 
 describe("createHerdrRuntime", () => {
-  it("does not expose pipe or launch capabilities in Phase 2", () => {
+  it("exposes launch capability but no pipe capability", () => {
     const runtime = createHerdrRuntime({
       ...configDefaults,
       token: "test-token",
@@ -16,7 +16,7 @@ describe("createHerdrRuntime", () => {
 
     expect(runtime.backend).toBe("herdr");
     expect(runtime.capabilities.pipe).toBeUndefined();
-    expect(runtime.capabilities.launch).toBeUndefined();
+    expect(runtime.capabilities.launch).toBeDefined();
     expect("launchAgentInSession" in runtime.actions).toBe(false);
   });
 });

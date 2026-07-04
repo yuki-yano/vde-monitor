@@ -103,4 +103,45 @@ describe("HerdrClient", () => {
     );
     expect(received).toEqual(["pane.list", "pane.read"]);
   });
+
+  it("応答前に接続が落ちた request は一度だけ再接続して再送する", async () => {
+    const socketPath = await makeTempSocketPath();
+    const received: string[] = [];
+    let connectionCount = 0;
+    const server = createServer((socket) => {
+      connectionCount += 1;
+      const currentConnection = connectionCount;
+      socket.setEncoding("utf8");
+      let buffer = "";
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex < 0) return;
+        const line = buffer.slice(0, newlineIndex);
+        const request = JSON.parse(line) as { id: string; method: string };
+        received.push(request.method);
+        if (currentConnection === 1) {
+          socket.destroy();
+          return;
+        }
+        socket.write(`${JSON.stringify({ id: request.id, result: { type: "retried" } })}\n`);
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("pane.get", { pane_id: "wD:p2" })).resolves.toEqual({
+      type: "retried",
+    });
+    await client.close();
+
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+    expect(received).toEqual(["pane.get", "pane.get"]);
+  });
 });
