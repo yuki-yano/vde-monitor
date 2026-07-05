@@ -1,12 +1,16 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PaneTextComposer } from "./PaneTextComposer";
 
 describe("PaneTextComposer", () => {
   type ComposerState = Parameters<typeof PaneTextComposer>[0]["state"];
   type ComposerActions = Parameters<typeof PaneTextComposer>[0]["actions"];
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
 
   const buildState = (overrides: Partial<ComposerState> = {}): ComposerState => ({
     interactive: true,
@@ -43,6 +47,48 @@ describe("PaneTextComposer", () => {
     fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
 
     expect(onSendText).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists prompt draft and restores it after remount", () => {
+    const draftStorageKey = "test:pane-draft:%1";
+    const state = buildState({ draftStorageKey });
+    const firstRender = render(<PaneTextComposer state={state} actions={buildActions()} />);
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement;
+    fireEvent.input(textarea, { target: { value: "continue this prompt" } });
+
+    expect(window.localStorage.getItem(draftStorageKey)).toBe("continue this prompt");
+
+    firstRender.unmount();
+    render(<PaneTextComposer state={state} actions={buildActions()} />);
+
+    expect((screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement).value).toBe(
+      "continue this prompt",
+    );
+  });
+
+  it("removes the persisted prompt draft after a successful send clears the textarea", async () => {
+    const draftStorageKey = "test:pane-draft:%1";
+    const textInputRef = createRef<HTMLTextAreaElement>();
+    const onSendText = vi.fn(async () => {
+      if (textInputRef.current) {
+        textInputRef.current.value = "";
+      }
+    });
+    render(
+      <PaneTextComposer
+        state={buildState({ draftStorageKey, textInputRef })}
+        actions={buildActions({ onSendText })}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement;
+    fireEvent.input(textarea, { target: { value: "send this prompt" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => {
+      expect(window.localStorage.getItem(draftStorageKey)).toBeNull();
+    });
   });
 
   it("does not send on ctrl/cmd + enter in raw mode", () => {

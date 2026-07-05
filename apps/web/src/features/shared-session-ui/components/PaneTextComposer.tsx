@@ -27,6 +27,10 @@ import {
 import { Button, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { IOS_ZOOM_SAFE_FIELD_SCALE } from "@/lib/ios-zoom-safe-textarea";
+import {
+  readStoredPromptDraft,
+  syncStoredPromptDraft,
+} from "@/features/shared-session-ui/lib/pane-text-draft-storage";
 
 const RAW_MODE_INPUT_CLASS_DANGER =
   "border-latte-red/70 bg-latte-red/10 focus-within:border-latte-red/80 focus-within:ring-2 focus-within:ring-latte-red/30";
@@ -82,6 +86,7 @@ type PaneTextComposerState = {
   interactive: boolean;
   isSendingText: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
+  draftStorageKey?: string;
   autoEnter: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
@@ -135,12 +140,12 @@ const extractAllowedImageFileFromClipboard = (data: DataTransfer | null): File |
     return null;
   }
 
-  const itemFiles = Array.from(data.items ?? [])
-    .filter((item) => item.kind === "file")
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => file != null);
-  for (const file of itemFiles) {
-    if (isAllowedImageMimeType(file)) {
+  for (const item of Array.from(data.items ?? [])) {
+    if (item.kind !== "file") {
+      continue;
+    }
+    const file = item.getAsFile();
+    if (file != null && isAllowedImageMimeType(file)) {
       return file;
     }
   }
@@ -238,6 +243,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     interactive,
     isSendingText,
     textInputRef,
+    draftStorageKey,
     autoEnter,
     rawMode,
     allowDangerKeys,
@@ -260,6 +266,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   } = actions;
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const initialPromptDraft = readStoredPromptDraft(draftStorageKey);
   const placeholder = rawMode ? "Raw input (sent immediately)..." : "Type a prompt…";
   const rawModeInputClass = resolveRawModeInputClass(rawMode, allowDangerKeys);
   const rawModeToggleClass = resolveRawModeToggleClass(rawMode, allowDangerKeys);
@@ -287,8 +294,30 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     }
   }, []);
 
-  const handleTextareaInput = (event: FormEvent<HTMLTextAreaElement>) =>
+  const syncPromptDraftFromTextarea = useCallback(
+    (textarea: HTMLTextAreaElement) => {
+      syncStoredPromptDraft(draftStorageKey, textarea);
+    },
+    [draftStorageKey],
+  );
+
+  const syncPromptDraftFromRef = useCallback(() => {
+    if (textInputRef.current) {
+      syncPromptDraftFromTextarea(textInputRef.current);
+    }
+  }, [syncPromptDraftFromTextarea, textInputRef]);
+
+  const handleTextareaBeforeInput = (event: FormEvent<HTMLTextAreaElement>) => {
+    onRawBeforeInput(event);
+    if (rawMode) {
+      syncPromptDraftFromTextarea(event.currentTarget);
+    }
+  };
+
+  const handleTextareaInput = (event: FormEvent<HTMLTextAreaElement>) => {
     handlePromptInput({ event, rawMode, onRawInput, syncPromptHeight });
+    syncPromptDraftFromTextarea(event.currentTarget);
+  };
 
   const handleSendText = () => {
     const result = onSendText();
@@ -296,10 +325,11 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
       if (textInputRef.current) {
         syncPromptHeight(textInputRef.current);
       }
+      syncPromptDraftFromRef();
     });
   };
 
-  const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) =>
+  const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     handlePromptKeyDown({
       event,
       rawMode,
@@ -307,6 +337,10 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
       onRawKeyDown,
       onSend: handleSendText,
     });
+    if (rawMode) {
+      syncPromptDraftFromTextarea(event.currentTarget);
+    }
+  };
 
   const handleTextareaPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
     if (rawMode) {
@@ -322,6 +356,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
       if (textInputRef.current) {
         syncPromptHeight(textInputRef.current);
       }
+      syncPromptDraftFromRef();
     });
   };
 
@@ -344,6 +379,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
       if (textInputRef.current) {
         syncPromptHeight(textInputRef.current);
       }
+      syncPromptDraftFromRef();
     });
   };
 
@@ -352,6 +388,14 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
       syncPromptHeight(textInputRef.current);
     }
   }, [syncPromptHeight, textInputRef]);
+
+  useEffect(() => {
+    if (draftStorageKey == null || !textInputRef.current) {
+      return;
+    }
+    textInputRef.current.value = readStoredPromptDraft(draftStorageKey);
+    syncPromptHeight(textInputRef.current);
+  }, [draftStorageKey, syncPromptHeight, textInputRef]);
 
   const handlePermissionShortcut = (value: PermissionShortcutValue) => {
     const result = onSendPermissionShortcut?.(value);
@@ -400,8 +444,9 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             placeholder={placeholder}
             ref={textInputRef}
             rows={2}
+            defaultValue={initialPromptDraft}
             disabled={!interactive}
-            onBeforeInput={onRawBeforeInput}
+            onBeforeInput={handleTextareaBeforeInput}
             onCompositionStart={onRawCompositionStart}
             onCompositionEnd={onRawCompositionEnd}
             onInput={handleTextareaInput}

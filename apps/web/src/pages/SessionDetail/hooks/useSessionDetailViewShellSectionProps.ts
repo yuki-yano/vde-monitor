@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 
+import { buildPaneTextDraftStorageKey } from "@/features/shared-session-ui/lib/pane-text-draft-storage";
+
 import { useSessionDetailContext } from "../SessionDetailProvider";
 import { useSessionTitleEditor } from "./useSessionTitleEditor";
 
@@ -216,6 +218,7 @@ export const useSessionDetailViewShellSectionProps = () => {
       state: {
         interactive: base.connectionStatus !== "disconnected",
         textInputRef,
+        draftStorageKey: buildPaneTextDraftStorageKey(paneId),
         autoEnter,
         rawMode,
         allowDangerKeys,
@@ -246,6 +249,7 @@ export const useSessionDetailViewShellSectionProps = () => {
     [
       base.connectionStatus,
       textInputRef,
+      paneId,
       autoEnter,
       rawMode,
       allowDangerKeys,

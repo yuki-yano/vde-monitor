@@ -24,6 +24,7 @@ export type ControlsPanelState = {
   interactive: boolean;
   isSendingText: boolean;
   textInputRef: RefObject<HTMLTextAreaElement | null>;
+  draftStorageKey?: string;
   autoEnter: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
@@ -74,6 +75,7 @@ const ControlsPanelInner = ({
     interactive,
     isSendingText,
     textInputRef,
+    draftStorageKey,
     autoEnter,
     rawMode,
     allowDangerKeys,
@@ -152,6 +154,7 @@ const ControlsPanelInner = ({
               interactive,
               isSendingText,
               textInputRef,
+              draftStorageKey,
               autoEnter,
               rawMode,
               allowDangerKeys,

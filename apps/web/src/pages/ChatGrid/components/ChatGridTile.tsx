@@ -37,6 +37,7 @@ import {
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
 } from "@/features/shared-session-ui/lib/log-file-reference";
+import { buildPaneTextDraftStorageKey } from "@/features/shared-session-ui/lib/pane-text-draft-storage";
 import {
   resolveSessionStateLabel,
   resolveSessionStateTone,
@@ -392,6 +393,7 @@ export const ChatGridTile = ({
             interactive: connected,
             isSendingText: isSending,
             textInputRef,
+            draftStorageKey: buildPaneTextDraftStorageKey(session.paneId),
             autoEnter,
             rawMode,
             allowDangerKeys,
