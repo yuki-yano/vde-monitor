@@ -16,18 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup mise
-        uses: jdx/mise-action@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.2
-          run_install: false
+      - name: Setup mise Node
+        uses: ./.github/actions/setup-mise-node
 
       - name: Get pnpm store directory
         id: pnpm-store
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        run: echo "STORE_PATH=$(mise exec -- pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -37,19 +31,19 @@ jobs:
           restore-keys: ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: mise exec -- pnpm install --frozen-lockfile
 
       - name: Run CI
-        run: pnpm run ci
+        run: mise exec -- pnpm run ci
 
       - name: Build package
-        run: pnpm build
+        run: mise exec -- pnpm build
 
       - name: Ensure npm version
-        run: npm install -g npm@11.5.1
+        run: mise exec -- npm install -g npm@11.5.1
 
       - name: Publish
         # npm publish alone leaves catalog: specifiers unresolved; pnpm pack rewrites them
         run: |
-          pnpm pack
-          npm publish ./vde-monitor-*.tgz
+          mise exec -- pnpm pack
+          mise exec -- npm publish ./vde-monitor-*.tgz

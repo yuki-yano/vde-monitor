@@ -1,0 +1,17 @@
+name: Setup mise Node
+description: Install mise tools and activate the package manager for the mise Node runtime.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup mise
+      uses: jdx/mise-action@v4
+
+    - name: Setup package manager
+      shell: bash
+      run: |
+        package_manager="$(mise exec -- node -p 'require("./package.json").packageManager')"
+        mise exec -- corepack enable
+        mise exec -- corepack prepare "$package_manager" --activate
+        mise exec -- node --version
+        mise exec -- pnpm --version
