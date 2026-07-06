@@ -20,14 +20,13 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
   const editingNoteExists = editingNoteId ? notes.some((note) => note.id === editingNoteId) : false;
-  const visibleEditingNoteId = editingNoteExists ? editingNoteId : null;
-  const visibleEditingBody = editingNoteExists ? editingBody : "";
 
   // Mirrors of the state above so timer callbacks (armed against a stale
   // closure) can always read the latest editing target/body.
   const editingNoteIdRef = useRef<string | null>(null);
   const editingBodyRef = useRef("");
   const lastSavedBodyRef = useRef("");
+  const listedEditingNoteIdRef = useRef<string | null>(null);
   const saveQueueRef = useLazyRef<Promise<boolean>>(() => Promise.resolve(true));
 
   useEffect(() => {
@@ -45,6 +44,7 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     setEditingNoteId(null);
     setEditingBody("");
     lastSavedBodyRef.current = "";
+    listedEditingNoteIdRef.current = null;
   }, []);
 
   const runAutoSave = useCallback(
@@ -70,6 +70,20 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     void runAutoSave(noteId, body);
   }, AUTO_SAVE_DEBOUNCE_MS);
 
+  if (editingNoteId && editingNoteExists) {
+    listedEditingNoteIdRef.current = editingNoteId;
+  }
+
+  if (editingNoteId && !editingNoteExists && listedEditingNoteIdRef.current === editingNoteId) {
+    setEditingNoteId(null);
+    setEditingBody("");
+    editingNoteIdRef.current = null;
+    editingBodyRef.current = "";
+    lastSavedBodyRef.current = "";
+    listedEditingNoteIdRef.current = null;
+    debouncedSave.cancel();
+  }
+
   useEffect(() => {
     if (!editingNoteId) {
       debouncedSave.cancel();
@@ -82,20 +96,6 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     debouncedSave(editingNoteId, editingBody);
     return debouncedSave.cancel;
   }, [debouncedSave, editingBody, editingNoteId]);
-
-  useEffect(() => {
-    if (!editingNoteId) {
-      return;
-    }
-    const exists = notes.some((note) => note.id === editingNoteId);
-    if (exists) {
-      return;
-    }
-    debouncedSave.cancel();
-    editingNoteIdRef.current = null;
-    editingBodyRef.current = "";
-    lastSavedBodyRef.current = "";
-  }, [debouncedSave, editingNoteId, notes]);
 
   const flushPendingAutoSave = useCallback(async () => {
     const noteId = editingNoteIdRef.current;
@@ -190,11 +190,12 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
     setEditingNoteId(note.id);
     setEditingBody(note.body);
     lastSavedBodyRef.current = note.body;
+    listedEditingNoteIdRef.current = null;
   }, []);
 
   return {
-    editingNoteId: visibleEditingNoteId,
-    editingBody: visibleEditingBody,
+    editingNoteId,
+    editingBody,
     setEditingBody,
     beginEdit,
     finishEdit,

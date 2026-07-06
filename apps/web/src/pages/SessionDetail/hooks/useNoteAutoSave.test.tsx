@@ -324,6 +324,35 @@ describe("useNoteAutoSave", () => {
     expect(result.current.editingNoteId).toBeNull();
   });
 
+  it("does not restore stale editing state when a deleted note id reappears", async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn(async () => true);
+    const note = buildNote();
+    const { result, rerender } = renderHook(
+      ({ notes }: { notes: RepoNote[] }) => useNoteAutoSave({ notes, onSave }),
+      { initialProps: { notes: [note] } },
+    );
+
+    await act(async () => {
+      await result.current.beginEdit(note);
+    });
+    act(() => {
+      result.current.setEditingBody("stale draft");
+    });
+
+    act(() => {
+      rerender({ notes: [] });
+    });
+    expect(result.current.editingNoteId).toBeNull();
+
+    act(() => {
+      rerender({ notes: [note] });
+    });
+
+    expect(result.current.editingNoteId).toBeNull();
+    expect(result.current.editingBody).toBe("");
+  });
+
   it("does not fire a save after unmount", async () => {
     vi.useFakeTimers();
     const onSave = vi.fn(async () => true);
