@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMultiPaneScreenFeed";
@@ -51,17 +51,16 @@ export const useChatGridVM = () => {
 
   const [candidateModalOpen, setCandidateModalOpen] = useState(false);
   const [selectedCandidatePaneIds, setSelectedCandidatePaneIds] = useState<string[]>([]);
-  const [hasResolvedGridSelection, setHasResolvedGridSelection] = useState(false);
+  const hasResolvedGridSelectionRef = useRef(false);
   const paneIdsFromSearch = useMemo(() => normalizeChatGridPaneParam(search.panes), [search.panes]);
 
-  useEffect(() => {
-    if (
-      !hasResolvedGridSelection &&
-      (sessions.length > 0 || connected || connectionStatus === "disconnected")
-    ) {
-      setHasResolvedGridSelection(true);
-    }
-  }, [connected, connectionStatus, hasResolvedGridSelection, sessions.length]);
+  if (
+    !hasResolvedGridSelectionRef.current &&
+    (sessions.length > 0 || connected || connectionStatus === "disconnected")
+  ) {
+    hasResolvedGridSelectionRef.current = true;
+  }
+  const hasResolvedGridSelection = hasResolvedGridSelectionRef.current;
 
   const candidateItems = useMemo(
     () =>

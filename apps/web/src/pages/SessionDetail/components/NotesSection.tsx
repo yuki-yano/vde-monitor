@@ -31,7 +31,7 @@ type NotesSectionState = {
 
 type NotesSectionActions = {
   onRefresh: (options?: { silent?: boolean }) => void;
-  onCreate: (input: { title?: string | null; body: string }) => Promise<boolean>;
+  onCreate: (input: { title?: string | null; body: string }) => Promise<RepoNote | null>;
   onSave: (noteId: string, input: { title?: string | null; body: string }) => Promise<boolean>;
   onDelete: (noteId: string) => Promise<boolean>;
 };
@@ -80,10 +80,8 @@ export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
     [forceStartEditing],
   );
 
-  const { editingTextareaRef, markPendingAutoEdit, cancelPendingAutoEdit } = useNoteAutoFocus({
-    notes,
+  const { editingTextareaRef } = useNoteAutoFocus({
     editingNoteId,
-    onAutoEdit: handleNoteAutoEdit,
   });
 
   useNotesPolling({ repoRoot, onRefresh });
@@ -122,13 +120,12 @@ export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
 
   const handleAddNote = useCallback(() => {
     void (async () => {
-      markPendingAutoEdit();
-      const ok = await onCreate({ title: null, body: "" });
-      if (!ok) {
-        cancelPendingAutoEdit();
+      const created = await onCreate({ title: null, body: "" });
+      if (created) {
+        handleNoteAutoEdit(created);
       }
     })();
-  }, [markPendingAutoEdit, cancelPendingAutoEdit, onCreate]);
+  }, [handleNoteAutoEdit, onCreate]);
 
   const handleCopyNote = useCallback(
     (note: RepoNote) => {

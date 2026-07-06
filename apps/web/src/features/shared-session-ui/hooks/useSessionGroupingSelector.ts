@@ -20,9 +20,14 @@ export const buildFilteredSessionGroups = ({
   filter,
   getRepoSortAnchorAt,
 }: BuildFilteredSessionGroupsArgs) => {
-  const filteredSessions = sessionGroups
-    .flatMap((group) => group.sessions)
-    .filter((session) => matchesSessionListFilter(session, filter));
+  const filteredSessions: SessionSummary[] = [];
+  sessionGroups.forEach((group) => {
+    group.sessions.forEach((session) => {
+      if (matchesSessionListFilter(session, filter)) {
+        filteredSessions.push(session);
+      }
+    });
+  });
   return buildSessionGroups(filteredSessions, { getRepoSortAnchorAt });
 };
 

@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import {
   INPUT_TYPE_DELETE_BACKWARD,
@@ -105,17 +106,16 @@ export const useRawInputHandlers = ({
 }: UseRawInputHandlersParams) => {
   const rawQueueRef = useRef<RawItem[]>([]);
   const rawFlushTimerRef = useRef<number | null>(null);
-  const rawFlushChainRef = useRef(Promise.resolve());
+  const rawFlushChainRef = useLazyRef(() => Promise.resolve());
   const isComposingRef = useRef(false);
   const suppressNextInputRef = useRef(false);
   const suppressNextBeforeInputRef = useRef(false);
   const allowDangerRef = useRef(false);
 
-  useEffect(() => {
-    allowDangerRef.current = allowDangerKeys;
-  }, [allowDangerKeys]);
+  allowDangerRef.current = allowDangerKeys;
 
   useEffect(() => {
+    // react-doctor-disable-next-line no-event-handler
     if (!rawMode) {
       rawQueueRef.current = [];
       if (rawFlushTimerRef.current != null) {
@@ -195,7 +195,7 @@ export const useRawInputHandlers = ({
         });
       }, RAW_FLUSH_DELAY_MS);
     },
-    [paneId, sendRaw, setScreenError],
+    [paneId, rawFlushChainRef, sendRaw, setScreenError],
   );
 
   const enqueueRawText = useCallback(

@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useCallback, useContext, useMemo } from "react";
+import { type ReactNode, createContext, use, useCallback, useMemo } from "react";
 
 import { usePushNotifications } from "@/features/notifications/use-push-notifications";
 
@@ -289,7 +289,7 @@ export const SessionDetailProvider = ({ paneId, children }: SessionDetailProvide
 };
 
 export const useSessionDetailContext = (): SessionDetailContextValue => {
-  const value = useContext(SessionDetailContext);
+  const value = use(SessionDetailContext);
   if (!value) {
     throw new Error("useSessionDetailContext must be used within a SessionDetailProvider");
   }

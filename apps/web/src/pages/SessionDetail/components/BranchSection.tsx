@@ -1,6 +1,6 @@
 import type { BranchListEntry } from "@vde-monitor/shared";
 import { Plus, RefreshCw, X } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { memo, useRef, useState } from "react";
 
 import { Button, Card, IconButton } from "@/components/ui";
 
@@ -50,11 +50,11 @@ export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
   const [createOpen, setCreateOpen] = useState(false);
   const [checkoutTarget, setCheckoutTarget] = useState<BranchListEntry | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BranchListEntry | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-
-  useEffect(() => {
-    setNowMs(Date.now());
-  }, [branches]);
+  const branchesSnapshotRef = useRef({ branches, nowMs: Date.now() });
+  if (branchesSnapshotRef.current.branches !== branches) {
+    branchesSnapshotRef.current = { branches, nowMs: Date.now() };
+  }
+  const nowMs = branchesSnapshotRef.current.nowMs;
 
   const isVirtualActive = virtualBranch != null;
   const showBlockingLoading = branchesLoading && branches.length === 0;

@@ -117,6 +117,10 @@ describe("useSessionVirtualBranch", () => {
       expect(result.current.virtualBranch).toBeNull();
     });
     expect(window.localStorage.getItem(buildStorageKey(paneId))).toBeNull();
+
+    rerender({ branchList: createBranchList({ repoRoot }) });
+
+    expect(result.current.virtualBranch).toBeNull();
   });
 
   it("discards stored selection when repoRoot differs from the current branch list", async () => {

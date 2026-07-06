@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useLayoutEffect, useState } from "react";
+import { type ReactNode, createContext, use, useLayoutEffect, useMemo, useState } from "react";
 
 import {
   THEME_STORAGE_KEY,
@@ -36,6 +36,10 @@ const getStoredPreference = (): ThemePreference => {
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [preference, setPreference] = useState<ThemePreference>(() => getStoredPreference());
   const [resolvedTheme, setResolvedTheme] = useState<Theme>(() => resolveTheme(preference));
+  const contextValue = useMemo(
+    () => ({ preference, resolvedTheme, setPreference }),
+    [preference, resolvedTheme],
+  );
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -62,15 +66,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     return () => media.removeListener(handleChange);
   }, [preference]);
 
-  return (
-    <ThemeContext.Provider value={{ preference, resolvedTheme, setPreference }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 };
 
 export const useTheme = (): ThemeContextValue => {
-  const context = useContext(ThemeContext);
+  const context = use(ThemeContext);
   if (!context) {
     throw new Error("useTheme must be used within ThemeProvider");
   }

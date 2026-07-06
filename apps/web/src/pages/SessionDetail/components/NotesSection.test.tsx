@@ -36,7 +36,7 @@ const buildState = (overrides: Partial<NotesSectionState> = {}): NotesSectionSta
 
 const buildActions = (overrides: Partial<NotesSectionActions> = {}): NotesSectionActions => ({
   onRefresh: vi.fn(),
-  onCreate: vi.fn(async () => true),
+  onCreate: vi.fn(async () => createNote({ id: "new-note", body: "" })),
   onSave: vi.fn(async () => true),
   onDelete: vi.fn(async () => true),
   ...overrides,
@@ -50,7 +50,8 @@ describe("NotesSection", () => {
   });
 
   it("adds an empty note from header add button", async () => {
-    const onCreate = vi.fn(async () => true);
+    const createdNote = createNote({ id: "new-note", body: "" });
+    const onCreate = vi.fn(async () => createdNote);
     const actions = buildActions({ onCreate });
     const { rerender } = render(
       <NotesSection state={buildState({ notes: [] })} actions={actions} />,
@@ -75,6 +76,18 @@ describe("NotesSection", () => {
       expect(screen.getByRole("button", { name: "Collapse note new-note" })).toBeTruthy();
     });
     expect(screen.getByLabelText("Edit note body new-note")).toBeTruthy();
+  });
+
+  it("does not start editing when note creation fails", async () => {
+    const onCreate = vi.fn(async () => null);
+    render(<NotesSection state={buildState({ notes: [] })} actions={buildActions({ onCreate })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith({ title: null, body: "" });
+    });
+    expect(screen.queryByLabelText(/Edit note body/u)).toBeNull();
   });
 
   it("refreshes on mount and auto-syncs every 10 seconds", async () => {

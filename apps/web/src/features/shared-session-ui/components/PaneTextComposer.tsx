@@ -238,6 +238,230 @@ const KeyButton = ({
   </Button>
 );
 
+const PermissionShortcutsRow = ({
+  interactive,
+  onShortcut,
+}: {
+  interactive: boolean;
+  onShortcut: (value: PermissionShortcutValue) => void;
+}) => (
+  <div
+    data-testid="permission-shortcuts-row"
+    className="border-latte-surface2/65 bg-latte-mantle/40 flex items-center gap-1 border-b px-1.5 py-1 sm:px-2 sm:py-1.5"
+  >
+    <div className="flex items-center gap-1">
+      {PERMISSION_SHORTCUT_DIGITS.map((digit) => (
+        <Button
+          key={digit}
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!interactive}
+          onClick={() => onShortcut(digit)}
+          className={PERMISSION_SHORTCUT_BUTTON_CLASS}
+        >
+          {digit}
+        </Button>
+      ))}
+    </div>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={!interactive}
+      onClick={() => onShortcut("Escape")}
+      className={cn("ml-auto", PERMISSION_SHORTCUT_ESCAPE_BUTTON_CLASS)}
+    >
+      Esc
+    </Button>
+  </div>
+);
+
+const ComposerToolbar = ({
+  interactive,
+  isSendingText,
+  rawMode,
+  allowDangerKeys,
+  autoEnter,
+  keysExpanded,
+  canUseKeyPanel,
+  rawModeToggleClass,
+  dangerToggleClass,
+  onPickImage,
+  onToggleKeysExpanded,
+  onToggleAllowDangerKeys,
+  onToggleRawMode,
+  onToggleAutoEnter,
+  onSendText,
+}: {
+  interactive: boolean;
+  isSendingText: boolean;
+  rawMode: boolean;
+  allowDangerKeys: boolean;
+  autoEnter: boolean;
+  keysExpanded: boolean;
+  canUseKeyPanel: boolean;
+  rawModeToggleClass: string | undefined;
+  dangerToggleClass: string;
+  onPickImage: () => void;
+  onToggleKeysExpanded: () => void;
+  onToggleAllowDangerKeys: () => void;
+  onToggleRawMode: () => void;
+  onToggleAutoEnter: () => void;
+  onSendText: () => void;
+}) => (
+  <div className="border-latte-surface2/65 bg-latte-mantle/50 flex items-center justify-between border-t px-1.5 py-1 sm:px-2 sm:py-1.5">
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        onClick={onPickImage}
+        aria-label="Attach image"
+        className="text-latte-subtext1 hover:text-latte-text h-7 w-7 p-0 sm:h-8 sm:w-8"
+        disabled={!interactive}
+        variant="ghost"
+        size="sm"
+      >
+        <ImagePlus className="h-4 w-4" />
+      </Button>
+      <span className="text-latte-subtext0 hidden text-[10px] tracking-[0.12em] sm:inline">
+        PNG / JPEG / WEBP
+      </span>
+    </div>
+    <div className="flex items-center gap-1.5">
+      {canUseKeyPanel ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onToggleKeysExpanded}
+          disabled={!interactive}
+          aria-expanded={keysExpanded}
+          aria-label={keysExpanded ? "Hide key options" : "Show key options"}
+          className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
+        >
+          <span>Keys</span>
+          {keysExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      ) : null}
+      {rawMode ? (
+        <ComposerPill
+          type="button"
+          onClick={onToggleAllowDangerKeys}
+          active={allowDangerKeys}
+          title="Allow dangerous keys"
+          className={dangerToggleClass}
+        >
+          Danger
+        </ComposerPill>
+      ) : null}
+      <ComposerPill
+        type="button"
+        onClick={onToggleRawMode}
+        active={rawMode}
+        disabled={!interactive}
+        title="Raw input mode"
+        className={rawModeToggleClass}
+      >
+        Raw
+      </ComposerPill>
+      <ComposerPill
+        type="button"
+        onClick={onToggleAutoEnter}
+        active={autoEnter}
+        disabled={rawMode}
+        title="Auto-enter after send"
+        className="group gap-0.5"
+      >
+        <span className="tracking-[0.08em]">Auto</span>
+        <CornerDownLeft className="-ml-0.5 h-3 w-3" />
+        <span className="sr-only">Auto-enter</span>
+      </ComposerPill>
+      <Button
+        onClick={onSendText}
+        aria-label="Send"
+        className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
+        disabled={rawMode || !interactive || isSendingText}
+      >
+        {isSendingText ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
+        <span>Send</span>
+        {isSendingText ? <span className="sr-only">Sending</span> : null}
+      </Button>
+    </div>
+  </div>
+);
+
+const ComposerKeyPanel = ({
+  interactive,
+  state,
+  actions,
+}: {
+  interactive: boolean;
+  state: PaneTextComposerKeyPanelState;
+  actions: PaneTextComposerKeyPanelActions;
+}) => {
+  const shiftDotClass = state.shiftHeld ? MODIFIER_DOT_CLASS_ACTIVE : MODIFIER_DOT_CLASS_DEFAULT;
+  const ctrlDotClass = state.ctrlHeld ? MODIFIER_DOT_CLASS_ACTIVE : MODIFIER_DOT_CLASS_DEFAULT;
+
+  return (
+    <div className="border-latte-surface2/65 bg-latte-mantle/40 space-y-2 border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <ModifierKeyToggle
+          type="button"
+          onClick={actions.onToggleShift}
+          active={state.shiftHeld}
+          disabled={!interactive}
+        >
+          <span className={cn("h-2 w-2 rounded-full transition-colors", shiftDotClass)} />
+          Shift
+        </ModifierKeyToggle>
+        <ModifierKeyToggle
+          type="button"
+          onClick={actions.onToggleCtrl}
+          active={state.ctrlHeld}
+          disabled={!interactive}
+        >
+          <span className={cn("h-2 w-2 rounded-full transition-colors", ctrlDotClass)} />
+          Ctrl
+        </ModifierKeyToggle>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {FUNCTION_KEY_BUTTONS.map((item) => (
+          <KeyButton
+            key={item.key}
+            label={item.label}
+            onClick={() => actions.onSendKey(item.key)}
+            disabled={!interactive}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {ARROW_KEY_BUTTONS.map((item) => (
+          <KeyButton
+            key={item.key}
+            label={
+              <>
+                <item.Icon className="h-4 w-4" />
+                <span className="sr-only">{item.ariaLabel}</span>
+              </>
+            }
+            ariaLabel={item.ariaLabel}
+            onClick={() => actions.onSendKey(item.key)}
+            disabled={!interactive}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const {
     interactive,
@@ -277,15 +501,6 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const canUseKeyPanel = keyPanelState != null && keyPanelHandlers != null;
   const canShowPermissionShortcuts =
     showPermissionShortcuts === true && onSendPermissionShortcut != null;
-  const shiftDotClass =
-    keyPanelState != null && keyPanelState.shiftHeld
-      ? MODIFIER_DOT_CLASS_ACTIVE
-      : MODIFIER_DOT_CLASS_DEFAULT;
-  const ctrlDotClass =
-    keyPanelState != null && keyPanelState.ctrlHeld
-      ? MODIFIER_DOT_CLASS_ACTIVE
-      : MODIFIER_DOT_CLASS_DEFAULT;
-
   const syncPromptHeight = useCallback((textarea: HTMLTextAreaElement) => {
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
@@ -408,36 +623,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
         className={cn("min-w-0 overflow-hidden rounded-2xl border transition", rawModeInputClass)}
       >
         {canShowPermissionShortcuts ? (
-          <div
-            data-testid="permission-shortcuts-row"
-            className="border-latte-surface2/65 bg-latte-mantle/40 flex items-center gap-1 border-b px-1.5 py-1 sm:px-2 sm:py-1.5"
-          >
-            <div className="flex items-center gap-1">
-              {PERMISSION_SHORTCUT_DIGITS.map((digit) => (
-                <Button
-                  key={digit}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={!interactive}
-                  onClick={() => handlePermissionShortcut(digit)}
-                  className={PERMISSION_SHORTCUT_BUTTON_CLASS}
-                >
-                  {digit}
-                </Button>
-              ))}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!interactive}
-              onClick={() => handlePermissionShortcut("Escape")}
-              className={cn("ml-auto", PERMISSION_SHORTCUT_ESCAPE_BUTTON_CLASS)}
-            >
-              Esc
-            </Button>
-          </div>
+          <PermissionShortcutsRow interactive={interactive} onShortcut={handlePermissionShortcut} />
         ) : null}
         <div ref={inputWrapperRef} className="min-h-[56px] overflow-hidden sm:min-h-[64px]">
           <ZoomSafeTextarea
@@ -455,141 +641,29 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
           />
         </div>
-        <div className="border-latte-surface2/65 bg-latte-mantle/50 flex items-center justify-between border-t px-1.5 py-1 sm:px-2 sm:py-1.5">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              onClick={handlePickImage}
-              aria-label="Attach image"
-              className="text-latte-subtext1 hover:text-latte-text h-7 w-7 p-0 sm:h-8 sm:w-8"
-              disabled={!interactive}
-              variant="ghost"
-              size="sm"
-            >
-              <ImagePlus className="h-4 w-4" />
-            </Button>
-            <span className="text-latte-subtext0 hidden text-[10px] tracking-[0.12em] sm:inline">
-              PNG / JPEG / WEBP
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {canUseKeyPanel ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setKeysExpanded((prev) => !prev)}
-                disabled={!interactive}
-                aria-expanded={keysExpanded}
-                aria-label={keysExpanded ? "Hide key options" : "Show key options"}
-                className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
-              >
-                <span>Keys</span>
-                {keysExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            ) : null}
-            {rawMode ? (
-              <ComposerPill
-                type="button"
-                onClick={onToggleAllowDangerKeys}
-                active={allowDangerKeys}
-                title="Allow dangerous keys"
-                className={dangerToggleClass}
-              >
-                Danger
-              </ComposerPill>
-            ) : null}
-            <ComposerPill
-              type="button"
-              onClick={onToggleRawMode}
-              active={rawMode}
-              disabled={!interactive}
-              title="Raw input mode"
-              className={rawModeToggleClass}
-            >
-              Raw
-            </ComposerPill>
-            <ComposerPill
-              type="button"
-              onClick={onToggleAutoEnter}
-              active={autoEnter}
-              disabled={rawMode}
-              title="Auto-enter after send"
-              className="group gap-0.5"
-            >
-              <span className="tracking-[0.08em]">Auto</span>
-              <CornerDownLeft className="-ml-0.5 h-3 w-3" />
-              <span className="sr-only">Auto-enter</span>
-            </ComposerPill>
-            <Button
-              onClick={handleSendText}
-              aria-label="Send"
-              className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
-              disabled={rawMode || !interactive || isSendingText}
-            >
-              {isSendingText ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              <span>Send</span>
-              {isSendingText ? <span className="sr-only">Sending</span> : null}
-            </Button>
-          </div>
-        </div>
+        <ComposerToolbar
+          interactive={interactive}
+          isSendingText={isSendingText}
+          rawMode={rawMode}
+          allowDangerKeys={allowDangerKeys}
+          autoEnter={autoEnter}
+          keysExpanded={keysExpanded}
+          canUseKeyPanel={canUseKeyPanel}
+          rawModeToggleClass={rawModeToggleClass}
+          dangerToggleClass={dangerToggleClass}
+          onPickImage={handlePickImage}
+          onToggleKeysExpanded={() => setKeysExpanded((prev) => !prev)}
+          onToggleAllowDangerKeys={onToggleAllowDangerKeys}
+          onToggleRawMode={onToggleRawMode}
+          onToggleAutoEnter={onToggleAutoEnter}
+          onSendText={handleSendText}
+        />
         {keyPanelState != null && keyPanelHandlers != null && keysExpanded ? (
-          <div className="border-latte-surface2/65 bg-latte-mantle/40 space-y-2 border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <ModifierKeyToggle
-                type="button"
-                onClick={keyPanelHandlers.onToggleShift}
-                active={keyPanelState.shiftHeld}
-                disabled={!interactive}
-              >
-                <span className={cn("h-2 w-2 rounded-full transition-colors", shiftDotClass)} />
-                Shift
-              </ModifierKeyToggle>
-              <ModifierKeyToggle
-                type="button"
-                onClick={keyPanelHandlers.onToggleCtrl}
-                active={keyPanelState.ctrlHeld}
-                disabled={!interactive}
-              >
-                <span className={cn("h-2 w-2 rounded-full transition-colors", ctrlDotClass)} />
-                Ctrl
-              </ModifierKeyToggle>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {FUNCTION_KEY_BUTTONS.map((item) => (
-                <KeyButton
-                  key={item.key}
-                  label={item.label}
-                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
-                  disabled={!interactive}
-                />
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {ARROW_KEY_BUTTONS.map((item) => (
-                <KeyButton
-                  key={item.key}
-                  label={
-                    <>
-                      <item.Icon className="h-4 w-4" />
-                      <span className="sr-only">{item.ariaLabel}</span>
-                    </>
-                  }
-                  ariaLabel={item.ariaLabel}
-                  onClick={() => keyPanelHandlers.onSendKey(item.key)}
-                  disabled={!interactive}
-                />
-              ))}
-            </div>
-          </div>
+          <ComposerKeyPanel
+            interactive={interactive}
+            state={keyPanelState}
+            actions={keyPanelHandlers}
+          />
         ) : null}
         <input
           ref={fileInputRef}

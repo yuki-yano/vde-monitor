@@ -4,15 +4,16 @@ import { useAtomValue } from "jotai";
 import {
   type PropsWithChildren,
   createContext,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
-  useRef,
+  useReducer,
   useState,
 } from "react";
 
 import { PWA_DISPLAY_MODE_QUERIES, isPwaDisplayMode } from "@/lib/pwa-display-mode";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 import { useSessionStreamData } from "@/state/session-context";
 import { sessionWorkspaceTabsDisplayModeAtom } from "@/state/session-state-atoms";
 
@@ -89,109 +90,21 @@ const buildInitialState = (displayMode: WorkspaceTabsDisplayMode): WorkspaceTabs
   );
 };
 
-export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const workspaceTabsDisplayMode = useAtomValue(sessionWorkspaceTabsDisplayModeAtom);
-  const [enabled, setEnabled] = useState(() =>
-    resolveWorkspaceTabsEnabled({
-      displayMode: workspaceTabsDisplayMode,
-      pwaDisplayMode: isPwaDisplayMode(),
-      mobileViewport: isWorkspaceTabsMobileViewport(),
-    }),
-  );
-  const [tabsState, setTabsState] = useState<WorkspaceTabsState>(() =>
-    buildInitialState(workspaceTabsDisplayMode),
-  );
-  const { sessions, connected } = useSessionStreamData();
+const useDismissMissingWorkspaceSessionTabs = ({
+  enabled,
+  connected,
+  tabs,
+  livePaneIds,
+  dismissSessionTabsByPaneIds,
+}: {
+  enabled: boolean;
+  connected: boolean;
+  tabs: WorkspaceTab[];
+  livePaneIds: Set<string>;
+  dismissSessionTabsByPaneIds: (paneIds: string[]) => void;
+}) => {
   const [missingPaneCheckTick, setMissingPaneCheckTick] = useState(0);
-  const missingPaneSinceRef = useRef(new Map<string, number>());
-  const livePaneIds = useMemo(() => new Set(sessions.map((session) => session.paneId)), [sessions]);
-
-  const navigateToWorkspaceTab = useCallback(
-    (tab: WorkspaceTab) => {
-      if (tab.kind === "session" && tab.paneId != null) {
-        void navigate({
-          to: "/sessions/$paneId",
-          params: { paneId: tab.paneId },
-        });
-        return;
-      }
-      if (tab.id === SYSTEM_CHAT_GRID_TAB_ID) {
-        void navigate({ to: "/chat-grid" });
-        return;
-      }
-      if (tab.id === SYSTEM_USAGE_TAB_ID) {
-        void navigate({ to: "/usage" });
-        return;
-      }
-      void navigate({ href: "/" });
-    },
-    [navigate],
-  );
-
-  useEffect(() => {
-    const update = () => {
-      setEnabled(
-        resolveWorkspaceTabsEnabled({
-          displayMode: workspaceTabsDisplayMode,
-          pwaDisplayMode: isPwaDisplayMode(),
-          mobileViewport: isWorkspaceTabsMobileViewport(),
-        }),
-      );
-    };
-    update();
-    const mediaList = [...PWA_DISPLAY_MODE_QUERIES, WORKSPACE_TABS_MOBILE_MEDIA_QUERY]
-      .map((query) => window.matchMedia?.(query))
-      .filter((candidate): candidate is MediaQueryList => candidate != null);
-    mediaList.forEach((media) => {
-      media.addEventListener?.("change", update);
-    });
-    window.addEventListener("pageshow", update);
-    window.addEventListener("focus", update);
-    return () => {
-      mediaList.forEach((media) => {
-        media.removeEventListener?.("change", update);
-      });
-      window.removeEventListener("pageshow", update);
-      window.removeEventListener("focus", update);
-    };
-  }, [workspaceTabsDisplayMode]);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    setTabsState((previous) => syncWorkspaceTabsWithPathname(previous, pathname, Date.now()));
-  }, [enabled, pathname]);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    window.localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, serializeWorkspaceTabsState(tabsState));
-  }, [enabled, tabsState]);
-
-  const dismissSessionTabsByPaneIds = useCallback(
-    (paneIds: string[]) => {
-      let shouldNavigate = false;
-      let nextActiveTab: WorkspaceTab | null = null;
-      setTabsState((previous) => {
-        const dismissed = dismissWorkspaceSessionTabsByPaneIds(previous, paneIds, Date.now());
-        if (!dismissed.changed) {
-          return previous;
-        }
-        shouldNavigate = dismissed.state.activeTabId !== previous.activeTabId;
-        nextActiveTab =
-          dismissed.state.tabs.find((tab) => tab.id === dismissed.state.activeTabId) ?? null;
-        return dismissed.state;
-      });
-      if (shouldNavigate && nextActiveTab) {
-        navigateToWorkspaceTab(nextActiveTab);
-      }
-    },
-    [navigateToWorkspaceTab],
-  );
+  const missingPaneSinceRef = useLazyRef(() => new Map<string, number>());
 
   // Auto-close session tabs whose pane no longer exists (e.g. the pane was
   // killed while the PWA was closed). Panes must stay missing for the grace
@@ -202,7 +115,7 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       missingSince.clear();
       return;
     }
-    const missingPaneIds = tabsState.tabs
+    const missingPaneIds = tabs
       .filter(
         (tab): tab is WorkspaceTab & { paneId: string } =>
           tab.kind === "session" &&
@@ -254,8 +167,120 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
     enabled,
     livePaneIds,
     missingPaneCheckTick,
-    tabsState.tabs,
+    missingPaneSinceRef,
+    tabs,
   ]);
+};
+
+export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const workspaceTabsDisplayMode = useAtomValue(sessionWorkspaceTabsDisplayModeAtom);
+  const [displayEnvironmentVersion, bumpDisplayEnvironmentVersion] = useReducer(
+    (version: number) => version + 1,
+    0,
+  );
+  const enabled = useMemo(() => {
+    void displayEnvironmentVersion;
+    return resolveWorkspaceTabsEnabled({
+      displayMode: workspaceTabsDisplayMode,
+      pwaDisplayMode: isPwaDisplayMode(),
+      mobileViewport: isWorkspaceTabsMobileViewport(),
+    });
+  }, [displayEnvironmentVersion, workspaceTabsDisplayMode]);
+  const [tabsState, setTabsState] = useState<WorkspaceTabsState>(() =>
+    buildInitialState(workspaceTabsDisplayMode),
+  );
+  const { sessions, connected } = useSessionStreamData();
+  const livePaneIds = useMemo(() => new Set(sessions.map((session) => session.paneId)), [sessions]);
+
+  const navigateToWorkspaceTab = useCallback(
+    (tab: WorkspaceTab) => {
+      if (tab.kind === "session" && tab.paneId != null) {
+        void navigate({
+          to: "/sessions/$paneId",
+          params: { paneId: tab.paneId },
+        });
+        return;
+      }
+      if (tab.id === SYSTEM_CHAT_GRID_TAB_ID) {
+        void navigate({ to: "/chat-grid" });
+        return;
+      }
+      if (tab.id === SYSTEM_USAGE_TAB_ID) {
+        void navigate({ to: "/usage" });
+        return;
+      }
+      void navigate({ href: "/" });
+    },
+    [navigate],
+  );
+
+  useEffect(() => {
+    const update = () => bumpDisplayEnvironmentVersion();
+    const mediaList = [...PWA_DISPLAY_MODE_QUERIES, WORKSPACE_TABS_MOBILE_MEDIA_QUERY]
+      .map((query) => window.matchMedia?.(query))
+      .filter((candidate): candidate is MediaQueryList => candidate != null);
+    mediaList.forEach((media) => {
+      media.addEventListener?.("change", update);
+    });
+    window.addEventListener("pageshow", update);
+    window.addEventListener("focus", update);
+    return () => {
+      mediaList.forEach((media) => {
+        media.removeEventListener?.("change", update);
+      });
+      window.removeEventListener("pageshow", update);
+      window.removeEventListener("focus", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    setTabsState((previous) => syncWorkspaceTabsWithPathname(previous, pathname, Date.now()));
+  }, [enabled, pathname]);
+
+  // False positive: this effect persists the tab state to localStorage, an
+  // external system. Moving it into setState updaters would risk duplicate
+  // writes under StrictMode and spread persistence across every tab action.
+  // react-doctor-disable-next-line no-effect-chain
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    window.localStorage.setItem(WORKSPACE_TABS_STORAGE_KEY, serializeWorkspaceTabsState(tabsState));
+  }, [enabled, tabsState]);
+
+  const dismissSessionTabsByPaneIds = useCallback(
+    (paneIds: string[]) => {
+      let shouldNavigate = false;
+      let nextActiveTab: WorkspaceTab | null = null;
+      setTabsState((previous) => {
+        const dismissed = dismissWorkspaceSessionTabsByPaneIds(previous, paneIds, Date.now());
+        if (!dismissed.changed) {
+          return previous;
+        }
+        shouldNavigate = dismissed.state.activeTabId !== previous.activeTabId;
+        nextActiveTab =
+          dismissed.state.tabs.find((tab) => tab.id === dismissed.state.activeTabId) ?? null;
+        return dismissed.state;
+      });
+      if (shouldNavigate && nextActiveTab) {
+        navigateToWorkspaceTab(nextActiveTab);
+      }
+    },
+    [navigateToWorkspaceTab],
+  );
+
+  useDismissMissingWorkspaceSessionTabs({
+    enabled,
+    connected,
+    tabs: tabsState.tabs,
+    livePaneIds,
+    dismissSessionTabsByPaneIds,
+  });
 
   const openSessionTab = useCallback(
     (paneId: string) => {
@@ -394,6 +419,6 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
 };
 
 export const useWorkspaceTabs = () => {
-  const context = useContext(WorkspaceTabsContext);
+  const context = use(WorkspaceTabsContext);
   return context ?? WORKSPACE_TABS_FALLBACK;
 };

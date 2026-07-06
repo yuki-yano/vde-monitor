@@ -1,7 +1,7 @@
 import type { LaunchConfig, SessionSummary, WorktreeListEntry } from "@vde-monitor/shared";
 import { GitBranch } from "lucide-react";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, FormEvent } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 
 import {
   Dialog,
@@ -63,6 +63,105 @@ const CLAUDE_REQUIRED_REASON_MESSAGE: Record<string, string> = {
   unsupported: "Resume is not supported for this pane.",
 };
 
+type ResumeTarget = "pane" | "window";
+
+type ResumeWorktreeFormState = {
+  overrideAgentOptions: boolean;
+  agentOptionsText: string;
+  selectedWorktreePath: string;
+  resumeTarget: ResumeTarget;
+  sourcePaneId: string;
+  sessionIdOverride: string;
+  submitError: string | null;
+  submitting: boolean;
+};
+
+type ResumeWorktreeFormAction =
+  | { type: "reset"; state: ResumeWorktreeFormState }
+  | { type: "setOverrideAgentOptions"; overrideAgentOptions: boolean }
+  | { type: "setAgentOptionsText"; agentOptionsText: string }
+  | { type: "setSelectedWorktreePath"; selectedWorktreePath: string }
+  | { type: "setResumeTarget"; resumeTarget: ResumeTarget }
+  | { type: "setSourcePaneId"; sourcePaneId: string }
+  | { type: "setSessionIdOverride"; sessionIdOverride: string }
+  | {
+      type: "syncTargetWorktrees";
+      targetWorktrees: WorktreeListEntry[];
+      defaultWorktreePath: string | undefined;
+    }
+  | { type: "setSubmitError"; submitError: string | null }
+  | { type: "startSubmitting" }
+  | { type: "finishSubmitting"; submitError?: string };
+
+const selectDefaultWorktreePath = (
+  targetWorktrees: WorktreeListEntry[],
+  defaultWorktreePath: string | undefined,
+) =>
+  targetWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
+  targetWorktrees[0]?.path ??
+  "";
+
+const buildResumeWorktreeFormState = (
+  sourceSession: SessionSummary,
+  targetWorktrees: WorktreeListEntry[],
+  launchOptionsDefaultText: string,
+): ResumeWorktreeFormState => ({
+  overrideAgentOptions: false,
+  agentOptionsText: launchOptionsDefaultText,
+  selectedWorktreePath: selectDefaultWorktreePath(
+    targetWorktrees,
+    sourceSession.worktreePath?.trim(),
+  ),
+  resumeTarget: "pane",
+  sourcePaneId: sourceSession.paneId,
+  sessionIdOverride: "",
+  submitError: null,
+  submitting: false,
+});
+
+const resumeWorktreeFormReducer = (
+  state: ResumeWorktreeFormState,
+  action: ResumeWorktreeFormAction,
+): ResumeWorktreeFormState => {
+  switch (action.type) {
+    case "reset":
+      return action.state;
+    case "setOverrideAgentOptions":
+      return { ...state, overrideAgentOptions: action.overrideAgentOptions };
+    case "setAgentOptionsText":
+      return { ...state, agentOptionsText: action.agentOptionsText };
+    case "setSelectedWorktreePath":
+      return { ...state, selectedWorktreePath: action.selectedWorktreePath };
+    case "setResumeTarget":
+      return { ...state, resumeTarget: action.resumeTarget };
+    case "setSourcePaneId":
+      return { ...state, sourcePaneId: action.sourcePaneId };
+    case "setSessionIdOverride":
+      return { ...state, sessionIdOverride: action.sessionIdOverride };
+    case "syncTargetWorktrees": {
+      if (action.targetWorktrees.length === 0) {
+        return { ...state, selectedWorktreePath: "" };
+      }
+      if (action.targetWorktrees.some((entry) => entry.path === state.selectedWorktreePath)) {
+        return state;
+      }
+      return {
+        ...state,
+        selectedWorktreePath: selectDefaultWorktreePath(
+          action.targetWorktrees,
+          action.defaultWorktreePath,
+        ),
+      };
+    }
+    case "setSubmitError":
+      return { ...state, submitError: action.submitError };
+    case "startSubmitting":
+      return { ...state, submitError: null, submitting: true };
+    case "finishSubmitting":
+      return { ...state, submitting: false, submitError: action.submitError ?? null };
+  }
+};
+
 type ResumeWorktreeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -73,6 +172,312 @@ type ResumeWorktreeDialogProps = {
   worktreeRepoRoot: string | null;
   onLaunchAgentInSession: LaunchAgentHandler;
   className?: string;
+};
+
+type ResumeWorktreeOption = {
+  value: string;
+  label: string;
+  labelClassName: string;
+  description: string;
+  title: string;
+  descriptionClassName: string;
+};
+
+type ResumeWorktreeDialogBodyProps = {
+  sessionName: string;
+  sourceSession: SessionSummary;
+  inheritedAgent: "codex" | "claude";
+  hasSourcePane: boolean;
+  selectedWorktree: WorktreeListEntry | null;
+  selectedWorktreeRelativePath: string | null;
+  worktreeRepoRoot: string | null;
+  existingWorktreeOptions: ResumeWorktreeOption[];
+  launchOptionsDefaultOneLine: string;
+  state: ResumeWorktreeFormState;
+  dispatch: Dispatch<ResumeWorktreeFormAction>;
+  className?: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
+};
+
+const ResumeWorktreeDialogBody = ({
+  sessionName,
+  sourceSession,
+  inheritedAgent,
+  hasSourcePane,
+  selectedWorktree,
+  selectedWorktreeRelativePath,
+  worktreeRepoRoot,
+  existingWorktreeOptions,
+  launchOptionsDefaultOneLine,
+  state,
+  dispatch,
+  className,
+  onSubmit,
+  onCancel,
+}: ResumeWorktreeDialogBodyProps) => {
+  const {
+    overrideAgentOptions,
+    agentOptionsText,
+    selectedWorktreePath,
+    resumeTarget,
+    sourcePaneId,
+    sessionIdOverride,
+    submitError,
+    submitting,
+  } = state;
+  const isClaudeAgent = inheritedAgent === "claude";
+  const hasTargetWorktrees = existingWorktreeOptions.length > 0;
+
+  return (
+    <>
+      <form className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden" onSubmit={onSubmit}>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1">
+          {!isClaudeAgent ? (
+            <div className="space-y-2">
+              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                Agent Options
+              </p>
+              <p className="text-latte-subtext1 text-xs">
+                Current agent:{" "}
+                <span className="font-mono">{launchAgentLabels[inheritedAgent]}</span>
+              </p>
+              <label className="border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition">
+                <input
+                  aria-label="Override agent options"
+                  className="accent-latte-lavender border-latte-surface2 bg-latte-base focus:ring-latte-lavender/40 h-3.5 w-3.5 rounded-sm border outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  type="checkbox"
+                  checked={overrideAgentOptions}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "setOverrideAgentOptions",
+                      overrideAgentOptions: event.currentTarget.checked,
+                    })
+                  }
+                />
+                <span className="min-w-0">
+                  <span className="text-latte-text block text-xs font-semibold uppercase tracking-[0.06em]">
+                    Override options
+                  </span>
+                  <span className="text-latte-subtext1 mt-0.5 block text-[11px]">
+                    Enable to edit launch arguments manually.
+                  </span>
+                </span>
+              </label>
+              <div className="border-latte-surface2/80 bg-latte-base/55 rounded-2xl border p-3">
+                {!overrideAgentOptions ? (
+                  <p className="text-latte-subtext1 border-latte-surface2/80 bg-latte-base/60 w-full rounded-xl border border-dashed px-3 py-2 font-mono text-xs">
+                    {launchOptionsDefaultOneLine || "(no default options)"}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
+                      Override format: each line is evaluated by shell as-is.
+                    </p>
+                    <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
+                      <ZoomSafeTextarea
+                        aria-label="Agent options override"
+                        className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-hidden"
+                        value={agentOptionsText}
+                        onChange={(event) => {
+                          dispatch({
+                            type: "setAgentOptionsText",
+                            agentOptionsText: event.target.value,
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+              Launch Location
+            </p>
+            <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
+              <div className="flex items-center gap-2">
+                <PillToggle
+                  type="button"
+                  active={resumeTarget === "pane"}
+                  onClick={() => dispatch({ type: "setResumeTarget", resumeTarget: "pane" })}
+                >
+                  {launchLocationLabels.pane}
+                </PillToggle>
+                <PillToggle
+                  type="button"
+                  active={resumeTarget === "window"}
+                  onClick={() => dispatch({ type: "setResumeTarget", resumeTarget: "window" })}
+                  disabled={!hasSourcePane}
+                >
+                  {launchLocationLabels.window}
+                </PillToggle>
+              </div>
+              {!hasSourcePane ? (
+                <p className="text-latte-subtext1 text-xs">
+                  Source pane is unavailable for this session.
+                </p>
+              ) : null}
+              {resumeTarget === "window" ? (
+                <p className="text-latte-subtext1 text-xs">
+                  Source pane agent is stopped, then{" "}
+                  <span className="font-mono">
+                    {isClaudeAgent
+                      ? "claude --resume <session-id> '!cd <worktree>'"
+                      : "cd <worktree> && codex resume <session-id>"}
+                  </span>{" "}
+                  runs in a new window.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          {resumeTarget === "pane" ? (
+            isClaudeAgent ? (
+              <div className="space-y-2">
+                <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                  Existing Session
+                </p>
+                <div className="border-latte-surface2/80 bg-latte-base/55 space-y-2 rounded-2xl border p-3">
+                  <p className="text-latte-subtext0 text-xs">
+                    Claude keeps using the same pane for this action.
+                  </p>
+                  <p className="text-latte-subtext1 text-xs">
+                    The agent is not restarted. vde-monitor sends{" "}
+                    <span className="font-mono">!cd &lt;worktree&gt;</span> to move the worktree.
+                  </p>
+                  <p className="text-latte-subtext1 text-xs">
+                    Session ID override is not required.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+                  Existing Session
+                </p>
+                <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
+                  <p className="text-latte-subtext0 text-xs">
+                    Existing session reuse is always enabled for this action.
+                  </p>
+                  <label htmlFor="resume-source-pane-id" className="space-y-1 text-xs">
+                    <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
+                      Source Pane
+                    </span>
+                    <ZoomSafeInput
+                      id="resume-source-pane-id"
+                      value={sourcePaneId}
+                      onChange={(event) =>
+                        dispatch({
+                          type: "setSourcePaneId",
+                          sourcePaneId: event.target.value,
+                        })
+                      }
+                      placeholder={sourceSession.paneId}
+                      aria-label="Source Pane"
+                      className="font-mono"
+                    />
+                  </label>
+                  <label htmlFor="resume-session-id-override" className="space-y-1 text-xs">
+                    <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
+                      Session ID Override
+                    </span>
+                    <ZoomSafeInput
+                      id="resume-session-id-override"
+                      value={sessionIdOverride}
+                      onChange={(event) =>
+                        dispatch({
+                          type: "setSessionIdOverride",
+                          sessionIdOverride: event.target.value,
+                        })
+                      }
+                      placeholder="Optional"
+                      aria-label="Session ID override"
+                      className="font-mono"
+                    />
+                  </label>
+                </div>
+              </div>
+            )
+          ) : null}
+
+          <div className="space-y-2">
+            <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
+              Target Worktree
+            </p>
+            <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
+              <div className="space-y-3">
+                <p className="text-latte-subtext1 text-xs">
+                  Select existing vw worktree or repo root.
+                </p>
+                {hasTargetWorktrees ? (
+                  <SettingRadioGroup
+                    ariaLabel="Existing worktrees"
+                    name={`resume-worktree-${sessionName}`}
+                    className="pr-1"
+                    optionClassName="py-1.5"
+                    value={selectedWorktreePath}
+                    onValueChange={(nextPath) =>
+                      dispatch({
+                        type: "setSelectedWorktreePath",
+                        selectedWorktreePath: nextPath,
+                      })
+                    }
+                    options={existingWorktreeOptions}
+                  />
+                ) : (
+                  <p className="text-latte-subtext1 text-xs">
+                    No existing vw worktree or repo root found.
+                  </p>
+                )}
+                {selectedWorktree ? (
+                  <p className="text-latte-subtext0 text-xs">
+                    Current target:{" "}
+                    <span className="font-mono">
+                      {isRepoRootPath(selectedWorktree.path, worktreeRepoRoot)
+                        ? formatRepoRootLabel(selectedWorktree.branch)
+                        : (selectedWorktree.branch ??
+                          selectedWorktreeRelativePath ??
+                          selectedWorktree.path)}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          {submitError ? <p className="text-latte-red text-xs">{submitError}</p> : null}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-latte-subtext0 hover:text-latte-text rounded-md px-2 py-1 text-xs"
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className={cn(
+              "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 disabled:hover:bg-latte-blue/15 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
+              className,
+            )}
+            disabled={submitting || !hasTargetWorktrees}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <GitBranch className="h-3.5 w-3.5" />
+              Resume / Move
+            </span>
+          </button>
+        </div>
+      </form>
+      {submitting ? <LoadingOverlay className="z-10 rounded-2xl" label="Launching..." /> : null}
+    </>
+  );
 };
 
 export const ResumeWorktreeDialog = ({
@@ -86,14 +491,6 @@ export const ResumeWorktreeDialog = ({
   onLaunchAgentInSession,
   className,
 }: ResumeWorktreeDialogProps) => {
-  const [overrideAgentOptions, setOverrideAgentOptions] = useState(false);
-  const [agentOptionsText, setAgentOptionsText] = useState("");
-  const [selectedWorktreePath, setSelectedWorktreePath] = useState("");
-  const [resumeTarget, setResumeTarget] = useState<"pane" | "window">("pane");
-  const [sourcePaneId, setSourcePaneId] = useState("");
-  const [sessionIdOverride, setSessionIdOverride] = useState("");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const initializedForOpenRef = useRef(false);
   const inheritedAgent: "codex" | "claude" = sourceSession.agent === "claude" ? "claude" : "codex";
   const isClaudeAgent = inheritedAgent === "claude";
@@ -111,7 +508,6 @@ export const ResumeWorktreeDialog = ({
     );
     return [...repoRootEntries, ...nonRepoRootEntries];
   }, [worktreeEntries, worktreeRepoRoot]);
-  const hasTargetWorktrees = targetWorktrees.length > 0;
   const hasSourcePane = sourceSession.paneId.trim().length > 0;
 
   const launchOptionsDefaultText = useMemo(
@@ -122,6 +518,18 @@ export const ResumeWorktreeDialog = ({
     () => (launchConfig.agents[inheritedAgent]?.options ?? []).join(" "),
     [inheritedAgent, launchConfig],
   );
+  const [formState, dispatchFormState] = useReducer(resumeWorktreeFormReducer, undefined, () =>
+    buildResumeWorktreeFormState(sourceSession, targetWorktrees, launchOptionsDefaultText),
+  );
+
+  const {
+    overrideAgentOptions,
+    agentOptionsText,
+    selectedWorktreePath,
+    resumeTarget,
+    sourcePaneId,
+    sessionIdOverride,
+  } = formState;
 
   useEffect(() => {
     if (!open) {
@@ -132,19 +540,10 @@ export const ResumeWorktreeDialog = ({
       return;
     }
     initializedForOpenRef.current = true;
-    const defaultWorktreePath = sourceSession.worktreePath?.trim();
-
-    setOverrideAgentOptions(false);
-    setAgentOptionsText(launchOptionsDefaultText);
-    setSelectedWorktreePath(
-      targetWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
-        targetWorktrees[0]?.path ??
-        "",
-    );
-    setResumeTarget("pane");
-    setSourcePaneId(sourceSession.paneId);
-    setSessionIdOverride("");
-    setSubmitError(null);
+    dispatchFormState({
+      type: "reset",
+      state: buildResumeWorktreeFormState(sourceSession, targetWorktrees, launchOptionsDefaultText),
+    });
   }, [launchOptionsDefaultText, open, sourceSession, targetWorktrees]);
 
   const selectedWorktree = useMemo(
@@ -182,35 +581,31 @@ export const ResumeWorktreeDialog = ({
     if (!open) {
       return;
     }
-    setSelectedWorktreePath((currentPath) => {
-      if (targetWorktrees.length === 0) {
-        return "";
-      }
-      if (targetWorktrees.some((entry) => entry.path === currentPath)) {
-        return currentPath;
-      }
-      const defaultWorktreePath = sourceSession.worktreePath?.trim();
-      return (
-        targetWorktrees.find((entry) => entry.path === defaultWorktreePath)?.path ??
-        targetWorktrees[0]?.path ??
-        ""
-      );
+    dispatchFormState({
+      type: "syncTargetWorktrees",
+      targetWorktrees,
+      defaultWorktreePath: sourceSession.worktreePath?.trim(),
     });
   }, [open, sourceSession.worktreePath, targetWorktrees]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitError(null);
 
     let parsedOptions: string[] | undefined;
     if (overrideAgentOptions) {
       parsedOptions = parseAgentOptions(agentOptionsText);
       if (parsedOptions.length > 32) {
-        setSubmitError("Agent options can contain up to 32 lines.");
+        dispatchFormState({
+          type: "setSubmitError",
+          submitError: "Agent options can contain up to 32 lines.",
+        });
         return;
       }
       if (parsedOptions.some((option) => option.length > 256 || option.includes("\0"))) {
-        setSubmitError("Agent options include an invalid value.");
+        dispatchFormState({
+          type: "setSubmitError",
+          submitError: "Agent options include an invalid value.",
+        });
         return;
       }
     }
@@ -231,7 +626,7 @@ export const ResumeWorktreeDialog = ({
     }
 
     if (!selectedWorktree) {
-      setSubmitError("No target worktree found.");
+      dispatchFormState({ type: "setSubmitError", submitError: "No target worktree found." });
       return;
     }
     launchOptions.worktreePath = selectedWorktree.path;
@@ -241,7 +636,7 @@ export const ResumeWorktreeDialog = ({
 
     const normalizedSourcePaneId = sourceSession.paneId.trim();
     if (!normalizedSourcePaneId) {
-      setSubmitError("Failed to resolve source pane.");
+      dispatchFormState({ type: "setSubmitError", submitError: "Failed to resolve source pane." });
       return;
     }
     if (resumeTarget === "window") {
@@ -252,7 +647,7 @@ export const ResumeWorktreeDialog = ({
     } else {
       const normalizedPaneId = sourcePaneId.trim();
       if (!normalizedPaneId) {
-        setSubmitError("Source Pane is required.");
+        dispatchFormState({ type: "setSubmitError", submitError: "Source Pane is required." });
         return;
       }
       launchOptions.resumeFromPaneId = normalizedPaneId;
@@ -263,7 +658,7 @@ export const ResumeWorktreeDialog = ({
       }
     }
 
-    setSubmitting(true);
+    dispatchFormState({ type: "startSubmitting" });
     try {
       const launchResult = await onLaunchAgentInSession(sessionName, inheritedAgent, launchOptions);
       if (isFailedLaunchResponse(launchResult)) {
@@ -271,18 +666,22 @@ export const ResumeWorktreeDialog = ({
         const requiredReasonMessages = isClaudeAgent
           ? CLAUDE_REQUIRED_REASON_MESSAGE
           : REQUIRED_REASON_MESSAGE;
-        setSubmitError(
-          (requiredReason ? requiredReasonMessages[requiredReason] : null) ??
+        dispatchFormState({
+          type: "finishSubmitting",
+          submitError:
+            (requiredReason ? requiredReasonMessages[requiredReason] : null) ??
             launchResult.error?.message ??
             "Failed to launch the agent.",
-        );
+        });
         return;
       }
+      dispatchFormState({ type: "finishSubmitting" });
       onOpenChange(false);
     } catch {
-      setSubmitError("Failed to launch the agent.");
-    } finally {
-      setSubmitting(false);
+      dispatchFormState({
+        type: "finishSubmitting",
+        submitError: "Failed to launch the agent.",
+      });
     }
   };
 
@@ -295,239 +694,22 @@ export const ResumeWorktreeDialog = ({
             Session <span className="font-mono">{sessionName}</span>
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+        <ResumeWorktreeDialogBody
+          sessionName={sessionName}
+          sourceSession={sourceSession}
+          inheritedAgent={inheritedAgent}
+          hasSourcePane={hasSourcePane}
+          selectedWorktree={selectedWorktree}
+          selectedWorktreeRelativePath={selectedWorktreeRelativePath}
+          worktreeRepoRoot={worktreeRepoRoot}
+          existingWorktreeOptions={existingWorktreeOptions}
+          launchOptionsDefaultOneLine={launchOptionsDefaultOneLine}
+          state={formState}
+          dispatch={dispatchFormState}
+          className={className}
           onSubmit={handleSubmit}
-        >
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1">
-            {!isClaudeAgent ? (
-              <div className="space-y-2">
-                <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                  Agent Options
-                </p>
-                <p className="text-latte-subtext1 text-xs">
-                  Current agent:{" "}
-                  <span className="font-mono">{launchAgentLabels[inheritedAgent]}</span>
-                </p>
-                <label className="border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition">
-                  <input
-                    aria-label="Override agent options"
-                    className="accent-latte-lavender border-latte-surface2 bg-latte-base focus:ring-latte-lavender/40 h-3.5 w-3.5 rounded-sm border outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    type="checkbox"
-                    checked={overrideAgentOptions}
-                    onChange={(event) => setOverrideAgentOptions(event.currentTarget.checked)}
-                  />
-                  <span className="min-w-0">
-                    <span className="text-latte-text block text-xs font-semibold uppercase tracking-[0.06em]">
-                      Override options
-                    </span>
-                    <span className="text-latte-subtext1 mt-0.5 block text-[11px]">
-                      Enable to edit launch arguments manually.
-                    </span>
-                  </span>
-                </label>
-                <div className="border-latte-surface2/80 bg-latte-base/55 rounded-2xl border p-3">
-                  {!overrideAgentOptions ? (
-                    <p className="text-latte-subtext1 border-latte-surface2/80 bg-latte-base/60 w-full rounded-xl border border-dashed px-3 py-2 font-mono text-xs">
-                      {launchOptionsDefaultOneLine || "(no default options)"}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
-                        Override format: each line is evaluated by shell as-is.
-                      </p>
-                      <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
-                        <ZoomSafeTextarea
-                          aria-label="Agent options override"
-                          className="min-h-[112px] w-full resize-y bg-transparent px-3 py-2 font-mono text-base outline-hidden"
-                          value={agentOptionsText}
-                          onChange={(event) => {
-                            setAgentOptionsText(event.target.value);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                Launch Location
-              </p>
-              <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
-                <div className="flex items-center gap-2">
-                  <PillToggle
-                    type="button"
-                    active={resumeTarget === "pane"}
-                    onClick={() => setResumeTarget("pane")}
-                  >
-                    {launchLocationLabels.pane}
-                  </PillToggle>
-                  <PillToggle
-                    type="button"
-                    active={resumeTarget === "window"}
-                    onClick={() => setResumeTarget("window")}
-                    disabled={!hasSourcePane}
-                  >
-                    {launchLocationLabels.window}
-                  </PillToggle>
-                </div>
-                {!hasSourcePane ? (
-                  <p className="text-latte-subtext1 text-xs">
-                    Source pane is unavailable for this session.
-                  </p>
-                ) : null}
-                {resumeTarget === "window" ? (
-                  <p className="text-latte-subtext1 text-xs">
-                    {isClaudeAgent ? (
-                      <>
-                        Source pane agent is stopped, then{" "}
-                        <span className="font-mono">
-                          claude --resume &lt;session-id&gt; '!cd &lt;worktree&gt;'
-                        </span>{" "}
-                        runs in a new window.
-                      </>
-                    ) : (
-                      <>
-                        Source pane agent is stopped, then{" "}
-                        <span className="font-mono">
-                          cd &lt;worktree&gt; && codex resume &lt;session-id&gt;
-                        </span>{" "}
-                        runs in a new window.
-                      </>
-                    )}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            {resumeTarget === "pane" ? (
-              isClaudeAgent ? (
-                <div className="space-y-2">
-                  <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                    Existing Session
-                  </p>
-                  <div className="border-latte-surface2/80 bg-latte-base/55 space-y-2 rounded-2xl border p-3">
-                    <p className="text-latte-subtext0 text-xs">
-                      Claude keeps using the same pane for this action.
-                    </p>
-                    <p className="text-latte-subtext1 text-xs">
-                      The agent is not restarted. vde-monitor sends{" "}
-                      <span className="font-mono">!cd &lt;worktree&gt;</span> to move the worktree.
-                    </p>
-                    <p className="text-latte-subtext1 text-xs">
-                      Session ID override is not required.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                    Existing Session
-                  </p>
-                  <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
-                    <p className="text-latte-subtext0 text-xs">
-                      Existing session reuse is always enabled for this action.
-                    </p>
-                    <label className="space-y-1 text-xs">
-                      <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
-                        Source Pane
-                      </span>
-                      <ZoomSafeInput
-                        value={sourcePaneId}
-                        onChange={(event) => setSourcePaneId(event.target.value)}
-                        placeholder={sourceSession.paneId}
-                        aria-label="Source Pane"
-                        className="font-mono"
-                      />
-                    </label>
-                    <label className="space-y-1 text-xs">
-                      <span className="text-latte-subtext0 block font-semibold uppercase tracking-[0.18em]">
-                        Session ID Override
-                      </span>
-                      <ZoomSafeInput
-                        value={sessionIdOverride}
-                        onChange={(event) => setSessionIdOverride(event.target.value)}
-                        placeholder="Optional"
-                        aria-label="Session ID override"
-                        className="font-mono"
-                      />
-                    </label>
-                  </div>
-                </div>
-              )
-            ) : null}
-
-            <div className="space-y-2">
-              <p className="text-latte-subtext0 text-xs font-semibold uppercase tracking-[0.2em]">
-                Target Worktree
-              </p>
-              <div className="border-latte-surface2/80 bg-latte-base/55 space-y-3 rounded-2xl border p-3">
-                <div className="space-y-3">
-                  <p className="text-latte-subtext1 text-xs">
-                    Select existing vw worktree or repo root.
-                  </p>
-                  {hasTargetWorktrees ? (
-                    <SettingRadioGroup
-                      ariaLabel="Existing worktrees"
-                      name={`resume-worktree-${sessionName}`}
-                      className="pr-1"
-                      optionClassName="py-1.5"
-                      value={selectedWorktreePath}
-                      onValueChange={setSelectedWorktreePath}
-                      options={existingWorktreeOptions}
-                    />
-                  ) : (
-                    <p className="text-latte-subtext1 text-xs">
-                      No existing vw worktree or repo root found.
-                    </p>
-                  )}
-                  {selectedWorktree ? (
-                    <p className="text-latte-subtext0 text-xs">
-                      Current target:{" "}
-                      <span className="font-mono">
-                        {isRepoRootPath(selectedWorktree.path, worktreeRepoRoot)
-                          ? formatRepoRootLabel(selectedWorktree.branch)
-                          : (selectedWorktree.branch ??
-                            selectedWorktreeRelativePath ??
-                            selectedWorktree.path)}
-                      </span>
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            {submitError ? <p className="text-latte-red text-xs">{submitError}</p> : null}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="text-latte-subtext0 hover:text-latte-text rounded-md px-2 py-1 text-xs"
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={cn(
-                "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 disabled:hover:bg-latte-blue/15 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
-                className,
-              )}
-              disabled={submitting || !hasTargetWorktrees}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <GitBranch className="h-3.5 w-3.5" />
-                Resume / Move
-              </span>
-            </button>
-          </div>
-        </form>
-        {submitting ? <LoadingOverlay className="z-10 rounded-2xl" label="Launching..." /> : null}
+          onCancel={() => onOpenChange(false)}
+        />
       </DialogContent>
     </Dialog>
   );

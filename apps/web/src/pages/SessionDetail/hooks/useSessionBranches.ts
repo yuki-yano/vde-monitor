@@ -1,5 +1,5 @@
 import type { BranchList, SessionSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
@@ -8,6 +8,68 @@ import { AUTO_REFRESH_INTERVAL_MS } from "../sessionDetailUtils";
 import { createNextRequestId, isCurrentRequest } from "./session-request-guard";
 
 type BranchMutationKind = "checkout" | "create" | "delete";
+
+type BranchesState = {
+  branchList: BranchList | null;
+  loading: boolean;
+  error: string | null;
+  mutating: { kind: BranchMutationKind; name: string } | null;
+  mutationError: string | null;
+};
+
+type BranchesAction =
+  | { type: "resetPane" }
+  | { type: "fetchStart"; resetEntries: boolean; showLoading: boolean }
+  | { type: "fetchSuccess"; branchList: BranchList; showLoading: boolean }
+  | { type: "fetchFailure"; error: string; resetEntries: boolean; showLoading: boolean }
+  | { type: "mutationStart"; kind: BranchMutationKind; name: string }
+  | { type: "mutationFailure"; error: string }
+  | { type: "mutationFinish" }
+  | { type: "clearMutationError" };
+
+const initialBranchesState: BranchesState = {
+  branchList: null,
+  loading: false,
+  error: null,
+  mutating: null,
+  mutationError: null,
+};
+
+const branchesReducer = (state: BranchesState, action: BranchesAction): BranchesState => {
+  switch (action.type) {
+    case "resetPane":
+      return initialBranchesState;
+    case "fetchStart":
+      return {
+        ...state,
+        branchList: action.resetEntries ? null : state.branchList,
+        loading: action.showLoading ? true : state.loading,
+        error: null,
+      };
+    case "fetchSuccess":
+      return {
+        ...state,
+        branchList: action.branchList,
+        loading: action.showLoading ? false : state.loading,
+        error: null,
+      };
+    case "fetchFailure":
+      return {
+        ...state,
+        branchList: action.resetEntries || action.showLoading ? null : state.branchList,
+        loading: action.showLoading ? false : state.loading,
+        error: action.error,
+      };
+    case "mutationStart":
+      return { ...state, mutating: { kind: action.kind, name: action.name }, mutationError: null };
+    case "mutationFailure":
+      return { ...state, mutationError: action.error };
+    case "mutationFinish":
+      return { ...state, mutating: null };
+    case "clearMutationError":
+      return { ...state, mutationError: null };
+  }
+};
 
 type UseSessionBranchesArgs = {
   paneId: string;
@@ -32,22 +94,15 @@ export const useSessionBranches = ({
   requestBranchCreate,
   requestBranchDelete,
 }: UseSessionBranchesArgs) => {
-  const [branchList, setBranchList] = useState<BranchList | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mutating, setMutating] = useState<{ kind: BranchMutationKind; name: string } | null>(null);
-  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(branchesReducer, initialBranchesState);
   const latestRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
+  const { branchList, loading, error, mutating, mutationError } = state;
 
   useEffect(() => {
     latestRequestIdRef.current += 1;
     hasLoadedRef.current = false;
-    setBranchList(null);
-    setError(null);
-    setMutating(null);
-    setMutationError(null);
-    setLoading(false);
+    dispatch({ type: "resetPane" });
   }, [paneId]);
 
   const fetchBranches = useCallback(
@@ -57,13 +112,15 @@ export const useSessionBranches = ({
       const shouldShowLoading = shouldReset || !hasLoadedRef.current;
       if (shouldReset) {
         hasLoadedRef.current = false;
-        setBranchList(null);
       }
-      if (shouldShowLoading) {
-        setLoading(true);
-      }
-      setError(null);
+      dispatch({
+        type: "fetchStart",
+        resetEntries: shouldReset,
+        showLoading: shouldShowLoading,
+      });
       try {
+        // False positive: request freshness is checked immediately after the fetch resolves.
+        // react-doctor-disable-next-line async-defer-await
         const next = await requestBranches(
           paneId,
           options?.force === true ? { force: true } : undefined,
@@ -71,20 +128,18 @@ export const useSessionBranches = ({
         if (!isCurrentRequest(latestRequestIdRef, requestId)) {
           return;
         }
-        setBranchList(next);
         hasLoadedRef.current = true;
+        dispatch({ type: "fetchSuccess", branchList: next, showLoading: shouldShowLoading });
       } catch (nextError) {
         if (!isCurrentRequest(latestRequestIdRef, requestId)) {
           return;
         }
-        if (shouldShowLoading) {
-          setBranchList(null);
-        }
-        setError(resolveUnknownErrorMessage(nextError, "Failed to load branches"));
-      } finally {
-        if (isCurrentRequest(latestRequestIdRef, requestId) && shouldShowLoading) {
-          setLoading(false);
-        }
+        dispatch({
+          type: "fetchFailure",
+          error: resolveUnknownErrorMessage(nextError, "Failed to load branches"),
+          resetEntries: shouldReset,
+          showLoading: shouldShowLoading,
+        });
       }
     },
     [paneId, requestBranches],
@@ -104,17 +159,19 @@ export const useSessionBranches = ({
 
   const runMutation = useCallback(
     async (kind: BranchMutationKind, name: string, mutate: () => Promise<void>) => {
-      setMutating({ kind, name });
-      setMutationError(null);
+      dispatch({ type: "mutationStart", kind, name });
       try {
         await mutate();
         await fetchBranches({ force: true });
         return true;
       } catch (err) {
-        setMutationError(resolveUnknownErrorMessage(err, `Failed to ${kind} branch`));
+        dispatch({
+          type: "mutationFailure",
+          error: resolveUnknownErrorMessage(err, `Failed to ${kind} branch`),
+        });
         return false;
       } finally {
-        setMutating(null);
+        dispatch({ type: "mutationFinish" });
       }
     },
     [fetchBranches],
@@ -146,7 +203,7 @@ export const useSessionBranches = ({
     branchesError: error,
     mutating,
     mutationError,
-    clearMutationError: useCallback(() => setMutationError(null), []),
+    clearMutationError: useCallback(() => dispatch({ type: "clearMutationError" }), []),
     refreshBranches: useCallback(() => fetchBranches({ force: true }), [fetchBranches]),
     checkoutBranch,
     createBranch,

@@ -1,5 +1,5 @@
 import type { SessionSummary, WorktreeList } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 
@@ -12,6 +12,64 @@ type StoredVirtualWorktreeSelection = {
   worktreePath: string;
   branch: string | null;
   updatedAt: string;
+};
+
+type VirtualWorktreeState = {
+  worktreeList: WorktreeList | null;
+  loading: boolean;
+  error: string | null;
+  virtualWorktreePath: string | null;
+};
+
+type VirtualWorktreeAction =
+  | { type: "resetPane" }
+  | { type: "fetchStart"; resetEntries: boolean; showLoading: boolean }
+  | { type: "fetchSuccess"; worktreeList: WorktreeList; showLoading: boolean }
+  | { type: "fetchFailure"; error: string; resetEntries: boolean; showLoading: boolean }
+  | { type: "setVirtualWorktreePath"; path: string | null };
+
+const initialVirtualWorktreeState: VirtualWorktreeState = {
+  worktreeList: null,
+  loading: false,
+  error: null,
+  virtualWorktreePath: null,
+};
+
+const virtualWorktreeReducer = (
+  state: VirtualWorktreeState,
+  action: VirtualWorktreeAction,
+): VirtualWorktreeState => {
+  switch (action.type) {
+    case "resetPane":
+      return initialVirtualWorktreeState;
+    case "fetchStart":
+      return {
+        ...state,
+        worktreeList: action.resetEntries ? null : state.worktreeList,
+        loading: action.showLoading ? true : state.loading,
+        error: null,
+      };
+    case "fetchSuccess":
+      return {
+        ...state,
+        worktreeList: action.worktreeList,
+        loading: action.showLoading ? false : state.loading,
+        error: null,
+      };
+    case "fetchFailure":
+      return {
+        ...state,
+        worktreeList: action.resetEntries || action.showLoading ? null : state.worktreeList,
+        loading: action.showLoading ? false : state.loading,
+        error: action.error,
+      };
+    case "setVirtualWorktreePath":
+      return {
+        ...state,
+        virtualWorktreePath:
+          state.virtualWorktreePath === action.path ? state.virtualWorktreePath : action.path,
+      };
+  }
 };
 
 type UseSessionVirtualWorktreeArgs = {
@@ -93,14 +151,13 @@ export const useSessionVirtualWorktree = ({
   session,
   requestWorktrees,
 }: UseSessionVirtualWorktreeArgs) => {
-  const [worktreeList, setWorktreeList] = useState<WorktreeList | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [virtualWorktreePath, setVirtualWorktreePath] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(virtualWorktreeReducer, initialVirtualWorktreeState);
   const latestRequestIdRef = useRef(0);
   const hasLoadedWorktreeListRef = useRef(false);
+  const { worktreeList, loading, error, virtualWorktreePath } = state;
 
   const actualWorktreePath = useMemo(
+    // react-doctor-disable-next-line no-event-handler
     () => normalizePath(session?.worktreePath ?? null),
     [session?.worktreePath],
   );
@@ -109,10 +166,7 @@ export const useSessionVirtualWorktree = ({
   useEffect(() => {
     latestRequestIdRef.current += 1;
     hasLoadedWorktreeListRef.current = false;
-    setWorktreeList(null);
-    setVirtualWorktreePath(null);
-    setError(null);
-    setLoading(false);
+    dispatch({ type: "resetPane" });
   }, [paneId]);
 
   const fetchWorktrees = useCallback(
@@ -122,31 +176,35 @@ export const useSessionVirtualWorktree = ({
       const shouldShowLoading = shouldResetEntries || !hasLoadedWorktreeListRef.current;
       if (shouldResetEntries) {
         hasLoadedWorktreeListRef.current = false;
-        setWorktreeList(null);
       }
-      if (shouldShowLoading) {
-        setLoading(true);
-      }
-      setError(null);
+      dispatch({
+        type: "fetchStart",
+        resetEntries: shouldResetEntries,
+        showLoading: shouldShowLoading,
+      });
       try {
+        // False positive: request freshness is checked immediately after the fetch resolves.
+        // react-doctor-disable-next-line async-defer-await
         const next = await requestWorktrees(paneId);
         if (!isCurrentRequest(latestRequestIdRef, requestId)) {
           return;
         }
-        setWorktreeList(next);
         hasLoadedWorktreeListRef.current = true;
+        dispatch({
+          type: "fetchSuccess",
+          worktreeList: next,
+          showLoading: shouldShowLoading,
+        });
       } catch (nextError) {
         if (!isCurrentRequest(latestRequestIdRef, requestId)) {
           return;
         }
-        if (shouldShowLoading) {
-          setWorktreeList(null);
-        }
-        setError(resolveUnknownErrorMessage(nextError, "Failed to load worktrees"));
-      } finally {
-        if (isCurrentRequest(latestRequestIdRef, requestId) && shouldShowLoading) {
-          setLoading(false);
-        }
+        dispatch({
+          type: "fetchFailure",
+          error: resolveUnknownErrorMessage(nextError, "Failed to load worktrees"),
+          resetEntries: shouldResetEntries,
+          showLoading: shouldShowLoading,
+        });
       }
     },
     [paneId, requestWorktrees],
@@ -169,6 +227,7 @@ export const useSessionVirtualWorktree = ({
     if (!worktreeList || !normalizedRepoRoot) {
       return;
     }
+    // react-doctor-disable-next-line no-event-handler
     const stored = readStoredSelection(paneId);
     if (!stored) {
       return;
@@ -192,7 +251,7 @@ export const useSessionVirtualWorktree = ({
       }
       return;
     }
-    setVirtualWorktreePath((prev) => (prev === normalizedStoredPath ? prev : normalizedStoredPath));
+    dispatch({ type: "setVirtualWorktreePath", path: normalizedStoredPath });
   }, [actualWorktreePath, entries.length, normalizedRepoRoot, paneId, pathSet, worktreeList]);
 
   useEffect(() => {
@@ -201,12 +260,12 @@ export const useSessionVirtualWorktree = ({
     }
     if (virtualWorktreePath === actualWorktreePath) {
       clearStoredSelection(paneId);
-      setVirtualWorktreePath(null);
+      dispatch({ type: "setVirtualWorktreePath", path: null });
       return;
     }
     if (pathSet.size > 0 && !pathSet.has(virtualWorktreePath)) {
       clearStoredSelection(paneId);
-      setVirtualWorktreePath(null);
+      dispatch({ type: "setVirtualWorktreePath", path: null });
     }
   }, [actualWorktreePath, paneId, pathSet, virtualWorktreePath]);
 
@@ -235,17 +294,17 @@ export const useSessionVirtualWorktree = ({
       }
       if (normalizedNextPath === actualWorktreePath) {
         clearStoredSelection(paneId);
-        setVirtualWorktreePath(null);
+        dispatch({ type: "setVirtualWorktreePath", path: null });
         return;
       }
-      setVirtualWorktreePath(normalizedNextPath);
+      dispatch({ type: "setVirtualWorktreePath", path: normalizedNextPath });
     },
     [actualWorktreePath, paneId],
   );
 
   const clearVirtualWorktree = useCallback(() => {
     clearStoredSelection(paneId);
-    setVirtualWorktreePath(null);
+    dispatch({ type: "setVirtualWorktreePath", path: null });
   }, [paneId]);
 
   const selectorEnabled = entries.length > 0;

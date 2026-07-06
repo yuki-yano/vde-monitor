@@ -18,7 +18,8 @@ import {
 } from "@/components/ui";
 import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTextComposer";
 
-import { KeysSection, resolveModifierDotClass } from "./controls-panel-ui";
+import { resolveModifierDotClass } from "./controls-panel-utils";
+import { KeysSection } from "./controls-panel-ui";
 
 export type ControlsPanelState = {
   interactive: boolean;

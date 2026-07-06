@@ -153,26 +153,53 @@ export const SessionDetailView = () => {
   } = useSessionDetailViewShellSectionProps();
   const { worktreeSectionProps, branchSectionProps } =
     useSessionDetailViewWorktreeBranchSectionProps();
-  const controlsPanelKeysSection = useMemo(
-    () => (
-      <Card className="p-3 sm:p-4">
-        <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
-      </Card>
-    ),
-    [controlsPanelProps],
-  );
-  const controlsPanelComposerSection = useMemo(
-    () => <ControlsPanel {...controlsPanelProps} showKeysSection={false} />,
-    [controlsPanelProps],
-  );
-  const controlsPanelAllSection = useMemo(
-    () => <ControlsPanel {...controlsPanelProps} />,
-    [controlsPanelProps],
-  );
   const hasConnectionIssue = splitConnectionIssueLines(connectionIssue).length > 0;
   const isSessionMissing = !session || !sessionHeaderProps;
   const isInitialSessionLoading = isSessionMissing && !connected && !hasConnectionIssue;
   const shouldDelayMissingState = isSessionMissing && connected && !hasConnectionIssue;
+
+  useEffect(() => {
+    if (!shouldDelayMissingState) {
+      return;
+    }
+    missingSessionGraceTimer.set(() => {
+      setMissingSessionGraceElapsed(true);
+    }, MISSING_SESSION_GRACE_MS);
+
+    return () => {
+      missingSessionGraceTimer.cancel();
+    };
+  }, [missingSessionGraceTimer, shouldDelayMissingState]);
+
+  useEffect(() => {
+    if (shouldDelayMissingState) {
+      return;
+    }
+    setMissingSessionGraceElapsed(false);
+  }, [shouldDelayMissingState]);
+
+  if (isSessionMissing) {
+    const showMissingState = hasConnectionIssue || missingSessionGraceElapsed;
+    return (
+      <SessionDetailMissingState
+        documentTitle={documentTitle}
+        backToListSearch={backToListSearch}
+        missingSessionState={missingSessionState}
+        loading={isInitialSessionLoading || !showMissingState}
+        sidebarWidth={sidebarWidth}
+      />
+    );
+  }
+
+  const controlsPanelKeysSection = (
+    <Card className="p-3 sm:p-4">
+      <ControlsPanel {...controlsPanelProps} showComposerSection={false} />
+    </Card>
+  );
+  const controlsPanelComposerSection = (
+    <ControlsPanel {...controlsPanelProps} showKeysSection={false} />
+  );
+  const controlsPanelAllSection = <ControlsPanel {...controlsPanelProps} />;
   const mobileSectionTabs: DetailSectionTabDefinition[] = [
     {
       value: "keys",
@@ -233,39 +260,6 @@ export const SessionDetailView = () => {
   ];
   const selectedMobileSectionContent =
     mobileSectionTabs.find((tab) => tab.value === selectedSectionTabValue)?.render() ?? null;
-
-  useEffect(() => {
-    if (!shouldDelayMissingState) {
-      return;
-    }
-    missingSessionGraceTimer.set(() => {
-      setMissingSessionGraceElapsed(true);
-    }, MISSING_SESSION_GRACE_MS);
-
-    return () => {
-      missingSessionGraceTimer.cancel();
-    };
-  }, [missingSessionGraceTimer, shouldDelayMissingState]);
-
-  useEffect(() => {
-    if (shouldDelayMissingState) {
-      return;
-    }
-    setMissingSessionGraceElapsed(false);
-  }, [shouldDelayMissingState]);
-
-  if (isSessionMissing) {
-    const showMissingState = hasConnectionIssue || missingSessionGraceElapsed;
-    return (
-      <SessionDetailMissingState
-        documentTitle={documentTitle}
-        backToListSearch={backToListSearch}
-        missingSessionState={missingSessionState}
-        loading={isInitialSessionLoading || !showMissingState}
-        sidebarWidth={sidebarWidth}
-      />
-    );
-  }
 
   return (
     <>

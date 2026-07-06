@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
@@ -10,14 +10,95 @@ const MAX_RATE_LIMIT_STEPS = 3;
 
 type ConnectionStatus = "healthy" | "degraded" | "disconnected";
 
+type SessionConnectionState = {
+  token: string | null;
+  connectionIssue: string | null;
+  connected: boolean;
+  authBlocked: boolean;
+  pollBackoffMs: number;
+  transport: SessionsStreamTransport;
+};
+
+type SessionConnectionAction =
+  | { type: "setConnectionIssue"; token: string | null; issue: string | null }
+  | {
+      type: "refreshFailure";
+      token: string | null;
+      authError: boolean;
+      rateLimited: boolean;
+      pollBackoffMs?: number;
+    }
+  | { type: "refreshSuccess"; token: string | null }
+  | { type: "reconnect"; token: string | null }
+  | { type: "setTransport"; token: string | null; transport: SessionsStreamTransport };
+
+const buildConnectionState = (token: string | null): SessionConnectionState => ({
+  token,
+  connectionIssue: null,
+  connected: false,
+  authBlocked: false,
+  pollBackoffMs: 0,
+  transport: "polling",
+});
+
+const normalizeConnectionState = (
+  state: SessionConnectionState,
+  token: string | null,
+): SessionConnectionState => (state.token === token ? state : buildConnectionState(token));
+
+const sessionConnectionReducer = (
+  state: SessionConnectionState,
+  action: SessionConnectionAction,
+): SessionConnectionState => {
+  state = normalizeConnectionState(state, action.token);
+  switch (action.type) {
+    case "setConnectionIssue":
+      return {
+        ...state,
+        connectionIssue: action.issue,
+        authBlocked: action.issue === API_ERROR_MESSAGES.unauthorized ? true : state.authBlocked,
+        connected: action.issue === API_ERROR_MESSAGES.unauthorized ? false : state.connected,
+      };
+    case "refreshFailure":
+      return {
+        ...state,
+        authBlocked: action.authError ? true : state.authBlocked,
+        connected: action.rateLimited,
+        pollBackoffMs: action.pollBackoffMs ?? state.pollBackoffMs,
+      };
+    case "refreshSuccess":
+      return {
+        ...state,
+        authBlocked: false,
+        connected: true,
+        pollBackoffMs: 0,
+      };
+    case "reconnect":
+      return {
+        ...state,
+        authBlocked: false,
+        connectionIssue: "Reconnecting...",
+      };
+    case "setTransport":
+      return {
+        ...state,
+        transport: action.transport,
+        connected: action.transport === "sse",
+      };
+  }
+};
+
 export const useSessionConnectionState = (token: string | null) => {
-  const [connectionIssue, setConnectionIssue] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [authBlocked, setAuthBlocked] = useState(false);
-  const [pollBackoffMs, setPollBackoffMs] = useState(0);
-  const [transport, setTransport] = useState<SessionsStreamTransport>("polling");
+  const [state, dispatch] = useReducer(sessionConnectionReducer, token, buildConnectionState);
+  const visibleState = normalizeConnectionState(state, token);
+  const activeTokenRef = useRef(token);
   const backoffStepRef = useRef(0);
+  if (activeTokenRef.current !== token) {
+    activeTokenRef.current = token;
+    backoffStepRef.current = 0;
+  }
   const hasToken = Boolean(token);
+  const { connectionIssue, connected, authBlocked, pollBackoffMs, transport } = visibleState;
 
   const applyRateLimitBackoff = useCallback(() => {
     const nextStep = Math.min(backoffStepRef.current + 1, MAX_RATE_LIMIT_STEPS);
@@ -25,15 +106,20 @@ export const useSessionConnectionState = (token: string | null) => {
       return;
     }
     backoffStepRef.current = nextStep;
-    setPollBackoffMs(nextStep * RATE_LIMIT_BACKOFF_STEP_MS);
-  }, []);
+    dispatch({
+      type: "refreshFailure",
+      token,
+      authError: false,
+      rateLimited: true,
+      pollBackoffMs: nextStep * RATE_LIMIT_BACKOFF_STEP_MS,
+    });
+  }, [token]);
 
   const resetRateLimitBackoff = useCallback(() => {
     if (backoffStepRef.current === 0) {
       return;
     }
     backoffStepRef.current = 0;
-    setPollBackoffMs(0);
   }, []);
 
   const connectionStatus = useMemo<ConnectionStatus>(() => {
@@ -49,24 +135,22 @@ export const useSessionConnectionState = (token: string | null) => {
   const handleRefreshResult = useCallback(
     (result: RefreshSessionsResult) => {
       if (!result.ok) {
-        if (result.authError) {
-          setAuthBlocked(true);
-        }
         if (result.rateLimited) {
           applyRateLimitBackoff();
-          setConnected(true);
         } else {
-          setConnected(false);
+          dispatch({
+            type: "refreshFailure",
+            token,
+            authError: result.authError === true,
+            rateLimited: false,
+          });
         }
         return;
       }
-      if (authBlocked) {
-        setAuthBlocked(false);
-      }
-      setConnected(true);
       resetRateLimitBackoff();
+      dispatch({ type: "refreshSuccess", token });
     },
-    [applyRateLimitBackoff, authBlocked, resetRateLimitBackoff],
+    [applyRateLimitBackoff, resetRateLimitBackoff, token],
   );
 
   const reconnect = useCallback(
@@ -74,33 +158,25 @@ export const useSessionConnectionState = (token: string | null) => {
       if (!token) {
         return;
       }
-      setAuthBlocked(false);
-      setConnectionIssue("Reconnecting...");
+      dispatch({ type: "reconnect", token });
       void refreshSessions();
     },
     [token],
   );
 
-  useEffect(() => {
-    if (connectionIssue === API_ERROR_MESSAGES.unauthorized) {
-      setAuthBlocked(true);
-      setConnected(false);
-    }
-  }, [connectionIssue]);
+  const setConnectionIssue = useCallback(
+    (issue: string | null) => {
+      dispatch({ type: "setConnectionIssue", token, issue });
+    },
+    [token],
+  );
 
-  useEffect(() => {
-    setAuthBlocked(false);
-    resetRateLimitBackoff();
-    setConnectionIssue(null);
-    setConnected(false);
-  }, [resetRateLimitBackoff, token]);
-
-  // When SSE is open, mark as connected regardless of polling state. When it
-  // falls back to polling the connection is unknown until the next refresh
-  // resolves, so drop the stale connected flag instead of reporting healthy.
-  useEffect(() => {
-    setConnected(transport === "sse");
-  }, [transport]);
+  const setTransport = useCallback(
+    (nextTransport: SessionsStreamTransport) => {
+      dispatch({ type: "setTransport", token, transport: nextTransport });
+    },
+    [token],
+  );
 
   return {
     connectionIssue,

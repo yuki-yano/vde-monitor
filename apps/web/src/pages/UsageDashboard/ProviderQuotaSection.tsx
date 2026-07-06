@@ -9,15 +9,15 @@ import {
   type BillingBreakdownGranularity,
   aggregateBillingBreakdownRows,
   clampPercent,
+  formatBufferLabel,
   formatDateTime,
+  formatPaceLabel,
   formatPercent,
   formatResetIn,
   formatTokenCount,
   formatTokens,
   formatUsd,
-  renderBufferLabel,
-  renderPaceLabel,
-  renderUsedElapsedLabel,
+  formatUsedElapsedLabel,
   resolveBufferTone,
   resolveCostSourceLabel,
   resolveCostSourceTone,
@@ -57,7 +57,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
           className="text-latte-subtext0 shrink-0 text-[11px] tabular-nums"
           title="Used / Elapsed"
         >
-          {renderUsedElapsedLabel(metric)}
+          {formatUsedElapsedLabel(metric)}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -70,7 +70,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
             resolveBufferTone(bufferPercent),
           )}
         >
-          {renderBufferLabel(bufferPercent)}
+          {formatBufferLabel(bufferPercent)}
         </span>
         <span
           className={cn(
@@ -78,7 +78,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
             resolvePaceTone(metric.pace.status, metric.pace.paceMarginPercent),
           )}
         >
-          {renderPaceLabel(metric)}
+          {formatPaceLabel(metric)}
         </span>
       </div>
     </div>

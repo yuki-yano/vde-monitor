@@ -1,13 +1,12 @@
 import type { CommitDetail, CommitFileDiff } from "@vde-monitor/shared";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { type KeyboardEvent as ReactKeyboardEvent, memo, useRef } from "react";
+import { memo, useRef } from "react";
 
 import { FilePathLabel, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 import { diffStatusClass, formatDiffCount, formatDiffStatusLabel } from "../../sessionDetailUtils";
 import { CommitFileDetailContent } from "./commit-file-detail-content";
-import { isKeyboardActivationKey } from "./commit-keyboard";
 
 type CommitFileRowProps = {
   commitHash: string;
@@ -54,26 +53,16 @@ export const CommitFileRow = memo(
     const toggleFile = () => {
       onToggleCommitFile(commitHash, file.path);
     };
-    const handleFileKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-      if (!isKeyboardActivationKey(event)) {
-        return;
-      }
-      event.preventDefault();
-      toggleFile();
-    };
-
     return (
       <div className="flex flex-col gap-2">
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           aria-expanded={fileOpen}
           aria-label={
             fileOpen ? `Collapse file diff ${file.path}` : `Expand file diff ${file.path}`
           }
           onClick={toggleFile}
-          onKeyDown={handleFileKeyDown}
-          className="focus-visible:ring-latte-lavender/30 grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md focus-visible:outline-hidden focus-visible:ring-2"
+          className="focus-visible:ring-latte-lavender/30 grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border-0 bg-transparent p-0 text-left focus-visible:outline-hidden focus-visible:ring-2"
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <TagPill tone="status" className={cn(diffStatusClass(statusLabel), "shrink-0")}>
@@ -102,7 +91,7 @@ export const CommitFileRow = memo(
               )}
             </span>
           </div>
-        </div>
+        </button>
         {fileOpen && (
           <div className="border-latte-surface2/70 bg-latte-base/60 rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2">
             <CommitFileDetailContent

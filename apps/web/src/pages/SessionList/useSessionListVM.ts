@@ -1,5 +1,5 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
@@ -14,6 +14,7 @@ import {
 } from "@/features/shared-session-ui/model/session-list-filters";
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 import { useNowMs } from "@/lib/use-now-ms";
 import { useSidebarWidth } from "@/lib/use-sidebar-width";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
@@ -55,7 +56,7 @@ export const useSessionListVM = () => {
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
   const [screenError, setScreenError] = useState<string | null>(null);
-  const launchPendingRef = useRef<Set<string>>(new Set());
+  const launchPendingRef = useLazyRef(() => new Set<string>());
   const { getRepoSortAnchorAt, touchRepoPin, touchPanePin } = useSessionListPins({
     sessions,
     onTouchPane: touchSession,
@@ -203,7 +204,7 @@ export const useSessionListVM = () => {
         setLaunchPendingSessions(new Set(launchPendingRef.current));
       }
     },
-    [launchAgentInSession, refreshSessions],
+    [launchAgentInSession, launchPendingRef, refreshSessions],
   );
 
   return {

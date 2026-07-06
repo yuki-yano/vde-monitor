@@ -112,9 +112,12 @@ export const useUsageDashboardData = ({
         setDashboard((current) => mergeDashboardCore(current, next));
         setDashboardError(null);
         // Derive billing providers from dashboard response; fall back to known providers.
-        const billingProviders = next.providers
-          .map((provider) => provider.providerId)
-          .filter(isBillingProviderId);
+        const billingProviders: BillingProviderId[] = [];
+        next.providers.forEach((provider) => {
+          if (isBillingProviderId(provider.providerId)) {
+            billingProviders.push(provider.providerId);
+          }
+        });
         const resolvedProviders =
           billingProviders.length > 0 ? billingProviders : FALLBACK_BILLING_PROVIDERS;
         // Always load billing on the first successful dashboard load, even when the

@@ -1,10 +1,4 @@
-import {
-  type HTMLAttributes,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import { LoadingOverlay } from "@/components/ui";
@@ -30,9 +24,6 @@ type ScreenPanelViewportProps = {
   scrollerRef: RefObject<HTMLDivElement | null>;
   onAtBottomChange: (value: boolean) => void;
   onRangeChanged: (range: { startIndex: number; endIndex: number }) => void;
-  VirtuosoScroller: (
-    props: HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> },
-  ) => ReactNode;
   onScrollToBottom: (behavior: "auto" | "smooth") => void;
   onUserScrollStateChange: (value: boolean) => void;
   onResolveFileReference: (event: MouseEvent<HTMLDivElement>) => void;
@@ -51,7 +42,6 @@ export const ScreenPanelViewport = ({
   scrollerRef,
   onAtBottomChange,
   onRangeChanged,
-  VirtuosoScroller,
   onScrollToBottom,
   onUserScrollStateChange,
   onResolveFileReference,
@@ -104,7 +94,7 @@ export const ScreenPanelViewport = ({
       onAtBottomChange={onAtBottomChange}
       onRangeChanged={onRangeChanged}
       virtuosoRef={virtuosoRef}
-      scroller={VirtuosoScroller}
+      scrollerRef={scrollerRef}
       onScrollToBottom={onScrollToBottom}
       className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[260px] w-full min-w-0 max-w-full flex-1 rounded-2xl border-2 sm:min-h-[320px]"
       viewportClassName="w-full min-w-0 max-w-full"

@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { IconButton, LoadingOverlay } from "@/components/ui";
+import { TerminalHtmlFragment } from "@/features/shared-session-ui/components/TerminalHtmlLine";
 import { cn } from "@/lib/cn";
 
 import type { SmartWrapLineClassification } from "../smart-wrap-classify";
@@ -97,11 +98,14 @@ export const SmartScreenViewport = ({
     node.scrollTop = node.scrollHeight;
   }, [decoratedLines, isAtBottom, scrollerRef]);
 
+  // False positive: the viewport owns the DOM measurement, and the parent owns
+  // the toolbar state that depends on it. There is no render-time value to lift.
   useEffect(() => {
     const node = scrollerRef.current;
     if (!node) {
       return;
     }
+    // react-doctor-disable-next-line no-pass-data-to-parent, no-prop-callback-in-effect
     onAtBottomChange(resolveIsAtBottom(node));
   }, [decoratedLines, onAtBottomChange, scrollerRef]);
 
@@ -177,11 +181,9 @@ export const SmartScreenViewport = ({
               key={item.key}
               data-index={item.dataIndex}
               className={cn("vde-screen-line-smart min-h-4 leading-4", item.line.className)}
-              // lineHtml must come from the controlled screen pipeline
-              // (server terminal output -> ansi escape -> DOM-only transforms),
-              // never from unvalidated user input.
-              dangerouslySetInnerHTML={{ __html: item.line.lineHtml || "&#x200B;" }}
-            />
+            >
+              <TerminalHtmlFragment html={item.line.lineHtml} />
+            </div>
           ))}
         </div>
       </div>

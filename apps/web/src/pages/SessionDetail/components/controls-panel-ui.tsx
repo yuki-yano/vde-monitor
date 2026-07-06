@@ -4,9 +4,6 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { Button, ModifierToggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-const MODIFIER_DOT_CLASS_ACTIVE = "bg-latte-lavender";
-const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
-
 const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
 const KEY_BUTTON_CLASS =
   "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
@@ -40,8 +37,6 @@ const ModifierKeyToggle = ({ className, ...props }: ModifierKeyToggleProps) => (
   <ModifierToggle className={cn(MODIFIER_TOGGLE_CLASS, className)} {...props} />
 );
 
-export const resolveModifierDotClass = (active: boolean) =>
-  active ? MODIFIER_DOT_CLASS_ACTIVE : MODIFIER_DOT_CLASS_DEFAULT;
 type KeysSectionState = {
   interactive: boolean;
   shiftHeld: boolean;

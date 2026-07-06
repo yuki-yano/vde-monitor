@@ -7,7 +7,9 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 
 import {
+  logModalIsAtBottomAtom,
   logModalOpenAtom,
+  logModalSnapRequestAtom,
   quickPanelOpenAtom,
   selectedPaneIdAtom,
 } from "@/features/shared-session-ui/atoms/logAtoms";
@@ -64,6 +66,8 @@ export const useSessionLogs = ({
 }: UseSessionLogsParams) => {
   const [quickPanelOpen, setQuickPanelOpen] = useAtom(quickPanelOpenAtom);
   const [logModalOpen, setLogModalOpen] = useAtom(logModalOpenAtom);
+  const [, setLogModalIsAtBottom] = useAtom(logModalIsAtBottomAtom);
+  const [, setLogModalSnapRequest] = useAtom(logModalSnapRequestAtom);
   const [selectedPaneId, setSelectedPaneId] = useAtom(selectedPaneIdAtom);
   const feedPaneIds = useMemo(() => {
     if (!logModalOpen || !selectedPaneId) {
@@ -143,9 +147,11 @@ export const useSessionLogs = ({
   const openLogModal = useCallback(
     (paneId: string) => {
       setSelectedPaneId(paneId);
+      setLogModalIsAtBottom(true);
+      setLogModalSnapRequest((version) => version + 1);
       setLogModalOpen(true);
     },
-    [setLogModalOpen, setSelectedPaneId],
+    [setLogModalIsAtBottom, setLogModalOpen, setLogModalSnapRequest, setSelectedPaneId],
   );
 
   const closeLogModal = useCallback(() => {

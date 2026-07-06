@@ -1,12 +1,10 @@
 import type { LaunchConfig, SessionSummary, WorktreeListEntry } from "@vde-monitor/shared";
 import { Bell, BellOff, FileText, GitBranch, Image, RefreshCw, TextWrap } from "lucide-react";
 import {
-  type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type RefObject,
-  forwardRef,
   memo,
   useCallback,
   useMemo,
@@ -371,30 +369,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     onRangeChanged: handleRangeChanged,
   });
 
-  const VirtuosoScroller = useMemo(() => {
-    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-      ({ className, ...props }, ref) => (
-        <div
-          ref={(node) => {
-            if (typeof ref === "function") {
-              ref(node);
-            } else if (ref) {
-              ref.current = node;
-            }
-            stableScrollerRef.current = node;
-          }}
-          {...props}
-          className={cn(
-            "custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl",
-            className,
-          )}
-        />
-      ),
-    );
-    Component.displayName = "VirtuosoScroller";
-    return Component;
-  }, [stableScrollerRef]);
-
   const handleResolveFileReference = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
       const rawToken = resolveRawTokenFromEventTarget(event.target);
@@ -527,10 +501,9 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
         screenLines={linkifiedScreenLines}
         smartLineClassifications={smartLineClassifications}
         virtuosoRef={virtuosoRef}
-        scrollerRef={scrollerRef}
+        scrollerRef={stableScrollerRef}
         onAtBottomChange={onAtBottomChange}
         onRangeChanged={handleScreenRangeChanged}
-        VirtuosoScroller={VirtuosoScroller}
         onScrollToBottom={onScrollToBottom}
         onUserScrollStateChange={onUserScrollStateChange}
         onResolveFileReference={handleResolveFileReference}

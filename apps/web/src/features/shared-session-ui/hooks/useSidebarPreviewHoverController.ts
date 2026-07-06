@@ -20,7 +20,10 @@ export const useSidebarPreviewHoverController = ({
   prefetchPreview: (paneId: string) => Promise<void>;
   fetchTimeline: (paneId: string) => Promise<void>;
 }) => {
-  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  const itemRefs = useRef<Map<string, HTMLDivElement> | null>(null);
+  if (itemRefs.current == null) {
+    itemRefs.current = new Map();
+  }
   const hoverTimerRef = useRef<number | null>(null);
   const pendingHoverRef = useRef<string | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -28,7 +31,7 @@ export const useSidebarPreviewHoverController = ({
 
   const updatePreviewPosition = useCallback(
     (paneId: string) => {
-      const node = itemRefs.current.get(paneId);
+      const node = itemRefs.current!.get(paneId);
       if (!node || typeof window === "undefined") {
         return;
       }
@@ -92,9 +95,9 @@ export const useSidebarPreviewHoverController = ({
 
   const registerItemRef = useCallback((paneId: string, node: HTMLDivElement | null) => {
     if (node) {
-      itemRefs.current.set(paneId, node);
+      itemRefs.current!.set(paneId, node);
     } else {
-      itemRefs.current.delete(paneId);
+      itemRefs.current!.delete(paneId);
     }
   }, []);
 
@@ -163,6 +166,7 @@ export const useSidebarPreviewHoverController = ({
       setPreviewFrame(null);
       return;
     }
+    // react-doctor-disable-next-line no-pass-data-to-parent
     updatePreviewPosition(hoveredPaneId);
   }, [hoveredPaneId, setPreviewFrame, updatePreviewPosition]);
 

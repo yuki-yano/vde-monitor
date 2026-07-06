@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 
 const TOKEN_KEY = "vde-monitor-token";
 const API_BASE_URL_KEY = "vde-monitor-api-base-url";
@@ -82,24 +82,19 @@ const readStoredApiBaseUrl = () => {
 };
 
 export const useSessionToken = () => {
+  const initialAccessRef = useRef<ReturnType<typeof readSessionAccessFromUrl> | null>(null);
+  if (initialAccessRef.current == null) {
+    initialAccessRef.current = readSessionAccessFromUrl();
+  }
   const [token, setTokenState] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_KEY);
+    return initialAccessRef.current?.token ?? localStorage.getItem(TOKEN_KEY);
   });
-  const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(() => readStoredApiBaseUrl());
-
-  useEffect(() => {
-    const {
-      token: urlToken,
-      apiBaseUrl: urlApiBaseUrl,
-      hasApiDirective,
-    } = readSessionAccessFromUrl();
-    if (urlToken && urlToken !== token) {
-      setTokenState(urlToken);
+  const [apiBaseUrl] = useState<string | null>(() => {
+    if (initialAccessRef.current?.hasApiDirective) {
+      return initialAccessRef.current.apiBaseUrl;
     }
-    if (hasApiDirective && urlApiBaseUrl !== apiBaseUrl) {
-      setApiBaseUrl(urlApiBaseUrl);
-    }
-  }, [apiBaseUrl, token]);
+    return readStoredApiBaseUrl();
+  });
 
   const setToken = (nextToken: string | null) => {
     const trimmed = nextToken?.trim() ?? "";

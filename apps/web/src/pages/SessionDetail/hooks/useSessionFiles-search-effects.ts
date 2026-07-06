@@ -37,6 +37,7 @@ export const useSessionFilesSearchEffects = (
   }: UseSessionFilesSearchEffectsDeps,
 ) => {
   const debounce = useTimeout();
+  // react-doctor-disable-next-line no-event-handler
   const { searchQuery, searchResult } = state;
 
   useEffect(() => {

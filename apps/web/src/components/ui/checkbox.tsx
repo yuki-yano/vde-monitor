@@ -1,10 +1,12 @@
-import { type InputHTMLAttributes, forwardRef } from "react";
+import type { InputHTMLAttributes, Ref } from "react";
 
 import { cn } from "@/lib/cn";
 
-type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  ref?: Ref<HTMLInputElement>;
+};
 
-const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({ className, ...props }, ref) => {
+const Checkbox = ({ className, ref, ...props }: CheckboxProps) => {
   return (
     <input
       ref={ref}
@@ -16,8 +18,6 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({ className, ...pr
       {...props}
     />
   );
-});
-
-Checkbox.displayName = "Checkbox";
+};
 
 export { Checkbox };

@@ -4,20 +4,30 @@ import {
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
-  type ReactNode,
-  forwardRef,
+  type Ref,
+  type RefObject,
   memo,
   useCallback,
   useMemo,
 } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { type Components, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { IconButton, LoadingOverlay } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-type ScrollerComponent = (
-  props: HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> },
-) => ReactNode;
+import { TerminalHtmlLine } from "./TerminalHtmlLine";
+
+type AnsiVirtuosoContext = {
+  listClassName?: string;
+  scrollerClassName?: string;
+  scrollerRef?: RefObject<HTMLDivElement | null>;
+};
+
+type ScrollerComponent = Components<string, AnsiVirtuosoContext>["Scroller"];
+type AnsiVirtuosoComponentProps = HTMLAttributes<HTMLDivElement> & {
+  context?: AnsiVirtuosoContext;
+  ref?: Ref<HTMLDivElement>;
+};
 
 type AnsiVirtualizedViewportProps = {
   lines: string[];
@@ -30,6 +40,8 @@ type AnsiVirtualizedViewportProps = {
   initialTopMostItemIndex?: number;
   virtuosoRef?: React.RefObject<VirtuosoHandle | null>;
   scroller?: ScrollerComponent;
+  scrollerRef?: RefObject<HTMLDivElement | null>;
+  scrollerClassName?: string;
   onScrollToBottom?: (behavior: "auto" | "smooth") => void;
   className?: string;
   viewportClassName?: string;
@@ -41,25 +53,50 @@ type AnsiVirtualizedViewportProps = {
   onLineKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
 
-const DefaultScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+  if (ref) {
+    ref.current = value;
+  }
+};
+
+const DefaultScroller = ({ className, context, ref, ...props }: AnsiVirtuosoComponentProps) => {
+  const setScrollerRef = (node: HTMLDivElement | null) => {
+    assignRef(ref, node);
+    if (context?.scrollerRef) {
+      context.scrollerRef.current = node;
+    }
+  };
+
+  return (
     <div
-      ref={ref}
+      ref={setScrollerRef}
       {...props}
       className={cn(
         "custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl",
+        context?.scrollerClassName,
         className,
       )}
     />
-  ),
+  );
+};
+
+const AnsiVirtualizedList = ({ className, context, ref, ...props }: AnsiVirtuosoComponentProps) => (
+  <div ref={ref} {...props} className={cn(context?.listClassName, className)} />
 );
 
-DefaultScroller.displayName = "DefaultScroller";
+const DEFAULT_VIRTUOSO_COMPONENTS: Components<string, AnsiVirtuosoContext> = {
+  Scroller: DefaultScroller,
+  List: AnsiVirtualizedList,
+};
 
 // Memoized so rows whose html is unchanged skip re-rendering while the
 // screen stream replaces the lines array on every SSE event.
 const AnsiLine = memo(({ html, className }: { html: string; className?: string }) => (
-  <div className={className} dangerouslySetInnerHTML={{ __html: html || "&#x200B;" }} />
+  <TerminalHtmlLine className={className} html={html} />
 ));
 
 AnsiLine.displayName = "AnsiLine";
@@ -75,6 +112,8 @@ export const AnsiVirtualizedViewport = ({
   initialTopMostItemIndex,
   virtuosoRef,
   scroller,
+  scrollerRef,
+  scrollerClassName,
   onScrollToBottom,
   className,
   viewportClassName,
@@ -85,15 +124,19 @@ export const AnsiVirtualizedViewport = ({
   onLineClick,
   onLineKeyDown,
 }: AnsiVirtualizedViewportProps) => {
-  const ListComponent = useMemo(() => {
-    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-      ({ className: nextClassName, ...props }, ref) => (
-        <div ref={ref} {...props} className={cn(listClassName, nextClassName)} />
-      ),
-    );
-    Component.displayName = "AnsiVirtualizedViewportList";
-    return Component;
-  }, [listClassName]);
+  const virtuosoComponents = useMemo<Components<string, AnsiVirtuosoContext>>(() => {
+    if (!scroller) {
+      return DEFAULT_VIRTUOSO_COMPONENTS;
+    }
+    return {
+      ...DEFAULT_VIRTUOSO_COMPONENTS,
+      Scroller: scroller,
+    };
+  }, [scroller]);
+  const virtuosoContext = useMemo(
+    () => ({ listClassName, scrollerClassName, scrollerRef }),
+    [listClassName, scrollerClassName, scrollerRef],
+  );
 
   const handleCopy = useCallback(
     (event: ClipboardEvent<HTMLDivElement>) => {
@@ -142,17 +185,15 @@ export const AnsiVirtualizedViewport = ({
       onKeyDown={onLineKeyDown}
     >
       {loading && <LoadingOverlay label={loadingLabel} />}
-      <Virtuoso
+      <Virtuoso<string, AnsiVirtuosoContext>
         ref={virtuosoRef}
         data={lines}
         initialTopMostItemIndex={initialTopMostItemIndex ?? Math.max(lines.length - 1, 0)}
         followOutput={followOutput}
         atBottomStateChange={onAtBottomChange}
         rangeChanged={onRangeChanged}
-        components={{
-          Scroller: scroller ?? DefaultScroller,
-          List: ListComponent,
-        }}
+        components={virtuosoComponents}
+        context={virtuosoContext}
         className={viewportClassName}
         style={{ height }}
         itemContent={renderLine}

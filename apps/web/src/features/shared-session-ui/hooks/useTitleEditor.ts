@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { type KeyboardEvent, useCallback, useReducer } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -25,6 +25,68 @@ export type UseTitleEditorOptions = {
   onAfterReset?: (paneId: string) => void | Promise<void>;
 };
 
+type TitleEditorState = {
+  paneId: string;
+  draft: string;
+  editing: boolean;
+  saving: boolean;
+  error: string | null;
+};
+
+type TitleEditorAction =
+  | { type: "open"; paneId: string; draft: string }
+  | { type: "close"; paneId: string; draft: string }
+  | { type: "updateDraft"; paneId: string; draft: string }
+  | { type: "saveStart"; paneId: string }
+  | { type: "saveSuccess"; paneId: string; draft: string }
+  | { type: "saveFailure"; paneId: string; error: string }
+  | { type: "resetSuccess"; paneId: string };
+
+const buildTitleEditorState = (paneId: string, customTitle: string | null): TitleEditorState => ({
+  paneId,
+  draft: customTitle ?? "",
+  editing: false,
+  saving: false,
+  error: null,
+});
+
+const titleEditorReducer = (
+  state: TitleEditorState,
+  action: TitleEditorAction,
+): TitleEditorState => {
+  if (state.paneId !== action.paneId) {
+    state = buildTitleEditorState(action.paneId, null);
+  }
+  switch (action.type) {
+    case "open":
+      return {
+        paneId: action.paneId,
+        draft: action.draft,
+        editing: true,
+        saving: false,
+        error: null,
+      };
+    case "close":
+      return {
+        paneId: action.paneId,
+        draft: action.draft,
+        editing: false,
+        saving: false,
+        error: null,
+      };
+    case "updateDraft":
+      return { ...state, draft: action.draft, error: null };
+    case "saveStart":
+      return { ...state, saving: true };
+    case "saveSuccess":
+      return { ...state, draft: action.draft, editing: false, saving: false, error: null };
+    case "saveFailure":
+      return { ...state, saving: false, error: action.error };
+    case "resetSuccess":
+      return { ...state, draft: "", editing: false, saving: false, error: null };
+  }
+};
+
 /**
  * Shared state machine for the session title inline editor.
  *
@@ -40,47 +102,31 @@ export const useTitleEditor = ({
   onAfterSave,
   onAfterReset,
 }: UseTitleEditorOptions) => {
-  const [draft, setDraft] = useState(customTitle ?? "");
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Hard reset when paneId changes (navigating to a different session).
-  useEffect(() => {
-    setDraft(customTitle ?? "");
-    setEditing(false);
-    setSaving(false);
-    setError(null);
-    // customTitle is intentionally excluded: paneId change is the authoritative
-    // trigger, not the title value arriving in the same render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paneId]);
-
-  // Soft sync: keep draft in step with the server value when the editor is closed
-  // (e.g. title updated from another client, or pane re-selected).
-  useEffect(() => {
-    if (editing) return;
-    setDraft(customTitle ?? "");
-  }, [customTitle, editing]);
+  const [state, dispatch] = useReducer(
+    titleEditorReducer,
+    { paneId, customTitle },
+    ({ paneId: initialPaneId, customTitle: initialCustomTitle }) =>
+      buildTitleEditorState(initialPaneId, initialCustomTitle),
+  );
+  const visibleState = state.paneId === paneId ? state : buildTitleEditorState(paneId, customTitle);
+  const { editing, saving, error } = visibleState;
+  const draft = visibleState.draft;
+  const visibleDraft = editing ? draft : (customTitle ?? "");
 
   const openTitleEditor = useCallback(() => {
-    setDraft(customTitle ?? "");
-    setEditing(true);
-    setSaving(false);
-    setError(null);
-  }, [customTitle]);
+    dispatch({ type: "open", paneId, draft: customTitle ?? "" });
+  }, [customTitle, paneId]);
 
   const closeTitleEditor = useCallback(() => {
-    setDraft(customTitle ?? "");
-    setEditing(false);
-    setSaving(false);
-    setError(null);
-  }, [customTitle]);
+    dispatch({ type: "close", paneId, draft: customTitle ?? "" });
+  }, [customTitle, paneId]);
 
-  const updateTitleDraft = useCallback((value: string) => {
-    setDraft(value);
-    setError(null);
-  }, []);
+  const updateTitleDraft = useCallback(
+    (value: string) => {
+      dispatch({ type: "updateDraft", paneId, draft: value });
+    },
+    [paneId],
+  );
 
   const saveTitle = useCallback(async () => {
     if (saving) return;
@@ -90,49 +136,47 @@ export const useTitleEditor = ({
 
     // Optional short-circuit: close without an API call when nothing changed.
     if (skipSaveIfUnchanged && nextTitle === customTitle) {
-      setDraft(nextTitle ?? "");
-      setEditing(false);
-      setSaving(false);
-      setError(null);
+      dispatch({ type: "close", paneId, draft: nextTitle ?? "" });
       return;
     }
 
     if (trimmed.length > 80) {
-      setError("Title must be 80 characters or less.");
+      dispatch({ type: "saveFailure", paneId, error: "Title must be 80 characters or less." });
       return;
     }
 
-    setSaving(true);
+    dispatch({ type: "saveStart", paneId });
     try {
       await updateSessionTitle(paneId, nextTitle);
       if (onAfterSave) {
         await onAfterSave(paneId, nextTitle);
       }
-      setEditing(false);
-      setError(null);
+      dispatch({ type: "saveSuccess", paneId, draft: nextTitle ?? "" });
     } catch (err) {
-      setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
-    } finally {
-      setSaving(false);
+      dispatch({
+        type: "saveFailure",
+        paneId,
+        error: resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle),
+      });
     }
   }, [saving, draft, paneId, customTitle, skipSaveIfUnchanged, updateSessionTitle, onAfterSave]);
 
   const resetTitle = useCallback(async () => {
     if (saving) return;
 
-    setSaving(true);
+    dispatch({ type: "saveStart", paneId });
     try {
       await resetSessionTitle(paneId);
       if (onAfterReset) {
         await onAfterReset(paneId);
       }
-      setEditing(false);
-      setDraft("");
-      setError(null);
+      dispatch({ type: "resetSuccess", paneId });
     } catch (err) {
-      setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle));
-    } finally {
-      setSaving(false);
+      dispatch({
+        type: "saveFailure",
+        paneId,
+        error: resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.updateTitle),
+      });
     }
   }, [saving, paneId, resetSessionTitle, onAfterReset]);
 
@@ -157,7 +201,7 @@ export const useTitleEditor = ({
   }, [closeTitleEditor, saving]);
 
   return {
-    titleDraft: draft,
+    titleDraft: visibleDraft,
     titleEditing: editing,
     titleSaving: saving,
     titleError: error,

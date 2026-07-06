@@ -2,6 +2,7 @@ import type { RepoNote } from "@vde-monitor/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useDebouncedCallback } from "@/lib/use-debounced-callback";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 const AUTO_SAVE_DEBOUNCE_MS = 700;
 
@@ -18,13 +19,16 @@ type UseNoteAutoSaveParams = {
 export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
+  const editingNoteExists = editingNoteId ? notes.some((note) => note.id === editingNoteId) : false;
+  const visibleEditingNoteId = editingNoteExists ? editingNoteId : null;
+  const visibleEditingBody = editingNoteExists ? editingBody : "";
 
   // Mirrors of the state above so timer callbacks (armed against a stale
   // closure) can always read the latest editing target/body.
   const editingNoteIdRef = useRef<string | null>(null);
   const editingBodyRef = useRef("");
   const lastSavedBodyRef = useRef("");
-  const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  const saveQueueRef = useLazyRef<Promise<boolean>>(() => Promise.resolve(true));
 
   useEffect(() => {
     editingNoteIdRef.current = editingNoteId;
@@ -59,7 +63,7 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
       saveQueueRef.current = queuedSave;
       return queuedSave;
     },
-    [onSave],
+    [onSave, saveQueueRef],
   );
 
   const debouncedSave = useDebouncedCallback((noteId: string, body: string) => {
@@ -88,8 +92,10 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
       return;
     }
     debouncedSave.cancel();
-    clearEditingState();
-  }, [clearEditingState, debouncedSave, editingNoteId, notes]);
+    editingNoteIdRef.current = null;
+    editingBodyRef.current = "";
+    lastSavedBodyRef.current = "";
+  }, [debouncedSave, editingNoteId, notes]);
 
   const flushPendingAutoSave = useCallback(async () => {
     const noteId = editingNoteIdRef.current;
@@ -187,8 +193,8 @@ export const useNoteAutoSave = ({ notes, onSave }: UseNoteAutoSaveParams) => {
   }, []);
 
   return {
-    editingNoteId,
-    editingBody,
+    editingNoteId: visibleEditingNoteId,
+    editingBody: visibleEditingBody,
     setEditingBody,
     beginEdit,
     finishEdit,

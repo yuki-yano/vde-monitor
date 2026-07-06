@@ -46,6 +46,114 @@ type QuickPanelProps = {
   actions: QuickPanelActions;
 };
 
+type QuickPanelSessionItemProps = {
+  item: SessionGroup["sessions"][number];
+  nowMs: number;
+  currentPaneId?: string | null;
+  onOpenLogModal: (paneId: string) => void;
+  onOpenSessionLink: (paneId: string) => void;
+  onOpenSessionLinkInNewWindow: (paneId: string) => void;
+};
+
+const QuickPanelSessionItem = ({
+  item,
+  nowMs,
+  currentPaneId,
+  onOpenLogModal,
+  onOpenSessionLink,
+  onOpenSessionLinkInNewWindow,
+}: QuickPanelSessionItemProps) => {
+  const displayTitle = resolveSessionDisplayTitle(item);
+  const lastInputTone = getLastInputTone(item.lastInputAt ?? null, nowMs);
+  const statusMeta = isSessionEditorState(item)
+    ? {
+        ...statusIconMeta("UNKNOWN"),
+        className: "text-latte-maroon",
+        wrap: "border-latte-maroon/45 bg-latte-maroon/14",
+        label: "EDITOR",
+      }
+    : statusIconMeta(item.state);
+  const agentMeta = agentIconMeta(item.agent);
+  const StatusIcon = statusMeta.icon;
+  const AgentIcon = agentMeta.icon;
+  const isCurrent = currentPaneId === item.paneId;
+
+  return (
+    <div className="relative pr-11">
+      <SurfaceButton
+        type="button"
+        onClick={() => onOpenLogModal(item.paneId)}
+        aria-current={isCurrent ? "true" : undefined}
+        className={cn(
+          "flex w-full min-w-0 flex-col gap-2.5",
+          isCurrent && "border-latte-lavender/70 bg-latte-lavender/10 shadow-accent",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex h-6 w-6 items-center justify-center rounded-full border",
+              statusMeta.wrap,
+            )}
+            aria-label={statusMeta.label}
+          >
+            <StatusIcon className={cn("h-3.5 w-3.5", statusMeta.className)} />
+          </span>
+          <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
+            {displayTitle}
+          </span>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+              agentMeta.wrap,
+            )}
+            aria-label={agentMeta.label}
+          >
+            <AgentIcon className={cn("h-3 w-3", agentMeta.className)} />
+          </span>
+          <TagPill tone="meta" className="inline-flex max-w-[160px] items-center gap-1">
+            <GitBranch className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate font-mono">{formatBranchLabel(item.branch)}</span>
+          </TagPill>
+          <LastInputPill
+            tone={lastInputTone}
+            label={<Clock className="h-3 w-3" />}
+            srLabel="Last input"
+            value={formatRelativeTime(item.lastInputAt, nowMs)}
+            size="xs"
+            showDot={false}
+            className="ml-auto"
+          />
+        </div>
+      </SurfaceButton>
+      <div className="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col gap-1">
+        <IconButton
+          type="button"
+          onClick={() => onOpenSessionLink(item.paneId)}
+          variant={isCurrent ? "lavenderStrong" : "lavender"}
+          size="sm"
+          aria-label="Open session link"
+          className="shadow-elev-3 z-10"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </IconButton>
+        <IconButton
+          type="button"
+          onClick={() => onOpenSessionLinkInNewWindow(item.paneId)}
+          variant={isCurrent ? "lavenderStrong" : "lavender"}
+          size="sm"
+          aria-label="Open session link in new window"
+          className="shadow-elev-3 z-10"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </IconButton>
+      </div>
+    </div>
+  );
+};
+
 export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
   const { open, sessionGroups, allSessions, nowMs, currentPaneId } = state;
   const { onOpenLogModal, onOpenSessionLink, onOpenSessionLinkInNewWindow, onClose, onToggle } =
@@ -239,107 +347,17 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                             </TagPill>
                           </div>
                           <div className="mt-1.5 space-y-2 sm:mt-2">
-                            {windowGroup.sessions.map((item) => {
-                              const displayTitle = resolveSessionDisplayTitle(item);
-                              const lastInputTone = getLastInputTone(
-                                item.lastInputAt ?? null,
-                                nowMs,
-                              );
-                              const statusMeta = isSessionEditorState(item)
-                                ? {
-                                    ...statusIconMeta("UNKNOWN"),
-                                    className: "text-latte-maroon",
-                                    wrap: "border-latte-maroon/45 bg-latte-maroon/14",
-                                    label: "EDITOR",
-                                  }
-                                : statusIconMeta(item.state);
-                              const agentMeta = agentIconMeta(item.agent);
-                              const StatusIcon = statusMeta.icon;
-                              const AgentIcon = agentMeta.icon;
-                              const isCurrent = currentPaneId === item.paneId;
-                              return (
-                                <div key={item.paneId} className="relative pr-11">
-                                  <SurfaceButton
-                                    type="button"
-                                    onClick={() => onOpenLogModal(item.paneId)}
-                                    aria-current={isCurrent ? "true" : undefined}
-                                    className={cn(
-                                      "flex w-full min-w-0 flex-col gap-2.5",
-                                      isCurrent &&
-                                        "border-latte-lavender/70 bg-latte-lavender/10 shadow-accent",
-                                    )}
-                                  >
-                                    <div className="flex min-w-0 items-center gap-2">
-                                      <span
-                                        className={cn(
-                                          "inline-flex h-6 w-6 items-center justify-center rounded-full border",
-                                          statusMeta.wrap,
-                                        )}
-                                        aria-label={statusMeta.label}
-                                      >
-                                        <StatusIcon
-                                          className={cn("h-3.5 w-3.5", statusMeta.className)}
-                                        />
-                                      </span>
-                                      <span className="text-latte-text min-w-0 truncate text-sm font-semibold">
-                                        {displayTitle}
-                                      </span>
-                                    </div>
-                                    <div className="flex w-full flex-wrap items-center gap-2">
-                                      <span
-                                        className={cn(
-                                          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
-                                          agentMeta.wrap,
-                                        )}
-                                        aria-label={agentMeta.label}
-                                      >
-                                        <AgentIcon className={cn("h-3 w-3", agentMeta.className)} />
-                                      </span>
-                                      <TagPill
-                                        tone="meta"
-                                        className="inline-flex max-w-[160px] items-center gap-1"
-                                      >
-                                        <GitBranch className="h-2.5 w-2.5 shrink-0" />
-                                        <span className="truncate font-mono">
-                                          {formatBranchLabel(item.branch)}
-                                        </span>
-                                      </TagPill>
-                                      <LastInputPill
-                                        tone={lastInputTone}
-                                        label={<Clock className="h-3 w-3" />}
-                                        srLabel="Last input"
-                                        value={formatRelativeTime(item.lastInputAt, nowMs)}
-                                        size="xs"
-                                        showDot={false}
-                                        className="ml-auto"
-                                      />
-                                    </div>
-                                  </SurfaceButton>
-                                  <div className="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col gap-1">
-                                    <IconButton
-                                      type="button"
-                                      onClick={() => onOpenSessionLink(item.paneId)}
-                                      variant={isCurrent ? "lavenderStrong" : "lavender"}
-                                      size="sm"
-                                      aria-label="Open session link"
-                                      className="shadow-elev-3 z-10"
-                                    >
-                                      <ArrowRight className="h-3.5 w-3.5" />
-                                    </IconButton>
-                                    <IconButton
-                                      type="button"
-                                      onClick={() => onOpenSessionLinkInNewWindow(item.paneId)}
-                                      variant={isCurrent ? "lavenderStrong" : "lavender"}
-                                      size="sm"
-                                      aria-label="Open session link in new window"
-                                      className="shadow-elev-3 z-10"
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </IconButton>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {windowGroup.sessions.map((item) => (
+                              <QuickPanelSessionItem
+                                key={item.paneId}
+                                item={item}
+                                nowMs={nowMs}
+                                currentPaneId={currentPaneId}
+                                onOpenLogModal={onOpenLogModal}
+                                onOpenSessionLink={onOpenSessionLink}
+                                onOpenSessionLinkInNewWindow={onOpenSessionLinkInNewWindow}
+                              />
+                            ))}
                           </div>
                         </div>
                       ))}

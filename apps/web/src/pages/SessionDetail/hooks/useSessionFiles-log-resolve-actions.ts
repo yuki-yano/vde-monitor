@@ -101,6 +101,8 @@ export const useSessionFilesLogResolveActions = (
       }
 
       if (reference.normalizedPath) {
+        // False positive: the stale request guard is evaluated after path resolution.
+        // react-doctor-disable-next-line async-defer-await
         const opened = await tryOpenExistingPath({
           paneId: sourcePaneId,
           path: reference.normalizedPath,

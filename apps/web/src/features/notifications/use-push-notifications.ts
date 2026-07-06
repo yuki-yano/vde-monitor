@@ -1,6 +1,7 @@
 import { type NotificationSettings, dedupeStrings } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useLazyRef } from "@/lib/use-lazy-ref";
 import { useSessionConfigData } from "@/state/session-context";
 
 const DEVICE_ID_STORAGE_KEY = "vde-monitor-push-device-id";
@@ -114,18 +115,16 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
   const [status, setStatus] = useState<PushUiStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [enabledPaneIds, setEnabledPaneIds] = useState<string[]>(() => readEnabledPaneIds());
-  const subscriptionIdRef = useRef<string | null>(
-    localStorage.getItem(SUBSCRIPTION_ID_STORAGE_KEY),
-  );
+  const subscriptionIdRef = useLazyRef(() => localStorage.getItem(SUBSCRIPTION_ID_STORAGE_KEY));
   const [subscriptionId, setSubscriptionId] = useState<string | null>(
     () => subscriptionIdRef.current,
   );
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const deviceIdRef = useRef<string>(readOrCreateDeviceId());
+  const deviceIdRef = useLazyRef(() => readOrCreateDeviceId());
 
   useEffect(() => {
     subscriptionIdRef.current = subscriptionId;
-  }, [subscriptionId]);
+  }, [subscriptionId, subscriptionIdRef]);
 
   const apiBasePath = useMemo(() => {
     const normalized = apiBaseUrl?.trim();
@@ -183,7 +182,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
       setStatus("subscribed");
       setIsSubscribed(true);
     },
-    [apiBasePath, token],
+    [apiBasePath, deviceIdRef, subscriptionIdRef, token],
   );
 
   const revokeServerSubscription = useCallback(
@@ -217,7 +216,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         }),
       });
     },
-    [apiBasePath, token],
+    [apiBasePath, deviceIdRef, subscriptionIdRef, token],
   );
 
   const disableNotifications = useCallback(async () => {
@@ -247,7 +246,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
       setIsSubscribed(false);
       setStatus("idle");
     }
-  }, [revokeServerSubscription]);
+  }, [revokeServerSubscription, subscriptionIdRef]);
 
   const syncCurrentSubscription = useCallback(
     async (paneIds: string[]) => {
@@ -331,6 +330,8 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
     syncCurrentSubscription,
   ]);
 
+  // Push availability and subscription state must be reconciled when notification context changes.
+  // react-doctor-disable-next-line no-fetch-in-effect
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
