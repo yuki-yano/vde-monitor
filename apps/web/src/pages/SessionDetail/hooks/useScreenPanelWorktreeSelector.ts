@@ -1,4 +1,6 @@
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, type SetStateAction, useCallback, useEffect, useReducer } from "react";
+
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 const WORKTREE_SELECTOR_OPEN_BODY_DATASET_KEY = "vdeWorktreeSelectorOpen";
 const WORKTREE_SELECTOR_REFRESH_INTERVAL_MS = 10_000;
@@ -16,8 +18,29 @@ export const useScreenPanelWorktreeSelector = ({
   onRefreshWorktrees,
   containerRef,
 }: UseScreenPanelWorktreeSelectorArgs) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const lastClosedAtRef = useRef(Date.now());
+  const [, forceRender] = useReducer((version: number) => version + 1, 0);
+  const lastClosedAtRef = useLazyRef(() => Date.now());
+  const requestedOpenRef = useLazyRef(() => false);
+  if (!enabled && requestedOpenRef.current) {
+    requestedOpenRef.current = false;
+  }
+  const isOpen = enabled && requestedOpenRef.current;
+
+  const setRequestedOpen = useCallback(
+    (next: SetStateAction<boolean>) => {
+      const nextOpen =
+        typeof next === "function"
+          ? (next as (previous: boolean) => boolean)(requestedOpenRef.current)
+          : next;
+      const normalizedOpen = enabled && nextOpen;
+      if (requestedOpenRef.current === normalizedOpen) {
+        return;
+      }
+      requestedOpenRef.current = normalizedOpen;
+      forceRender();
+    },
+    [enabled, requestedOpenRef],
+  );
 
   const refreshWorktrees = useCallback(() => {
     if (onRefreshWorktrees) {
@@ -26,12 +49,6 @@ export const useScreenPanelWorktreeSelector = ({
     }
     onRefreshScreen();
   }, [onRefreshScreen, onRefreshWorktrees]);
-
-  useEffect(() => {
-    if (!enabled && isOpen) {
-      setIsOpen(false);
-    }
-  }, [enabled, isOpen]);
 
   useEffect(() => {
     if (!enabled) {
@@ -51,7 +68,7 @@ export const useScreenPanelWorktreeSelector = ({
     return () => {
       window.clearInterval(timerId);
     };
-  }, [enabled, isOpen, refreshWorktrees]);
+  }, [enabled, isOpen, lastClosedAtRef, refreshWorktrees]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -78,19 +95,19 @@ export const useScreenPanelWorktreeSelector = ({
         return;
       }
       if (event.target instanceof Node && !containerNode.contains(event.target)) {
-        setIsOpen(false);
+        setRequestedOpen(false);
       }
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [containerRef, isOpen]);
+  }, [containerRef, isOpen, setRequestedOpen]);
 
   return {
     isOpen,
-    setIsOpen,
-    close: () => setIsOpen(false),
-    toggle: () => setIsOpen((previous) => !previous),
+    setIsOpen: setRequestedOpen,
+    close: () => setRequestedOpen(false),
+    toggle: () => setRequestedOpen((previous) => !previous),
   };
 };

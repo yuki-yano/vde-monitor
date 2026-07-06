@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 
@@ -33,22 +33,17 @@ export const useScreenPollingPauseReason = ({
   connected: boolean;
   connectionIssue: string | null;
 }) => {
-  const [pollingPauseReason, setPollingPauseReason] = useState<PollingPauseReason>(() =>
-    resolvePollingPauseReason({ connected, connectionIssue }),
-  );
-
-  useEffect(() => {
-    setPollingPauseReason(resolvePollingPauseReason({ connected, connectionIssue }));
-  }, [connected, connectionIssue]);
+  const [, bumpBrowserStateVersion] = useReducer((version: number) => {
+    return version + 1;
+  }, 0);
+  const pollingPauseReason = resolvePollingPauseReason({ connected, connectionIssue });
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
     const targetDocument = typeof document !== "undefined" ? document : null;
-    const updatePauseReason = () => {
-      setPollingPauseReason(resolvePollingPauseReason({ connected, connectionIssue }));
-    };
+    const updatePauseReason = () => bumpBrowserStateVersion();
     window.addEventListener("online", updatePauseReason);
     window.addEventListener("offline", updatePauseReason);
     targetDocument?.addEventListener("visibilitychange", updatePauseReason);
@@ -59,7 +54,7 @@ export const useScreenPollingPauseReason = ({
       targetDocument?.removeEventListener("visibilitychange", updatePauseReason);
       window.removeEventListener("focus", updatePauseReason);
     };
-  }, [connected, connectionIssue]);
+  }, []);
 
   return pollingPauseReason;
 };

@@ -33,6 +33,8 @@ import {
   stateTone,
 } from "@/lib/session-format";
 
+const resolveBackToListSearch = () => ({ filter: readStoredSessionListFilter() });
+
 type SessionHeaderState = {
   session: SessionSummary;
   connectionIssue: string | null;
@@ -285,7 +287,7 @@ export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
   const showEditorState = session.state === "UNKNOWN" && isEditorCommand(session.currentCommand);
   const stateBadgeTone = showEditorState ? "editor" : stateTone(session.state);
   const stateBadgeLabel = showEditorState ? "EDITOR" : formatStateLabel(session.state);
-  const backToListSearch = { filter: readStoredSessionListFilter() };
+  const backToListSearch = resolveBackToListSearch();
   const repoGitHubUrl = buildGitHubRepoUrl(session.repoRoot ?? session.currentPath);
 
   return (

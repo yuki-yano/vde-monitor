@@ -1,15 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
-import {
-  type HTMLAttributes,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import {
@@ -27,12 +19,12 @@ import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-con
 import {
   logModalDisplayLinesAtom,
   logModalIsAtBottomAtom,
+  logModalSnapRequestAtom,
 } from "@/features/shared-session-ui/atoms/logAtoms";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
 import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 import { resolveSessionDisplayTitle } from "@/features/shared-session-ui/model/session-display";
 import { sanitizeLogCopyText } from "@/lib/clipboard";
-import { cn } from "@/lib/cn";
 
 type LogModalState = {
   open: boolean;
@@ -57,14 +49,18 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
   const { open, session, logLines, loading, error } = state;
   const { onClose, onOpenHere, onOpenNewTab } = actions;
   const { enabled: pwaTabsEnabled } = useWorkspaceTabs();
+  const snapRequest = useAtomValue(logModalSnapRequestAtom);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useAtom(logModalIsAtBottomAtom);
   const [displayLines, setDisplayLines] = useAtom(logModalDisplayLinesAtom);
   const pendingLinesRef = useRef<string[] | null>(null);
   const isUserScrollingRef = useRef(false);
-  const shouldSnapOnNextLinesRef = useRef(false);
-  const prevOpenRef = useRef(open);
-  const prevSessionPaneIdRef = useRef<string | null>(session?.paneId ?? null);
+  const shouldSnapOnNextLinesRef = useRef(open);
+  const lastSnapRequestRef = useRef(snapRequest);
+  if (lastSnapRequestRef.current !== snapRequest) {
+    lastSnapRequestRef.current = snapRequest;
+    shouldSnapOnNextLinesRef.current = true;
+  }
   const handleUserScrollStateChange = useCallback(
     (value: boolean) => {
       isUserScrollingRef.current = value;
@@ -81,46 +77,6 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     enabled: open,
     onUserScrollStateChange: handleUserScrollStateChange,
   });
-
-  const VirtuosoScroller = useMemo(() => {
-    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-      ({ className, ...props }, ref) => (
-        <div
-          ref={(node) => {
-            if (typeof ref === "function") {
-              ref(node);
-            } else if (ref) {
-              ref.current = node;
-            }
-            scrollerRef.current = node;
-          }}
-          {...props}
-          className={cn(
-            "custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-2xl",
-            className,
-          )}
-        />
-      ),
-    );
-    Component.displayName = "VirtuosoScroller";
-    return Component;
-  }, [scrollerRef]);
-
-  useEffect(() => {
-    if (!open) {
-      prevOpenRef.current = false;
-      return;
-    }
-    const currentPaneId = session?.paneId ?? null;
-    const didOpenNow = !prevOpenRef.current;
-    const paneChanged = prevSessionPaneIdRef.current !== currentPaneId;
-    if (didOpenNow || paneChanged) {
-      shouldSnapOnNextLinesRef.current = true;
-      setIsAtBottom(true);
-    }
-    prevOpenRef.current = true;
-    prevSessionPaneIdRef.current = currentPaneId;
-  }, [open, session?.paneId, setIsAtBottom]);
 
   useEffect(() => {
     if (!open) {
@@ -249,7 +205,8 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
             onAtBottomChange={setIsAtBottom}
             onRangeChanged={handleRangeChanged}
             virtuosoRef={virtuosoRef}
-            scroller={VirtuosoScroller}
+            scrollerRef={scrollerRef}
+            scrollerClassName="overscroll-contain"
             onScrollToBottom={scrollToBottom}
             className="border-latte-surface2/50 bg-latte-crust/60 shadow-inner-soft relative mt-2.5 flex min-h-0 w-full flex-1 rounded-2xl border sm:mt-3"
             viewportClassName="h-full w-full min-w-0 max-w-full"

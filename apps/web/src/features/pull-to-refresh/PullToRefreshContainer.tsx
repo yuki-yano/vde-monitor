@@ -136,8 +136,8 @@ export const PullToRefreshContainer = ({
 
     content.addEventListener("touchstart", handleTouchStart, { passive: true });
     content.addEventListener("touchmove", handleTouchMove, { passive: false });
-    content.addEventListener("touchend", handleTouchEnd);
-    content.addEventListener("touchcancel", handleTouchCancel);
+    content.addEventListener("touchend", handleTouchEnd, { passive: true });
+    content.addEventListener("touchcancel", handleTouchCancel, { passive: true });
     return () => {
       content.removeEventListener("touchstart", handleTouchStart);
       content.removeEventListener("touchmove", handleTouchMove);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ScreenMode } from "@/lib/screen-loading";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import type { ScreenWrapMode } from "../atoms/screenAtoms";
 import {
@@ -12,6 +13,7 @@ import {
 const VISIBLE_REFERENCE_LINE_PADDING = 20;
 const FALLBACK_VISIBLE_REFERENCE_WINDOW = 120;
 const LINE_TOKEN_CACHE_LIMIT = 2000;
+const EMPTY_LINKABLE_TOKENS = new Set<string>();
 
 type ScreenRange = { startIndex: number; endIndex: number };
 
@@ -69,33 +71,39 @@ export const useScreenPanelLogReferenceLinking = ({
   const [visibleRange, setVisibleRange] = useState<ScreenRange | null>(null);
   const activeResolveCandidatesRequestIdRef = useRef(0);
   const lastResolveContextRef = useRef<ResolveContext | null>(null);
-  const lineTokenCacheRef = useRef<Map<string, string[]>>(new Map());
+  const lineTokenCacheRef = useLazyRef(() => new Map<string, string[]>());
 
-  const extractCachedTokensFromLine = useCallback((line: string) => {
-    const cache = lineTokenCacheRef.current;
-    const cached = cache.get(line);
-    if (cached) {
-      cache.delete(line);
-      cache.set(line, cached);
-      return cached;
-    }
-    const extracted = extractLogReferenceTokensFromLine(line);
-    cache.set(line, extracted);
-    if (cache.size > LINE_TOKEN_CACHE_LIMIT) {
-      const oldestKey = cache.keys().next().value;
-      if (oldestKey != null) {
-        cache.delete(oldestKey);
+  const extractCachedTokensFromLine = useCallback(
+    (line: string) => {
+      const cache = lineTokenCacheRef.current;
+      const cached = cache.get(line);
+      if (cached) {
+        cache.delete(line);
+        cache.set(line, cached);
+        return cached;
       }
-    }
-    return extracted;
-  }, []);
+      const extracted = extractLogReferenceTokensFromLine(line);
+      cache.set(line, extracted);
+      if (cache.size > LINE_TOKEN_CACHE_LIMIT) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey != null) {
+          cache.delete(oldestKey);
+        }
+      }
+      return extracted;
+    },
+    [lineTokenCacheRef],
+  );
 
+  // react-doctor-disable-next-line no-event-handler
   const visibleRangeForMemo = effectiveWrapMode === "smart" ? null : visibleRange;
 
   const referenceCandidateTokens = useMemo(() => {
+    // react-doctor-disable-next-line no-event-handler
     if (mode !== "text") {
       return [];
     }
+    // react-doctor-disable-next-line no-event-handler
     if (screenLines.length === 0) {
       return [];
     }
@@ -144,6 +152,8 @@ export const useScreenPanelLogReferenceLinking = ({
     () => new Set(referenceCandidateTokens),
     [referenceCandidateTokens],
   );
+  const activeLinkableTokens =
+    referenceCandidateTokens.length > 0 ? linkableTokens : EMPTY_LINKABLE_TOKENS;
 
   useEffect(() => {
     const resolveContext: ResolveContext = {
@@ -167,7 +177,6 @@ export const useScreenPanelLogReferenceLinking = ({
     activeResolveCandidatesRequestIdRef.current = requestId;
 
     if (referenceCandidateTokens.length === 0) {
-      setLinkableTokens((previous) => (previous.size === 0 ? previous : new Set()));
       return;
     }
 
@@ -224,16 +233,16 @@ export const useScreenPanelLogReferenceLinking = ({
       return screenLines;
     }
     if (
-      linkableTokens.size === 0 &&
+      activeLinkableTokens.size === 0 &&
       screenLines.every((line) => !line.includes("http://") && !line.includes("https://"))
     ) {
       return screenLines;
     }
     return screenLines.map((line) => {
       let linkifiedLine = line;
-      if (linkableTokens.size > 0) {
+      if (activeLinkableTokens.size > 0) {
         linkifiedLine = linkifyLogLineFileReferences(linkifiedLine, {
-          isLinkableToken: (rawToken) => linkableTokens.has(rawToken),
+          isLinkableToken: (rawToken) => activeLinkableTokens.has(rawToken),
         });
       }
       if (linkifiedLine.includes("http://") || linkifiedLine.includes("https://")) {
@@ -241,7 +250,7 @@ export const useScreenPanelLogReferenceLinking = ({
       }
       return linkifiedLine;
     });
-  }, [linkableTokens, mode, screenLines]);
+  }, [activeLinkableTokens, mode, screenLines]);
 
   const handleScreenRangeChanged = useCallback(
     (range: ScreenRange) => {

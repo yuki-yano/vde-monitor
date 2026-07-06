@@ -10,7 +10,7 @@ import {
   normalizeChatGridPaneParam,
   serializeChatGridPaneParam,
 } from "./pages/ChatGrid/chatGridSearch";
-import { SessionDetailPage } from "./pages/SessionDetail";
+import { SessionDetailPage } from "./pages/SessionDetail/SessionDetailPage";
 import { SessionListPage } from "./pages/SessionList";
 import { normalizeSessionListSearchQuery } from "./pages/SessionList/sessionListSearch";
 import { UsageDashboardPage } from "./pages/UsageDashboard";

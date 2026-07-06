@@ -1,5 +1,5 @@
 import type { CommandResponse } from "@vde-monitor/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage } from "@/lib/api-utils";
@@ -36,6 +36,50 @@ type SendPaneTextOptions = {
   onSuccess?: () => void;
 };
 
+type PaneSendTextState = {
+  paneId: string;
+  isSending: boolean;
+  error: string | null;
+  inFlightRequestId: string | null;
+};
+
+type PaneSendTextAction =
+  | { type: "start"; paneId: string; requestId: string }
+  | { type: "fail"; paneId: string; error: string }
+  | { type: "success"; paneId: string }
+  | { type: "finish"; paneId: string };
+
+const buildPaneSendTextState = (paneId: string): PaneSendTextState => ({
+  paneId,
+  isSending: false,
+  error: null,
+  inFlightRequestId: null,
+});
+
+const paneSendTextReducer = (
+  state: PaneSendTextState,
+  action: PaneSendTextAction,
+): PaneSendTextState => {
+  if (state.paneId !== action.paneId) {
+    state = buildPaneSendTextState(action.paneId);
+  }
+  switch (action.type) {
+    case "start":
+      return {
+        paneId: action.paneId,
+        isSending: true,
+        error: null,
+        inFlightRequestId: action.requestId,
+      };
+    case "fail":
+      return { ...state, error: action.error };
+    case "success":
+      return { ...state, error: null };
+    case "finish":
+      return { ...state, isSending: false, inFlightRequestId: null };
+  }
+};
+
 export const usePaneSendText = ({
   paneId,
   mode,
@@ -45,17 +89,14 @@ export const usePaneSendText = ({
 }: UsePaneSendTextArgs) => {
   const sendTextInFlightRef = useRef(false);
   const lastFailedSendTextRef = useRef<FailedSendTextAttempt | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [inFlightRequestId, setInFlightRequestId] = useState<string | null>(null);
-
-  useEffect(() => {
+  const activePaneIdRef = useRef(paneId);
+  const [state, dispatch] = useReducer(paneSendTextReducer, paneId, buildPaneSendTextState);
+  if (activePaneIdRef.current !== paneId) {
+    activePaneIdRef.current = paneId;
     sendTextInFlightRef.current = false;
     lastFailedSendTextRef.current = null;
-    setIsSending(false);
-    setError(null);
-    setInFlightRequestId(null);
-  }, [paneId]);
+  }
+  const visibleState = state.paneId === paneId ? state : buildPaneSendTextState(paneId);
 
   const send = useCallback(
     async ({ text, enter, skip = false, confirm, onSuccess }: SendPaneTextOptions) => {
@@ -76,13 +117,12 @@ export const usePaneSendText = ({
           : buildSendTextRequestId();
 
       sendTextInFlightRef.current = true;
-      setIsSending(true);
-      setInFlightRequestId(requestId);
+      dispatch({ type: "start", paneId, requestId });
       try {
         const result = await sendText(paneId, text, enter, requestId);
         if (!result.ok) {
           const message = resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendText);
-          setError(message);
+          dispatch({ type: "fail", paneId, error: message });
           setScreenError(message);
           lastFailedSendTextRef.current = {
             paneId,
@@ -92,7 +132,7 @@ export const usePaneSendText = ({
           };
           return false;
         }
-        setError(null);
+        dispatch({ type: "success", paneId });
         lastFailedSendTextRef.current = null;
         onSuccess?.();
         if (mode === "text") {
@@ -101,8 +141,7 @@ export const usePaneSendText = ({
         return true;
       } finally {
         sendTextInFlightRef.current = false;
-        setIsSending(false);
-        setInFlightRequestId(null);
+        dispatch({ type: "finish", paneId });
       }
     },
     [mode, paneId, scrollToBottom, sendText, setScreenError],
@@ -110,8 +149,8 @@ export const usePaneSendText = ({
 
   return {
     send,
-    isSending,
-    error,
-    inFlightRequestId,
+    isSending: visibleState.isSending,
+    error: visibleState.error,
+    inFlightRequestId: visibleState.inFlightRequestId,
   };
 };

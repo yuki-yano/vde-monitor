@@ -201,32 +201,40 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
   const commits = getCommits(commitLog);
   const showEmptyState = isCommitListEmpty(commitLog);
   const canLoadMore = shouldShowLoadMore(commitLog, commitHasMore);
+  const sectionAction = useMemo(
+    () => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+        onClick={onRefresh}
+        disabled={commitLoading}
+        aria-label="Refresh commit log"
+      >
+        <RefreshCw className="h-4 w-4" />
+        <span className="sr-only">Refresh</span>
+      </Button>
+    ),
+    [commitLoading, onRefresh],
+  );
+  const sectionStatus = useMemo(
+    () => (
+      <>
+        <CommitVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
+        <CommitRepoRoot repoRoot={commitLog?.repoRoot} />
+        <CommitReasonCallout reason={commitLog?.reason} />
+        <CommitErrorCallout commitError={commitError} />
+      </>
+    ),
+    [commitError, commitLog?.reason, commitLog?.repoRoot, onClearVirtualBranch, virtualBranch],
+  );
 
   return (
     <PaneSectionShell
       title="Commit Log"
       description={commitHeaderDescription}
-      action={
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
-          onClick={onRefresh}
-          disabled={commitLoading}
-          aria-label="Refresh commit log"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span className="sr-only">Refresh</span>
-        </Button>
-      }
-      status={
-        <>
-          <CommitVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
-          <CommitRepoRoot repoRoot={commitLog?.repoRoot} />
-          <CommitReasonCallout reason={commitLog?.reason} />
-          <CommitErrorCallout commitError={commitError} />
-        </>
-      }
+      action={sectionAction}
+      status={sectionStatus}
     >
       <div className={buildCommitListClassName(commitLoading)}>
         <CommitLoadingOverlay commitLoading={commitLoading} />

@@ -164,6 +164,8 @@ self.addEventListener("notificationclick", (event) => {
           continue;
         }
         try {
+          // False positive: focus/navigate must stop at the first usable client.
+          // react-doctor-disable-next-line async-await-in-loop
           await client.focus();
           if ("navigate" in client) {
             await client.navigate(targetUrl);

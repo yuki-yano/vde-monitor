@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage, resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import {
   type ScreenCacheEntry,
@@ -93,7 +94,7 @@ export const useScreenCache = ({
   const [error, setError] = useAtom(getScreenCacheErrorAtom(cacheKey));
 
   const cacheRef = useRef<Record<string, ScreenCacheEntry>>({});
-  const inflightRef = useRef(new Set<string>());
+  const inflightRef = useLazyRef(() => new Set<string>());
   const requestIdRef = useRef(0);
   const latestRequestRef = useRef<Record<string, number>>({});
 
@@ -139,6 +140,7 @@ export const useScreenCache = ({
     },
     [
       lines,
+      inflightRef,
       loadErrorMessage,
       mode,
       requestFailedMessage,
@@ -175,7 +177,7 @@ export const useScreenCache = ({
       setError((prev) => ({ ...prev, [paneId]: null }));
       await executeFetchRequest({ paneId, options, requestId });
     },
-    [connected, connectionIssue, executeFetchRequest, setError, setLoading, ttlMs],
+    [connected, connectionIssue, executeFetchRequest, inflightRef, setError, setLoading, ttlMs],
   );
 
   const clearCache = useCallback(
@@ -217,7 +219,7 @@ export const useScreenCache = ({
         return next;
       });
     },
-    [setCache, setError, setLoading],
+    [inflightRef, setCache, setError, setLoading],
   );
 
   return {

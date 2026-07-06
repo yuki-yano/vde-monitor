@@ -65,6 +65,22 @@ export const SessionSidebarGroupList = ({
           (total, windowGroup) => total + windowGroup.sessions.length,
           0,
         );
+        const sessionPaneCandidatesBySessionName = new Map<
+          string,
+          (typeof group.windowGroups)[number]["sessions"]
+        >();
+        group.windowGroups.forEach((windowGroup) => {
+          const existingCandidates = sessionPaneCandidatesBySessionName.get(
+            windowGroup.sessionName,
+          );
+          if (existingCandidates) {
+            existingCandidates.push(...windowGroup.sessions);
+            return;
+          }
+          sessionPaneCandidatesBySessionName.set(windowGroup.sessionName, [
+            ...windowGroup.sessions,
+          ]);
+        });
         return (
           <div key={group.repoRoot ?? "no-repo"} className="space-y-3">
             <div className="border-latte-surface2/70 bg-latte-base/80 flex items-center justify-between gap-2 rounded-2xl border px-3 py-2">
@@ -98,9 +114,8 @@ export const SessionSidebarGroupList = ({
                 if (shouldRenderLaunchButtons) {
                   launchedSessions.add(windowGroup.sessionName);
                 }
-                const sessionPaneCandidates = group.windowGroups
-                  .filter((candidate) => candidate.sessionName === windowGroup.sessionName)
-                  .flatMap((candidate) => candidate.sessions);
+                const sessionPaneCandidates =
+                  sessionPaneCandidatesBySessionName.get(windowGroup.sessionName) ?? [];
                 const launchSourceSession = selectLaunchSourceSession(sessionPaneCandidates);
 
                 return (

@@ -19,6 +19,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import { createNextSearchRequestId } from "./session-files-search-effect";
 import { useSessionFilesContextResetEffect } from "./useSessionFiles-context-reset-effect";
@@ -91,14 +92,14 @@ export const useSessionFiles = ({
   // Refs hold in-flight request bookkeeping only (request maps, request-id
   // counters, a mirror of treePages for synchronous reads from callbacks).
   // None of this should trigger a re-render, so it stays outside the reducer.
-  const treePageRequestMapRef = useRef(new Map<string, Promise<RepoFileTreePage>>());
-  const searchRequestMapRef = useRef(new Map<string, Promise<RepoFileSearchPage>>());
-  const fileContentRequestMapRef = useRef(new Map<string, Promise<RepoFileContent>>());
+  const treePageRequestMapRef = useLazyRef(() => new Map<string, Promise<RepoFileTreePage>>());
+  const searchRequestMapRef = useLazyRef(() => new Map<string, Promise<RepoFileSearchPage>>());
+  const fileContentRequestMapRef = useLazyRef(() => new Map<string, Promise<RepoFileContent>>());
   const activeSearchRequestIdRef = useRef(0);
   const activeFileContentRequestIdRef = useRef(0);
   const activeLogResolveRequestIdRef = useRef(0);
-  const logReferenceLinkableCacheRef = useRef(new Map<string, boolean>());
-  const logReferenceLinkableRequestMapRef = useRef(new Map<string, Promise<boolean>>());
+  const logReferenceLinkableCacheRef = useLazyRef(() => new Map<string, boolean>());
+  const logReferenceLinkableRequestMapRef = useLazyRef(() => new Map<string, Promise<boolean>>());
   const contextVersionRef = useRef(0);
   const treePagesRef = useRef<Record<string, RepoFileTreePage>>({});
 

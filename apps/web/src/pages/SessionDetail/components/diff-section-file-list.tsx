@@ -12,21 +12,9 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-import {
-  MAX_DIFF_LINES,
-  PREVIEW_DIFF_LINES,
-  diffStatusClass,
-  formatDiffCount,
-  formatDiffStatusLabel,
-} from "../sessionDetailUtils";
+import { diffStatusClass, formatDiffCount, formatDiffStatusLabel } from "../sessionDetailUtils";
 import { DiffPatch } from "./DiffPatch";
-
-type RenderedPatch = {
-  lines: string[];
-  truncated: boolean;
-  totalLines: number;
-  previewLines: number;
-};
+import type { RenderedPatch } from "./diff-section-file-list-utils";
 
 type DiffFilePatchContentProps = {
   filePath: string;
@@ -62,38 +50,6 @@ type DiffFileListProps = {
   onResolveFileReferenceCandidates?: (rawTokens: string[]) => Promise<string[]>;
 };
 
-const buildRenderedPatch = (patch: string, isExpanded: boolean): RenderedPatch => {
-  const lines = patch.split("\n");
-  const totalLines = lines.length;
-  const truncated = totalLines > MAX_DIFF_LINES && !isExpanded;
-  const visibleLines = truncated ? lines.slice(0, PREVIEW_DIFF_LINES) : lines;
-  return {
-    lines: visibleLines,
-    truncated,
-    totalLines,
-    previewLines: visibleLines.length,
-  };
-};
-
-export const buildRenderedPatches = (
-  diffOpen: Record<string, boolean>,
-  diffFiles: Record<string, DiffFile>,
-  expandedDiffs: Record<string, boolean>,
-) => {
-  const rendered: Record<string, RenderedPatch> = {};
-  Object.entries(diffOpen).forEach(([path, isOpen]) => {
-    if (!isOpen) {
-      return;
-    }
-    const patch = diffFiles[path]?.patch;
-    if (!patch) {
-      return;
-    }
-    rendered[path] = buildRenderedPatch(patch, Boolean(expandedDiffs[path]));
-  });
-  return rendered;
-};
-
 const resolveDiffPatchMessage = ({
   loadingFile,
   fileData,
@@ -112,9 +68,6 @@ const resolveDiffPatchMessage = ({
   }
   return null;
 };
-
-export const updateExpandedDiffs = (prev: Record<string, boolean>, path: string) =>
-  prev[path] ? prev : { ...prev, [path]: true };
 
 const DiffFilePatchContent = memo(
   ({

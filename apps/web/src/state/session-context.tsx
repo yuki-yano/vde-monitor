@@ -27,7 +27,7 @@ import type {
 } from "@vde-monitor/shared";
 import { Provider as JotaiProvider, createStore, useAtomValue, useSetAtom } from "jotai";
 import type { Context, ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import {
@@ -424,13 +424,10 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
 };
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
-  const storeRef = useRef<null | ReturnType<typeof createStore>>(null);
-  if (storeRef.current == null) {
-    storeRef.current = createStore();
-  }
+  const [store] = useState(createStore);
 
   return (
-    <JotaiProvider store={storeRef.current}>
+    <JotaiProvider store={store}>
       <SessionRuntime>{children}</SessionRuntime>
     </JotaiProvider>
   );
@@ -441,7 +438,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 // ---------------------------------------------------------------------------
 
 const useRequiredContext = <T,>(context: Context<T | null>): T => {
-  const value = useContext(context);
+  const value = use(context);
   if (value == null) {
     throw new Error("SessionProvider is required");
   }

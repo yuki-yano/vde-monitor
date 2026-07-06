@@ -6,6 +6,7 @@ import { useVisibilityPolling } from "@/lib/use-visibility-polling";
 
 const TIMELINE_POLL_INTERVAL_MS = 15_000;
 const TIMELINE_DEFAULT_RANGE: SessionStateTimelineRange = "24h";
+const COMPACT_ONLY_TIMELINE_RANGES = new Set<SessionStateTimelineRange>(["3d", "7d", "14d", "30d"]);
 
 type RequestUsageGlobalTimeline = (options: {
   range?: SessionStateTimelineRange;
@@ -74,17 +75,12 @@ export const useUsageTimelineData = ({
     void loadTimeline({ range: timelineRange });
   }, [loadTimeline, timelineRange]);
 
-  // Switch to compact view automatically for multi-day ranges.
-  useEffect(() => {
-    if (
-      timelineRange === "3d" ||
-      timelineRange === "7d" ||
-      timelineRange === "14d" ||
-      timelineRange === "30d"
-    ) {
+  const handleTimelineRangeChange = useCallback((nextRange: SessionStateTimelineRange) => {
+    setTimelineRange(nextRange);
+    if (COMPACT_ONLY_TIMELINE_RANGES.has(nextRange)) {
       setCompactTimeline(true);
     }
-  }, [timelineRange]);
+  }, []);
 
   useVisibilityPolling({
     enabled: canRequest,
@@ -102,7 +98,7 @@ export const useUsageTimelineData = ({
     timelineLoading,
     timelineError,
     timelineRange,
-    setTimelineRange,
+    setTimelineRange: handleTimelineRangeChange,
     compactTimeline,
     setCompactTimeline,
     loadTimeline,

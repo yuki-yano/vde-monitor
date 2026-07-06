@@ -223,6 +223,49 @@ describe("useSessionControls", () => {
     expect(setScreenError).not.toHaveBeenCalled();
   });
 
+  it("does not restore a previous pane send error after pane round-trip", async () => {
+    const sendText = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: "INTERNAL", message: "pane failed" },
+    });
+    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const scrollToBottom = vi.fn();
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      ({ paneId }: { paneId: string }) =>
+        useSessionControls({
+          paneId,
+          mode: "text",
+          sendText,
+          sendKeys,
+          sendRaw,
+          setScreenError,
+          scrollToBottom,
+        }),
+      { initialProps: { paneId: "pane-a" }, wrapper },
+    );
+
+    const textarea = document.createElement("textarea");
+    textarea.value = "echo fail";
+    act(() => {
+      result.current.textInputRef.current = textarea;
+    });
+
+    await act(async () => {
+      await result.current.handleSendText();
+    });
+    expect(result.current.sendError).toBe("pane failed");
+
+    rerender({ paneId: "pane-b" });
+    expect(result.current.sendError).toBeNull();
+
+    rerender({ paneId: "pane-a" });
+    expect(result.current.sendError).toBeNull();
+  });
+
   it("inserts uploaded image path at the current caret position", async () => {
     const sendText = vi.fn().mockResolvedValue({ ok: true });
     const sendKeys = vi.fn().mockResolvedValue({ ok: true });

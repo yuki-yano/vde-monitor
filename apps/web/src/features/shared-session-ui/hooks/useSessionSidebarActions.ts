@@ -1,4 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import {
   DEFAULT_SESSION_LIST_FILTER,
@@ -25,7 +27,7 @@ export const useSessionSidebarActions = ({
   const [filter, setFilter] = useState<SessionListFilter>(DEFAULT_SESSION_LIST_FILTER);
   const [focusPendingPaneIds, setFocusPendingPaneIds] = useState<Set<string>>(() => new Set());
   const [launchPendingSessions, setLaunchPendingSessions] = useState<Set<string>>(() => new Set());
-  const launchPendingRef = useRef<Set<string>>(new Set());
+  const launchPendingRef = useLazyRef(() => new Set<string>());
 
   const handleSelectSession = useCallback(
     (paneId: string) => {
@@ -85,7 +87,7 @@ export const useSessionSidebarActions = ({
         setLaunchPendingSessions(new Set(launchPendingRef.current));
       }
     },
-    [onLaunchAgentInSession],
+    [launchPendingRef, onLaunchAgentInSession],
   );
 
   const handleFilterChange = useCallback((next: string) => {

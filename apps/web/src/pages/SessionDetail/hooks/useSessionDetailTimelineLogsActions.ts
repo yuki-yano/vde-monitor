@@ -173,6 +173,8 @@ export const useSessionDetailTimelineLogsActions = ({
         let transitioned = false;
 
         while (Date.now() <= deadline) {
+          // False positive: this is a bounded polling loop waiting for tmux state propagation.
+          // react-doctor-disable-next-line async-await-in-loop
           await refreshSessions();
           const currentSessions = sessionsRef.current;
           const sourceSession = findSessionByPaneId(currentSessions, sourcePaneId);

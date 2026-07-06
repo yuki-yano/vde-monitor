@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 
 import { useSessionConfigData, useSessionCoreApi } from "@/state/session-context";
 
@@ -7,7 +7,7 @@ import { TokenInputBanner } from "./TokenInputBanner";
 export const AuthGate = ({ children }: { children: ReactNode }) => {
   const { authError } = useSessionConfigData();
   const { setToken, reconnect } = useSessionCoreApi();
-  const shouldBlock = useMemo(() => authError != null, [authError]);
+  const shouldBlock = authError != null;
 
   if (!shouldBlock) {
     return <>{children}</>;

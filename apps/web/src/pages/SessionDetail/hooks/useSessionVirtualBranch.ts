@@ -1,5 +1,5 @@
 import type { BranchList } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const VIRTUAL_BRANCH_STORAGE_KEY_PREFIX = "vde-monitor:virtual-branch:v1";
 
@@ -70,24 +70,41 @@ type UseSessionVirtualBranchArgs = {
 };
 
 export const useSessionVirtualBranch = ({ paneId, branchList }: UseSessionVirtualBranchArgs) => {
-  const [virtualBranch, setVirtualBranch] = useState<string | null>(null);
+  const invalidatedSelectionRef = useRef<{ paneId: string; branch: string } | null>(null);
+  const [virtualBranchState, setVirtualBranchState] = useState<{
+    paneId: string;
+    branch: string | null;
+    // react-doctor-disable-next-line no-event-handler
+  }>(() => ({ paneId, branch: null }));
 
   const branchNames = useMemo(
+    // react-doctor-disable-next-line no-event-handler
     () => new Set((branchList?.entries ?? []).map((entry) => entry.name)),
     [branchList],
   );
   const defaultBranch = branchList?.defaultBranch ?? null;
+  // react-doctor-disable-next-line no-event-handler
   const repoRoot = branchList?.repoRoot ?? null;
-
-  useEffect(() => {
-    setVirtualBranch(null);
-  }, [paneId]);
+  const storedVirtualBranch =
+    // react-doctor-disable-next-line no-event-handler
+    virtualBranchState.paneId === paneId &&
+    !(
+      invalidatedSelectionRef.current?.paneId === paneId &&
+      invalidatedSelectionRef.current.branch === virtualBranchState.branch
+    )
+      ? virtualBranchState.branch
+      : null;
+  const virtualBranch =
+    storedVirtualBranch && (branchNames.size === 0 || branchNames.has(storedVirtualBranch))
+      ? storedVirtualBranch
+      : null;
 
   // Restore stored selection once the branch list is available.
   useEffect(() => {
     if (!branchList || !repoRoot) {
       return;
     }
+    // react-doctor-disable-next-line no-event-handler
     const stored = readStoredSelection(paneId);
     if (!stored) {
       return;
@@ -100,19 +117,24 @@ export const useSessionVirtualBranch = ({ paneId, branchList }: UseSessionVirtua
       clearStoredSelection(paneId);
       return;
     }
-    setVirtualBranch((prev) => (prev === stored.branch ? prev : stored.branch));
+    invalidatedSelectionRef.current = null;
+    setVirtualBranchState((prev) =>
+      prev.paneId === paneId && prev.branch === stored.branch
+        ? prev
+        : { paneId, branch: stored.branch },
+    );
   }, [branchList, branchNames, defaultBranch, paneId, repoRoot]);
 
   // Drop the selection when the branch disappears (e.g. deleted).
   useEffect(() => {
-    if (!virtualBranch) {
+    if (!storedVirtualBranch) {
       return;
     }
-    if (branchNames.size > 0 && !branchNames.has(virtualBranch)) {
+    if (branchNames.size > 0 && !branchNames.has(storedVirtualBranch)) {
       clearStoredSelection(paneId);
-      setVirtualBranch(null);
+      invalidatedSelectionRef.current = { paneId, branch: storedVirtualBranch };
     }
-  }, [branchNames, paneId, virtualBranch]);
+  }, [branchNames, paneId, storedVirtualBranch]);
 
   useEffect(() => {
     if (!virtualBranch || !repoRoot) {
@@ -129,17 +151,20 @@ export const useSessionVirtualBranch = ({ paneId, branchList }: UseSessionVirtua
     (name: string) => {
       if (name === defaultBranch) {
         clearStoredSelection(paneId);
-        setVirtualBranch(null);
+        invalidatedSelectionRef.current = null;
+        setVirtualBranchState({ paneId, branch: null });
         return;
       }
-      setVirtualBranch(name);
+      invalidatedSelectionRef.current = null;
+      setVirtualBranchState({ paneId, branch: name });
     },
     [defaultBranch, paneId],
   );
 
   const clearVirtualBranch = useCallback(() => {
     clearStoredSelection(paneId);
-    setVirtualBranch(null);
+    invalidatedSelectionRef.current = null;
+    setVirtualBranchState({ paneId, branch: null });
   }, [paneId]);
 
   return {

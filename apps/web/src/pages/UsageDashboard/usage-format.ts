@@ -349,14 +349,14 @@ export const resolveRemainingBufferPercent = (metric: UsageMetricWindow): number
   return roundOne(metric.pace.elapsedPercent - metric.utilizationPercent);
 };
 
-export const renderBufferLabel = (bufferPercent: number | null) => {
+export const formatBufferLabel = (bufferPercent: number | null) => {
   if (bufferPercent == null) {
     return "Buffer unavailable";
   }
   return `Buffer ${formatPercent(bufferPercent, true)}`;
 };
 
-export const renderPaceLabel = (metric: UsageMetricWindow) => {
+export const formatPaceLabel = (metric: UsageMetricWindow) => {
   const paceMargin = metric.pace.paceMarginPercent;
   if (paceMargin == null) {
     return "Pace unavailable";
@@ -367,5 +367,5 @@ export const renderPaceLabel = (metric: UsageMetricWindow) => {
   return `Pace ${formatPercent(paceMargin, true)} over`;
 };
 
-export const renderUsedElapsedLabel = (metric: UsageMetricWindow) =>
+export const formatUsedElapsedLabel = (metric: UsageMetricWindow) =>
   `${formatCompactPercent(metric.utilizationPercent)} / ${formatCompactPercent(metric.pace.elapsedPercent)}`;

@@ -78,8 +78,11 @@ export const usePromptContextLayout = ({
   visibleFileChangeCategoriesKey,
 }: UsePromptContextLayoutArgs) => {
   const [isContextInStatusRow, setIsContextInStatusRow] = useState(false);
-  const [displayGitBranchLabel, setDisplayGitBranchLabel] = useState(gitBranchLabel);
-  const [isBranchLabelConstrained, setIsBranchLabelConstrained] = useState(false);
+  const [branchLabelLayout, setBranchLabelLayout] = useState(() => ({
+    sourceLabel: gitBranchLabel,
+    displayLabel: gitBranchLabel,
+    isConstrained: false,
+  }));
   const promptGitContextRowRef = useRef<HTMLDivElement | null>(null);
   const promptGitContextLeftRef = useRef<HTMLDivElement | null>(null);
   const contextLabelMeasureRef = useRef<HTMLSpanElement | null>(null);
@@ -128,16 +131,28 @@ export const usePromptContextLayout = ({
           return measureNode.getBoundingClientRect().width;
         })
       : gitBranchLabel;
-    setIsBranchLabelConstrained((previous) =>
-      previous === needsConstraint ? previous : needsConstraint,
-    );
-    setDisplayGitBranchLabel((previous) => (previous === nextLabel ? previous : nextLabel));
+    setBranchLabelLayout((previous) => {
+      if (
+        previous.sourceLabel === gitBranchLabel &&
+        previous.displayLabel === nextLabel &&
+        previous.isConstrained === needsConstraint
+      ) {
+        return previous;
+      }
+      return {
+        sourceLabel: gitBranchLabel,
+        displayLabel: nextLabel,
+        isConstrained: needsConstraint,
+      };
+    });
   }, [gitBranchLabel, worktreeSelectorEnabled]);
 
-  useEffect(() => {
-    setDisplayGitBranchLabel(gitBranchLabel);
-    setIsBranchLabelConstrained(false);
-  }, [gitBranchLabel]);
+  const displayGitBranchLabel =
+    branchLabelLayout.sourceLabel === gitBranchLabel
+      ? branchLabelLayout.displayLabel
+      : gitBranchLabel;
+  const isBranchLabelConstrained =
+    branchLabelLayout.sourceLabel === gitBranchLabel ? branchLabelLayout.isConstrained : false;
 
   useEffect(() => {
     evaluateBranchLabelPlacement();
@@ -177,10 +192,6 @@ export const usePromptContextLayout = ({
       window.removeEventListener("resize", onResize);
       resizeObserver?.disconnect();
     };
-  }, [evaluateBranchLabelPlacement]);
-
-  useEffect(() => {
-    evaluateBranchLabelPlacement();
   }, [
     evaluateBranchLabelPlacement,
     gitAdditionsLabel,

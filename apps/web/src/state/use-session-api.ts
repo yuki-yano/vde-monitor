@@ -10,9 +10,10 @@ import {
   type SessionSummary,
   type WorkspaceTabsDisplayMode,
 } from "@vde-monitor/shared";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
+import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import { createSessionActionRequests } from "./session-api-action-requests";
 import { createApiClient } from "./session-api-contract";
@@ -101,7 +102,7 @@ export const useSessionApi = ({
     () => createApiClient(apiBasePath, authHeaders),
     [apiBasePath, authHeaders],
   );
-  const screenInFlightRef = useRef(new Map<string, Promise<ScreenResponse>>());
+  const screenInFlightRef = useLazyRef(() => new Map<string, Promise<ScreenResponse>>());
 
   const refreshSessions = useCallback(async (): Promise<RefreshSessionsResult> => {
     return executeRefreshSessions({

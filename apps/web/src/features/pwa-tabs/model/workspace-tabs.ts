@@ -106,13 +106,17 @@ const pruneOverflowTabs = (
   }
   const nextTabs = [...tabs];
   while (nextTabs.length > maxCount) {
-    const candidate = nextTabs
-      .filter((tab) => tab.closable && tab.id !== activeTabId)
-      .sort((left, right) => left.lastActivatedAt - right.lastActivatedAt)[0];
-    if (!candidate) {
-      break;
-    }
-    const targetIndex = nextTabs.findIndex((tab) => tab.id === candidate.id);
+    let targetIndex = -1;
+    let oldestActivatedAt = Number.POSITIVE_INFINITY;
+    nextTabs.forEach((tab, index) => {
+      if (!tab.closable || tab.id === activeTabId) {
+        return;
+      }
+      if (tab.lastActivatedAt < oldestActivatedAt) {
+        oldestActivatedAt = tab.lastActivatedAt;
+        targetIndex = index;
+      }
+    });
     if (targetIndex < 0) {
       break;
     }
@@ -335,7 +339,10 @@ export const reorderWorkspaceTabs = (
   const reorderedClosableTabs = arrayMove(closableTabs, fromIndex, toIndex);
   const fixedTabs = state.tabs.filter((tab) => !tab.closable);
   const nextTabs = [...fixedTabs, ...reorderedClosableTabs];
-  if (nextTabs.every((tab, index) => tab.id === state.tabs[index]?.id)) {
+  if (
+    nextTabs.length === state.tabs.length &&
+    nextTabs.every((tab, index) => tab.id === state.tabs[index]?.id)
+  ) {
     return state;
   }
   return {
@@ -367,7 +374,10 @@ export const reorderWorkspaceTabsByClosableOrder = (
   }
   const fixedTabs = state.tabs.filter((tab) => !tab.closable);
   const nextTabs = [...fixedTabs, ...reorderedClosableTabs];
-  if (nextTabs.every((tab, index) => tab.id === state.tabs[index]?.id)) {
+  if (
+    nextTabs.length === state.tabs.length &&
+    nextTabs.every((tab, index) => tab.id === state.tabs[index]?.id)
+  ) {
     return state;
   }
   return {

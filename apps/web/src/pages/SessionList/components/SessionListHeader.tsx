@@ -26,6 +26,10 @@ type SessionListHeaderProps = {
 
 const SEARCH_INPUT_DEBOUNCE_MS = 180;
 
+const handleClearMouseDown = (event: MouseEvent<HTMLButtonElement>) => {
+  event.preventDefault();
+};
+
 type SessionListSearchInputProps = {
   initialSearchQuery: string;
   onSearchQueryChange: (value: string) => void;
@@ -118,9 +122,6 @@ const SessionListSearchInput = ({
     }
     setDraftSearchQuery("");
     publishSearchQuery("");
-  };
-  const handleClearMouseDown = (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
   };
 
   return (

@@ -7,7 +7,7 @@ import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
 
 import { commitStateAtom } from "../atoms/commitAtoms";
-import { AUTO_REFRESH_INTERVAL_MS, buildCommitLogSignature } from "../sessionDetailUtils";
+import { AUTO_REFRESH_INTERVAL_MS, buildCommitLogSnapshot } from "../sessionDetailUtils";
 import { type CommitAction, commitReducer } from "./commit-state-machine";
 import { runScopedRequest } from "./session-request-guard";
 import { useScopeGuard } from "./useScopeGuard";
@@ -97,7 +97,7 @@ export const useSessionCommits = ({
   } = state;
 
   const commitLogRef = useRef<CommitLog | null>(null);
-  const commitSignatureRef = useRef<string | null>(null);
+  const commitSnapshotRef = useRef<string | null>(null);
   const commitCopyTimeoutRef = useRef<number | null>(null);
   const onReconnectRef = useRef<() => void>(() => {});
   const pollTickRef = useRef<() => void>(() => {});
@@ -121,7 +121,7 @@ export const useSessionCommits = ({
     (log: CommitLog, options: { append: boolean; updateSignature: boolean }) => {
       dispatch({ type: "applyCommitLog", log, append: options.append, pageSize: commitPageSize });
       if (options.updateSignature) {
-        commitSignatureRef.current = buildCommitLogSignature(log);
+        commitSnapshotRef.current = buildCommitLogSnapshot(log);
       }
     },
     [commitPageSize, dispatch],
@@ -270,8 +270,8 @@ export const useSessionCommits = ({
           ...commitLogScopeOptions,
         }),
       onSuccess: (log) => {
-        const signature = buildCommitLogSignature(log);
-        if (signature === commitSignatureRef.current) {
+        const snapshot = buildCommitLogSnapshot(log);
+        if (snapshot === commitSnapshotRef.current) {
           return;
         }
         dispatch({ type: "setCommitError", error: null });
@@ -342,7 +342,7 @@ export const useSessionCommits = ({
 
   useEffect(() => {
     dispatch({ type: "reset" });
-    commitSignatureRef.current = null;
+    commitSnapshotRef.current = null;
     commitLogRef.current = null;
     if (commitCopyTimeoutRef.current) {
       window.clearTimeout(commitCopyTimeoutRef.current);
@@ -350,7 +350,10 @@ export const useSessionCommits = ({
     }
   }, [branch, dispatch, paneId, worktreePath]);
 
+  // False positive: commit log loading is lifecycle IO keyed by pane/worktree,
+  // and moving it to render or a user event would skip the initial load.
   useEffect(() => {
+    // react-doctor-disable-next-line no-pass-data-to-parent
     loadCommitLog({ force: true });
   }, [loadCommitLog]);
 

@@ -1,10 +1,12 @@
-import { type ButtonHTMLAttributes, forwardRef } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 
 import { cn } from "@/lib/cn";
 
-type RowButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
+type RowButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  ref?: Ref<HTMLButtonElement>;
+};
 
-const RowButton = forwardRef<HTMLButtonElement, RowButtonProps>(({ className, ...props }, ref) => {
+const RowButton = ({ className, ref, ...props }: RowButtonProps) => {
   return (
     <button
       ref={ref}
@@ -15,8 +17,6 @@ const RowButton = forwardRef<HTMLButtonElement, RowButtonProps>(({ className, ..
       {...props}
     />
   );
-});
-
-RowButton.displayName = "RowButton";
+};
 
 export { RowButton };

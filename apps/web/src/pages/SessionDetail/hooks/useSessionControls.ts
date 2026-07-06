@@ -84,6 +84,13 @@ export const useSessionControls = ({
   const [ctrlHeld, setCtrlHeld] = useAtom(controlsCtrlHeldAtom);
   const [rawMode, setRawMode] = useAtom(controlsRawModeAtom);
   const [allowDangerKeys, setAllowDangerKeys] = useAtom(controlsAllowDangerKeysAtom);
+  const paneVersionRef = useRef({ paneId, version: 0 });
+  if (paneVersionRef.current.paneId !== paneId) {
+    paneVersionRef.current = {
+      paneId,
+      version: paneVersionRef.current.version + 1,
+    };
+  }
   // Send-scoped error state: key send / permission shortcut / text send /
   // raw-mode direct typing / image upload failures all land here instead of
   // the shared screenError (screenErrorAtom, defined in ../atoms/screenAtoms.ts
@@ -92,7 +99,22 @@ export const useSessionControls = ({
   // that screenError may be showing at the same time. Kill pane/window are
   // deliberately excluded — those are one-off operations, not part of the
   // send flow, so screenError remains their error channel.
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendErrorState, setSendErrorState] = useState<{
+    paneId: string;
+    paneVersion: number;
+    error: string | null;
+  }>(() => ({ paneId, paneVersion: paneVersionRef.current.version, error: null }));
+  const sendError =
+    sendErrorState.paneId === paneId &&
+    sendErrorState.paneVersion === paneVersionRef.current.version
+      ? sendErrorState.error
+      : null;
+  const setSendError = useCallback(
+    (error: string | null) => {
+      setSendErrorState({ paneId, paneVersion: paneVersionRef.current.version, error });
+    },
+    [paneId],
+  );
 
   useEffect(() => {
     setAutoEnter(true);
@@ -100,7 +122,6 @@ export const useSessionControls = ({
     setCtrlHeld(false);
     setRawMode(false);
     setAllowDangerKeys(false);
-    setSendError(null);
   }, [paneId, setAllowDangerKeys, setAutoEnter, setCtrlHeld, setRawMode, setShiftHeld]);
 
   const { send: sendPaneText, isSending: isSendingText } = usePaneSendText({
@@ -167,7 +188,7 @@ export const useSessionControls = ({
         setSendError(null);
       },
     });
-  }, [autoEnter, rawMode, sendPaneText]);
+  }, [autoEnter, rawMode, sendPaneText, setSendError]);
 
   // Image upload is part of the composer's send flow (like ChatGridTile's
   // handlePickImage, which reports into composerError), so failures land on
@@ -190,7 +211,7 @@ export const useSessionControls = ({
         setSendError(resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.uploadImage));
       }
     },
-    [paneId, uploadImageAttachment],
+    [paneId, setSendError, uploadImageAttachment],
   );
 
   const toggleAutoEnter = useCallback(() => {

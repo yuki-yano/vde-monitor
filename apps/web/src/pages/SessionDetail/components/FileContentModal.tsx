@@ -66,6 +66,217 @@ const isMarkdownContent = (file: RepoFileContent | null, path: string | null) =>
   return false;
 };
 
+const FileContentModalHeader = ({
+  activePath,
+  title,
+  file,
+  showLineNumbers,
+  copiedPath,
+  onToggleLineNumbers,
+  onCopyPath,
+  onClose,
+}: {
+  activePath: string;
+  title: string;
+  file: RepoFileContent | null;
+  showLineNumbers: boolean;
+  copiedPath: boolean;
+  onToggleLineNumbers: () => void;
+  onCopyPath: () => Promise<void>;
+  onClose: () => void;
+}) => (
+  <div className="flex min-w-0 items-start gap-2 rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 md:px-3.5">
+    <div className="min-w-0 flex-1">
+      {activePath.length > 0 ? (
+        <FilePathLabel
+          path={activePath}
+          size="sm"
+          tailSegments={4}
+          dirTruncate="segments"
+          className="font-mono"
+        />
+      ) : (
+        <p className="text-latte-text truncate font-mono text-sm font-semibold" title={title}>
+          {title}
+        </p>
+      )}
+      {file?.truncated ? (
+        <p className="text-latte-subtext0 mt-1 text-xs">
+          Showing only the first {file.content?.length ?? 0} bytes.
+        </p>
+      ) : null}
+    </div>
+    <div className="flex shrink-0 items-center gap-1">
+      <IconButton
+        type="button"
+        variant={showLineNumbers ? "lavenderStrong" : "lavender"}
+        size="sm"
+        onClick={onToggleLineNumbers}
+        aria-label={showLineNumbers ? "Hide line numbers" : "Show line numbers"}
+      >
+        <ListOrdered className="h-4 w-4" />
+      </IconButton>
+      <IconButton
+        type="button"
+        variant={copiedPath ? "lavenderStrong" : "lavender"}
+        size="sm"
+        onClick={() => {
+          void onCopyPath();
+        }}
+        aria-label={copiedPath ? "File path copied" : "Copy file path"}
+      >
+        {copiedPath ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </IconButton>
+      <IconButton
+        type="button"
+        variant="dangerOutline"
+        size="sm"
+        onClick={onClose}
+        aria-label="Close file content modal"
+      >
+        <X className="h-4 w-4" />
+      </IconButton>
+    </div>
+  </div>
+);
+
+const FileContentModalBody = ({
+  loading,
+  error,
+  file,
+  imagePreviewSrc,
+  activePath,
+  markdownEnabled,
+  resolvedViewMode,
+  markdownComponents,
+  effectiveCode,
+  effectiveLanguage,
+  theme,
+  showLineNumbers,
+  highlightLine,
+  diffLoading,
+  diffError,
+  diffBinary,
+  diffPatch,
+}: {
+  loading: boolean;
+  error: string | null;
+  file: RepoFileContent | null;
+  imagePreviewSrc: string | null;
+  activePath: string;
+  markdownEnabled: boolean;
+  resolvedViewMode: "code" | "preview" | "diff";
+  markdownComponents: Components;
+  effectiveCode: string;
+  effectiveLanguage: string | null;
+  theme: Theme;
+  showLineNumbers: boolean;
+  highlightLine: number | null;
+  diffLoading: boolean;
+  diffError: string | null;
+  diffBinary: boolean;
+  diffPatch: string | null;
+}) => (
+  <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
+    {loading ? (
+      <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
+        <Spinner size="sm" />
+        <span className="text-latte-subtext0 text-xs">Loading file...</span>
+      </div>
+    ) : null}
+
+    {!loading && error ? (
+      <div className="p-3 sm:p-4">
+        <Callout tone="error" size="xs">
+          {error}
+        </Callout>
+      </div>
+    ) : null}
+
+    {!loading && !error && file?.isBinary && imagePreviewSrc && resolvedViewMode !== "diff" ? (
+      <div className="flex h-full items-center justify-center p-2 sm:p-4">
+        <img
+          src={imagePreviewSrc}
+          alt={`Preview of ${activePath || "image file"}`}
+          className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
+          loading="lazy"
+        />
+      </div>
+    ) : null}
+
+    {!loading && !error && file?.isBinary && !imagePreviewSrc && resolvedViewMode !== "diff" ? (
+      <div className="p-3 sm:p-4">
+        <Callout tone="warning" size="xs">
+          Binary file preview is not available.
+        </Callout>
+      </div>
+    ) : null}
+
+    {!loading && !error && !file?.isBinary && markdownEnabled && resolvedViewMode === "preview" ? (
+      <div className="custom-scrollbar h-full overflow-auto overscroll-contain">
+        <article className="vde-markdown text-latte-text space-y-4 p-3 sm:p-4 md:p-5">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {effectiveCode}
+          </ReactMarkdown>
+        </article>
+      </div>
+    ) : null}
+
+    {!loading &&
+    !error &&
+    !file?.isBinary &&
+    resolvedViewMode !== "diff" &&
+    (!markdownEnabled || resolvedViewMode === "code") ? (
+      <ShikiCodeBlock
+        code={effectiveCode}
+        language={effectiveLanguage}
+        theme={theme}
+        flush
+        showLineNumbers={showLineNumbers}
+        highlightLine={highlightLine}
+        className="h-full"
+      />
+    ) : null}
+
+    {!loading && !error && resolvedViewMode === "diff" ? (
+      diffLoading ? (
+        <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
+          <Spinner size="sm" />
+          <span className="text-latte-subtext0 text-xs">Loading diff...</span>
+        </div>
+      ) : diffError ? (
+        <div className="p-3 sm:p-4">
+          <Callout tone="error" size="xs">
+            {diffError}
+          </Callout>
+        </div>
+      ) : diffBinary ? (
+        <div className="p-3 sm:p-4">
+          <Callout tone="warning" size="xs">
+            Binary diff preview is not available.
+          </Callout>
+        </div>
+      ) : diffPatch == null ? (
+        <div className="p-3 sm:p-4">
+          <Callout tone="warning" size="xs">
+            No textual diff is available.
+          </Callout>
+        </div>
+      ) : (
+        <ShikiCodeBlock
+          code={diffPatch}
+          language="diff"
+          theme={theme}
+          flush
+          showLineNumbers={showLineNumbers}
+          highlightLine={null}
+          className="h-full"
+        />
+      )
+    ) : null}
+  </div>
+);
+
 export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
   const {
     open,
@@ -84,6 +295,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
     copyError,
     highlightLine,
     theme,
+    // react-doctor-disable-next-line no-event-handler
   } = state;
   const { onClose, onToggleLineNumbers, onCopyPath, onMarkdownViewModeChange, onLoadDiff } =
     actions;
@@ -290,59 +502,16 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
         onClick={onClose}
       />
       <Card className="border-latte-lavender/25 bg-latte-mantle/95 shadow-modal relative z-10 flex h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5rem),860px)] min-h-0 w-[min(1160px,calc(100vw-0.75rem))] flex-col gap-2 overflow-hidden rounded-3xl border-2 p-2.5 ring-1 ring-inset ring-white/10 sm:h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5.5rem),860px)] sm:w-[min(1160px,calc(100vw-1.5rem))] sm:p-4 md:h-[min(92dvh,920px)] md:p-5">
-        <div className="flex min-w-0 items-start gap-2 rounded-2xl px-2 py-2 sm:px-3 sm:py-2.5 md:px-3.5">
-          <div className="min-w-0 flex-1">
-            {activePath.length > 0 ? (
-              <FilePathLabel
-                path={activePath}
-                size="sm"
-                tailSegments={4}
-                dirTruncate="segments"
-                className="font-mono"
-              />
-            ) : (
-              <p className="text-latte-text truncate font-mono text-sm font-semibold" title={title}>
-                {title}
-              </p>
-            )}
-            {file?.truncated ? (
-              <p className="text-latte-subtext0 mt-1 text-xs">
-                Showing only the first {file.content?.length ?? 0} bytes.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <IconButton
-              type="button"
-              variant={showLineNumbers ? "lavenderStrong" : "lavender"}
-              size="sm"
-              onClick={onToggleLineNumbers}
-              aria-label={showLineNumbers ? "Hide line numbers" : "Show line numbers"}
-            >
-              <ListOrdered className="h-4 w-4" />
-            </IconButton>
-            <IconButton
-              type="button"
-              variant={copiedPath ? "lavenderStrong" : "lavender"}
-              size="sm"
-              onClick={() => {
-                void onCopyPath();
-              }}
-              aria-label={copiedPath ? "File path copied" : "Copy file path"}
-            >
-              {copiedPath ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </IconButton>
-            <IconButton
-              type="button"
-              variant="dangerOutline"
-              size="sm"
-              onClick={onClose}
-              aria-label="Close file content modal"
-            >
-              <X className="h-4 w-4" />
-            </IconButton>
-          </div>
-        </div>
+        <FileContentModalHeader
+          activePath={activePath}
+          title={title}
+          file={file}
+          showLineNumbers={showLineNumbers}
+          copiedPath={copiedPath}
+          onToggleLineNumbers={onToggleLineNumbers}
+          onCopyPath={onCopyPath}
+          onClose={onClose}
+        />
 
         {copyError ? (
           <Callout tone="error" size="xs">
@@ -369,116 +538,25 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
           </div>
         ) : null}
 
-        <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
-          {loading ? (
-            <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
-              <Spinner size="sm" />
-              <span className="text-latte-subtext0 text-xs">Loading file...</span>
-            </div>
-          ) : null}
-
-          {!loading && error ? (
-            <div className="p-3 sm:p-4">
-              <Callout tone="error" size="xs">
-                {error}
-              </Callout>
-            </div>
-          ) : null}
-
-          {!loading &&
-          !error &&
-          file?.isBinary &&
-          imagePreviewSrc &&
-          resolvedViewMode !== "diff" ? (
-            <div className="flex h-full items-center justify-center p-2 sm:p-4">
-              <img
-                src={imagePreviewSrc}
-                alt={`Preview of ${activePath || "image file"}`}
-                className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
-                loading="lazy"
-              />
-            </div>
-          ) : null}
-
-          {!loading &&
-          !error &&
-          file?.isBinary &&
-          !imagePreviewSrc &&
-          resolvedViewMode !== "diff" ? (
-            <div className="p-3 sm:p-4">
-              <Callout tone="warning" size="xs">
-                Binary file preview is not available.
-              </Callout>
-            </div>
-          ) : null}
-
-          {!loading &&
-          !error &&
-          !file?.isBinary &&
-          markdownEnabled &&
-          resolvedViewMode === "preview" ? (
-            <div className="custom-scrollbar h-full overflow-auto overscroll-contain">
-              <article className="vde-markdown text-latte-text space-y-4 p-3 sm:p-4 md:p-5">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {effectiveCode}
-                </ReactMarkdown>
-              </article>
-            </div>
-          ) : null}
-
-          {!loading &&
-          !error &&
-          !file?.isBinary &&
-          resolvedViewMode !== "diff" &&
-          (!markdownEnabled || resolvedViewMode === "code") ? (
-            <ShikiCodeBlock
-              code={effectiveCode}
-              language={effectiveLanguage}
-              theme={theme}
-              flush
-              showLineNumbers={showLineNumbers}
-              highlightLine={highlightLine}
-              className="h-full"
-            />
-          ) : null}
-
-          {!loading && !error && resolvedViewMode === "diff" ? (
-            diffLoading ? (
-              <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
-                <Spinner size="sm" />
-                <span className="text-latte-subtext0 text-xs">Loading diff...</span>
-              </div>
-            ) : diffError ? (
-              <div className="p-3 sm:p-4">
-                <Callout tone="error" size="xs">
-                  {diffError}
-                </Callout>
-              </div>
-            ) : diffBinary ? (
-              <div className="p-3 sm:p-4">
-                <Callout tone="warning" size="xs">
-                  Binary diff preview is not available.
-                </Callout>
-              </div>
-            ) : diffPatch == null ? (
-              <div className="p-3 sm:p-4">
-                <Callout tone="warning" size="xs">
-                  No textual diff is available.
-                </Callout>
-              </div>
-            ) : (
-              <ShikiCodeBlock
-                code={diffPatch}
-                language="diff"
-                theme={theme}
-                flush
-                showLineNumbers={showLineNumbers}
-                highlightLine={null}
-                className="h-full"
-              />
-            )
-          ) : null}
-        </div>
+        <FileContentModalBody
+          loading={loading}
+          error={error}
+          file={file}
+          imagePreviewSrc={imagePreviewSrc}
+          activePath={activePath}
+          markdownEnabled={markdownEnabled}
+          resolvedViewMode={resolvedViewMode}
+          markdownComponents={markdownComponents}
+          effectiveCode={effectiveCode}
+          effectiveLanguage={effectiveLanguage}
+          theme={theme}
+          showLineNumbers={showLineNumbers}
+          highlightLine={highlightLine}
+          diffLoading={diffLoading}
+          diffError={diffError}
+          diffBinary={diffBinary}
+          diffPatch={diffPatch}
+        />
       </Card>
     </div>
   );

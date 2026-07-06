@@ -32,6 +32,7 @@ export const useScreenScroll = ({
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const forceFollowTimer = useTimeout();
+  // react-doctor-disable-next-line no-event-handler
   const prevModeRef = useRef<ScreenMode>(mode);
   const prevPaneIdRef = useRef<string>(paneId);
   const snapToBottomRef = useRef(false);
@@ -123,6 +124,7 @@ export const useScreenScroll = ({
   }, [mode, screenLinesLength, scrollToBottom]);
 
   useEffect(() => {
+    // react-doctor-disable-next-line no-event-handler
     if (mode !== "text") {
       setIsAtBottom(true);
       stopForceFollow();

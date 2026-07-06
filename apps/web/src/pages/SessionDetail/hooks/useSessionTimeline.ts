@@ -3,7 +3,7 @@ import type {
   SessionStateTimelineRange,
   SessionStateTimelineScope,
 } from "@vde-monitor/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -37,6 +37,61 @@ const TIMELINE_POLL_INTERVAL_MS = 5000;
 const resolveTimelineError = (err: unknown) =>
   resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.timeline);
 
+type TimelineState = {
+  timeline: SessionStateTimeline | null;
+  timelineScope: SessionStateTimelineScope;
+  timelineRange: SessionStateTimelineRange;
+  timelineError: string | null;
+  timelineLoading: boolean;
+  timelineExpanded: boolean;
+};
+
+type TimelineAction =
+  | { type: "resetPane"; expanded: boolean }
+  | { type: "loadStart"; silent: boolean }
+  | { type: "loadSuccess"; timeline: SessionStateTimeline }
+  | { type: "loadFailure"; error: string }
+  | { type: "loadFinish"; silent: boolean; loading: boolean }
+  | { type: "setScope"; scope: SessionStateTimelineScope }
+  | { type: "setRange"; range: SessionStateTimelineRange }
+  | { type: "toggleExpanded" };
+
+const buildTimelineInitialState = (expanded: boolean): TimelineState => ({
+  timeline: null,
+  timelineScope: DEFAULT_SCOPE,
+  timelineRange: DEFAULT_RANGE,
+  timelineError: null,
+  timelineLoading: false,
+  timelineExpanded: expanded,
+});
+
+const timelineReducer = (state: TimelineState, action: TimelineAction): TimelineState => {
+  switch (action.type) {
+    case "resetPane":
+      return buildTimelineInitialState(action.expanded);
+    case "loadStart":
+      return {
+        ...state,
+        timelineLoading: action.silent ? state.timelineLoading : true,
+      };
+    case "loadSuccess":
+      return { ...state, timeline: action.timeline, timelineError: null };
+    case "loadFailure":
+      return { ...state, timelineError: action.error };
+    case "loadFinish":
+      return {
+        ...state,
+        timelineLoading: action.silent ? state.timelineLoading : action.loading,
+      };
+    case "setScope":
+      return { ...state, timelineScope: action.scope };
+    case "setRange":
+      return { ...state, timelineRange: action.range };
+    case "toggleExpanded":
+      return { ...state, timelineExpanded: !state.timelineExpanded };
+  }
+};
+
 export const useSessionTimeline = ({
   paneId,
   connected,
@@ -44,17 +99,34 @@ export const useSessionTimeline = ({
   hasRepoTimeline,
   mobileDefaultCollapsed,
 }: UseSessionTimelineParams) => {
-  const [timeline, setTimeline] = useState<SessionStateTimeline | null>(null);
-  const [timelineScope, setTimelineScope] = useState<SessionStateTimelineScope>(DEFAULT_SCOPE);
-  const [timelineRange, setTimelineRange] = useState<SessionStateTimelineRange>(DEFAULT_RANGE);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineExpanded, setTimelineExpanded] = useState(!mobileDefaultCollapsed);
+  const [state, dispatch] = useReducer(
+    timelineReducer,
+    !mobileDefaultCollapsed,
+    buildTimelineInitialState,
+  );
+  const {
+    timeline,
+    timelineScope: storedTimelineScope,
+    timelineRange,
+    timelineError,
+    timelineLoading,
+    timelineExpanded,
+  } = state;
   const previousConnectedRef = useRef<boolean | null>(null);
   const activePaneIdRef = useRef(paneId);
   const timelineRequestIdRef = useRef(0);
   const pendingInteractiveLoadsRef = useRef(0);
+  const timelineScopeDowngradedRef = useRef(false);
+  const previousPaneIdRef = useRef(paneId);
+  if (previousPaneIdRef.current !== paneId) {
+    previousPaneIdRef.current = paneId;
+    timelineScopeDowngradedRef.current = false;
+  }
+  if (storedTimelineScope === "repo" && !hasRepoTimeline) {
+    timelineScopeDowngradedRef.current = true;
+  }
   activePaneIdRef.current = paneId;
+  const timelineScope = timelineScopeDowngradedRef.current ? DEFAULT_SCOPE : storedTimelineScope;
 
   const loadTimeline = useCallback(
     async ({ silent = false }: LoadTimelineOptions = {}) => {
@@ -64,8 +136,8 @@ export const useSessionTimeline = ({
       const targetPaneId = paneId;
       if (!silent) {
         pendingInteractiveLoadsRef.current += 1;
-        setTimelineLoading(true);
       }
+      dispatch({ type: "loadStart", silent });
       await runPaneRequest({
         requestIdRef: timelineRequestIdRef,
         activePaneIdRef,
@@ -79,22 +151,22 @@ export const useSessionTimeline = ({
           });
         },
         onSuccess: (nextTimeline) => {
-          setTimeline(nextTimeline);
-          setTimelineError(null);
+          dispatch({ type: "loadSuccess", timeline: nextTimeline });
         },
         onError: (err) => {
-          setTimelineError(resolveTimelineError(err));
+          dispatch({ type: "loadFailure", error: resolveTimelineError(err) });
         },
         onSettled: () => {
           if (silent) {
             return;
           }
           pendingInteractiveLoadsRef.current = Math.max(0, pendingInteractiveLoadsRef.current - 1);
-          if (
-            activePaneIdRef.current === targetPaneId &&
-            pendingInteractiveLoadsRef.current === 0
-          ) {
-            setTimelineLoading(false);
+          if (activePaneIdRef.current === targetPaneId) {
+            dispatch({
+              type: "loadFinish",
+              silent,
+              loading: pendingInteractiveLoadsRef.current > 0,
+            });
           }
         },
       });
@@ -115,18 +187,8 @@ export const useSessionTimeline = ({
 
   useEffect(() => {
     pendingInteractiveLoadsRef.current = 0;
-    setTimeline(null);
-    setTimelineError(null);
-    setTimelineLoading(false);
-    setTimelineExpanded(!mobileDefaultCollapsed);
-    setTimelineScope(DEFAULT_SCOPE);
+    dispatch({ type: "resetPane", expanded: !mobileDefaultCollapsed });
   }, [mobileDefaultCollapsed, paneId]);
-
-  useEffect(() => {
-    if (!hasRepoTimeline && timelineScope === "repo") {
-      setTimelineScope(DEFAULT_SCOPE);
-    }
-  }, [hasRepoTimeline, timelineScope]);
 
   const pollTimeline = useCallback(() => {
     void loadTimeline({ silent: true });
@@ -140,12 +202,24 @@ export const useSessionTimeline = ({
   });
 
   const toggleTimelineExpanded = useCallback(() => {
-    setTimelineExpanded((prev) => !prev);
+    dispatch({ type: "toggleExpanded" });
   }, []);
 
   const refreshTimeline = useCallback(() => {
     void loadTimeline();
   }, [loadTimeline]);
+
+  const setTimelineScope = useCallback(
+    (scope: SessionStateTimelineScope) => {
+      timelineScopeDowngradedRef.current = false;
+      dispatch({ type: "setScope", scope: scope === "repo" && !hasRepoTimeline ? "pane" : scope });
+    },
+    [hasRepoTimeline],
+  );
+
+  const setTimelineRange = useCallback((range: SessionStateTimelineRange) => {
+    dispatch({ type: "setRange", range });
+  }, []);
 
   return {
     timeline,

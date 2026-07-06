@@ -22,6 +22,33 @@ const createDefaultActions = () => ({
 });
 
 describe("useSessionRepoNotes", () => {
+  it("returns the created note from createNote", async () => {
+    const created = buildNote({ id: "created-note" });
+    const requestRepoNotes = vi.fn(async () => []);
+    const createRepoNote = vi.fn(async () => created);
+    const { updateRepoNote, deleteRepoNote } = createDefaultActions();
+
+    const { result } = renderHook(() =>
+      useSessionRepoNotes({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        connected: true,
+        requestRepoNotes,
+        createRepoNote,
+        updateRepoNote,
+        deleteRepoNote,
+      }),
+    );
+
+    let returned: RepoNote | null = null;
+    await act(async () => {
+      returned = await result.current.createNote({ title: null, body: "" });
+    });
+
+    expect(returned).toEqual(created);
+    expect(result.current.notes[0]).toEqual(created);
+  });
+
   it("keeps loading false during silent refresh", async () => {
     const initialNotes = [buildNote({ id: "initial-note" })];
     const silentDeferred = createDeferred<RepoNote[]>();

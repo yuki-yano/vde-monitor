@@ -13,7 +13,7 @@ import {
   diffOpenAtom,
   diffSummaryAtom,
 } from "../atoms/diffAtoms";
-import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySignature } from "../sessionDetailUtils";
+import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySnapshot } from "../sessionDetailUtils";
 import { isCurrentScopedRequest, runScopedRequest } from "./session-request-guard";
 import { useScopeGuard } from "./useScopeGuard";
 
@@ -138,7 +138,7 @@ export const useSessionDiffs = ({
   const [diffLoadingFiles, setDiffLoadingFiles] = useAtom(diffLoadingFilesAtom);
 
   const diffOpenRef = useRef<Record<string, boolean>>({});
-  const diffSignatureRef = useRef<string | null>(null);
+  const diffSnapshotRef = useRef<string | null>(null);
   const onReconnectRef = useRef<() => void>(() => {});
   const pollTickRef = useRef<() => void>(() => {});
   const { scopeKey: requestScopeKey, activeScopeRef } = useScopeGuard({
@@ -268,8 +268,8 @@ export const useSessionDiffs = ({
       scopeKey: targetScopeKey,
       run: () => requestDiffSummary(paneId, requestOptions),
       onSuccess: async (summary) => {
-        const signature = buildDiffSummarySignature(summary);
-        if (signature === diffSignatureRef.current) {
+        const snapshot = buildDiffSummarySnapshot(summary);
+        if (snapshot === diffSnapshotRef.current) {
           return;
         }
         setDiffError(null);
@@ -308,6 +308,8 @@ export const useSessionDiffs = ({
       const requestId = summaryRequestIdRef.current;
       setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
       try {
+        // False positive: the scope/request guard depends on the resolved file.
+        // react-doctor-disable-next-line async-defer-await
         const file = await fetchDiffFileWithCache(
           paneId,
           worktreePath,
@@ -381,7 +383,10 @@ export const useSessionDiffs = ({
     [loadDiffFile, setDiffOpen],
   );
 
+  // False positive: diff summary loading is lifecycle IO keyed by pane/worktree,
+  // and moving it to render or a user event would skip the initial load.
   useEffect(() => {
+    // react-doctor-disable-next-line no-pass-data-to-parent
     loadDiffSummary();
   }, [loadDiffSummary]);
 
@@ -390,7 +395,7 @@ export const useSessionDiffs = ({
     setDiffFiles({});
     setDiffOpen({});
     setDiffError(null);
-    diffSignatureRef.current = null;
+    diffSnapshotRef.current = null;
     return () => {
       clearDiffFileCacheForPane(paneId, worktreePath, branch);
     };
@@ -401,7 +406,7 @@ export const useSessionDiffs = ({
   }, [diffOpen]);
 
   useEffect(() => {
-    diffSignatureRef.current = diffSummary ? buildDiffSummarySignature(diffSummary) : null;
+    diffSnapshotRef.current = diffSummary ? buildDiffSummarySnapshot(diffSummary) : null;
   }, [diffSummary]);
 
   return {

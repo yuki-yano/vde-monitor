@@ -34,6 +34,8 @@ import { formatDateTime } from "./usage-format";
 import { formatDurationMs, formatTime } from "@/lib/time-format";
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
 
+const resolveBackToListSearch = () => ({ filter: readStoredSessionListFilter() });
+
 const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
   RUNNING: "bg-latte-green/80",
   WAITING_INPUT: "bg-latte-peach/80",
@@ -154,7 +156,7 @@ export const UsageDashboardView = ({
     dashboard?.providers.find((provider) => provider.providerId === "codex") ?? null;
   const claudeProvider =
     dashboard?.providers.find((provider) => provider.providerId === "claude") ?? null;
-  const backToListSearch = { filter: readStoredSessionListFilter() };
+  const backToListSearch = resolveBackToListSearch();
 
   return (
     <>

@@ -116,11 +116,16 @@ const consumeSgrSequences = (state: SgrState, segment: string) => {
 
 // ansi-to-html misreads extended colors inside combined sequences, so each
 // attribute is emitted as its own sequence.
-const serializeSgrState = (state: SgrState) =>
-  attributeEmitOrder
-    .filter((attribute) => state.has(attribute))
-    .map((attribute) => `[${state.get(attribute)}m`)
-    .join("");
+const serializeSgrState = (state: SgrState) => {
+  let serialized = "";
+  attributeEmitOrder.forEach((attribute) => {
+    const value = state.get(attribute);
+    if (value != null) {
+      serialized += `[${value}m`;
+    }
+  });
+  return serialized;
+};
 
 export const applyAnsiSgrCarryover = (lines: string[]): string[] => {
   const state: SgrState = new Map();

@@ -64,23 +64,24 @@ export const useSessionDetailSectionTabs = ({ scope }: UseSessionDetailSectionTa
     [branch, repoRoot],
   );
   const [sectionTabsListElement, setSectionTabsListElement] = useState<HTMLDivElement | null>(null);
-  const [selectedSectionTabValue, setSelectedSectionTabValue] = useState<SectionTabValue>(() =>
-    readStoredSectionTabValue(sectionTabStorageKey),
-  );
+  const [selectedSectionTabState, setSelectedSectionTabState] = useState(() => ({
+    storageKey: sectionTabStorageKey,
+    value: readStoredSectionTabValue(sectionTabStorageKey),
+  }));
   const [sectionTabsIconOnly, setSectionTabsIconOnly] = useState(false);
+  const selectedSectionTabValue =
+    selectedSectionTabState.storageKey === sectionTabStorageKey
+      ? selectedSectionTabState.value
+      : readStoredSectionTabValue(sectionTabStorageKey);
   const handleSectionTabChange = (value: string) => {
     if (!isSectionTabValue(value)) {
       return;
     }
-    setSelectedSectionTabValue(value);
+    setSelectedSectionTabState({
+      storageKey: sectionTabStorageKey,
+      value,
+    });
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    setSelectedSectionTabValue(readStoredSectionTabValue(sectionTabStorageKey));
-  }, [sectionTabStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

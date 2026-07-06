@@ -1,14 +1,15 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 import { cn } from "@/lib/cn";
 
 const Tabs = TabsPrimitive.Root;
 
-const TabsList = forwardRef<
-  ElementRef<typeof TabsPrimitive.List>,
-  ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
+const TabsList = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof TabsPrimitive.List>) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
@@ -17,14 +18,13 @@ const TabsList = forwardRef<
     )}
     {...props}
   />
-));
+);
 
-TabsList.displayName = "TabsList";
-
-const TabsTrigger = forwardRef<
-  ElementRef<typeof TabsPrimitive.Trigger>,
-  ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
+const TabsTrigger = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof TabsPrimitive.Trigger>) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
@@ -35,8 +35,6 @@ const TabsTrigger = forwardRef<
     )}
     {...props}
   />
-));
-
-TabsTrigger.displayName = "TabsTrigger";
+);
 
 export { Tabs, TabsList, TabsTrigger };

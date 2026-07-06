@@ -20,7 +20,8 @@ import { diffExpandedAtom } from "../atoms/diffAtoms";
 import { formatBranchLabel, formatPath } from "@/lib/session-format";
 
 import { sumFileStats } from "../sessionDetailUtils";
-import { DiffFileList, buildRenderedPatches, updateExpandedDiffs } from "./diff-section-file-list";
+import { DiffFileList } from "./diff-section-file-list";
+import { buildRenderedPatches, updateExpandedDiffs } from "./diff-section-file-list-utils";
 
 type DiffSectionState = {
   diffSummary: DiffSummary | null;
@@ -285,6 +286,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
   const files = diffSummary?.files ?? [];
   const fileCount = files.length;
   const showCleanState = shouldShowCleanState(diffSummary);
+  const showTotals = Boolean(diffSummary);
 
   useEffect(() => {
     syncExpandedDiffs(diffSummary, setExpandedDiffs);
@@ -301,40 +303,52 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
     () => buildRenderedPatches(diffOpen, diffFiles, expandedDiffs),
     [diffOpen, diffFiles, expandedDiffs],
   );
+  const sectionDescription = useMemo(
+    () => (
+      <DiffSummaryDescription
+        fileCount={fileCount}
+        diffBranch={diffBranch}
+        showTotals={showTotals}
+        totals={totals}
+        fileChangeCategories={fileChangeCategories}
+      />
+    ),
+    [diffBranch, fileChangeCategories, fileCount, showTotals, totals],
+  );
+  const sectionAction = useMemo(
+    () => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+        onClick={onRefresh}
+        disabled={diffLoading}
+        aria-label="Refresh changes"
+      >
+        <RefreshCw className="h-4 w-4" />
+        <span className="sr-only">Refresh</span>
+      </Button>
+    ),
+    [diffLoading, onRefresh],
+  );
+  const sectionStatus = useMemo(
+    () => (
+      <>
+        <DiffVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
+        <DiffRepoRoot repoRoot={diffSummary?.repoRoot} />
+        <DiffSummaryReasonCallout reason={diffSummary?.reason} />
+        <DiffErrorCallout diffError={diffError} />
+      </>
+    ),
+    [diffError, diffSummary?.reason, diffSummary?.repoRoot, onClearVirtualBranch, virtualBranch],
+  );
 
   return (
     <PaneSectionShell
       title="Changes"
-      description={
-        <DiffSummaryDescription
-          fileCount={fileCount}
-          diffBranch={diffBranch}
-          showTotals={Boolean(diffSummary)}
-          totals={totals}
-          fileChangeCategories={fileChangeCategories}
-        />
-      }
-      action={
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
-          onClick={onRefresh}
-          disabled={diffLoading}
-          aria-label="Refresh changes"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span className="sr-only">Refresh</span>
-        </Button>
-      }
-      status={
-        <>
-          <DiffVirtualBranchNotice virtualBranch={virtualBranch} onClear={onClearVirtualBranch} />
-          <DiffRepoRoot repoRoot={diffSummary?.repoRoot} />
-          <DiffSummaryReasonCallout reason={diffSummary?.reason} />
-          <DiffErrorCallout diffError={diffError} />
-        </>
-      }
+      description={sectionDescription}
+      action={sectionAction}
+      status={sectionStatus}
       headerTestId="changes-header"
     >
       <div className={buildDiffBodyClassName(diffLoading)}>

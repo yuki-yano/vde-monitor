@@ -1,13 +1,9 @@
 import { Command as CommandPrimitive } from "cmdk";
-import type { ComponentPropsWithoutRef, ElementRef } from "react";
-import { forwardRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 import { cn } from "@/lib/cn";
 
-const Command = forwardRef<
-  ElementRef<typeof CommandPrimitive>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive>
->(({ className, ...props }, ref) => (
+const Command = ({ className, ref, ...props }: ComponentPropsWithRef<typeof CommandPrimitive>) => (
   <CommandPrimitive
     ref={ref}
     className={cn(
@@ -16,13 +12,13 @@ const Command = forwardRef<
     )}
     {...props}
   />
-));
-Command.displayName = CommandPrimitive.displayName;
+);
 
-const CommandInput = forwardRef<
-  ElementRef<typeof CommandPrimitive.Input>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
+const CommandInput = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof CommandPrimitive.Input>) => (
   <div className="border-latte-surface2/70 border-b px-1.5 py-1.5 sm:px-2 sm:py-2">
     <CommandPrimitive.Input
       ref={ref}
@@ -33,13 +29,13 @@ const CommandInput = forwardRef<
       {...props}
     />
   </div>
-));
-CommandInput.displayName = CommandPrimitive.Input.displayName;
+);
 
-const CommandList = forwardRef<
-  ElementRef<typeof CommandPrimitive.List>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
+const CommandList = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof CommandPrimitive.List>) => (
   <CommandPrimitive.List
     ref={ref}
     className={cn(
@@ -48,33 +44,33 @@ const CommandList = forwardRef<
     )}
     {...props}
   />
-));
-CommandList.displayName = CommandPrimitive.List.displayName;
+);
 
-const CommandEmpty = forwardRef<
-  ElementRef<typeof CommandPrimitive.Empty>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
->(({ className, ...props }, ref) => (
+const CommandEmpty = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof CommandPrimitive.Empty>) => (
   <CommandPrimitive.Empty
     ref={ref}
     className={cn("text-latte-subtext0 px-2.5 py-4 text-center text-sm sm:px-3 sm:py-6", className)}
     {...props}
   />
-));
-CommandEmpty.displayName = CommandPrimitive.Empty.displayName;
+);
 
-const CommandGroup = forwardRef<
-  ElementRef<typeof CommandPrimitive.Group>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
->(({ className, ...props }, ref) => (
+const CommandGroup = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof CommandPrimitive.Group>) => (
   <CommandPrimitive.Group ref={ref} className={cn("p-0.5 sm:p-1", className)} {...props} />
-));
-CommandGroup.displayName = CommandPrimitive.Group.displayName;
+);
 
-const CommandItem = forwardRef<
-  ElementRef<typeof CommandPrimitive.Item>,
-  ComponentPropsWithoutRef<typeof CommandPrimitive.Item>
->(({ className, ...props }, ref) => (
+const CommandItem = ({
+  className,
+  ref,
+  ...props
+}: ComponentPropsWithRef<typeof CommandPrimitive.Item>) => (
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
@@ -83,7 +79,6 @@ const CommandItem = forwardRef<
     )}
     {...props}
   />
-));
-CommandItem.displayName = CommandPrimitive.Item.displayName;
+);
 
 export { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList };

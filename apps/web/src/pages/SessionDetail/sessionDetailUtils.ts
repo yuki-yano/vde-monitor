@@ -102,7 +102,7 @@ export const formatTimestamp = (value: string) => {
   return date.toLocaleString();
 };
 
-export const buildDiffSummarySignature = (summary: DiffSummary) => {
+export const buildDiffSummarySnapshot = (summary: DiffSummary) => {
   const files = summary.files
     .map((file) => ({
       path: file.path,
@@ -129,7 +129,7 @@ export const buildDiffSummarySignature = (summary: DiffSummary) => {
   });
 };
 
-export const buildCommitLogSignature = (log: CommitLog) =>
+export const buildCommitLogSnapshot = (log: CommitLog) =>
   JSON.stringify({
     repoRoot: log.repoRoot ?? null,
     rev: log.rev ?? null,

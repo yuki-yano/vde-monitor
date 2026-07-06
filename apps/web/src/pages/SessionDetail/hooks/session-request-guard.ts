@@ -62,6 +62,8 @@ const runGuardedRequest = async <T>({
   };
 
   try {
+    // False positive: freshness can only be checked after the async request resolves.
+    // react-doctor-disable-next-line async-defer-await
     const value = await run();
     if (!lifecycle.isCurrent()) {
       return;

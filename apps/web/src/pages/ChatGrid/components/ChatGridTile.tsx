@@ -5,6 +5,7 @@ import {
   type CompositionEvent,
   type FormEvent,
   type KeyboardEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -64,6 +65,146 @@ type ChatGridTileProps = {
   onTouchSession?: (paneId: string) => Promise<void> | void;
   onRemoveFromGrid?: (paneId: string) => void;
 };
+
+type ChatGridTileHeaderProps = {
+  session: SessionSummary;
+  nowMs: number;
+  sessionTone: ReturnType<typeof getLastInputTone>;
+  sessionAutoTitle: string;
+  sessionDisplayTitle: string;
+  canResetTitle: boolean;
+  titleDraft: string;
+  titleEditing: boolean;
+  titleSaving: boolean;
+  titleError: string | null;
+  titleInputRef: RefObject<HTMLInputElement | null>;
+  onOpenTitleEditor: () => void;
+  onUpdateTitleDraft: (value: string) => void;
+  onResetTitle: () => void;
+  onTitleKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onTitleBlur: () => void;
+  onRemoveFromGrid: () => void;
+};
+
+const ChatGridTileHeader = ({
+  session,
+  nowMs,
+  sessionTone,
+  sessionAutoTitle,
+  sessionDisplayTitle,
+  canResetTitle,
+  titleDraft,
+  titleEditing,
+  titleSaving,
+  titleError,
+  titleInputRef,
+  onOpenTitleEditor,
+  onUpdateTitleDraft,
+  onResetTitle,
+  onTitleKeyDown,
+  onTitleBlur,
+  onRemoveFromGrid,
+}: ChatGridTileHeaderProps) => (
+  <header className="min-w-0 space-y-1">
+    <div className="flex min-w-0 items-center gap-1.5">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex min-w-0 items-center gap-1">
+          {titleEditing ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={titleDraft}
+              onChange={(event) => {
+                onUpdateTitleDraft(event.target.value);
+              }}
+              onKeyDown={onTitleKeyDown}
+              onBlur={onTitleBlur}
+              placeholder={sessionAutoTitle || "Untitled session"}
+              maxLength={80}
+              enterKeyHint="done"
+              disabled={titleSaving}
+              className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Custom session title"
+            />
+          ) : (
+            <TextButton
+              type="button"
+              onClick={onOpenTitleEditor}
+              variant="title"
+              className="hover:text-latte-lavender mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
+              aria-label="Edit session title"
+            >
+              {sessionDisplayTitle}
+            </TextButton>
+          )}
+          {canResetTitle && !titleEditing ? (
+            <IconButton
+              type="button"
+              onClick={onResetTitle}
+              disabled={titleSaving}
+              variant="dangerOutline"
+              size="xs"
+              aria-label="Reset session title"
+              title="Reset session title"
+            >
+              <X className="h-3.5 w-3.5" />
+            </IconButton>
+          ) : null}
+        </div>
+        {titleError ? <p className="text-latte-red text-xs">{titleError}</p> : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Link
+          to="/sessions/$paneId"
+          params={{ paneId: session.paneId }}
+          aria-label="Open detail"
+          className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+        <IconButton
+          type="button"
+          onClick={onRemoveFromGrid}
+          variant="dangerOutline"
+          size="xs"
+          aria-label="Remove from Chat Grid"
+          title="Remove from Chat Grid"
+        >
+          <X className="h-3.5 w-3.5" />
+        </IconButton>
+      </div>
+    </div>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge tone={resolveSessionStateTone(session)} size="sm">
+        {resolveSessionStateLabel(session)}
+      </Badge>
+      {isKnownAgent(session.agent) ? (
+        <Badge tone={agentToneFor(session.agent)} size="sm">
+          {agentLabelFor(session.agent)}
+        </Badge>
+      ) : null}
+      <LastInputPill
+        tone={sessionTone}
+        label={<Clock className="h-2.5 w-2.5" />}
+        value={formatRelativeTime(session.lastInputAt, nowMs)}
+        srLabel="Last input"
+        size="xs"
+        showDot={false}
+      />
+    </div>
+    <div className="text-latte-subtext0 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <TagPill tone="meta" className="inline-flex max-w-[180px] items-center">
+        <span className="truncate font-mono">{session.sessionName}</span>
+      </TagPill>
+      <TagPill tone="meta" className="inline-flex items-center gap-1">
+        <GitBranch className="h-3 w-3" />
+        <span>{formatBranchLabel(session.branch)}</span>
+      </TagPill>
+      <TagPill tone="meta">Window {session.windowIndex}</TagPill>
+      <TagPill tone="meta">Pane {session.paneId}</TagPill>
+    </div>
+  </header>
+);
 
 export const ChatGridTile = ({
   session,
@@ -264,105 +405,25 @@ export const ChatGridTile = ({
 
   return (
     <Card className="grid h-full min-h-[420px] grid-rows-[auto_minmax(0,1fr)] gap-2.5 p-3 sm:p-3.5">
-      <header className="min-w-0 space-y-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="flex min-w-0 items-center gap-1">
-              {titleEditing ? (
-                <input
-                  ref={titleInputRef}
-                  type="text"
-                  value={titleDraft}
-                  onChange={(event) => {
-                    updateTitleDraft(event.target.value);
-                  }}
-                  onKeyDown={handleTitleKeyDown}
-                  onBlur={handleTitleBlur}
-                  placeholder={sessionAutoTitle || "Untitled session"}
-                  maxLength={80}
-                  enterKeyHint="done"
-                  disabled={titleSaving}
-                  className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Custom session title"
-                />
-              ) : (
-                <TextButton
-                  type="button"
-                  onClick={openTitleEditor}
-                  variant="title"
-                  className="hover:text-latte-lavender mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
-                  aria-label="Edit session title"
-                >
-                  {sessionDisplayTitle}
-                </TextButton>
-              )}
-              {canResetTitle && !titleEditing ? (
-                <IconButton
-                  type="button"
-                  onClick={() => void resetTitle()}
-                  disabled={titleSaving}
-                  variant="dangerOutline"
-                  size="xs"
-                  aria-label="Reset session title"
-                  title="Reset session title"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </IconButton>
-              ) : null}
-            </div>
-            {titleError ? <p className="text-latte-red text-xs">{titleError}</p> : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Link
-              to="/sessions/$paneId"
-              params={{ paneId: session.paneId }}
-              aria-label="Open detail"
-              className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
-            >
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-            <IconButton
-              type="button"
-              onClick={handleRemoveFromGrid}
-              variant="dangerOutline"
-              size="xs"
-              aria-label="Remove from Chat Grid"
-              title="Remove from Chat Grid"
-            >
-              <X className="h-3.5 w-3.5" />
-            </IconButton>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={resolveSessionStateTone(session)} size="sm">
-            {resolveSessionStateLabel(session)}
-          </Badge>
-          {isKnownAgent(session.agent) ? (
-            <Badge tone={agentToneFor(session.agent)} size="sm">
-              {agentLabelFor(session.agent)}
-            </Badge>
-          ) : null}
-          <LastInputPill
-            tone={sessionTone}
-            label={<Clock className="h-2.5 w-2.5" />}
-            value={formatRelativeTime(session.lastInputAt, nowMs)}
-            srLabel="Last input"
-            size="xs"
-            showDot={false}
-          />
-        </div>
-        <div className="text-latte-subtext0 flex flex-wrap items-center gap-1.5 text-[11px]">
-          <TagPill tone="meta" className="inline-flex max-w-[180px] items-center">
-            <span className="truncate font-mono">{session.sessionName}</span>
-          </TagPill>
-          <TagPill tone="meta" className="inline-flex items-center gap-1">
-            <GitBranch className="h-3 w-3" />
-            <span>{formatBranchLabel(session.branch)}</span>
-          </TagPill>
-          <TagPill tone="meta">Window {session.windowIndex}</TagPill>
-          <TagPill tone="meta">Pane {session.paneId}</TagPill>
-        </div>
-      </header>
+      <ChatGridTileHeader
+        session={session}
+        nowMs={nowMs}
+        sessionTone={sessionTone}
+        sessionAutoTitle={sessionAutoTitle}
+        sessionDisplayTitle={sessionDisplayTitle}
+        canResetTitle={canResetTitle}
+        titleDraft={titleDraft}
+        titleEditing={titleEditing}
+        titleSaving={titleSaving}
+        titleError={titleError}
+        titleInputRef={titleInputRef}
+        onOpenTitleEditor={openTitleEditor}
+        onUpdateTitleDraft={updateTitleDraft}
+        onResetTitle={() => void resetTitle()}
+        onTitleKeyDown={handleTitleKeyDown}
+        onTitleBlur={handleTitleBlur}
+        onRemoveFromGrid={handleRemoveFromGrid}
+      />
 
       <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2">
         <div className="flex min-h-0 flex-col gap-2">

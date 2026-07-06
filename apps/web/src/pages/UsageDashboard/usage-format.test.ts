@@ -6,13 +6,13 @@ import { formatDurationMs } from "@/lib/time-format";
 import {
   aggregateBillingBreakdownRows,
   clampPercent,
+  formatBufferLabel,
+  formatPaceLabel,
   formatPercent,
   formatResetIn,
   formatTokenCount,
   formatTokens,
-  renderBufferLabel,
-  renderPaceLabel,
-  renderUsedElapsedLabel,
+  formatUsedElapsedLabel,
   resolveRemainingBufferPercent,
   resolveWeekStartLocal,
 } from "./usage-format";
@@ -71,9 +71,9 @@ describe("usage-format", () => {
     expect(clampPercent(-5)).toBe(0);
     expect(clampPercent(105)).toBe(100);
     expect(resolveRemainingBufferPercent(metric)).toBe(15.3);
-    expect(renderBufferLabel(15.3)).toBe("Buffer +15.3%");
-    expect(renderPaceLabel(metric)).toBe("Pace +27.6% margin");
-    expect(renderUsedElapsedLabel(metric)).toBe("40% / 55.3%");
+    expect(formatBufferLabel(15.3)).toBe("Buffer +15.3%");
+    expect(formatPaceLabel(metric)).toBe("Pace +27.6% margin");
+    expect(formatUsedElapsedLabel(metric)).toBe("40% / 55.3%");
   });
 
   it("handles unavailable buffer and pace values", () => {
@@ -88,9 +88,9 @@ describe("usage-format", () => {
     });
 
     expect(resolveRemainingBufferPercent(metric)).toBeNull();
-    expect(renderBufferLabel(null)).toBe("Buffer unavailable");
-    expect(renderPaceLabel(metric)).toBe("Pace unavailable");
-    expect(renderUsedElapsedLabel(metric)).toBe("-- / --");
+    expect(formatBufferLabel(null)).toBe("Buffer unavailable");
+    expect(formatPaceLabel(metric)).toBe("Pace unavailable");
+    expect(formatUsedElapsedLabel(metric)).toBe("-- / --");
   });
 
   it("resolves local week starts on Monday", () => {

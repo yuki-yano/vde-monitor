@@ -215,6 +215,37 @@ describe("useSessionTimeline", () => {
     });
   });
 
+  it("keeps pane scope after repo timeline becomes unavailable and then recovers", async () => {
+    const requestStateTimeline = vi.fn().mockResolvedValue(buildTimelineRequest("1h", "pane"));
+
+    const { result, rerender } = renderHook(
+      ({ hasRepoTimeline }: { hasRepoTimeline: boolean }) =>
+        useSessionTimeline({
+          paneId: "pane-1",
+          connected: true,
+          requestStateTimeline,
+          hasRepoTimeline,
+          mobileDefaultCollapsed: false,
+        }),
+      { initialProps: { hasRepoTimeline: true } },
+    );
+
+    await waitFor(() => {
+      expect(requestStateTimeline).toHaveBeenCalledWith("pane-1", { range: "1h" });
+    });
+
+    act(() => {
+      result.current.setTimelineScope("repo");
+    });
+    expect(result.current.timelineScope).toBe("repo");
+
+    rerender({ hasRepoTimeline: false });
+    expect(result.current.timelineScope).toBe("pane");
+
+    rerender({ hasRepoTimeline: true });
+    expect(result.current.timelineScope).toBe("pane");
+  });
+
   it("clears loading when a non-silent request becomes stale due to reconnect silent refresh", async () => {
     const refreshRequest = createDeferred<SessionStateTimeline>();
     const reconnectRequest = createDeferred<SessionStateTimeline>();

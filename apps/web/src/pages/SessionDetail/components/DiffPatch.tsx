@@ -1,5 +1,4 @@
 import {
-  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   memo,
@@ -24,7 +23,8 @@ type DiffPatchProps = {
 
 const TOKEN_PATTERN = /[^\s]+/g;
 const FILE_REFERENCE_CLASS_NAME =
-  "cursor-pointer hover:text-latte-lavender focus-visible:text-latte-lavender";
+  "cursor-pointer border-0 bg-transparent p-0 font-inherit text-inherit hover:text-latte-lavender focus-visible:text-latte-lavender focus-visible:outline-hidden";
+const EMPTY_LINKABLE_TOKENS = new Set<string>();
 
 const resolveRawTokenFromEventTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -77,16 +77,15 @@ const renderLineWithFileReferenceLinks = (line: string, linkableTokens: Set<stri
     }
     if (linkableTokens.has(rawToken)) {
       nodes.push(
-        <span
+        <button
+          type="button"
           key={`token-${start}-${rawToken}`}
           data-vde-file-ref={rawToken}
-          role="button"
-          tabIndex={0}
           aria-label={`Open file ${rawToken}`}
           className={FILE_REFERENCE_CLASS_NAME}
         >
           {rawToken}
-        </span>,
+        </button>,
       );
     } else {
       nodes.push(rawToken);
@@ -111,6 +110,10 @@ const DiffPatch = memo(
       () => new Set(referenceCandidateTokens),
       [referenceCandidateTokens],
     );
+    const activeLinkableTokens =
+      onResolveFileReferenceCandidates && referenceCandidateTokens.length > 0
+        ? linkableTokens
+        : EMPTY_LINKABLE_TOKENS;
     const renderedLines = useMemo(() => {
       const lineCounts = new Map<string, number>();
       return lines.map((line) => {
@@ -119,17 +122,10 @@ const DiffPatch = memo(
         return {
           key: `diff-line-${line}-${count}`,
           className: diffLineClass(line),
-          content: renderLineWithFileReferenceLinks(line, linkableTokens),
+          content: renderLineWithFileReferenceLinks(line, activeLinkableTokens),
         };
       });
-    }, [lines, linkableTokens]);
-
-    useEffect(() => {
-      if (onResolveFileReferenceCandidates && referenceCandidateTokens.length > 0) {
-        return;
-      }
-      setLinkableTokens((previous) => (previous.size === 0 ? previous : new Set()));
-    }, [onResolveFileReferenceCandidates, referenceCandidateTokens.length]);
+    }, [activeLinkableTokens, lines]);
 
     useEffect(() => {
       if (!onResolveFileReferenceCandidates || referenceCandidateTokens.length === 0) {
@@ -178,37 +174,18 @@ const DiffPatch = memo(
           return;
         }
         const rawToken = resolveRawTokenFromEventTarget(event.target);
-        if (!rawToken || !linkableTokens.has(rawToken)) {
+        if (!rawToken || !activeLinkableTokens.has(rawToken)) {
           return;
         }
         event.preventDefault();
         event.stopPropagation();
         void onResolveFileReference(rawToken);
       },
-      [linkableTokens, onResolveFileReference],
-    );
-
-    const handleResolveFileReferenceKeyDown = useCallback(
-      (event: KeyboardEvent<HTMLDivElement>) => {
-        if (!onResolveFileReference) {
-          return;
-        }
-        if (event.key !== "Enter" && event.key !== " ") {
-          return;
-        }
-        const rawToken = resolveRawTokenFromEventTarget(event.target);
-        if (!rawToken || !linkableTokens.has(rawToken)) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        void onResolveFileReference(rawToken);
-      },
-      [linkableTokens, onResolveFileReference],
+      [activeLinkableTokens, onResolveFileReference],
     );
 
     return (
-      <MonoBlock onClick={handleResolveFileReference} onKeyDown={handleResolveFileReferenceKeyDown}>
+      <MonoBlock onClick={handleResolveFileReference}>
         {renderedLines.map((line) => (
           <div key={line.key} className={cn(line.className, "-mx-2 block w-full rounded-xs px-2")}>
             {line.content}
