@@ -74,4 +74,16 @@ describe("TerminalHtmlLine", () => {
     expect(safe.getAttribute("rel")).toBe("noreferrer noopener");
     expect(bad.hasAttribute("href")).toBe(false);
   });
+
+  it("renders terminal table col elements without children", () => {
+    render(
+      <TerminalHtmlLine html='<table><colgroup><col style="width:4ch; min-width:4ch;" /></colgroup><tbody><tr><td>cell</td></tr></tbody></table>' />,
+    );
+
+    const col = document.querySelector("col");
+
+    expect(screen.getByText("cell")).not.toBeNull();
+    expect(col).not.toBeNull();
+    expect(col?.getAttribute("style")).toContain("width: 4ch");
+  });
 });

@@ -22,6 +22,7 @@ const allowedTags = new Set([
 ]);
 
 const opaqueDroppedTags = new Set(["iframe", "noscript", "script", "style", "textarea", "title"]);
+const voidTags = new Set(["br", "col"]);
 
 const allowedStyleProperties = new Set([
   "background-color",
@@ -160,8 +161,8 @@ const renderNode = (node: ChildNode, key: string): ReactNode | null => {
     }
     return renderNodes(element.childNodes, key);
   }
-  if (tagName === "br") {
-    return createElement("br", { key });
+  if (voidTags.has(tagName)) {
+    return createElement(tagName, readProps(element, tagName, key));
   }
   return createElement(
     tagName,
