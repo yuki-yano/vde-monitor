@@ -45,7 +45,7 @@ export const configDefaults: ResolvedConfig = {
           enabled: true,
         },
         claude: {
-          enabled: true,
+          enabled: false,
         },
       },
     },
@@ -55,7 +55,7 @@ export const configDefaults: ResolvedConfig = {
           enabled: true,
         },
         claude: {
-          enabled: true,
+          enabled: false,
         },
       },
     },

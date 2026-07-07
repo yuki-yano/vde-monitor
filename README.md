@@ -252,9 +252,9 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 | `notifications.pushEnabled`              | `true`                                              |
 | `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
 | `usage.session.providers.codex.enabled`  | `true`                                              |
-| `usage.session.providers.claude.enabled` | `true`                                              |
+| `usage.session.providers.claude.enabled` | `false`                                             |
 | `usage.pricing.providers.codex.enabled`  | `true`                                              |
-| `usage.pricing.providers.claude.enabled` | `true`                                              |
+| `usage.pricing.providers.claude.enabled` | `false`                                             |
 | `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
 | `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
 | `tmux.socketName`                        | `null`                                              |
