@@ -37,4 +37,5 @@ export const buildFileContentRequestKey = (
   requestScopeId: string,
   path: string,
   maxBytes: number,
-) => `${requestScopeId}:${path}:${maxBytes}`;
+  includeIgnoredPreviewExact = false,
+) => `${requestScopeId}:${path}:${maxBytes}:${includeIgnoredPreviewExact ? "ignored-preview" : ""}`;

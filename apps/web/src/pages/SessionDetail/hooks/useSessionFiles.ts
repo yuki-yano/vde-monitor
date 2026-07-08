@@ -64,12 +64,17 @@ type UseSessionFilesParams = {
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number; worktreePath?: string },
+    options?: {
+      cursor?: string;
+      limit?: number;
+      worktreePath?: string;
+      includeIgnoredPreviewExact?: boolean;
+    },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number; worktreePath?: string },
+    options?: { maxBytes?: number; worktreePath?: string; includeIgnoredPreviewExact?: boolean },
   ) => Promise<RepoFileContent>;
 };
 

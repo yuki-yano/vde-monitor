@@ -7,6 +7,8 @@ import {
 } from "./session-files-log-linkable-cache";
 import type { LogFileCandidateItem } from "./useSessionFiles-log-resolve-state";
 
+const previewablePathPattern = /\.(html?|md|markdown)$/i;
+
 type UseSessionFilesLogLinkableActionsArgs = {
   hasExactPathMatch: (args: {
     paneId: string;
@@ -62,11 +64,15 @@ export const useSessionFilesLogLinkableActions = ({
         filename: reference.filename,
         display: reference.display,
       });
+      const isPreviewableReference = previewablePathPattern.test(
+        reference.normalizedPath ?? reference.filename ?? "",
+      );
       return resolveLogReferenceLinkableWithCache({
         cacheRef: logReferenceLinkableCacheRef,
         requestMapRef: logReferenceLinkableRequestMapRef,
         cacheKey,
         cacheMaxSize: logReferenceLinkableCacheMax,
+        cacheNegative: !isPreviewableReference,
         resolve: async () => {
           if (reference.normalizedPath) {
             try {
@@ -80,6 +86,25 @@ export const useSessionFilesLogLinkableActions = ({
               }
             } catch {
               // path resolve failed; continue to filename fallback
+            }
+          }
+
+          if (
+            reference.normalizedPath == null &&
+            reference.filename &&
+            previewablePathPattern.test(reference.filename)
+          ) {
+            try {
+              const pathMatched = await hasExactPathMatch({
+                paneId: sourcePaneId,
+                path: reference.filename,
+                limitPerPage: logFileResolvePageLimit,
+              });
+              if (pathMatched === true) {
+                return true;
+              }
+            } catch {
+              // root exact resolve failed; continue to filename fallback
             }
           }
 

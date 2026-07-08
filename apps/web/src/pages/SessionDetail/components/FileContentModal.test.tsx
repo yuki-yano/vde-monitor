@@ -4,8 +4,20 @@ import { describe, expect, it, vi } from "vitest";
 import { FileContentModal } from "./FileContentModal";
 
 vi.mock("./ShikiCodeBlock", () => ({
-  ShikiCodeBlock: ({ code, highlightLine }: { code: string; highlightLine?: number | null }) => (
-    <pre data-testid="shiki-code" data-highlight-line={highlightLine == null ? "" : highlightLine}>
+  ShikiCodeBlock: ({
+    code,
+    language,
+    highlightLine,
+  }: {
+    code: string;
+    language?: string | null;
+    highlightLine?: number | null;
+  }) => (
+    <pre
+      data-testid="shiki-code"
+      data-language={language ?? ""}
+      data-highlight-line={highlightLine == null ? "" : highlightLine}
+    >
       {code}
     </pre>
   ),
@@ -83,6 +95,63 @@ describe("FileContentModal", () => {
     expect(screen.getByText("Hello")).toBeTruthy();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Code" }));
     expect(onMarkdownViewModeChange).toHaveBeenCalledWith("code");
+  });
+
+  it("renders HTML preview in a sandboxed iframe and allows switching mode", () => {
+    const onMarkdownViewModeChange = vi.fn();
+    render(
+      <FileContentModal
+        state={createState({
+          path: "preview.html",
+          file: {
+            path: "preview.html",
+            sizeBytes: 80,
+            isBinary: false,
+            truncated: false,
+            languageHint: "html",
+            content: "<!doctype html><main><h1>Hello HTML</h1></main>",
+          },
+          markdownViewMode: "preview",
+        })}
+        actions={createActions({ onMarkdownViewModeChange })}
+      />,
+    );
+
+    const iframe = screen.getByTitle("Preview of preview.html");
+    expect(iframe.getAttribute("srcdoc")).toContain("<h1>Hello HTML</h1>");
+    expect(iframe.getAttribute("srcdoc")).toContain("Content-Security-Policy");
+    expect(iframe.getAttribute("srcdoc")).toContain("default-src 'none'");
+    expect(iframe.getAttribute("srcdoc")).toContain("connect-src 'none'");
+    expect(iframe.getAttribute("sandbox")).toBe("");
+    expect(iframe.getAttribute("referrerpolicy")).toBe("no-referrer");
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Code" }));
+    expect(onMarkdownViewModeChange).toHaveBeenCalledWith("code");
+  });
+
+  it("uses HTML highlighting when an HTML file is shown as code", () => {
+    render(
+      <FileContentModal
+        state={createState({
+          path: "preview.html",
+          file: {
+            path: "preview.html",
+            sizeBytes: 40,
+            isBinary: false,
+            truncated: false,
+            languageHint: "html",
+            content: "<main>Hello HTML</main>",
+          },
+          markdownViewMode: "code",
+          highlightLine: 3,
+        })}
+        actions={createActions()}
+      />,
+    );
+
+    const code = screen.getByTestId("shiki-code");
+    expect(code.getAttribute("data-language")).toBe("html");
+    expect(code.getAttribute("data-highlight-line")).toBe("3");
   });
 
   it("does not pass file highlight line into markdown fenced code blocks", () => {

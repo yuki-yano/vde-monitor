@@ -166,6 +166,125 @@ describe("createRepoFileService", () => {
     }
   });
 
+  it("allows exact ignored previewable path lookup without exposing ignored files to normal search", async () => {
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "vde-monitor-repo-files-search-ignored-preview-"),
+    );
+    try {
+      await runGitCommand(repoRoot, ["init"]);
+      await mkdir(path.join(repoRoot, "docs"), { recursive: true });
+      await writeFile(path.join(repoRoot, ".gitignore"), "docs/\n");
+      await writeFile(path.join(repoRoot, "docs", "preview.html"), "<main>Preview</main>\n");
+      await writeFile(path.join(repoRoot, "docs", "notes.md"), "# Notes\n");
+
+      const service = createRepoFileService({
+        fileNavigatorConfig: {
+          includeIgnoredPaths: [],
+          autoExpandMatchLimit: 100,
+        },
+      });
+
+      const hiddenSearch = await service.searchFiles({
+        repoRoot,
+        query: "docs/preview.html",
+        limit: 20,
+      });
+      expect(hiddenSearch.items.map((item) => item.path)).not.toContain("docs/preview.html");
+
+      const exactSearch = await service.searchFiles({
+        repoRoot,
+        query: "docs/preview.html",
+        limit: 20,
+        includeIgnoredPreviewExact: true,
+      });
+      const exactItem = exactSearch.items.find((item) => item.path === "docs/preview.html");
+      expect(exactItem?.kind).toBe("file");
+      expect(exactItem?.isIgnored).toBe(true);
+
+      await expect(
+        service.getFileContent({
+          repoRoot,
+          path: "docs/preview.html",
+          maxBytes: 100,
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN_PATH",
+        status: 403,
+      });
+
+      const file = await service.getFileContent({
+        repoRoot,
+        path: "docs/preview.html",
+        maxBytes: 100,
+        includeIgnoredPreviewExact: true,
+      });
+      expect(file.languageHint).toBe("html");
+      expect(file.content).toBe("<main>Preview</main>\n");
+
+      const hiddenMarkdownSearch = await service.searchFiles({
+        repoRoot,
+        query: "docs/notes.md",
+        limit: 20,
+      });
+      expect(hiddenMarkdownSearch.items.map((item) => item.path)).not.toContain("docs/notes.md");
+
+      const exactMarkdownSearch = await service.searchFiles({
+        repoRoot,
+        query: "docs/notes.md",
+        limit: 20,
+        includeIgnoredPreviewExact: true,
+      });
+      const exactMarkdownItem = exactMarkdownSearch.items.find(
+        (item) => item.path === "docs/notes.md",
+      );
+      expect(exactMarkdownItem?.kind).toBe("file");
+      expect(exactMarkdownItem?.isIgnored).toBe(true);
+
+      const markdownFile = await service.getFileContent({
+        repoRoot,
+        path: "docs/notes.md",
+        maxBytes: 100,
+        includeIgnoredPreviewExact: true,
+      });
+      expect(markdownFile.languageHint).toBe("markdown");
+      expect(markdownFile.content).toBe("# Notes\n");
+
+      const missingSearch = await service.searchFiles({
+        repoRoot,
+        query: "docs/missing.md",
+        limit: 20,
+        includeIgnoredPreviewExact: true,
+      });
+      expect(missingSearch.items).toEqual([]);
+
+      await writeFile(path.join(repoRoot, ".git", "secret.md"), "# secret\n");
+      await expect(
+        service.searchFiles({
+          repoRoot,
+          query: ".git/secret.md",
+          limit: 20,
+          includeIgnoredPreviewExact: true,
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN_PATH",
+        status: 403,
+      });
+      await expect(
+        service.getFileContent({
+          repoRoot,
+          path: ".git/secret.md",
+          maxBytes: 100,
+          includeIgnoredPreviewExact: true,
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN_PATH",
+        status: 403,
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("marks ignored files from .git/info/exclude and global ignore", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-repo-files-ignore-meta-"));
     try {

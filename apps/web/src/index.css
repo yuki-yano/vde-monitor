@@ -516,6 +516,25 @@ body::before {
   box-shadow: inset 2px 0 0 rgb(var(--ctp-yellow) / 0.9);
 }
 
+.vde-file-content-modal-code .shiki,
+.vde-file-content-modal-code .shiki code,
+.vde-file-content-modal-code .shiki .line,
+.vde-file-content-modal-code.vde-shiki-with-line-numbers .line::before,
+.vde-file-content-modal-code .vde-shiki-with-line-numbers .line::before {
+  font-family:
+    "IBM Plex Mono", "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.vde-file-content-modal-code .shiki,
+.vde-file-content-modal-code .shiki code {
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+}
+
 .vde-markdown {
   font-family:
     "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;

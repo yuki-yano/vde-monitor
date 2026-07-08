@@ -145,6 +145,9 @@ const resolveLanguageHint = (targetPath: string): RepoFileLanguageHint => {
   if (extension === ".md" || extension === ".markdown") {
     return "markdown";
   }
+  if (extension === ".html" || extension === ".htm") {
+    return "html";
+  }
   if (extension === ".diff" || extension === ".patch") {
     return "diff";
   }
@@ -162,11 +165,12 @@ type ResolveFileContentInput = {
   maxBytes: number;
 };
 
-export const resolveFileContent = async ({
-  repoRoot,
-  normalizedPath,
-  maxBytes,
-}: ResolveFileContentInput): Promise<RepoFileContent> => {
+type ResolveFileStatsInput = {
+  repoRoot: string;
+  normalizedPath: string;
+};
+
+const resolveFileStats = async ({ repoRoot, normalizedPath }: ResolveFileStatsInput) => {
   const absolutePath = resolveRepoAbsolutePath(repoRoot, normalizedPath);
   await assertNoSymlinkInTargetPath({
     repoRoot,
@@ -188,6 +192,27 @@ export const resolveFileContent = async ({
   if (!stats.isFile()) {
     throw createServiceError("INVALID_PAYLOAD", 400, "path must point to a file");
   }
+  return { absolutePath, stats };
+};
+
+export const resolveFileMetadata = async ({ repoRoot, normalizedPath }: ResolveFileStatsInput) => {
+  await resolveFileStats({ repoRoot, normalizedPath });
+  return {
+    path: normalizedPath,
+    name: path.posix.basename(normalizedPath),
+    kind: "file" as const,
+  };
+};
+
+export const resolveFileContent = async ({
+  repoRoot,
+  normalizedPath,
+  maxBytes,
+}: ResolveFileContentInput): Promise<RepoFileContent> => {
+  const { absolutePath, stats } = await resolveFileStats({
+    repoRoot,
+    normalizedPath,
+  });
 
   const sample = await readFileSlice({
     absolutePath,

@@ -1142,6 +1142,35 @@ describe("ScreenPanel", () => {
     });
   });
 
+  it("resolves HTML file reference when clicking linkified token", async () => {
+    const onResolveFileReference = vi.fn(async () => undefined);
+    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
+    const state = buildState({
+      screenLines: ["rendered apps/web/preview.html:7"],
+    });
+    const actions = buildActions({ onResolveFileReference, onResolveFileReferenceCandidates });
+    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    await waitFor(() => {
+      expect(onResolveFileReferenceCandidates).toHaveBeenCalled();
+    });
+    const ref = await waitFor(() => {
+      const found = container.querySelector<HTMLElement>(
+        "[data-vde-file-ref='apps/web/preview.html:7']",
+      );
+      expect(found).toBeTruthy();
+      return found;
+    });
+    if (!ref) {
+      throw new Error("expected linkified HTML file reference");
+    }
+    fireEvent.click(ref);
+
+    await waitFor(() => {
+      expect(onResolveFileReference).toHaveBeenCalledWith("apps/web/preview.html:7");
+    });
+  });
+
   it("resolves file reference when pressing Enter on linkified token", async () => {
     const onResolveFileReference = vi.fn(async () => undefined);
     const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);

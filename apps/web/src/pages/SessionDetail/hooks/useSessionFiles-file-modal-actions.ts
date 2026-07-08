@@ -12,6 +12,8 @@ import type {
 import { setUiState } from "./useSessionFiles-ui-state-machine";
 
 const markdownPathPattern = /\.(md|markdown)$/i;
+const htmlPathPattern = /\.html?$/i;
+const previewablePathPattern = /\.(html?|md|markdown)$/i;
 const FILE_MODAL_COPY_INDICATOR_MS = 1200;
 
 const isMarkdownFileContent = (file: RepoFileContent) => {
@@ -21,9 +23,20 @@ const isMarkdownFileContent = (file: RepoFileContent) => {
   return markdownPathPattern.test(file.path);
 };
 
+const isHtmlFileContent = (file: RepoFileContent) => {
+  if (file.languageHint === "html") {
+    return true;
+  }
+  return htmlPathPattern.test(file.path);
+};
+
 type UseSessionFilesFileModalActionsDeps = {
   paneId: string;
-  fetchFileContent: (targetPaneId: string, targetPath: string) => Promise<RepoFileContent>;
+  fetchFileContent: (
+    targetPaneId: string,
+    targetPath: string,
+    options?: { includeIgnoredPreviewExact?: boolean },
+  ) => Promise<RepoFileContent>;
   revealFilePath: (targetPath: string) => void;
   resolveUnknownErrorMessage: (error: unknown, fallbackMessage: string) => string;
   contextVersionRef: MutableRefObject<number>;
@@ -73,7 +86,14 @@ export const useSessionFilesFileModalActions = (
         highlightLine: options.highlightLine ?? null,
       });
 
-      void fetchFileContent(options.paneId, targetPath)
+      const includeIgnoredPreviewExact =
+        options.origin === "log" && previewablePathPattern.test(targetPath);
+
+      void fetchFileContent(
+        options.paneId,
+        targetPath,
+        includeIgnoredPreviewExact ? { includeIgnoredPreviewExact } : undefined,
+      )
         .then((file) => {
           if (
             contextVersion !== contextVersionRef.current ||
@@ -87,7 +107,7 @@ export const useSessionFilesFileModalActions = (
             markdownViewMode:
               options.highlightLine != null && options.highlightLine > 0
                 ? "code"
-                : isMarkdownFileContent(file)
+                : isHtmlFileContent(file) || isMarkdownFileContent(file)
                   ? "preview"
                   : "code",
           });

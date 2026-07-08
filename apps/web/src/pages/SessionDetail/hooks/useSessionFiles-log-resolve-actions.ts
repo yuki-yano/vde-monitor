@@ -17,6 +17,8 @@ import type {
   SessionFilesUiState,
 } from "./useSessionFiles-ui-state-machine";
 
+const previewablePathPattern = /\.(html?|md|markdown)$/i;
+
 type UseSessionFilesLogResolveActionsState = Pick<
   SessionFilesUiState,
   "logFileCandidatePaneId" | "logFileCandidateLine"
@@ -106,6 +108,32 @@ export const useSessionFilesLogResolveActions = (
         const opened = await tryOpenExistingPath({
           paneId: sourcePaneId,
           path: reference.normalizedPath,
+          requestId,
+          highlightLine: location.line,
+        });
+        if (
+          !isCurrentLogResolveRequest({
+            activeLogResolveRequestIdRef,
+            requestId,
+          })
+        ) {
+          return;
+        }
+        if (opened) {
+          return;
+        }
+      }
+
+      if (
+        reference.normalizedPath == null &&
+        reference.filename &&
+        previewablePathPattern.test(reference.filename)
+      ) {
+        // False positive: the stale request guard is evaluated after path resolution.
+        // react-doctor-disable-next-line async-defer-await
+        const opened = await tryOpenExistingPath({
+          paneId: sourcePaneId,
+          path: reference.filename,
           requestId,
           highlightLine: location.line,
         });

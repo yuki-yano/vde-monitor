@@ -5,14 +5,16 @@ import type {
   RepoFileTreePage,
 } from "@vde-monitor/shared";
 
-import { resolveFileContent } from "./file-content-resolver";
+import { resolveFileContent, resolveFileMetadata } from "./file-content-resolver";
 import { normalizeRepoRelativePath } from "./path-guard";
 import { createSearchIndexResolver } from "./search-index-resolver";
 import {
   type RepoFileServiceError,
   createServiceError,
   ensureRepoRootAvailable,
+  isRepoFileServiceError,
   normalizeFileContentPath,
+  normalizeSearchQuery,
   toServiceError,
   validateMaxBytes,
 } from "./service-context";
@@ -31,6 +33,11 @@ const GIT_LS_FILES_TIMEOUT_MS = 1_500;
 const DEFAULT_SEARCH_TIMEOUT_MS = 2_000;
 const DEFAULT_CONTENT_TIMEOUT_MS = 2_000;
 const GIT_LS_FILES_MAX_BUFFER = 10_000_000;
+const previewablePathPattern = /\.(html?|md|markdown)$/i;
+
+const isPreviewablePath = (targetPath: string) => previewablePathPattern.test(targetPath);
+const isHardHiddenPath = (targetPath: string) =>
+  targetPath === ".git" || targetPath.startsWith(".git/");
 
 type ListTreeInput = {
   repoRoot: string;
@@ -45,6 +52,7 @@ type SearchFilesInput = {
   cursor?: string;
   limit: number;
   timeoutMs?: number;
+  includeIgnoredPreviewExact?: boolean;
 };
 
 type GetFileContentInput = {
@@ -52,6 +60,7 @@ type GetFileContentInput = {
   path: string;
   maxBytes: number;
   timeoutMs?: number;
+  includeIgnoredPreviewExact?: boolean;
 };
 
 type RepoFileService = {
@@ -83,6 +92,58 @@ export const createRepoFileService = ({
     now,
     runLsFiles,
   });
+
+  const resolveExactPreviewSearchPage = async ({
+    repoRoot,
+    query,
+    cursor,
+    includeIgnoredPreviewExact,
+  }: {
+    repoRoot: string;
+    query: string;
+    cursor?: string;
+    includeIgnoredPreviewExact: boolean;
+  }): Promise<RepoFileSearchPage | null> => {
+    if (!includeIgnoredPreviewExact || cursor != null) {
+      return null;
+    }
+    const normalizedSearchQuery = normalizeSearchQuery(query);
+    const buildEmptyPage = () => ({
+      query: normalizedSearchQuery,
+      items: [],
+      truncated: false,
+      totalMatchedCount: 0,
+    });
+    try {
+      const normalizedQuery = normalizeFileContentPath(normalizedSearchQuery);
+      if (!isPreviewablePath(normalizedQuery)) {
+        return null;
+      }
+      if (isHardHiddenPath(normalizedQuery)) {
+        throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
+      }
+      const exactPreviewMatch = await resolveFileMetadata({
+        repoRoot,
+        normalizedPath: normalizedQuery,
+      });
+      const [item] = (await withIgnoredFlags(repoRoot, [exactPreviewMatch])).map((searchItem) => ({
+        ...searchItem,
+        score: Number.MAX_SAFE_INTEGER,
+        highlights: [] as number[],
+      }));
+      return {
+        query: normalizedSearchQuery,
+        items: item ? [item] : [],
+        truncated: false,
+        totalMatchedCount: item ? 1 : 0,
+      };
+    } catch (error) {
+      if (isRepoFileServiceError(error) && error.code === "NOT_FOUND") {
+        return buildEmptyPage();
+      }
+      throw error;
+    }
+  };
 
   const listTree = async ({ repoRoot, path: rawPath, cursor, limit }: ListTreeInput) => {
     await ensureRepoRootAvailable(repoRoot);
@@ -116,9 +177,19 @@ export const createRepoFileService = ({
     cursor,
     limit,
     timeoutMs = DEFAULT_SEARCH_TIMEOUT_MS,
+    includeIgnoredPreviewExact = false,
   }: SearchFilesInput) => {
     await ensureRepoRootAvailable(repoRoot);
     try {
+      const exactPreviewPage = await resolveExactPreviewSearchPage({
+        repoRoot,
+        query,
+        cursor,
+        includeIgnoredPreviewExact,
+      });
+      if (exactPreviewPage) {
+        return exactPreviewPage;
+      }
       return executeSearchFiles({
         repoRoot,
         query,
@@ -138,13 +209,22 @@ export const createRepoFileService = ({
     path: rawPath,
     maxBytes,
     timeoutMs = DEFAULT_CONTENT_TIMEOUT_MS,
+    includeIgnoredPreviewExact = false,
   }: GetFileContentInput) => {
     await ensureRepoRootAvailable(repoRoot);
     try {
       validateMaxBytes(maxBytes);
       const normalizedPath = normalizeFileContentPath(rawPath);
       const policy = await resolveVisibilityPolicy(repoRoot);
-      if (!policy.shouldIncludePath({ relativePath: normalizedPath, isDirectory: false })) {
+      if (isHardHiddenPath(normalizedPath)) {
+        throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
+      }
+      const canReadIgnoredPreviewExact =
+        includeIgnoredPreviewExact && isPreviewablePath(normalizedPath);
+      if (
+        !canReadIgnoredPreviewExact &&
+        !policy.shouldIncludePath({ relativePath: normalizedPath, isDirectory: false })
+      ) {
         throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
       }
 

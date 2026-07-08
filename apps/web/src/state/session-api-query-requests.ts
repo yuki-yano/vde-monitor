@@ -221,7 +221,12 @@ export const createSessionQueryRequests = ({
   const requestRepoFileSearch = async (
     paneId: string,
     queryValue: string,
-    options?: { cursor?: string; limit?: number; worktreePath?: string },
+    options?: {
+      cursor?: string;
+      limit?: number;
+      worktreePath?: string;
+      includeIgnoredPreviewExact?: boolean;
+    },
   ): Promise<RepoFileSearchPage> => {
     const query = buildRepoFileSearchQuery(queryValue, options);
     return requestPaneQueryValue<{ result?: RepoFileSearchPage }, "result">({
@@ -235,7 +240,7 @@ export const createSessionQueryRequests = ({
   const requestRepoFileContent = async (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number; worktreePath?: string },
+    options?: { maxBytes?: number; worktreePath?: string; includeIgnoredPreviewExact?: boolean },
   ): Promise<RepoFileContent> => {
     const query = buildRepoFileContentQuery(path, options);
     return requestPaneQueryValue<{ file?: RepoFileContent }, "file">({

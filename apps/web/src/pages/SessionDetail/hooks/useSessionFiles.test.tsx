@@ -951,6 +951,210 @@ describe("useSessionFiles", () => {
     });
   });
 
+  it("opens line-specific HTML log references in code mode while preserving the highlighted line", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "apps/web/preview.html") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "apps/web/preview.html",
+              name: "preview.html",
+              kind: "file",
+              score: 1,
+              highlights: [0],
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+    });
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 64,
+      isBinary: false,
+      truncated: false,
+      languageHint: "html" as const,
+      content: "<!doctype html><main>Preview</main>",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "apps/web/preview.html:7",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalOpen).toBe(true);
+      expect(result.current.fileModalPath).toBe("apps/web/preview.html");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalHighlightLine).toBe(7);
+    expect(result.current.fileModalMarkdownViewMode).toBe("code");
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "apps/web/preview.html", {
+      cursor: undefined,
+      limit: 100,
+      includeIgnoredPreviewExact: true,
+    });
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "apps/web/preview.html", {
+      maxBytes: 256 * 1024,
+      includeIgnoredPreviewExact: true,
+    });
+  });
+
+  it("opens Markdown log references through ignored preview lookup", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "docs/notes.md") {
+        return createSearchPage({
+          query,
+          items: [
+            {
+              path: "docs/notes.md",
+              name: "notes.md",
+              kind: "file",
+              score: 1,
+              highlights: [],
+              isIgnored: true,
+            },
+          ],
+          totalMatchedCount: 1,
+        });
+      }
+      return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+    });
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 32,
+      isBinary: false,
+      truncated: false,
+      languageHint: "markdown" as const,
+      content: "# Notes",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "docs/notes.md",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalOpen).toBe(true);
+      expect(result.current.fileModalPath).toBe("docs/notes.md");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(result.current.fileModalMarkdownViewMode).toBe("preview");
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
+      cursor: undefined,
+      limit: 100,
+      includeIgnoredPreviewExact: true,
+    });
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
+      maxBytes: 256 * 1024,
+      includeIgnoredPreviewExact: true,
+    });
+  });
+
+  it("opens root Markdown filename references through ignored exact lookup", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(
+      async (
+        _paneId: string,
+        query: string,
+        options?: { includeIgnoredPreviewExact?: boolean },
+      ) => {
+        if (query === "README.md" && options?.includeIgnoredPreviewExact) {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "README.md",
+                name: "README.md",
+                kind: "file",
+                score: 1,
+                highlights: [],
+                isIgnored: true,
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+        return createSearchPage({ query, items: [], totalMatchedCount: 0 });
+      },
+    );
+    const requestRepoFileContentLocal = vi.fn(async (_paneId: string, targetPath: string) => ({
+      path: targetPath,
+      sizeBytes: 32,
+      isBinary: false,
+      truncated: false,
+      languageHint: "markdown" as const,
+      content: "# Readme",
+    }));
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "README.md",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.fileModalOpen).toBe(true);
+      expect(result.current.fileModalPath).toBe("README.md");
+      expect(result.current.fileModalLoading).toBe(false);
+    });
+    expect(requestRepoFileSearch).toHaveBeenCalledTimes(1);
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "README.md", {
+      cursor: undefined,
+      limit: 100,
+      includeIgnoredPreviewExact: true,
+    });
+    expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "README.md", {
+      maxBytes: 256 * 1024,
+      includeIgnoredPreviewExact: true,
+    });
+  });
+
   it("falls back to exact filename search when path lookup fails and opens the single match", async () => {
     const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
     const requestRepoFileSearch = vi.fn(async () =>
@@ -1386,6 +1590,177 @@ describe("useSessionFiles", () => {
 
     expect(linkable).toEqual(["src/exists.ts:2", "index.ts"]);
     expect(requestRepoFileContentLocal).not.toHaveBeenCalled();
+  });
+
+  it("treats exact previewable path references as linkable through ignored preview lookup", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(
+      async (
+        _paneId: string,
+        query: string,
+        options?: { includeIgnoredPreviewExact?: boolean },
+      ) => {
+        if (
+          query === "docs/sidebar-collapse-proposals.html" &&
+          options?.includeIgnoredPreviewExact
+        ) {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "docs/sidebar-collapse-proposals.html",
+                name: "sidebar-collapse-proposals.html",
+                kind: "file",
+                score: 1,
+                highlights: [],
+                isIgnored: true,
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+        if (query === "docs/notes.md" && options?.includeIgnoredPreviewExact) {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "docs/notes.md",
+                name: "notes.md",
+                kind: "file",
+                score: 1,
+                highlights: [],
+                isIgnored: true,
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+        if (query === "index.html" && options?.includeIgnoredPreviewExact) {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "index.html",
+                name: "index.html",
+                kind: "file",
+                score: 1,
+                highlights: [],
+                isIgnored: true,
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+        return createSearchPage({
+          query,
+          items: [],
+          totalMatchedCount: 0,
+        });
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    const linkable = await result.current.onResolveLogFileReferenceCandidates({
+      rawTokens: ["docs/sidebar-collapse-proposals.html", "docs/notes.md", "index.html:7"],
+      sourcePaneId: "pane-log",
+      sourceRepoRoot: "/repo",
+    });
+
+    expect(linkable).toEqual([
+      "docs/sidebar-collapse-proposals.html",
+      "docs/notes.md",
+      "index.html:7",
+    ]);
+    expect(requestRepoFileSearch).toHaveBeenCalledWith(
+      "pane-log",
+      "docs/sidebar-collapse-proposals.html",
+      {
+        cursor: undefined,
+        limit: 100,
+        includeIgnoredPreviewExact: true,
+      },
+    );
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
+      cursor: undefined,
+      limit: 100,
+      includeIgnoredPreviewExact: true,
+    });
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "index.html", {
+      cursor: undefined,
+      limit: 100,
+      includeIgnoredPreviewExact: true,
+    });
+  });
+
+  it("does not cache negative previewable exact linkability results", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    let searchAttemptCount = 0;
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => {
+      if (query === "docs/report.html") {
+        searchAttemptCount += 1;
+        if (searchAttemptCount >= 2) {
+          return createSearchPage({
+            query,
+            items: [
+              {
+                path: "docs/report.html",
+                name: "report.html",
+                kind: "file",
+                score: 1,
+                highlights: [],
+                isIgnored: true,
+              },
+            ],
+            totalMatchedCount: 1,
+          });
+        }
+      }
+      return createSearchPage({
+        query,
+        items: [],
+        totalMatchedCount: 0,
+      });
+    });
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent,
+      }),
+    );
+
+    await expect(
+      result.current.onResolveLogFileReferenceCandidates({
+        rawTokens: ["docs/report.html"],
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      result.current.onResolveLogFileReferenceCandidates({
+        rawTokens: ["docs/report.html"],
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      }),
+    ).resolves.toEqual(["docs/report.html"]);
+    const exactPathSearchCalls = requestRepoFileSearch.mock.calls.filter(
+      ([, query]) => query === "docs/report.html",
+    );
+    expect(exactPathSearchCalls.length).toBe(2);
   });
 
   it("treats hidden path references as non-linkable when search does not return exact path", async () => {

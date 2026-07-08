@@ -257,6 +257,62 @@ describe("createApiRouter", () => {
     }
   });
 
+  it("returns exact ignored previewable content when explicitly requested", async () => {
+    const tmpRoot = await mkdtemp(
+      path.join(os.tmpdir(), "vde-monitor-files-content-preview-policy-"),
+    );
+    try {
+      await mkdir(path.join(tmpRoot, "docs"), { recursive: true });
+      await writeFile(path.join(tmpRoot, ".gitignore"), "docs/\n");
+      await writeFile(path.join(tmpRoot, "docs", "notes.md"), "# Notes\n");
+
+      const { api, monitor, detail } = createTestContext();
+      monitor.registry.update({
+        ...detail,
+        repoRoot: tmpRoot,
+        currentPath: tmpRoot,
+      });
+
+      const searchRes = await api.request(
+        "/sessions/pane-1/files/search?q=docs%2Fnotes.md&includeIgnoredPreviewExact=1",
+        {
+          headers: authHeaders,
+        },
+      );
+      expect(searchRes.status).toBe(200);
+      const searchData = await searchRes.json();
+      expect(searchData.result.items.map((item: { path: string }) => item.path)).toContain(
+        "docs/notes.md",
+      );
+
+      const res = await api.request(
+        "/sessions/pane-1/files/content?path=docs%2Fnotes.md&includeIgnoredPreviewExact=1",
+        {
+          headers: authHeaders,
+        },
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.file.path).toBe("docs/notes.md");
+      expect(data.file.languageHint).toBe("markdown");
+      expect(data.file.content).toBe("# Notes\n");
+
+      await mkdir(path.join(tmpRoot, ".git"), { recursive: true });
+      await writeFile(path.join(tmpRoot, ".git", "secret.md"), "# secret\n");
+      const hiddenRes = await api.request(
+        "/sessions/pane-1/files/content?path=.git%2Fsecret.md&includeIgnoredPreviewExact=1",
+        {
+          headers: authHeaders,
+        },
+      );
+      expect(hiddenRes.status).toBe(403);
+      const hiddenData = await hiddenRes.json();
+      expect(hiddenData.error.code).toBe("FORBIDDEN_PATH");
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
   it("returns FORBIDDEN_PATH when content target is a symbolic link", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-symlink-"));
     const outsideRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-outside-"));

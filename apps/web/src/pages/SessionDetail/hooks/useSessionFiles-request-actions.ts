@@ -17,12 +17,17 @@ type UseSessionFilesRequestActionsArgs = {
   requestRepoFileSearch: (
     paneId: string,
     query: string,
-    options?: { cursor?: string; limit?: number; worktreePath?: string },
+    options?: {
+      cursor?: string;
+      limit?: number;
+      worktreePath?: string;
+      includeIgnoredPreviewExact?: boolean;
+    },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number; worktreePath?: string },
+    options?: { maxBytes?: number; worktreePath?: string; includeIgnoredPreviewExact?: boolean },
   ) => Promise<RepoFileContent>;
   searchRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileSearchPage>>>;
   fileContentRequestMapRef: MutableRefObject<Map<string, Promise<RepoFileContent>>>;
@@ -64,16 +69,26 @@ export const useSessionFilesRequestActions = ({
   );
 
   const fetchFileContent = useCallback(
-    async (targetPaneId: string, targetPath: string) => {
+    async (
+      targetPaneId: string,
+      targetPath: string,
+      options?: { includeIgnoredPreviewExact?: boolean },
+    ) => {
       const scopedWorktreePath = resolveWorktreePathForPane(targetPaneId);
       const targetScopeId =
         targetPaneId === paneId ? requestScopeId : `${targetPaneId}:__default__`;
       return fetchWithRequestMap({
         requestMapRef: fileContentRequestMapRef,
-        requestKey: buildFileContentRequestKey(targetScopeId, targetPath, fileContentMaxBytes),
+        requestKey: buildFileContentRequestKey(
+          targetScopeId,
+          targetPath,
+          fileContentMaxBytes,
+          options?.includeIgnoredPreviewExact,
+        ),
         requestFactory: () =>
           requestRepoFileContent(targetPaneId, targetPath, {
             maxBytes: fileContentMaxBytes,
+            ...(options?.includeIgnoredPreviewExact ? { includeIgnoredPreviewExact: true } : {}),
             ...(scopedWorktreePath ? { worktreePath: scopedWorktreePath } : {}),
           }),
       });

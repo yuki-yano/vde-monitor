@@ -323,11 +323,23 @@ describe("session-api-utils", () => {
       cursor: "abc",
       limit: "1",
     });
+    expect(buildRepoFileSearchQuery("docs/notes.md", { includeIgnoredPreviewExact: true })).toEqual(
+      {
+        q: "docs/notes.md",
+        includeIgnoredPreviewExact: "1",
+      },
+    );
 
     expect(buildRepoFileContentQuery("README.md")).toEqual({ path: "README.md" });
     expect(buildRepoFileContentQuery("src/index.ts", { maxBytes: 10.8 })).toEqual({
       path: "src/index.ts",
       maxBytes: "10",
+    });
+    expect(
+      buildRepoFileContentQuery("docs/notes.md", { includeIgnoredPreviewExact: true }),
+    ).toEqual({
+      path: "docs/notes.md",
+      includeIgnoredPreviewExact: "1",
     });
   });
 });

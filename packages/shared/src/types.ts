@@ -279,6 +279,7 @@ export type RepoFileLanguageHint =
   | "yaml"
   | "bash"
   | "markdown"
+  | "html"
   | "diff"
   | "dockerfile"
   | "text";

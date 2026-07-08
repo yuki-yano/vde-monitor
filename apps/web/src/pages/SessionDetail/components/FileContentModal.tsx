@@ -53,6 +53,23 @@ type FileContentModalProps = {
 };
 
 const markdownPathPattern = /\.(md|markdown)$/i;
+const htmlPathPattern = /\.html?$/i;
+const htmlPreviewContentSecurityPolicy = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "connect-src 'none'",
+  "img-src data: blob:",
+  "media-src data: blob:",
+  "font-src data:",
+  "style-src 'unsafe-inline'",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
+const htmlPreviewCspMeta = `<meta http-equiv="Content-Security-Policy" content="${htmlPreviewContentSecurityPolicy}">`;
+
 const isMarkdownContent = (file: RepoFileContent | null, path: string | null) => {
   if (file?.languageHint === "markdown") {
     return true;
@@ -64,6 +81,38 @@ const isMarkdownContent = (file: RepoFileContent | null, path: string | null) =>
     return true;
   }
   return false;
+};
+
+const isHtmlContent = (file: RepoFileContent | null, path: string | null) => {
+  if (file?.languageHint === "html") {
+    return true;
+  }
+  if (file?.path && htmlPathPattern.test(file.path)) {
+    return true;
+  }
+  if (path && htmlPathPattern.test(path)) {
+    return true;
+  }
+  return false;
+};
+
+const buildHtmlPreviewSrcDoc = (source: string) => {
+  if (/<head(?:\s[^>]*)?>/i.test(source)) {
+    return source.replace(/<head(?:\s[^>]*)?>/i, (match) => `${match}${htmlPreviewCspMeta}`);
+  }
+  if (/<html(?:\s[^>]*)?>/i.test(source)) {
+    return source.replace(
+      /<html(?:\s[^>]*)?>/i,
+      (match) => `${match}<head>${htmlPreviewCspMeta}</head>`,
+    );
+  }
+  if (/<body(?:\s[^>]*)?>/i.test(source)) {
+    return source.replace(
+      /<body(?:\s[^>]*)?>/i,
+      (match) => `<head>${htmlPreviewCspMeta}</head>${match}`,
+    );
+  }
+  return `<!doctype html><html><head>${htmlPreviewCspMeta}</head><body>${source}</body></html>`;
 };
 
 const FileContentModalHeader = ({
@@ -147,6 +196,7 @@ const FileContentModalBody = ({
   imagePreviewSrc,
   activePath,
   markdownEnabled,
+  htmlEnabled,
   resolvedViewMode,
   markdownComponents,
   effectiveCode,
@@ -165,6 +215,7 @@ const FileContentModalBody = ({
   imagePreviewSrc: string | null;
   activePath: string;
   markdownEnabled: boolean;
+  htmlEnabled: boolean;
   resolvedViewMode: "code" | "preview" | "diff";
   markdownComponents: Components;
   effectiveCode: string;
@@ -176,106 +227,125 @@ const FileContentModalBody = ({
   diffError: string | null;
   diffBinary: boolean;
   diffPatch: string | null;
-}) => (
-  <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
-    {loading ? (
-      <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
-        <Spinner size="sm" />
-        <span className="text-latte-subtext0 text-xs">Loading file...</span>
-      </div>
-    ) : null}
+}) => {
+  const previewEnabled = markdownEnabled || htmlEnabled;
+  const htmlPreviewSrcDoc = htmlEnabled ? buildHtmlPreviewSrcDoc(effectiveCode) : "";
 
-    {!loading && error ? (
-      <div className="p-3 sm:p-4">
-        <Callout tone="error" size="xs">
-          {error}
-        </Callout>
-      </div>
-    ) : null}
-
-    {!loading && !error && file?.isBinary && imagePreviewSrc && resolvedViewMode !== "diff" ? (
-      <div className="flex h-full items-center justify-center p-2 sm:p-4">
-        <img
-          src={imagePreviewSrc}
-          alt={`Preview of ${activePath || "image file"}`}
-          className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
-          loading="lazy"
-        />
-      </div>
-    ) : null}
-
-    {!loading && !error && file?.isBinary && !imagePreviewSrc && resolvedViewMode !== "diff" ? (
-      <div className="p-3 sm:p-4">
-        <Callout tone="warning" size="xs">
-          Binary file preview is not available.
-        </Callout>
-      </div>
-    ) : null}
-
-    {!loading && !error && !file?.isBinary && markdownEnabled && resolvedViewMode === "preview" ? (
-      <div className="custom-scrollbar h-full overflow-auto overscroll-contain">
-        <article className="vde-markdown text-latte-text space-y-4 p-3 sm:p-4 md:p-5">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {effectiveCode}
-          </ReactMarkdown>
-        </article>
-      </div>
-    ) : null}
-
-    {!loading &&
-    !error &&
-    !file?.isBinary &&
-    resolvedViewMode !== "diff" &&
-    (!markdownEnabled || resolvedViewMode === "code") ? (
-      <ShikiCodeBlock
-        code={effectiveCode}
-        language={effectiveLanguage}
-        theme={theme}
-        flush
-        showLineNumbers={showLineNumbers}
-        highlightLine={highlightLine}
-        className="h-full"
-      />
-    ) : null}
-
-    {!loading && !error && resolvedViewMode === "diff" ? (
-      diffLoading ? (
+  return (
+    <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
+      {loading ? (
         <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
           <Spinner size="sm" />
-          <span className="text-latte-subtext0 text-xs">Loading diff...</span>
+          <span className="text-latte-subtext0 text-xs">Loading file...</span>
         </div>
-      ) : diffError ? (
+      ) : null}
+
+      {!loading && error ? (
         <div className="p-3 sm:p-4">
           <Callout tone="error" size="xs">
-            {diffError}
+            {error}
           </Callout>
         </div>
-      ) : diffBinary ? (
+      ) : null}
+
+      {!loading && !error && file?.isBinary && imagePreviewSrc && resolvedViewMode !== "diff" ? (
+        <div className="flex h-full items-center justify-center p-2 sm:p-4">
+          <img
+            src={imagePreviewSrc}
+            alt={`Preview of ${activePath || "image file"}`}
+            className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
+            loading="lazy"
+          />
+        </div>
+      ) : null}
+
+      {!loading && !error && file?.isBinary && !imagePreviewSrc && resolvedViewMode !== "diff" ? (
         <div className="p-3 sm:p-4">
           <Callout tone="warning" size="xs">
-            Binary diff preview is not available.
+            Binary file preview is not available.
           </Callout>
         </div>
-      ) : diffPatch == null ? (
-        <div className="p-3 sm:p-4">
-          <Callout tone="warning" size="xs">
-            No textual diff is available.
-          </Callout>
+      ) : null}
+
+      {!loading &&
+      !error &&
+      !file?.isBinary &&
+      markdownEnabled &&
+      resolvedViewMode === "preview" ? (
+        <div className="custom-scrollbar h-full overflow-auto overscroll-contain">
+          <article className="vde-markdown text-latte-text space-y-4 p-3 sm:p-4 md:p-5">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {effectiveCode}
+            </ReactMarkdown>
+          </article>
         </div>
-      ) : (
+      ) : null}
+
+      {!loading && !error && !file?.isBinary && htmlEnabled && resolvedViewMode === "preview" ? (
+        <iframe
+          title={`Preview of ${activePath || "HTML file"}`}
+          srcDoc={htmlPreviewSrcDoc}
+          sandbox=""
+          referrerPolicy="no-referrer"
+          className="h-full w-full border-0 bg-white"
+        />
+      ) : null}
+
+      {!loading &&
+      !error &&
+      !file?.isBinary &&
+      resolvedViewMode !== "diff" &&
+      (!previewEnabled || resolvedViewMode === "code") ? (
         <ShikiCodeBlock
-          code={diffPatch}
-          language="diff"
+          code={effectiveCode}
+          language={effectiveLanguage}
           theme={theme}
           flush
           showLineNumbers={showLineNumbers}
-          highlightLine={null}
-          className="h-full"
+          highlightLine={highlightLine}
+          className="vde-file-content-modal-code h-full"
         />
-      )
-    ) : null}
-  </div>
-);
+      ) : null}
+
+      {!loading && !error && resolvedViewMode === "diff" ? (
+        diffLoading ? (
+          <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
+            <Spinner size="sm" />
+            <span className="text-latte-subtext0 text-xs">Loading diff...</span>
+          </div>
+        ) : diffError ? (
+          <div className="p-3 sm:p-4">
+            <Callout tone="error" size="xs">
+              {diffError}
+            </Callout>
+          </div>
+        ) : diffBinary ? (
+          <div className="p-3 sm:p-4">
+            <Callout tone="warning" size="xs">
+              Binary diff preview is not available.
+            </Callout>
+          </div>
+        ) : diffPatch == null ? (
+          <div className="p-3 sm:p-4">
+            <Callout tone="warning" size="xs">
+              No textual diff is available.
+            </Callout>
+          </div>
+        ) : (
+          <ShikiCodeBlock
+            code={diffPatch}
+            language="diff"
+            theme={theme}
+            flush
+            showLineNumbers={showLineNumbers}
+            highlightLine={null}
+            className="vde-file-content-modal-code h-full"
+          />
+        )
+      ) : null}
+    </div>
+  );
+};
 
 export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
   const {
@@ -301,16 +371,24 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
     actions;
 
   const markdownEnabled = isMarkdownContent(file, path) && !file?.isBinary && !error && !loading;
+  const htmlEnabled = isHtmlContent(file, path) && !file?.isBinary && !error && !loading;
+  const previewEnabled = markdownEnabled || htmlEnabled;
   const activePath = path ?? file?.path ?? "";
   const title = activePath.length > 0 ? activePath : "File content";
   const effectiveCode = file?.content ?? "";
-  const effectiveLanguage = file?.languageHint ?? (markdownEnabled ? "markdown" : null);
+  const effectiveLanguage = htmlEnabled
+    ? "html"
+    : (file?.languageHint ?? (markdownEnabled ? "markdown" : null));
   const resolvedViewMode =
-    markdownViewMode === "diff" && !diffAvailable ? "code" : markdownViewMode;
+    markdownViewMode === "diff" && !diffAvailable
+      ? "code"
+      : markdownViewMode === "preview" && !previewEnabled
+        ? "code"
+        : markdownViewMode;
   const imagePreview = file?.imagePreview ?? null;
   const imagePreviewSrc =
     imagePreview == null ? null : `data:${imagePreview.mimeType};base64,${imagePreview.base64}`;
-  const showViewTabs = markdownEnabled || diffAvailable;
+  const showViewTabs = previewEnabled || diffAvailable;
 
   useEffect(() => {
     if (!open) {
@@ -482,6 +560,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
             theme={theme}
             showLineNumbers={showLineNumbers}
             highlightLine={null}
+            className="vde-file-content-modal-code"
           />
         );
       },
@@ -531,7 +610,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
             >
               <TabsList>
                 <TabsTrigger value="code">Code</TabsTrigger>
-                {markdownEnabled ? <TabsTrigger value="preview">Preview</TabsTrigger> : null}
+                {previewEnabled ? <TabsTrigger value="preview">Preview</TabsTrigger> : null}
                 {diffAvailable ? <TabsTrigger value="diff">Diff</TabsTrigger> : null}
               </TabsList>
             </Tabs>
@@ -545,6 +624,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
           imagePreviewSrc={imagePreviewSrc}
           activePath={activePath}
           markdownEnabled={markdownEnabled}
+          htmlEnabled={htmlEnabled}
           resolvedViewMode={resolvedViewMode}
           markdownComponents={markdownComponents}
           effectiveCode={effectiveCode}

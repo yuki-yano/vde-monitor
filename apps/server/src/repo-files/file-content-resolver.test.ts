@@ -136,6 +136,30 @@ describe("file content resolver", () => {
     }
   });
 
+  it("returns html language hint for HTML files", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-html-"));
+    try {
+      await mkdir(path.join(repoRoot, "public"), { recursive: true });
+      await writeFile(path.join(repoRoot, "public", "preview.html"), "<main>Preview</main>\n");
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "public/preview.html",
+        maxBytes: 1024,
+      });
+
+      expect(result).toMatchObject({
+        path: "public/preview.html",
+        isBinary: false,
+        truncated: false,
+        languageHint: "html",
+        content: "<main>Preview</main>\n",
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects non-file paths", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-dir-"));
     try {

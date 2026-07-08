@@ -119,12 +119,14 @@ export type RepoFileSearchQuery = {
   cursor?: string;
   limit?: string;
   worktreePath?: string;
+  includeIgnoredPreviewExact?: string;
 };
 
 export type RepoFileContentQuery = {
   path: string;
   maxBytes?: string;
   worktreePath?: string;
+  includeIgnoredPreviewExact?: string;
 };
 
 type ApiRequest<TArgs, TRequestInit, TResponse> = (

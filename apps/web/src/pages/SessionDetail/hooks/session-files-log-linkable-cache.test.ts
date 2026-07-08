@@ -84,4 +84,23 @@ describe("useSessionFiles log linkable cache helpers", () => {
     expect(cacheRef.current.has("old")).toBe(false);
     expect(cacheRef.current.get("new")).toBe(true);
   });
+
+  it("can avoid caching negative results", async () => {
+    const cacheRef = { current: new Map<string, boolean>() };
+    const requestMapRef = { current: new Map<string, Promise<boolean>>() };
+    const resolve = vi.fn(async () => false);
+
+    await expect(
+      resolveLogReferenceLinkableWithCache({
+        cacheRef,
+        requestMapRef,
+        cacheKey: "k",
+        cacheMaxSize: 10,
+        cacheNegative: false,
+        resolve,
+      }),
+    ).resolves.toBe(false);
+
+    expect(cacheRef.current.has("k")).toBe(false);
+  });
 });

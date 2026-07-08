@@ -19,15 +19,19 @@ const searchQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.string().optional(),
   worktreePath: z.string().optional(),
+  includeIgnoredPreviewExact: z.string().optional(),
 });
 
 const contentQuerySchema = z.object({
   path: z.string(),
   maxBytes: z.string().optional(),
   worktreePath: z.string().optional(),
+  includeIgnoredPreviewExact: z.string().optional(),
 });
 
 const SEARCH_QUERY_MAX_LENGTH = 4096;
+
+const parseBooleanQueryFlag = (value: string | undefined) => value === "1" || value === "true";
 
 const parseLimit = ({
   rawLimit,
@@ -163,6 +167,7 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
           query: normalizedQuery,
           cursor: query.cursor,
           limit,
+          includeIgnoredPreviewExact: parseBooleanQueryFlag(query.includeIgnoredPreviewExact),
         });
         return c.json({ result });
       } catch (error) {
@@ -204,6 +209,7 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
           repoRoot,
           path: query.path,
           maxBytes: limit,
+          includeIgnoredPreviewExact: parseBooleanQueryFlag(query.includeIgnoredPreviewExact),
         });
         return c.json({ file });
       } catch (error) {

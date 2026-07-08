@@ -488,6 +488,7 @@ export const buildRepoFileSearchQuery = (
     cursor?: string;
     limit?: number;
     worktreePath?: string;
+    includeIgnoredPreviewExact?: boolean;
   },
 ): RepoFileSearchQuery => {
   const query: RepoFileSearchQuery = {
@@ -499,6 +500,9 @@ export const buildRepoFileSearchQuery = (
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     query.limit = String(Math.max(1, Math.floor(options.limit)));
   }
+  if (options?.includeIgnoredPreviewExact) {
+    query.includeIgnoredPreviewExact = "1";
+  }
   return applyWorktreePathQuery(query, options?.worktreePath);
 };
 
@@ -507,6 +511,7 @@ export const buildRepoFileContentQuery = (
   options?: {
     maxBytes?: number;
     worktreePath?: string;
+    includeIgnoredPreviewExact?: boolean;
   },
 ): RepoFileContentQuery => {
   const query: RepoFileContentQuery = {
@@ -514,6 +519,9 @@ export const buildRepoFileContentQuery = (
   };
   if (typeof options?.maxBytes === "number" && Number.isFinite(options.maxBytes)) {
     query.maxBytes = String(Math.max(1, Math.floor(options.maxBytes)));
+  }
+  if (options?.includeIgnoredPreviewExact) {
+    query.includeIgnoredPreviewExact = "1";
   }
   return applyWorktreePathQuery(query, options?.worktreePath);
 };

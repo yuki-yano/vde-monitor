@@ -44,6 +44,22 @@ describe("highlightCode", () => {
     });
   });
 
+  it("maps HTML aliases", async () => {
+    codeToHtmlMock.mockReturnValue("<pre>html</pre>");
+
+    const result = await highlightCode({
+      code: "<main>Hello</main>",
+      lang: "htm",
+      theme: "latte",
+    });
+
+    expect(result.language).toBe("html");
+    expect(codeToHtmlMock).toHaveBeenCalledWith("<main>Hello</main>", {
+      lang: "html",
+      theme: "catppuccin-latte",
+    });
+  });
+
   it("caches highlighted html for identical input", async () => {
     codeToHtmlMock.mockReturnValue("<pre>cached</pre>");
 

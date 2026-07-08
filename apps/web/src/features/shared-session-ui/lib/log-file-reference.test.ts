@@ -100,6 +100,19 @@ describe("normalizeLogReference", () => {
     });
   });
 
+  it("normalizes HTML file references with line suffixes", () => {
+    expect(
+      normalizeLogReference("apps/web/preview.html:7", {
+        sourceRepoRoot: null,
+      }),
+    ).toEqual({
+      display: "apps/web/preview.html",
+      normalizedPath: "apps/web/preview.html",
+      filename: "preview.html",
+      kind: "path",
+    });
+  });
+
   it("treats absolute path as path token", () => {
     expect(
       normalizeLogReference("/Users/test/repo/apps/web/src/main.ts(4,2)", {
@@ -137,6 +150,16 @@ describe("linkifyLogLineFileReferences", () => {
     const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
     const ref = doc.querySelector<HTMLElement>("[data-vde-file-ref]");
     expect(ref?.dataset.vdeFileRef).toBe("apps/web/src/main.ts(1101,29):");
+  });
+
+  it("linkifies HTML file tokens", () => {
+    const html = linkifyLogLineFileReferences("open apps/web/preview.html:7 and index.html");
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+    const refs = Array.from(doc.querySelectorAll<HTMLElement>("[data-vde-file-ref]"));
+    expect(refs.map((node) => node.dataset.vdeFileRef)).toEqual([
+      "apps/web/preview.html:7",
+      "index.html",
+    ]);
   });
 
   it("does not linkify filtered-out token", () => {

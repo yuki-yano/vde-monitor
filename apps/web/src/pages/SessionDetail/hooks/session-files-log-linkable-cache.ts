@@ -14,6 +14,7 @@ type ResolveLogReferenceLinkableWithCacheInput = {
   requestMapRef: MutableRefObject<Map<string, Promise<boolean>>>;
   cacheKey: string;
   cacheMaxSize: number;
+  cacheNegative?: boolean;
   resolve: () => Promise<boolean>;
 };
 
@@ -44,6 +45,7 @@ export const resolveLogReferenceLinkableWithCache = async ({
   requestMapRef,
   cacheKey,
   cacheMaxSize,
+  cacheNegative = true,
   resolve,
 }: ResolveLogReferenceLinkableWithCacheInput) => {
   const cached = cacheRef.current.get(cacheKey);
@@ -60,7 +62,9 @@ export const resolveLogReferenceLinkableWithCache = async ({
   requestMapRef.current.set(cacheKey, request);
   try {
     const resolved = await request;
-    setMapEntryWithMaxSize(cacheRef.current, cacheKey, resolved, cacheMaxSize);
+    if (resolved || cacheNegative) {
+      setMapEntryWithMaxSize(cacheRef.current, cacheKey, resolved, cacheMaxSize);
+    }
     return resolved;
   } finally {
     requestMapRef.current.delete(cacheKey);

@@ -58,6 +58,9 @@ describe("useSessionFiles request cache helpers", () => {
   it("builds stable request keys", () => {
     expect(buildTreePageRequestKey("%1", "src", "c1")).toBe("%1:src:c1");
     expect(buildSearchRequestKey("%1", "index", undefined)).toBe("%1:index:");
-    expect(buildFileContentRequestKey("%1", "src/index.ts", 123)).toBe("%1:src/index.ts:123");
+    expect(buildFileContentRequestKey("%1", "src/index.ts", 123)).toBe("%1:src/index.ts:123:");
+    expect(buildFileContentRequestKey("%1", "docs/preview.html", 123, true)).toBe(
+      "%1:docs/preview.html:123:ignored-preview",
+    );
   });
 });
