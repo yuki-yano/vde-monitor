@@ -1,6 +1,7 @@
 import type { LaunchConfig, SessionSummary, WorktreeList } from "@vde-monitor/shared";
-import { Clock, FolderGit2, Github, Pin } from "lucide-react";
+import { Clock, FolderGit2, Pin } from "lucide-react";
 
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
 import { LaunchAgentButton } from "@/features/launch-agent/LaunchAgentButton";
 import { GlassPanel, GlowCard, IconButton, LastInputPill, TagPill } from "@/components/ui";
 import { selectLaunchSourceSession } from "@/features/shared-session-ui/model/launch-source-session";
@@ -110,7 +111,7 @@ export const SessionGroupSection = ({
                   window.open(repoGitHubUrl, "_blank", "noopener,noreferrer");
                 }}
               >
-                <Github className="h-3.5 w-3.5" />
+                <GitHubIcon className="h-3.5 w-3.5" />
               </IconButton>
             ) : null}
             <IconButton

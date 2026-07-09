@@ -63,7 +63,7 @@
     "@types/node": "^24.13.3",
     "@types/web-push": "^3.6.4",
     "@typescript/native-preview": "^7.0.0-dev.20260630.1",
-    "concurrently": "^9.2.3",
+    "concurrently": "^10.0.3",
     "happy-dom": "^20.10.6",
     "msw": "^2.12.10",
     "oxfmt": "^0.58.0",
