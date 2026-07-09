@@ -22,8 +22,6 @@ import {
   buildTailscaleHttpsAccessUrl,
   buildTailscaleServeCommand,
   buildTailscaleServeProxyTarget,
-  collectServeProxyTargets,
-  matchesExpectedTailscaleServeTarget,
   runTailscaleHttpsPreflight,
 } from "./tailscale-setup";
 

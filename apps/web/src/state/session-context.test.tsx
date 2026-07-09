@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
 import { useRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, http, server } from "@/test/msw/server";
 
@@ -14,6 +14,16 @@ import {
 
 const API_BASE_URL = "http://127.0.0.1:11081/api";
 const pathToUrl = (path: string) => `${API_BASE_URL}${path}`;
+
+const openSseResponse = () =>
+  new HttpResponse(
+    new ReadableStream({
+      cancel() {
+        /* no-op */
+      },
+    }),
+    { headers: { "Content-Type": "text/event-stream" } },
+  );
 
 vi.mock("./use-session-token", () => ({
   useSessionToken: () => ({ token: "token", setToken: vi.fn(), apiBaseUrl: API_BASE_URL }),
@@ -87,6 +97,10 @@ const RefreshTrigger = () => {
 };
 
 describe("SessionProvider", () => {
+  beforeEach(() => {
+    server.use(http.get(pathToUrl("/streams/sessions"), () => openSseResponse()));
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
