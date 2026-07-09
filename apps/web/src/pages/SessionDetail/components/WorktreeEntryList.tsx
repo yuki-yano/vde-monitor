@@ -1,6 +1,7 @@
 import type { WorktreeListEntry } from "@vde-monitor/shared";
-import { Check, Github } from "lucide-react";
+import { Check } from "lucide-react";
 
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
 import { TagPill, TruncatedSegmentText } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -110,7 +111,7 @@ export const WorktreeEntryList = ({
                 }}
               >
                 <span className="border-latte-surface2/70 text-latte-subtext0 group-hover:border-latte-lavender/60 group-hover:text-latte-text inline-flex h-5 w-5 items-center justify-center rounded-full border transition">
-                  <Github className="h-3 w-3" />
+                  <GitHubIcon className="h-3 w-3" />
                 </span>
               </a>
             ) : null}

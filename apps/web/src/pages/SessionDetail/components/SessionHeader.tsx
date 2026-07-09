@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, GitBranch, Github, Pin, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, GitBranch, Pin, X } from "lucide-react";
 import { type KeyboardEvent, memo, useEffect, useId, useRef, useState } from "react";
 
+import { GitHubIcon } from "@/components/icons/GitHubIcon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Badge,
@@ -373,7 +374,7 @@ export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
                     aria-label="Open repository on GitHub"
                     title="Open repository on GitHub"
                   >
-                    <Github className="h-3.5 w-3.5" />
+                    <GitHubIcon className="h-3.5 w-3.5" />
                   </IconButton>
                 ) : null}
                 <IconButton
