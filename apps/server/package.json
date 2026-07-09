@@ -15,7 +15,7 @@
     "@vde-monitor/shared": "workspace:*",
     "@vde-monitor/tmux": "workspace:*",
     "@vde-monitor/wezterm": "workspace:*",
-    "citty": "^0.2.0",
+    "citty": "^0.2.2",
     "execa": "catalog:",
     "hono": "catalog:",
     "ignore": "^7.0.5",

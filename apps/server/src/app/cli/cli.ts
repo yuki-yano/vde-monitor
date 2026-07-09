@@ -65,7 +65,7 @@ const readOptionalString = (value: unknown, flag: string): string | null => {
   if (value == null) {
     return null;
   }
-  if (value === true) {
+  if (value === true || value === "") {
     throw new Error(`${flag} requires a value.`);
   }
   if (typeof value !== "string") {
