@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ScreenCaptureMeta, ScreenResponse } from "@vde-monitor/shared";
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import { configDefaults } from "@vde-monitor/shared";
 
 import type { createSessionMonitor } from "../monitor";
+import type { ScreenCache } from "../screen/screen-cache";
 import { createScreenStreamScheduler } from "./screen-stream-scheduler";
 
 type Monitor = ReturnType<typeof createSessionMonitor>;
@@ -71,7 +72,7 @@ const flushMicrotasks = async () => {
 
 describe("createScreenStreamScheduler", () => {
   let captureText: ReturnType<typeof vi.fn>;
-  let buildTextResponse: ReturnType<typeof vi.fn>;
+  let buildTextResponse: Mock<ScreenCache["buildTextResponse"]>;
   let monitor: Monitor;
   let config: AgentMonitorConfig;
 
@@ -83,7 +84,7 @@ describe("createScreenStreamScheduler", () => {
       alternateOn: false,
       truncated: null,
     }));
-    buildTextResponse = vi.fn(({ cursor }: { cursor?: string }) =>
+    buildTextResponse = vi.fn<ScreenCache["buildTextResponse"]>(({ cursor }) =>
       makeScreenResponse(cursor ?? "cursor-initial"),
     );
     const detail = makeDetail();

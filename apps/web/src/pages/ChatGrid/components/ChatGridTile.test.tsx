@@ -8,7 +8,7 @@ import {
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CommandResponse, SessionSummary } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChatGridTile } from "./ChatGridTile";
 
@@ -112,6 +112,10 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
 });
 
 describe("ChatGridTile", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders header and current branch label", () => {
     renderWithRouter(
       <ChatGridTile
@@ -256,7 +260,10 @@ describe("ChatGridTile", () => {
 
   it("sends key input from expanded keys panel", async () => {
     mockSessionApi.sendKeys.mockClear();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
     renderWithRouter(
       <ChatGridTile
         session={buildSession()}

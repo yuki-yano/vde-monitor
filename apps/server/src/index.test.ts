@@ -28,10 +28,12 @@ vi.mock("@vde-monitor/wezterm", () => ({
 }));
 
 vi.mock("@vde-monitor/herdr", () => ({
-  HerdrClient: vi.fn(() => ({
-    request: herdrRequest,
-    close: herdrClose,
-  })),
+  HerdrClient: vi.fn(
+    class HerdrClient {
+      request = herdrRequest;
+      close = herdrClose;
+    },
+  ),
   resolveSocketPath: vi.fn(() => "/tmp/herdr.sock"),
 }));
 
