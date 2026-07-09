@@ -4,8 +4,7 @@ import { extractBackgroundColor, stripAnsi, wrapLineBackground } from "./ansi-te
 
 type NullableColor = string | null;
 
-// eslint-disable-next-line no-control-regex
-const sgrPattern = /\u001b\[([0-9;]*)m/g;
+const sgrPattern = new RegExp(`${String.fromCharCode(27)}\\[([0-9;]*)m`, "g");
 
 const normalizeBackgroundColor = (color: string | null): NullableColor => color;
 

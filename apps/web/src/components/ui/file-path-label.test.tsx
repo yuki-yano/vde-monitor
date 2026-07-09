@@ -51,8 +51,7 @@ describe("FilePathLabel", () => {
     if (originalFonts) {
       Object.defineProperty(document, "fonts", originalFonts);
     } else {
-      // @ts-expect-error - allow cleanup for test runtime
-      delete document.fonts;
+      Reflect.deleteProperty(document, "fonts");
     }
     vi.restoreAllMocks();
   });
