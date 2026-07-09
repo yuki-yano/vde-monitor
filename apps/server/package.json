@@ -10,8 +10,8 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@hono/zod-validator": "catalog:",
-    "@vde-monitor/multiplexer": "workspace:*",
     "@vde-monitor/herdr": "workspace:*",
+    "@vde-monitor/multiplexer": "workspace:*",
     "@vde-monitor/shared": "workspace:*",
     "@vde-monitor/tmux": "workspace:*",
     "@vde-monitor/wezterm": "workspace:*",
@@ -25,6 +25,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "tsx": "^4.20.5"
+    "tsx": "^4.23.0"
   }
 }

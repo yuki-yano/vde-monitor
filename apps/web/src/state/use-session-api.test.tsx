@@ -11,7 +11,7 @@ const API_BASE_URL = "http://127.0.0.1:11081/api";
 
 const pathToUrl = (path: string) => `${API_BASE_URL}${path}`;
 
-const createDeferred = <T = void>() => {
+const createDeferred = <T = void,>() => {
   let resolve: ((value: T) => void) | null = null;
   const promise = new Promise<T>((nextResolve) => {
     resolve = nextResolve;
