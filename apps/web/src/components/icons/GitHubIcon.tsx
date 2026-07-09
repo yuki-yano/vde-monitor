@@ -1,8 +1,11 @@
 import type { SVGProps } from "react";
 
-export const GitHubIcon = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
+export const GitHubIcon = ({ className, ref, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
+    ref={ref}
     viewBox="0 0 16 16"
+    width="16"
+    height="16"
     aria-hidden="true"
     focusable="false"
     className={className}
