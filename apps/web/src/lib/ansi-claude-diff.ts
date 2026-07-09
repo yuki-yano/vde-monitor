@@ -89,7 +89,7 @@ const ensureSegmentStart = (segmentStart: number, index: number) =>
   segmentStart === -1 ? index : segmentStart;
 
 export const buildClaudeDiffMask = (lines: string[]) => {
-  const mask = new Array(lines.length).fill(false);
+  const mask = Array.from({ length: lines.length }, () => false);
   let segmentStart = -1;
   let segmentIndent: number | null = null;
   const closeSegment = (end: number) => {

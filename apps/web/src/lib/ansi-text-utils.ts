@@ -424,9 +424,10 @@ const padCells = (cells: UnicodeTableCell[], columnCount: number) => {
   if (cells.length >= columnCount) return cells;
   return [
     ...cells,
-    ...new Array(columnCount - cells.length)
-      .fill(null)
-      .map((): UnicodeTableCell => ({ text: "", align: "left" })),
+    ...Array.from(
+      { length: columnCount - cells.length },
+      (): UnicodeTableCell => ({ text: "", align: "left" }),
+    ),
   ];
 };
 
@@ -473,7 +474,7 @@ const escapeHtml = (value: string) =>
 const buildUnicodeTableHtml = (rows: UnicodeTableCell[][], indent: string) => {
   const columnCount = Math.max(...rows.map((row) => row.length), 1);
   const normalizedRows = rows.map((row) => padCells(row, columnCount));
-  const columnWidths = new Array<number>(columnCount).fill(0);
+  const columnWidths = Array.from({ length: columnCount }, () => 0);
   normalizedRows.forEach((row) => {
     row.forEach((cell, columnIndex) => {
       const width = getTextDisplayWidth(cell.text);

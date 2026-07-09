@@ -98,7 +98,7 @@ const buildBackgroundActivityMask = (rawLines: string[]): boolean[] => {
 };
 
 const buildNextColorIndex = (baseColors: NullableColor[]): number[] => {
-  const nextColorIndex = new Array<number>(baseColors.length).fill(-1);
+  const nextColorIndex = Array.from({ length: baseColors.length }, () => -1);
   let nextColor = -1;
   for (let index = baseColors.length - 1; index >= 0; index -= 1) {
     nextColorIndex[index] = nextColor;
@@ -153,7 +153,7 @@ const buildPromptHighlightMask = (
   isPromptStart: boolean[],
   lineHasContent: boolean[],
 ): boolean[] => {
-  const highlightMask = new Array<boolean>(plainLines.length).fill(false);
+  const highlightMask = Array.from({ length: plainLines.length }, () => false);
   const promptBlockRanges = collectPromptBlockRanges({
     lines: plainLines,
     isPromptStart: (line) => isPromptStartLine(line, "codex"),
@@ -241,7 +241,7 @@ const buildNextBackgroundInSegment = (
   lineHasBackground: boolean[],
   segmentBreakers: boolean[],
 ): number[] => {
-  const nextBackgroundInSegment = new Array<number>(lineHasBackground.length).fill(-1);
+  const nextBackgroundInSegment = Array.from({ length: lineHasBackground.length }, () => -1);
   let nextBackground = -1;
   for (let index = lineHasBackground.length - 1; index >= 0; index -= 1) {
     if (segmentBreakers[index]) {

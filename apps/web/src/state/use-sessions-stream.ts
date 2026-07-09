@@ -134,7 +134,6 @@ export const useSessionsStream = ({
       transportRef.current = "polling";
       onTransportChangeRef.current("polling");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, token, apiBaseUrl]);
 
   // ---------------------------------------------------------------------------

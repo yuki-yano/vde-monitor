@@ -11,7 +11,8 @@ export const mapWithConcurrencyLimit = async <T, R>(
     return [];
   }
 
-  const results = new Array<R>(items.length);
+  const results: R[] = [];
+  results.length = items.length;
   const workerCount = Math.min(items.length, Math.max(1, Math.floor(limit)));
   let nextIndex = 0;
 
