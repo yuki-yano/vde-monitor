@@ -31,14 +31,16 @@ export default defineConfig({
   },
   format: "esm",
   platform: "node",
-  target: "node22",
+  target: "node24",
   outDir: "dist",
   clean: true,
   shims: false,
-  inlineOnly: false,
-  // ルート package.json の dependencies は外部化、それ以外はバンドルされる。
-  // citty / ignore は意図的にルート deps へ置かずバンドルする境界なので明示する。
-  noExternal: ["citty", "ignore"],
+  deps: {
+    onlyBundle: false,
+    // ルート package.json の dependencies は外部化、それ以外はバンドルされる。
+    // citty / ignore は意図的にルート deps へ置かずバンドルする境界なので明示する。
+    alwaysBundle: ["citty", "ignore"],
+  },
   onSuccess: async () => {
     const distDir = path.resolve("dist");
     syncBundleJs(distDir, "index");

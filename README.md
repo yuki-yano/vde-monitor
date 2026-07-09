@@ -33,7 +33,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 
 ## Requirements
 
-- Node.js `22.12+`
+- Node.js `24.11+`
 - tmux `2.0+`, WezTerm with `wezterm cli`, or herdr `0.7.1+`
 - Worktree integration requires [`vde-worktree`](https://github.com/yuki-yano/vde-worktree) CLI (`vw`) and is unavailable when `vw` snapshot cannot be resolved
 - macOS-only features (image capture / pane focus) require `osascript`

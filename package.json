@@ -11,7 +11,7 @@
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.11.0"
   },
   "bin": {
     "vde-monitor": "dist/index.js",
@@ -38,8 +38,7 @@
     "format:check": "oxfmt --check .",
     "lint": "oxlint -c .oxlintrc.json .",
     "lint:fix": "oxlint --fix -c .oxlintrc.json .",
-    "typecheck": "tsgo --project tsconfig.tsgo.json --noEmit && pnpm run check:tsconfig-sync",
-    "check:tsconfig-sync": "tsx scripts/check-tsconfig-sync.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "vitest",
     "test:diff": "pnpm exec vitest related --run --passWithNoTests $(bash scripts/list-diff-related-files.sh)",
     "test:run": "vitest run",
@@ -62,15 +61,14 @@
     "@testing-library/react": "^16.0.0",
     "@types/node": "^24.13.3",
     "@types/web-push": "^3.6.4",
-    "@typescript/native-preview": "^7.0.0-dev.20260630.1",
     "concurrently": "^10.0.3",
     "happy-dom": "^20.10.6",
     "msw": "^2.15.0",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.4",
     "tsx": "^4.23.0",
-    "typescript": "^5.8.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
 }
