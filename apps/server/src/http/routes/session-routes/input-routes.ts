@@ -164,6 +164,9 @@ export const createInputRoutes = ({
           });
         }
         const command = await actions.focusPane(pane.paneId);
+        if (command.ok) {
+          monitor.markPaneObservationDirty(pane.paneId, "focus");
+        }
         return c.json({ command });
       });
     });

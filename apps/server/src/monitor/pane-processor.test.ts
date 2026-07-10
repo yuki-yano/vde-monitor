@@ -1,5 +1,5 @@
 import type { AgentMonitorConfig, PaneMeta } from "@vde-monitor/multiplexer";
-import { type SessionDetail, configDefaults } from "@vde-monitor/shared";
+import { configDefaults } from "@vde-monitor/shared";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PaneLogManager } from "./pane-log-manager";
@@ -7,6 +7,18 @@ import { processPane } from "./pane-processor";
 import type { PaneRuntimeState } from "./pane-state";
 
 const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
+  lifecycle: "UNKNOWN",
+  completionCursor: null,
+  pendingRestoredCompletionCursor: null,
+  pendingRestoredLifecycle: null,
+  pendingRestoredLastAgent: null,
+  lastResolvedAgent: "unknown",
+  agentPresence: "indeterminate",
+  agentPresent: false,
+  consecutiveAbsentObservations: 0,
+  lastResolvedState: null,
+  lastResolvedStateReason: null,
+  pendingAgentLifecycleEvents: [],
   hookState: null,
   codexQuestionPromptActive: false,
   lastOutputAt: null,
@@ -33,10 +45,13 @@ const createPaneLogManager = (overrides: Partial<PaneLogManager> = {}): PaneLogM
   hasPipeCapability: true,
   getPaneLogPath: vi.fn(() => "/tmp/log"),
   ensureLogFiles: vi.fn(async () => {}),
+  detachOwnedPipe: vi.fn(async () => ({ ok: true, owned: false, detached: false })),
+  getOwnedPaneIds: vi.fn(() => []),
   preparePaneLogging: vi.fn(async () => ({
     pipeAttached: false,
     pipeConflict: false,
     logPath: "/tmp/log",
+    ownerTag: `v2:${"a".repeat(64)}`,
   })),
   ...overrides,
 });
@@ -80,7 +95,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
       },
@@ -99,6 +113,7 @@ describe("processPane", () => {
       pipeAttached: false,
       pipeConflict: false,
       logPath: "/tmp/log",
+      ownerTag: `v2:${"a".repeat(64)}`,
     }));
     const getPaneLogPath = vi.fn(() => "/tmp/log");
     const updatePaneOutputState = vi.fn(async () => ({
@@ -114,7 +129,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager({ preparePaneLogging, getPaneLogPath }),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
       },
@@ -155,7 +169,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
         resolvePanePipeTagValue,
@@ -184,7 +197,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager({ hasPipeCapability: false }),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
       },
@@ -197,7 +209,101 @@ describe("processPane", () => {
     expect(updatePaneOutputState).toHaveBeenCalledWith(expect.objectContaining({ logPath: null }));
   });
 
-  it("returns detail with restored state when available", async () => {
+  it("detaches only after the second successful absent observation", async () => {
+    const paneState = createPaneState({
+      lastResolvedAgent: "codex",
+      agentPresent: true,
+      agentPresence: "present",
+      consecutiveAbsentObservations: 0,
+    });
+    const detachOwnedPipe = vi.fn(async () => ({ ok: true, owned: true, detached: true }));
+    const preparePaneLogging = vi.fn(async () => ({
+      pipeAttached: true,
+      pipeConflict: false,
+      logPath: "/tmp/log",
+      ownerTag: `v2:${"a".repeat(64)}`,
+    }));
+    const updatePaneOutputState = vi.fn(async () => ({
+      outputAt: "2024-01-01T00:00:00.000Z",
+      hookState: null,
+      inputTouchedAt: null,
+      codexQuestionPromptActive: false,
+    }));
+
+    const paneLogManager = createPaneLogManager({ detachOwnedPipe, preparePaneLogging });
+    const runAbsentObservation = () =>
+      processPane(
+        {
+          pane: basePane,
+          config: baseConfig,
+          paneStates: { get: () => paneState },
+          paneLogManager,
+          capturePaneFingerprint: vi.fn(async () => null),
+          getCustomTitle: vi.fn(() => null),
+          resolveRepoRoot: vi.fn(async () => null),
+        },
+        {
+          resolvePaneAgent: vi.fn(async () => ({
+            agent: "unknown" as const,
+            ignore: false,
+            presence: "absent" as const,
+          })),
+          updatePaneOutputState,
+        },
+      );
+
+    await runAbsentObservation();
+    expect(detachOwnedPipe).not.toHaveBeenCalled();
+    expect(preparePaneLogging).toHaveBeenCalledWith(
+      expect.objectContaining({ allowAttach: false }),
+    );
+
+    await runAbsentObservation();
+
+    expect(detachOwnedPipe).toHaveBeenCalledWith("%1");
+  });
+
+  it("does not detach an owned pipe for an indeterminate observation", async () => {
+    const paneState = createPaneState({
+      lastResolvedAgent: "codex",
+      agentPresent: true,
+      agentPresence: "present",
+      consecutiveAbsentObservations: 1,
+    });
+    const detachOwnedPipe = vi.fn(async () => ({ ok: true, owned: true, detached: true }));
+    const preparePaneLogging = vi.fn(async () => ({
+      pipeAttached: false,
+      pipeConflict: false,
+      logPath: "/tmp/log",
+      ownerTag: `v2:${"a".repeat(64)}`,
+    }));
+
+    await processPane(
+      {
+        pane: basePane,
+        config: baseConfig,
+        paneStates: { get: () => paneState },
+        paneLogManager: createPaneLogManager({ detachOwnedPipe, preparePaneLogging }),
+        capturePaneFingerprint: vi.fn(async () => null),
+        getCustomTitle: vi.fn(() => null),
+        resolveRepoRoot: vi.fn(async () => null),
+      },
+      {
+        resolvePaneAgent: vi.fn(async () => ({
+          agent: "unknown" as const,
+          ignore: false,
+          presence: "indeterminate" as const,
+        })),
+      },
+    );
+
+    expect(detachOwnedPipe).not.toHaveBeenCalled();
+    expect(preparePaneLogging).toHaveBeenCalledWith(
+      expect.objectContaining({ allowAttach: false }),
+    );
+  });
+
+  it("returns estimated detail with resolved worktree context", async () => {
     const paneState = createPaneState({ lastMessage: "msg" });
     const worktreePath = "/tmp/project/.worktree/feature/worktree";
     const resolveRepoRoot = vi.fn(async () => worktreePath);
@@ -228,10 +334,10 @@ describe("processPane", () => {
             pipeAttached: true,
             pipeConflict: false,
             logPath: "/tmp/log",
+            ownerTag: `v2:${"a".repeat(64)}`,
           })),
         }),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => ({ state: "WAITING_INPUT" }) as SessionDetail),
         getCustomTitle: vi.fn(() => "Custom"),
         resolveRepoRoot,
         resolveWorktreeStatus,
@@ -245,8 +351,8 @@ describe("processPane", () => {
     );
 
     expect(detail).not.toBeNull();
-    expect(detail?.state).toBe("WAITING_INPUT");
-    expect(detail?.stateReason).toBe("restored");
+    expect(detail?.state).toBe("RUNNING");
+    expect(detail?.stateReason).toBe("estimated");
     expect(detail?.customTitle).toBe("Custom");
     expect(detail?.branch).toBe("feature/worktree");
     expect(detail?.worktreePath).toBe(worktreePath);
@@ -291,7 +397,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot,
         resolveWorktreeStatus,
@@ -332,7 +437,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot,
         resolveWorktreeStatus,
@@ -371,10 +475,10 @@ describe("processPane", () => {
             pipeAttached: true,
             pipeConflict: false,
             logPath: "/tmp/log",
+            ownerTag: `v2:${"a".repeat(64)}`,
           })),
         }),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
         resolvePanePipeTagValue,
@@ -387,7 +491,7 @@ describe("processPane", () => {
     );
 
     expect(resolvePanePipeTagValue).toHaveBeenCalled();
-    expect(cachePanePipeTagValue).toHaveBeenCalledWith("%1", "1");
+    expect(cachePanePipeTagValue).toHaveBeenCalledWith("%1", `v2:${"a".repeat(64)}`);
   });
 
   it("allows fingerprint capture for non-agent pane only when recently viewed", async () => {
@@ -405,7 +509,6 @@ describe("processPane", () => {
         paneStates: { get: () => createPaneState() },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
         isPaneViewedRecently: vi.fn(() => true),
@@ -447,7 +550,6 @@ describe("processPane", () => {
         paneStates: { get: () => paneState },
         paneLogManager: createPaneLogManager(),
         capturePaneFingerprint: vi.fn(async () => null),
-        applyRestored: vi.fn(() => null),
         getCustomTitle: vi.fn(() => null),
         resolveRepoRoot: vi.fn(async () => null),
       },

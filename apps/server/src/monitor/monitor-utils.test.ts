@@ -5,6 +5,7 @@ import {
   deriveHookState,
   hostCandidates,
   mapHookToPane,
+  markHerdrLifecycleDirty,
   normalizeFingerprint,
   normalizeTitle,
   sanitizePaneTitle,
@@ -75,6 +76,18 @@ describe("monitor-utils", () => {
       reason: "hook:PostToolUse",
     });
     expect(deriveCodexHookState("Notification")).toBeNull();
+  });
+
+  it("marks Herdr lifecycle events with a pane identity as dirty", () => {
+    const marked: Array<[string, "herdr"]> = [];
+    const markDirty = (paneId: string, source: "herdr") => {
+      marked.push([paneId, source]);
+    };
+
+    markHerdrLifecycleDirty({ paneId: "wB:p1" }, markDirty);
+    markHerdrLifecycleDirty({ paneId: null }, markDirty);
+
+    expect(marked).toEqual([["wB:p1", "herdr"]]);
   });
 
   it("maps hook to pane by tmux pane id first", () => {

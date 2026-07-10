@@ -1,168 +1,98 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("execa", () => {
-  return {
-    execa: vi.fn(async () => ({
-      stdout: "",
-      stderr: "",
-      exitCode: 0,
-    })),
-  };
+vi.mock("execa", () => ({ execa: vi.fn() }));
+
+import { execa } from "execa";
+
+import {
+  buildProcessSnapshotIndexes,
+  createAgentProcessSnapshot,
+  findAgentFromPidTree,
+  getAgentFromTty,
+  getProcessCommand,
+  parseProcessSnapshotLine,
+} from "./agent-resolver-process";
+
+const execaMock = vi.mocked(execa);
+
+beforeEach(() => {
+  execaMock.mockReset();
 });
 
-const getExeca = async () => {
-  const mod = await import("execa");
-  return mod.execa as unknown as ReturnType<typeof vi.fn>;
-};
-
-const loadModule = async () => {
-  await vi.resetModules();
-  const execa = await getExeca();
-  execa.mockReset();
-  execa.mockResolvedValue({
-    stdout: "",
-    stderr: "",
-    exitCode: 0,
-  });
-  return import("./agent-resolver-process");
-};
-
-type Deferred<T> = {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-};
-
-const createDeferred = <T>(): Deferred<T> => {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
-};
-
 describe("agent-resolver-process", () => {
-  it("deduplicates in-flight process command lookup by pid", async () => {
-    const { getProcessCommand } = await loadModule();
-    const execa = await getExeca();
-
-    const deferred = createDeferred<{ stdout: string; stderr: string; exitCode: number }>();
-    execa.mockImplementation(() => deferred.promise);
-
-    const first = getProcessCommand(100);
-    const second = getProcessCommand(100);
-
-    expect(execa).toHaveBeenCalledTimes(1);
-
-    deferred.resolve({ stdout: "codex", stderr: "", exitCode: 0 });
-    await expect(first).resolves.toBe("codex");
-    await expect(second).resolves.toBe("codex");
+  it("parses the unified pid, ppid, tty, and command format", () => {
+    expect(parseProcessSnapshotLine(" 100  10 ttys001  node /opt/codex ")).toEqual({
+      pid: 100,
+      ppid: 10,
+      tty: "ttys001",
+      command: "node /opt/codex",
+    });
+    expect(parseProcessSnapshotLine("101 10 ?? launchd")).toEqual({
+      pid: 101,
+      ppid: 10,
+      tty: null,
+      command: "launchd",
+    });
+    expect(parseProcessSnapshotLine("malformed line")).toBeNull();
   });
 
-  it("keeps process command cache valid based on completion time", async () => {
-    const { getProcessCommand } = await loadModule();
-    const execa = await getExeca();
-    let nowMs = 0;
-    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+  it("builds pid, child, and tty indexes while skipping malformed lines", () => {
+    const indexes = buildProcessSnapshotIndexes(
+      ["100 1 ttys001 zsh", "200 100 ttys001 codex", "bad", "300 1 ?? daemon"].join("\n"),
+    );
 
-    execa.mockImplementation(async () => {
-      nowMs = 1500;
-      return { stdout: "claude", stderr: "", exitCode: 0 };
-    });
-
-    await expect(getProcessCommand(200)).resolves.toBe("claude");
-    await expect(getProcessCommand(200)).resolves.toBe("claude");
-
-    expect(execa).toHaveBeenCalledTimes(1);
-    nowSpy.mockRestore();
+    expect(indexes.processByPid.get(200)?.command).toBe("codex");
+    expect(indexes.childrenByParentPid.get(100)).toEqual([200]);
+    expect(indexes.processesByTty.get("ttys001")?.map(({ pid }) => pid)).toEqual([100, 200]);
+    expect(indexes.processByPid.has(300)).toBe(true);
   });
 
-  it("deduplicates in-flight process snapshot lookup", async () => {
-    const { findAgentFromPidTree } = await loadModule();
-    const execa = await getExeca();
+  it("runs exactly one unified ps command for a successful snapshot", async () => {
+    execaMock.mockResolvedValueOnce({
+      stdout: "100 1 ttys001 zsh\n200 100 ttys001 codex\n",
+      stderr: "",
+      exitCode: 0,
+    } as never);
 
-    const deferred = createDeferred<{ stdout: string; stderr: string; exitCode: number }>();
-    execa.mockImplementation(async (_file: string, args?: readonly string[] | null) => {
-      const actualArgs = Array.isArray(args) ? args : [];
-      if (actualArgs[0] === "-ax") {
-        return deferred.promise;
-      }
-      throw new Error(`Unexpected args: ${actualArgs.join(" ")}`);
+    const snapshot = await createAgentProcessSnapshot();
+
+    expect(snapshot.status).toBe("success");
+    expect(execaMock).toHaveBeenCalledOnce();
+    expect(execaMock).toHaveBeenCalledWith("ps", ["-ax", "-o", "pid=,ppid=,tty=,command="], {
+      reject: false,
+      timeout: 2000,
     });
-
-    const first = findAgentFromPidTree(100);
-    const second = findAgentFromPidTree(100);
-
-    expect(execa).toHaveBeenCalledTimes(1);
-
-    deferred.resolve({ stdout: "100 1 bash\n200 100 codex\n", stderr: "", exitCode: 0 });
-    await expect(first).resolves.toBe("codex");
-    await expect(second).resolves.toBe("codex");
   });
 
-  it("keeps process snapshot cache valid based on completion time", async () => {
-    const { findAgentFromPidTree } = await loadModule();
-    const execa = await getExeca();
-    let nowMs = 5000;
-    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+  it("returns failed without reusing an older snapshot on non-zero or thrown command", async () => {
+    execaMock
+      .mockResolvedValueOnce({ stdout: "", stderr: "denied", exitCode: 1 } as never)
+      .mockRejectedValueOnce(new Error("timeout"));
 
-    execa.mockImplementation(async (_file: string, args?: readonly string[] | null) => {
-      const actualArgs = Array.isArray(args) ? args : [];
-      if (actualArgs[0] === "-ax") {
-        nowMs = 6500;
-        return { stdout: "100 1 bash\n200 100 codex\n", stderr: "", exitCode: 0 };
-      }
-      throw new Error(`Unexpected args: ${actualArgs.join(" ")}`);
+    await expect(createAgentProcessSnapshot()).resolves.toEqual({
+      status: "failed",
+      error: "denied",
     });
-
-    await expect(findAgentFromPidTree(100)).resolves.toBe("codex");
-    await expect(findAgentFromPidTree(100)).resolves.toBe("codex");
-
-    expect(execa).toHaveBeenCalledTimes(1);
-    nowSpy.mockRestore();
+    await expect(createAgentProcessSnapshot()).resolves.toEqual({
+      status: "failed",
+      error: "timeout",
+    });
   });
 
-  it("deduplicates in-flight tty lookup using normalized tty key", async () => {
-    const { getAgentFromTty } = await loadModule();
-    const execa = await getExeca();
+  it("resolves direct pid, descendant, and tty agents from one snapshot", () => {
+    const snapshot = {
+      status: "success" as const,
+      ...buildProcessSnapshotIndexes(
+        [
+          "100 1 ttys001 zsh",
+          "200 100 ttys001 node /opt/codex",
+          "300 1 ttys002 /usr/bin/claude",
+        ].join("\n"),
+      ),
+    };
 
-    const deferred = createDeferred<{ stdout: string; stderr: string; exitCode: number }>();
-    execa.mockImplementation(async (_file: string, args?: readonly string[] | null) => {
-      const actualArgs = Array.isArray(args) ? args : [];
-      if (actualArgs.includes("-t")) {
-        return deferred.promise;
-      }
-      throw new Error(`Unexpected args: ${actualArgs.join(" ")}`);
-    });
-
-    const first = getAgentFromTty("/dev/ttys001");
-    const second = getAgentFromTty("ttys001");
-
-    expect(execa).toHaveBeenCalledTimes(1);
-
-    deferred.resolve({ stdout: "claude", stderr: "", exitCode: 0 });
-    await expect(first).resolves.toBe("claude");
-    await expect(second).resolves.toBe("claude");
-  });
-
-  it("keeps tty agent cache valid based on completion time", async () => {
-    const { getAgentFromTty } = await loadModule();
-    const execa = await getExeca();
-    let nowMs = 0;
-    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
-
-    execa.mockImplementation(async (_file: string, args?: readonly string[] | null) => {
-      const actualArgs = Array.isArray(args) ? args : [];
-      if (actualArgs.includes("-t")) {
-        nowMs = 1500;
-        return { stdout: "claude", stderr: "", exitCode: 0 };
-      }
-      throw new Error(`Unexpected args: ${actualArgs.join(" ")}`);
-    });
-
-    await expect(getAgentFromTty("ttys001")).resolves.toBe("claude");
-    await expect(getAgentFromTty("ttys001")).resolves.toBe("claude");
-
-    expect(execa).toHaveBeenCalledTimes(1);
-    nowSpy.mockRestore();
+    expect(getProcessCommand(snapshot, 100)).toBe("zsh");
+    expect(findAgentFromPidTree(snapshot, 100)).toBe("codex");
+    expect(getAgentFromTty(snapshot, "/dev/ttys002")).toBe("claude");
   });
 });

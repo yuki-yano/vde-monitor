@@ -88,6 +88,11 @@ export type SessionTitleJson = {
   title: string | null;
 };
 
+export type AcknowledgeSessionViewJson = {
+  epoch: string;
+  throughSeq: number;
+};
+
 export type UploadImageForm<TFile = unknown> = {
   image: TFile;
 };
@@ -139,6 +144,15 @@ type ApiRootGetRequest<TRequestInit, TResponse> = (
 ) => Promise<TResponse>;
 
 type SessionApiClient<TRequestInit, TResponse, TFile> = {
+  state: {
+    acknowledge: {
+      $post: ApiRequest<
+        { param: PaneParam; json: AcknowledgeSessionViewJson },
+        TRequestInit,
+        TResponse
+      >;
+    };
+  };
   focus: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   kill: {
     pane: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };

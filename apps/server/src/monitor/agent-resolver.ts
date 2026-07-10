@@ -1,4 +1,9 @@
-import { findAgentFromPidTree, getAgentFromTty, getProcessCommand } from "./agent-resolver-process";
+import {
+  type AgentProcessSnapshot,
+  findAgentFromPidTree,
+  getAgentFromTty,
+  getProcessCommand,
+} from "./agent-resolver-process";
 import type { AgentType } from "./agent-resolver-utils";
 import {
   buildAgent,
@@ -20,57 +25,67 @@ export type PaneAgentHints = {
 type AgentResolution = {
   agent: AgentType;
   ignore: boolean;
+  presence: "present" | "absent" | "indeterminate";
 };
 
-const resolveEditorPaneContext = async (pane: PaneAgentHints, isEditorPane: boolean) => {
+const resolveEditorPaneContext = (
+  pane: PaneAgentHints,
+  isEditorPane: boolean,
+  snapshot: AgentProcessSnapshot | null,
+) => {
   if (!isEditorPane) {
     return { ignore: false, processCommand: null as string | null };
   }
   if (editorCommandHasAgentArg(pane.paneStartCommand)) {
     return { ignore: true, processCommand: null as string | null };
   }
-  const processCommand = await getProcessCommand(pane.panePid);
+  const processCommand = snapshot == null ? null : getProcessCommand(snapshot, pane.panePid);
   if (editorCommandHasAgentArg(processCommand)) {
     return { ignore: true, processCommand };
   }
   return { ignore: false, processCommand };
 };
 
-const resolveFallbackAgent = async ({
+const resolveFallbackAgent = ({
   agent,
   processCommand,
   pane,
+  snapshot,
 }: {
   agent: AgentType;
   processCommand: string | null;
   pane: PaneAgentHints;
+  snapshot: AgentProcessSnapshot | null;
 }) => {
   let resolved = agent;
   let command = processCommand;
   if (resolved === "unknown") {
     if (!command) {
-      command = await getProcessCommand(pane.panePid);
+      command = snapshot == null ? null : getProcessCommand(snapshot, pane.panePid);
     }
     if (command) {
       resolved = buildAgent(command);
     }
   }
   if (resolved === "unknown") {
-    resolved = await findAgentFromPidTree(pane.panePid);
+    resolved = snapshot == null ? "unknown" : findAgentFromPidTree(snapshot, pane.panePid);
   }
   if (resolved === "unknown") {
-    resolved = await getAgentFromTty(pane.paneTty);
+    resolved = snapshot == null ? "unknown" : getAgentFromTty(snapshot, pane.paneTty);
   }
   return resolved;
 };
 
-export const resolvePaneAgent = async (pane: PaneAgentHints): Promise<AgentResolution> => {
+export const resolvePaneAgent = async (
+  pane: PaneAgentHints,
+  snapshot: AgentProcessSnapshot | null,
+): Promise<AgentResolution> => {
   const baseHint = mergeHints(pane.currentCommand, pane.paneStartCommand);
   const isEditorPane =
     isEditorCommand(pane.currentCommand) || isEditorCommand(pane.paneStartCommand);
-  const editorContext = await resolveEditorPaneContext(pane, isEditorPane);
+  const editorContext = resolveEditorPaneContext(pane, isEditorPane, snapshot);
   if (editorContext.ignore) {
-    return { agent: "unknown", ignore: true };
+    return { agent: "unknown", ignore: true, presence: "absent" };
   }
 
   const hintedAgent = buildAgent(baseHint);
@@ -78,7 +93,14 @@ export const resolvePaneAgent = async (pane: PaneAgentHints): Promise<AgentResol
     agent: hintedAgent,
     processCommand: editorContext.processCommand,
     pane,
+    snapshot,
   });
 
-  return { agent, ignore: false };
+  const presence =
+    agent !== "unknown"
+      ? "present"
+      : snapshot == null || snapshot.status === "failed"
+        ? "indeterminate"
+        : "absent";
+  return { agent, ignore: false, presence };
 };

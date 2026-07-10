@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { isVwManagedWorktreePath, worktreeFlagClass } from "./session-format";
+import {
+  formatStateLabel,
+  isVwManagedWorktreePath,
+  stateTone,
+  worktreeFlagClass,
+} from "./session-format";
+
+describe("session state formatting", () => {
+  it("maps DONE to its blue badge tone and explicit label", () => {
+    expect(stateTone("DONE")).toBe("done");
+    expect(formatStateLabel("DONE")).toBe("DONE");
+  });
+});
 
 describe("isVwManagedWorktreePath", () => {
   it("returns false for null or non-managed paths", () => {

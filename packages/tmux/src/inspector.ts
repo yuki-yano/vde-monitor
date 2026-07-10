@@ -119,7 +119,7 @@ export const createInspector = (
   };
 
   const readUserOption = async (paneId: string, key: string): Promise<string | null> => {
-    const result = await adapter.run(["show-options", "-t", paneId, "-v", key]);
+    const result = await adapter.run(["show-options", "-p", "-q", "-t", paneId, "-v", key]);
     if (result.exitCode !== 0) {
       return null;
     }
@@ -131,11 +131,14 @@ export const createInspector = (
     key: string,
     value: string | null,
   ): Promise<void> => {
-    if (value == null) {
-      await adapter.run(["set-option", "-t", paneId, "-u", key]);
-      return;
+    const args =
+      value == null
+        ? ["set-option", "-p", "-t", paneId, "-u", key]
+        : ["set-option", "-p", "-t", paneId, key, value];
+    const result = await adapter.run(args);
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || "tmux set-option failed");
     }
-    await adapter.run(["set-option", "-t", paneId, key, value]);
   };
 
   return {

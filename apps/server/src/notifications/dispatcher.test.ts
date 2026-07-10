@@ -30,6 +30,7 @@ const createDetail = (state: SessionDetail["state"], stateReason: string): Sessi
   customTitle: null,
   repoRoot: "/repo",
   agent: "codex",
+  completion: null,
   state,
   stateReason,
   lastMessage: null,
@@ -48,12 +49,19 @@ const createTransition = (
   previous: SessionDetail | null,
   next: SessionDetail,
   source: SessionTransitionEvent["source"] = "poll",
+  completion: Partial<
+    Pick<SessionTransitionEvent, "completionAdvanced" | "completionEpoch" | "completedSeq">
+  > = {},
 ): SessionTransitionEvent => ({
   paneId: "%1",
   previous,
   next,
   at: "2026-02-20T00:00:00.000Z",
   source,
+  completionAdvanced: false,
+  completionEpoch: null,
+  completedSeq: null,
+  ...completion,
 });
 
 type SendNotificationFn = NonNullable<
@@ -191,8 +199,28 @@ describe("createNotificationDispatcher", () => {
     expect(sendNotification).not.toHaveBeenCalled();
   });
 
-  it("sends task_completed on RUNNING -> WAITING_INPUT transition", async () => {
+  it("sends task_completed when a completion generation advances", async () => {
     const { dispatcher, logger, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "recent_output"),
+        createDetail("DONE", "completion:pending"),
+        "hook",
+        { completionAdvanced: true, completionEpoch: "epoch-1", completedSeq: 1 },
+      ),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining("summary event=pane.task_completed"),
+    );
+  });
+
+  it("does not infer task completion from a public state edge", async () => {
+    const { dispatcher, sendNotification } = createDispatcherUnderTest({
       enabledEventTypes: ["pane.task_completed"],
     });
 
@@ -203,10 +231,73 @@ describe("createNotificationDispatcher", () => {
       ),
     );
 
-    expect(sendNotification).toHaveBeenCalledTimes(1);
-    expect(logger.log).toHaveBeenCalledWith(
-      expect.stringContaining("summary event=pane.task_completed"),
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("does not suppress distinct completion generations during the cooldown", async () => {
+    const { dispatcher, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
+      cooldownMs: 30_000,
+      nowMs: () => 1_000,
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(null, createDetail("DONE", "completion:pending"), "hook", {
+        completionAdvanced: true,
+        completionEpoch: "epoch-1",
+        completedSeq: 1,
+      }),
     );
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("RUNNING", "hook:UserPromptSubmit"),
+        createDetail("DONE", "completion:pending"),
+        "hook",
+        { completionAdvanced: true, completionEpoch: "epoch-1", completedSeq: 2 },
+      ),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(2);
+  });
+
+  it("deduplicates the same completion generation fingerprint", async () => {
+    const { dispatcher, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
+    });
+    const transition = createTransition(
+      createDetail("RUNNING", "hook:UserPromptSubmit"),
+      createDetail("DONE", "completion:pending"),
+      "hook",
+      { completionAdvanced: true, completionEpoch: "epoch-1", completedSeq: 1 },
+    );
+
+    await dispatcher.dispatchTransition(transition);
+    await dispatcher.dispatchTransition(transition);
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify for acknowledgement or restore commits", async () => {
+    const { dispatcher, sendNotification } = createDispatcherUnderTest({
+      enabledEventTypes: ["pane.task_completed"],
+    });
+
+    await dispatcher.dispatchTransition(
+      createTransition(
+        createDetail("DONE", "completion:pending"),
+        createDetail("WAITING_INPUT", "view:acknowledged"),
+        "view",
+      ),
+    );
+    await dispatcher.dispatchTransition(
+      createTransition(null, createDetail("DONE", "restored"), "restore", {
+        completionAdvanced: true,
+        completionEpoch: "epoch-1",
+        completedSeq: 1,
+      }),
+    );
+
+    expect(sendNotification).not.toHaveBeenCalled();
   });
 
   it("retries transient failures with backoff", async () => {

@@ -1,4 +1,4 @@
-import type { SessionSummary } from "@vde-monitor/shared";
+import type { SessionStateValue, SessionSummary } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
 import { useSessionStreamData } from "@/state/session-context";
@@ -20,21 +20,17 @@ export type WorkspaceTabGroup = {
   tabs: WorkspaceTab[];
 };
 
-const resolveStateTone = (state: string | null | undefined) => {
-  if (state === "RUNNING") {
-    return "bg-latte-green/85";
-  }
-  if (state === "WAITING_INPUT") {
-    return "bg-latte-peach/85";
-  }
-  if (state === "WAITING_PERMISSION") {
-    return "bg-latte-peach/85";
-  }
-  if (state === "ERROR") {
-    return "bg-latte-red/85";
-  }
-  return "bg-latte-overlay0/80";
+const PWA_TAB_STATE_CLASS: Record<SessionStateValue, string> = {
+  RUNNING: "bg-latte-green/85",
+  WAITING_INPUT: "bg-latte-peach/85",
+  WAITING_PERMISSION: "bg-latte-red/85",
+  DONE: "bg-latte-blue/85",
+  SHELL: "bg-latte-blue/85",
+  UNKNOWN: "bg-latte-overlay0/80",
 };
+
+export const resolvePwaTabStateClass = (state: SessionStateValue | null | undefined) =>
+  state == null ? PWA_TAB_STATE_CLASS.UNKNOWN : PWA_TAB_STATE_CLASS[state];
 
 const resolveSessionGroupMeta = (
   tab: WorkspaceTab,
@@ -135,7 +131,7 @@ export const usePwaWorkspaceTabsVM = (tabs: WorkspaceTab[]) => {
     if (tab.kind !== "session" || tab.paneId == null) {
       return "bg-latte-blue/85";
     }
-    return resolveStateTone(sessionByPaneId.get(tab.paneId)?.state);
+    return resolvePwaTabStateClass(sessionByPaneId.get(tab.paneId)?.state);
   };
 
   return {

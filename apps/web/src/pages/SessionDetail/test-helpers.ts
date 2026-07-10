@@ -39,6 +39,7 @@ export const createSessionDetail = (overrides: Partial<SessionDetail> = {}): Ses
   pipeConflict: false,
   startCommand: null,
   panePid: 1234,
+  completion: null,
   ...overrides,
 });
 

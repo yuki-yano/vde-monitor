@@ -6,6 +6,16 @@ describe("pane-state", () => {
   it("initializes default state", () => {
     const store = createPaneStateStore();
     const state = store.get("pane-1");
+    expect(state.lifecycle).toBe("UNKNOWN");
+    expect(state.completionCursor).toBeNull();
+    expect(state.pendingRestoredCompletionCursor).toBeNull();
+    expect(state.pendingRestoredLifecycle).toBeNull();
+    expect(state.pendingRestoredLastAgent).toBeNull();
+    expect(state.lastResolvedAgent).toBe("unknown");
+    expect(state.agentPresence).toBe("indeterminate");
+    expect(state.agentPresent).toBe(false);
+    expect(state.consecutiveAbsentObservations).toBe(0);
+    expect(state.pendingAgentLifecycleEvents).toEqual([]);
     expect(state.lastOutputAt).toBeNull();
     expect(state.lastEventAt).toBeNull();
     expect(state.lastMessage).toBeNull();

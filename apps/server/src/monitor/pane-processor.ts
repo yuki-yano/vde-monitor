@@ -6,16 +6,17 @@ import { buildPaneDetail } from "./pane-detail-builder";
 import type { PaneLogManager } from "./pane-log-manager";
 import { type PaneObservationDeps, type PaneStateStore, observePane } from "./pane-observation";
 import type { ResolvedWorktreeStatus } from "./vw-worktree";
+import type { AgentProcessSnapshot } from "./agent-resolver-process";
 
 type PaneProcessorDeps = PaneObservationDeps;
 
 type ProcessPaneArgs = {
   pane: PaneMeta;
+  processSnapshot?: AgentProcessSnapshot | null;
   config: AgentMonitorConfig;
   paneStates: PaneStateStore;
   paneLogManager: PaneLogManager;
   capturePaneFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
-  applyRestored: (paneId: string) => SessionDetail | null;
   getCustomTitle: (paneId: string) => string | null;
   resolveRepoRoot: (currentPath: string | null) => Promise<string | null>;
   resolveWorktreeStatus?: (
@@ -30,11 +31,11 @@ type ProcessPaneArgs = {
 export const processPane = async (
   {
     pane,
+    processSnapshot = null,
     config,
     paneStates,
     paneLogManager,
     capturePaneFingerprint,
-    applyRestored,
     getCustomTitle,
     resolveRepoRoot,
     resolveWorktreeStatus,
@@ -48,11 +49,11 @@ export const processPane = async (
   const observation = await observePane(
     {
       pane,
+      processSnapshot,
       config,
       paneStates,
       paneLogManager,
       capturePaneFingerprint,
-      applyRestored,
       isPaneViewedRecently,
       resolvePanePipeTagValue,
       cachePanePipeTagValue,

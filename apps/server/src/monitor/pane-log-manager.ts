@@ -18,7 +18,10 @@ type PaneLogManagerArgs = {
   baseDir: string;
   serverKey: string;
   pipeCapability?: MultiplexerPipeCapability;
-  logActivity: { register: (paneId: string, filePath: string) => void };
+  logActivity: {
+    register: (paneId: string, filePath: string) => void;
+    unregister: (paneId: string) => void;
+  };
   deps?: PaneLogManagerDeps;
 };
 
@@ -26,6 +29,7 @@ type PreparePaneLoggingArgs = {
   paneId: string;
   panePipe: boolean;
   pipeTagValue: string | null;
+  allowAttach?: boolean;
 };
 
 const defaultOpenLogFile = async (filePath: string) => {
@@ -65,7 +69,6 @@ export const createPaneLogManager = ({
   deps,
 }: PaneLogManagerArgs) => {
   const { resolvePaths, ensureDirFn, rotateFn, openLogFile } = resolvePaneLogDeps(deps);
-  const normalizedPipeDestinations = new Set<string>();
 
   const getPaneLogPath = (paneId: string) => {
     return resolvePaths(baseDir, serverKey, paneId).paneLogPath;
@@ -83,66 +86,91 @@ export const createPaneLogManager = ({
     pipeState,
     pipeAttached,
     pipeConflict,
-    forceReattach,
   }: {
     paneId: string;
     logPath: string;
     pipeState: MultiplexerPipeState;
     pipeAttached: boolean;
     pipeConflict: boolean;
-    forceReattach: boolean;
   }) => {
     if (!pipeCapability) {
       return { pipeAttached: false, pipeConflict: false };
     }
-    if (pipeConflict || (pipeAttached && !forceReattach)) {
+    if (pipeConflict || pipeAttached) {
       return { pipeAttached, pipeConflict };
     }
     await ensureLogFiles(paneId);
-    const attachResult = await pipeCapability.attachPipe(paneId, logPath, pipeState, {
-      forceReattach,
-    });
+    const attachResult = await pipeCapability.attachPipe(paneId, logPath, pipeState);
     return {
       pipeAttached: pipeAttached || attachResult.attached,
       pipeConflict: attachResult.conflict,
     };
   };
 
-  const preparePaneLogging = async ({ paneId, panePipe, pipeTagValue }: PreparePaneLoggingArgs) => {
+  const absenceHandledPaneIds = new Set<string>();
+  const ownedPaneIds = new Set<string>();
+
+  const preparePaneLogging = async ({
+    paneId,
+    panePipe,
+    pipeTagValue,
+    allowAttach = true,
+  }: PreparePaneLoggingArgs) => {
     if (!pipeCapability) {
       return { pipeAttached: false, pipeConflict: false, logPath: null };
     }
 
     const logPath = getPaneLogPath(paneId);
     const pipeState = { panePipe, pipeTagValue };
-    const isTaggedPipe = panePipe && pipeTagValue === "1";
-    const forceReattach = isTaggedPipe && !normalizedPipeDestinations.has(paneId);
+    const ownerTag = pipeCapability.getOwnerTag(logPath);
+    const isOwnedPipe = panePipe && pipeTagValue === ownerTag;
+    absenceHandledPaneIds.delete(paneId);
 
-    let pipeAttached = isTaggedPipe;
-    let pipeConflict = pipeCapability.hasConflict(pipeState);
+    let pipeAttached = isOwnedPipe;
+    let pipeConflict = pipeCapability.hasConflict(pipeState, logPath);
 
-    const attachResult = await attachPipeIfNeeded({
-      paneId,
-      logPath,
-      pipeState,
-      pipeAttached,
-      pipeConflict,
-      forceReattach,
-    });
-    pipeAttached = attachResult.pipeAttached;
-    pipeConflict = attachResult.pipeConflict;
-    if (pipeAttached && !pipeConflict && (forceReattach || !isTaggedPipe)) {
-      normalizedPipeDestinations.add(paneId);
-    }
-    if (!pipeAttached || pipeConflict) {
-      normalizedPipeDestinations.delete(paneId);
+    if (allowAttach) {
+      const attachResult = await attachPipeIfNeeded({
+        paneId,
+        logPath,
+        pipeState,
+        pipeAttached,
+        pipeConflict,
+      });
+      pipeAttached = attachResult.pipeAttached;
+      pipeConflict = attachResult.pipeConflict;
     }
 
-    logActivity.register(paneId, logPath);
+    if (pipeAttached && !pipeConflict) {
+      ownedPaneIds.add(paneId);
+      logActivity.register(paneId, logPath);
+    } else {
+      ownedPaneIds.delete(paneId);
+      logActivity.unregister(paneId);
+    }
 
     await rotateFn(logPath, 2_000_000, 5);
 
-    return { pipeAttached, pipeConflict, logPath };
+    return { pipeAttached, pipeConflict, logPath, ownerTag };
+  };
+
+  const detachOwnedPipe = async (
+    paneId: string,
+    { forceCheck = false }: { forceCheck?: boolean } = {},
+  ) => {
+    if (!pipeCapability) {
+      return { ok: true, owned: false, detached: false };
+    }
+    if (!forceCheck && absenceHandledPaneIds.has(paneId)) {
+      return { ok: true, owned: false, detached: false };
+    }
+    const result = await pipeCapability.detachOwnedPipe(paneId, getPaneLogPath(paneId));
+    if (result.ok) {
+      absenceHandledPaneIds.add(paneId);
+      ownedPaneIds.delete(paneId);
+      logActivity.unregister(paneId);
+    }
+    return result;
   };
 
   return {
@@ -150,5 +178,7 @@ export const createPaneLogManager = ({
     getPaneLogPath,
     ensureLogFiles,
     preparePaneLogging,
+    detachOwnedPipe,
+    getOwnedPaneIds: () => [...ownedPaneIds],
   };
 };

@@ -27,4 +27,10 @@ describe("session-list-filters", () => {
       false,
     );
   });
+
+  it("includes DONE in AGENT without adding a dedicated filter", () => {
+    expect(isSessionListFilter("DONE")).toBe(false);
+    expect(matchesSessionListFilter({ state: "DONE", currentCommand: null }, "AGENT")).toBe(true);
+    expect(matchesSessionListFilter({ state: "SHELL", currentCommand: null }, "AGENT")).toBe(false);
+  });
 });

@@ -68,6 +68,46 @@ describe("HerdrClient", () => {
     expect(received).toEqual([{ id: "vdem_1", method: "ping", params: {} }]);
   });
 
+  it("aborts a pending request and ignores its later response", async () => {
+    const socketPath = await makeTempSocketPath();
+    let respond: (() => void) | undefined;
+    let markReceived: (() => void) | undefined;
+    const received = new Promise<void>((resolve) => {
+      markReceived = resolve;
+    });
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      let buffer = "";
+      socket.on("data", (chunk: string) => {
+        buffer += chunk;
+        const newlineIndex = buffer.indexOf("\n");
+        if (newlineIndex < 0) return;
+        const request = JSON.parse(buffer.slice(0, newlineIndex)) as { id: string };
+        respond = () => {
+          socket.write(`${JSON.stringify({ id: request.id, result: { type: "late" } })}\n`);
+        };
+        markReceived?.();
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const controller = new AbortController();
+    const client = new HerdrClient(socketPath);
+    const request = client.request("pane.read", {}, { signal: controller.signal });
+    await received;
+    controller.abort(new Error("capture timeout"));
+
+    await expect(request).rejects.toThrow("capture timeout");
+    respond?.();
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
   it("server がレスポンス後に接続を閉じた場合は次の request で再接続する", async () => {
     const socketPath = await makeTempSocketPath();
     const received: string[] = [];

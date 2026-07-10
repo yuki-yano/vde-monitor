@@ -52,6 +52,7 @@ const makeSession = (paneId: string): SessionSummary => ({
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
 });
 
 /** SSE response whose stream closes immediately after delivering chunks. */

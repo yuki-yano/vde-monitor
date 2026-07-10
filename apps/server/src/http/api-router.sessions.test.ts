@@ -34,6 +34,58 @@ describe("createApiRouter", () => {
     expect(data.error.code).toBe("INVALID_PANE");
   });
 
+  it("acknowledges the observed completion generation", async () => {
+    const { api, acknowledgeView } = createTestContext();
+    const res = await api.request("/sessions/pane-1/state/acknowledge", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ epoch: "epoch-1", throughSeq: 3 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(acknowledgeView).toHaveBeenCalledWith({
+      paneId: "pane-1",
+      epoch: "epoch-1",
+      throughSeq: 3,
+    });
+    await expect(res.json()).resolves.toMatchObject({ session: { paneId: "pane-1" } });
+  });
+
+  it("validates acknowledge epoch and throughSeq boundaries", async () => {
+    const { api, acknowledgeView } = createTestContext();
+    const invalidBodies = [
+      { epoch: "", throughSeq: 0 },
+      { epoch: "é", throughSeq: 0 },
+      { epoch: "a".repeat(129), throughSeq: 0 },
+      { epoch: "epoch-1", throughSeq: -1 },
+      { epoch: "epoch-1", throughSeq: 0.5 },
+      { epoch: "epoch-1", throughSeq: Number.MAX_SAFE_INTEGER + 1 },
+      { epoch: "epoch-1", throughSeq: 0, extra: true },
+    ];
+
+    for (const body of invalidBodies) {
+      const res = await api.request("/sessions/pane-1/state/acknowledge", {
+        method: "POST",
+        headers: { ...authHeaders, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+    }
+    expect(acknowledgeView).not.toHaveBeenCalled();
+  });
+
+  it("returns INVALID_PANE for acknowledge on a missing pane", async () => {
+    const { api } = createTestContext();
+    const res = await api.request("/sessions/missing/state/acknowledge", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ epoch: "epoch-1", throughSeq: 1 }),
+    });
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toMatchObject({ error: { code: "INVALID_PANE" } });
+  });
+
   it("returns timeline for a pane", async () => {
     const { api, getStateTimeline } = createTestContext();
     const res = await api.request("/sessions/pane-1/timeline?range=15m&limit=50", {
@@ -743,7 +795,7 @@ describe("createApiRouter", () => {
   });
 
   it("focuses pane via focus endpoint", async () => {
-    const { api, actions } = createTestContext();
+    const { api, actions, monitor } = createTestContext();
     const res = await api.request("/sessions/pane-1/focus", {
       method: "POST",
       headers: authHeaders,
@@ -753,6 +805,7 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.command.ok).toBe(true);
     expect(actions.focusPane).toHaveBeenCalledWith("pane-1");
+    expect(monitor.markPaneObservationDirty).toHaveBeenCalledWith("pane-1", "focus");
   });
 
   it("kills pane via kill pane endpoint", async () => {
@@ -848,7 +901,7 @@ describe("createApiRouter", () => {
   });
 
   it("returns focus command errors from actions", async () => {
-    const { api, actions } = createTestContext();
+    const { api, actions, monitor } = createTestContext();
     vi.mocked(actions.focusPane).mockResolvedValueOnce({
       ok: false,
       error: { code: "TMUX_UNAVAILABLE", message: "Terminal is not running" },
@@ -863,6 +916,7 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.command.ok).toBe(false);
     expect(data.command.error.code).toBe("TMUX_UNAVAILABLE");
+    expect(monitor.markPaneObservationDirty).not.toHaveBeenCalled();
   });
 
   it("updates custom title", async () => {

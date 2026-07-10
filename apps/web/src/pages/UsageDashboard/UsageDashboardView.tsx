@@ -40,6 +40,7 @@ const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
   RUNNING: "bg-latte-green/80",
   WAITING_INPUT: "bg-latte-peach/80",
   WAITING_PERMISSION: "bg-latte-red/80",
+  DONE: "bg-latte-blue/80",
   SHELL: "bg-latte-blue/80",
   UNKNOWN: "bg-latte-overlay0/80",
 };
@@ -150,7 +151,9 @@ export const UsageDashboardView = ({
   );
 
   const waitingMs =
-    timelineDisplay.totalsMs.WAITING_INPUT + timelineDisplay.totalsMs.WAITING_PERMISSION;
+    timelineDisplay.totalsMs.WAITING_INPUT +
+    timelineDisplay.totalsMs.WAITING_PERMISSION +
+    timelineDisplay.totalsMs.DONE;
   const timelineItems = compactTimeline ? timelineDisplay.items.slice(0, 6) : timelineDisplay.items;
   const codexProvider =
     dashboard?.providers.find((provider) => provider.providerId === "codex") ?? null;

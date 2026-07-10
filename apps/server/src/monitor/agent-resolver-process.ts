@@ -1,202 +1,137 @@
 import { execa } from "execa";
 
-import { setMapEntryWithLimit } from "../cache";
 import { type AgentType, buildAgent, stripDevPrefix } from "./agent-resolver-utils";
 
-const runPs = async (args: string[], timeout: number) =>
-  execa("ps", args, { reject: false, timeout });
-
-const processCacheTtlMs = 1000;
-const PROCESS_COMMAND_CACHE_MAX_ENTRIES = 1000;
-const TTY_AGENT_CACHE_MAX_ENTRIES = 500;
-const processCommandCache = new Map<number, { command: string; at: number }>();
-const ttyAgentCache = new Map<string, { agent: AgentType; at: number }>();
-const processCommandInFlight = new Map<number, Promise<string | null>>();
-const ttyAgentInFlight = new Map<string, Promise<AgentType>>();
-const processSnapshotCache = {
-  at: 0,
-  byPid: new Map<number, { pid: number; ppid: number; command: string }>(),
-  children: new Map<number, number[]>(),
-};
-let processSnapshotInFlight: Promise<typeof processSnapshotCache> | null = null;
-
-type ProcessSnapshotEntry = {
+export type ProcessSnapshotEntry = {
   pid: number;
   ppid: number;
+  tty: string | null;
   command: string;
 };
 
-const parseProcessSnapshotLine = (line: string): ProcessSnapshotEntry | null => {
-  const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+export type AgentProcessSnapshot =
+  | {
+      status: "success";
+      processByPid: Map<number, ProcessSnapshotEntry>;
+      childrenByParentPid: Map<number, number[]>;
+      processesByTty: Map<string, ProcessSnapshotEntry[]>;
+    }
+  | {
+      status: "failed";
+      error: string;
+    };
+
+export const parseProcessSnapshotLine = (line: string): ProcessSnapshotEntry | null => {
+  const match = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)(?:\s+(.*))?$/);
   if (!match) {
     return null;
   }
   const pid = Number.parseInt(match[1] ?? "", 10);
   const ppid = Number.parseInt(match[2] ?? "", 10);
-  if (Number.isNaN(pid) || Number.isNaN(ppid)) {
+  if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(ppid)) {
     return null;
   }
+  const rawTty = match[3] ?? "";
   return {
     pid,
     ppid,
-    command: match[3] ?? "",
+    tty: rawTty === "?" || rawTty === "??" || rawTty === "-" ? null : stripDevPrefix(rawTty),
+    command: match[4] ?? "",
   };
 };
 
-const appendChildPid = (children: Map<number, number[]>, ppid: number, pid: number) => {
-  const list = children.get(ppid) ?? [];
-  list.push(pid);
-  children.set(ppid, list);
-};
+export const buildProcessSnapshotIndexes = (stdout: string) => {
+  const processByPid = new Map<number, ProcessSnapshotEntry>();
+  const childrenByParentPid = new Map<number, number[]>();
+  const processesByTty = new Map<string, ProcessSnapshotEntry[]>();
 
-const buildProcessSnapshotMaps = (stdout: string) => {
-  const byPid = new Map<number, ProcessSnapshotEntry>();
-  const children = new Map<number, number[]>();
-  const lines = stdout.split("\n").filter((line) => line.trim().length > 0);
-
-  lines.forEach((line) => {
+  stdout.split("\n").forEach((line) => {
+    if (line.trim().length === 0) {
+      return;
+    }
     const entry = parseProcessSnapshotLine(line);
     if (!entry) {
       return;
     }
-    byPid.set(entry.pid, entry);
-    appendChildPid(children, entry.ppid, entry.pid);
+    processByPid.set(entry.pid, entry);
+    const children = childrenByParentPid.get(entry.ppid) ?? [];
+    children.push(entry.pid);
+    childrenByParentPid.set(entry.ppid, children);
+    if (entry.tty != null) {
+      const processes = processesByTty.get(entry.tty) ?? [];
+      processes.push(entry);
+      processesByTty.set(entry.tty, processes);
+    }
   });
 
-  return { byPid, children };
+  return { processByPid, childrenByParentPid, processesByTty };
 };
 
-export const getProcessCommand = async (pid: number | null) => {
-  if (!pid) {
+export const createAgentProcessSnapshot = async (): Promise<AgentProcessSnapshot> => {
+  try {
+    const result = await execa("ps", ["-ax", "-o", "pid=,ppid=,tty=,command="], {
+      reject: false,
+      timeout: 2000,
+    });
+    if (result.exitCode !== 0) {
+      return {
+        status: "failed",
+        error: (result.stderr ?? "").trim() || `ps exited with code ${String(result.exitCode)}`,
+      };
+    }
+    return { status: "success", ...buildProcessSnapshotIndexes(result.stdout ?? "") };
+  } catch (error) {
+    return {
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
+export const getProcessCommand = (snapshot: AgentProcessSnapshot, pid: number | null) => {
+  if (snapshot.status !== "success" || pid == null) {
     return null;
   }
-  const cached = processCommandCache.get(pid);
-  const nowMs = Date.now();
-  if (cached && nowMs - cached.at < processCacheTtlMs) {
-    return cached.command;
-  }
-  const inFlight = processCommandInFlight.get(pid);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  const request = (async () => {
-    try {
-      const result = await runPs(["-p", String(pid), "-o", "command="], 1000);
-      const command = (result.stdout ?? "").trim();
-      if (command.length === 0) {
-        return null;
-      }
-      setMapEntryWithLimit(
-        processCommandCache,
-        pid,
-        { command, at: Date.now() },
-        PROCESS_COMMAND_CACHE_MAX_ENTRIES,
-      );
-      return command;
-    } catch {
-      return null;
-    } finally {
-      processCommandInFlight.delete(pid);
-    }
-  })();
-  processCommandInFlight.set(pid, request);
-  return request;
+  const command = snapshot.processByPid.get(pid)?.command.trim() ?? "";
+  return command.length > 0 ? command : null;
 };
 
-const loadProcessSnapshot = async () => {
-  const nowMs = Date.now();
-  if (nowMs - processSnapshotCache.at < processCacheTtlMs) {
-    return processSnapshotCache;
+export const findAgentFromPidTree = (
+  snapshot: AgentProcessSnapshot,
+  pid: number | null,
+): AgentType => {
+  if (snapshot.status !== "success" || pid == null) {
+    return "unknown";
   }
-  if (processSnapshotInFlight) {
-    return processSnapshotInFlight;
-  }
-
-  processSnapshotInFlight = (async () => {
-    try {
-      const result = await runPs(["-ax", "-o", "pid=,ppid=,command="], 2000);
-      const { byPid, children } = buildProcessSnapshotMaps(result.stdout ?? "");
-      processSnapshotCache.at = Date.now();
-      processSnapshotCache.byPid = byPid;
-      processSnapshotCache.children = children;
-    } catch {
-      // ignore snapshot failures
-    } finally {
-      processSnapshotInFlight = null;
-    }
-    return processSnapshotCache;
-  })();
-
-  return processSnapshotInFlight;
-};
-
-export const findAgentFromPidTree = async (pid: number | null) => {
-  if (!pid) {
-    return "unknown" as const;
-  }
-  const snapshot = await loadProcessSnapshot();
   const visited = new Set<number>();
   const stack = [pid];
   while (stack.length > 0) {
     const current = stack.pop();
-    if (!current || visited.has(current)) {
+    if (current == null || visited.has(current)) {
       continue;
     }
     visited.add(current);
-    const entry = snapshot.byPid.get(current);
+    const entry = snapshot.processByPid.get(current);
     if (entry) {
       const agent = buildAgent(entry.command);
       if (agent !== "unknown") {
         return agent;
       }
     }
-    const next = snapshot.children.get(current) ?? [];
-    next.forEach((child) => {
+    const children = snapshot.childrenByParentPid.get(current) ?? [];
+    children.forEach((child) => {
       if (!visited.has(child)) {
         stack.push(child);
       }
     });
   }
-  return "unknown" as const;
+  return "unknown";
 };
 
-export const getAgentFromTty = async (tty: string | null) => {
-  if (!tty) {
-    return "unknown" as const;
+export const getAgentFromTty = (snapshot: AgentProcessSnapshot, tty: string | null): AgentType => {
+  if (snapshot.status !== "success" || tty == null) {
+    return "unknown";
   }
-  const normalized = stripDevPrefix(tty);
-  const cached = ttyAgentCache.get(normalized);
-  const nowMs = Date.now();
-  if (cached && nowMs - cached.at < processCacheTtlMs) {
-    return cached.agent;
-  }
-  const inFlight = ttyAgentInFlight.get(normalized);
-  if (inFlight) {
-    return inFlight;
-  }
-
-  const request: Promise<AgentType> = (async () => {
-    try {
-      const result = await runPs(["-o", "command=", "-t", normalized], 1000);
-      const lines = (result.stdout ?? "")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      const agent = buildAgent(lines.join(" "));
-      setMapEntryWithLimit(
-        ttyAgentCache,
-        normalized,
-        { agent, at: Date.now() },
-        TTY_AGENT_CACHE_MAX_ENTRIES,
-      );
-      return agent;
-    } catch {
-      return "unknown" as const;
-    } finally {
-      ttyAgentInFlight.delete(normalized);
-    }
-  })();
-  ttyAgentInFlight.set(normalized, request);
-  return request;
+  const processes = snapshot.processesByTty.get(stripDevPrefix(tty)) ?? [];
+  return buildAgent(processes.map(({ command }) => command).join(" "));
 };

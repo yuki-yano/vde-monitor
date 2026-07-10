@@ -129,10 +129,13 @@ export const createJsonlTailer = (pollIntervalMs: number) => {
     return () => listeners.delete(listener);
   };
 
-  const start = (filePath: string) => {
+  const start = async (filePath: string): Promise<void> => {
     if (timer) {
       return;
     }
+    const initialStat = await fs.stat(filePath);
+    offset = initialStat.size;
+    buffer = "";
     const poll = async () => {
       if (pollRunning) {
         return;

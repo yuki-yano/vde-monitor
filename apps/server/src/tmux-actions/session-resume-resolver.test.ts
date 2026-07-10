@@ -28,6 +28,7 @@ const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   pipeConflict: false,
   startCommand: "claude",
   panePid: 123,
+  completion: null,
   ...overrides,
 });
 

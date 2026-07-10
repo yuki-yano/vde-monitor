@@ -11,7 +11,32 @@ import type {
 
 import type { PersistedRepoNotesRecord } from "./repo-notes/store";
 
-type PersistedSession = {
+export type PersistedLifecycle = Exclude<SessionStateValue, "DONE">;
+
+export type PersistedAgentIdentity = "codex" | "claude" | "unknown";
+
+export type PersistedCompletionCursor = {
+  epoch: string;
+  paneInstanceKey: string | null;
+  agent: "codex" | "claude";
+  agentSessionId: string | null;
+  identityConfirmedAt: string | null;
+  agentPresent: boolean;
+  syntheticCompletionArmed: boolean;
+  consecutiveAbsentObservations: number;
+  runSeq: number;
+  openRunSeq: number | null;
+  completedSeq: number;
+  acknowledgedSeq: number;
+};
+
+export type PersistedSessionRuntimeState = {
+  lifecycle: PersistedLifecycle;
+  completionCursor: PersistedCompletionCursor | null;
+  lastAgent: PersistedAgentIdentity;
+};
+
+export type PersistedSession = {
   paneId: string;
   lastOutputAt: string | null;
   lastEventAt: string | null;
@@ -22,26 +47,31 @@ type PersistedSession = {
   agentSessionConfidence?: "high" | "medium" | "low" | null;
   agentSessionObservedAt?: string | null;
   customTitle: string | null;
-  state: SessionStateValue;
+  lifecycle: PersistedLifecycle;
+  completionCursor: PersistedCompletionCursor | null;
+  lastAgent: PersistedAgentIdentity;
   stateReason: string;
   repoRoot?: string | null;
 };
 
+export type PersistedTimelineState = SessionStateValue | "DONE";
+export type PersistedTimelineSource = SessionStateTimelineSource | "view";
+
 export type PersistedTimelineEvent = {
   id: string;
   paneId: string;
-  state: SessionStateValue;
+  state: PersistedTimelineState;
   reason: string;
   repoRoot?: string | null;
   startedAt: string;
   endedAt: string | null;
-  source: SessionStateTimelineSource;
+  source: PersistedTimelineSource;
 };
 
 type PersistedTimelineRecord = Record<string, PersistedTimelineEvent[]>;
 
 type PersistedState = {
-  version: 2;
+  version: 3;
   savedAt: string;
   sessions: Record<string, PersistedSession>;
   timeline: PersistedTimelineRecord;
@@ -62,20 +92,105 @@ const loadState = (): PersistedState | null => {
   }
 };
 
-type SaveStateOptions = {
+export type SaveStateOptions = {
+  runtimeStateByPaneId: ReadonlyMap<string, PersistedSessionRuntimeState>;
+  retainedSessions?: ReadonlyMap<string, PersistedSession>;
   timeline?: PersistedTimelineRecord;
   repoNotes?: PersistedRepoNotesRecord;
 };
 
-const isStateValue = (value: unknown): value is SessionStateValue =>
+const isLifecycle = (value: unknown): value is PersistedLifecycle =>
   value === "RUNNING" ||
   value === "WAITING_INPUT" ||
   value === "WAITING_PERMISSION" ||
   value === "SHELL" ||
   value === "UNKNOWN";
 
-const isTimelineSource = (value: unknown): value is SessionStateTimelineSource =>
-  value === "poll" || value === "hook" || value === "restore";
+const isTimelineState = (value: unknown): value is PersistedTimelineState =>
+  isLifecycle(value) || value === "DONE";
+
+const isTimelineSource = (value: unknown): value is PersistedTimelineSource =>
+  value === "poll" || value === "hook" || value === "restore" || value === "view";
+
+const isNullableString = (value: unknown): value is string | null =>
+  value === null || typeof value === "string";
+
+const isOptionalNullableString = (value: unknown): value is string | null | undefined =>
+  value == null || typeof value === "string";
+
+const isNullableTimestamp = (value: unknown): value is string | null =>
+  value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)));
+
+const isNonNegativeSafeInteger = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+
+const isPersistedAgentIdentity = (value: unknown): value is PersistedAgentIdentity =>
+  value === "codex" || value === "claude" || value === "unknown";
+
+const isPersistedCompletionCursor = (value: unknown): value is PersistedCompletionCursor => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const cursor = value as Partial<PersistedCompletionCursor>;
+  if (
+    typeof cursor.epoch !== "string" ||
+    cursor.epoch.length === 0 ||
+    !isNullableString(cursor.paneInstanceKey) ||
+    (cursor.agent !== "codex" && cursor.agent !== "claude") ||
+    !isNullableString(cursor.agentSessionId) ||
+    !isNullableTimestamp(cursor.identityConfirmedAt) ||
+    typeof cursor.agentPresent !== "boolean" ||
+    typeof cursor.syntheticCompletionArmed !== "boolean" ||
+    !isNonNegativeSafeInteger(cursor.consecutiveAbsentObservations) ||
+    !isNonNegativeSafeInteger(cursor.runSeq) ||
+    !isNonNegativeSafeInteger(cursor.completedSeq) ||
+    !isNonNegativeSafeInteger(cursor.acknowledgedSeq) ||
+    (cursor.openRunSeq != null && !isNonNegativeSafeInteger(cursor.openRunSeq))
+  ) {
+    return false;
+  }
+  if (
+    cursor.acknowledgedSeq > cursor.completedSeq ||
+    cursor.completedSeq > cursor.runSeq ||
+    (cursor.openRunSeq != null && cursor.openRunSeq !== cursor.runSeq)
+  ) {
+    return false;
+  }
+  return (
+    !cursor.syntheticCompletionArmed ||
+    (cursor.runSeq === 0 && cursor.openRunSeq == null && cursor.completedSeq === 0)
+  );
+};
+
+const isPersistedSession = (value: unknown): value is PersistedSession => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const session = value as Partial<PersistedSession>;
+  return (
+    typeof session.paneId === "string" &&
+    isNullableString(session.lastOutputAt) &&
+    isNullableString(session.lastEventAt) &&
+    isNullableString(session.lastMessage) &&
+    isNullableString(session.lastInputAt) &&
+    isOptionalNullableString(session.agentSessionId) &&
+    (session.agentSessionSource == null ||
+      session.agentSessionSource === "hook" ||
+      session.agentSessionSource === "lsof" ||
+      session.agentSessionSource === "history") &&
+    (session.agentSessionConfidence == null ||
+      session.agentSessionConfidence === "high" ||
+      session.agentSessionConfidence === "medium" ||
+      session.agentSessionConfidence === "low") &&
+    isOptionalNullableString(session.agentSessionObservedAt) &&
+    isNullableString(session.customTitle) &&
+    isLifecycle(session.lifecycle) &&
+    (session.completionCursor == null || isPersistedCompletionCursor(session.completionCursor)) &&
+    isPersistedAgentIdentity(session.lastAgent) &&
+    typeof session.stateReason === "string" &&
+    isOptionalNullableString(session.repoRoot)
+  );
+};
 
 const isPersistedTimelineEvent = (value: unknown): value is PersistedTimelineEvent => {
   if (!value || typeof value !== "object") {
@@ -85,7 +200,7 @@ const isPersistedTimelineEvent = (value: unknown): value is PersistedTimelineEve
   return (
     typeof event.id === "string" &&
     typeof event.paneId === "string" &&
-    isStateValue(event.state) &&
+    isTimelineState(event.state) &&
     typeof event.reason === "string" &&
     (event.repoRoot == null || typeof event.repoRoot === "string") &&
     typeof event.startedAt === "string" &&
@@ -115,21 +230,24 @@ const isPersistedState = (value: unknown): value is PersistedState => {
   }
   const state = value as Partial<PersistedState>;
   return (
-    state.version === 2 &&
+    state.version === 3 &&
     typeof state.savedAt === "string" &&
     Boolean(state.sessions) &&
     typeof state.sessions === "object" &&
+    Object.values(state.sessions).every(isPersistedSession) &&
     Boolean(state.timeline) &&
     typeof state.timeline === "object"
   );
 };
 
-export const saveState = (sessions: SessionDetail[], options: SaveStateOptions = {}) => {
-  const data: PersistedState = {
-    version: 2,
-    savedAt: new Date().toISOString(),
-    sessions: Object.fromEntries(
-      sessions.map((session) => [
+export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) => {
+  const committedSessions = Object.fromEntries(
+    sessions.map((session) => {
+      const runtimeState = options.runtimeStateByPaneId.get(session.paneId);
+      if (runtimeState == null) {
+        throw new Error(`missing persisted runtime state for pane ${session.paneId}`);
+      }
+      return [
         session.paneId,
         {
           paneId: session.paneId,
@@ -142,12 +260,22 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions =
           agentSessionConfidence: session.agentSessionConfidence ?? null,
           agentSessionObservedAt: session.agentSessionObservedAt ?? null,
           customTitle: session.customTitle ?? null,
-          state: session.state,
+          lifecycle: runtimeState.lifecycle,
+          completionCursor: runtimeState.completionCursor,
+          lastAgent: runtimeState.lastAgent,
           stateReason: session.stateReason,
           repoRoot: session.repoRoot ?? null,
         },
-      ]),
-    ),
+      ];
+    }),
+  );
+  const data: PersistedState = {
+    version: 3,
+    savedAt: new Date().toISOString(),
+    sessions: {
+      ...Object.fromEntries(options.retainedSessions ?? []),
+      ...committedSessions,
+    },
     timeline: options.timeline ?? {},
     repoNotes: options.repoNotes ?? {},
   };

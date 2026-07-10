@@ -13,6 +13,18 @@ describe("updatePaneOutputState", () => {
   };
 
   const createState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
+    lifecycle: "UNKNOWN",
+    completionCursor: null,
+    pendingRestoredCompletionCursor: null,
+    pendingRestoredLifecycle: null,
+    pendingRestoredLastAgent: null,
+    lastResolvedAgent: "unknown",
+    agentPresence: "indeterminate",
+    agentPresent: false,
+    consecutiveAbsentObservations: 0,
+    lastResolvedState: null,
+    lastResolvedStateReason: null,
+    pendingAgentLifecycleEvents: [],
     hookState: null,
     codexQuestionPromptActive: false,
     lastOutputAt: null,

@@ -6,6 +6,7 @@ export const sessionStateSchema = z.enum([
   "RUNNING",
   "WAITING_INPUT",
   "WAITING_PERMISSION",
+  "DONE",
   "SHELL",
   "UNKNOWN",
 ]);
@@ -355,6 +356,13 @@ export const sessionSummarySchema = z.object({
   worktreeMerged: z.boolean().nullable().optional(),
   repoRoot: z.string().nullable(),
   agent: z.enum(["codex", "claude", "unknown"]),
+  completion: z
+    .object({
+      epoch: z.string(),
+      completedSeq: z.number().int().nonnegative(),
+      acknowledgedSeq: z.number().int().nonnegative(),
+    })
+    .nullable(),
   state: sessionStateSchema,
   stateReason: z.string(),
   lastMessage: z.string().nullable(),
@@ -422,7 +430,25 @@ export const sessionStateTimelineRangeSchema = z.enum([
 ]);
 export const sessionStateTimelineScopeSchema = z.enum(["pane", "repo"]);
 
-export const sessionStateTimelineSourceSchema = z.enum(["poll", "hook", "restore"]);
+export const sessionStateTimelineSourceSchema = z.enum(["poll", "hook", "view", "restore"]);
+
+export const acknowledgeSessionViewRequestSchema = z
+  .object({
+    epoch: z
+      .string()
+      .min(1)
+      .max(128)
+      .refine((value) => {
+        for (const character of value) {
+          if ((character.codePointAt(0) ?? 128) > 127) {
+            return false;
+          }
+        }
+        return true;
+      }, "epoch must contain ASCII characters only"),
+    throughSeq: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
 
 export const sessionStateTimelineItemSchema = z.object({
   id: z.string(),

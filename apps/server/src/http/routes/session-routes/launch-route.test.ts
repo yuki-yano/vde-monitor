@@ -32,6 +32,7 @@ const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   startCommand: "claude",
   panePid: 123,
   agentSessionId: "claude-session-1",
+  completion: null,
   ...overrides,
 });
 

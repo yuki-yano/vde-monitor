@@ -59,6 +59,7 @@ const createSession = (
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 

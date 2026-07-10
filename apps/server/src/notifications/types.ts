@@ -3,6 +3,7 @@ import type {
   PushEventType,
   PushSubscriptionJson,
   SessionDetail,
+  SessionStateTimelineSource,
 } from "@vde-monitor/shared";
 
 export const SUPPORTED_PUSH_EVENTS = ["pane.waiting_permission", "pane.task_completed"] as const;
@@ -15,7 +16,10 @@ export type SessionTransitionEvent = {
   previous: SessionDetail | null;
   next: SessionDetail;
   at: string;
-  source: "poll" | "hook" | "restore";
+  source: SessionStateTimelineSource;
+  completionAdvanced: boolean;
+  completionEpoch: string | null;
+  completedSeq: number | null;
 };
 
 export type NotificationSubscriptionRecord = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { configDefaults } from "./runtime-defaults";
 import {
+  acknowledgeSessionViewRequestSchema,
   codexHookEventSchema,
   configOverrideSchema,
   configSchema,
@@ -9,6 +10,9 @@ import {
   launchAgentRequestSchema,
   notificationSubscriptionRevokeSchema,
   screenResponseSchema,
+  sessionStateSchema,
+  sessionStateTimelineSourceSchema,
+  sessionSummarySchema,
   usageGlobalTimelineResponseSchema,
 } from "./schemas";
 
@@ -71,6 +75,7 @@ describe("usageGlobalTimelineResponseSchema", () => {
       items: [],
       totalsMs: {
         RUNNING: 0,
+        DONE: 0,
         WAITING_INPUT: 0,
         WAITING_PERMISSION: 0,
         SHELL: 0,
@@ -104,6 +109,71 @@ describe("usageGlobalTimelineResponseSchema", () => {
       timeline: undefined,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("session completion schemas", () => {
+  const summary = {
+    paneId: "%1",
+    sessionName: "main",
+    windowIndex: 0,
+    paneIndex: 0,
+    paneActive: true,
+    currentCommand: "codex",
+    currentPath: "/repo",
+    paneTty: "ttys001",
+    title: null,
+    customTitle: null,
+    repoRoot: "/repo",
+    agent: "codex",
+    completion: { epoch: "epoch-1", completedSeq: 1, acknowledgedSeq: 0 },
+    state: "DONE",
+    stateReason: "hook:stop",
+    lastMessage: null,
+    lastOutputAt: null,
+    lastEventAt: null,
+    lastInputAt: null,
+    paneDead: false,
+    alternateOn: false,
+    pipeAttached: false,
+    pipeConflict: false,
+  };
+
+  it("accepts DONE, completion metadata, and view timeline source", () => {
+    expect(sessionStateSchema.safeParse("DONE").success).toBe(true);
+    expect(sessionSummarySchema.safeParse(summary).success).toBe(true);
+    expect(sessionStateTimelineSourceSchema.safeParse("view").success).toBe(true);
+  });
+
+  it("requires nullable completion metadata on session summaries", () => {
+    const { completion: _completion, ...missing } = summary;
+    expect(sessionSummarySchema.safeParse(missing).success).toBe(false);
+    expect(sessionSummarySchema.safeParse({ ...summary, completion: null }).success).toBe(true);
+  });
+
+  it("validates strict acknowledge request boundaries", () => {
+    expect(
+      acknowledgeSessionViewRequestSchema.safeParse({ epoch: "epoch-1", throughSeq: 0 }).success,
+    ).toBe(true);
+    expect(
+      acknowledgeSessionViewRequestSchema.safeParse({
+        epoch: "epoch-1",
+        throughSeq: Number.MAX_SAFE_INTEGER,
+      }).success,
+    ).toBe(true);
+    expect(
+      acknowledgeSessionViewRequestSchema.safeParse({
+        epoch: "é",
+        throughSeq: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      acknowledgeSessionViewRequestSchema.safeParse({
+        epoch: "epoch-1",
+        throughSeq: 0,
+        extra: true,
+      }).success,
+    ).toBe(false);
   });
 });
 

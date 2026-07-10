@@ -7,6 +7,8 @@ import type {
 import type { SessionDetail } from "@vde-monitor/shared";
 
 import { resolvePaneAgent } from "./agent-resolver";
+import type { AgentProcessSnapshot } from "./agent-resolver-process";
+import type { AgentType } from "./agent-resolver-utils";
 import { isShellCommand } from "./agent-resolver-utils";
 import type { PaneLogManager } from "./pane-log-manager";
 import { updatePaneOutputState } from "./pane-output";
@@ -18,18 +20,29 @@ export type PaneStateStore = {
 };
 
 export type PaneObservationDeps = {
-  resolvePaneAgent?: typeof resolvePaneAgent;
+  resolvePaneAgent?: (
+    pane: Parameters<typeof resolvePaneAgent>[0],
+    snapshot: AgentProcessSnapshot | null,
+  ) => Promise<{
+    agent: AgentType;
+    ignore: boolean;
+    presence?: "present" | "absent" | "indeterminate";
+  }>;
   updatePaneOutputState?: typeof updatePaneOutputState;
   estimateSessionState?: typeof estimateSessionState;
 };
 
 type ObservePaneArgs = {
   pane: PaneMeta;
+  processSnapshot: AgentProcessSnapshot | null;
   config: AgentMonitorConfig;
   paneStates: PaneStateStore;
   paneLogManager: PaneLogManager;
-  capturePaneFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
-  applyRestored: (paneId: string) => SessionDetail | null;
+  capturePaneFingerprint: (
+    paneId: string,
+    useAlt: boolean,
+    currentCommand?: string | null,
+  ) => Promise<string | null>;
   isPaneViewedRecently?: (paneId: string) => boolean;
   resolvePanePipeTagValue?: (pane: PaneMeta) => Promise<string | null>;
   cachePanePipeTagValue?: (paneId: string, pipeTagValue: string | null) => void;
@@ -47,9 +60,65 @@ export type PaneObservation = {
   paneState: PaneRuntimeState;
   outputAt: string | null;
   finalState: EstimatedPaneState;
+  agentPresence: "present" | "absent" | "indeterminate";
+  confirmedAgentAbsent: boolean;
+  agentBecameAbsent: boolean;
 };
 
 const FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
+
+export const applyAgentPresenceObservation = ({
+  observedAgent,
+  presence,
+  paneState,
+}: {
+  observedAgent: AgentType;
+  presence: "present" | "absent" | "indeterminate";
+  paneState: PaneRuntimeState;
+}) => {
+  const wasPresent = paneState.agentPresent;
+  paneState.agentPresence = presence;
+
+  if (presence === "present") {
+    paneState.lastResolvedAgent = observedAgent;
+    paneState.agentPresent = true;
+    paneState.consecutiveAbsentObservations = 0;
+    return {
+      agent: observedAgent,
+      preserveResolvedState: false,
+      confirmedAgentAbsent: false,
+      agentBecameAbsent: false,
+    };
+  }
+
+  if (presence === "indeterminate") {
+    return {
+      agent: paneState.lastResolvedAgent,
+      preserveResolvedState: true,
+      confirmedAgentAbsent: false,
+      agentBecameAbsent: false,
+    };
+  }
+
+  paneState.consecutiveAbsentObservations += 1;
+  const confirmedAgentAbsent = paneState.consecutiveAbsentObservations >= 2;
+  if (!confirmedAgentAbsent) {
+    return {
+      agent: paneState.lastResolvedAgent,
+      preserveResolvedState: true,
+      confirmedAgentAbsent: false,
+      agentBecameAbsent: false,
+    };
+  }
+
+  paneState.agentPresent = false;
+  return {
+    agent: "unknown" as const,
+    preserveResolvedState: false,
+    confirmedAgentAbsent: true,
+    agentBecameAbsent: wasPresent,
+  };
+};
 
 const resolvePaneKind = (agent: SessionDetail["agent"], pane: PaneMeta) => {
   const isShellCommandPane =
@@ -62,10 +131,12 @@ const resolvePaneKind = (agent: SessionDetail["agent"], pane: PaneMeta) => {
 
 const resolvePipeStatus = async ({
   isAgent,
+  allowAttach,
   pane,
   paneLogManager,
 }: {
   isAgent: boolean;
+  allowAttach: boolean;
   pane: PaneMeta;
   paneLogManager: PaneLogManager;
 }) => {
@@ -74,12 +145,14 @@ const resolvePipeStatus = async ({
       pipeAttached: false,
       pipeConflict: false,
       logPath: paneLogManager.hasPipeCapability ? paneLogManager.getPaneLogPath(pane.paneId) : null,
+      ownerTag: null,
     };
   }
   return paneLogManager.preparePaneLogging({
     paneId: pane.paneId,
     panePipe: pane.panePipe,
     pipeTagValue: pane.pipeTagValue,
+    allowAttach,
   });
 };
 
@@ -139,27 +212,14 @@ const resolveEstimatedState = ({
   };
 };
 
-const resolveFinalPaneState = (
-  restoredSession: SessionDetail | null,
-  estimatedState: EstimatedPaneState,
-) => {
-  if (!restoredSession) {
-    return estimatedState;
-  }
-  return {
-    state: restoredSession.state,
-    reason: "restored",
-  };
-};
-
 export const observePane = async (
   {
     pane,
+    processSnapshot,
     config,
     paneStates,
     paneLogManager,
     capturePaneFingerprint,
-    applyRestored,
     isPaneViewedRecently,
     resolvePanePipeTagValue,
     cachePanePipeTagValue,
@@ -170,15 +230,41 @@ export const observePane = async (
   const updateOutput = deps.updatePaneOutputState ?? updatePaneOutputState;
   const estimateState = deps.estimateSessionState ?? estimateSessionState;
 
-  const { agent, ignore } = await resolveAgent({
-    currentCommand: pane.currentCommand,
-    paneStartCommand: pane.paneStartCommand,
-    paneTitle: pane.paneTitle,
-    panePid: pane.panePid,
-    paneTty: pane.paneTty,
-  });
+  const resolution = await resolveAgent(
+    {
+      currentCommand: pane.currentCommand,
+      paneStartCommand: pane.paneStartCommand,
+      paneTitle: pane.paneTitle,
+      panePid: pane.panePid,
+      paneTty: pane.paneTty,
+    },
+    processSnapshot,
+  );
+  const { ignore } = resolution;
   if (ignore) {
     return null;
+  }
+
+  const paneState = paneStates.get(pane.paneId);
+  const observedPresence =
+    resolution.presence ?? (resolution.agent === "unknown" ? "absent" : "present");
+  const presenceResult =
+    resolution.presence == null
+      ? {
+          agent: resolution.agent,
+          preserveResolvedState: false,
+          confirmedAgentAbsent: false,
+          agentBecameAbsent: false,
+        }
+      : applyAgentPresenceObservation({
+          observedAgent: resolution.agent,
+          presence: observedPresence,
+          paneState,
+        });
+  const agent = presenceResult.agent;
+
+  if (presenceResult.confirmedAgentAbsent) {
+    await paneLogManager.detachOwnedPipe(pane.paneId);
   }
 
   const { isAgent, isShell } = resolvePaneKind(agent, pane);
@@ -187,42 +273,55 @@ export const observePane = async (
     isAgent,
     resolvePanePipeTagValue,
   });
-  const { pipeAttached, pipeConflict, logPath } = await resolvePipeStatus({
+  const pipeStatus = await resolvePipeStatus({
     isAgent,
+    allowAttach: observedPresence === "present",
     pane: paneWithPipeTag,
     paneLogManager,
   });
-  if (isAgent && pipeAttached && !pipeConflict && paneWithPipeTag.pipeTagValue !== "1") {
-    cachePanePipeTagValue?.(pane.paneId, "1");
+  const { pipeAttached, pipeConflict, logPath } = pipeStatus;
+  if (
+    isAgent &&
+    pipeAttached &&
+    !pipeConflict &&
+    pipeStatus.ownerTag != null &&
+    paneWithPipeTag.pipeTagValue !== pipeStatus.ownerTag
+  ) {
+    cachePanePipeTagValue?.(pane.paneId, pipeStatus.ownerTag);
   }
 
-  const paneState = paneStates.get(pane.paneId);
   const allowFingerprintCapture = isAgent || Boolean(isPaneViewedRecently?.(pane.paneId));
   const {
     outputAt,
     hookState,
     codexQuestionPromptActive = false,
-  } = await updateOutput({
-    pane: {
-      paneId: pane.paneId,
-      paneActivity: pane.paneActivity,
-      paneActive: pane.paneActive,
-      paneDead: pane.paneDead,
-      alternateOn: pane.alternateOn,
-    },
-    paneState,
-    isAgentPane: isAgent,
-    isCodexAgentPane: agent === "codex",
-    logPath,
-    inactiveThresholdMs: 60000,
-    deps: {
-      captureFingerprint: capturePaneFingerprint,
-      fingerprintIntervalMs: FINGERPRINT_CAPTURE_INTERVAL_MS,
-      allowFingerprintCapture,
-    },
-  });
+  } = presenceResult.preserveResolvedState
+    ? {
+        outputAt: paneState.lastOutputAt,
+        hookState: paneState.hookState,
+        codexQuestionPromptActive: paneState.codexQuestionPromptActive,
+      }
+    : await updateOutput({
+        pane: {
+          paneId: pane.paneId,
+          paneActivity: pane.paneActivity,
+          paneActive: pane.paneActive,
+          paneDead: pane.paneDead,
+          alternateOn: pane.alternateOn,
+          currentCommand: pane.currentCommand,
+        },
+        paneState,
+        isAgentPane: isAgent,
+        isCodexAgentPane: agent === "codex",
+        logPath,
+        inactiveThresholdMs: 60000,
+        deps: {
+          captureFingerprint: capturePaneFingerprint,
+          fingerprintIntervalMs: FINGERPRINT_CAPTURE_INTERVAL_MS,
+          allowFingerprintCapture,
+        },
+      });
 
-  const restoredSession = applyRestored(pane.paneId);
   const estimatedState = resolveEstimatedState({
     isAgent,
     isShell,
@@ -236,12 +335,30 @@ export const observePane = async (
     estimateState,
   });
 
+  let finalState = estimatedState;
+  if (
+    presenceResult.preserveResolvedState &&
+    paneState.lastResolvedState != null &&
+    paneState.lastResolvedStateReason != null
+  ) {
+    finalState = {
+      state: paneState.lastResolvedState,
+      reason: paneState.lastResolvedStateReason,
+    };
+  } else {
+    paneState.lastResolvedState = finalState.state;
+    paneState.lastResolvedStateReason = finalState.reason;
+  }
+
   return {
     agent,
     pipeAttached,
     pipeConflict,
     paneState,
     outputAt,
-    finalState: resolveFinalPaneState(restoredSession, estimatedState),
+    finalState,
+    agentPresence: observedPresence,
+    confirmedAgentAbsent: presenceResult.confirmedAgentAbsent,
+    agentBecameAbsent: presenceResult.agentBecameAbsent,
   };
 };

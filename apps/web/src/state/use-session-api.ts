@@ -412,6 +412,7 @@ export const useSessionApi = ({
       sendKeys: actionRequests.sendKeys,
       sendRaw: actionRequests.sendRaw,
       touchSession: actionRequests.touchSession,
+      acknowledgeSessionView: actionRequests.acknowledgeSessionView,
       updateSessionTitle: actionRequests.updateSessionTitle,
       resetSessionTitle: actionRequests.resetSessionTitle,
     }),

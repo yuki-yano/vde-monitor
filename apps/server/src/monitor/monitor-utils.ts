@@ -1,6 +1,6 @@
 import os from "node:os";
 
-import type { SessionStateValue } from "@vde-monitor/shared";
+import type { AgentLifecycle } from "@vde-monitor/multiplexer";
 
 const fingerprintLineCount = 20;
 
@@ -58,36 +58,44 @@ export const hostCandidates = (() => {
 
 export const deriveHookState = (hookEventName: string, notificationType?: string) => {
   if (hookEventName === "Notification" && notificationType === "permission_prompt") {
-    return { state: "WAITING_PERMISSION" as SessionStateValue, reason: "hook:permission_prompt" };
+    return { state: "WAITING_PERMISSION" as AgentLifecycle, reason: "hook:permission_prompt" };
   }
   if (hookEventName === "Stop") {
-    return { state: "WAITING_INPUT" as SessionStateValue, reason: "hook:stop" };
+    return { state: "WAITING_INPUT" as AgentLifecycle, reason: "hook:stop" };
   }
   if (
     hookEventName === "UserPromptSubmit" ||
     hookEventName === "PreToolUse" ||
     hookEventName === "PostToolUse"
   ) {
-    return { state: "RUNNING" as SessionStateValue, reason: `hook:${hookEventName}` };
+    return { state: "RUNNING" as AgentLifecycle, reason: `hook:${hookEventName}` };
   }
   return null;
 };
 
 export const deriveCodexHookState = (hookEventName: string) => {
   if (hookEventName === "PermissionRequest") {
-    return { state: "WAITING_PERMISSION" as SessionStateValue, reason: "hook:permission_request" };
+    return { state: "WAITING_PERMISSION" as AgentLifecycle, reason: "hook:permission_request" };
   }
   if (hookEventName === "Stop") {
-    return { state: "WAITING_INPUT" as SessionStateValue, reason: "hook:stop" };
+    return { state: "WAITING_INPUT" as AgentLifecycle, reason: "hook:stop" };
   }
   if (
     hookEventName === "UserPromptSubmit" ||
     hookEventName === "PreToolUse" ||
     hookEventName === "PostToolUse"
   ) {
-    return { state: "RUNNING" as SessionStateValue, reason: `hook:${hookEventName}` };
+    return { state: "RUNNING" as AgentLifecycle, reason: `hook:${hookEventName}` };
   }
   return null;
+};
+
+export const markHerdrLifecycleDirty = (
+  event: { paneId: string | null },
+  markDirty: (paneId: string, source: "herdr") => unknown,
+) => {
+  if (event.paneId == null) return;
+  markDirty(event.paneId, "herdr");
 };
 
 const findSinglePaneId = (

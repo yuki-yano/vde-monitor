@@ -96,6 +96,15 @@ describe("createInspector", () => {
     const inspector = createInspector(adapter);
     const result = await inspector.readUserOption("%1", "@vde-monitor");
     expect(result).toBe("value");
+    expect(adapter.run).toHaveBeenCalledWith([
+      "show-options",
+      "-p",
+      "-q",
+      "-t",
+      "%1",
+      "-v",
+      "@vde-monitor",
+    ]);
   });
 
   it("returns null for blank user option", async () => {
@@ -124,8 +133,26 @@ describe("createInspector", () => {
     await inspector.writeUserOption("%1", "@vde-monitor", "1");
     await inspector.writeUserOption("%1", "@vde-monitor", null);
 
-    expect(adapter.run).toHaveBeenCalledWith(["set-option", "-t", "%1", "@vde-monitor", "1"]);
-    expect(adapter.run).toHaveBeenCalledWith(["set-option", "-t", "%1", "-u", "@vde-monitor"]);
+    expect(adapter.run).toHaveBeenCalledWith(["set-option", "-p", "-t", "%1", "@vde-monitor", "1"]);
+    expect(adapter.run).toHaveBeenCalledWith([
+      "set-option",
+      "-p",
+      "-t",
+      "%1",
+      "-u",
+      "@vde-monitor",
+    ]);
+  });
+
+  it("throws when writing user option fails", async () => {
+    const adapter = {
+      run: vi.fn().mockResolvedValue({ stdout: "", stderr: "set failed", exitCode: 1 }),
+    };
+    const inspector = createInspector(adapter);
+
+    await expect(inspector.writeUserOption("%1", "@vde-monitor", "v2:owner")).rejects.toThrow(
+      "set failed",
+    );
   });
 
   it("throws when list-panes fails", async () => {

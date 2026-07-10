@@ -112,6 +112,77 @@ type CliOverrides = {
   weztermTarget?: string;
 };
 
+const MONITOR_STOP_TIMEOUT_MS = 5000;
+const SERVER_CLOSE_TIMEOUT_MS = 3000;
+
+export const createGracefulShutdown = ({
+  closeStreams,
+  stopMonitor,
+  closeServer,
+  exitProcess = (code) => process.exit(code),
+}: {
+  closeStreams: () => void;
+  stopMonitor: () => void | Promise<void>;
+  closeServer: (onClosed: () => void) => void;
+  exitProcess?: (code: number) => void;
+}): (() => Promise<void>) => {
+  let shutdownPromise: Promise<void> | null = null;
+
+  const waitForMonitorStop = async (): Promise<void> => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<void>((resolve) => {
+      timeout = setTimeout(resolve, MONITOR_STOP_TIMEOUT_MS);
+      timeout.unref();
+    });
+    try {
+      await Promise.race([
+        Promise.resolve()
+          .then(() => stopMonitor())
+          .catch(() => undefined),
+        timeoutPromise,
+      ]);
+    } finally {
+      if (timeout !== null) {
+        clearTimeout(timeout);
+      }
+    }
+  };
+
+  const waitForServerClose = async (): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      let completed = false;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      const finish = () => {
+        if (completed) return;
+        completed = true;
+        if (timeout !== null) {
+          clearTimeout(timeout);
+        }
+        resolve();
+        exitProcess(0);
+      };
+
+      closeServer(finish);
+      if (completed) return;
+
+      // This existing 3-second guard begins only after the monitor has stopped
+      // or its separate 5-second owned-pipe detach timeout has elapsed.
+      timeout = setTimeout(finish, SERVER_CLOSE_TIMEOUT_MS);
+      timeout.unref();
+    });
+  };
+
+  return () => {
+    if (shutdownPromise !== null) return shutdownPromise;
+    shutdownPromise = (async () => {
+      closeStreams();
+      await waitForMonitorStop();
+      await waitForServerClose();
+    })();
+    return shutdownPromise;
+  };
+};
+
 /**
  * Single mutation point for applying CLI argument overrides onto a resolved config object.
  * All direct config property assignments from CLI args are performed here and nowhere else.
@@ -255,22 +326,18 @@ export const runServe = async (args: ParsedArgs) => {
 
   qrcode.generate(qrUrl, { small: true });
 
-  const shutdown = () => {
+  const shutdown = createGracefulShutdown({
     // 1. SSE 接続を全切断し、クライアントに再接続を促す。
-    streamConnections.closeAll();
-    streamSource.dispose();
-    screenScheduler.dispose();
-    // 2. モニターを停止する。
-    monitor.stop();
+    closeStreams: () => {
+      streamConnections.closeAll();
+      streamSource.dispose();
+      screenScheduler.dispose();
+    },
+    // 2. owned pipe detachを含むモニター停止を最大5秒待つ。
+    stopMonitor: () => monitor.stop(),
     // 3. HTTP サーバーの新規受付を止め、既存 keep-alive を閉じる。
-    server.close(() => {
-      process.exit(0);
-    });
-    // close が keep-alive 接続待ちで完了しない場合の保険。
-    setTimeout(() => {
-      process.exit(0);
-    }, 3000).unref();
-  };
+    closeServer: (onClosed) => server.close(onClosed),
+  });
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);

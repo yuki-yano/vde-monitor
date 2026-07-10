@@ -29,6 +29,7 @@ const makeDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   pipeConflict: false,
   startCommand: null,
   panePid: null,
+  completion: null,
   ...overrides,
 });
 

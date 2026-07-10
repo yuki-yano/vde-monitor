@@ -61,6 +61,19 @@ describe("createWeztermAdapter", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("passes cancellation to the wezterm subprocess", async () => {
+    const controller = new AbortController();
+    const adapter = createWeztermAdapter();
+
+    await adapter.run(["get-text"], { signal: controller.signal });
+
+    const execa = await getExeca();
+    expect(execa).toHaveBeenLastCalledWith("wezterm", ["cli", "get-text"], {
+      reject: false,
+      cancelSignal: controller.signal,
+    });
+  });
+
   it("spawns proxy with target args", async () => {
     const adapter = createWeztermAdapter({ cliPath: "wezterm", target: " dev " });
     adapter.spawnProxy?.();

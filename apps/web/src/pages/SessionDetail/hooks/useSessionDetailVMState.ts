@@ -32,6 +32,7 @@ export const useSessionDetailVMState = (paneId: string) => {
     sendKeys,
     sendRaw,
     touchSession,
+    acknowledgeSessionView,
     updateSessionTitle,
     resetSessionTitle,
   } = useSessionCoreApi();
@@ -101,6 +102,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       sendKeys,
       sendRaw,
       touchSession,
+      acknowledgeSessionView,
       updateSessionTitle,
       resetSessionTitle,
       createRepoNote,
@@ -147,6 +149,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       sendKeys,
       sendRaw,
       touchSession,
+      acknowledgeSessionView,
       updateSessionTitle,
       resetSessionTitle,
       createRepoNote,

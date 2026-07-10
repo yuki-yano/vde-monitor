@@ -52,6 +52,27 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(10_000);
   });
 
+  it("records DONE separately as non-running completion wait time", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T00:00:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%done",
+      state: "DONE",
+      reason: "completion:pending",
+      at: "2026-02-06T00:00:00.000Z",
+      source: "hook",
+    });
+    clock.set("2026-02-06T00:00:10.000Z");
+
+    const timeline = store.getTimeline({ paneId: "%done", range: "1h" });
+
+    expect(timeline.items[0]?.state).toBe("DONE");
+    expect(timeline.totalsMs.DONE).toBe(10_000);
+    expect(timeline.totalsMs.RUNNING).toBe(0);
+  });
+
   it("closes an open state when pane is removed", () => {
     const clock = nowAt;
     clock.set("2026-02-06T01:00:00.000Z");
@@ -248,6 +269,87 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 1000);
   });
 
+  it("uses permission, running, DONE, waiting, shell, unknown state priority", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T00:15:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    store.record({
+      paneId: "%done-priority",
+      state: "DONE",
+      reason: "completion:pending",
+      at: "2026-02-06T00:00:00.000Z",
+      source: "hook",
+    });
+    store.record({
+      paneId: "%running-priority",
+      state: "RUNNING",
+      reason: "running",
+      at: "2026-02-06T00:05:00.000Z",
+      source: "poll",
+    });
+    store.record({
+      paneId: "%permission-priority",
+      state: "WAITING_PERMISSION",
+      reason: "permission",
+      at: "2026-02-06T00:10:00.000Z",
+      source: "hook",
+    });
+
+    const timeline = store.getRepoTimeline({
+      paneId: "repo-priority",
+      paneIds: ["%done-priority", "%running-priority", "%permission-priority"],
+      range: "1h",
+    });
+
+    expect(timeline.items.map(({ state }) => state)).toEqual([
+      "WAITING_PERMISSION",
+      "RUNNING",
+      "DONE",
+    ]);
+  });
+
+  it("uses hook, view, restore, poll source priority", () => {
+    const clock = nowAt;
+    clock.set("2026-02-06T00:10:00.000Z");
+    const store = createSessionTimelineStore({ now: clock.now });
+
+    const recordDone = (paneId: string, source: "hook" | "view" | "restore" | "poll") => {
+      store.record({
+        paneId,
+        state: "DONE",
+        reason: source,
+        at: "2026-02-06T00:00:00.000Z",
+        source,
+      });
+    };
+    recordDone("%poll-source", "poll");
+    recordDone("%restore-source", "restore");
+
+    const restoreOverPoll = store.getRepoTimeline({
+      paneId: "repo-source",
+      paneIds: ["%poll-source", "%restore-source"],
+      range: "1h",
+    });
+    expect(restoreOverPoll.items[0]?.source).toBe("restore");
+
+    recordDone("%view-source", "view");
+    const viewOverRestore = store.getRepoTimeline({
+      paneId: "repo-source",
+      paneIds: ["%poll-source", "%restore-source", "%view-source"],
+      range: "1h",
+    });
+    expect(viewOverRestore.items[0]?.source).toBe("view");
+
+    recordDone("%hook-source", "hook");
+    const withHook = store.getRepoTimeline({
+      paneId: "repo-source",
+      paneIds: ["%poll-source", "%restore-source", "%view-source", "%hook-source"],
+      range: "1h",
+    });
+    expect(withHook.items[0]?.source).toBe("hook");
+  });
+
   it("supports custom aggregate reason and id prefix", () => {
     const clock = nowAt;
     clock.set("2026-02-06T00:30:00.000Z");
@@ -333,10 +435,10 @@ describe("createSessionTimelineStore", () => {
     });
     store.record({
       paneId: "%4",
-      state: "WAITING_INPUT",
-      reason: "hook:stop",
+      state: "DONE",
+      reason: "completion:pending",
       at: "2026-02-06T02:00:00.000Z",
-      source: "hook",
+      source: "view",
     });
 
     const persisted = store.serialize();
@@ -346,7 +448,8 @@ describe("createSessionTimelineStore", () => {
     const timeline = restoredStore.getTimeline({ paneId: "%4", range: "6h" });
 
     expect(timeline.items).toHaveLength(2);
-    expect(timeline.items[0]?.state).toBe("WAITING_INPUT");
+    expect(timeline.items[0]?.state).toBe("DONE");
+    expect(timeline.items[0]?.source).toBe("view");
     expect(timeline.items[0]?.endedAt).toBeNull();
     expect(timeline.items[0]?.durationMs).toBe(60 * 60 * 1000);
     expect(timeline.items[1]?.state).toBe("RUNNING");

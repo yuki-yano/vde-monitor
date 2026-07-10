@@ -102,6 +102,7 @@ const createTimeline = (
     items: [],
     totalsMs: {
       RUNNING: 0,
+      DONE: 0,
       WAITING_INPUT: 0,
       WAITING_PERMISSION: 0,
       SHELL: 0,
@@ -416,6 +417,36 @@ describe("UsageDashboardView", () => {
     const rangeTab = screen.getByRole("tab", { name: "30d" });
     fireEvent.mouseDown(rangeTab, { button: 0 });
     expect(onTimelineRangeChange).toHaveBeenCalledWith("30d");
+  });
+
+  it("renders DONE timeline segments in blue and counts them as Waiting", () => {
+    const doneItem = {
+      id: "done",
+      paneId: "global",
+      state: "DONE" as const,
+      reason: "completion_pending_acknowledgement",
+      startedAt: "2026-02-24T23:50:00.000Z",
+      endedAt: null,
+      durationMs: 10 * 60 * 1000,
+      source: "poll" as const,
+    };
+    const timeline = createTimeline();
+    timeline.timeline.items = [doneItem];
+    timeline.timeline.current = doneItem;
+    timeline.timeline.totalsMs.DONE = doneItem.durationMs;
+
+    const { container } = render(
+      <UsageDashboardView
+        {...createViewModel(createProvider("codex"), {
+          timeline,
+        })}
+      />,
+    );
+
+    const doneBadge = screen.getByText("DONE").closest("span");
+    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(screen.getByText("Waiting 10m")).toBeTruthy();
+    expect(container.querySelector('[title^="DONE"]')?.className).toContain("bg-latte-blue/80");
   });
 
   it("renders usage breakdown dates in local time zone", () => {

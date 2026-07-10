@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTmuxAdapter } from "./adapter";
+import { TMUX_COMMAND_TIMEOUT_MS, createTmuxAdapter } from "./adapter";
 
 vi.mock("execa", () => {
   return {
@@ -26,7 +26,7 @@ describe("createTmuxAdapter", () => {
     expect(execa).toHaveBeenCalledWith(
       "tmux",
       ["-L", "tmux.sock", "-S", "/tmp/tmux.sock", "list-sessions"],
-      { reject: false },
+      { reject: false, timeout: TMUX_COMMAND_TIMEOUT_MS },
     );
     expect(result).toEqual({ stdout: "ok", stderr: "", exitCode: 0 });
   });
@@ -36,7 +36,10 @@ describe("createTmuxAdapter", () => {
     await adapter.run(["-V"]);
 
     const execa = await getExeca();
-    expect(execa).toHaveBeenCalledWith("tmux", ["-V"], { reject: false });
+    expect(execa).toHaveBeenCalledWith("tmux", ["-V"], {
+      reject: false,
+      timeout: TMUX_COMMAND_TIMEOUT_MS,
+    });
   });
 
   it("uses socketPath when socketName is missing", async () => {
@@ -46,6 +49,7 @@ describe("createTmuxAdapter", () => {
     const execa = await getExeca();
     expect(execa).toHaveBeenCalledWith("tmux", ["-S", "/tmp/tmux.sock", "list-panes"], {
       reject: false,
+      timeout: TMUX_COMMAND_TIMEOUT_MS,
     });
   });
 
@@ -56,6 +60,7 @@ describe("createTmuxAdapter", () => {
     const execa = await getExeca();
     expect(execa).toHaveBeenCalledWith("tmux", ["-L", "tmux.sock", "list-windows"], {
       reject: false,
+      timeout: TMUX_COMMAND_TIMEOUT_MS,
     });
   });
 
@@ -65,5 +70,31 @@ describe("createTmuxAdapter", () => {
     const adapter = createTmuxAdapter();
     const result = await adapter.run(["display-message"]);
     expect(result.exitCode).toBe(0);
+  });
+
+  it("normalizes command timeout to a non-zero adapter result", async () => {
+    const execa = await getExeca();
+    execa.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: undefined, timedOut: true });
+    const adapter = createTmuxAdapter();
+
+    await expect(adapter.run(["capture-pane"])).resolves.toEqual({
+      stdout: "",
+      stderr: "tmux command timed out",
+      exitCode: 124,
+    });
+  });
+
+  it("passes cancellation to the tmux subprocess", async () => {
+    const controller = new AbortController();
+    const adapter = createTmuxAdapter();
+
+    await adapter.run(["capture-pane"], { signal: controller.signal });
+
+    const execa = await getExeca();
+    expect(execa).toHaveBeenLastCalledWith("tmux", ["capture-pane"], {
+      reject: false,
+      timeout: TMUX_COMMAND_TIMEOUT_MS,
+      cancelSignal: controller.signal,
+    });
   });
 });

@@ -51,6 +51,7 @@ const createEmptyTotals = (): Record<SessionStateValue, number> => ({
   RUNNING: 0,
   WAITING_INPUT: 0,
   WAITING_PERMISSION: 0,
+  DONE: 0,
   SHELL: 0,
   UNKNOWN: 0,
 });

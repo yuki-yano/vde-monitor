@@ -10,12 +10,14 @@ import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { type HookEventContext, handleCodexHookLine, handleHookLine } from "./monitor/hook-tailer";
 import { createMonitorLoop } from "./monitor/loop";
 import {
-  createRestoredSessionApplier,
+  resolvePersistedSessionRuntimeState,
   restoreMonitorRuntimeState,
 } from "./monitor/monitor-persistence";
+import { createPaneObservationCoordinator } from "./monitor/pane-observation-coordinator";
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
+import { markHerdrLifecycleDirty, normalizeFingerprint } from "./monitor/monitor-utils";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 import type { SessionTransitionEvent } from "./notifications/types";
@@ -31,6 +33,46 @@ type CreateSessionMonitorOptions = {
   onSessionTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
 };
 
+export const detachOwnedPipesForShutdown = async ({
+  paneIds,
+  detachOwnedPipe,
+}: {
+  paneIds: string[];
+  detachOwnedPipe: (paneId: string, options: { forceCheck: true }) => Promise<unknown>;
+}): Promise<void> => {
+  await Promise.allSettled(paneIds.map((paneId) => detachOwnedPipe(paneId, { forceCheck: true })));
+};
+
+export const resolveShutdownPaneIds = (registryPaneIds: string[], ownedPaneIds: string[]) => [
+  ...new Set([...registryPaneIds, ...ownedPaneIds]),
+];
+
+export const createTrackedPaneUpdater = (update: () => Promise<void>) => {
+  let accepting = true;
+  let inFlight: Promise<void> | null = null;
+
+  const run = (): Promise<void> => {
+    if (!accepting) return Promise.resolve();
+    if (inFlight != null) return inFlight;
+    const request = Promise.resolve()
+      .then(update)
+      .finally(() => {
+        if (inFlight === request) {
+          inFlight = null;
+        }
+      });
+    inFlight = request;
+    return request;
+  };
+
+  const stop = async (): Promise<void> => {
+    accepting = false;
+    await Promise.allSettled([inFlight ?? Promise.resolve()]);
+  };
+
+  return { run, stop };
+};
+
 export const createSessionMonitor = (
   runtime: MultiplexerRuntime,
   config: AgentMonitorConfig,
@@ -42,11 +84,41 @@ export const createSessionMonitor = (
   const screenCapture = runtime.screenCapture;
   const registry = createSessionRegistry();
   const stateTimeline = createSessionTimelineStore();
-  const capturePaneFingerprint = runtime.captureFingerprint;
+  const observationCoordinator = createPaneObservationCoordinator({
+    executeBatch: (requests, signal) =>
+      screenCapture.captureTextBatch(
+        requests.map(({ requestId, options }) => ({ requestId, options })),
+        { signal },
+      ),
+  });
+  const capturePaneFingerprint = async (
+    paneId: string,
+    useAlt: boolean,
+    currentCommand?: string | null,
+  ) => {
+    const captured = await observationCoordinator
+      .requestCapture({
+        purpose: "fingerprint",
+        priority: "background",
+        options: {
+          paneId,
+          lines: 200,
+          joinLines: false,
+          includeAnsi: true,
+          includeTruncated: false,
+          altScreen: "auto",
+          alternateOn: useAlt,
+          currentCommand,
+        },
+      })
+      .catch(() => null);
+    return captured ? normalizeFingerprint(captured.screen) : null;
+  };
   const paneStates = createPaneStateStore();
   const customTitles = new Map<string, string>();
   const restoredState = restorePersistedState();
   const restored = restoredState.sessions;
+  const retainedRestoredSessions = new Map(restored);
   const restoredTimeline = restoredState.timeline;
   const restoredRepoNotes = restoredState.repoNotes;
   const repoNotes = createRepoNotesStore();
@@ -66,6 +138,7 @@ export const createSessionMonitor = (
   const codexJsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
   let herdrEventSubscription: Awaited<ReturnType<typeof subscribeHerdrEvents>> | null = null;
   let herdrEventSubscriptionRefresh: Promise<void> | null = null;
+  let stopPromise: Promise<void> | null = null;
   restoreMonitorRuntimeState({
     restoredSessions: restored,
     restoredTimeline,
@@ -75,7 +148,15 @@ export const createSessionMonitor = (
   });
 
   const savePersistedState = () => {
+    const runtimeStateByPaneId = new Map(
+      registry.values().map((session) => {
+        const state = paneStates.get(session.paneId);
+        return [session.paneId, resolvePersistedSessionRuntimeState(state)] as const;
+      }),
+    );
     saveState(registry.values(), {
+      runtimeStateByPaneId,
+      retainedSessions: retainedRestoredSessions,
       timeline: stateTimeline.serialize(),
       repoNotes: repoNotes.serialize(),
     });
@@ -85,24 +166,44 @@ export const createSessionMonitor = (
     repoNotes,
     savePersistedState,
   });
-  const applyRestored = createRestoredSessionApplier(restored);
   const paneUpdateService = createPaneUpdateService({
     inspector,
+    serverKey,
     config,
     paneStates,
     paneLogManager,
     capturePaneFingerprint,
-    applyRestored,
     getCustomTitle: (paneId) => customTitles.get(paneId) ?? null,
     customTitles,
     registry,
     stateTimeline,
     logActivity,
     savePersistedState,
+    observePaneMetadata: (pane) => {
+      observationCoordinator.observeMetadata(pane.paneId, {
+        paneActivity: pane.paneActivity,
+        alternateOn: pane.alternateOn,
+        currentCommand: pane.currentCommand,
+      });
+    },
+    removePaneObservation: observationCoordinator.removePane,
+    onPaneInventory: (paneIds) => {
+      const activePaneIds = new Set(paneIds);
+      retainedRestoredSessions.forEach((_session, paneId) => {
+        if (!activePaneIds.has(paneId)) {
+          retainedRestoredSessions.delete(paneId);
+        }
+      });
+    },
+    onPaneObservationCommitted: (paneId) => {
+      retainedRestoredSessions.delete(paneId);
+    },
     onStateTransition: options.onSessionTransition,
   });
   const markPaneViewed = paneUpdateService.markPaneViewed;
-  const updateFromPanes = paneUpdateService.updateFromPanes;
+  const acknowledgeView = paneUpdateService.acknowledgeView;
+  const paneUpdater = createTrackedPaneUpdater(paneUpdateService.updateFromPanes);
+  const updateFromPanes = paneUpdater.run;
 
   const setCustomTitle = (paneId: string, title: string | null) => {
     if (title) {
@@ -120,13 +221,17 @@ export const createSessionMonitor = (
   };
 
   const handleHookEvent = (context: HookEventContext) => {
+    observationCoordinator.markDirty(context.paneId, "hook");
     const state = paneStates.get(context.paneId);
+    state.pendingAgentLifecycleEvents.push({
+      source: "hook",
+      agent: context.agent,
+      eventName: context.eventName,
+      sessionId: context.sessionId,
+      at: context.hookState.at,
+    });
     state.hookState = context.hookState;
     state.lastEventAt = context.hookState.at;
-    state.agentSessionId = context.sessionId;
-    state.agentSessionSource = "hook";
-    state.agentSessionConfidence = "high";
-    state.agentSessionObservedAt = context.hookState.at;
   };
 
   const handleHerdrStateSignal = (signal: {
@@ -134,16 +239,23 @@ export const createSessionMonitor = (
     agentStatus: "working" | "blocked" | "done" | "idle";
     at: string;
   }) => {
+    observationCoordinator.markDirty(signal.paneId, "herdr");
     const state = paneStates.get(signal.paneId);
     state.herdrAgentStatus = {
       agentStatus: signal.agentStatus,
       at: signal.at,
     };
+    state.pendingAgentLifecycleEvents.push({
+      source: "herdr",
+      agentStatus: signal.agentStatus,
+      at: signal.at,
+    });
     state.lastEventAt = signal.at;
     void updateFromPanes().catch(() => undefined);
   };
 
   const recordInput = (paneId: string, at = new Date().toISOString()) => {
+    observationCoordinator.markDirty(paneId, "send");
     const state = paneStates.get(paneId);
     state.lastInputAt = at;
     const existing = registry.getDetail(paneId);
@@ -165,11 +277,10 @@ export const createSessionMonitor = (
     jsonlTailer.onLine((line) => {
       handleHookLine(line, registry.values(), handleHookEvent);
     });
-    jsonlTailer.start(eventLogPath);
     codexJsonlTailer.onLine((line) => {
       handleCodexHookLine(line, registry.values(), handleHookEvent);
     });
-    codexJsonlTailer.start(codexEventLogPath);
+    await Promise.all([jsonlTailer.start(eventLogPath), codexJsonlTailer.start(codexEventLogPath)]);
   };
 
   const refreshHerdrEventSubscription = async () => {
@@ -189,7 +300,8 @@ export const createSessionMonitor = (
         socketPath: resolveSocketPath(process.env, os.homedir()),
         paneIds: panes.map((pane) => pane.paneId),
         onSignal: handleHerdrStateSignal,
-        onLifecycleEvent: () => {
+        onLifecycleEvent: (event) => {
+          markHerdrLifecycleDirty(event, observationCoordinator.markDirty);
           void updateFromPanes().catch(() => undefined);
           void refreshHerdrEventSubscription();
         },
@@ -214,6 +326,7 @@ export const createSessionMonitor = (
 
   const start = async () => {
     logActivity.onActivity((paneId, at) => {
+      observationCoordinator.markDirty(paneId, "pipe");
       const state = paneStates.get(paneId);
       state.lastOutputAt = at;
     });
@@ -226,16 +339,45 @@ export const createSessionMonitor = (
     await updateFromPanes();
   };
 
-  const stop = () => {
+  const stop = (): Promise<void> => {
+    if (stopPromise != null) return stopPromise;
     monitorLoop.stop();
     logActivity.stop();
     jsonlTailer.stop();
     codexJsonlTailer.stop();
-    void herdrEventSubscription?.stop();
+    const subscription = herdrEventSubscription;
     herdrEventSubscription = null;
+    observationCoordinator.dispose();
+    stopPromise = (async () => {
+      await Promise.allSettled([subscription?.stop() ?? Promise.resolve(), paneUpdater.stop()]);
+      await detachOwnedPipesForShutdown({
+        paneIds: resolveShutdownPaneIds(
+          registry.values().map((session) => session.paneId),
+          paneLogManager.getOwnedPaneIds(),
+        ),
+        detachOwnedPipe: paneLogManager.detachOwnedPipe,
+      });
+    })();
+    return stopPromise;
   };
 
-  const getScreenCapture = () => screenCapture;
+  const getScreenCapture = (priority: "foreground" | "background" = "foreground") => ({
+    captureText: async (captureOptions: Parameters<typeof screenCapture.captureText>[0]) => {
+      const result = await observationCoordinator.requestCapture({
+        purpose: "screen",
+        priority,
+        options: captureOptions,
+      });
+      if (result == null) {
+        throw new Error("screen capture was dropped");
+      }
+      return result;
+    },
+  });
+  const markPaneObservationDirty = (
+    paneId: string,
+    source: "focus" | "subscriber" = "subscriber",
+  ) => observationCoordinator.markDirty(paneId, source);
   const getStateTimeline = (
     paneId: string,
     range: SessionStateTimelineRange = "1h",
@@ -295,7 +437,9 @@ export const createSessionMonitor = (
     updateRepoNote,
     deleteRepoNote,
     setCustomTitle,
+    acknowledgeView,
     recordInput,
     markPaneViewed,
+    markPaneObservationDirty,
   };
 };

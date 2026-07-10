@@ -152,6 +152,7 @@ describe("useSessionApi", () => {
       items: [],
       totalsMs: {
         RUNNING: 1000,
+        DONE: 0,
         WAITING_INPUT: 0,
         WAITING_PERMISSION: 0,
         SHELL: 0,

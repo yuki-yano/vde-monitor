@@ -16,6 +16,13 @@ type PendingEntry = {
   reject: (error: Error) => void;
 };
 
+const createAbortError = (signal: AbortSignal) => {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+  return new Error("herdr request aborted");
+};
+
 type HerdrResponse = {
   id?: string;
   result?: unknown;
@@ -33,32 +40,59 @@ export class HerdrClient {
 
   constructor(private readonly socketPath: string) {}
 
-  async request<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  async request<T = unknown>(
+    method: string,
+    params: Record<string, unknown> = {},
+    options: { signal?: AbortSignal } = {},
+  ): Promise<T> {
     try {
-      return await this.requestOnce<T>(method, params);
+      return await this.requestOnce<T>(method, params, options.signal);
     } catch (error) {
       if (isRecoverableConnectionError(error)) {
         this.socket = null;
-        return await this.requestOnce<T>(method, params);
+        return await this.requestOnce<T>(method, params, options.signal);
       }
       throw error;
     }
   }
 
-  private async requestOnce<T>(method: string, params: Record<string, unknown>): Promise<T> {
+  private async requestOnce<T>(
+    method: string,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const socket = await this.ensureConnected();
+    if (signal?.aborted) {
+      throw createAbortError(signal);
+    }
     const id = `vdem_${++this.seq}`;
     const line = `${JSON.stringify({ id, method, params })}\n`;
 
     return await new Promise<T>((resolve, reject) => {
+      const cleanup = () => {
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const resolveRequest = (value: unknown) => {
+        cleanup();
+        resolve(value as T);
+      };
+      const rejectRequest = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+      const onAbort = () => {
+        if (!this.pending.delete(id)) return;
+        rejectRequest(createAbortError(signal!));
+      };
       this.pending.set(id, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
+        resolve: resolveRequest,
+        reject: rejectRequest,
       });
+      signal?.addEventListener("abort", onAbort, { once: true });
       socket.write(line, (error) => {
         if (error == null) return;
-        this.pending.delete(id);
-        reject(error);
+        if (!this.pending.delete(id)) return;
+        rejectRequest(error);
       });
     });
   }

@@ -12,6 +12,8 @@ type Subscriber = {
   listener: (response: ScreenResponse) => void;
   /** The cursor returned by the last buildTextResponse call for this subscriber. */
   cursor: string | undefined;
+  /** Whether this subscriber still needs its initial full response. */
+  initialPending: boolean;
 };
 
 type PaneState = {
@@ -79,6 +81,7 @@ export const createScreenStreamScheduler = ({
 
   const panes = new Map<string, PaneState>();
   let timer: ReturnType<typeof setInterval> | null = null;
+  let tickRunning = false;
 
   // ---- capture helpers ----
 
@@ -86,7 +89,7 @@ export const createScreenStreamScheduler = ({
     const detail = monitor.registry.getDetail(paneId);
     if (!detail) return null;
     try {
-      return await monitor.getScreenCapture().captureText({
+      return await monitor.getScreenCapture("background").captureText({
         paneId,
         lines: lineCount,
         joinLines: joinLinesApplied,
@@ -126,21 +129,32 @@ export const createScreenStreamScheduler = ({
       if (state.subscribers.size === 0) return;
       const result = await doCapture(paneId);
       if (!result) return;
-      // Dedup: skip if screen content is unchanged since last tick.
-      if (state.lastScreen === result.screen) return;
+      const screenChanged = state.lastScreen !== result.screen;
       state.lastScreen = result.screen;
       // Fan-out: one buildTextResponse per subscriber (each has its own cursor).
       state.subscribers.forEach((subscriber) => {
+        if (!screenChanged && !subscriber.initialPending) return;
         deliverToSubscriber(paneId, subscriber, result);
+        subscriber.initialPending = false;
       });
     });
     await Promise.all(captures);
   };
 
+  const runTick = async (): Promise<void> => {
+    if (tickRunning) return;
+    tickRunning = true;
+    try {
+      await tick();
+    } finally {
+      tickRunning = false;
+    }
+  };
+
   const ensureTimer = (): void => {
     if (timer !== null) return;
     timer = setInterval(() => {
-      tick().catch(() => {});
+      runTick().catch(() => {});
     }, TICK_INTERVAL_MS);
   };
 
@@ -167,33 +181,16 @@ export const createScreenStreamScheduler = ({
     }
 
     const id = Symbol();
-    const subscriber: Subscriber = { listener, cursor: undefined };
+    const subscriber: Subscriber = { listener, cursor: undefined, initialPending: true };
     state.subscribers.set(id, subscriber);
+    monitor.markPaneObservationDirty(paneId, "subscriber");
     ensureTimer();
 
-    // Immediate first capture: full response (cursor=undefined → full).
-    const capturedState = state; // closure capture for the async callback
-    doCapture(paneId)
-      .then((result) => {
-        if (!result) return;
-        // Set lastScreen so the first tick skips sending duplicate data.
-        if (capturedState.lastScreen === null) {
-          capturedState.lastScreen = result.screen;
-        }
-        // Always send full for the initial subscriber delivery.
-        const response = buildTextResponse({
-          paneId,
-          lineCount,
-          screen: result.screen,
-          alternateOn: result.alternateOn,
-          truncated: result.truncated,
-          captureMeta,
-          cursor: undefined,
-        });
-        subscriber.cursor = response.cursor;
-        listener(response);
-      })
-      .catch(() => {});
+    // Coalesce synchronous subscriptions into one immediate tick. The shared
+    // guard also prevents the interval tick from overlapping this capture.
+    queueMicrotask(() => {
+      runTick().catch(() => {});
+    });
 
     return () => {
       state?.subscribers.delete(id);

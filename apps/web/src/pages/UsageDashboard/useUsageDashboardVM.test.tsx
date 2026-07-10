@@ -153,6 +153,7 @@ const createTimelineResponse = (fetchedAt = NOW_ISO): UsageGlobalTimelineRespons
     items: [],
     totalsMs: {
       RUNNING: 0,
+      DONE: 0,
       WAITING_INPUT: 0,
       WAITING_PERMISSION: 0,
       SHELL: 0,

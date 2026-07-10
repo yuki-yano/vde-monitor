@@ -1,34 +1,35 @@
-import { isEditorCommand as isSharedEditorCommand } from "@vde-monitor/shared";
+import {
+  type SessionStateValue,
+  isEditorCommand as isSharedEditorCommand,
+} from "@vde-monitor/shared";
 
-export const stateTone = (state: string) => {
-  switch (state) {
-    case "RUNNING":
-      return "running";
-    case "WAITING_INPUT":
-      return "waiting";
-    case "WAITING_PERMISSION":
-      return "permission";
-    case "SHELL":
-      return "shell";
-    default:
-      return "unknown";
-  }
+export type SessionStateTone = "running" | "waiting" | "permission" | "done" | "shell" | "unknown";
+
+const STATE_TONE_BY_STATE: Record<SessionStateValue, SessionStateTone> = {
+  RUNNING: "running",
+  WAITING_INPUT: "waiting",
+  WAITING_PERMISSION: "permission",
+  DONE: "done",
+  SHELL: "shell",
+  UNKNOWN: "unknown",
 };
+
+const STATE_LABEL_BY_STATE: Record<SessionStateValue, string> = {
+  RUNNING: "RUNNING",
+  WAITING_INPUT: "WAITING",
+  WAITING_PERMISSION: "PERMISSION",
+  DONE: "DONE",
+  SHELL: "SHELL",
+  UNKNOWN: "UNKNOWN",
+};
+
+export const stateTone = (state: SessionStateValue): SessionStateTone => STATE_TONE_BY_STATE[state];
 
 export const isEditorCommand = (command: string | null | undefined) => {
   return isSharedEditorCommand(command);
 };
 
-export const formatStateLabel = (state: string) => {
-  switch (state) {
-    case "WAITING_INPUT":
-      return "WAITING";
-    case "WAITING_PERMISSION":
-      return "PERMISSION";
-    default:
-      return state.replace(/_/g, " ");
-  }
-};
+export const formatStateLabel = (state: SessionStateValue) => STATE_LABEL_BY_STATE[state];
 
 export const agentToneFor = (agent: string | null | undefined) => {
   switch (agent) {

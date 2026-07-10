@@ -62,6 +62,7 @@ const createEmptyTotals = (): Record<SessionStateValue, number> => ({
   RUNNING: 0,
   WAITING_INPUT: 0,
   WAITING_PERMISSION: 0,
+  DONE: 0,
   SHELL: 0,
   UNKNOWN: 0,
 });
@@ -77,6 +78,7 @@ const resolveTimelineLimit = (range: SessionStateTimelineRange, limit: number | 
 const TIMELINE_STATE_PRIORITY: SessionStateValue[] = [
   "WAITING_PERMISSION",
   "RUNNING",
+  "DONE",
   "WAITING_INPUT",
   "SHELL",
   "UNKNOWN",
@@ -94,6 +96,9 @@ const resolveDominantState = (states: SessionStateValue[]) => {
 const resolveDominantSource = (sources: SessionStateTimelineSource[]) => {
   if (sources.includes("hook")) {
     return "hook" as SessionStateTimelineSource;
+  }
+  if (sources.includes("view")) {
+    return "view" as SessionStateTimelineSource;
   }
   if (sources.includes("restore")) {
     return "restore" as SessionStateTimelineSource;

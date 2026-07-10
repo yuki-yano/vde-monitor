@@ -1,0 +1,568 @@
+import type { PaneMeta } from "@vde-monitor/multiplexer";
+import type { SessionDetail } from "@vde-monitor/shared";
+import { describe, expect, it } from "vitest";
+
+import { createPaneStateStore } from "./pane-state";
+import { createPaneInstanceKey, createPaneStateCoordinator } from "./pane-state-coordinator";
+
+const pane: PaneMeta = {
+  paneId: "%1",
+  sessionName: "main",
+  windowIndex: 0,
+  paneIndex: 0,
+  windowActivity: null,
+  paneActivity: null,
+  paneActive: true,
+  currentCommand: "codex",
+  currentPath: "/repo",
+  paneTty: "ttys001",
+  paneDead: false,
+  panePipe: false,
+  alternateOn: false,
+  panePid: 100,
+  paneTitle: null,
+  paneStartCommand: "codex",
+  pipeTagValue: null,
+};
+
+const detail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
+  paneId: "%1",
+  sessionName: "main",
+  windowIndex: 0,
+  paneIndex: 0,
+  paneActive: true,
+  currentCommand: "codex",
+  currentPath: "/repo",
+  paneTty: "ttys001",
+  title: null,
+  customTitle: null,
+  repoRoot: "/repo",
+  agent: "codex",
+  state: "RUNNING",
+  stateReason: "hook:UserPromptSubmit",
+  lastMessage: null,
+  lastOutputAt: null,
+  lastEventAt: null,
+  lastInputAt: null,
+  agentSessionId: null,
+  agentSessionSource: null,
+  agentSessionConfidence: null,
+  agentSessionObservedAt: null,
+  paneDead: false,
+  alternateOn: false,
+  pipeAttached: false,
+  pipeConflict: false,
+  startCommand: "codex",
+  panePid: 100,
+  completion: null,
+  ...overrides,
+});
+
+const createCoordinator = () => {
+  let sequence = 0;
+  return createPaneStateCoordinator({
+    serverKey: "server",
+    createEpoch: () => `epoch-${++sequence}`,
+    now: () => "2026-07-10T00:00:00.000Z",
+  });
+};
+
+describe("createPaneStateCoordinator", () => {
+  it("preserves ordered hook begin and completion with the same timestamp", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    paneState.pendingAgentLifecycleEvents.push(
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "Stop",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+    );
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "WAITING_INPUT", stateReason: "hook:stop" }),
+      paneState,
+    });
+
+    expect(commit.completionAdvanced).toBe(true);
+    expect(commit.source).toBe("hook");
+    expect(commit.detail.state).toBe("DONE");
+    expect(commit.detail.completion).toMatchObject({
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    });
+    expect(paneState.completionCursor).toMatchObject({
+      agentSessionId: "session-1",
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    });
+    expect(paneState.pendingAgentLifecycleEvents).toEqual([]);
+  });
+
+  it("keeps every completion generation when multiple runs finish in one tick", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    paneState.pendingAgentLifecycleEvents.push(
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "Stop",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:03.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "Stop",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:04.000Z",
+      },
+    );
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "WAITING_INPUT", stateReason: "hook:stop" }),
+      paneState,
+    });
+
+    expect(commit.advancedCompletions).toEqual([
+      { epoch: "epoch-1", completedSeq: 1 },
+      { epoch: "epoch-1", completedSeq: 2 },
+    ]);
+    expect(commit.detail.completion).toMatchObject({ completedSeq: 2 });
+  });
+
+  it("acknowledges only the current epoch through the completed sequence", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.completionCursor = {
+      epoch: "epoch-current",
+      paneInstanceKey: null,
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 2,
+      openRunSeq: null,
+      completedSeq: 2,
+      acknowledgedSeq: 1,
+    };
+    const coordinator = createCoordinator();
+    const current = detail({
+      state: "DONE",
+      completion: { epoch: "epoch-current", completedSeq: 2, acknowledgedSeq: 1 },
+    });
+
+    const stale = coordinator.acknowledgeView({
+      detail: current,
+      paneState,
+      epoch: "epoch-stale",
+      throughSeq: 99,
+    });
+    expect(stale.detail.state).toBe("DONE");
+    expect(paneState.completionCursor?.acknowledgedSeq).toBe(1);
+
+    const acknowledged = coordinator.acknowledgeView({
+      detail: current,
+      paneState,
+      epoch: "epoch-current",
+      throughSeq: 99,
+    });
+    expect(paneState.completionCursor?.acknowledgedSeq).toBe(2);
+    expect(acknowledged.detail.state).toBe("WAITING_INPUT");
+    expect(acknowledged.detail.completion).toMatchObject({ acknowledgedSeq: 2 });
+  });
+
+  it("keeps absent pending completion as DONE and projects shell after acknowledgement", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "SHELL";
+    paneState.completionCursor = {
+      epoch: "epoch-absent",
+      paneInstanceKey: null,
+      agent: "claude",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: false,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 2,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    const coordinator = createCoordinator();
+    const current = coordinator.acknowledgeView({
+      detail: detail({ agent: "unknown", state: "SHELL" }),
+      paneState,
+      epoch: "stale",
+      throughSeq: 1,
+    });
+    expect(current.detail).toMatchObject({
+      agent: "claude",
+      state: "DONE",
+      completion: { epoch: "epoch-absent" },
+    });
+
+    const acknowledged = coordinator.acknowledgeView({
+      detail: current.detail,
+      paneState,
+      epoch: "epoch-absent",
+      throughSeq: 1,
+    });
+    expect(acknowledged.detail).toMatchObject({
+      agent: "unknown",
+      state: "SHELL",
+      completion: null,
+    });
+  });
+
+  it("restores a cursor only after current pane identity matches", () => {
+    const paneState = createPaneStateStore().get("%1");
+    const paneInstanceKey = createPaneInstanceKey({
+      serverKey: "server",
+      paneId: pane.paneId,
+      panePid: pane.panePid,
+    });
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    paneState.pendingRestoredCompletionCursor = {
+      epoch: "persisted",
+      paneInstanceKey,
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    paneState.agentPresence = "present";
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "WAITING_INPUT" }),
+      paneState,
+    });
+
+    expect(commit.completionAdvanced).toBe(false);
+    expect(paneState.completionCursor?.epoch).toBe("persisted");
+    expect(paneState.pendingRestoredCompletionCursor).toBeNull();
+  });
+
+  it("does not complete the current run from a stale identity Stop lifecycle", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "RUNNING";
+    paneState.agentPresence = "present";
+    paneState.completionCursor = {
+      epoch: "current",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: "session-current",
+      identityConfirmedAt: "2026-07-10T00:00:01.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: 1,
+      completedSeq: 0,
+      acknowledgedSeq: 0,
+    };
+    paneState.pendingAgentLifecycleEvents.push({
+      source: "hook",
+      agent: "codex",
+      eventName: "Stop",
+      sessionId: "session-old",
+      at: "2026-07-09T23:59:59.000Z",
+    });
+    paneState.hookState = {
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-07-09T23:59:59.000Z",
+    };
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "WAITING_INPUT", stateReason: "hook:stop" }),
+      paneState,
+    });
+
+    expect(commit.identityRejected).toBe(true);
+    expect(commit.completionAdvanced).toBe(false);
+    expect(commit.detail.state).toBe("RUNNING");
+    expect(paneState.completionCursor).toMatchObject({ openRunSeq: 1, completedSeq: 0 });
+    expect(paneState.hookState).toBeNull();
+  });
+
+  it("rejects a restored cursor when pane identity mismatches", () => {
+    const paneState = createPaneStateStore().get("%1");
+    const paneInstanceKey = createPaneInstanceKey({
+      serverKey: "server",
+      paneId: pane.paneId,
+      panePid: pane.panePid,
+    });
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    paneState.pendingRestoredCompletionCursor = {
+      epoch: "persisted",
+      paneInstanceKey,
+      agent: "codex",
+      agentSessionId: "session-old",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    paneState.agentPresence = "present";
+
+    createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agentSessionId: "session-new" }),
+      paneState,
+    });
+
+    expect(paneState.completionCursor?.epoch).not.toBe("persisted");
+    expect(paneState.completionCursor).toMatchObject({
+      agentSessionId: "session-new",
+      completedSeq: 0,
+      syntheticCompletionArmed: false,
+    });
+    expect(paneState.pendingRestoredCompletionCursor).toBeNull();
+  });
+
+  it("keeps restored DONE and its pending identity after the first successful absence", () => {
+    const paneState = createPaneStateStore().get("%1");
+    const paneInstanceKey = createPaneInstanceKey({
+      serverKey: "server",
+      paneId: pane.paneId,
+      panePid: pane.panePid,
+    });
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    const restoredCursor = {
+      epoch: "persisted",
+      paneInstanceKey,
+      agent: "codex",
+      agentSessionId: null,
+      identityConfirmedAt: null,
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    } as const;
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.completionCursor = { ...restoredCursor };
+    paneState.pendingRestoredCompletionCursor = { ...restoredCursor };
+    paneState.lastResolvedAgent = "codex";
+    paneState.agentPresence = "absent";
+    paneState.agentPresent = true;
+    paneState.consecutiveAbsentObservations = 1;
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agent: "unknown", state: "UNKNOWN" }),
+      paneState,
+    });
+
+    expect(commit.detail).toMatchObject({
+      agent: "codex",
+      state: "DONE",
+      completion: { epoch: "persisted", completedSeq: 1, acknowledgedSeq: 0 },
+    });
+    expect(paneState.pendingRestoredCompletionCursor?.epoch).toBe("persisted");
+    expect(paneState.completionCursor).toMatchObject({
+      epoch: "persisted",
+      agentPresent: true,
+      consecutiveAbsentObservations: 1,
+    });
+  });
+
+  it("keeps a restored cursor pending while projected identity presence is indeterminate", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    const restoredCursor = {
+      epoch: "persisted",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: "persisted-session",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    } as const;
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.completionCursor = { ...restoredCursor };
+    paneState.pendingRestoredCompletionCursor = { ...restoredCursor };
+    paneState.lastResolvedAgent = "codex";
+    paneState.agentPresent = true;
+    paneState.agentPresence = "indeterminate";
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agent: "codex", agentSessionId: "projected-session", state: "UNKNOWN" }),
+      paneState,
+    });
+
+    expect(commit.detail.state).toBe("DONE");
+    expect(paneState.completionCursor?.epoch).toBe("persisted");
+    expect(paneState.pendingRestoredCompletionCursor?.epoch).toBe("persisted");
+  });
+
+  it("confirms restored absence on the second success while retaining unacknowledged DONE", () => {
+    const paneState = createPaneStateStore().get("%1");
+    const restoredCursor = {
+      epoch: "persisted",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: null,
+      identityConfirmedAt: null,
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 1,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    } as const;
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.completionCursor = { ...restoredCursor };
+    paneState.pendingRestoredCompletionCursor = { ...restoredCursor };
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    paneState.lastResolvedAgent = "codex";
+    paneState.agentPresence = "absent";
+    paneState.agentPresent = false;
+    paneState.consecutiveAbsentObservations = 2;
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agent: "unknown", state: "UNKNOWN" }),
+      paneState,
+    });
+
+    expect(commit.confirmedAbsent).toBe(true);
+    expect(commit.detail).toMatchObject({
+      agent: "codex",
+      state: "DONE",
+      completion: { epoch: "persisted", completedSeq: 1, acknowledgedSeq: 0 },
+    });
+    expect(paneState.completionCursor).toMatchObject({
+      agentPresent: false,
+      consecutiveAbsentObservations: 2,
+    });
+    expect(paneState.pendingRestoredCompletionCursor).toBeNull();
+  });
+
+  it("applies confirmed absence before queued begin and completion intents", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.agentPresence = "absent";
+    paneState.agentPresent = false;
+    paneState.consecutiveAbsentObservations = 2;
+    paneState.lastResolvedAgent = "codex";
+    paneState.completionCursor = {
+      epoch: "current",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 1,
+      runSeq: 0,
+      openRunSeq: null,
+      completedSeq: 0,
+      acknowledgedSeq: 0,
+    };
+    paneState.pendingAgentLifecycleEvents.push(
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "Stop",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+    );
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agent: "unknown", state: "UNKNOWN", stateReason: "hook:stop" }),
+      paneState,
+    });
+
+    expect(commit.completionAdvanced).toBe(false);
+    expect(commit.advancedCompletions).toEqual([]);
+    expect(commit.detail.state).toBe("UNKNOWN");
+    expect(paneState.completionCursor).toMatchObject({
+      agentPresent: false,
+      runSeq: 0,
+      openRunSeq: null,
+      completedSeq: 0,
+    });
+  });
+});

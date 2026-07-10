@@ -11,6 +11,7 @@
 import type { z } from "zod";
 
 import type {
+  acknowledgeSessionViewRequestSchema,
   allowedKeySchema,
   apiErrorSchema,
   claudeHookEventSchema,
@@ -104,6 +105,7 @@ export type CommandResponse = z.infer<typeof commandResponseSchema>;
 
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;
 export type SessionDetail = z.infer<typeof sessionDetailSchema>;
+export type AcknowledgeSessionViewRequest = z.infer<typeof acknowledgeSessionViewRequestSchema>;
 
 export type SessionsStreamEvent = z.infer<typeof sessionsStreamEventSchema>;
 

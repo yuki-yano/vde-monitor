@@ -27,6 +27,7 @@ const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> 
   RUNNING: "border-green-500/50",
   WAITING_INPUT: "border-amber-500/50",
   WAITING_PERMISSION: "border-red-500/50",
+  DONE: "border-latte-blue/60",
   SHELL: "border-blue-500/50",
   UNKNOWN: "border-gray-400/50",
 };

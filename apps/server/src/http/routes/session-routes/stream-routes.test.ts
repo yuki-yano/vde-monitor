@@ -34,6 +34,7 @@ const makeSessionSummary = (paneId = "pane-1") => ({
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
 });
 
 const makeScreenResponse = (): ScreenResponse => ({

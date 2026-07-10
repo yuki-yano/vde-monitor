@@ -30,6 +30,18 @@ const observation: PaneObservation = {
   pipeAttached: true,
   pipeConflict: false,
   paneState: {
+    lifecycle: "RUNNING",
+    completionCursor: null,
+    pendingRestoredCompletionCursor: null,
+    pendingRestoredLifecycle: null,
+    pendingRestoredLastAgent: null,
+    lastResolvedAgent: "codex",
+    agentPresence: "present",
+    agentPresent: true,
+    consecutiveAbsentObservations: 0,
+    lastResolvedState: "RUNNING",
+    lastResolvedStateReason: "estimated",
+    pendingAgentLifecycleEvents: [],
     hookState: null,
     codexQuestionPromptActive: false,
     lastOutputAt: null,
@@ -55,6 +67,9 @@ const observation: PaneObservation = {
     state: "RUNNING",
     reason: "estimated",
   },
+  agentPresence: "present",
+  confirmedAgentAbsent: false,
+  agentBecameAbsent: false,
 };
 
 const paneContext: PaneResolvedContext = {

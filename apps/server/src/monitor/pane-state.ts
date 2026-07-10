@@ -1,11 +1,46 @@
 import type { HerdrAgentStatusSignal, HookStateSignal } from "@vde-monitor/multiplexer";
+import type { SessionStateValue } from "@vde-monitor/shared";
 
+import type { AgentType } from "./agent-resolver-utils";
+import type { AgentLifecycle, CompletionCursor } from "./completion-state";
 import type {
   ExternalInputDetectReason,
   ExternalInputDetectReasonCode,
 } from "./external-input-detector";
 
+export type PendingAgentLifecycleEvent =
+  | {
+      source: "hook";
+      agent: "claude" | "codex";
+      eventName:
+        | "PreToolUse"
+        | "PostToolUse"
+        | "Notification"
+        | "PermissionRequest"
+        | "Stop"
+        | "UserPromptSubmit";
+      sessionId: string;
+      at: string;
+    }
+  | {
+      source: "herdr";
+      agentStatus: "working" | "blocked" | "done" | "idle";
+      at: string;
+    };
+
 export type PaneRuntimeState = {
+  lifecycle: AgentLifecycle;
+  completionCursor: CompletionCursor | null;
+  pendingRestoredCompletionCursor: CompletionCursor | null;
+  pendingRestoredLifecycle: AgentLifecycle | null;
+  pendingRestoredLastAgent: AgentType | null;
+  lastResolvedAgent: AgentType;
+  agentPresence: "present" | "absent" | "indeterminate";
+  agentPresent: boolean;
+  consecutiveAbsentObservations: number;
+  lastResolvedState: SessionStateValue | null;
+  lastResolvedStateReason: string | null;
+  pendingAgentLifecycleEvents: PendingAgentLifecycleEvent[];
   hookState: HookStateSignal | null;
   herdrAgentStatus?: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive: boolean;
@@ -29,6 +64,18 @@ export type PaneRuntimeState = {
 };
 
 const createDefaultState = (): PaneRuntimeState => ({
+  lifecycle: "UNKNOWN",
+  completionCursor: null,
+  pendingRestoredCompletionCursor: null,
+  pendingRestoredLifecycle: null,
+  pendingRestoredLastAgent: null,
+  lastResolvedAgent: "unknown",
+  agentPresence: "indeterminate",
+  agentPresent: false,
+  consecutiveAbsentObservations: 0,
+  lastResolvedState: null,
+  lastResolvedStateReason: null,
+  pendingAgentLifecycleEvents: [],
   hookState: null,
   herdrAgentStatus: null,
   codexQuestionPromptActive: false,

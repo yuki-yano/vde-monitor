@@ -47,6 +47,7 @@ const createTimeline = (items: SessionStateTimelineItem[]): SessionStateTimeline
   items,
   totalsMs: {
     RUNNING: 0,
+    DONE: 0,
     WAITING_INPUT: 0,
     WAITING_PERMISSION: 0,
     SHELL: 0,
@@ -263,5 +264,22 @@ describe("buildTimelineDisplay", () => {
     expect(display.items[1]?.durationMs).toBe(11 * 60 * 60 * 1000);
     expect(display.totalsMs.RUNNING).toBe(13 * 60 * 60 * 1000);
     expect(display.totalsMs.WAITING_INPUT).toBe(11 * 60 * 60 * 1000);
+  });
+
+  it("keeps DONE as an explicit blue-displayable timeline state", () => {
+    const timeline = createTimeline([
+      createTimelineItem({
+        id: "done",
+        state: "DONE",
+        startedAt: "2026-02-06T20:50:00.000Z",
+        endedAt: null,
+        reason: "completion_pending_acknowledgement",
+      }),
+    ]);
+
+    const display = buildTimelineDisplay(timeline, "1h", { compact: false });
+
+    expect(display.current?.state).toBe("DONE");
+    expect(display.totalsMs.DONE).toBe(10 * 60 * 1000);
   });
 });

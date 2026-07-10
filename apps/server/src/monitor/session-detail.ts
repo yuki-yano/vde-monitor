@@ -101,6 +101,7 @@ export const buildSessionDetail = ({
   worktreeMerged: worktreeMerged ?? null,
   repoRoot,
   agent,
+  completion: null,
   state,
   stateReason,
   lastMessage,

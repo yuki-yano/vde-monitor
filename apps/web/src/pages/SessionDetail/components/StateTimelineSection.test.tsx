@@ -32,6 +32,7 @@ const timeline: SessionStateTimeline = {
   ],
   totalsMs: {
     RUNNING: 20 * 60 * 1000,
+    DONE: 0,
     WAITING_INPUT: 40 * 60 * 1000,
     WAITING_PERMISSION: 0,
     SHELL: 0,
@@ -138,5 +139,30 @@ describe("StateTimelineSection", () => {
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Pane" }), { button: 0 });
     expect(props.actions.onTimelineScopeChange).toHaveBeenNthCalledWith(2, "pane");
+  });
+
+  it("renders DONE in blue and includes it in Waiting", () => {
+    const doneItem = {
+      ...timeline.items[0]!,
+      state: "DONE" as const,
+      reason: "completion_pending_acknowledgement",
+    };
+    const props = buildProps({ timelineExpanded: false, isMobile: false });
+    props.state.timeline = {
+      ...timeline,
+      items: [doneItem],
+      current: doneItem,
+      totalsMs: {
+        ...timeline.totalsMs,
+        WAITING_INPUT: 0,
+        DONE: doneItem.durationMs,
+      },
+    };
+    const { container } = render(<StateTimelineSection {...props} />);
+
+    const doneBadge = screen.getByText("DONE").closest("span");
+    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(screen.getByText("Waiting 40m")).toBeTruthy();
+    expect(container.querySelector('[title^="DONE"]')?.className).toContain("bg-latte-blue/80");
   });
 });

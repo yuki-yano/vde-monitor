@@ -11,8 +11,6 @@ import {
 } from "@vde-monitor/herdr";
 import { resolveMonitorServerKey } from "@vde-monitor/shared";
 
-import { normalizeFingerprint } from "../monitor/monitor-utils";
-
 export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRuntime => {
   const socketPath = resolveSocketPath(process.env, os.homedir());
   const client = new HerdrClient(socketPath);
@@ -20,22 +18,6 @@ export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRunti
   const screenCapture = createHerdrScreenCapture(client);
   const actions = createHerdrActions(client, config);
   const launch = createHerdrLaunchCapability({ client, config });
-  const captureFingerprint = async (paneId: string, useAlt: boolean) => {
-    try {
-      const captured = await screenCapture.captureText({
-        paneId,
-        lines: 200,
-        joinLines: false,
-        includeAnsi: true,
-        altScreen: "auto",
-        alternateOn: useAlt,
-      });
-      return normalizeFingerprint(captured.screen);
-    } catch {
-      return null;
-    }
-  };
-
   return {
     backend: "herdr",
     serverKey: resolveMonitorServerKey({
@@ -49,6 +31,5 @@ export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRunti
     screenCapture,
     actions,
     capabilities: { launch },
-    captureFingerprint,
   };
 };

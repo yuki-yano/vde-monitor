@@ -24,7 +24,12 @@ vi.mock("node:os", () => ({
   homedir: mocks.homedir,
 }));
 
-import { restorePersistedState, saveState } from "./state-store";
+import {
+  type PersistedCompletionCursor,
+  type PersistedSessionRuntimeState,
+  restorePersistedState,
+  saveState,
+} from "./state-store";
 
 const statePath = "/mock/home/.vde-monitor/state.json";
 
@@ -55,8 +60,21 @@ const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDet
   pipeConflict: false,
   startCommand: null,
   panePid: null,
+  completion: null,
   ...overrides,
 });
+
+const createRuntimeState = (
+  overrides: Partial<PersistedSessionRuntimeState> = {},
+): PersistedSessionRuntimeState => ({
+  lifecycle: "RUNNING",
+  completionCursor: null,
+  lastAgent: "codex",
+  ...overrides,
+});
+
+const createRuntimeStateMap = (overrides: Partial<PersistedSessionRuntimeState> = {}) =>
+  new Map([["pane-1", createRuntimeState(overrides)]]);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -86,24 +104,27 @@ beforeEach(() => {
 describe("state-store timeline persistence", () => {
   it("saves and restores timeline events", () => {
     saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
       timeline: {
         "pane-1": [
           {
             id: "pane-1:1700000000000:1",
             paneId: "pane-1",
-            state: "RUNNING",
-            reason: "poll",
+            state: "DONE",
+            reason: "completion:pending",
             repoRoot: "/repo/a",
             startedAt: "2026-02-07T00:00:00.000Z",
             endedAt: null,
-            source: "poll",
+            source: "view",
           },
         ],
       },
     });
 
     const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
+    expect(parsed.sessions["pane-1"].lifecycle).toBe("RUNNING");
+    expect(parsed.sessions["pane-1"].state).toBeUndefined();
     expect(parsed.timeline["pane-1"]).toHaveLength(1);
 
     const { sessions: restoredSessions, timeline: restoredTimeline } = restorePersistedState();
@@ -112,10 +133,15 @@ describe("state-store timeline persistence", () => {
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBe("/repo/a");
+    expect(restoredTimeline.get("pane-1")?.[0]).toMatchObject({
+      state: "DONE",
+      source: "view",
+    });
   });
 
   it("restores sessions/timeline/repoNotes from a single read", () => {
     saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
       timeline: {
         "pane-1": [
           {
@@ -154,6 +180,7 @@ describe("state-store timeline persistence", () => {
 
   it("saves and restores repository notes", () => {
     saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
       repoNotes: {
         "/repo/a": [
           {
@@ -176,14 +203,27 @@ describe("state-store timeline persistence", () => {
     expect(restoredRepoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
   });
 
-  it("returns empty state for unsupported format", () => {
+  it("rejects version 2 without reading or converting it", () => {
     fileContents.set(
       statePath,
       `${JSON.stringify(
         {
-          version: 1,
+          version: 2,
           savedAt: "2026-02-07T00:00:00.000Z",
-          sessions: {},
+          sessions: {
+            "pane-1": {
+              paneId: "pane-1",
+              lastOutputAt: null,
+              lastEventAt: null,
+              lastMessage: null,
+              lastInputAt: null,
+              customTitle: null,
+              state: "RUNNING",
+              stateReason: "reason",
+            },
+          },
+          timeline: {},
+          repoNotes: {},
         },
         null,
         2,
@@ -200,12 +240,12 @@ describe("state-store timeline persistence", () => {
     expect(restoredRepoNotes.size).toBe(0);
   });
 
-  it("restores legacy timeline event without repoRoot", () => {
+  it("restores a version 3 timeline event without repoRoot", () => {
     fileContents.set(
       statePath,
       `${JSON.stringify(
         {
-          version: 2,
+          version: 3,
           savedAt: "2026-02-07T00:00:00.000Z",
           sessions: {
             "pane-1": {
@@ -215,7 +255,9 @@ describe("state-store timeline persistence", () => {
               lastMessage: null,
               lastInputAt: null,
               customTitle: null,
-              state: "RUNNING",
+              lifecycle: "RUNNING",
+              completionCursor: null,
+              lastAgent: "codex",
               stateReason: "reason",
             },
           },
@@ -242,5 +284,119 @@ describe("state-store timeline persistence", () => {
     const { timeline: restoredTimeline } = restorePersistedState();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBeUndefined();
+  });
+
+  it("roundtrips the completion cursor, identity timestamp, and last agent", () => {
+    const completionCursor: PersistedCompletionCursor = {
+      epoch: "epoch-1",
+      paneInstanceKey: "pane-instance-1",
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: false,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 2,
+      runSeq: 3,
+      openRunSeq: null,
+      completedSeq: 3,
+      acknowledgedSeq: 2,
+    };
+
+    saveState([createSessionDetail({ state: "WAITING_INPUT" })], {
+      runtimeStateByPaneId: createRuntimeStateMap({
+        lifecycle: "WAITING_INPUT",
+        completionCursor,
+        lastAgent: "codex",
+      }),
+    });
+
+    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
+    expect(parsed.sessions["pane-1"]).toMatchObject({
+      lifecycle: "WAITING_INPUT",
+      lastAgent: "codex",
+      completionCursor: {
+        epoch: "epoch-1",
+        identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+        completedSeq: 3,
+        acknowledgedSeq: 2,
+      },
+    });
+
+    const restored = restorePersistedState().sessions.get("pane-1");
+    expect(restored?.lifecycle).toBe("WAITING_INPUT");
+    expect(restored?.lastAgent).toBe("codex");
+    expect(restored?.completionCursor).toEqual(completionCursor);
+  });
+
+  it("retains a cold-restored cursor when no pane has committed yet", () => {
+    const completionCursor: PersistedCompletionCursor = {
+      epoch: "cold-epoch",
+      paneInstanceKey: "pane-instance-1",
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    saveState([createSessionDetail({ state: "DONE" })], {
+      runtimeStateByPaneId: createRuntimeStateMap({
+        lifecycle: "WAITING_INPUT",
+        completionCursor,
+        lastAgent: "codex",
+      }),
+    });
+    const retainedSessions = restorePersistedState().sessions;
+
+    saveState([], {
+      runtimeStateByPaneId: new Map(),
+      retainedSessions,
+    });
+
+    const restoredAgain = restorePersistedState().sessions.get("pane-1");
+    expect(restoredAgain).toMatchObject({
+      lifecycle: "WAITING_INPUT",
+      lastAgent: "codex",
+      completionCursor: {
+        epoch: "cold-epoch",
+        completedSeq: 1,
+        acknowledgedSeq: 0,
+      },
+    });
+  });
+
+  it("requires explicit canonical runtime state for every saved session", () => {
+    expect(() =>
+      saveState([createSessionDetail()], {
+        runtimeStateByPaneId: new Map(),
+      }),
+    ).toThrow("missing persisted runtime state for pane pane-1");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("rejects a version 3 cursor with an unparseable identity timestamp", () => {
+    const completionCursor: PersistedCompletionCursor = {
+      epoch: "epoch-1",
+      paneInstanceKey: "pane-instance-1",
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "invalid",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap({ completionCursor }),
+    });
+
+    expect(restorePersistedState().sessions.size).toBe(0);
   });
 });

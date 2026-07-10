@@ -6,6 +6,7 @@ import { useSessionBranches } from "./hooks/useSessionBranches";
 import { useSessionCommits } from "./hooks/useSessionCommits";
 import { useSessionDetailScreenControls } from "./hooks/useSessionDetailScreenControls";
 import { useSessionDetailTimelineLogsActions } from "./hooks/useSessionDetailTimelineLogsActions";
+import { useSessionDoneAcknowledgement } from "./hooks/useSessionDoneAcknowledgement";
 import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
 import { useSessionDiffs } from "./hooks/useSessionDiffs";
 import { useSessionFiles } from "./hooks/useSessionFiles";
@@ -22,6 +23,11 @@ import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
 // call that subhook directly at their point of use instead of storing it here.
 const useSessionDetailContextValue = (paneId: string) => {
   const base = useSessionDetailVMState(paneId);
+  useSessionDoneAcknowledgement({
+    paneId,
+    session: base.session,
+    acknowledgeSessionView: base.acknowledgeSessionView,
+  });
 
   const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups } =
     useSessionRepoPins({ sessions: base.sessions });

@@ -57,6 +57,7 @@ const buildSession = (paneId: string): SessionSummary => ({
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
 });
 
 // Render-count probes used to demonstrate that splitting the former 45-field

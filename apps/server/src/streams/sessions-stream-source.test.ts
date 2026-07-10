@@ -31,6 +31,7 @@ const makeDetail = (paneId = "pane-1") => ({
   pipeConflict: false,
   startCommand: null,
   panePid: null,
+  completion: null,
 });
 
 const makeRegistry = (): Registry => {

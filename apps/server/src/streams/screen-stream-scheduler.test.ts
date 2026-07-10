@@ -91,6 +91,7 @@ describe("createScreenStreamScheduler", () => {
     monitor = {
       registry: { getDetail: vi.fn(() => detail) },
       getScreenCapture: () => ({ captureText }),
+      markPaneObservationDirty: vi.fn(),
     } as unknown as Monitor;
     config = makeConfig();
   });
@@ -106,6 +107,7 @@ describe("createScreenStreamScheduler", () => {
     scheduler.subscribe("pane-1", listener);
     await flushMicrotasks();
 
+    expect(monitor.markPaneObservationDirty).toHaveBeenCalledWith("pane-1", "subscriber");
     expect(captureText).toHaveBeenCalledOnce();
     expect(buildTextResponse).toHaveBeenCalledWith(expect.objectContaining({ cursor: undefined }));
     expect(listener).toHaveBeenCalledOnce();
@@ -139,6 +141,74 @@ describe("createScreenStreamScheduler", () => {
     scheduler.dispose();
   });
 
+  it("does not overlap the immediate capture with an interval tick", async () => {
+    let releaseFirstCapture: (() => void) | undefined;
+    let activeCaptures = 0;
+    let maxActiveCaptures = 0;
+    captureText.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          activeCaptures += 1;
+          maxActiveCaptures = Math.max(maxActiveCaptures, activeCaptures);
+          const finish = () => {
+            activeCaptures -= 1;
+            resolve({ screen: "hello", alternateOn: false, truncated: null });
+          };
+          if (releaseFirstCapture === undefined) {
+            releaseFirstCapture = finish;
+          } else {
+            finish();
+          }
+        }),
+    );
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+
+    scheduler.subscribe("pane-1", vi.fn());
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledOnce();
+    expect(maxActiveCaptures).toBe(1);
+
+    releaseFirstCapture?.();
+    await flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledTimes(2);
+    expect(maxActiveCaptures).toBe(1);
+
+    scheduler.dispose();
+  });
+
+  it("releases the tick guard after delivery throws", async () => {
+    buildTextResponse
+      .mockImplementationOnce(() => {
+        throw new Error("delivery failed");
+      })
+      .mockImplementation(({ cursor }) => makeScreenResponse(cursor ?? "cursor-retried"));
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+    const listener = vi.fn();
+
+    scheduler.subscribe("pane-1", listener);
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledOnce();
+    expect(listener).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledOnce();
+
+    scheduler.dispose();
+  });
+
   it("fan-out: all subscribers receive the result from a single capture per tick", async () => {
     const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
     const listener1 = vi.fn();
@@ -164,6 +234,44 @@ describe("createScreenStreamScheduler", () => {
     expect(buildTextResponse).toHaveBeenCalledTimes(2);
     expect(listener1).toHaveBeenCalledOnce();
     expect(listener2).toHaveBeenCalledOnce();
+
+    scheduler.dispose();
+  });
+
+  it("captures and delivers the six pane concurrent screen baseline", async () => {
+    captureText.mockImplementation(async ({ paneId }: { paneId: string }) => ({
+      screen: `screen:${paneId}`,
+      alternateOn: false,
+      truncated: null,
+    }));
+    monitor = {
+      registry: { getDetail: vi.fn((paneId: string) => makeDetail(paneId)) },
+      getScreenCapture: () => ({ captureText }),
+      markPaneObservationDirty: vi.fn(),
+    } as unknown as Monitor;
+    buildTextResponse.mockImplementation(({ paneId, screen }) => ({
+      ...makeScreenResponse(`cursor:${paneId}`),
+      paneId,
+      screen,
+    }));
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+    const listeners = Array.from({ length: 6 }, () => vi.fn());
+
+    listeners.forEach((listener, index) => {
+      scheduler.subscribe(`pane-${index + 1}`, listener);
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await flushMicrotasks();
+
+    expect(captureText).toHaveBeenCalledTimes(6);
+    listeners.forEach((listener, index) => {
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paneId: `pane-${index + 1}`,
+          screen: `screen:pane-${index + 1}`,
+        }),
+      );
+    });
 
     scheduler.dispose();
   });
@@ -264,6 +372,7 @@ describe("createScreenStreamScheduler", () => {
     monitor = {
       registry: { getDetail: mockGetDetail },
       getScreenCapture: () => ({ captureText }),
+      markPaneObservationDirty: vi.fn(),
     } as unknown as Monitor;
 
     const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });

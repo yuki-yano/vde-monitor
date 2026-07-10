@@ -123,7 +123,7 @@ export const aggregateRepoTimelineSegments = ({
       previous.isOpen === isOpen
     ) {
       previous.endedAtMs = segmentEndMs;
-      previous.source = dominantSource;
+      previous.source = resolveDominantSource([previous.source, dominantSource]);
       continue;
     }
 

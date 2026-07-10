@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PersistedSessionMap, PersistedTimelineMap } from "../state-store";
-import { createRestoredSessionApplier, restoreMonitorRuntimeState } from "./monitor-persistence";
+import {
+  resolvePersistedSessionRuntimeState,
+  restoreMonitorRuntimeState,
+} from "./monitor-persistence";
 import { createPaneStateStore } from "./pane-state";
 
 describe("restoreMonitorRuntimeState", () => {
@@ -20,7 +23,22 @@ describe("restoreMonitorRuntimeState", () => {
           agentSessionConfidence: "high",
           agentSessionObservedAt: "2024-01-01T00:00:01.000Z",
           customTitle: "Custom",
-          state: "RUNNING",
+          lifecycle: "RUNNING",
+          completionCursor: {
+            epoch: "epoch-1",
+            paneInstanceKey: "instance-1",
+            agent: "codex",
+            agentSessionId: "session-1",
+            identityConfirmedAt: "2024-01-01T00:00:01.000Z",
+            agentPresent: true,
+            syntheticCompletionArmed: false,
+            consecutiveAbsentObservations: 0,
+            runSeq: 1,
+            openRunSeq: 1,
+            completedSeq: 0,
+            acknowledgedSeq: 0,
+          },
+          lastAgent: "codex",
           stateReason: "restored",
           repoRoot: "/repo/a",
         },
@@ -38,7 +56,9 @@ describe("restoreMonitorRuntimeState", () => {
           agentSessionConfidence: null,
           agentSessionObservedAt: null,
           customTitle: null,
-          state: "WAITING_INPUT",
+          lifecycle: "WAITING_INPUT",
+          completionCursor: null,
+          lastAgent: "unknown",
           stateReason: "restored",
           repoRoot: "/repo/b",
         },
@@ -91,47 +111,92 @@ describe("restoreMonitorRuntimeState", () => {
         lastEventAt: "2024-01-01T00:00:01.000Z",
         lastMessage: "message",
         lastInputAt: "2024-01-01T00:00:02.000Z",
-        agentSessionId: "session-1",
-        agentSessionSource: "hook",
-        agentSessionConfidence: "high",
-        agentSessionObservedAt: "2024-01-01T00:00:01.000Z",
+        agentSessionId: null,
+        agentSessionSource: null,
+        agentSessionConfidence: null,
+        agentSessionObservedAt: null,
+        lifecycle: "RUNNING",
+        completionCursor: expect.objectContaining({ epoch: "epoch-1" }),
+        pendingRestoredCompletionCursor: expect.objectContaining({ epoch: "epoch-1" }),
+        pendingRestoredLifecycle: "RUNNING",
+        pendingRestoredLastAgent: "codex",
+        lastResolvedAgent: "codex",
+        agentPresent: true,
+        consecutiveAbsentObservations: 0,
+        lastResolvedState: "RUNNING",
+        lastResolvedStateReason: "restored",
       }),
     );
     expect(customTitles.get("%1")).toBe("Custom");
     expect(customTitles.has("%2")).toBe(false);
   });
-});
 
-describe("createRestoredSessionApplier", () => {
-  it("returns restored snapshot only once per pane", () => {
-    const restoredSessions: PersistedSessionMap = new Map([
-      [
-        "%1",
-        {
-          paneId: "%1",
-          lastOutputAt: null,
-          lastEventAt: null,
-          lastMessage: null,
-          lastInputAt: null,
-          agentSessionId: null,
-          agentSessionSource: null,
-          agentSessionConfidence: null,
-          agentSessionObservedAt: null,
-          customTitle: null,
-          state: "RUNNING",
-          stateReason: "restored",
-        },
-      ],
-    ]);
-    const applyRestored = createRestoredSessionApplier(restoredSessions);
+  it("keeps an unvalidated restored cursor in the next persisted runtime snapshot", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.lastResolvedAgent = "codex";
+    paneState.pendingRestoredLifecycle = "WAITING_INPUT";
+    paneState.pendingRestoredLastAgent = "codex";
+    paneState.pendingRestoredCompletionCursor = {
+      epoch: "pending-epoch",
+      paneInstanceKey: "instance-1",
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2024-01-01T00:00:00.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 1,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
 
-    expect(applyRestored("%1")).toEqual(
-      expect.objectContaining({
-        paneId: "%1",
-        state: "RUNNING",
+    expect(resolvePersistedSessionRuntimeState(paneState)).toEqual({
+      lifecycle: "WAITING_INPUT",
+      completionCursor: expect.objectContaining({
+        epoch: "pending-epoch",
+        consecutiveAbsentObservations: 1,
       }),
-    );
-    expect(applyRestored("%1")).toBeNull();
-    expect(applyRestored("%2")).toBeNull();
+      lastAgent: "codex",
+    });
+
+    paneState.completionCursor = { ...paneState.pendingRestoredCompletionCursor };
+    paneState.agentPresence = "indeterminate";
+    const persistedRuntime = resolvePersistedSessionRuntimeState(paneState);
+    expect(persistedRuntime.completionCursor).toMatchObject({
+      epoch: "pending-epoch",
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    });
+
+    const restoredAgainStates = createPaneStateStore();
+    restoreMonitorRuntimeState({
+      restoredSessions: new Map([
+        [
+          "%1",
+          {
+            paneId: "%1",
+            lastOutputAt: null,
+            lastEventAt: null,
+            lastMessage: null,
+            lastInputAt: null,
+            customTitle: null,
+            stateReason: "restored",
+            ...persistedRuntime,
+          },
+        ],
+      ]),
+      restoredTimeline: new Map(),
+      paneStates: restoredAgainStates,
+      customTitles: new Map(),
+      stateTimeline: { restore: vi.fn(), record: vi.fn() },
+    });
+    expect(restoredAgainStates.get("%1")).toMatchObject({
+      lifecycle: "WAITING_INPUT",
+      completionCursor: expect.objectContaining({ epoch: "pending-epoch" }),
+      pendingRestoredCompletionCursor: expect.objectContaining({ epoch: "pending-epoch" }),
+      lastResolvedAgent: "codex",
+    });
   });
 });

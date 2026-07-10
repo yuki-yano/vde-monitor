@@ -1,4 +1,4 @@
-import type { SessionSummary } from "@vde-monitor/shared";
+import type { SessionStateValue, SessionSummary } from "@vde-monitor/shared";
 
 import { isEditorCommand } from "@/lib/session-format";
 
@@ -9,6 +9,15 @@ export type SessionListFilter = (typeof SESSION_LIST_FILTER_VALUES)[number];
 export const DEFAULT_SESSION_LIST_FILTER: SessionListFilter = "AGENT";
 
 const SESSION_LIST_FILTER_STORAGE_KEY = "vde-monitor-session-list-filter";
+
+const MATCHES_AGENT_FILTER: Record<SessionStateValue, boolean> = {
+  RUNNING: true,
+  WAITING_INPUT: true,
+  WAITING_PERMISSION: true,
+  DONE: true,
+  SHELL: false,
+  UNKNOWN: false,
+};
 
 export const isSessionListFilter = (value: unknown): value is SessionListFilter => {
   return (
@@ -38,7 +47,7 @@ export const matchesSessionListFilter = (
     return isEditorCommand(session.currentCommand);
   }
   if (filter === "AGENT") {
-    return session.state !== "SHELL" && session.state !== "UNKNOWN";
+    return MATCHES_AGENT_FILTER[session.state];
   }
   return session.state === filter;
 };

@@ -23,13 +23,18 @@ type PaneOutputSnapshot = {
   paneActive: boolean;
   paneDead: boolean;
   alternateOn: boolean;
+  currentCommand?: string | null;
 };
 
 type PaneOutputDeps = {
   statLogMtime?: (logPath: string) => Promise<string | null>;
   resolveActivityAt?: typeof resolveActivityTimestamp;
   detectExternalInputFromLogDelta?: typeof detectExternalInputFromLogDelta;
-  captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
+  captureFingerprint: (
+    paneId: string,
+    useAlt: boolean,
+    currentCommand?: string | null,
+  ) => Promise<string | null>;
   fingerprintIntervalMs?: number;
   allowFingerprintCapture?: boolean;
   now?: () => Date;
@@ -154,7 +159,7 @@ const updateOutputAtFromFingerprint = async ({
 
   const capturedAtMs = now().getTime();
   paneState.lastFingerprintCaptureAtMs = capturedAtMs;
-  const fingerprint = await captureFingerprint(pane.paneId, pane.alternateOn);
+  const fingerprint = await captureFingerprint(pane.paneId, pane.alternateOn, pane.currentCommand);
   if (!fingerprint) {
     return;
   }

@@ -48,6 +48,7 @@ const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDet
   pipeConflict: false,
   startCommand: null,
   panePid: null,
+  completion: null,
   ...overrides,
 });
 
@@ -226,6 +227,10 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     }),
   );
   const deleteRepoNote = vi.fn(() => true);
+  const acknowledgeView = vi.fn(
+    ({ paneId }: { paneId: string; epoch: string; throughSeq: number }) =>
+      registry.getDetail(paneId),
+  );
   const monitor = {
     registry,
     getScreenCapture: () => ({ captureText }),
@@ -242,6 +247,8 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
       registry.update({ ...existing, customTitle: title });
     }),
     recordInput: vi.fn(),
+    markPaneObservationDirty: vi.fn(),
+    acknowledgeView,
     markPaneViewed: vi.fn(),
   } as unknown as Monitor;
   const actions = {
@@ -332,6 +339,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,
+    acknowledgeView,
     getDashboard,
     getProviderSnapshot,
     ...streamDeps,

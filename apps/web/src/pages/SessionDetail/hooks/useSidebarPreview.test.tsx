@@ -49,6 +49,7 @@ describe("useSidebarPreview", () => {
     range: "1h",
     totalsMs: {
       RUNNING: 1000,
+      DONE: 0,
       WAITING_INPUT: 0,
       WAITING_PERMISSION: 0,
       SHELL: 0,
@@ -107,6 +108,7 @@ describe("useSidebarPreview", () => {
     alternateOn: false,
     pipeAttached: false,
     pipeConflict: false,
+    completion: null,
   });
 
   const setup = (options?: { innerWidth?: number; innerHeight?: number }) => {

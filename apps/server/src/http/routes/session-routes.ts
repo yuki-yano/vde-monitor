@@ -5,6 +5,7 @@ import { createInputRoutes } from "./session-routes/input-routes";
 import { createLaunchRoute } from "./session-routes/launch-route";
 import { createNotesRoutes } from "./session-routes/notes-routes";
 import { createScreenRoutes } from "./session-routes/screen-routes";
+import { createStateRoutes } from "./session-routes/state-routes";
 import {
   type ResolvedPane,
   createWithPane,
@@ -63,6 +64,7 @@ export const createSessionRoutes = ({
     .get("/sessions/:paneId", (c) => {
       return withPane(c, (pane) => c.json({ session: pane.detail }));
     })
+    .route("/", createStateRoutes({ monitor, withPane }))
     .route(
       "/",
       createScreenRoutes({

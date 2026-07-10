@@ -177,6 +177,7 @@ const buildDefaultContextValue = () => {
       sendKeys: vi.fn(),
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
+      acknowledgeSessionView: vi.fn(async () => undefined),
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
       createRepoNote: vi.fn(),

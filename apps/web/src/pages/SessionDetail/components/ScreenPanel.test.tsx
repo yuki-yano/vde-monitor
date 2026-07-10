@@ -58,6 +58,7 @@ describe("ScreenPanel", () => {
     alternateOn: false,
     pipeAttached: true,
     pipeConflict: false,
+    completion: null,
   });
 
   const buildState = (overrides: Partial<ScreenPanelState> = {}): ScreenPanelState => ({

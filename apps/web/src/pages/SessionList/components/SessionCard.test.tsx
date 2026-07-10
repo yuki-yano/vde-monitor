@@ -51,6 +51,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 
@@ -135,6 +136,15 @@ describe("SessionCard", () => {
     expect(link.firstElementChild?.className).toContain("border-latte-maroon/55");
     expect(screen.getByText("EDITOR")).toBeTruthy();
     expect(screen.queryByText("UNKNOWN")).toBeNull();
+  });
+
+  it("renders DONE with a blue CheckCircle badge and blue card border", () => {
+    renderWithRouter(<SessionCard session={buildSession({ state: "DONE" })} nowMs={Date.now()} />);
+
+    const doneBadge = screen.getByText("DONE").closest("span");
+    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(doneBadge?.querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("link").firstElementChild?.className).toContain("border-latte-blue/60");
   });
 
   it("calls onTouchPin when pane pin button is pressed", () => {

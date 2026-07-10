@@ -31,6 +31,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 
@@ -64,5 +65,12 @@ describe("session state display helpers", () => {
     expect(isSessionEditorState(waitingSession)).toBe(false);
     expect(resolveSessionStateLabel(waitingSession)).toBe("WAITING");
     expect(resolveSessionStateTone(waitingSession)).toBe("waiting");
+  });
+
+  it("maps DONE through the shared state display path", () => {
+    const doneSession = buildSession({ state: "DONE" });
+
+    expect(resolveSessionStateLabel(doneSession)).toBe("DONE");
+    expect(resolveSessionStateTone(doneSession)).toBe("done");
   });
 });

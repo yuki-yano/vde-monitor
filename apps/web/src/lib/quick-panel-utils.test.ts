@@ -1,4 +1,4 @@
-import { AlertTriangle, Circle, Clock, Loader2, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle, Circle, Clock, Loader2, Sparkles, Zap } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import { agentIconMeta, formatRepoDirLabel, statusIconMeta } from "./quick-panel-utils";
@@ -31,10 +31,18 @@ describe("statusIconMeta", () => {
     expect(statusIconMeta("RUNNING")).toEqual(
       expect.objectContaining({ icon: Loader2, label: "RUNNING" }),
     );
+    expect(statusIconMeta("DONE")).toEqual(
+      expect.objectContaining({
+        icon: CheckCircle,
+        className: "text-latte-blue",
+        wrap: "border-latte-blue/40 bg-latte-blue/15",
+        label: "DONE",
+      }),
+    );
   });
 
-  it("falls back to unknown state", () => {
-    expect(statusIconMeta("OTHER")).toEqual(
+  it("maps UNKNOWN to the neutral state", () => {
+    expect(statusIconMeta("UNKNOWN")).toEqual(
       expect.objectContaining({ icon: Circle, label: "UNKNOWN" }),
     );
   });

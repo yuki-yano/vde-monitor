@@ -7,6 +7,14 @@ export type HookEventContext = {
   paneId: string;
   hookState: HookStateSignal;
   sessionId: string;
+  agent: "claude" | "codex";
+  eventName:
+    | "PreToolUse"
+    | "PostToolUse"
+    | "Notification"
+    | "PermissionRequest"
+    | "Stop"
+    | "UserPromptSubmit";
 };
 
 type HookPaneSnapshot = {
@@ -28,6 +36,8 @@ const dispatchHookEvent = (
   event: ParsedHookEvent,
   hookState: { state: HookStateSignal["state"]; reason: string } | null,
   panes: HookPaneSnapshot[],
+  agent: HookEventContext["agent"],
+  eventName: HookEventContext["eventName"],
   onHook: (context: HookEventContext) => void,
 ) => {
   if (!hookState) {
@@ -46,6 +56,8 @@ const dispatchHookEvent = (
     paneId,
     hookState: { ...hookState, at: event.ts },
     sessionId: event.session_id,
+    agent,
+    eventName,
   });
   return true;
 };
@@ -73,7 +85,7 @@ export const handleHookLine = (
   }
   const event = result.data;
   const hookState = deriveHookState(event.hook_event_name, event.notification_type);
-  return dispatchHookEvent(event, hookState, panes, onHook);
+  return dispatchHookEvent(event, hookState, panes, "claude", event.hook_event_name, onHook);
 };
 
 export const handleCodexHookLine = (
@@ -91,5 +103,5 @@ export const handleCodexHookLine = (
   }
   const event = result.data;
   const hookState = deriveCodexHookState(event.hook_event_name);
-  return dispatchHookEvent(event, hookState, panes, onHook);
+  return dispatchHookEvent(event, hookState, panes, "codex", event.hook_event_name, onHook);
 };

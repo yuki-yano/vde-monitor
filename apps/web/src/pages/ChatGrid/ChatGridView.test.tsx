@@ -65,6 +65,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 
@@ -81,6 +82,7 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
     items: [],
     totalsMs: {
       RUNNING: 0,
+      DONE: 0,
       WAITING_INPUT: 0,
       WAITING_PERMISSION: 0,
       SHELL: 0,

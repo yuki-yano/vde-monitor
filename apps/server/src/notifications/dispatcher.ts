@@ -30,10 +30,13 @@ const waitingPermissionPushReasons = new Set([
 ]);
 
 const resolveTransitionEventType = (event: SessionTransitionEvent): PushEventType | null => {
-  if (event.previous == null) {
+  if (event.source === "restore") {
     return null;
   }
-  if (event.source === "restore") {
+  if (event.completionAdvanced && event.completionEpoch != null && event.completedSeq != null) {
+    return "pane.task_completed";
+  }
+  if (event.previous == null) {
     return null;
   }
   if (
@@ -47,9 +50,6 @@ const resolveTransitionEventType = (event: SessionTransitionEvent): PushEventTyp
       return null;
     }
     return "pane.waiting_permission";
-  }
-  if (event.next.state === "WAITING_INPUT" && event.previous.state === "RUNNING") {
-    return "pane.task_completed";
   }
   return null;
 };
@@ -81,7 +81,7 @@ const buildNotificationPayload = (
     paneId: event.next.paneId,
     sessionName: event.next.sessionName,
     title: "Task completed",
-    body: `${paneLabel} completed and is now waiting for input`,
+    body: `${paneLabel} completed a task`,
     url: `/sessions/${encodeURIComponent(event.next.paneId)}`,
     tag: `pane:${event.next.paneId}:task_completed`,
     ts: now(),
@@ -139,7 +139,10 @@ const toPushSubscriptionJson = (record: {
   },
 });
 
-const resolveFingerprint = (event: SessionTransitionEvent) => {
+const resolveFingerprint = (eventType: PushEventType, event: SessionTransitionEvent) => {
+  if (eventType === "pane.task_completed") {
+    return `${event.paneId}:${event.completionEpoch}:${String(event.completedSeq)}`;
+  }
   return `${event.paneId}:${event.next.state}:${event.next.stateReason}:${event.next.lastEventAt ?? event.at}`;
 };
 
@@ -236,7 +239,7 @@ export const createNotificationDispatcher = ({
     const startedAtMs = nowMs();
     const payload = buildNotificationPayload(eventType, event, now);
     const payloadRaw = JSON.stringify(payload);
-    const fingerprint = resolveFingerprint(event);
+    const fingerprint = resolveFingerprint(eventType, event);
 
     const outcomes = await Promise.all(
       candidates.map(async (subscription) => {
@@ -255,7 +258,11 @@ export const createNotificationDispatcher = ({
         }
         const cooldownKey = `${subscription.id}:${event.paneId}:${eventType}`;
         const previousTransitionAtMs = lastTransitionAtByPaneEventBySubscriptionId.get(cooldownKey);
-        if (previousTransitionAtMs != null && nowMs() - previousTransitionAtMs < cooldownMs) {
+        if (
+          eventType !== "pane.task_completed" &&
+          previousTransitionAtMs != null &&
+          nowMs() - previousTransitionAtMs < cooldownMs
+        ) {
           return {
             sentCount: localSentCount,
             retryCount: localRetryCount,
@@ -271,7 +278,9 @@ export const createNotificationDispatcher = ({
             const deliveredAt = now();
             subscriptionStore.markDelivered(subscription.id, deliveredAt);
             localSentCount += 1;
-            lastTransitionAtByPaneEventBySubscriptionId.set(cooldownKey, nowMs());
+            if (eventType !== "pane.task_completed") {
+              lastTransitionAtByPaneEventBySubscriptionId.set(cooldownKey, nowMs());
+            }
             lastFingerprintBySubscriptionId.set(subscription.id, fingerprint);
             consecutiveFailureCountBySubscriptionId.delete(subscription.id);
             logger.log(

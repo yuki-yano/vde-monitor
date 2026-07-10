@@ -108,6 +108,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 
@@ -137,6 +138,24 @@ describe("ChatGridTile", () => {
     expect(screen.getByRole("link", { name: "Open detail" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Remove from Chat Grid" })).toBeTruthy();
     expect(screen.queryByLabelText("Refresh pane pane-1")).toBeNull();
+  });
+
+  it("renders DONE through the shared blue CheckCircle badge path", () => {
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession({ state: "DONE" })}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+      />,
+    );
+
+    const doneBadge = screen.getByText("DONE").closest("span");
+    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(doneBadge?.querySelector("svg")).toBeTruthy();
   });
 
   it("removes pane from chat grid when remove button is clicked", () => {

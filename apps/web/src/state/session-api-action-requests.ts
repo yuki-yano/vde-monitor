@@ -224,6 +224,15 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const acknowledgeSessionView = async (paneId: string, epoch: string, throughSeq: number) => {
+    await runPaneMutation(paneId, "Failed to acknowledge session completion", (param) =>
+      apiClient.sessions[":paneId"].state.acknowledge.$post({
+        param,
+        json: { epoch, throughSeq },
+      }),
+    );
+  };
+
   const createRepoNote = async (
     paneId: string,
     input: { title?: string | null; body: string },
@@ -309,6 +318,7 @@ export const createSessionActionRequests = ({
     updateSessionTitle,
     resetSessionTitle,
     touchSession,
+    acknowledgeSessionView,
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,

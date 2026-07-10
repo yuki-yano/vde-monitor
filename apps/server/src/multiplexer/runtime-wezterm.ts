@@ -8,7 +8,6 @@ import {
 } from "@vde-monitor/wezterm";
 
 import { markPaneFocus } from "../activity-suppressor";
-import { normalizeFingerprint } from "../monitor/monitor-utils";
 import { resolveBackendApp } from "../screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "../screen/macos-applescript";
 import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
@@ -51,22 +50,6 @@ export const createWeztermRuntime = (config: AgentMonitorConfig): MultiplexerRun
       return result;
     },
   };
-  const captureFingerprint = async (paneId: string, useAlt: boolean) => {
-    try {
-      const captured = await screenCapture.captureText({
-        paneId,
-        lines: 200,
-        joinLines: false,
-        includeAnsi: true,
-        altScreen: "auto",
-        alternateOn: useAlt,
-      });
-      return normalizeFingerprint(captured.screen);
-    } catch {
-      return null;
-    }
-  };
-
   return {
     backend: "wezterm",
     serverKey: resolveMonitorServerKey({
@@ -79,6 +62,5 @@ export const createWeztermRuntime = (config: AgentMonitorConfig): MultiplexerRun
     screenCapture,
     actions,
     capabilities: {},
-    captureFingerprint,
   };
 };

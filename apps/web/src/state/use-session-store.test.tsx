@@ -29,6 +29,7 @@ const createSession = (paneId: string, overrides?: Partial<SessionSummary>): Ses
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 

@@ -7,7 +7,7 @@ import type { AdapterRunResult } from "@vde-monitor/multiplexer";
 import { buildWeztermTargetArgs } from "./target";
 
 export type WeztermAdapter = {
-  run: (args: string[]) => Promise<AdapterRunResult>;
+  run: (args: string[], options?: { signal?: AbortSignal }) => Promise<AdapterRunResult>;
   spawnProxy?: () => ChildProcessWithoutNullStreams;
 };
 
@@ -22,8 +22,14 @@ export const createWeztermAdapter = ({
 }: AdapterOptions = {}): WeztermAdapter => {
   const targetArgs = buildWeztermTargetArgs(target);
 
-  const run = async (args: string[]): Promise<AdapterRunResult> => {
-    const result = await execa(cliPath, ["cli", ...targetArgs, ...args], { reject: false });
+  const run = async (
+    args: string[],
+    runOptions: { signal?: AbortSignal } = {},
+  ): Promise<AdapterRunResult> => {
+    const result = await execa(cliPath, ["cli", ...targetArgs, ...args], {
+      reject: false,
+      ...(runOptions.signal == null ? {} : { cancelSignal: runOptions.signal }),
+    });
     return {
       stdout: result.stdout,
       stderr: result.stderr,

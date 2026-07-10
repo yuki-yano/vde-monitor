@@ -48,6 +48,10 @@ const sessionStateStyles: Record<
     card: "border-red-500/50 shadow-lg shadow-red-500/10",
     overlay: "from-red-500/5",
   },
+  DONE: {
+    card: "border-latte-blue/60 shadow-lg shadow-blue-500/10",
+    overlay: "from-latte-blue/10",
+  },
   SHELL: {
     card: "border-blue-500/50 shadow-lg shadow-blue-500/10",
     overlay: "from-blue-500/5",

@@ -138,6 +138,7 @@ export type SessionCoreApiContextValue = {
   sendKeys: (paneId: string, keys: AllowedKey[]) => Promise<CommandResponse>;
   sendRaw: (paneId: string, items: RawItem[], unsafe?: boolean) => Promise<CommandResponse>;
   touchSession: (paneId: string) => Promise<void>;
+  acknowledgeSessionView: (paneId: string, epoch: string, throughSeq: number) => Promise<void>;
   updateSessionTitle: (paneId: string, title: string | null) => Promise<void>;
   resetSessionTitle: (paneId: string) => Promise<void>;
 };

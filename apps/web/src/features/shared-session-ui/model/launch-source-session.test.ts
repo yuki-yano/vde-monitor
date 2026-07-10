@@ -27,6 +27,7 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   alternateOn: false,
   pipeAttached: false,
   pipeConflict: false,
+  completion: null,
   ...overrides,
 });
 

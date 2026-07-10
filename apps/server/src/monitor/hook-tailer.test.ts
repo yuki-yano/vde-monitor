@@ -43,6 +43,8 @@ describe("handleHookLine", () => {
       paneId: "2",
       hookState: { state: "RUNNING", reason: "hook:PreToolUse", at: event.ts },
       sessionId: "s1",
+      agent: "claude",
+      eventName: "PreToolUse",
     });
   });
 
@@ -61,6 +63,8 @@ describe("handleHookLine", () => {
       paneId: "1",
       hookState: { state: "WAITING_INPUT", reason: "hook:stop", at: event.ts },
       sessionId: "s1",
+      agent: "claude",
+      eventName: "Stop",
     });
   });
 });
@@ -107,6 +111,8 @@ describe("handleCodexHookLine", () => {
       paneId: "2",
       hookState: { state: "WAITING_PERMISSION", reason: "hook:permission_request", at: event.ts },
       sessionId: "codex-1",
+      agent: "codex",
+      eventName: "PermissionRequest",
     });
   });
 
@@ -125,6 +131,8 @@ describe("handleCodexHookLine", () => {
       paneId: "1",
       hookState: { state: "WAITING_INPUT", reason: "hook:stop", at: event.ts },
       sessionId: "codex-1",
+      agent: "codex",
+      eventName: "Stop",
     });
   });
 });

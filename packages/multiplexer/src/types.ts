@@ -9,7 +9,6 @@ import type {
   LaunchVerification,
   RawItem,
   ResolvedConfig,
-  SessionStateValue,
   TextCaptureOptions,
   TextCaptureResult,
 } from "@vde-monitor/shared";
@@ -46,8 +45,15 @@ export type PaneMeta = {
 
 // ---- Hook / state signal types (formerly in @vde-monitor/shared) ----
 
+export type AgentLifecycle =
+  | "RUNNING"
+  | "WAITING_INPUT"
+  | "WAITING_PERMISSION"
+  | "SHELL"
+  | "UNKNOWN";
+
 export type HookStateSignal = {
-  state: SessionStateValue;
+  state: AgentLifecycle;
   reason: string;
   at: string;
 };
@@ -75,8 +81,24 @@ export type MultiplexerInspector = {
   readUserOption: (paneId: string, key: string) => Promise<string | null>;
 };
 
+export type TextCaptureBatchRequest = {
+  requestId: string;
+  options: TextCaptureOptions;
+};
+
+export type TextCaptureBatchResult =
+  | { requestId: string; result: TextCaptureResult; error?: never }
+  | { requestId: string; result?: never; error: string };
+
 export type MultiplexerScreenCapture = {
-  captureText: (options: TextCaptureOptions) => Promise<TextCaptureResult>;
+  captureText: (
+    options: TextCaptureOptions,
+    execution?: { signal?: AbortSignal },
+  ) => Promise<TextCaptureResult>;
+  captureTextBatch: (
+    requests: TextCaptureBatchRequest[],
+    execution?: { signal?: AbortSignal },
+  ) => Promise<TextCaptureBatchResult[]>;
 };
 
 export type MultiplexerActionResult =
@@ -123,13 +145,17 @@ export type MultiplexerPipeState = {
 };
 
 export type MultiplexerPipeCapability = {
-  hasConflict: (state: MultiplexerPipeState) => boolean;
+  getOwnerTag: (logPath: string) => string;
+  hasConflict: (state: MultiplexerPipeState, logPath: string) => boolean;
   attachPipe: (
     paneId: string,
     logPath: string,
     state: MultiplexerPipeState,
-    options?: { forceReattach?: boolean },
   ) => Promise<{ attached: boolean; conflict: boolean }>;
+  detachOwnedPipe: (
+    paneId: string,
+    logPath: string,
+  ) => Promise<{ ok: boolean; owned: boolean; detached: boolean }>;
 };
 
 export type MultiplexerLaunchCapability = {
@@ -148,5 +174,4 @@ export type MultiplexerRuntime = {
   screenCapture: MultiplexerScreenCapture;
   actions: MultiplexerInputActions;
   capabilities: MultiplexerCapabilities;
-  captureFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
 };

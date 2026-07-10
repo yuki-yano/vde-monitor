@@ -1,4 +1,5 @@
 import type {
+  AcknowledgeSessionViewJson,
   CommitFileQuery,
   CommitLogQuery,
   DiffFileQuery,
@@ -46,6 +47,13 @@ const assertApiClientContract: (value: unknown) => asserts value is ApiClientCon
   if (!paneRoutes || !isRecord(paneRoutes.screen) || !hasMethod(paneRoutes.screen, "$post")) {
     throw new Error("Invalid API client: missing pane screen route.");
   }
+  if (
+    !isRecord(paneRoutes.state) ||
+    !isRecord(paneRoutes.state.acknowledge) ||
+    !hasMethod(paneRoutes.state.acknowledge, "$post")
+  ) {
+    throw new Error("Invalid API client: missing pane state acknowledge route.");
+  }
   if (!isRecord(value.notifications) || !isRecord(value.notifications.settings)) {
     throw new Error("Invalid API client: missing notifications routes.");
   }
@@ -66,6 +74,7 @@ export const createApiClient = (
 };
 
 export type {
+  AcknowledgeSessionViewJson,
   CommitFileQuery,
   CommitLogQuery,
   DiffFileQuery,

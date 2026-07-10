@@ -3,10 +3,12 @@ import type { SessionDetail, SessionStateTimelineSource } from "@vde-monitor/sha
 
 import { toErrorMessage } from "../errors";
 import type { SessionTransitionEvent } from "../notifications/types";
+import { createAgentProcessSnapshot } from "./agent-resolver-process";
 import { mapWithConcurrencyLimitSettled } from "./concurrency";
 import type { PaneLogManager } from "./pane-log-manager";
 import { processPane } from "./pane-processor";
 import type { PaneRuntimeState } from "./pane-state";
+import { createPaneStateCoordinator } from "./pane-state-coordinator";
 import { cleanupRegistry } from "./registry-cleanup";
 import { resolveRepoBranchCached } from "./repo-branch";
 import { resolveRepoRootCached } from "./repo-root";
@@ -57,17 +59,25 @@ type LogActivityLike = {
 
 type CreatePaneUpdateServiceArgs = {
   inspector: InspectorLike;
+  serverKey: string;
   config: AgentMonitorConfig;
   paneStates: PaneStateStoreLike;
   paneLogManager: PaneLogManager;
-  capturePaneFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
-  applyRestored: (paneId: string) => SessionDetail | null;
+  capturePaneFingerprint: (
+    paneId: string,
+    useAlt: boolean,
+    currentCommand?: string | null,
+  ) => Promise<string | null>;
   getCustomTitle: (paneId: string) => string | null;
   customTitles: Map<string, string>;
   registry: RegistryLike;
   stateTimeline: TimelineStoreLike;
   logActivity: LogActivityLike;
   savePersistedState: () => void;
+  observePaneMetadata?: (pane: PaneMeta) => void;
+  removePaneObservation?: (paneId: string) => void;
+  onPaneInventory?: (paneIds: string[]) => void;
+  onPaneObservationCommitted?: (paneId: string) => void;
   onStateTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
 };
 
@@ -91,19 +101,24 @@ const normalizeCacheKey = (value: string | null) => {
 
 export const createPaneUpdateService = ({
   inspector,
+  serverKey,
   config,
   paneStates,
   paneLogManager,
   capturePaneFingerprint,
-  applyRestored,
   getCustomTitle,
   customTitles,
   registry,
   stateTimeline,
   logActivity,
   savePersistedState,
+  observePaneMetadata,
+  removePaneObservation,
+  onPaneInventory,
+  onPaneObservationCommitted,
   onStateTransition,
 }: CreatePaneUpdateServiceArgs) => {
+  const paneStateCoordinator = createPaneStateCoordinator({ serverKey });
   const viewedPaneAtMs = new Map<string, number>();
   const panePipeTagCache = new Map<string, string | null>();
   const panePipeTagInflight = new Map<string, Promise<string | null>>();
@@ -173,7 +188,14 @@ export const createPaneUpdateService = ({
   const updateFromPanes = async () => {
     pruneStaleViewedPanes();
     const panes = await inspector.listPanes();
+    onPaneInventory?.(panes.map((pane) => pane.paneId));
+    panes.forEach((pane) => {
+      observePaneMetadata?.(pane);
+    });
+    const processSnapshot =
+      config.multiplexer.backend === "herdr" ? null : await createAgentProcessSnapshot();
     const activePaneIds = new Set<string>();
+    const pendingTransitionEvents: SessionTransitionEvent[] = [];
     const repoRootByCurrentPath = new Map<string, Promise<string | null>>();
     const vwSnapshotByCwd = new Map<
       string,
@@ -214,11 +236,11 @@ export const createPaneUpdateService = ({
         const vwSnapshot = await resolveSnapshotByCwd(snapshotCwd);
         return processPane({
           pane,
+          processSnapshot,
           config,
           paneStates,
           paneLogManager,
           capturePaneFingerprint,
-          applyRestored,
           getCustomTitle,
           resolveRepoRoot: async () => paneRepoRoot,
           resolveWorktreeStatus: (currentPath) =>
@@ -250,19 +272,27 @@ export const createPaneUpdateService = ({
       }
 
       paneProcessingFailures.delete(pane.paneId);
-      const detail = paneResult.value;
-      if (!detail) {
+      const observedDetail = paneResult.value;
+      if (!observedDetail) {
+        onPaneObservationCommitted?.(pane.paneId);
         continue;
       }
 
+      const completionCommit = paneStateCoordinator.applyObservation({
+        pane,
+        detail: observedDetail,
+        paneState: paneStates.get(pane.paneId),
+      });
+      const detail = completionCommit.detail;
+
       const existing = registry.getDetail(pane.paneId);
       activePaneIds.add(pane.paneId);
-      if (
+      const transitionChanged =
         !existing ||
         existing.state !== detail.state ||
         existing.stateReason !== detail.stateReason ||
-        existing.repoRoot !== detail.repoRoot
-      ) {
+        existing.repoRoot !== detail.repoRoot;
+      if (transitionChanged) {
         const transitionSource = resolveTimelineSource(detail.stateReason);
         stateTimeline.record({
           paneId: detail.paneId,
@@ -272,25 +302,33 @@ export const createPaneUpdateService = ({
           at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
           source: transitionSource,
         });
-        if (onStateTransition) {
-          const transitionEvent: SessionTransitionEvent = {
-            paneId: detail.paneId,
-            previous: existing,
-            next: detail,
-            at:
-              detail.lastEventAt ??
-              detail.lastOutputAt ??
-              detail.lastInputAt ??
-              new Date().toISOString(),
-            source: transitionSource,
-          };
-          void Promise.resolve(onStateTransition(transitionEvent)).catch((error) => {
-            const message = toErrorMessage(error, "failed to dispatch notification event");
-            console.warn(`[vde-monitor] ${message}`);
-          });
-        }
       }
+      const dispatchTransition = (completion: { epoch: string; completedSeq: number } | null) => {
+        if (!onStateTransition) {
+          return;
+        }
+        const transitionEvent: SessionTransitionEvent = {
+          paneId: detail.paneId,
+          previous: existing,
+          next: detail,
+          at:
+            detail.lastEventAt ??
+            detail.lastOutputAt ??
+            detail.lastInputAt ??
+            new Date().toISOString(),
+          source: completionCommit.source,
+          completionAdvanced: completion != null,
+          completionEpoch: completion?.epoch ?? null,
+          completedSeq: completion?.completedSeq ?? null,
+        };
+        pendingTransitionEvents.push(transitionEvent);
+      };
+      if (transitionChanged) {
+        dispatchTransition(null);
+      }
+      completionCommit.advancedCompletions.forEach(dispatchTransition);
       registry.update(detail);
+      onPaneObservationCommitted?.(pane.paneId);
     }
 
     const removedPaneIds = cleanupRegistry({
@@ -305,15 +343,67 @@ export const createPaneUpdateService = ({
         panePipeTagCache.delete(paneId);
         panePipeTagInflight.delete(paneId);
         paneProcessingFailures.delete(paneId);
+        removePaneObservation?.(paneId);
       },
     });
     removedPaneIds.forEach((paneId) => {
       stateTimeline.closePane({ paneId });
     });
+    const pipeCleanupPaneIds = new Set(removedPaneIds);
+    paneLogManager.getOwnedPaneIds().forEach((paneId) => {
+      if (!activePaneIds.has(paneId)) {
+        pipeCleanupPaneIds.add(paneId);
+      }
+    });
+    await Promise.allSettled(
+      [...pipeCleanupPaneIds].map((paneId) =>
+        paneLogManager.detachOwnedPipe(paneId, { forceCheck: true }),
+      ),
+    );
     savePersistedState();
+    pendingTransitionEvents.forEach((transitionEvent) => {
+      void Promise.resolve(onStateTransition?.(transitionEvent)).catch((error) => {
+        const message = toErrorMessage(error, "failed to dispatch notification event");
+        console.warn(`[vde-monitor] ${message}`);
+      });
+    });
+  };
+
+  const acknowledgeView = ({
+    paneId,
+    epoch,
+    throughSeq,
+  }: {
+    paneId: string;
+    epoch: string;
+    throughSeq: number;
+  }) => {
+    const current = registry.getDetail(paneId);
+    if (current == null) {
+      return null;
+    }
+    const commit = paneStateCoordinator.acknowledgeView({
+      detail: current,
+      paneState: paneStates.get(paneId),
+      epoch,
+      throughSeq,
+    });
+    if (current.state !== commit.detail.state) {
+      stateTimeline.record({
+        paneId,
+        state: commit.detail.state,
+        reason: commit.detail.stateReason,
+        repoRoot: commit.detail.repoRoot ?? null,
+        source: "view",
+      });
+    }
+    registry.update(commit.detail);
+    savePersistedState();
+    return commit.detail;
   };
 
   return {
+    acknowledgeView,
     markPaneViewed,
     updateFromPanes,
   };

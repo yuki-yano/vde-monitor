@@ -1,0 +1,167 @@
+import type { SessionDetail } from "@vde-monitor/shared";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { useSessionDoneAcknowledgement } from "./useSessionDoneAcknowledgement";
+
+const session = (
+  completedSeq: number,
+  acknowledgedSeq: number,
+  epoch = "epoch-1",
+  paneId = "%1",
+): SessionDetail =>
+  ({
+    paneId,
+    completion: { epoch, completedSeq, acknowledgedSeq },
+  }) as SessionDetail;
+
+const setVisibility = (visibilityState: DocumentVisibilityState) => {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: visibilityState,
+  });
+};
+
+afterEach(() => {
+  vi.useRealTimers();
+  setVisibility("visible");
+});
+
+describe("useSessionDoneAcknowledgement", () => {
+  it("acknowledges a pending completion when the detail is visible", async () => {
+    setVisibility("visible");
+    const acknowledgeSessionView = vi.fn(async () => undefined);
+
+    renderHook(() =>
+      useSessionDoneAcknowledgement({
+        paneId: "%1",
+        session: session(2, 1),
+        acknowledgeSessionView,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 2);
+    });
+  });
+
+  it("acknowledges a snapshot that arrives after mount and each later generation", async () => {
+    setVisibility("visible");
+    const acknowledgeSessionView = vi.fn(async () => undefined);
+    const { rerender } = renderHook(
+      ({ value }: { value: SessionDetail | null }) =>
+        useSessionDoneAcknowledgement({
+          paneId: "%1",
+          session: value,
+          acknowledgeSessionView,
+        }),
+      { initialProps: { value: null as SessionDetail | null } },
+    );
+    expect(acknowledgeSessionView).not.toHaveBeenCalled();
+
+    rerender({ value: session(1, 0) });
+    await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 1));
+
+    rerender({ value: session(2, 1) });
+    await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 2));
+  });
+
+  it("acknowledges 20 visible completion generations within two seconds each", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const responseDelaysMs = [
+      25, 40, 55, 70, 85, 100, 125, 150, 180, 220, 260, 310, 370, 440, 520, 620, 760, 920, 1_200,
+      1_800,
+    ];
+    const samples: Array<{
+      sampleId: number;
+      startedAt: number;
+      completedAt: number;
+      latencyMs: number;
+    }> = [];
+    const acknowledgeSessionView = vi.fn(
+      (_paneId: string, _epoch: string, throughSeq: number) =>
+        new Promise<void>((resolve) => {
+          const startedAt = performance.now();
+          const delayMs = responseDelaysMs[throughSeq - 1];
+          if (delayMs == null) {
+            throw new Error(`Unexpected completion sequence: ${throughSeq}`);
+          }
+          setTimeout(() => {
+            const completedAt = performance.now();
+            samples.push({
+              sampleId: throughSeq,
+              startedAt,
+              completedAt,
+              latencyMs: completedAt - startedAt,
+            });
+            resolve();
+          }, delayMs);
+        }),
+    );
+    const { rerender } = renderHook(
+      ({ value }: { value: SessionDetail | null }) =>
+        useSessionDoneAcknowledgement({
+          paneId: "%1",
+          session: value,
+          acknowledgeSessionView,
+        }),
+      { initialProps: { value: null as SessionDetail | null } },
+    );
+
+    for (let completedSeq = 1; completedSeq <= responseDelaysMs.length; completedSeq += 1) {
+      rerender({ value: session(completedSeq, completedSeq - 1) });
+      expect(acknowledgeSessionView).toHaveBeenLastCalledWith("%1", "epoch-1", completedSeq);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(responseDelaysMs[completedSeq - 1] ?? 0);
+      });
+    }
+
+    expect(acknowledgeSessionView).toHaveBeenCalledTimes(20);
+    expect(samples).toHaveLength(20);
+    expect(samples.map(({ sampleId }) => sampleId)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    );
+    expect(samples.map(({ latencyMs }) => latencyMs)).toEqual(responseDelaysMs);
+    expect(samples.every(({ latencyMs }) => latencyMs <= 2_000)).toBe(true);
+  });
+
+  it("does not acknowledge while hidden and acknowledges on visibility return", async () => {
+    setVisibility("hidden");
+    const acknowledgeSessionView = vi.fn(async () => undefined);
+    renderHook(() =>
+      useSessionDoneAcknowledgement({
+        paneId: "%1",
+        session: session(1, 0),
+        acknowledgeSessionView,
+      }),
+    );
+    expect(acknowledgeSessionView).not.toHaveBeenCalled();
+
+    setVisibility("visible");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+
+    await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 1));
+  });
+
+  it("uses the current pane after a paneId switch", async () => {
+    setVisibility("visible");
+    const acknowledgeSessionView = vi.fn(async () => undefined);
+    const { rerender } = renderHook(
+      ({ paneId, value }: { paneId: string; value: SessionDetail }) =>
+        useSessionDoneAcknowledgement({
+          paneId,
+          session: value,
+          acknowledgeSessionView,
+        }),
+      { initialProps: { paneId: "%1", value: session(1, 0) } },
+    );
+    await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 1));
+
+    rerender({ paneId: "%2", value: session(1, 0) });
+    expect(acknowledgeSessionView).not.toHaveBeenCalledWith("%2", "epoch-1", 1);
+
+    rerender({ paneId: "%2", value: session(1, 0, "epoch-2", "%2") });
+    await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%2", "epoch-2", 1));
+  });
+});
