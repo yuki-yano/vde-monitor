@@ -223,7 +223,7 @@ export const aggregateBillingBreakdownRows = (
   }
 
   return Array.from(map.values())
-    .sort((left, right) => left.startMs - right.startMs)
+    .sort((left, right) => right.startMs - left.startMs)
     .map((entry) => ({
       date: entry.date,
       modelIds: Array.from(entry.modelIds).sort(),

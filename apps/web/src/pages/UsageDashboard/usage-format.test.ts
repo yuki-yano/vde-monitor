@@ -123,6 +123,12 @@ describe("usage-format", () => {
     const daily = aggregateBillingBreakdownRows(rows, "daily");
     expect(daily).toHaveLength(2);
     expect(daily[0]).toMatchObject({
+      modelIds: ["a-model"],
+      inputTokens: 1,
+      totalTokens: 10,
+      usd: null,
+    });
+    expect(daily[1]).toMatchObject({
       modelIds: ["a-model", "b-model"],
       inputTokens: 10,
       totalTokens: 100,
@@ -140,5 +146,23 @@ describe("usage-format", () => {
       totalTokens: 110,
       usd: 1.5,
     });
+  });
+
+  it("sorts billing breakdown rows by newest period first", () => {
+    const rows = [
+      createBreakdownRow("2025-12-15", { totalTokens: 100 }),
+      createBreakdownRow("2026-02-15", { totalTokens: 300 }),
+      createBreakdownRow("2026-01-15", { totalTokens: 200 }),
+    ];
+
+    expect(aggregateBillingBreakdownRows(rows, "daily").map((row) => row.totalTokens)).toEqual([
+      300, 200, 100,
+    ]);
+    expect(aggregateBillingBreakdownRows(rows, "weekly").map((row) => row.totalTokens)).toEqual([
+      300, 200, 100,
+    ]);
+    expect(aggregateBillingBreakdownRows(rows, "monthly").map((row) => row.totalTokens)).toEqual([
+      300, 200, 100,
+    ]);
   });
 });
