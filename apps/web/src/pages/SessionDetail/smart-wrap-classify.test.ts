@@ -115,7 +115,7 @@ describe("classifySmartWrapLines", () => {
       "claude-tool-block",
       "claude-tool-block",
       "claude-tool-block",
-      "statusline-preserve",
+      "default",
     ]);
   });
 
@@ -260,12 +260,21 @@ describe("classifySmartWrapLines", () => {
     ]);
   });
 
-  it("does not mark prompt line when trailing divider statusline block is absent", () => {
+  it("wraps a plain Claude last line when trailing statusline block is absent", () => {
     const lines = ["❯ run tests", "plain output", "tail"];
     const result = classifySmartWrapLines(lines, "claude");
     expect(result[0]?.rule).toBe("default");
     expect(result[1]?.rule).toBe("default");
-    expect(result[2]?.rule).toBe("statusline-preserve");
+    expect(result[2]?.rule).toBe("default");
+  });
+
+  it("wraps a plain Claude line when it is the only screen line", () => {
+    const result = classifySmartWrapLines(
+      ["A long response line at the bottom of the Claude terminal"],
+      "claude",
+    );
+
+    expect(result[0]?.rule).toBe("default");
   });
 
   it("does not mark last line for unknown agent", () => {

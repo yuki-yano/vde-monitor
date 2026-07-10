@@ -45,7 +45,7 @@ export const classifySmartWrapLines = (
     if (claudeStatuslineLineSet.has(index)) {
       return buildClassification("statusline-preserve");
     }
-    if (isLastLine && (agent === "codex" || agent === "claude")) {
+    if (isLastLine && agent === "codex") {
       return buildClassification("statusline-preserve");
     }
     if (claudeToolBlockLineSet.has(index)) {
