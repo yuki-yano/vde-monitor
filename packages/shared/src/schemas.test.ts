@@ -14,6 +14,7 @@ import {
   sessionStateTimelineSourceSchema,
   sessionSummarySchema,
   usageGlobalTimelineResponseSchema,
+  usageRepositoryActivityResponseSchema,
 } from "./schemas";
 
 describe("launchAgentRequestSchema", () => {
@@ -109,6 +110,43 @@ describe("usageGlobalTimelineResponseSchema", () => {
       timeline: undefined,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("usageRepositoryActivityResponseSchema", () => {
+  const createPayload = () => ({
+    range: "24h",
+    rangeStart: "2026-07-10T00:00:00.000Z",
+    rangeEnd: "2026-07-11T00:00:00.000Z",
+    coverage: {
+      status: "partial",
+      trackingStartedAt: "2026-07-10T12:00:00.000Z",
+      gapDurationMs: 1000,
+      unattributedRunningMs: 2000,
+      unattributedCompletedRunCount: 1,
+    },
+    items: [
+      {
+        repoKey: "/work/a",
+        repoRoot: "/work/a",
+        repoName: "a",
+        activeTimeMs: 3000,
+        agentTimeMs: 4000,
+        completedRunCount: 2,
+        lastActiveAt: "2026-07-11T00:00:00.000Z",
+      },
+    ],
+    fetchedAt: "2026-07-11T00:00:00.000Z",
+  });
+
+  it("accepts the repository activity response", () => {
+    expect(usageRepositoryActivityResponseSchema.safeParse(createPayload()).success).toBe(true);
+  });
+
+  it("rejects a negative activity duration", () => {
+    const payload = createPayload();
+    payload.items[0]!.activeTimeMs = -1;
+    expect(usageRepositoryActivityResponseSchema.safeParse(payload).success).toBe(false);
   });
 });
 

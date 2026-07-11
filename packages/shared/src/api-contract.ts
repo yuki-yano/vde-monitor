@@ -103,6 +103,10 @@ export type TimelineQuery = {
   limit?: string;
 };
 
+export type RepositoryActivityQuery = {
+  range?: SessionStateTimelineRange;
+};
+
 export type BranchCheckoutJson = { branch: string };
 export type BranchCreateJson = { name: string; base?: string };
 export type BranchDeleteJson = { name: string; force?: boolean };

@@ -27,6 +27,7 @@ export const API_ERROR_MESSAGES = {
   usageDashboard: "Failed to load usage dashboard",
   usageProviderBilling: "Failed to load provider billing",
   usageGlobalTimeline: "Failed to load global usage timeline",
+  usageRepositoryActivity: "Failed to load repository activity",
   repoNotes: "Failed to load repository notes",
   createRepoNote: "Failed to create repository note",
   updateRepoNote: "Failed to update repository note",

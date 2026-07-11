@@ -28,10 +28,11 @@ import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/
 import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/session-timeline-range";
 import { cn } from "@/lib/cn";
 import { formatStateLabel, stateTone } from "@/lib/session-format";
+import { formatDurationMs, formatTime } from "@/lib/time-format";
 
 import { ProviderQuotaSection } from "./ProviderQuotaSection";
+import { RepositoryActivitySection } from "./RepositoryActivitySection";
 import { formatDateTime } from "./usage-format";
-import { formatDurationMs, formatTime } from "@/lib/time-format";
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
 
 const resolveBackToListSearch = () => ({ filter: readStoredSessionListFilter() });
@@ -114,9 +115,14 @@ export const UsageDashboardView = ({
   timelineLoading,
   timelineError,
   timelineRange,
+  repositoryActivity,
+  repositoryActivityLoading,
+  repositoryActivityError,
+  repositoryActivityRange,
   compactTimeline,
   nowMs,
   onTimelineRangeChange,
+  onRepositoryActivityRangeChange,
   onToggleCompactTimeline,
   onRefreshAll,
   quickPanelGroups,
@@ -235,7 +241,8 @@ export const UsageDashboardView = ({
                 <RefreshCw
                   className={cn(
                     "h-3.5 w-3.5",
-                    (dashboardLoading || timelineLoading) && "animate-spin",
+                    (dashboardLoading || timelineLoading || repositoryActivityLoading) &&
+                      "animate-spin motion-reduce:animate-none",
                   )}
                 />
               </Button>
@@ -264,6 +271,14 @@ export const UsageDashboardView = ({
               billingLoading={billingLoadingByProvider.claude}
             />
           </div>
+
+          <RepositoryActivitySection
+            activity={repositoryActivity}
+            loading={repositoryActivityLoading}
+            error={repositoryActivityError}
+            range={repositoryActivityRange}
+            onRangeChange={onRepositoryActivityRangeChange}
+          />
 
           <GlowCard contentClassName="gap-3">
             <section>

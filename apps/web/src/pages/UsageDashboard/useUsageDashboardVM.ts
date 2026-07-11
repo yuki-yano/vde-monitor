@@ -23,6 +23,7 @@ import { useUsageApi } from "@/state/use-usage-api";
 import { useUsageBillingData } from "./useUsageBillingData";
 import { useUsageDashboardData } from "./useUsageDashboardData";
 import { useUsageTimelineData } from "./useUsageTimelineData";
+import { useRepositoryActivityData } from "./useRepositoryActivityData";
 
 export const useUsageDashboardVM = () => {
   const { sessions, connected, connectionIssue } = useSessionStreamData();
@@ -42,6 +43,7 @@ export const useUsageDashboardVM = () => {
     requestUsageDashboard,
     requestUsageProviderBilling,
     requestUsageGlobalTimeline,
+    requestUsageRepositoryActivity,
     resolveErrorMessage,
   } = useUsageApi({ token, apiBaseUrl });
 
@@ -84,6 +86,19 @@ export const useUsageDashboardVM = () => {
     resolveErrorMessage,
   });
 
+  const {
+    activity: repositoryActivity,
+    loading: repositoryActivityLoading,
+    error: repositoryActivityError,
+    range: repositoryActivityRange,
+    setRange: setRepositoryActivityRange,
+    load: loadRepositoryActivity,
+  } = useRepositoryActivityData({
+    canRequest,
+    requestRepositoryActivity: requestUsageRepositoryActivity,
+    resolveErrorMessage,
+  });
+
   const sidebarSessionGroups = useMemo(
     () =>
       buildSessionGroups(sessions, {
@@ -117,8 +132,9 @@ export const useUsageDashboardVM = () => {
     void Promise.all([
       loadDashboard({ forceRefresh: true, withBilling: true }),
       loadTimeline({ range: timelineRange }),
+      loadRepositoryActivity({ requestedRange: repositoryActivityRange }),
     ]);
-  }, [loadDashboard, loadTimeline, timelineRange]);
+  }, [loadDashboard, loadRepositoryActivity, loadTimeline, repositoryActivityRange, timelineRange]);
 
   const handleOpenPaneInNewWindow = useCallback(
     (targetPaneId: string) => {
@@ -183,9 +199,14 @@ export const useUsageDashboardVM = () => {
     timelineLoading,
     timelineError,
     timelineRange,
+    repositoryActivity,
+    repositoryActivityLoading,
+    repositoryActivityError,
+    repositoryActivityRange,
     compactTimeline,
     nowMs,
     onTimelineRangeChange: setTimelineRange,
+    onRepositoryActivityRangeChange: setRepositoryActivityRange,
     onToggleCompactTimeline: () => {
       setCompactTimeline((current) => !current);
     },

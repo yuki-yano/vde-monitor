@@ -203,6 +203,40 @@ describe("state-store timeline persistence", () => {
     expect(restoredRepoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
   });
 
+  it("roundtrips repository activity without coupling it to session persistence", () => {
+    const repositoryActivity = {
+      trackingStartedAt: "2026-07-10T00:00:00.000Z",
+      savedAt: "2026-07-10T00:01:00.000Z",
+      intervals: [
+        {
+          id: "%1:1783641600000:1",
+          paneId: "%1",
+          repoRoot: "/repo/a",
+          runId: "epoch-a:1",
+          startedAt: "2026-07-10T00:00:00.000Z",
+          endedAt: null,
+        },
+      ],
+      completedRuns: [
+        {
+          epoch: "epoch-a",
+          runSeq: 1,
+          repoRoot: "/repo/a",
+          completedAt: "2026-07-10T00:00:30.000Z",
+        },
+      ],
+      gaps: [],
+    };
+    saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      repositoryActivity,
+    });
+
+    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
+    expect(parsed.repositoryActivity).toEqual(repositoryActivity);
+    expect(restorePersistedState().repositoryActivity).toEqual(repositoryActivity);
+  });
+
   it("rejects version 2 without reading or converting it", () => {
     fileContents.set(
       statePath,

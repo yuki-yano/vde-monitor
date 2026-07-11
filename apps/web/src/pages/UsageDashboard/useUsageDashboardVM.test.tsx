@@ -215,6 +215,20 @@ describe("useUsageDashboardVM", () => {
       requestUsageDashboard: vi.fn(async () => createDashboardResponse()),
       requestUsageProviderBilling,
       requestUsageGlobalTimeline: vi.fn(async () => createTimelineResponse()),
+      requestUsageRepositoryActivity: vi.fn(async () => ({
+        range: "24h" as const,
+        rangeStart: "2026-02-26T00:00:00.000Z",
+        rangeEnd: NOW_ISO,
+        coverage: {
+          status: "complete" as const,
+          trackingStartedAt: "2026-02-01T00:00:00.000Z",
+          gapDurationMs: 0,
+          unattributedRunningMs: 0,
+          unattributedCompletedRunCount: 0,
+        },
+        items: [],
+        fetchedAt: NOW_ISO,
+      })),
       resolveErrorMessage: (_error: unknown, fallback: string) => fallback,
     });
 
@@ -265,6 +279,20 @@ describe("useUsageDashboardVM", () => {
         createProviderSnapshot(provider),
       ),
       requestUsageGlobalTimeline,
+      requestUsageRepositoryActivity: vi.fn(async () => ({
+        range: "24h" as const,
+        rangeStart: "2026-02-26T00:00:00.000Z",
+        rangeEnd: NOW_ISO,
+        coverage: {
+          status: "complete" as const,
+          trackingStartedAt: "2026-02-01T00:00:00.000Z",
+          gapDurationMs: 0,
+          unattributedRunningMs: 0,
+          unattributedCompletedRunCount: 0,
+        },
+        items: [],
+        fetchedAt: NOW_ISO,
+      })),
       resolveErrorMessage: (_error: unknown, fallback: string) => fallback,
     });
 

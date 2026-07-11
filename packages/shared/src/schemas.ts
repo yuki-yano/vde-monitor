@@ -577,6 +577,31 @@ export const usageGlobalTimelineResponseSchema = z.object({
   fetchedAt: z.string(),
 });
 
+export const usageRepositoryActivityItemSchema = z.object({
+  repoKey: z.string(),
+  repoRoot: z.string(),
+  repoName: z.string(),
+  activeTimeMs: z.number().nonnegative(),
+  agentTimeMs: z.number().nonnegative(),
+  completedRunCount: z.number().int().nonnegative(),
+  lastActiveAt: z.string(),
+});
+
+export const usageRepositoryActivityResponseSchema = z.object({
+  range: sessionStateTimelineRangeSchema,
+  rangeStart: z.string(),
+  rangeEnd: z.string(),
+  coverage: z.object({
+    status: z.enum(["complete", "partial"]),
+    trackingStartedAt: z.string(),
+    gapDurationMs: z.number().nonnegative(),
+    unattributedRunningMs: z.number().nonnegative(),
+    unattributedCompletedRunCount: z.number().int().nonnegative(),
+  }),
+  items: z.array(usageRepositoryActivityItemSchema),
+  fetchedAt: z.string(),
+});
+
 const strictObject = <TShape extends z.ZodRawShape>(shape: TShape) => z.object(shape).strict();
 
 export const highlightCorrectionSchema = strictObject({

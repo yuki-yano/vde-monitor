@@ -5,11 +5,13 @@ import type {
   UsageGlobalTimelineResponse,
   UsageProviderId,
   UsageProviderSnapshot,
+  UsageRepositoryActivityResponse,
 } from "@vde-monitor/shared";
 import {
   usageDashboardResponseSchema,
   usageGlobalTimelineResponseSchema,
   usageProviderSnapshotSchema,
+  usageRepositoryActivityResponseSchema,
 } from "@vde-monitor/shared";
 import { useCallback, useMemo } from "react";
 
@@ -38,6 +40,10 @@ type RequestUsageProviderBillingOptions = {
 
 type RequestUsageGlobalTimelineOptions = {
   range?: SessionStateTimelineRange;
+};
+
+type RequestUsageRepositoryActivityOptions = {
+  range: SessionStateTimelineRange;
 };
 
 const DEFAULT_TIMELINE_RANGE: SessionStateTimelineRange = "1h";
@@ -192,14 +198,58 @@ export const useUsageApi = ({ token, apiBaseUrl }: UseUsageApiParams) => {
     [apiBasePath, ensureToken, token],
   );
 
+  const requestUsageRepositoryActivity = useCallback(
+    async (
+      options: RequestUsageRepositoryActivityOptions,
+    ): Promise<UsageRepositoryActivityResponse> => {
+      ensureToken();
+      const query = new URLSearchParams();
+      query.set("range", options.range);
+      const request = fetch(buildApiPath(apiBasePath, "/usage/repository-activity", query), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      try {
+        const { res, data } = await requestJson<
+          UsageRepositoryActivityResponse | ApiEnvelope<unknown>
+        >(request);
+        if (!res.ok) {
+          throw new Error(
+            extractErrorMessage(
+              res,
+              (data as ApiEnvelope<unknown> | null) ?? null,
+              API_ERROR_MESSAGES.usageRepositoryActivity,
+              { includeStatus: true },
+            ),
+          );
+        }
+        const parsed = usageRepositoryActivityResponseSchema.safeParse(data);
+        if (!parsed.success) {
+          throw new Error(API_ERROR_MESSAGES.invalidResponse);
+        }
+        return parsed.data;
+      } catch (error) {
+        throw toErrorWithFallback(error, API_ERROR_MESSAGES.usageRepositoryActivity);
+      }
+    },
+    [apiBasePath, ensureToken, token],
+  );
+
   return useMemo(
     () => ({
       requestUsageDashboard,
       requestUsageProviderBilling,
       requestUsageGlobalTimeline,
+      requestUsageRepositoryActivity,
       resolveErrorMessage: (error: unknown, fallback: string) =>
         resolveUnknownErrorMessage(error, fallback),
     }),
-    [requestUsageDashboard, requestUsageGlobalTimeline, requestUsageProviderBilling],
+    [
+      requestUsageDashboard,
+      requestUsageGlobalTimeline,
+      requestUsageProviderBilling,
+      requestUsageRepositoryActivity,
+    ],
   );
 };

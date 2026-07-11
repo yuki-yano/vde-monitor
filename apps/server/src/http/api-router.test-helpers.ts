@@ -8,6 +8,7 @@ import {
   type RepoNote,
   type SessionDetail,
   type UsageProviderSnapshot,
+  type UsageRepositoryActivityResponse,
   configDefaults,
 } from "@vde-monitor/shared";
 import { vi } from "vitest";
@@ -203,6 +204,22 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     },
     current: null,
   }));
+  const getRepositoryActivity = vi.fn(
+    (): UsageRepositoryActivityResponse => ({
+      range: "24h" as const,
+      rangeStart: "2026-02-24T10:00:00.000Z",
+      rangeEnd: "2026-02-25T10:00:00.000Z",
+      coverage: {
+        status: "complete" as const,
+        trackingStartedAt: "2026-02-24T10:00:00.000Z",
+        gapDurationMs: 0,
+        unattributedRunningMs: 0,
+        unattributedCompletedRunCount: 0,
+      },
+      items: [],
+      fetchedAt: "2026-02-25T10:00:00.000Z",
+    }),
+  );
   const getRepoNotes = vi.fn((): RepoNote[] => []);
   const createRepoNote = vi.fn((_: string, input: { title?: string | null; body: string }) => ({
     id: "note-1",
@@ -237,6 +254,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
+    getRepositoryActivity,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,
@@ -335,6 +353,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
+    getRepositoryActivity,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,

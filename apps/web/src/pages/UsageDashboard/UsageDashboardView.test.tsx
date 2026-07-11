@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { UsageGlobalTimelineResponse, UsageProviderSnapshot } from "@vde-monitor/shared";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -145,9 +145,14 @@ const createViewModel = (
   timelineLoading: false,
   timelineError: null,
   timelineRange: "1h",
+  repositoryActivity: null,
+  repositoryActivityLoading: false,
+  repositoryActivityError: null,
+  repositoryActivityRange: "24h",
   compactTimeline: false,
   nowMs: Date.now(),
   onTimelineRangeChange: vi.fn(),
+  onRepositoryActivityRangeChange: vi.fn(),
   onToggleCompactTimeline: vi.fn(),
   onRefreshAll: vi.fn(),
   quickPanelGroups: [],
@@ -411,10 +416,14 @@ describe("UsageDashboardView", () => {
     expect(screen.queryByRole("tab", { name: "15m" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "1h" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "3h" })).toBeNull();
-    expect(screen.getByRole("tab", { name: "14d" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "30d" })).toBeTruthy();
+    const timelineSection = screen
+      .getByRole("heading", { name: "Global State Timeline" })
+      .closest("section");
+    expect(timelineSection).not.toBeNull();
+    expect(within(timelineSection!).getByRole("tab", { name: "14d" })).toBeTruthy();
+    expect(within(timelineSection!).getByRole("tab", { name: "30d" })).toBeTruthy();
 
-    const rangeTab = screen.getByRole("tab", { name: "30d" });
+    const rangeTab = within(timelineSection!).getByRole("tab", { name: "30d" });
     fireEvent.mouseDown(rangeTab, { button: 0 });
     expect(onTimelineRangeChange).toHaveBeenCalledWith("30d");
   });

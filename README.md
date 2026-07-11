@@ -108,6 +108,12 @@ When terminal height allows, a QR code is also printed for quick access from ano
 ### Usage Dashboard (capacity and cost checks)
 
 - Compare Codex and Claude provider snapshots in one view.
+- Compare repository activity for the selected 24-hour, 7-day, or 30-day range. Active time
+  measures the union of lifecycle-confirmed running periods, Agent time sums those periods across
+  concurrent agents, and Completed runs counts distinct explicit completion events. Poll-only
+  state fragments are excluded. These are activity metrics, not token or cost rankings.
+- Treat partial coverage and unattributed activity callouts as part of the result instead of
+  assuming missing observations are zero.
 - Use Global State Timeline (range + compact mode) to identify waiting-heavy periods.
 - Review issues/warnings surfaced by providers, then jump back to Session List for action.
 - Useful for deciding when to rebalance active sessions or reduce costly runs.

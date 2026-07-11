@@ -17,6 +17,10 @@ const usageTimelineQuerySchema = z.object({
   limit: z.string().optional(),
 });
 
+const repositoryActivityQuerySchema = z.object({
+  range: sessionStateTimelineRangeSchema.optional(),
+});
+
 const usageProviderQuerySchema = z.object({
   refresh: z.string().optional(),
   includeWindows: z.string().optional(),
@@ -240,5 +244,9 @@ export const createUsageRoutes = ({
         activePaneCount,
         fetchedAt: nowIso(),
       });
+    })
+    .get("/usage/repository-activity", zValidator("query", repositoryActivityQuerySchema), (c) => {
+      const query = c.req.valid("query");
+      return c.json(monitor.getRepositoryActivity(query.range ?? "24h"));
     });
 };

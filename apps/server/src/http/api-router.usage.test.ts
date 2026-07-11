@@ -175,6 +175,58 @@ describe("createApiRouter", () => {
     expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d");
   });
 
+  it("returns repository activity for the selected range", async () => {
+    const { api, getRepositoryActivity } = createTestContext();
+    getRepositoryActivity.mockReturnValueOnce({
+      range: "7d",
+      rangeStart: "2026-02-18T10:00:00.000Z",
+      rangeEnd: "2026-02-25T10:00:00.000Z",
+      coverage: {
+        status: "partial",
+        trackingStartedAt: "2026-02-20T10:00:00.000Z",
+        gapDurationMs: 60_000,
+        unattributedRunningMs: 30_000,
+        unattributedCompletedRunCount: 2,
+      },
+      items: [
+        {
+          repoKey: "/repo/a",
+          repoRoot: "/repo/a",
+          repoName: "a",
+          activeTimeMs: 20_000,
+          agentTimeMs: 30_000,
+          completedRunCount: 2,
+          lastActiveAt: "2026-02-25T09:59:00.000Z",
+        },
+      ],
+      fetchedAt: "2026-02-25T10:00:00.000Z",
+    });
+
+    const res = await api.request("/usage/repository-activity?range=7d", {
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(200);
+    expect(getRepositoryActivity).toHaveBeenCalledWith("7d");
+    expect(await res.json()).toMatchObject({
+      range: "7d",
+      items: [expect.objectContaining({ repoRoot: "/repo/a", completedRunCount: 2 })],
+    });
+  });
+
+  it("defaults repository activity to 24h and validates the range", async () => {
+    const { api, getRepositoryActivity } = createTestContext();
+
+    const defaultRange = await api.request("/usage/repository-activity", { headers: authHeaders });
+    const invalidRange = await api.request("/usage/repository-activity?range=2d", {
+      headers: authHeaders,
+    });
+
+    expect(defaultRange.status).toBe(200);
+    expect(getRepositoryActivity).toHaveBeenCalledWith("24h");
+    expect(invalidRange.status).toBe(400);
+  });
+
   it("returns codex provider snapshot endpoint", async () => {
     const { api, getProviderSnapshot } = createTestContext();
     const res = await api.request("/codex/usage", {

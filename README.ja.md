@@ -108,6 +108,12 @@ vde-monitor: http://localhost:11080/#token=...
 ### Usage Dashboard（容量・コスト確認）
 
 - Codex / Claude の利用状況を同一画面で比較。
+- 24時間・7日・30日の期間ごとにリポジトリ活動量を比較。Active time はライフサイクルイベントで
+  確認できた実行期間の和集合、Agent time は並列Agentを含む同期間の合計、Completed runs は明示的な
+  完了イベントの一意な実行数を表す。pollだけで生じた状態断片は除外し、token量やコストのランキング
+  としては扱わない。
+- 観測範囲が不完全な場合やリポジトリを特定できない活動がある場合は、その情報を集計結果と
+  あわせて表示し、未観測をゼロとして扱わない。
 - Global State Timeline（範囲切替 + Compact）で待機時間の偏りを把握。
 - provider の issue / warning を確認して、必要に応じて Session List に戻って調整。
 - セッション配分の見直しや高コスト実行の抑制判断に有効。

@@ -71,6 +71,8 @@ import type {
   usageProviderRuleSchema,
   usageProviderSnapshotSchema,
   usageProviderStatusSchema,
+  usageRepositoryActivityItemSchema,
+  usageRepositoryActivityResponseSchema,
   usageSessionConfigSchema,
   workspaceTabsDisplayModeSchema,
 } from "./schemas";
@@ -131,6 +133,8 @@ export type UsageIssue = z.infer<typeof usageIssueSchema>;
 export type UsageProviderSnapshot = z.infer<typeof usageProviderSnapshotSchema>;
 export type UsageDashboardResponse = z.infer<typeof usageDashboardResponseSchema>;
 export type UsageGlobalTimelineResponse = z.infer<typeof usageGlobalTimelineResponseSchema>;
+export type UsageRepositoryActivityItem = z.infer<typeof usageRepositoryActivityItemSchema>;
+export type UsageRepositoryActivityResponse = z.infer<typeof usageRepositoryActivityResponseSchema>;
 export type UsageProviderRuleConfig = z.infer<typeof usageProviderRuleSchema>;
 export type UsageSessionConfig = z.infer<typeof usageSessionConfigSchema>;
 export type UsagePricingConfig = z.infer<typeof usagePricingConfigSchema>;

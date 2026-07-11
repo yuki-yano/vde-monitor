@@ -19,6 +19,7 @@ const VIEWED_PANE_TTL_MS = 20_000;
 
 type PaneProcessingFailure = {
   count: number;
+  firstFailedAt: string;
   lastFailedAt: string;
   lastErrorMessage: string;
 };
@@ -53,6 +54,26 @@ type TimelineStoreLike = {
   closePane: (input: { paneId: string; at?: string }) => void;
 };
 
+type RepositoryActivityStoreLike = {
+  observePane: (input: {
+    paneId: string;
+    running: boolean;
+    repoRoot: string | null;
+    runId: string | null;
+    verified: boolean;
+    at?: string;
+  }) => void;
+  closePane: (paneId: string) => void;
+  recordCompletedRun: (input: {
+    epoch: string;
+    runSeq: number;
+    repoRoot: string | null;
+    source: "hook:stop" | "herdr:done";
+    at?: string;
+  }) => void;
+  recordCoverageGap: (input: { startedAt: string; endedAt: string }) => void;
+};
+
 type LogActivityLike = {
   unregister: (paneId: string) => void;
 };
@@ -72,6 +93,7 @@ type CreatePaneUpdateServiceArgs = {
   customTitles: Map<string, string>;
   registry: RegistryLike;
   stateTimeline: TimelineStoreLike;
+  repositoryActivity: RepositoryActivityStoreLike;
   logActivity: LogActivityLike;
   savePersistedState: () => void;
   observePaneMetadata?: (pane: PaneMeta) => void;
@@ -120,6 +142,7 @@ export const createPaneUpdateService = ({
   customTitles,
   registry,
   stateTimeline,
+  repositoryActivity,
   logActivity,
   savePersistedState,
   observePaneMetadata,
@@ -137,11 +160,28 @@ export const createPaneUpdateService = ({
   const recordPaneProcessingFailure = (paneId: string, reason: unknown) => {
     const failedAt = new Date().toISOString();
     const previous = paneProcessingFailures.get(paneId);
-    paneProcessingFailures.set(paneId, {
+    const failure = {
       count: (previous?.count ?? 0) + 1,
+      firstFailedAt: previous?.firstFailedAt ?? failedAt,
       lastFailedAt: failedAt,
       lastErrorMessage: toErrorMessage(reason),
+    };
+    paneProcessingFailures.set(paneId, failure);
+    repositoryActivity.closePane(paneId);
+    repositoryActivity.recordCoverageGap({
+      startedAt: failure.firstFailedAt,
+      endedAt: failure.lastFailedAt,
     });
+  };
+
+  const recordPaneProcessingRecovery = (paneId: string) => {
+    const failure = paneProcessingFailures.get(paneId);
+    if (!failure) return;
+    repositoryActivity.recordCoverageGap({
+      startedAt: failure.firstFailedAt,
+      endedAt: new Date().toISOString(),
+    });
+    paneProcessingFailures.delete(paneId);
   };
 
   const markPaneViewed = (paneId: string, atMs = Date.now()) => {
@@ -287,7 +327,7 @@ export const createPaneUpdateService = ({
 
       const observedDetail = paneResult.value;
       if (!observedDetail) {
-        paneProcessingFailures.delete(pane.paneId);
+        recordPaneProcessingRecovery(pane.paneId);
         onPaneObservationCommitted?.(pane.paneId);
         continue;
       }
@@ -345,9 +385,39 @@ export const createPaneUpdateService = ({
         completionCommit.advancedCompletions.forEach(queueTransition);
         registry.update(detail);
         Object.assign(paneState, stagedPaneState);
+        completionCommit.activityTransitions.forEach((transition) => {
+          repositoryActivity.observePane({
+            paneId: detail.paneId,
+            running: transition.type === "start",
+            repoRoot: detail.repoRoot ?? null,
+            runId: `${transition.epoch}:${transition.runSeq}`,
+            verified: transition.type === "start",
+            at: transition.at,
+          });
+        });
+        const cursor = stagedPaneState.completionCursor;
+        repositoryActivity.observePane({
+          paneId: detail.paneId,
+          running: stagedPaneState.lifecycle === "RUNNING",
+          repoRoot: detail.repoRoot ?? null,
+          runId: cursor?.openRunSeq == null ? null : `${cursor.epoch}:${cursor.openRunSeq}`,
+          verified: false,
+        });
+        completionCommit.advancedCompletions.forEach(({ epoch, completedSeq, source, at }) => {
+          if (source !== "hook:stop" && source !== "herdr:done") {
+            return;
+          }
+          repositoryActivity.recordCompletedRun({
+            epoch,
+            runSeq: completedSeq,
+            repoRoot: detail.repoRoot ?? null,
+            source,
+            at: at ?? undefined,
+          });
+        });
         pendingTransitionEvents.push(...paneTransitionEvents);
         onPaneObservationCommitted?.(pane.paneId);
-        paneProcessingFailures.delete(pane.paneId);
+        recordPaneProcessingRecovery(pane.paneId);
       } catch (error) {
         recordPaneProcessingFailure(pane.paneId, error);
       }
@@ -364,12 +434,13 @@ export const createPaneUpdateService = ({
         viewedPaneAtMs.delete(paneId);
         panePipeTagCache.delete(paneId);
         panePipeTagInflight.delete(paneId);
-        paneProcessingFailures.delete(paneId);
+        recordPaneProcessingRecovery(paneId);
         removePaneObservation?.(paneId);
       },
     });
     removedPaneIds.forEach((paneId) => {
       stateTimeline.closePane({ paneId });
+      repositoryActivity.closePane(paneId);
     });
     const pipeCleanupPaneIds = new Set(removedPaneIds);
     paneLogManager.getOwnedPaneIds().forEach((paneId) => {

@@ -19,6 +19,7 @@ const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntime
   lastResolvedState: null,
   lastResolvedStateReason: null,
   pendingAgentLifecycleEvents: [],
+  lastAuthoritativeEventAt: null,
   hookState: null,
   codexQuestionPromptActive: false,
   lastOutputAt: null,

@@ -23,6 +23,7 @@ import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 import type { SessionTransitionEvent } from "./notifications/types";
 import { createRepoNotesService } from "./repo-notes/service";
 import { createRepoNotesStore } from "./repo-notes/store";
+import { createRepositoryActivityStore } from "./repository-activity/store";
 import { createSessionRegistry } from "./session-registry";
 import { restorePersistedState, saveState } from "./state-store";
 import { createSessionTimelineStore } from "./state-timeline/store";
@@ -84,6 +85,7 @@ export const createSessionMonitor = (
   const screenCapture = runtime.screenCapture;
   const registry = createSessionRegistry();
   const stateTimeline = createSessionTimelineStore();
+  const repositoryActivity = createRepositoryActivityStore();
   const observationCoordinator = createPaneObservationCoordinator({
     executeBatch: (requests, signal) =>
       screenCapture.captureTextBatch(
@@ -121,6 +123,7 @@ export const createSessionMonitor = (
   const retainedRestoredSessions = new Map(restored);
   const restoredTimeline = restoredState.timeline;
   const restoredRepoNotes = restoredState.repoNotes;
+  repositoryActivity.restore(restoredState.repositoryActivity);
   const repoNotes = createRepoNotesStore();
   repoNotes.restore(restoredRepoNotes);
   const serverKey = runtime.serverKey;
@@ -159,6 +162,7 @@ export const createSessionMonitor = (
       retainedSessions: retainedRestoredSessions,
       timeline: stateTimeline.serialize(),
       repoNotes: repoNotes.serialize(),
+      repositoryActivity: repositoryActivity.serialize(),
     });
   };
   const repoNotesService = createRepoNotesService({
@@ -177,6 +181,7 @@ export const createSessionMonitor = (
     customTitles,
     registry,
     stateTimeline,
+    repositoryActivity,
     logActivity,
     savePersistedState,
     observePaneMetadata: (pane) => {
@@ -418,6 +423,9 @@ export const createSessionMonitor = (
     });
   };
 
+  const getRepositoryActivity = (range: SessionStateTimelineRange = "24h") =>
+    repositoryActivity.getActivity(range);
+
   const getRepoNotes = repoNotesService.listByPane;
   const createRepoNote = repoNotesService.createByPane;
   const updateRepoNote = repoNotesService.updateByPane;
@@ -432,6 +440,7 @@ export const createSessionMonitor = (
     getStateTimeline,
     getRepoStateTimeline,
     getGlobalStateTimeline,
+    getRepositoryActivity,
     getRepoNotes,
     createRepoNote,
     updateRepoNote,

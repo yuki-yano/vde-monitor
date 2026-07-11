@@ -41,6 +41,7 @@ export type PaneRuntimeState = {
   lastResolvedState: SessionStateValue | null;
   lastResolvedStateReason: string | null;
   pendingAgentLifecycleEvents: PendingAgentLifecycleEvent[];
+  lastAuthoritativeEventAt: string | null;
   hookState: HookStateSignal | null;
   herdrAgentStatus?: HerdrAgentStatusSignal | null;
   codexQuestionPromptActive: boolean;
@@ -76,6 +77,7 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastResolvedState: null,
   lastResolvedStateReason: null,
   pendingAgentLifecycleEvents: [],
+  lastAuthoritativeEventAt: null,
   hookState: null,
   herdrAgentStatus: null,
   codexQuestionPromptActive: false,

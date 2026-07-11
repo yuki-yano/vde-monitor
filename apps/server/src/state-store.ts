@@ -76,6 +76,7 @@ type PersistedState = {
   sessions: Record<string, unknown>;
   timeline: Record<string, unknown>;
   repoNotes?: Record<string, unknown>;
+  repositoryActivity?: unknown;
 };
 
 const getStatePath = () => {
@@ -97,6 +98,7 @@ export type SaveStateOptions = {
   retainedSessions?: ReadonlyMap<string, PersistedSession>;
   timeline?: PersistedTimelineRecord;
   repoNotes?: PersistedRepoNotesRecord;
+  repositoryActivity?: unknown;
 };
 
 const isLifecycle = (value: unknown): value is PersistedLifecycle =>
@@ -279,6 +281,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
     },
     timeline: options.timeline ?? {},
     repoNotes: options.repoNotes ?? {},
+    repositoryActivity: options.repositoryActivity,
   };
   const dir = path.dirname(getStatePath());
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -296,6 +299,7 @@ export type RestoredPersistedState = {
   sessions: PersistedSessionMap;
   timeline: PersistedTimelineMap;
   repoNotes: PersistedRepoNotesMap;
+  repositoryActivity: unknown;
 };
 
 const restorePersistedSessionMap = (state: PersistedState | null): PersistedSessionMap => {
@@ -345,5 +349,6 @@ export const restorePersistedState = (): RestoredPersistedState => {
     sessions: restorePersistedSessionMap(state),
     timeline: restorePersistedTimelineMap(state),
     repoNotes: restorePersistedRepoNotesMap(state),
+    repositoryActivity: state?.repositoryActivity,
   };
 };

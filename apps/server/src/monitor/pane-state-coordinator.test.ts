@@ -152,10 +152,83 @@ describe("createPaneStateCoordinator", () => {
     });
 
     expect(commit.advancedCompletions).toEqual([
-      { epoch: "epoch-1", completedSeq: 1 },
-      { epoch: "epoch-1", completedSeq: 2 },
+      {
+        epoch: "epoch-1",
+        completedSeq: 1,
+        source: "hook:stop",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+      {
+        epoch: "epoch-1",
+        completedSeq: 2,
+        source: "hook:stop",
+        at: "2026-07-10T00:00:04.000Z",
+      },
+    ]);
+    expect(commit.activityTransitions).toEqual([
+      { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:01.000Z" },
+      { type: "complete", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:02.000Z" },
+      { type: "start", epoch: "epoch-1", runSeq: 2, at: "2026-07-10T00:00:03.000Z" },
+      { type: "complete", epoch: "epoch-1", runSeq: 2, at: "2026-07-10T00:00:04.000Z" },
     ]);
     expect(commit.detail.completion).toMatchObject({ completedSeq: 2 });
+  });
+
+  it("preserves the previous session run when a new session starts in the same tick", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    paneState.pendingAgentLifecycleEvents.push(
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-a",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "Stop",
+        sessionId: "session-a",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-b",
+        at: "2026-07-10T00:00:03.000Z",
+      },
+    );
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({
+        state: "RUNNING",
+        stateReason: "hook:UserPromptSubmit",
+        agentSessionId: "session-b",
+      }),
+      paneState,
+    });
+
+    expect(commit.advancedCompletions).toEqual([
+      {
+        epoch: "epoch-1",
+        completedSeq: 1,
+        source: "hook:stop",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+    ]);
+    expect(commit.activityTransitions).toEqual([
+      { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:01.000Z" },
+      { type: "complete", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:02.000Z" },
+      { type: "start", epoch: "epoch-2", runSeq: 1, at: "2026-07-10T00:00:03.000Z" },
+    ]);
+    expect(paneState.completionCursor).toMatchObject({
+      epoch: "epoch-2",
+      agentSessionId: "session-b",
+      openRunSeq: 1,
+    });
   });
 
   it("acknowledges only the current epoch through the completed sequence", () => {
@@ -326,6 +399,53 @@ describe("createPaneStateCoordinator", () => {
     expect(commit.detail.state).toBe("RUNNING");
     expect(paneState.completionCursor).toMatchObject({ openRunSeq: 1, completedSeq: 0 });
     expect(paneState.hookState).toBeNull();
+  });
+
+  it("rejects an authoritative begin event older than the current identity", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.agentPresence = "present";
+    paneState.agentPresent = true;
+    paneState.lastAuthoritativeEventAt = "2026-07-10T00:00:10.000Z";
+    paneState.completionCursor = {
+      epoch: "current",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:10.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    };
+    paneState.pendingAgentLifecycleEvents.push({
+      source: "hook",
+      agent: "codex",
+      eventName: "UserPromptSubmit",
+      sessionId: "session-stale",
+      at: "2026-07-10T00:00:05.000Z",
+    });
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "hook:UserPromptSubmit" }),
+      paneState,
+    });
+
+    expect(commit.activityTransitions).toEqual([]);
+    expect(commit.detail.state).toBe("DONE");
+    expect(paneState.completionCursor).toMatchObject({
+      epoch: "current",
+      agentSessionId: "session-1",
+    });
+    expect(paneState.completionCursor?.openRunSeq).toBeNull();
   });
 
   it("does not report presence identity rejection before a newer explicit session start", () => {
@@ -608,6 +728,8 @@ describe("createPaneStateCoordinator", () => {
     });
 
     expect(commit.confirmedAbsent).toBe(true);
+    expect(commit.advancedCompletions).toEqual([]);
+    expect(commit.activityTransitions).toEqual([]);
     expect(commit.detail).toMatchObject({
       agent: "codex",
       state: "DONE",
@@ -620,7 +742,7 @@ describe("createPaneStateCoordinator", () => {
     expect(paneState.pendingRestoredCompletionCursor).toBeNull();
   });
 
-  it("applies confirmed absence before queued begin and completion intents", () => {
+  it("preserves queued begin and completion intents after confirmed absence", () => {
     const paneState = createPaneStateStore().get("%1");
     paneState.lifecycle = "WAITING_INPUT";
     paneState.agentPresence = "absent";
@@ -668,14 +790,25 @@ describe("createPaneStateCoordinator", () => {
       paneState,
     });
 
-    expect(commit.completionAdvanced).toBe(false);
-    expect(commit.advancedCompletions).toEqual([]);
-    expect(commit.detail.state).toBe("UNKNOWN");
+    expect(commit.completionAdvanced).toBe(true);
+    expect(commit.advancedCompletions).toEqual([
+      {
+        epoch: "epoch-1",
+        completedSeq: 1,
+        source: "hook:stop",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+    ]);
+    expect(commit.activityTransitions).toEqual([
+      { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:01.000Z" },
+      { type: "complete", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:02.000Z" },
+    ]);
+    expect(commit.detail.state).toBe("DONE");
     expect(paneState.completionCursor).toMatchObject({
-      agentPresent: false,
-      runSeq: 0,
+      agentPresent: true,
+      runSeq: 1,
       openRunSeq: null,
-      completedSeq: 0,
+      completedSeq: 1,
     });
   });
 });

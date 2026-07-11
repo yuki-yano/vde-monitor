@@ -107,6 +107,12 @@ describe("createPaneUpdateService", () => {
       record: vi.fn(),
       closePane: vi.fn(),
     };
+    const repositoryActivity = {
+      observePane: vi.fn(),
+      closePane: vi.fn(),
+      recordCompletedRun: vi.fn(),
+      recordCoverageGap: vi.fn(),
+    };
     const inspector = {
       listPanes: vi.fn(async () => [basePane]),
       readUserOption: vi.fn(async () => null),
@@ -129,6 +135,7 @@ describe("createPaneUpdateService", () => {
       customTitles: new Map(),
       registry,
       stateTimeline,
+      repositoryActivity,
       logActivity: { unregister: vi.fn() },
       savePersistedState,
       observePaneMetadata,
@@ -139,6 +146,7 @@ describe("createPaneUpdateService", () => {
     return {
       service,
       stateTimeline,
+      repositoryActivity,
       paneStates,
       registry,
       savePersistedState,
@@ -254,15 +262,29 @@ describe("createPaneUpdateService", () => {
   });
 
   it("retains a cold-restored pane when processing rejects", async () => {
-    processPaneMock.mockRejectedValueOnce(new Error("capture failed"));
-    const { service, savePersistedState, onPaneInventory, onPaneObservationCommitted } =
-      createService();
+    processPaneMock
+      .mockRejectedValueOnce(new Error("capture failed"))
+      .mockResolvedValueOnce(createDetail());
+    const {
+      service,
+      repositoryActivity,
+      savePersistedState,
+      onPaneInventory,
+      onPaneObservationCommitted,
+    } = createService();
 
     await service.updateFromPanes();
 
     expect(onPaneInventory).toHaveBeenCalledWith(["%1"]);
     expect(onPaneObservationCommitted).not.toHaveBeenCalled();
     expect(savePersistedState).toHaveBeenCalledOnce();
+    expect(repositoryActivity.closePane).toHaveBeenCalledWith("%1");
+
+    await service.updateFromPanes();
+    expect(repositoryActivity.recordCoverageGap).toHaveBeenLastCalledWith({
+      startedAt: expect.any(String),
+      endedAt: expect.any(String),
+    });
   });
 
   it("isolates a synchronous state commit failure to its pane", async () => {
@@ -390,6 +412,12 @@ describe("createPaneUpdateService", () => {
       customTitles: new Map(),
       registry,
       stateTimeline,
+      repositoryActivity: {
+        observePane: vi.fn(),
+        closePane: vi.fn(),
+        recordCompletedRun: vi.fn(),
+        recordCoverageGap: vi.fn(),
+      },
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(),
       onStateTransition,
@@ -448,6 +476,12 @@ describe("createPaneUpdateService", () => {
       expect(savePersistedState).toHaveBeenCalledOnce();
       expect(registry.getDetail("%1")?.state).toBe("DONE");
     });
+    const repositoryActivity = {
+      observePane: vi.fn(),
+      closePane: vi.fn(),
+      recordCompletedRun: vi.fn(),
+      recordCoverageGap: vi.fn(),
+    };
     const service = createPaneUpdateService({
       inspector: {
         listPanes: vi.fn(async () => [basePane]),
@@ -467,6 +501,7 @@ describe("createPaneUpdateService", () => {
         }),
         closePane: vi.fn(),
       },
+      repositoryActivity,
       logActivity: { unregister: vi.fn() },
       savePersistedState,
       onStateTransition,
@@ -481,6 +516,29 @@ describe("createPaneUpdateService", () => {
       "state-notification",
       "completion-notification",
     ]);
+    expect(repositoryActivity.recordCompletedRun).toHaveBeenCalledWith({
+      epoch: expect.any(String),
+      runSeq: 1,
+      repoRoot: "/repo/default",
+      source: "hook:stop",
+      at: "2026-02-25T00:00:01.000Z",
+    });
+    expect(repositoryActivity.observePane).toHaveBeenNthCalledWith(1, {
+      paneId: "%1",
+      running: true,
+      repoRoot: "/repo/default",
+      runId: expect.stringMatching(/:1$/),
+      verified: true,
+      at: "2026-02-25T00:00:00.000Z",
+    });
+    expect(repositoryActivity.observePane).toHaveBeenNthCalledWith(2, {
+      paneId: "%1",
+      running: false,
+      repoRoot: "/repo/default",
+      runId: expect.stringMatching(/:1$/),
+      verified: false,
+      at: "2026-02-25T00:00:01.000Z",
+    });
   });
 
   it("does not dispatch a completion notification when persistence fails", async () => {
@@ -500,6 +558,12 @@ describe("createPaneUpdateService", () => {
       customTitles: new Map(),
       registry: createSessionRegistry(),
       stateTimeline: { record: vi.fn(), closePane: vi.fn() },
+      repositoryActivity: {
+        observePane: vi.fn(),
+        closePane: vi.fn(),
+        recordCompletedRun: vi.fn(),
+        recordCoverageGap: vi.fn(),
+      },
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(() => {
         throw new Error("persist failed");
@@ -542,6 +606,12 @@ describe("createPaneUpdateService", () => {
       stateTimeline: {
         record: vi.fn(),
         closePane: vi.fn(),
+      },
+      repositoryActivity: {
+        observePane: vi.fn(),
+        closePane: vi.fn(),
+        recordCompletedRun: vi.fn(),
+        recordCoverageGap: vi.fn(),
       },
       logActivity: { unregister: vi.fn() },
       savePersistedState: vi.fn(),

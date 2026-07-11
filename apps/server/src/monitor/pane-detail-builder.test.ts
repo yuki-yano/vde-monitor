@@ -42,6 +42,7 @@ const observation: PaneObservation = {
     lastResolvedState: "RUNNING",
     lastResolvedStateReason: "estimated",
     pendingAgentLifecycleEvents: [],
+    lastAuthoritativeEventAt: null,
     hookState: null,
     codexQuestionPromptActive: false,
     lastOutputAt: null,

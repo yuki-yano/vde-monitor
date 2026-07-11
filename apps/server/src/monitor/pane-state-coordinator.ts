@@ -9,6 +9,7 @@ import {
   type AgentLifecycle,
   type CompletionAgent,
   type CompletionReduction,
+  type CompletionSource,
   type CompletionState,
   canRestoreCompletionCursor,
   createCompletionStateReducer,
@@ -25,7 +26,18 @@ export type PaneCompletionCommit = {
   source: SessionStateTimelineSource;
   identityRejected: boolean;
   confirmedAbsent: boolean;
-  advancedCompletions: Array<{ epoch: string; completedSeq: number }>;
+  advancedCompletions: Array<{
+    epoch: string;
+    completedSeq: number;
+    source: CompletionSource;
+    at: string | null;
+  }>;
+  activityTransitions: Array<{
+    type: "start" | "complete";
+    epoch: string;
+    runSeq: number;
+    at: string;
+  }>;
 };
 
 const toCompletionAgent = (agent: AgentType): CompletionAgent | null =>
@@ -62,12 +74,16 @@ export const createPaneInstanceKey = ({
 const mergeReduction = (
   aggregate: Omit<PaneCompletionCommit, "detail" | "source">,
   reduction: CompletionReduction,
+  completionSource: CompletionSource | null = null,
+  completionAt: string | null = null,
 ) => {
   const nextCompletion =
     reduction.completionAdvanced && reduction.state.cursor != null
       ? {
           epoch: reduction.state.cursor.epoch,
           completedSeq: reduction.state.cursor.completedSeq,
+          source: completionSource ?? "confirmed-absent",
+          at: completionAt,
         }
       : null;
   const advancedCompletions =
@@ -85,11 +101,21 @@ const mergeReduction = (
     identityRejected: aggregate.identityRejected || reduction.identityRejected,
     confirmedAbsent: aggregate.confirmedAbsent || reduction.confirmedAbsent,
     advancedCompletions,
+    activityTransitions: aggregate.activityTransitions,
   };
 };
 
 const resolveEventSource = (events: PendingAgentLifecycleEvent[]): SessionStateTimelineSource =>
   events.some(({ source }) => source === "hook") ? "hook" : "poll";
+
+const resolveHookEventReason = (event: Extract<PendingAgentLifecycleEvent, { source: "hook" }>) =>
+  event.eventName === "Stop"
+    ? "hook:stop"
+    : event.eventName === "PermissionRequest"
+      ? "hook:permission_request"
+      : event.eventName === "Notification"
+        ? "hook:permission_prompt"
+        : `hook:${event.eventName}`;
 
 const projectPublicDetail = (detail: SessionDetail, state: CompletionState): SessionDetail => {
   const cursor = state.cursor;
@@ -137,7 +163,23 @@ export const createPaneStateCoordinator = ({
     detail: SessionDetail;
     paneState: PaneRuntimeState;
   }): PaneCompletionCommit => {
-    const events = paneState.pendingAgentLifecycleEvents.splice(0);
+    const lastAuthoritativeEventAtMs = Date.parse(paneState.lastAuthoritativeEventAt ?? "");
+    let rejectedObservedHookLifecycle = false;
+    const events = paneState.pendingAgentLifecycleEvents
+      .splice(0)
+      .sort((left, right) => Date.parse(left.at) - Date.parse(right.at))
+      .filter((event) => {
+        if (
+          Number.isNaN(lastAuthoritativeEventAtMs) ||
+          Date.parse(event.at) >= lastAuthoritativeEventAtMs
+        ) {
+          return true;
+        }
+        if (event.source === "hook" && resolveHookEventReason(event) === detail.stateReason) {
+          rejectedObservedHookLifecycle = true;
+        }
+        return false;
+      });
     const paneInstanceKey = createPaneInstanceKey({
       serverKey,
       paneId: pane.paneId,
@@ -174,8 +216,9 @@ export const createPaneStateCoordinator = ({
       identityRejected: false,
       confirmedAbsent: false,
       advancedCompletions: [],
+      activityTransitions: [],
     };
-    let finalHookStateAccepted: boolean | null = null;
+    let finalHookStateAccepted: boolean | null = rejectedObservedHookLifecycle ? false : null;
 
     let restoredIdentityRejected = false;
     const pendingRestoredCursor = paneState.pendingRestoredCompletionCursor;
@@ -255,51 +298,17 @@ export const createPaneStateCoordinator = ({
     }
 
     const acceptedEvents: PendingAgentLifecycleEvent[] = [];
-    events.forEach((event) => {
-      if (event.source === "herdr") {
-        acceptedEvents.push(event);
-        return;
-      }
-      const eventReason =
-        event.eventName === "Stop"
-          ? "hook:stop"
-          : event.eventName === "PermissionRequest"
-            ? "hook:permission_request"
-            : event.eventName === "Notification"
-              ? "hook:permission_prompt"
-              : `hook:${event.eventName}`;
-      const identity = reducer.reduce(state, {
-        type: "observe-agent-identity",
-        origin: event.eventName === "UserPromptSubmit" ? "explicit-session-start" : "event",
-        agent: event.agent,
-        agentSessionId: event.sessionId,
-        paneInstanceKey,
-        at: event.at,
-      });
-      state = identity.state;
-      aggregate = mergeReduction(aggregate, identity);
-      if (eventReason === detail.stateReason) {
-        finalHookStateAccepted = !identity.identityRejected;
-      }
-      if (identity.identityRejected) {
-        return;
-      }
-      acceptedEvents.push(event);
-    });
-
-    const ignoreObservedHookLifecycle =
-      detail.stateReason.startsWith("hook:") && finalHookStateAccepted === false;
+    const hookDrivenObservation = detail.stateReason.startsWith("hook:");
+    const deferHookLifecycleToEvents =
+      hookDrivenObservation && (events.length > 0 || rejectedObservedHookLifecycle);
     const preservePendingRestoredLifecycle =
       pendingRestoredCursor != null &&
       (paneState.agentPresence === "indeterminate" ||
         (paneState.agentPresence === "absent" && !confirmedAbsentObservation));
     const observedLifecycle =
-      ignoreObservedHookLifecycle || preservePendingRestoredLifecycle
+      deferHookLifecycleToEvents || preservePendingRestoredLifecycle
         ? previousLifecycle
         : observedDetailLifecycle;
-    if (ignoreObservedHookLifecycle) {
-      paneState.hookState = null;
-    }
 
     if (state.cursor != null) {
       const presence = reducer.reduce(state, {
@@ -309,7 +318,7 @@ export const createPaneStateCoordinator = ({
         lifecycleWhenPresent: observedLifecycle,
       });
       state = presence.state;
-      aggregate = mergeReduction(aggregate, presence);
+      aggregate = mergeReduction(aggregate, presence, "confirmed-absent");
     }
 
     const eventMatchesCurrentIdentity = (event: PendingAgentLifecycleEvent) => {
@@ -323,14 +332,83 @@ export const createPaneStateCoordinator = ({
       );
     };
     const applyEventIntent = (event: PendingAgentLifecycleEvent) => {
-      if (state.cursor != null && !state.cursor.agentPresent) {
-        return;
+      const eventReason = event.source === "hook" ? resolveHookEventReason(event) : null;
+      if (event.source === "hook") {
+        const identity = reducer.reduce(state, {
+          type: "observe-agent-identity",
+          origin: event.eventName === "UserPromptSubmit" ? "explicit-session-start" : "event",
+          agent: event.agent,
+          agentSessionId: event.sessionId,
+          paneInstanceKey,
+          at: event.at,
+        });
+        state = identity.state;
+        aggregate = mergeReduction(aggregate, identity);
+        if (eventReason === detail.stateReason) {
+          finalHookStateAccepted = !identity.identityRejected;
+        }
+        if (identity.identityRejected) {
+          return;
+        }
       }
+      acceptedEvents.push(event);
+      paneState.lastAuthoritativeEventAt = event.at;
       if (!eventMatchesCurrentIdentity(event)) {
         return;
       }
+      const beginsRun =
+        (event.source === "herdr" && event.agentStatus === "working") ||
+        (event.source === "hook" &&
+          (event.eventName === "UserPromptSubmit" ||
+            event.eventName === "PreToolUse" ||
+            event.eventName === "PostToolUse"));
+      if (state.cursor != null && !state.cursor.agentPresent) {
+        if (beginsRun) {
+          const cursor = state.cursor;
+          const reset = reducer.reduce(state, {
+            type: "reset-agent-epoch",
+            agent: event.source === "hook" ? event.agent : cursor.agent,
+            agentSessionId: event.source === "hook" ? event.sessionId : cursor.agentSessionId,
+            paneInstanceKey,
+            at: event.at,
+            agentPresent: true,
+            syntheticCompletionArmed: false,
+          });
+          state = reset.state;
+          aggregate = mergeReduction(aggregate, reset);
+        }
+        const explicitCompletionSource =
+          event.source === "herdr" && event.agentStatus === "done"
+            ? "herdr:done"
+            : event.source === "hook" && event.eventName === "Stop"
+              ? "hook:stop"
+              : null;
+        const completion = aggregate.advancedCompletions.find(
+          ({ epoch, completedSeq }) =>
+            epoch === state.cursor?.epoch && completedSeq === state.cursor.completedSeq,
+        );
+        if (
+          !beginsRun &&
+          explicitCompletionSource != null &&
+          completion?.source === "confirmed-absent"
+        ) {
+          completion.source = explicitCompletionSource;
+          completion.at = event.at;
+          aggregate.activityTransitions.push({
+            type: "complete",
+            epoch: completion.epoch,
+            runSeq: completion.completedSeq,
+            at: event.at,
+          });
+        }
+        if (!beginsRun) return;
+      }
       if (event.source === "herdr") {
         if (event.agentStatus === "working") {
+          const previousRunId =
+            state.cursor?.openRunSeq == null
+              ? null
+              : `${state.cursor.epoch}:${state.cursor.openRunSeq}`;
           const reduction = reducer.reduce(state, {
             type: "begin-run",
             source: "herdr:working",
@@ -339,6 +417,18 @@ export const createPaneStateCoordinator = ({
           });
           state = reduction.state;
           aggregate = mergeReduction(aggregate, reduction);
+          const cursor = state.cursor;
+          if (
+            cursor?.openRunSeq != null &&
+            `${cursor.epoch}:${cursor.openRunSeq}` !== previousRunId
+          ) {
+            aggregate.activityTransitions.push({
+              type: "start",
+              epoch: cursor.epoch,
+              runSeq: cursor.openRunSeq,
+              at: event.at,
+            });
+          }
         } else if (event.agentStatus === "done") {
           const reduction = reducer.reduce(state, {
             type: "complete-run",
@@ -347,7 +437,15 @@ export const createPaneStateCoordinator = ({
             lifecycle: "WAITING_INPUT",
           });
           state = reduction.state;
-          aggregate = mergeReduction(aggregate, reduction);
+          aggregate = mergeReduction(aggregate, reduction, "herdr:done", event.at);
+          if (reduction.completionAdvanced && state.cursor != null) {
+            aggregate.activityTransitions.push({
+              type: "complete",
+              epoch: state.cursor.epoch,
+              runSeq: state.cursor.completedSeq,
+              at: event.at,
+            });
+          }
         }
         return;
       }
@@ -357,6 +455,10 @@ export const createPaneStateCoordinator = ({
         event.eventName === "PreToolUse" ||
         event.eventName === "PostToolUse"
       ) {
+        const previousRunId =
+          state.cursor?.openRunSeq == null
+            ? null
+            : `${state.cursor.epoch}:${state.cursor.openRunSeq}`;
         const begin = reducer.reduce(state, {
           type: "begin-run",
           source: `hook:${event.eventName}`,
@@ -365,6 +467,18 @@ export const createPaneStateCoordinator = ({
         });
         state = begin.state;
         aggregate = mergeReduction(aggregate, begin);
+        const cursor = state.cursor;
+        if (
+          cursor?.openRunSeq != null &&
+          `${cursor.epoch}:${cursor.openRunSeq}` !== previousRunId
+        ) {
+          aggregate.activityTransitions.push({
+            type: "start",
+            epoch: cursor.epoch,
+            runSeq: cursor.openRunSeq,
+            at: event.at,
+          });
+        }
       } else if (event.eventName === "Stop") {
         const complete = reducer.reduce(state, {
           type: "complete-run",
@@ -375,12 +489,39 @@ export const createPaneStateCoordinator = ({
           lifecycle: "WAITING_INPUT",
         });
         state = complete.state;
-        aggregate = mergeReduction(aggregate, complete);
+        aggregate = mergeReduction(aggregate, complete, "hook:stop", event.at);
+        if (complete.completionAdvanced && state.cursor != null) {
+          aggregate.activityTransitions.push({
+            type: "complete",
+            epoch: state.cursor.epoch,
+            runSeq: state.cursor.completedSeq,
+            at: event.at,
+          });
+        }
+      } else if (
+        eventReason === detail.stateReason &&
+        state.lifecycle !== observedDetailLifecycle
+      ) {
+        const lifecycle = reducer.reduce(state, {
+          type: "set-lifecycle",
+          lifecycle: observedDetailLifecycle,
+        });
+        state = lifecycle.state;
+        aggregate = mergeReduction(aggregate, lifecycle);
       }
     };
-    acceptedEvents.forEach(applyEventIntent);
+    events.forEach(applyEventIntent);
 
-    if (observedLifecycle === "RUNNING" && state.cursor?.openRunSeq == null) {
+    const ignoreObservedHookLifecycle = hookDrivenObservation && finalHookStateAccepted === false;
+    if (ignoreObservedHookLifecycle) {
+      paneState.hookState = null;
+    }
+
+    if (
+      !deferHookLifecycleToEvents &&
+      observedLifecycle === "RUNNING" &&
+      state.cursor?.openRunSeq == null
+    ) {
       const begin = reducer.reduce(state, {
         type: "begin-run",
         source: "poll:running",
@@ -389,6 +530,7 @@ export const createPaneStateCoordinator = ({
       state = begin.state;
       aggregate = mergeReduction(aggregate, begin);
     } else if (
+      !deferHookLifecycleToEvents &&
       previousLifecycle === "RUNNING" &&
       observedLifecycle === "WAITING_INPUT" &&
       state.cursor?.openRunSeq != null
@@ -399,8 +541,12 @@ export const createPaneStateCoordinator = ({
         lifecycle: "WAITING_INPUT",
       });
       state = complete.state;
-      aggregate = mergeReduction(aggregate, complete);
-    } else if (state.lifecycle !== observedLifecycle && !aggregate.confirmedAbsent) {
+      aggregate = mergeReduction(aggregate, complete, "poll");
+    } else if (
+      !deferHookLifecycleToEvents &&
+      state.lifecycle !== observedLifecycle &&
+      !aggregate.confirmedAbsent
+    ) {
       const lifecycle = reducer.reduce(state, {
         type: "set-lifecycle",
         lifecycle: observedLifecycle,
@@ -422,7 +568,7 @@ export const createPaneStateCoordinator = ({
     return {
       detail: projectPublicDetail(detail, state),
       ...aggregate,
-      source: resolveEventSource(events),
+      source: resolveEventSource(acceptedEvents),
     };
   };
 
@@ -456,6 +602,7 @@ export const createPaneStateCoordinator = ({
       identityRejected: false,
       confirmedAbsent: false,
       advancedCompletions: [],
+      activityTransitions: [],
     };
   };
 
