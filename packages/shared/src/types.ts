@@ -288,6 +288,8 @@ export type RepoFileLanguageHint =
   | "html"
   | "diff"
   | "dockerfile"
+  | "go"
+  | "rust"
   | "text";
 
 export type RepoFileImagePreviewMimeType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";

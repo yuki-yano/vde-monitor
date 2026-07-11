@@ -60,6 +60,46 @@ describe("highlightCode", () => {
     });
   });
 
+  it.each(["rs", "rust"])("maps the %s alias and loads Rust highlighting", async (lang) => {
+    codeToHtmlMock.mockReturnValue("<pre>rust</pre>");
+
+    const result = await highlightCode({
+      code: "fn main() {}",
+      lang,
+      theme: "mocha",
+    });
+
+    expect(result.language).toBe("rust");
+    expect(createHighlighterMock).toHaveBeenCalledWith({
+      themes: ["catppuccin-latte", "catppuccin-mocha"],
+      langs: expect.arrayContaining(["rust"]),
+    });
+    expect(codeToHtmlMock).toHaveBeenCalledWith("fn main() {}", {
+      lang: "rust",
+      theme: "catppuccin-mocha",
+    });
+  });
+
+  it.each(["go", "golang"])("maps the %s alias and loads Go highlighting", async (lang) => {
+    codeToHtmlMock.mockReturnValue("<pre>go</pre>");
+
+    const result = await highlightCode({
+      code: "package main\nfunc main() {}",
+      lang,
+      theme: "latte",
+    });
+
+    expect(result.language).toBe("go");
+    expect(createHighlighterMock).toHaveBeenCalledWith({
+      themes: ["catppuccin-latte", "catppuccin-mocha"],
+      langs: expect.arrayContaining(["go"]),
+    });
+    expect(codeToHtmlMock).toHaveBeenCalledWith("package main\nfunc main() {}", {
+      lang: "go",
+      theme: "catppuccin-latte",
+    });
+  });
+
   it("caches highlighted html for identical input", async () => {
     codeToHtmlMock.mockReturnValue("<pre>cached</pre>");
 

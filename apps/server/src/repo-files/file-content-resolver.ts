@@ -151,6 +151,12 @@ const resolveLanguageHint = (targetPath: string): RepoFileLanguageHint => {
   if (extension === ".diff" || extension === ".patch") {
     return "diff";
   }
+  if (extension === ".rs") {
+    return "rust";
+  }
+  if (extension === ".go") {
+    return "go";
+  }
   return "text";
 };
 

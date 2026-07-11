@@ -160,6 +160,54 @@ describe("file content resolver", () => {
     }
   });
 
+  it("returns rust language hint for Rust files", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-rust-"));
+    try {
+      await mkdir(path.join(repoRoot, "src"), { recursive: true });
+      await writeFile(path.join(repoRoot, "src", "main.rs"), "fn main() {}\n");
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "src/main.rs",
+        maxBytes: 1024,
+      });
+
+      expect(result).toMatchObject({
+        path: "src/main.rs",
+        isBinary: false,
+        truncated: false,
+        languageHint: "rust",
+        content: "fn main() {}\n",
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns go language hint for Go files", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-go-"));
+    try {
+      await mkdir(path.join(repoRoot, "cmd"), { recursive: true });
+      await writeFile(path.join(repoRoot, "cmd", "main.go"), "package main\n\nfunc main() {}\n");
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "cmd/main.go",
+        maxBytes: 1024,
+      });
+
+      expect(result).toMatchObject({
+        path: "cmd/main.go",
+        isBinary: false,
+        truncated: false,
+        languageHint: "go",
+        content: "package main\n\nfunc main() {}\n",
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects non-file paths", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-dir-"));
     try {
