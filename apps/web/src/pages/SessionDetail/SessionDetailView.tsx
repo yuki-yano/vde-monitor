@@ -110,7 +110,7 @@ const resolveMissingSessionState = (connectionIssue: string | null) => {
 
 export const SessionDetailView = () => {
   const { base } = useSessionDetailContext();
-  const { session, connectionIssue, connected } = base;
+  const { session, connectionIssue, hasLoadedInitialSessions } = base;
   const missingSessionState = resolveMissingSessionState(connectionIssue);
   const sessionDisplayTitle =
     session?.customTitle ?? session?.title ?? session?.sessionName ?? null;
@@ -155,8 +155,10 @@ export const SessionDetailView = () => {
     useSessionDetailViewWorktreeBranchSectionProps();
   const hasConnectionIssue = splitConnectionIssueLines(connectionIssue).length > 0;
   const isSessionMissing = !session || !sessionHeaderProps;
-  const isInitialSessionLoading = isSessionMissing && !connected && !hasConnectionIssue;
-  const shouldDelayMissingState = isSessionMissing && connected && !hasConnectionIssue;
+  const isInitialSessionLoading =
+    isSessionMissing && !hasLoadedInitialSessions && !hasConnectionIssue;
+  const shouldDelayMissingState =
+    isSessionMissing && hasLoadedInitialSessions && !hasConnectionIssue;
 
   useEffect(() => {
     if (!shouldDelayMissingState) {
@@ -187,6 +189,7 @@ export const SessionDetailView = () => {
         missingSessionState={missingSessionState}
         loading={isInitialSessionLoading || !showMissingState}
         sidebarWidth={sidebarWidth}
+        detailSplitRatio={detailSplitRatio}
       />
     );
   }

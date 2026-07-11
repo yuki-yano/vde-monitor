@@ -138,7 +138,14 @@ describe("RepositoryActivitySection", () => {
 
   it("renders loading, empty, and error states", () => {
     const { rerender } = renderSection({ activity: null, loading: true });
-    expect(screen.getByRole("status", { name: "Loading repository activity" })).toBeTruthy();
+    const loadingStatus = screen.getByRole("status", { name: "Loading repository activity" });
+    const loadingContent = screen.getByTestId("repository-activity-content");
+    expect(loadingContent.getAttribute("aria-busy")).toBe("true");
+    expect(loadingContent.contains(loadingStatus)).toBe(false);
+    expect(screen.getAllByTestId("repository-activity-skeleton-row")).toHaveLength(3);
+    expect(screen.getAllByTestId("repository-activity-skeleton-row")[0]?.className).toContain(
+      "min-h-[132px]",
+    );
 
     rerender(
       <RepositoryActivitySection
@@ -161,6 +168,14 @@ describe("RepositoryActivitySection", () => {
       />,
     );
     expect(screen.getByRole("alert").textContent).toContain("Failed to load repository activity");
+  });
+
+  it("keeps existing repository rows visible during a refresh", () => {
+    renderSection({ activity: createActivity(), loading: true });
+
+    expect(screen.getAllByRole("listitem").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("status", { name: "Loading repository activity" })).toBeNull();
+    expect(screen.queryByTestId("repository-activity-skeleton-row")).toBeNull();
   });
 
   it("requests the selected range", () => {

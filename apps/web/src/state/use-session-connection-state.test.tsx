@@ -38,6 +38,7 @@ describe("useSessionConnectionState", () => {
 
     expect(result.current.authBlocked).toBe(false);
     expect(result.current.connected).toBe(true);
+    expect(result.current.hasLoadedInitialSessions).toBe(true);
     expect(result.current.connectionStatus).toBe("healthy");
   });
 
@@ -97,15 +98,30 @@ describe("useSessionConnectionState", () => {
     );
 
     act(() => {
-      result.current.handleRefreshResult(failedResult({ rateLimited: true }));
+      result.current.handleRefreshResult(okResult);
       result.current.setConnectionIssue("temporary");
     });
+
+    expect(result.current.hasLoadedInitialSessions).toBe(true);
 
     rerender({ token: "second-token" });
 
     expect(result.current.connected).toBe(false);
+    expect(result.current.hasLoadedInitialSessions).toBe(false);
     expect(result.current.authBlocked).toBe(false);
     expect(result.current.pollBackoffMs).toBe(0);
     expect(result.current.connectionIssue).toBeNull();
+  });
+
+  it("marks an SSE snapshot as the initial load without changing connection health", () => {
+    const { result } = renderHook(() => useSessionConnectionState("token"));
+
+    act(() => {
+      result.current.markSessionsSnapshotReceived();
+    });
+
+    expect(result.current.hasLoadedInitialSessions).toBe(true);
+    expect(result.current.connected).toBe(false);
+    expect(result.current.connectionStatus).toBe("degraded");
   });
 });

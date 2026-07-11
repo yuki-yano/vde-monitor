@@ -2,11 +2,19 @@ import { MonitorX, RefreshCw, Search } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useRef } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Button, EmptyCard, GlassPanel, GlowCard } from "@/components/ui";
+import {
+  Button,
+  Card,
+  EmptyCard,
+  GlassPanel,
+  GlowCard,
+  InsetPanel,
+  Skeleton,
+} from "@/components/ui";
 import { LogModal } from "@/features/shared-session-ui/components/LogModal";
+import { PaneGridLayout } from "@/features/shared-session-ui/components/PaneGridLayout";
 import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
 import { SessionSidebar } from "@/features/shared-session-ui/components/SessionSidebar";
-import { cn } from "@/lib/cn";
 import { useLazyRef } from "@/lib/use-lazy-ref";
 
 import { SessionGroupSection } from "./components/SessionGroupSection";
@@ -18,78 +26,85 @@ export type SessionListViewProps = SessionListVM;
 
 type ReorderScrollTarget = { scope: "repo"; key: string } | { scope: "pane"; key: string };
 
-type LoadingBarProps = {
-  className: string;
-  shimmerClassName: string;
-};
+const SKELETON_REPOSITORIES = [0, 1] as const;
+const SKELETON_PANES = [0, 1, 2] as const;
 
-const LoadingBar = ({ className, shimmerClassName }: LoadingBarProps) => (
-  <div
-    className={cn(
-      "animate-skeleton-pulse bg-latte-surface0/65 relative overflow-hidden rounded-full",
-      className,
-    )}
-  >
-    <div
-      className={cn(
-        "animate-skeleton-shimmer bg-latte-surface2/75 absolute inset-y-0 left-0 rounded-full",
-        shimmerClassName,
-      )}
-    />
-  </div>
+const SessionPaneLoadingSkeleton = () => (
+  <Card className="flex min-h-[154px] flex-col p-3 sm:min-h-[168px] sm:p-4">
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+      <Skeleton className="h-5 w-16" />
+    </div>
+    <div className="mt-3 flex flex-1 flex-col gap-2">
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-3 w-4/5" />
+      <Skeleton className="h-3 w-3/5" />
+    </div>
+    <div className="mt-3 flex items-center gap-2 border-t border-latte-surface1/35 pt-2.5">
+      <Skeleton className="h-5 w-20" />
+      <Skeleton className="h-5 w-16" />
+      <Skeleton className="ml-auto h-7 w-7 rounded-xl" />
+    </div>
+  </Card>
 );
 
 const SessionListLoadingSkeleton = () => (
   <div
     data-testid="session-list-loading-skeleton"
-    role="status"
-    aria-live="polite"
+    aria-hidden="true"
     className="flex flex-col gap-4 sm:gap-6"
   >
-    <p className="text-latte-subtext0 text-sm">Loading Sessions...</p>
-    {[0, 1].map((cardIndex) => (
+    {SKELETON_REPOSITORIES.map((cardIndex) => (
       <GlowCard key={`session-list-loading-${cardIndex}`} contentClassName="gap-1.5 sm:gap-3">
         <GlassPanel
           className="px-2.5 py-2 sm:px-4 sm:py-4"
           contentClassName="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-linear-to-br">
-              <div className="animate-skeleton-shimmer bg-latte-lavender/40 absolute inset-y-0 left-0 w-5 rounded-2xl" />
-            </div>
+            <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
             <div className="min-w-0 space-y-1">
-              <LoadingBar className="h-5 w-40" shimmerClassName="w-14" />
-              <LoadingBar className="h-3 w-56 max-w-[60vw]" shimmerClassName="w-16" />
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-56 max-w-[60vw]" />
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:min-w-[320px]">
-            <LoadingBar className="h-5 w-20" shimmerClassName="w-8" />
-            <LoadingBar className="h-5 w-16" shimmerClassName="w-7" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-16" />
             <div className="ml-auto flex items-center gap-2">
-              <LoadingBar className="h-7 w-7 rounded-xl" shimmerClassName="w-4 rounded-xl" />
-              <LoadingBar className="h-7 w-7 rounded-xl" shimmerClassName="w-4 rounded-xl" />
-              <LoadingBar className="h-5 w-20" shimmerClassName="w-10" />
+              <Skeleton className="h-7 w-7 rounded-xl" />
+              <Skeleton className="h-7 w-7 rounded-xl" />
+              <Skeleton className="h-5 w-20" />
             </div>
           </div>
         </GlassPanel>
 
         <div className="pt-1.5 sm:pt-3">
-          <div className="space-y-2.5 sm:space-y-4">
-            {[0, 1].map((rowIndex) => (
-              <GlassPanel
-                key={`session-list-loading-${cardIndex}-${rowIndex}`}
-                className="px-2.5 py-2 sm:px-3 sm:py-3"
-                contentClassName="space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <LoadingBar className="h-4 w-28" shimmerClassName="w-10" />
-                  <LoadingBar className="ml-auto h-6 w-20" shimmerClassName="w-9" />
-                </div>
-                <LoadingBar className="h-8 w-full rounded-xl" shimmerClassName="w-20 rounded-xl" />
-                <LoadingBar className="h-8 w-11/12 rounded-xl" shimmerClassName="w-16 rounded-xl" />
-              </GlassPanel>
-            ))}
+          <div className="mb-2.5 flex items-center justify-between gap-3 px-1">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-7 w-28 rounded-lg" />
           </div>
+          <InsetPanel className="p-2.5 sm:p-4">
+            <div className="flex items-center justify-between gap-3 pb-2">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-3 w-36" />
+                </div>
+              </div>
+              <Skeleton className="h-5 w-20" />
+            </div>
+            <PaneGridLayout responsivePreset="session-list" className="mt-1.5 sm:mt-2">
+              {SKELETON_PANES.map((paneIndex) => (
+                <SessionPaneLoadingSkeleton
+                  key={`session-list-loading-${cardIndex}-${paneIndex}`}
+                />
+              ))}
+            </PaneGridLayout>
+          </InsetPanel>
         </div>
       </GlowCard>
     ))}
@@ -289,7 +304,7 @@ const SessionListMainContent = ({
   onRegisterPaneScrollTarget,
 }: SessionListMainContentProps) => (
   <div
-    className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
+    className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 motion-reduce:animate-none sm:px-4 sm:pb-10 sm:pt-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
     style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
   >
     <div className="flex flex-col gap-4 sm:gap-6">
@@ -320,7 +335,16 @@ const SessionListMainContent = ({
       ) : null}
 
       <div className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:gap-6">
+        {isDiscoveringSessions ? (
+          <p role="status" className="sr-only">
+            Loading Sessions...
+          </p>
+        ) : null}
+        <div
+          data-testid="session-list-content"
+          aria-busy={isDiscoveringSessions}
+          className="flex min-w-0 flex-1 flex-col gap-4 sm:gap-6"
+        >
           {isDiscoveringSessions && <SessionListLoadingSkeleton />}
           {sessions.length === 0 && !isDiscoveringSessions && (
             <EmptyCard
@@ -480,6 +504,7 @@ export const SessionListView = ({
   searchQuery,
   filterOptions,
   connected,
+  hasLoadedInitialSessions,
   connectionStatus,
   connectionIssue,
   transport,
@@ -521,7 +546,7 @@ export const SessionListView = ({
   const paneScrollTargetsRef = useLazyRef(() => new Map<string, HTMLAnchorElement>());
   const reorderScrollFrameRef = useRef<number | null>(null);
   const isDiscoveringSessions =
-    sessions.length === 0 && connectionStatus === "degraded" && connectionIssue == null;
+    sessions.length === 0 && !hasLoadedInitialSessions && connectionIssue == null;
 
   const registerRepoScrollTarget = useCallback(
     (key: string, element: HTMLElement | null) => {

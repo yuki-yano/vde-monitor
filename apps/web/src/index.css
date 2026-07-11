@@ -637,10 +637,10 @@ body::before {
 @keyframes skeleton-pulse {
   0%,
   100% {
-    opacity: 1;
+    opacity: 0.9;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.62;
   }
 }
 
@@ -653,12 +653,35 @@ body::before {
   }
 }
 
-.animate-skeleton-pulse {
-  animation: skeleton-pulse 2s ease-in-out infinite;
+.vde-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(var(--ctp-surface0) / 0.62);
+  animation: skeleton-pulse 2.4s ease-in-out infinite;
 }
 
-.animate-skeleton-shimmer {
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+.vde-skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent 10%,
+    rgb(var(--ctp-surface2) / 0.46) 50%,
+    transparent 90%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vde-skeleton {
+    animation: none;
+  }
+
+  .vde-skeleton::after {
+    display: none;
+  }
 }
 
 /* Page transition animations */

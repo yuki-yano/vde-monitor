@@ -2,7 +2,7 @@ import type { UsageMetricWindow, UsageProviderSnapshot } from "@vde-monitor/shar
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
-import { Callout, GlowCard, TagPill } from "@/components/ui";
+import { Callout, GlowCard, Skeleton, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 import {
@@ -340,7 +340,15 @@ export const ProviderQuotaSection = ({
 
   return (
     <GlowCard contentClassName="gap-3">
-      <section>
+      {providerLoading || billingLoading ? (
+        <span role="status" aria-label={`Loading ${title} usage data`} className="sr-only">
+          Loading {title} usage data
+        </span>
+      ) : null}
+      <section
+        data-testid={`provider-quota-${providerKey}`}
+        aria-busy={providerLoading || billingLoading}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-latte-text text-xl font-semibold">{title}</h2>
           {provider?.status === "degraded" ? (
@@ -363,7 +371,7 @@ export const ProviderQuotaSection = ({
                 <p className="font-display text-latte-text text-base font-semibold">Billing</p>
                 {billingLoading ? (
                   <TagPill tone="meta">
-                    <span className="bg-latte-subtext0 mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
+                    <span className="bg-latte-subtext0 mr-1.5 inline-block h-1.5 w-1.5 rounded-full" />
                     Loading
                   </TagPill>
                 ) : (
@@ -377,8 +385,8 @@ export const ProviderQuotaSection = ({
                   <p className="text-latte-subtext0 text-[11px]">Today</p>
                   {billingLoading ? (
                     <div className="space-y-1.5 pt-0.5">
-                      <div className="bg-latte-surface2/80 h-3.5 w-20 animate-pulse rounded-sm" />
-                      <div className="bg-latte-surface1/80 h-2.5 w-16 animate-pulse rounded-sm" />
+                      <Skeleton className="h-3.5 w-20 rounded-sm" />
+                      <Skeleton className="h-2.5 w-16 rounded-sm" />
                     </div>
                   ) : (
                     <>
@@ -395,8 +403,8 @@ export const ProviderQuotaSection = ({
                   <p className="text-latte-subtext0 text-[11px]">Last 30 days</p>
                   {billingLoading ? (
                     <div className="space-y-1.5 pt-0.5">
-                      <div className="bg-latte-surface2/80 h-3.5 w-24 animate-pulse rounded-sm" />
-                      <div className="bg-latte-surface1/80 h-2.5 w-20 animate-pulse rounded-sm" />
+                      <Skeleton className="h-3.5 w-24 rounded-sm" />
+                      <Skeleton className="h-2.5 w-20 rounded-sm" />
                     </div>
                   ) : (
                     <>
@@ -424,7 +432,7 @@ export const ProviderQuotaSection = ({
               ) : null}
               {billingLoading ? (
                 <div className="border-latte-surface2/70 bg-latte-base/45 flex items-center gap-2 rounded-xl border px-2.5 py-1.5">
-                  <div className="bg-latte-subtext0 h-1.5 w-1.5 animate-pulse rounded-full" />
+                  <span className="bg-latte-subtext0 h-1.5 w-1.5 rounded-full" />
                   <p className="text-latte-subtext0 text-xs">Syncing billing data...</p>
                 </div>
               ) : provider.billing.meta.source === "unavailable" ? (
@@ -435,11 +443,20 @@ export const ProviderQuotaSection = ({
             </div>
           ) : null}
           {!provider && providerLoading ? (
-            <div className="border-latte-surface2/70 bg-latte-base/35 space-y-2 rounded-2xl border px-3 py-2.5">
-              <div className="bg-latte-surface2/80 h-3 w-20 animate-pulse rounded-sm" />
-              <div className="bg-latte-surface1/80 h-2.5 w-full animate-pulse rounded-sm" />
-              <div className="bg-latte-surface1/70 h-2.5 w-5/6 animate-pulse rounded-sm" />
-              <p className="text-latte-subtext0 text-xs">Loading provider data...</p>
+            <div
+              aria-hidden="true"
+              className="border-latte-surface2/70 bg-latte-base/35 min-h-[128px] space-y-3 rounded-2xl border px-3 py-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <Skeleton className="h-2.5 w-full rounded-sm" />
+              <div className="flex flex-wrap items-center gap-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-5 w-24" />
+              </div>
             </div>
           ) : null}
           {!provider && !providerLoading ? (

@@ -218,6 +218,7 @@ const TestComponent = () => {
       <span data-testid="query">{vm.searchQuery}</span>
       <span data-testid="screen-error">{vm.screenError ?? ""}</span>
       <span data-testid="visible-count">{vm.visibleSessionCount}</span>
+      <span data-testid="initial-sessions-loaded">{String(vm.hasLoadedInitialSessions)}</span>
     </div>
   );
 };
@@ -268,6 +269,7 @@ describe("useSessionListVM", () => {
     mockUseSessions.mockReturnValue({
       sessions: [],
       connected: true,
+      hasLoadedInitialSessions: true,
       connectionStatus: "healthy",
       connectionIssue: null,
       refreshSessions: vi.fn(),
@@ -284,6 +286,7 @@ describe("useSessionListVM", () => {
   it("reads filter from search params", async () => {
     await renderWithRouter(["/?filter=SHELL"]);
     expect(screen.getByTestId("filter").textContent).toBe("SHELL");
+    expect(screen.getByTestId("initial-sessions-loaded").textContent).toBe("true");
   });
 
   it("defaults to AGENT when search is missing", async () => {

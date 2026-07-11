@@ -27,6 +27,7 @@ export const createSessionStreamDataMock = (
   ({
     sessions: [] as SessionSummary[],
     connected: true,
+    hasLoadedInitialSessions: true,
     connectionStatus: "healthy",
     connectionIssue: null,
     transport: "sse",

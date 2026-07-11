@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { type CSSProperties, useMemo } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Card } from "@/components/ui";
+import { Card, InsetPanel, Skeleton } from "@/components/ui";
 import type { SessionListFilter } from "@/features/shared-session-ui/model/session-list-filters";
 import { cn } from "@/lib/cn";
 
@@ -20,26 +20,160 @@ type SessionDetailMissingStateProps = {
   missingSessionState: SessionDetailMissingState;
   loading: boolean;
   sidebarWidth?: number;
+  detailSplitRatio?: number;
 };
 
-type LoadingBarProps = {
-  className: string;
-  shimmerClassName: string;
-};
+const DETAIL_SECTION_ROWS = [0, 1, 2] as const;
+const MOBILE_SECTION_TABS = [0, 1, 2, 3, 4, 5, 6, 7] as const;
 
-const LoadingBar = ({ className, shimmerClassName }: LoadingBarProps) => (
-  <div
-    className={cn(
-      "animate-skeleton-pulse bg-latte-surface0/65 relative overflow-hidden rounded-full",
-      className,
-    )}
+const SessionDetailLoadingSidebar = ({ sidebarWidth }: { sidebarWidth: number }) => (
+  <aside
+    data-testid="session-detail-loading-sidebar"
+    aria-hidden="true"
+    className="fixed left-0 top-0 z-40 hidden h-screen border-r border-latte-surface1/60 bg-latte-base/80 px-3 py-4 backdrop-blur-sm md:flex md:flex-col"
+    style={{ width: `${sidebarWidth}px` }}
   >
-    <div
-      className={cn(
-        "animate-skeleton-shimmer bg-latte-surface2/75 absolute inset-y-0 left-0 rounded-full",
-        shimmerClassName,
-      )}
-    />
+    <div className="flex items-center justify-between gap-3 px-1">
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-6 w-36" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-5 w-16" />
+      </div>
+    </div>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Skeleton className="h-7 w-12" />
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-7 w-14" />
+    </div>
+    <div className="mt-5 space-y-3">
+      {DETAIL_SECTION_ROWS.map((rowIndex) => (
+        <InsetPanel key={rowIndex} className="p-3">
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-6 w-16" />
+          </div>
+          <Card className="mt-3 min-h-28 space-y-3 rounded-2xl p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-5 w-14" />
+            </div>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-4/5" />
+            <div className="flex items-center gap-2 pt-1">
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-5 w-14" />
+            </div>
+          </Card>
+        </InsetPanel>
+      ))}
+    </div>
+  </aside>
+);
+
+const SessionHeaderLoadingSkeleton = () => (
+  <header
+    data-testid="session-detail-loading-header"
+    aria-hidden="true"
+    className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:p-4"
+  >
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-2">
+        <Skeleton className="h-7 w-56 max-w-[70vw]" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2 sm:min-w-80 sm:justify-end">
+        <Skeleton className="h-3 w-full max-w-64" />
+        <Skeleton className="h-8 w-8 shrink-0 rounded-xl" />
+      </div>
+    </div>
+  </header>
+);
+
+const TimelineLoadingSkeleton = () => (
+  <Card
+    data-testid="session-detail-loading-timeline"
+    aria-hidden="true"
+    className="flex min-w-0 flex-col gap-3 p-3 sm:p-4"
+  >
+    <div className="flex items-center justify-between gap-2">
+      <Skeleton className="h-5 w-36" />
+      <Skeleton className="h-8 w-8 rounded-xl" />
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Skeleton className="h-8 w-28" />
+      <Skeleton className="h-8 w-60 max-w-full" />
+      <Skeleton className="h-8 w-20" />
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Skeleton className="h-5 w-24" />
+      <Skeleton className="h-5 w-28" />
+    </div>
+    <Skeleton className="h-2 w-full" />
+    <InsetPanel className="space-y-2 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-5 w-12" />
+      </div>
+      <Skeleton className="h-3 w-48 max-w-full" />
+    </InsetPanel>
+  </Card>
+);
+
+const ScreenLoadingSkeleton = () => (
+  <Card className="flex min-w-0 flex-col gap-3 p-2 sm:p-4" aria-hidden="true">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-20" />
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-8 w-8 rounded-xl" />
+        <Skeleton className="h-8 w-8 rounded-xl" />
+      </div>
+    </div>
+    <Skeleton className="h-[60vh] min-h-[260px] w-full rounded-2xl sm:min-h-[320px]" />
+    <div className="flex flex-wrap items-center gap-2">
+      <Skeleton className="h-6 w-28" />
+      <Skeleton className="h-6 w-24" />
+      <Skeleton className="h-6 w-20" />
+    </div>
+  </Card>
+);
+
+const DetailSectionLoadingSkeleton = () => (
+  <Card className="space-y-3" aria-hidden="true">
+    <div className="flex items-center justify-between gap-3">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-3 w-48 max-w-full" />
+      </div>
+      <Skeleton className="h-8 w-20 rounded-xl" />
+    </div>
+    <InsetPanel className="space-y-3 p-3">
+      <Skeleton className="h-9 w-full rounded-xl" />
+      <Skeleton className="h-9 w-full rounded-xl" />
+      <Skeleton className="h-9 w-10/12 rounded-xl" />
+    </InsetPanel>
+  </Card>
+);
+
+const MobileSectionTabsLoadingSkeleton = () => (
+  <div
+    aria-hidden="true"
+    className="border-latte-surface2/70 bg-latte-mantle/70 grid grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl border p-1 md:hidden"
+  >
+    {MOBILE_SECTION_TABS.map((tabIndex) => (
+      <Skeleton key={tabIndex} className="h-8 w-full rounded-xl" />
+    ))}
+    <Skeleton className="col-start-5 row-span-2 row-start-1 h-8 w-8 self-center rounded-xl" />
   </div>
 );
 
@@ -49,6 +183,7 @@ export const SessionDetailMissingState = ({
   missingSessionState,
   loading,
   sidebarWidth = 340,
+  detailSplitRatio = 0.5,
 }: SessionDetailMissingStateProps) => {
   const missingDetailRows = useMemo(() => {
     const detailCounts = new Map<string, number>();
@@ -66,25 +201,14 @@ export const SessionDetailMissingState = ({
     return (
       <>
         <title>{documentTitle}</title>
-        <div
-          data-testid="session-detail-loading-sidebar"
-          className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
-          style={{ width: `${sidebarWidth}px` }}
-        >
-          <div className="border-latte-surface1/60 bg-latte-base/80 flex h-full w-full flex-col gap-2 border-r px-2 py-3 backdrop-blur-sm sm:px-3 sm:py-4">
-            <LoadingBar className="h-7 w-full" shimmerClassName="w-20" />
-            <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-24 rounded-2xl" />
-            <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-24 rounded-2xl" />
-            <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-24 rounded-2xl" />
-            <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-20 rounded-2xl" />
-            <LoadingBar className="h-9 w-full rounded-2xl" shimmerClassName="w-20 rounded-2xl" />
-          </div>
-        </div>
+        <SessionDetailLoadingSidebar sidebarWidth={sidebarWidth} />
+        <p role="status" className="sr-only">
+          Loading session...
+        </p>
         <div
           data-testid="session-detail-loading-skeleton"
-          role="status"
-          aria-live="polite"
-          className="animate-fade-in-up w-full px-2 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-3 sm:px-4 sm:pb-[calc(env(safe-area-inset-bottom)+5rem)] sm:pt-6 md:pb-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
+          aria-busy="true"
+          className="animate-fade-in-up w-full px-2 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-3 motion-reduce:animate-none sm:px-4 sm:pb-[calc(env(safe-area-inset-bottom)+5rem)] sm:pt-6 md:pb-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
           style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
         >
           <div className="flex min-w-0 flex-col gap-2.5 sm:gap-4">
@@ -95,75 +219,40 @@ export const SessionDetailMissingState = ({
               </Link>
               <ThemeToggle />
             </div>
-
-            <header
-              data-testid="session-detail-loading-header"
-              className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur-sm sm:gap-3 sm:p-4"
-            >
-              <p className="text-latte-subtext0 text-sm">Loading session...</p>
-              <div className="space-y-2">
-                <LoadingBar className="h-7 w-56" shimmerClassName="w-20" />
-                <LoadingBar className="h-3 w-full max-w-[680px]" shimmerClassName="w-24" />
-                <div className="flex flex-wrap items-center gap-2">
-                  <LoadingBar className="h-5 w-24" shimmerClassName="w-10" />
-                  <LoadingBar className="h-5 w-20" shimmerClassName="w-9" />
-                  <LoadingBar className="h-5 w-28" shimmerClassName="w-11" />
-                  <LoadingBar
-                    className="ml-auto h-8 w-8 rounded-xl"
-                    shimmerClassName="w-4 rounded-xl"
-                  />
-                </div>
-              </div>
-            </header>
-
-            <Card
-              data-testid="session-detail-loading-timeline"
-              className="flex min-w-0 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <LoadingBar className="h-5 w-36" shimmerClassName="w-14" />
-                <LoadingBar className="h-8 w-8 rounded-xl" shimmerClassName="w-4 rounded-xl" />
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <LoadingBar className="h-8 w-24" shimmerClassName="w-12" />
-                <LoadingBar className="h-8 w-16" shimmerClassName="w-9" />
-                <LoadingBar className="h-8 w-16" shimmerClassName="w-9" />
-              </div>
-              <div className="border-latte-surface2/70 bg-latte-base/70 space-y-2 rounded-2xl border px-3 py-2">
-                <LoadingBar className="h-4 w-full" shimmerClassName="w-24" />
-                <LoadingBar className="h-3 w-11/12" shimmerClassName="w-20" />
-                <LoadingBar className="h-3 w-9/12" shimmerClassName="w-16" />
-              </div>
-            </Card>
-
+            <SessionHeaderLoadingSkeleton />
+            <div className="md:hidden">
+              <ScreenLoadingSkeleton />
+            </div>
+            <MobileSectionTabsLoadingSkeleton />
+            <div className="md:hidden">
+              <DetailSectionLoadingSkeleton />
+            </div>
+            <div className="hidden md:block">
+              <TimelineLoadingSkeleton />
+            </div>
             <div
               data-testid="session-detail-loading-top"
-              className="flex min-w-0 flex-col gap-2.5 sm:gap-4"
+              aria-hidden="true"
+              className="hidden min-w-0 flex-col gap-2.5 md:flex 2xl:flex-row 2xl:items-start 2xl:gap-3"
             >
-              <Card className="relative flex min-w-0 flex-col gap-2 overflow-visible p-2 sm:gap-3 sm:p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <LoadingBar className="h-8 w-20" shimmerClassName="w-10" />
-                    <LoadingBar className="h-8 w-20" shimmerClassName="w-10" />
-                  </div>
-                  <LoadingBar className="h-8 w-8 rounded-xl" shimmerClassName="w-4 rounded-xl" />
-                </div>
-                <div className="border-latte-surface2/80 bg-latte-crust/95 relative h-[260px] overflow-hidden rounded-2xl border-2 sm:h-[320px]">
-                  <div className="animate-skeleton-shimmer bg-latte-surface2/55 absolute inset-y-0 left-0 w-28" />
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <LoadingBar className="h-6 w-28" shimmerClassName="w-12" />
-                  <LoadingBar className="h-6 w-24" shimmerClassName="w-10" />
-                  <LoadingBar className="h-6 w-20" shimmerClassName="w-9" />
-                </div>
-              </Card>
-
-              <Card className="space-y-3">
-                <LoadingBar className="h-4 w-32" shimmerClassName="w-14" />
-                <LoadingBar className="h-9 w-full" shimmerClassName="w-24" />
-                <LoadingBar className="h-9 w-full" shimmerClassName="w-24" />
-                <LoadingBar className="h-9 w-10/12" shimmerClassName="w-20" />
-              </Card>
+              <div
+                data-testid="session-detail-loading-primary-column"
+                className="flex min-w-0 flex-col gap-2.5 sm:gap-4 2xl:flex-[0_0_auto] 2xl:basis-[var(--detail-split-basis)]"
+                style={
+                  {
+                    "--detail-split-basis": `${detailSplitRatio * 100}%`,
+                  } as CSSProperties
+                }
+              >
+                <ScreenLoadingSkeleton />
+                <DetailSectionLoadingSkeleton />
+              </div>
+              <div aria-hidden="true" className="hidden w-4 shrink-0 2xl:block" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
+                <DetailSectionLoadingSkeleton />
+                <DetailSectionLoadingSkeleton />
+                <DetailSectionLoadingSkeleton />
+              </div>
             </div>
           </div>
         </div>

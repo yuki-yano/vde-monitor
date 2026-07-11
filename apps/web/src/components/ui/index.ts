@@ -26,6 +26,7 @@ export { RowButton } from "./row-button";
 export { SectionHeader } from "./section-header";
 export { SettingCheckbox } from "./setting-checkbox";
 export { SettingRadioGroup } from "./setting-radio-group";
+export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";
 export { SurfaceButton } from "./surface-button";
 export { Tabs } from "./tabs";

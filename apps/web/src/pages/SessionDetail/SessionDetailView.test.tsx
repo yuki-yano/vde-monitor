@@ -136,6 +136,7 @@ const buildDefaultContextValue = () => {
       session: null as SessionDetail | null,
       nowMs: 0,
       connected: false,
+      hasLoadedInitialSessions: false,
       connectionStatus: "healthy" as const,
       connectionIssue: null as string | null,
       highlightCorrections: { codex: true, claude: true },
@@ -409,8 +410,13 @@ const buildDefaultContextValue = () => {
 };
 
 type SessionDetailViewOverrides = {
-  meta?: { session?: SessionDetail | null; connected?: boolean; connectionIssue?: string | null };
-  timeline?: { isMobile?: boolean };
+  meta?: {
+    session?: SessionDetail | null;
+    connected?: boolean;
+    hasLoadedInitialSessions?: boolean;
+    connectionIssue?: string | null;
+  };
+  timeline?: { isMobile?: boolean; detailSplitRatio?: number };
   screen?: { worktreeSelectorEnabled?: boolean };
 };
 
@@ -428,6 +434,9 @@ const createViewProps = (overrides: SessionDetailViewOverrides = {}) => {
   if (overrides.timeline?.isMobile !== undefined) {
     mockLayoutValue.isMobile = overrides.timeline.isMobile;
   }
+  if (overrides.timeline?.detailSplitRatio !== undefined) {
+    mockLayoutValue.detailSplitRatio = overrides.timeline.detailSplitRatio;
+  }
   if (overrides.screen?.worktreeSelectorEnabled !== undefined) {
     mockContextValue.scope.virtualWorktree.selectorEnabled =
       overrides.screen.worktreeSelectorEnabled;
@@ -444,13 +453,20 @@ describe("SessionDetailView", () => {
   it("renders not found state when session remains missing", () => {
     vi.useFakeTimers();
     try {
-      const props = createViewProps({ meta: { session: null, connected: true } });
+      const props = createViewProps({
+        meta: { session: null, connected: true, hasLoadedInitialSessions: true },
+      });
       renderWithRouter(<SessionDetailView {...props} />);
 
       expect(screen.getByText("Loading session...")).toBeTruthy();
       expect(screen.getByTestId("session-detail-loading-skeleton")).toBeTruthy();
       expect(screen.getByTestId("session-detail-loading-header")).toBeTruthy();
       expect(screen.getByTestId("session-detail-loading-top")).toBeTruthy();
+      const loadingStatus = screen.getByRole("status");
+      const loadingSkeleton = screen.getByTestId("session-detail-loading-skeleton");
+      expect(loadingSkeleton.getAttribute("aria-busy")).toBe("true");
+      expect(loadingSkeleton.contains(loadingStatus)).toBe(false);
+      expect(loadingStatus.querySelector("a, button")).toBeNull();
       expect(screen.getByRole("tablist", { name: "Theme selection" })).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(1600);
@@ -466,6 +482,7 @@ describe("SessionDetailView", () => {
   it("keeps showing loading while initial session fetch is in progress", () => {
     const props = createViewProps({
       meta: { session: null, connected: false, connectionIssue: null },
+      timeline: { detailSplitRatio: 0.6 },
     });
     renderWithRouter(<SessionDetailView {...props} />);
 
@@ -473,6 +490,16 @@ describe("SessionDetailView", () => {
     expect(screen.getByTestId("session-detail-loading-skeleton")).toBeTruthy();
     expect(screen.getByTestId("session-detail-loading-header")).toBeTruthy();
     expect(screen.getByTestId("session-detail-loading-top")).toBeTruthy();
+    const loadingStatus = screen.getByRole("status");
+    const loadingSkeleton = screen.getByTestId("session-detail-loading-skeleton");
+    expect(loadingSkeleton.getAttribute("aria-busy")).toBe("true");
+    expect(loadingSkeleton.contains(loadingStatus)).toBe(false);
+    expect(screen.getByTestId("session-detail-loading-top").className).toContain("2xl:flex-row");
+    expect(
+      screen
+        .getByTestId("session-detail-loading-primary-column")
+        .style.getPropertyValue("--detail-split-basis"),
+    ).toBe("60%");
     expect(screen.getByRole("tablist", { name: "Theme selection" })).toBeTruthy();
     expect(screen.queryByText("Session not found.")).toBeNull();
   });

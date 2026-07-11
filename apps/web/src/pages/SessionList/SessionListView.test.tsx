@@ -214,6 +214,7 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     searchQuery: "",
     filterOptions,
     connected: true,
+    hasLoadedInitialSessions: true,
     connectionStatus: "healthy",
     connectionIssue: null,
     transport: "polling" as const,
@@ -281,17 +282,58 @@ describe("SessionListView", () => {
       visibleSessionCount: 0,
       quickPanelGroups: [],
       connected: false,
+      hasLoadedInitialSessions: false,
       connectionStatus: "degraded",
       connectionIssue: null,
     });
     renderWithRouter(<SessionListView {...props} />);
 
     expect(screen.getByText("Loading Sessions...")).toBeTruthy();
-    expect(screen.getByTestId("session-list-loading-skeleton")).toBeTruthy();
+    const status = screen.getByRole("status");
+    const content = screen.getByTestId("session-list-content");
+    const skeleton = screen.getByTestId("session-list-loading-skeleton");
+    expect(content.getAttribute("aria-busy")).toBe("true");
+    expect(content.contains(status)).toBe(false);
+    expect(skeleton.getAttribute("aria-hidden")).toBe("true");
     expect(
       screen.queryByText("Checking tmux sessions in the background. This should finish shortly."),
     ).toBeNull();
     expect(screen.getByRole("heading", { name: "Live Sessions" })).toBeTruthy();
+    expect(screen.queryByText("No Active Sessions")).toBeNull();
+  });
+
+  it("keeps the empty state after the initial load when the connection degrades", () => {
+    const props = createViewProps({
+      sessions: [],
+      groups: [],
+      visibleSessionCount: 0,
+      quickPanelGroups: [],
+      connected: false,
+      hasLoadedInitialSessions: true,
+      connectionStatus: "degraded",
+      connectionIssue: null,
+    });
+    renderWithRouter(<SessionListView {...props} />);
+
+    expect(screen.queryByTestId("session-list-loading-skeleton")).toBeNull();
+    expect(screen.getByTestId("session-list-content").getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByText("No Active Sessions")).toBeTruthy();
+  });
+
+  it("keeps loading after SSE opens until the initial snapshot arrives", () => {
+    const props = createViewProps({
+      sessions: [],
+      groups: [],
+      visibleSessionCount: 0,
+      quickPanelGroups: [],
+      connected: true,
+      hasLoadedInitialSessions: false,
+      connectionStatus: "healthy",
+      connectionIssue: null,
+    });
+    renderWithRouter(<SessionListView {...props} />);
+
+    expect(screen.getByTestId("session-list-loading-skeleton")).toBeTruthy();
     expect(screen.queryByText("No Active Sessions")).toBeNull();
   });
 

@@ -34,6 +34,11 @@ const ConnectionStatusProbe = () => {
   return <div data-testid="connection-status">{connectionStatus}</div>;
 };
 
+const InitialSessionsLoadProbe = () => {
+  const { hasLoadedInitialSessions } = useSessionStreamData();
+  return <div data-testid="initial-sessions-loaded">{String(hasLoadedInitialSessions)}</div>;
+};
+
 const buildSession = (paneId: string): SessionSummary => ({
   paneId,
   sessionName: paneId,
@@ -126,6 +131,32 @@ describe("SessionProvider", () => {
 
     const calls = setIntervalSpy.mock.calls.map((call) => call[1]);
     expect(calls).toContain(1000);
+  });
+
+  it("marks the initial sessions load only after the first snapshot resolves", async () => {
+    let releaseRequest = () => {};
+    const requestGate = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    server.use(
+      http.get(pathToUrl("/sessions"), async () => {
+        await requestGate;
+        return HttpResponse.json({ sessions: [] });
+      }),
+    );
+
+    render(
+      <SessionProvider>
+        <InitialSessionsLoadProbe />
+      </SessionProvider>,
+    );
+
+    expect(screen.getByTestId("initial-sessions-loaded").textContent).toBe("false");
+    releaseRequest();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("initial-sessions-loaded").textContent).toBe("true");
+    });
   });
 
   it("sets disconnected status after auth error response", async () => {

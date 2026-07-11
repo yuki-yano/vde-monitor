@@ -39,8 +39,14 @@ const FILTER_OPTIONS = SESSION_LIST_FILTER_VALUES.map((value) => ({
 }));
 
 export const useSessionListVM = () => {
-  const { sessions, connected, connectionStatus, connectionIssue, transport } =
-    useSessionStreamData();
+  const {
+    sessions,
+    connected,
+    hasLoadedInitialSessions,
+    connectionStatus,
+    connectionIssue,
+    transport,
+  } = useSessionStreamData();
   const { highlightCorrections, launchConfig } = useSessionConfigData();
   const { refreshSessions, requestStateTimeline, requestScreen, touchSession } =
     useSessionCoreApi();
@@ -217,6 +223,7 @@ export const useSessionListVM = () => {
     searchQuery,
     filterOptions: FILTER_OPTIONS,
     connected,
+    hasLoadedInitialSessions,
     connectionStatus,
     connectionIssue,
     transport,

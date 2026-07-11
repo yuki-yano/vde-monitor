@@ -14,6 +14,7 @@ type SessionConnectionState = {
   token: string | null;
   connectionIssue: string | null;
   connected: boolean;
+  hasLoadedInitialSessions: boolean;
   authBlocked: boolean;
   pollBackoffMs: number;
   transport: SessionsStreamTransport;
@@ -29,6 +30,7 @@ type SessionConnectionAction =
       pollBackoffMs?: number;
     }
   | { type: "refreshSuccess"; token: string | null }
+  | { type: "sessionsSnapshotReceived"; token: string | null }
   | { type: "reconnect"; token: string | null }
   | { type: "setTransport"; token: string | null; transport: SessionsStreamTransport };
 
@@ -36,6 +38,7 @@ const buildConnectionState = (token: string | null): SessionConnectionState => (
   token,
   connectionIssue: null,
   connected: false,
+  hasLoadedInitialSessions: false,
   authBlocked: false,
   pollBackoffMs: 0,
   transport: "polling",
@@ -71,7 +74,13 @@ const sessionConnectionReducer = (
         ...state,
         authBlocked: false,
         connected: true,
+        hasLoadedInitialSessions: true,
         pollBackoffMs: 0,
+      };
+    case "sessionsSnapshotReceived":
+      return {
+        ...state,
+        hasLoadedInitialSessions: true,
       };
     case "reconnect":
       return {
@@ -98,7 +107,14 @@ export const useSessionConnectionState = (token: string | null) => {
     backoffStepRef.current = 0;
   }
   const hasToken = Boolean(token);
-  const { connectionIssue, connected, authBlocked, pollBackoffMs, transport } = visibleState;
+  const {
+    connectionIssue,
+    connected,
+    hasLoadedInitialSessions,
+    authBlocked,
+    pollBackoffMs,
+    transport,
+  } = visibleState;
 
   const applyRateLimitBackoff = useCallback(() => {
     const nextStep = Math.min(backoffStepRef.current + 1, MAX_RATE_LIMIT_STEPS);
@@ -178,15 +194,21 @@ export const useSessionConnectionState = (token: string | null) => {
     [token],
   );
 
+  const markSessionsSnapshotReceived = useCallback(() => {
+    dispatch({ type: "sessionsSnapshotReceived", token });
+  }, [token]);
+
   return {
     connectionIssue,
     setConnectionIssue,
     connected,
+    hasLoadedInitialSessions,
     authBlocked,
     pollBackoffMs,
     connectionStatus,
     transport,
     setTransport,
+    markSessionsSnapshotReceived,
     handleRefreshResult,
     reconnect,
   };

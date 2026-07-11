@@ -4,7 +4,7 @@ import type {
   UsageRepositoryActivityResponse,
 } from "@vde-monitor/shared";
 
-import { Button, Callout, GlowCard, TagPill } from "@/components/ui";
+import { Button, Callout, GlowCard, Skeleton, TagPill } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatPath } from "@/lib/session-format";
 import { formatDurationMs } from "@/lib/time-format";
@@ -21,6 +21,7 @@ type RankedRepositoryActivityItem = {
 };
 
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+const REPOSITORY_ACTIVITY_SKELETON_ROWS = [0, 1, 2] as const;
 
 const METRIC_DEFINITIONS: Record<
   RepositoryActivityMetric,
@@ -142,16 +143,34 @@ const MetricTabs = ({
 );
 
 const RepositoryActivitySkeleton = () => (
-  <div role="status" aria-label="Loading repository activity" className="space-y-2">
-    {[0, 1, 2].map((index) => (
+  <div aria-hidden="true" className="space-y-2">
+    {REPOSITORY_ACTIVITY_SKELETON_ROWS.map((index) => (
       <div
         key={index}
-        className="border-latte-surface2/60 bg-latte-base/25 flex items-center gap-3 rounded-2xl border px-3 py-3"
+        data-testid="repository-activity-skeleton-row"
+        className="border-latte-surface2/60 bg-latte-base/25 min-h-[132px] rounded-2xl border px-3 py-3 sm:px-4"
       >
-        <span className="bg-latte-surface1/80 h-7 w-7 shrink-0 animate-pulse rounded-full motion-reduce:animate-none" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="bg-latte-surface1/80 h-3 w-2/5 animate-pulse rounded-full motion-reduce:animate-none" />
-          <div className="bg-latte-surface1/65 h-2 w-full animate-pulse rounded-full motion-reduce:animate-none" />
+        <div className="flex items-start gap-3">
+          <Skeleton className="h-7 w-7 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40 max-w-[55vw]" />
+                <Skeleton className="h-3 w-56 max-w-[65vw]" />
+              </div>
+              <div className="space-y-2 sm:flex sm:flex-col sm:items-end">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+            <Skeleton className="mt-3 h-2 w-full" />
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-28" />
+            </div>
+          </div>
         </div>
       </div>
     ))}
@@ -308,7 +327,12 @@ export const RepositoryActivitySection = ({
           </Callout>
         ) : null}
 
-        <div className="mt-3" aria-busy={loading}>
+        {loading && activity == null ? (
+          <span role="status" aria-label="Loading repository activity" className="sr-only">
+            Loading repository activity
+          </span>
+        ) : null}
+        <div data-testid="repository-activity-content" className="mt-3" aria-busy={loading}>
           {loading && activity == null ? (
             <RepositoryActivitySkeleton />
           ) : rankedItems.length > 0 ? (

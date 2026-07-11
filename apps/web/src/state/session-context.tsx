@@ -88,6 +88,7 @@ import type { SessionsStreamTransport } from "./use-sessions-stream";
 export type SessionStreamDataContextValue = {
   sessions: SessionSummary[];
   connected: boolean;
+  hasLoadedInitialSessions: boolean;
   connectionStatus: SessionConnectionStatus;
   connectionIssue: string | null;
   transport: SessionsStreamTransport;
@@ -267,11 +268,13 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     connectionIssue,
     setConnectionIssue,
     connected,
+    hasLoadedInitialSessions,
     authBlocked,
     pollBackoffMs,
     connectionStatus,
     transport,
     setTransport,
+    markSessionsSnapshotReceived,
     handleRefreshResult: handleRefreshResultFromConnection,
     reconnect: reconnectWithConnectionState,
   } = useSessionConnectionState(token);
@@ -322,11 +325,19 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     reconnectWithConnectionState(refreshSessions);
   }, [reconnectWithConnectionState, refreshSessions]);
 
+  const handleSessionsSnapshot = useCallback(
+    (nextSessions: SessionSummary[]) => {
+      markSessionsSnapshotReceived();
+      setSessions(nextSessions);
+    },
+    [markSessionsSnapshotReceived, setSessions],
+  );
+
   useSessionsStream({
     enabled: hasToken && !authBlocked,
     apiBaseUrl,
     token,
-    onSnapshot: setSessions,
+    onSnapshot: handleSessionsSnapshot,
     onUpsert: updateSession,
     onRemove: removeSession,
     onAuthError: () => {
@@ -390,12 +401,21 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     () => ({
       sessions,
       connected,
+      hasLoadedInitialSessions,
       connectionStatus,
       connectionIssue,
       transport,
       getSessionDetail,
     }),
-    [sessions, connected, connectionStatus, connectionIssue, transport, getSessionDetail],
+    [
+      sessions,
+      connected,
+      hasLoadedInitialSessions,
+      connectionStatus,
+      connectionIssue,
+      transport,
+      getSessionDetail,
+    ],
   );
 
   const sessionConfigDataValue = useMemo<SessionConfigDataContextValue>(

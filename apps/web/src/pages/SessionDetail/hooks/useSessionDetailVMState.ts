@@ -16,8 +16,14 @@ import { useTheme } from "@/state/theme-context";
 import { screenTextAtom } from "../atoms/screenAtoms";
 
 export const useSessionDetailVMState = (paneId: string) => {
-  const { sessions, connected, connectionStatus, connectionIssue, getSessionDetail } =
-    useSessionStreamData();
+  const {
+    sessions,
+    connected,
+    hasLoadedInitialSessions,
+    connectionStatus,
+    connectionIssue,
+    getSessionDetail,
+  } = useSessionStreamData();
   const { token, apiBaseUrl, highlightCorrections, fileNavigatorConfig, launchConfig } =
     useSessionConfigData();
   const {
@@ -67,6 +73,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       token,
       apiBaseUrl,
       connected,
+      hasLoadedInitialSessions,
       connectionStatus,
       connectionIssue,
       highlightCorrections,
@@ -114,6 +121,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       token,
       apiBaseUrl,
       connected,
+      hasLoadedInitialSessions,
       connectionStatus,
       connectionIssue,
       highlightCorrections,
