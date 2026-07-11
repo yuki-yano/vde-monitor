@@ -45,6 +45,82 @@ describe("useSessionDoneAcknowledgement", () => {
     });
   });
 
+  it("retries a transient acknowledgement failure while the detail remains visible", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const acknowledgeSessionView = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce(undefined);
+
+    renderHook(() =>
+      useSessionDoneAcknowledgement({
+        paneId: "%1",
+        session: session(1, 0),
+        acknowledgeSessionView,
+      }),
+    );
+    await act(async () => undefined);
+
+    expect(acknowledgeSessionView).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(249);
+    });
+    expect(acknowledgeSessionView).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(acknowledgeSessionView).toHaveBeenNthCalledWith(2, "%1", "epoch-1", 1);
+  });
+
+  it("cancels a pending acknowledgement retry on unmount", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const acknowledgeSessionView = vi.fn().mockRejectedValue(new Error("offline"));
+    const { unmount } = renderHook(() =>
+      useSessionDoneAcknowledgement({
+        paneId: "%1",
+        session: session(1, 0),
+        acknowledgeSessionView,
+      }),
+    );
+    await act(async () => undefined);
+
+    unmount();
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(acknowledgeSessionView).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses a pending retry while hidden and retries on visibility return", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const acknowledgeSessionView = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce(undefined);
+    renderHook(() =>
+      useSessionDoneAcknowledgement({
+        paneId: "%1",
+        session: session(1, 0),
+        acknowledgeSessionView,
+      }),
+    );
+    await act(async () => undefined);
+
+    setVisibility("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(acknowledgeSessionView).toHaveBeenCalledTimes(1);
+
+    setVisibility("visible");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(acknowledgeSessionView).toHaveBeenNthCalledWith(2, "%1", "epoch-1", 1);
+  });
+
   it("acknowledges a snapshot that arrives after mount and each later generation", async () => {
     setVisibility("visible");
     const acknowledgeSessionView = vi.fn(async () => undefined);

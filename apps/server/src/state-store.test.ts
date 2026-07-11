@@ -378,7 +378,7 @@ describe("state-store timeline persistence", () => {
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
 
-  it("rejects a version 3 cursor with an unparseable identity timestamp", () => {
+  it("skips an invalid version 3 session without discarding valid state entries", () => {
     const completionCursor: PersistedCompletionCursor = {
       epoch: "epoch-1",
       paneInstanceKey: "pane-instance-1",
@@ -396,7 +396,39 @@ describe("state-store timeline persistence", () => {
     saveState([createSessionDetail()], {
       runtimeStateByPaneId: createRuntimeStateMap({ completionCursor }),
     });
+    const persisted = JSON.parse(fileContents.get(statePath) ?? "{}");
+    persisted.sessions["pane-2"] = {
+      ...persisted.sessions["pane-1"],
+      paneId: "pane-2",
+      completionCursor: null,
+    };
+    persisted.timeline["pane-2"] = [
+      {
+        id: "pane-2:1700000000000:1",
+        paneId: "pane-2",
+        state: "RUNNING",
+        reason: "poll",
+        startedAt: "2026-07-10T00:00:00.000Z",
+        endedAt: null,
+        source: "poll",
+      },
+    ];
+    persisted.repoNotes["/repo/a"] = [
+      {
+        id: "note-1",
+        repoRoot: "/repo/a",
+        title: null,
+        body: "keep",
+        createdAt: "2026-07-10T00:00:00.000Z",
+        updatedAt: "2026-07-10T00:00:00.000Z",
+      },
+    ];
+    fileContents.set(statePath, `${JSON.stringify(persisted, null, 2)}\n`);
 
-    expect(restorePersistedState().sessions.size).toBe(0);
+    const restored = restorePersistedState();
+    expect(restored.sessions.has("pane-1")).toBe(false);
+    expect(restored.sessions.get("pane-2")?.paneId).toBe("pane-2");
+    expect(restored.timeline.get("pane-2")).toHaveLength(1);
+    expect(restored.repoNotes.get("/repo/a")).toHaveLength(1);
   });
 });

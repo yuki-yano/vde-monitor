@@ -1,6 +1,8 @@
 import type { SessionDetail } from "@vde-monitor/shared";
 import { useEffect } from "react";
 
+const ACKNOWLEDGEMENT_RETRY_DELAYS_MS = [250, 750] as const;
+
 export const useSessionDoneAcknowledgement = ({
   paneId,
   session,
@@ -16,19 +18,63 @@ export const useSessionDoneAcknowledgement = ({
   const acknowledgedSeq = completion?.acknowledgedSeq ?? 0;
 
   useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+    let retryIndex = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearRetry = () => {
+      if (retryTimer != null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    };
+
     const acknowledgeIfVisible = () => {
       if (
+        cancelled ||
+        inFlight ||
         document.visibilityState !== "visible" ||
         epoch == null ||
         completedSeq <= acknowledgedSeq
       ) {
         return;
       }
-      void acknowledgeSessionView(paneId, epoch, completedSeq).catch(() => undefined);
+      inFlight = true;
+      void acknowledgeSessionView(paneId, epoch, completedSeq)
+        .catch(() => {
+          if (cancelled || document.visibilityState !== "visible") {
+            return;
+          }
+          const retryDelayMs = ACKNOWLEDGEMENT_RETRY_DELAYS_MS[retryIndex];
+          retryIndex += 1;
+          if (retryDelayMs == null) {
+            return;
+          }
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            acknowledgeIfVisible();
+          }, retryDelayMs);
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+
+    const handleVisibilityChange = () => {
+      clearRetry();
+      if (document.visibilityState === "visible") {
+        retryIndex = 0;
+        acknowledgeIfVisible();
+      }
     };
 
     acknowledgeIfVisible();
-    document.addEventListener("visibilitychange", acknowledgeIfVisible);
-    return () => document.removeEventListener("visibilitychange", acknowledgeIfVisible);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      cancelled = true;
+      clearRetry();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [acknowledgeSessionView, acknowledgedSeq, completedSeq, epoch, paneId]);
 };

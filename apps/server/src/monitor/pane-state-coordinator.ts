@@ -230,11 +230,22 @@ export const createPaneStateCoordinator = ({
     }
 
     if (paneState.agentPresence === "present" && observedAgent != null) {
+      const cursorMatchesObservedPane =
+        state.cursor?.agent === observedAgent &&
+        (state.cursor.paneInstanceKey == null ||
+          paneInstanceKey == null ||
+          state.cursor.paneInstanceKey === paneInstanceKey);
+      const presenceAgentSessionId =
+        explicitSessionStart == null
+          ? (currentAgentSessionId ?? state.cursor?.agentSessionId ?? null)
+          : cursorMatchesObservedPane
+            ? (state.cursor?.agentSessionId ?? null)
+            : null;
       const reduction = reducer.reduce(state, {
         type: "observe-agent-identity",
         origin: "presence",
         agent: observedAgent,
-        agentSessionId: currentAgentSessionId ?? state.cursor?.agentSessionId ?? null,
+        agentSessionId: presenceAgentSessionId,
         paneInstanceKey,
         armSyntheticCompletion:
           !restoredIdentityRejected && (state.cursor == null || state.cursor.agentPresent),

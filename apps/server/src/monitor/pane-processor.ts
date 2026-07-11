@@ -16,7 +16,11 @@ type ProcessPaneArgs = {
   config: AgentMonitorConfig;
   paneStates: PaneStateStore;
   paneLogManager: PaneLogManager;
-  capturePaneFingerprint: (paneId: string, useAlt: boolean) => Promise<string | null>;
+  capturePaneFingerprint: (
+    paneId: string,
+    useAlt: boolean,
+    currentCommand?: string | null,
+  ) => Promise<string | null>;
   getCustomTitle: (paneId: string) => string | null;
   resolveRepoRoot: (currentPath: string | null) => Promise<string | null>;
   resolveWorktreeStatus?: (

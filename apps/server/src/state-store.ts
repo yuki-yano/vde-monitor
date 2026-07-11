@@ -73,9 +73,9 @@ type PersistedTimelineRecord = Record<string, PersistedTimelineEvent[]>;
 type PersistedState = {
   version: 3;
   savedAt: string;
-  sessions: Record<string, PersistedSession>;
-  timeline: PersistedTimelineRecord;
-  repoNotes?: PersistedRepoNotesRecord;
+  sessions: Record<string, unknown>;
+  timeline: Record<string, unknown>;
+  repoNotes?: Record<string, unknown>;
 };
 
 const getStatePath = () => {
@@ -114,6 +114,9 @@ const isTimelineSource = (value: unknown): value is PersistedTimelineSource =>
 
 const isNullableString = (value: unknown): value is string | null =>
   value === null || typeof value === "string";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value != null && typeof value === "object" && !Array.isArray(value);
 
 const isOptionalNullableString = (value: unknown): value is string | null | undefined =>
   value == null || typeof value === "string";
@@ -232,11 +235,9 @@ const isPersistedState = (value: unknown): value is PersistedState => {
   return (
     state.version === 3 &&
     typeof state.savedAt === "string" &&
-    Boolean(state.sessions) &&
-    typeof state.sessions === "object" &&
-    Object.values(state.sessions).every(isPersistedSession) &&
-    Boolean(state.timeline) &&
-    typeof state.timeline === "object"
+    isRecord(state.sessions) &&
+    isRecord(state.timeline) &&
+    (state.repoNotes == null || isRecord(state.repoNotes))
   );
 };
 
@@ -301,7 +302,11 @@ const restorePersistedSessionMap = (state: PersistedState | null): PersistedSess
   if (!state) {
     return new Map();
   }
-  return new Map(Object.entries(state.sessions)) as PersistedSessionMap;
+  const entries = Object.entries(state.sessions).filter(
+    (entry): entry is [string, PersistedSession] =>
+      isPersistedSession(entry[1]) && entry[0] === entry[1].paneId,
+  );
+  return new Map(entries);
 };
 
 const restorePersistedTimelineMap = (state: PersistedState | null): PersistedTimelineMap => {

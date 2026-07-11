@@ -10,6 +10,7 @@ describe("updatePaneOutputState", () => {
     paneActive: false,
     paneDead: false,
     alternateOn: false,
+    currentCommand: "codex",
   };
 
   const createState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntimeState => ({
@@ -133,14 +134,16 @@ describe("updatePaneOutputState", () => {
   it("updates output timestamp when fingerprint changes", async () => {
     const state = createState({ lastFingerprint: "old" });
     const now = new Date("2024-01-03T00:00:00.000Z");
+    const captureFingerprint = vi.fn(async () => "new");
     const result = await updatePaneOutputState({
       pane: basePane,
       paneState: state,
       logPath: "/tmp/log",
       inactiveThresholdMs: 1000,
-      deps: createDeps({ captureFingerprint: async () => "new", now: () => now }),
+      deps: createDeps({ captureFingerprint, now: () => now }),
     });
 
+    expect(captureFingerprint).toHaveBeenCalledWith("1", false, "codex");
     expect(state.lastFingerprint).toBe("new");
     expect(result.outputAt).toBe(now.toISOString());
   });

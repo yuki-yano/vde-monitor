@@ -116,6 +116,8 @@ describe("createPaneUpdateService", () => {
     const getOwnedPaneIds = vi.fn((): string[] => []);
     const onPaneInventory = vi.fn();
     const onPaneObservationCommitted = vi.fn();
+    const observePaneMetadata = vi.fn();
+    const removePaneObservation = vi.fn();
     const service = createPaneUpdateService({
       inspector,
       serverKey: "test-server",
@@ -129,6 +131,8 @@ describe("createPaneUpdateService", () => {
       stateTimeline,
       logActivity: { unregister: vi.fn() },
       savePersistedState,
+      observePaneMetadata,
+      removePaneObservation,
       onPaneInventory,
       onPaneObservationCommitted,
     });
@@ -143,6 +147,8 @@ describe("createPaneUpdateService", () => {
       getOwnedPaneIds,
       onPaneInventory,
       onPaneObservationCommitted,
+      observePaneMetadata,
+      removePaneObservation,
     };
   };
 
@@ -257,6 +263,61 @@ describe("createPaneUpdateService", () => {
     expect(onPaneInventory).toHaveBeenCalledWith(["%1"]);
     expect(onPaneObservationCommitted).not.toHaveBeenCalled();
     expect(savePersistedState).toHaveBeenCalledOnce();
+  });
+
+  it("isolates a synchronous state commit failure to its pane", async () => {
+    const secondPane: PaneMeta = {
+      ...basePane,
+      paneId: "%2",
+      paneIndex: 1,
+      panePid: 101,
+    };
+    processPaneMock
+      .mockResolvedValueOnce(createDetail({ state: "DONE" }))
+      .mockResolvedValueOnce(
+        createDetail({ paneId: "%2", paneIndex: 1, panePid: 101, stateReason: "poll:running" }),
+      );
+    const {
+      service,
+      inspector,
+      paneStates,
+      registry,
+      stateTimeline,
+      savePersistedState,
+      onPaneObservationCommitted,
+    } = createService();
+    inspector.listPanes.mockResolvedValueOnce([basePane, secondPane]);
+    const failedPaneState = paneStates.get("%1");
+    failedPaneState.pendingAgentLifecycleEvents.push({
+      source: "hook",
+      agent: "codex",
+      eventName: "PreToolUse",
+      sessionId: "session-1",
+      at: "2026-07-10T00:00:00.000Z",
+    });
+
+    await expect(service.updateFromPanes()).resolves.toBeUndefined();
+
+    expect(registry.getDetail("%1")).toBeNull();
+    expect(registry.getDetail("%2")).toMatchObject({ state: "RUNNING" });
+    expect(failedPaneState.pendingAgentLifecycleEvents).toHaveLength(1);
+    expect(stateTimeline.record).toHaveBeenCalledTimes(1);
+    expect(stateTimeline.record).toHaveBeenCalledWith(expect.objectContaining({ paneId: "%2" }));
+    expect(onPaneObservationCommitted).toHaveBeenCalledTimes(1);
+    expect(onPaneObservationCommitted).toHaveBeenCalledWith("%2");
+    expect(savePersistedState).toHaveBeenCalledOnce();
+  });
+
+  it("forwards pane metadata and removes its observation when the pane disappears", async () => {
+    processPaneMock.mockResolvedValueOnce(createDetail());
+    const { service, inspector, observePaneMetadata, removePaneObservation } = createService();
+
+    await service.updateFromPanes();
+    expect(observePaneMetadata).toHaveBeenCalledWith(basePane);
+
+    inspector.listPanes.mockResolvedValueOnce([]);
+    await service.updateFromPanes();
+    expect(removePaneObservation).toHaveBeenCalledWith("%1");
   });
 
   it("releases a retained restore after a successful ignored-pane observation", async () => {

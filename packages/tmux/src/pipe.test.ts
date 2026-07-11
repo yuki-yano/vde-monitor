@@ -47,7 +47,15 @@ describe("createPipeManager", () => {
   });
 
   it("attaches with exec cat and writes a pane-local owner tag", async () => {
-    const adapter = { run: vi.fn().mockResolvedValue(success) };
+    const adapter = {
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 }),
+    };
     const manager = createPipeManager(adapter, SERVER_KEY);
 
     const result = await manager.attachPipe("%1", LOG_PATH, {
@@ -57,28 +65,53 @@ describe("createPipeManager", () => {
 
     expect(result).toEqual({ attached: true, conflict: false });
     expect(adapter.run).toHaveBeenNthCalledWith(3, [
-      "pipe-pane",
-      "-o",
+      "if-shell",
+      "-F",
       "-t",
       "%1",
-      'exec cat >> "/tmp/test.log"',
+      "#{==:#{pane_pipe},0}",
+      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      "",
     ]);
-    expect(adapter.run).toHaveBeenNthCalledWith(4, [
-      "set-option",
-      "-p",
-      "-o",
+    expect(adapter.run).toHaveBeenCalledTimes(5);
+  });
+
+  it("quotes the nested attach command for shell-active log path characters", async () => {
+    const logPath = "/tmp/back\\\\slash\"quote'single$dollar`tick.log";
+    const ownerTag = createPipeOwnerTag(SERVER_KEY, logPath);
+    const adapter = {
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: ownerTag, stderr: "", exitCode: 0 }),
+    };
+    const manager = createPipeManager(adapter, SERVER_KEY);
+
+    await expect(
+      manager.attachPipe("%1", logPath, { panePipe: false, pipeTagValue: null }),
+    ).resolves.toEqual({ attached: true, conflict: false });
+    const guardedAttachArgs = adapter.run.mock.calls[2]?.[0];
+    expect(guardedAttachArgs?.slice(0, 5)).toEqual([
+      "if-shell",
+      "-F",
       "-t",
       "%1",
-      "@vde-monitor_pipe",
-      OWNER_TAG,
+      "#{==:#{pane_pipe},0}",
     ]);
+    expect(guardedAttachArgs?.[5]).toContain(`set-option -p -o`);
+    expect(guardedAttachArgs?.[5]).toContain(`; pipe-pane -o`);
+    expect(guardedAttachArgs?.[5]).toContain("quote'\\''single");
+    expect(guardedAttachArgs?.[6]).toBe("");
   });
 
   it("keeps an already-owned pipe without reattaching", async () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
@@ -93,22 +126,26 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 })
-        .mockResolvedValueOnce(success),
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
 
     await expect(
       manager.attachPipe("%1", LOG_PATH, { panePipe: false, pipeTagValue: OWNER_TAG }),
     ).resolves.toEqual({ attached: true, conflict: false });
-    expect(adapter.run).toHaveBeenCalledTimes(3);
+    expect(adapter.run).toHaveBeenCalledTimes(5);
     expect(adapter.run).toHaveBeenCalledWith([
-      "pipe-pane",
-      "-o",
+      "if-shell",
+      "-F",
       "-t",
       "%1",
-      'exec cat >> "/tmp/test.log"',
+      `#{&&:#{==:#{pane_pipe},0},#{==:#{@vde-monitor_pipe},${OWNER_TAG}}}`,
+      `pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      "",
     ]);
   });
 
@@ -128,44 +165,90 @@ describe("createPipeManager", () => {
     expect(adapter.run).not.toHaveBeenCalled();
   });
 
-  it("does not write a tag when pipe attachment fails", async () => {
+  it("keeps its stale owner tag for retry when pipe attachment fails", async () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce(success)
-        .mockResolvedValueOnce({ stdout: "", stderr: "attach failed", exitCode: 1 }),
+        .mockResolvedValueOnce({ stdout: "", stderr: "attach failed", exitCode: 1 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
 
     await expect(
       manager.attachPipe("%1", LOG_PATH, { panePipe: false, pipeTagValue: null }),
     ).resolves.toEqual({ attached: false, conflict: false });
-    expect(adapter.run).toHaveBeenCalledTimes(3);
+    expect(adapter.run).toHaveBeenCalledTimes(5);
   });
 
-  it("does not detach a tagless pipe when owner tag write fails", async () => {
+  it("leaves the pipe untouched when owner tag claim fails", async () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce({ stdout: "", stderr: "tag failed", exitCode: 1 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success),
+    };
+    const manager = createPipeManager(adapter, SERVER_KEY);
+
+    await expect(
+      manager.attachPipe("%1", LOG_PATH, { panePipe: false, pipeTagValue: null }),
+    ).resolves.toEqual({ attached: false, conflict: false });
+    expect(adapter.run).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not claim or toggle a foreign pipe that wins after the fresh read", async () => {
+    const adapter = {
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success)
-        .mockResolvedValueOnce({ stdout: "", stderr: "tag failed", exitCode: 1 }),
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
 
     await expect(
       manager.attachPipe("%1", LOG_PATH, { panePipe: false, pipeTagValue: null }),
     ).resolves.toEqual({ attached: false, conflict: true });
-    expect(adapter.run).toHaveBeenCalledTimes(4);
+    expect(adapter.run).toHaveBeenNthCalledWith(3, [
+      "if-shell",
+      "-F",
+      "-t",
+      "%1",
+      "#{==:#{pane_pipe},0}",
+      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      "",
+    ]);
+  });
+
+  it("does not attach when a foreign owner tag wins after the fresh read", async () => {
+    const adapter = {
+      run: vi
+        .fn()
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce(success)
+        .mockResolvedValueOnce({ stdout: "", stderr: "tag exists", exitCode: 1 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "v2:foreign", stderr: "", exitCode: 0 }),
+    };
+    const manager = createPipeManager(adapter, SERVER_KEY);
+
+    await expect(
+      manager.attachPipe("%1", LOG_PATH, { panePipe: false, pipeTagValue: null }),
+    ).resolves.toEqual({ attached: false, conflict: true });
   });
 
   it("refuses to overwrite a foreign pipe that appeared after the passed observation", async () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "v2:foreign", stderr: "", exitCode: 0 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
@@ -180,7 +263,7 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "0", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|0", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "", stderr: "read failed", exitCode: 1 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
@@ -195,7 +278,7 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1\n", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1\n", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: `${OWNER_TAG}\n`, stderr: "", exitCode: 0 })
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success),
@@ -212,7 +295,7 @@ describe("createPipeManager", () => {
       "-p",
       "-t",
       "%1",
-      "#{pane_pipe}",
+      "#{pane_id}|#{pane_pipe}",
     ]);
     expect(adapter.run).toHaveBeenNthCalledWith(2, [
       "show-options",
@@ -238,7 +321,7 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "0\n", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|0\n", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 })
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success),
@@ -268,7 +351,7 @@ describe("createPipeManager", () => {
       const adapter = {
         run: vi
           .fn()
-          .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+          .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
           .mockResolvedValueOnce(tagResult),
       };
       const manager = createPipeManager(adapter, SERVER_KEY);
@@ -296,11 +379,37 @@ describe("createPipeManager", () => {
     expect(adapter.run).toHaveBeenCalledTimes(1);
   });
 
+  it("treats an exit-zero empty pane identity as missing without mutation", async () => {
+    const attachAdapter = {
+      run: vi.fn().mockResolvedValue({ stdout: "|", stderr: "", exitCode: 0 }),
+    };
+    const attachManager = createPipeManager(attachAdapter, SERVER_KEY);
+
+    await expect(
+      attachManager.attachPipe("%missing", LOG_PATH, {
+        panePipe: false,
+        pipeTagValue: null,
+      }),
+    ).resolves.toEqual({ attached: false, conflict: false });
+    expect(attachAdapter.run).toHaveBeenCalledTimes(1);
+
+    const detachAdapter = {
+      run: vi.fn().mockResolvedValue({ stdout: "|", stderr: "", exitCode: 0 }),
+    };
+    const detachManager = createPipeManager(detachAdapter, SERVER_KEY);
+    await expect(detachManager.detachOwnedPipe("%missing", LOG_PATH)).resolves.toEqual({
+      ok: true,
+      owned: false,
+      detached: false,
+    });
+    expect(detachAdapter.run).toHaveBeenCalledTimes(1);
+  });
+
   it("distinguishes pane-local tag read failure from an unset tag", async () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "", stderr: "read failed", exitCode: 1 }),
     };
     const manager = createPipeManager(adapter, SERVER_KEY);
@@ -317,7 +426,7 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: "", stderr: "detach failed", exitCode: 1 }),
     };
@@ -335,7 +444,7 @@ describe("createPipeManager", () => {
     const adapter = {
       run: vi
         .fn()
-        .mockResolvedValueOnce({ stdout: "1", stderr: "", exitCode: 0 })
+        .mockResolvedValueOnce({ stdout: "%1|1", stderr: "", exitCode: 0 })
         .mockResolvedValueOnce({ stdout: OWNER_TAG, stderr: "", exitCode: 0 })
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce({ stdout: "", stderr: "unset failed", exitCode: 1 }),

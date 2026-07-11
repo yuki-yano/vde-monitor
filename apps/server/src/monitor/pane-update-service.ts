@@ -99,6 +99,16 @@ const normalizeCacheKey = (value: string | null) => {
   return normalized.length > 0 ? normalized : value;
 };
 
+const stagePaneRuntimeState = (state: PaneRuntimeState): PaneRuntimeState => ({
+  ...state,
+  completionCursor: state.completionCursor == null ? null : { ...state.completionCursor },
+  pendingRestoredCompletionCursor:
+    state.pendingRestoredCompletionCursor == null
+      ? null
+      : { ...state.pendingRestoredCompletionCursor },
+  pendingAgentLifecycleEvents: [...state.pendingAgentLifecycleEvents],
+});
+
 export const createPaneUpdateService = ({
   inspector,
   serverKey,
@@ -123,6 +133,16 @@ export const createPaneUpdateService = ({
   const panePipeTagCache = new Map<string, string | null>();
   const panePipeTagInflight = new Map<string, Promise<string | null>>();
   const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
+
+  const recordPaneProcessingFailure = (paneId: string, reason: unknown) => {
+    const failedAt = new Date().toISOString();
+    const previous = paneProcessingFailures.get(paneId);
+    paneProcessingFailures.set(paneId, {
+      count: (previous?.count ?? 0) + 1,
+      lastFailedAt: failedAt,
+      lastErrorMessage: toErrorMessage(reason),
+    });
+  };
 
   const markPaneViewed = (paneId: string, atMs = Date.now()) => {
     viewedPaneAtMs.set(paneId, atMs);
@@ -260,75 +280,77 @@ export const createPaneUpdateService = ({
       }
 
       if (paneResult.status === "rejected") {
-        const failedAt = new Date().toISOString();
-        const previous = paneProcessingFailures.get(pane.paneId);
-        paneProcessingFailures.set(pane.paneId, {
-          count: (previous?.count ?? 0) + 1,
-          lastFailedAt: failedAt,
-          lastErrorMessage: toErrorMessage(paneResult.reason),
-        });
+        recordPaneProcessingFailure(pane.paneId, paneResult.reason);
         activePaneIds.add(pane.paneId);
         continue;
       }
 
-      paneProcessingFailures.delete(pane.paneId);
       const observedDetail = paneResult.value;
       if (!observedDetail) {
+        paneProcessingFailures.delete(pane.paneId);
         onPaneObservationCommitted?.(pane.paneId);
         continue;
       }
 
-      const completionCommit = paneStateCoordinator.applyObservation({
-        pane,
-        detail: observedDetail,
-        paneState: paneStates.get(pane.paneId),
-      });
-      const detail = completionCommit.detail;
-
-      const existing = registry.getDetail(pane.paneId);
       activePaneIds.add(pane.paneId);
-      const transitionChanged =
-        !existing ||
-        existing.state !== detail.state ||
-        existing.stateReason !== detail.stateReason ||
-        existing.repoRoot !== detail.repoRoot;
-      if (transitionChanged) {
-        const transitionSource = resolveTimelineSource(detail.stateReason);
-        stateTimeline.record({
-          paneId: detail.paneId,
-          state: detail.state,
-          reason: detail.stateReason,
-          repoRoot: detail.repoRoot ?? null,
-          at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
-          source: transitionSource,
+      try {
+        const paneState = paneStates.get(pane.paneId);
+        const stagedPaneState = stagePaneRuntimeState(paneState);
+        const completionCommit = paneStateCoordinator.applyObservation({
+          pane,
+          detail: observedDetail,
+          paneState: stagedPaneState,
         });
-      }
-      const dispatchTransition = (completion: { epoch: string; completedSeq: number } | null) => {
-        if (!onStateTransition) {
-          return;
+        const detail = completionCommit.detail;
+        const existing = registry.getDetail(pane.paneId);
+        const paneTransitionEvents: SessionTransitionEvent[] = [];
+        const transitionChanged =
+          !existing ||
+          existing.state !== detail.state ||
+          existing.stateReason !== detail.stateReason ||
+          existing.repoRoot !== detail.repoRoot;
+        if (transitionChanged) {
+          const transitionSource = resolveTimelineSource(detail.stateReason);
+          stateTimeline.record({
+            paneId: detail.paneId,
+            state: detail.state,
+            reason: detail.stateReason,
+            repoRoot: detail.repoRoot ?? null,
+            at: detail.lastEventAt ?? detail.lastOutputAt ?? detail.lastInputAt ?? undefined,
+            source: transitionSource,
+          });
         }
-        const transitionEvent: SessionTransitionEvent = {
-          paneId: detail.paneId,
-          previous: existing,
-          next: detail,
-          at:
-            detail.lastEventAt ??
-            detail.lastOutputAt ??
-            detail.lastInputAt ??
-            new Date().toISOString(),
-          source: completionCommit.source,
-          completionAdvanced: completion != null,
-          completionEpoch: completion?.epoch ?? null,
-          completedSeq: completion?.completedSeq ?? null,
+        const queueTransition = (completion: { epoch: string; completedSeq: number } | null) => {
+          if (!onStateTransition) {
+            return;
+          }
+          paneTransitionEvents.push({
+            paneId: detail.paneId,
+            previous: existing,
+            next: detail,
+            at:
+              detail.lastEventAt ??
+              detail.lastOutputAt ??
+              detail.lastInputAt ??
+              new Date().toISOString(),
+            source: completionCommit.source,
+            completionAdvanced: completion != null,
+            completionEpoch: completion?.epoch ?? null,
+            completedSeq: completion?.completedSeq ?? null,
+          });
         };
-        pendingTransitionEvents.push(transitionEvent);
-      };
-      if (transitionChanged) {
-        dispatchTransition(null);
+        if (transitionChanged) {
+          queueTransition(null);
+        }
+        completionCommit.advancedCompletions.forEach(queueTransition);
+        registry.update(detail);
+        Object.assign(paneState, stagedPaneState);
+        pendingTransitionEvents.push(...paneTransitionEvents);
+        onPaneObservationCommitted?.(pane.paneId);
+        paneProcessingFailures.delete(pane.paneId);
+      } catch (error) {
+        recordPaneProcessingFailure(pane.paneId, error);
       }
-      completionCommit.advancedCompletions.forEach(dispatchTransition);
-      registry.update(detail);
-      onPaneObservationCommitted?.(pane.paneId);
     }
 
     const removedPaneIds = cleanupRegistry({

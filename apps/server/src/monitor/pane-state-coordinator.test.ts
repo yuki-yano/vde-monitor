@@ -58,12 +58,12 @@ const detail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   ...overrides,
 });
 
-const createCoordinator = () => {
+const createCoordinator = (now = "2026-07-10T00:00:00.000Z") => {
   let sequence = 0;
   return createPaneStateCoordinator({
     serverKey: "server",
     createEpoch: () => `epoch-${++sequence}`,
-    now: () => "2026-07-10T00:00:00.000Z",
+    now: () => now,
   });
 };
 
@@ -327,6 +327,119 @@ describe("createPaneStateCoordinator", () => {
     expect(paneState.completionCursor).toMatchObject({ openRunSeq: 1, completedSeq: 0 });
     expect(paneState.hookState).toBeNull();
   });
+
+  it("does not report presence identity rejection before a newer explicit session start", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.lifecycle = "WAITING_INPUT";
+    paneState.agentPresence = "present";
+    paneState.agentPresent = true;
+    paneState.completionCursor = {
+      epoch: "epoch-old",
+      paneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+      agent: "codex",
+      agentSessionId: "session-old",
+      identityConfirmedAt: "2026-07-10T00:00:01.000Z",
+      agentPresent: true,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 0,
+      runSeq: 1,
+      openRunSeq: null,
+      completedSeq: 1,
+      acknowledgedSeq: 1,
+    };
+    paneState.pendingAgentLifecycleEvents.push({
+      source: "hook",
+      agent: "codex",
+      eventName: "UserPromptSubmit",
+      sessionId: "session-new",
+      at: "2026-07-10T00:00:02.000Z",
+    });
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ agentSessionId: "session-new" }),
+      paneState,
+    });
+
+    expect(commit.identityRejected).toBe(false);
+    expect(paneState.completionCursor).toMatchObject({
+      epoch: "epoch-1",
+      agentSessionId: "session-new",
+      identityConfirmedAt: "2026-07-10T00:00:02.000Z",
+      runSeq: 1,
+      openRunSeq: 1,
+      completedSeq: 0,
+      acknowledgedSeq: 0,
+    });
+  });
+
+  it.each([
+    {
+      name: "agent changes",
+      cursorAgent: "claude" as const,
+      cursorPaneInstanceKey: createPaneInstanceKey({
+        serverKey: "server",
+        paneId: pane.paneId,
+        panePid: pane.panePid,
+      }),
+    },
+    {
+      name: "pane instance changes",
+      cursorAgent: "codex" as const,
+      cursorPaneInstanceKey: "old-pane-instance",
+    },
+  ])(
+    "binds the explicit session after the observed $name",
+    ({ cursorAgent, cursorPaneInstanceKey }) => {
+      const paneState = createPaneStateStore().get("%1");
+      paneState.lifecycle = "WAITING_INPUT";
+      paneState.agentPresence = "present";
+      paneState.agentPresent = true;
+      paneState.completionCursor = {
+        epoch: "epoch-old",
+        paneInstanceKey: cursorPaneInstanceKey,
+        agent: cursorAgent,
+        agentSessionId: "session-old",
+        identityConfirmedAt: "2026-07-10T00:00:01.000Z",
+        agentPresent: true,
+        syntheticCompletionArmed: false,
+        consecutiveAbsentObservations: 0,
+        runSeq: 1,
+        openRunSeq: null,
+        completedSeq: 1,
+        acknowledgedSeq: 1,
+      };
+      paneState.pendingAgentLifecycleEvents.push({
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-new",
+        at: "2026-07-10T00:00:02.000Z",
+      });
+
+      const commit = createCoordinator("2026-07-10T00:00:03.000Z").applyObservation({
+        pane,
+        detail: detail({ agent: "codex", agentSessionId: "session-new" }),
+        paneState,
+      });
+
+      expect(commit.identityRejected).toBe(false);
+      expect(paneState.completionCursor).toMatchObject({
+        epoch: "epoch-1",
+        agent: "codex",
+        agentSessionId: "session-new",
+        identityConfirmedAt: "2026-07-10T00:00:02.000Z",
+        runSeq: 1,
+        openRunSeq: 1,
+        completedSeq: 0,
+        acknowledgedSeq: 0,
+      });
+    },
+  );
 
   it("rejects a restored cursor when pane identity mismatches", () => {
     const paneState = createPaneStateStore().get("%1");
