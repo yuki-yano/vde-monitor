@@ -249,6 +249,48 @@ describe("UsageDashboardView", () => {
     expect(screen.getByText("Weekly")).toBeTruthy();
   });
 
+  it("groups the reset countdown and deadline above buffer and pace", () => {
+    const resetAt = new Date(2026, 1, 27, 10, 5);
+    const codex = createProvider("codex", {
+      windows: [
+        {
+          id: "session",
+          title: "Session",
+          utilizationPercent: 10,
+          windowDurationMs: 300 * 60 * 1000,
+          resetsAt: resetAt.toISOString(),
+          pace: {
+            elapsedPercent: 20,
+            projectedEndUtilizationPercent: 50,
+            paceMarginPercent: 30,
+            status: "margin",
+          },
+        },
+      ],
+    });
+
+    render(
+      <UsageDashboardView
+        {...createViewModel(codex, {
+          nowMs: new Date(2026, 1, 27, 9, 5).getTime(),
+        })}
+      />,
+    );
+
+    const countdown = screen.getByText("Resets in 1h");
+    const deadline = screen.getByText("Feb 27 · 10:05");
+    const buffer = screen.getByText("Buffer +10%");
+
+    expect(countdown.parentElement).toBe(deadline.parentElement);
+    expect(buffer.parentElement).not.toBe(countdown.parentElement);
+    expect(deadline.tagName).toBe("TIME");
+    expect(deadline.getAttribute("datetime")).toBe(resetAt.toISOString());
+    expect(deadline.className).toContain("whitespace-nowrap");
+    expect(deadline.className).toContain("shrink-0");
+    expect(deadline.className).toContain("rounded-full");
+    expect(deadline.className).toContain("border");
+  });
+
   it("renders used/elapsed percent with shared formatting across all windows", () => {
     const codex = createProvider("codex", {
       windows: [

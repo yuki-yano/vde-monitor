@@ -18,6 +18,17 @@ const tokenFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
+const resetDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+
+const resetTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 export const formatPercent = (value: number | null, signed = false) => {
   if (value == null) {
     return "Not available";
@@ -55,6 +66,18 @@ export const formatResetIn = (resetsAt: string | null, nowMs: number) => {
   }
   const remainingMs = Math.max(0, resetsAtMs - nowMs);
   return `Resets in ${formatDurationMs(remainingMs)}`;
+};
+
+export const formatResetAt = (resetsAt: string | null) => {
+  if (!resetsAt) {
+    return null;
+  }
+  const resetsAtMs = Date.parse(resetsAt);
+  if (Number.isNaN(resetsAtMs)) {
+    return null;
+  }
+  const resetAt = new Date(resetsAtMs);
+  return `${resetDateFormatter.format(resetAt)} · ${resetTimeFormatter.format(resetAt)}`;
 };
 
 export const formatDateTime = (iso: string | null | undefined) => {

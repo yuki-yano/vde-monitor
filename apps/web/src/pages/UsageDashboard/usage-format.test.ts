@@ -9,6 +9,7 @@ import {
   formatBufferLabel,
   formatPaceLabel,
   formatPercent,
+  formatResetAt,
   formatResetIn,
   formatTokenCount,
   formatTokens,
@@ -61,6 +62,9 @@ describe("usage-format", () => {
     expect(formatResetIn("2026-02-27T01:00:00.000Z", Date.parse("2026-02-27T00:00:00.000Z"))).toBe(
       "Resets in 1h",
     );
+    expect(formatResetAt(new Date(2026, 1, 27, 10, 5).toISOString())).toBe("Feb 27 · 10:05");
+    expect(formatResetAt(null)).toBeNull();
+    expect(formatResetAt("invalid")).toBeNull();
     expect(formatTokens(1234.6)).toBe("1,235 tokens");
     expect(formatTokenCount(1234.4)).toBe("1,234");
   });

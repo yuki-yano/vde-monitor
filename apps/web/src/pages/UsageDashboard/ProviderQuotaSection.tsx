@@ -13,6 +13,7 @@ import {
   formatDateTime,
   formatPaceLabel,
   formatPercent,
+  formatResetAt,
   formatResetIn,
   formatTokenCount,
   formatTokens,
@@ -33,6 +34,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
   const elapsedPercent = metric.pace.elapsedPercent;
   const elapsedMarkerLeft = elapsedPercent == null ? null : `${clampPercent(elapsedPercent)}%`;
   const bufferPercent = resolveRemainingBufferPercent(metric);
+  const resetAt = formatResetAt(metric.resetsAt);
   return (
     <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-1.5 rounded-2xl border px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -61,12 +63,23 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span className="border-latte-surface2 bg-latte-base/65 text-latte-subtext0 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium">
+        <span className="border-latte-surface2 bg-latte-base/65 text-latte-subtext0 inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium">
           {formatResetIn(metric.resetsAt, nowMs)}
         </span>
+        {resetAt ? (
+          <time
+            dateTime={metric.resetsAt ?? undefined}
+            className="border-latte-surface2/60 bg-latte-base/35 text-latte-subtext0 inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums"
+            title={`Resets at ${formatDateTime(metric.resetsAt)}`}
+          >
+            {resetAt}
+          </time>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
         <span
           className={cn(
-            "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+            "inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
             resolveBufferTone(bufferPercent),
           )}
         >
@@ -74,7 +87,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
         </span>
         <span
           className={cn(
-            "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+            "inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
             resolvePaceTone(metric.pace.status, metric.pace.paceMarginPercent),
           )}
         >
