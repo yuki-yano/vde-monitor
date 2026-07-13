@@ -1,6 +1,7 @@
 import {
   ApiEnvelope,
   ApiError,
+  ClientCapabilities,
   ClientFileNavigatorConfig,
   CommandResponse,
   HighlightCorrectionConfig,
@@ -359,6 +360,7 @@ type RefreshSessionsParams = {
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
   onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
+  onCapabilities?: (capabilities: ClientCapabilities) => void;
 };
 
 export const refreshSessions = async ({
@@ -370,6 +372,7 @@ export const refreshSessions = async ({
   onFileNavigatorConfig,
   onWorkspaceTabsDisplayMode,
   onLaunchConfig,
+  onCapabilities,
 }: RefreshSessionsParams): Promise<RefreshSessionsResult> => {
   if (!token) {
     return { ok: false, authError: true };
@@ -387,6 +390,7 @@ export const refreshSessions = async ({
       onFileNavigatorConfig,
       onWorkspaceTabsDisplayMode,
       onLaunchConfig,
+      onCapabilities,
       onConnectionIssue,
     });
   } catch (error) {

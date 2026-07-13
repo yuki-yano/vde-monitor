@@ -25,7 +25,8 @@ type ScreenResponseParams = {
 const resolveCaptureBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] =>
   config.multiplexer.backend === "tmux" ||
   config.multiplexer.backend === "wezterm" ||
-  config.multiplexer.backend === "herdr"
+  config.multiplexer.backend === "herdr" ||
+  config.multiplexer.backend === "cmux"
     ? config.multiplexer.backend
     : "unknown";
 
@@ -58,7 +59,7 @@ const buildTextCaptureMeta = ({
         : "physical"
       : backend === "wezterm"
         ? "physical"
-        : backend === "herdr"
+        : backend === "herdr" || backend === "cmux"
           ? "physical"
           : "none";
   const captureMethod =
@@ -68,7 +69,9 @@ const buildTextCaptureMeta = ({
         ? "wezterm-get-text"
         : backend === "herdr"
           ? "herdr-pane-read"
-          : "none";
+          : backend === "cmux"
+            ? "cmux-read-screen"
+            : "none";
 
   return {
     backend,
@@ -161,6 +164,21 @@ export const createScreenResponse = async ({
 
   if (effectiveMode === "image") {
     const multiplexerBackend = config.multiplexer.backend;
+    if (multiplexerBackend === "cmux") {
+      return {
+        ok: false,
+        paneId: target.paneId,
+        mode: "image",
+        capturedAt: nowIso(),
+        captureMeta: {
+          backend: "cmux",
+          lineModel: "none",
+          joinLinesApplied: null,
+          captureMethod: "none",
+        },
+        error: buildError("INVALID_PAYLOAD", "image screen capture is not supported for cmux"),
+      };
+    }
     if (multiplexerBackend !== "tmux" && multiplexerBackend !== "wezterm") {
       return captureTextResponse("image_disabled", false);
     }

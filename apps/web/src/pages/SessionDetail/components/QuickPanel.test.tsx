@@ -303,6 +303,8 @@ describe("QuickPanel", () => {
   it("uses window-level pane totals from all sessions", () => {
     const agentOne = createSessionDetail({
       paneId: "pane-1",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-1",
       agent: "codex",
       windowIndex: 1,
       paneIndex: 0,
@@ -310,6 +312,8 @@ describe("QuickPanel", () => {
     });
     const agentTwo = createSessionDetail({
       paneId: "pane-2",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-2",
       agent: "claude",
       windowIndex: 2,
       paneIndex: 0,
@@ -317,6 +321,8 @@ describe("QuickPanel", () => {
     });
     const shellOne = createSessionDetail({
       paneId: "pane-3",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-1",
       agent: "unknown",
       windowIndex: 1,
       paneIndex: 1,
@@ -324,6 +330,8 @@ describe("QuickPanel", () => {
     });
     const shellTwo = createSessionDetail({
       paneId: "pane-4",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-1",
       agent: "unknown",
       windowIndex: 1,
       paneIndex: 2,
@@ -331,6 +339,8 @@ describe("QuickPanel", () => {
     });
     const shellThree = createSessionDetail({
       paneId: "pane-5",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-2",
       agent: "unknown",
       windowIndex: 2,
       paneIndex: 1,

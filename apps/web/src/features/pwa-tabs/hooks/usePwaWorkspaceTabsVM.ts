@@ -1,10 +1,11 @@
 import type { SessionStateValue, SessionSummary } from "@vde-monitor/shared";
 import { useMemo } from "react";
 
+import { formatRepoDisplayName } from "@/lib/repo-display";
 import { useSessionStreamData } from "@/state/session-context";
 
 import {
-  buildSessionGroupLabelByName,
+  buildSessionGroupLabelByKey,
   normalizeSessionGroupName,
 } from "../model/session-group-label";
 import {
@@ -35,16 +36,17 @@ export const resolvePwaTabStateClass = (state: SessionStateValue | null | undefi
 const resolveSessionGroupMeta = (
   tab: WorkspaceTab,
   sessionByPaneId: Map<string, SessionSummary>,
-  sessionGroupLabelByName: Map<string, string>,
+  sessionGroupLabelByKey: Map<string, string>,
 ) => {
   if (tab.kind !== "session" || tab.paneId == null) {
     return { groupKey: "system", groupLabel: "SYS" };
   }
   const session = sessionByPaneId.get(tab.paneId);
   const sessionName = normalizeSessionGroupName(session?.sessionName);
+  const groupKey = session == null ? `pane:${tab.paneId}` : `session:${session.sessionId}`;
   return {
-    groupKey: `session:${sessionName}`,
-    groupLabel: sessionGroupLabelByName.get(sessionName) ?? sessionName.slice(0, 4).toUpperCase(),
+    groupKey,
+    groupLabel: sessionGroupLabelByKey.get(groupKey) ?? sessionName.slice(0, 4).toUpperCase(),
   };
 };
 
@@ -64,6 +66,64 @@ const sortWorkspaceTabGroups = (groups: WorkspaceTabGroup[]) =>
     })
     .map((entry) => entry.group);
 
+export const buildPwaWorkspaceTabGroups = (
+  tabs: WorkspaceTab[],
+  sessionByPaneId: Map<string, SessionSummary>,
+): WorkspaceTabGroup[] => {
+  const sessionGroupSources = new Map<
+    string,
+    { sessionName: string | null | undefined; repoRoots: Set<string> }
+  >();
+  tabs.forEach((tab) => {
+    if (tab.kind !== "session" || tab.paneId == null) {
+      return;
+    }
+    const session = sessionByPaneId.get(tab.paneId);
+    const key = session == null ? `pane:${tab.paneId}` : `session:${session.sessionId}`;
+    const source = sessionGroupSources.get(key) ?? {
+      sessionName: session?.sessionName,
+      repoRoots: new Set<string>(),
+    };
+    if (source.sessionName == null && session?.sessionName != null) {
+      source.sessionName = session.sessionName;
+    }
+    sessionGroupSources.set(key, source);
+  });
+  sessionByPaneId.forEach((session) => {
+    const source = sessionGroupSources.get(`session:${session.sessionId}`);
+    if (source == null) return;
+    if (source.sessionName == null) {
+      source.sessionName = session.sessionName;
+    }
+    if (session.repoRoot != null) {
+      source.repoRoots.add(session.repoRoot);
+    }
+  });
+  const sessionGroups = [...sessionGroupSources].map(([key, source]) => ({
+    key,
+    name:
+      source.repoRoots.size === 1
+        ? formatRepoDisplayName(source.repoRoots.values().next().value ?? null)
+        : source.sessionName,
+  }));
+  const sessionGroupLabelByKey = buildSessionGroupLabelByKey(sessionGroups);
+  const groups = new Map<string, WorkspaceTabGroup>();
+  tabs.forEach((tab) => {
+    const groupMeta = resolveSessionGroupMeta(tab, sessionByPaneId, sessionGroupLabelByKey);
+    const current = groups.get(groupMeta.groupKey);
+    if (current) {
+      current.tabs.push(tab);
+      return;
+    }
+    groups.set(groupMeta.groupKey, {
+      key: groupMeta.groupKey,
+      label: groupMeta.groupLabel,
+      tabs: [tab],
+    });
+  });
+  return sortWorkspaceTabGroups([...groups.values()]);
+};
+
 export const usePwaWorkspaceTabsVM = (tabs: WorkspaceTab[]) => {
   const { sessions } = useSessionStreamData();
   const sessionByPaneId = useMemo(
@@ -73,32 +133,10 @@ export const usePwaWorkspaceTabsVM = (tabs: WorkspaceTab[]) => {
 
   const fixedSessionsTab = tabs.find((tab) => tab.id === SYSTEM_SESSIONS_TAB_ID);
   const closableTabs = useMemo(() => tabs.filter((tab) => tab.closable), [tabs]);
-  const sessionGroupLabelByName = useMemo(() => {
-    const sessionNames = closableTabs.flatMap((tab) => {
-      if (tab.kind !== "session" || tab.paneId == null) {
-        return [];
-      }
-      return [normalizeSessionGroupName(sessionByPaneId.get(tab.paneId)?.sessionName)];
-    });
-    return buildSessionGroupLabelByName(sessionNames);
-  }, [closableTabs, sessionByPaneId]);
-  const tabGroups = useMemo(() => {
-    const groups = new Map<string, WorkspaceTabGroup>();
-    closableTabs.forEach((tab) => {
-      const groupMeta = resolveSessionGroupMeta(tab, sessionByPaneId, sessionGroupLabelByName);
-      const current = groups.get(groupMeta.groupKey);
-      if (current) {
-        current.tabs.push(tab);
-        return;
-      }
-      groups.set(groupMeta.groupKey, {
-        key: groupMeta.groupKey,
-        label: groupMeta.groupLabel,
-        tabs: [tab],
-      });
-    });
-    return sortWorkspaceTabGroups([...groups.values()]);
-  }, [closableTabs, sessionByPaneId, sessionGroupLabelByName]);
+  const tabGroups = useMemo(
+    () => buildPwaWorkspaceTabGroups(closableTabs, sessionByPaneId),
+    [closableTabs, sessionByPaneId],
+  );
 
   const resolveTabLabel = (tab: WorkspaceTab) => {
     if (tab.id === SYSTEM_SESSIONS_TAB_ID) {

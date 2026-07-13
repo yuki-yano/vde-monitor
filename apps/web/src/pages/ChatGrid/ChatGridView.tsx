@@ -1,4 +1,5 @@
 import type {
+  ClientCapabilities,
   HighlightCorrectionConfig,
   LaunchConfig,
   ScreenResponse,
@@ -31,6 +32,7 @@ export type ChatGridViewProps = {
   connectionIssue: string | null;
   transport?: "sse" | "polling";
   launchConfig: LaunchConfig;
+  capabilities: ClientCapabilities;
   requestStateTimeline: (
     paneId: string,
     options?: {
@@ -85,6 +87,7 @@ export const ChatGridView = ({
   connectionIssue,
   transport,
   launchConfig,
+  capabilities,
   requestStateTimeline,
   requestScreen,
   requestWorktrees,
@@ -131,6 +134,7 @@ export const ChatGridView = ({
             connected,
             connectionIssue,
             launchConfig,
+            launchAgentAvailable: capabilities.launchAgent,
             requestWorktrees,
             requestStateTimeline,
             requestScreen,

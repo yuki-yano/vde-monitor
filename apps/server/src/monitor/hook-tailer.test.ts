@@ -48,6 +48,26 @@ describe("handleHookLine", () => {
     });
   });
 
+  it("dispatches a cmux hook using its controlling tty over a stale surface id", () => {
+    const onHook = vi.fn();
+    const event = {
+      ts: "2024-01-01T00:00:00.000Z",
+      hook_event_name: "PreToolUse",
+      session_id: "s1",
+      cmux_surface: "surface-2",
+      tty: "tty1",
+      payload: { raw: "" },
+    };
+    const result = handleHookLine(JSON.stringify(event), panes, onHook);
+    expect(result).toBe(true);
+    expect(onHook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paneId: "1",
+        sessionId: "s1",
+      }),
+    );
+  });
+
   it("falls back to tty matching", () => {
     const onHook = vi.fn();
     const event = {

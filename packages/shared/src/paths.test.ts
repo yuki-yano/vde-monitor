@@ -4,9 +4,6 @@ import {
   decodePaneId,
   encodePaneId,
   normalizeWeztermTarget,
-  resolveHerdrServerKey,
-  resolveLogPaths,
-  resolveMonitorServerKey,
   resolveServerKey,
   resolveWeztermServerKey,
   sanitizeServerKey,
@@ -83,59 +80,5 @@ describe("resolveWeztermServerKey", () => {
 
   it("normalizes trimmed targets to same key", () => {
     expect(resolveWeztermServerKey(" dev ")).toBe(resolveWeztermServerKey("dev"));
-  });
-});
-
-describe("resolveMonitorServerKey", () => {
-  it("uses tmux socket key when backend is tmux", () => {
-    expect(
-      resolveMonitorServerKey({
-        multiplexerBackend: "tmux",
-        tmuxSocketName: "my/socket",
-        tmuxSocketPath: "/tmp/tmux.sock",
-        weztermTarget: "dev",
-      }),
-    ).toBe("my_socket");
-  });
-
-  it("uses wezterm key when backend is wezterm", () => {
-    expect(
-      resolveMonitorServerKey({
-        multiplexerBackend: "wezterm",
-        tmuxSocketName: "my/socket",
-        tmuxSocketPath: "/tmp/tmux.sock",
-        weztermTarget: "dev",
-      }),
-    ).toBe(resolveWeztermServerKey("dev"));
-  });
-
-  it("uses herdr socket path key when backend is herdr", () => {
-    expect(
-      resolveMonitorServerKey({
-        multiplexerBackend: "herdr",
-        tmuxSocketName: "my/socket",
-        tmuxSocketPath: "/tmp/tmux.sock",
-        weztermTarget: "dev",
-        herdrSocketPath: "/Users/u/.config/herdr/herdr.sock",
-      }),
-    ).toBe(resolveHerdrServerKey("/Users/u/.config/herdr/herdr.sock"));
-  });
-});
-
-describe("resolveLogPaths", () => {
-  it("encodes paneId into a percent-free pane log file id", () => {
-    const paths = resolveLogPaths("/base", "server", "%1");
-    expect(paths.paneIdEncoded).toBe("%251");
-    expect(paths.paneLogPath).toBe("/base/panes/server/_p251.log");
-    expect(paths.eventLogPath).toBe("/base/events/server/claude.jsonl");
-  });
-
-  it("handles special pane IDs without collisions", () => {
-    const paths = resolveLogPaths("/base", "server", "%1/2");
-    const collidingCandidate = resolveLogPaths("/base", "server", "%12F2");
-    expect(paths.paneIdEncoded).toBe("%251%2F2");
-    expect(paths.paneLogPath).toBe("/base/panes/server/_p251_p2F2.log");
-    expect(collidingCandidate.paneLogPath).toBe("/base/panes/server/_p2512F2.log");
-    expect(paths.paneLogPath).not.toBe(collidingCandidate.paneLogPath);
   });
 });

@@ -5,7 +5,9 @@ import { hostCandidates, sanitizePaneTitle } from "./monitor-utils";
 
 export type PaneSnapshot = {
   paneId: string;
+  sessionId: string;
   sessionName: string;
+  windowId: string;
   windowIndex: number;
   paneIndex: number;
   paneActive: boolean;
@@ -83,7 +85,9 @@ export const buildSessionDetail = ({
   worktreeMerged,
 }: BuildSessionDetailArgs): SessionDetail => ({
   paneId: pane.paneId,
+  sessionId: pane.sessionId,
   sessionName: pane.sessionName,
+  windowId: pane.windowId,
   windowIndex: pane.windowIndex,
   paneIndex: pane.paneIndex,
   paneActive: pane.paneActive,

@@ -30,6 +30,7 @@ type SessionSidebarState = {
   connected: boolean;
   connectionIssue: string | null;
   launchConfig: LaunchConfig;
+  launchAgentAvailable: boolean;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   requestStateTimeline: (
     paneId: string,
@@ -82,6 +83,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
     connected,
     connectionIssue,
     launchConfig,
+    launchAgentAvailable,
     requestWorktrees,
     requestStateTimeline,
     requestScreen,
@@ -162,6 +164,7 @@ export const SessionSidebar = ({ state, actions }: SessionSidebarProps) => {
       focusPendingPaneIds,
       launchPendingSessions,
       launchConfig,
+      launchAgentAvailable,
       requestWorktrees,
       onHoverStart: handleHoverStart,
       onHoverEnd: handleHoverEnd,

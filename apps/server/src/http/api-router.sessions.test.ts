@@ -24,6 +24,11 @@ describe("createApiRouter", () => {
     );
     expect(data.clientConfig.workspaceTabs.displayMode).toBe(config.workspaceTabs.displayMode);
     expect(data.clientConfig.launch).toEqual(config.launch);
+    expect(data.clientConfig.capabilities).toEqual({
+      screenImage: true,
+      launchAgent: true,
+      resumeAgent: true,
+    });
   });
 
   it("returns 404 when session is missing", async () => {

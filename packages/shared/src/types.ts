@@ -160,6 +160,7 @@ export type WorkspaceTabsDisplayMode = z.infer<typeof workspaceTabsDisplayModeSc
 export type ClientScreenConfig = z.infer<typeof clientConfigSchema>["screen"];
 export type ClientFileNavigatorConfig = z.infer<typeof clientConfigSchema>["fileNavigator"];
 export type ClientWorkspaceTabsConfig = z.infer<typeof clientConfigSchema>["workspaceTabs"];
+export type ClientCapabilities = z.infer<typeof clientConfigSchema>["capabilities"];
 export type ClientConfig = z.infer<typeof clientConfigSchema>;
 
 export type GeneratedConfigTemplate = z.infer<typeof generatedConfigTemplateSchema>;
@@ -405,10 +406,15 @@ export type ResolvedConfig = {
     };
   };
   multiplexer: {
-    backend: "tmux" | "wezterm" | "herdr";
+    backend: "tmux" | "wezterm" | "herdr" | "cmux";
     wezterm: {
       cliPath: string;
       target: string | null;
+    };
+    cmux: {
+      cliPath: string;
+      socketPath: string | null;
+      password: string | null;
     };
   };
   launch: LaunchConfig;

@@ -31,7 +31,9 @@ const enc = new TextEncoder();
 /** Build a minimal SessionSummary for use in test payloads. */
 const makeSession = (paneId: string): SessionSummary => ({
   paneId,
+  sessionId: "test-session-id",
   sessionName: "test-session",
+  windowId: "test-window-id",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

@@ -41,6 +41,12 @@ export const createSessionRoutes = ({
         sessions: monitor.registry.snapshot(),
         serverTime: nowIso(),
         clientConfig: {
+          capabilities: {
+            screenImage:
+              config.multiplexer.backend === "tmux" || config.multiplexer.backend === "wezterm",
+            launchAgent: launchCapability != null,
+            resumeAgent: launchCapability != null,
+          },
           screen: { highlightCorrection: config.screen.highlightCorrection },
           fileNavigator: {
             autoExpandMatchLimit: config.fileNavigator.autoExpandMatchLimit,
@@ -57,6 +63,7 @@ export const createSessionRoutes = ({
       createLaunchRoute({
         monitor,
         launchCapability,
+        multiplexerBackend: config.multiplexer.backend,
         sendLimiter,
         getLimiterKey,
       }),

@@ -5,6 +5,7 @@ import path from "node:path";
 import { resolveSocketPath, subscribeHerdrEvents } from "@vde-monitor/herdr";
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { SessionStateTimelineRange } from "@vde-monitor/shared";
+import { resolveMonitorRuntimeMarkerPath } from "@vde-monitor/shared/node";
 
 import { createJsonlTailer, createLogActivityPoller, ensureDir } from "./logs";
 import { type HookEventContext, handleCodexHookLine, handleHookLine } from "./monitor/hook-tailer";
@@ -17,6 +18,7 @@ import { createPaneObservationCoordinator } from "./monitor/pane-observation-coo
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
+import { createMonitorRuntimeMarker, resolveProcessStartedAt } from "./monitor/runtime-marker";
 import { markHerdrLifecycleDirty, normalizeFingerprint } from "./monitor/monitor-utils";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
@@ -106,7 +108,7 @@ export const createSessionMonitor = (
           paneId,
           lines: 200,
           joinLines: false,
-          includeAnsi: true,
+          includeAnsi: false,
           includeTruncated: false,
           altScreen: "auto",
           alternateOn: useAlt,
@@ -130,6 +132,18 @@ export const createSessionMonitor = (
   const eventsDir = path.join(baseDir, "events", serverKey);
   const eventLogPath = path.join(eventsDir, "claude.jsonl");
   const codexEventLogPath = path.join(eventsDir, "codex.jsonl");
+  const runtimeMarker =
+    runtime.backend === "cmux"
+      ? createMonitorRuntimeMarker({
+          markerPath: resolveMonitorRuntimeMarkerPath(baseDir, serverKey, process.pid),
+          marker: {
+            backend: "cmux",
+            serverKey,
+            pid: process.pid,
+            processStartedAt: resolveProcessStartedAt(process.pid),
+          },
+        })
+      : null;
   const logActivity = createLogActivityPoller(config.activity.pollIntervalMs);
   const paneLogManager = createPaneLogManager({
     baseDir,
@@ -330,30 +344,38 @@ export const createSessionMonitor = (
   });
 
   const start = async () => {
-    logActivity.onActivity((paneId, at) => {
-      observationCoordinator.markDirty(paneId, "pipe");
-      const state = paneStates.get(paneId);
-      state.lastOutputAt = at;
-    });
-    logActivity.start();
-    await startHookTailer();
-    await startHerdrEventSubscription();
+    try {
+      logActivity.onActivity((paneId, at) => {
+        observationCoordinator.markDirty(paneId, "pipe");
+        const state = paneStates.get(paneId);
+        state.lastOutputAt = at;
+      });
+      logActivity.start();
+      await startHookTailer();
+      // Publish only after tailers are ready so the first redirected hook event is not skipped.
+      await runtimeMarker?.write();
+      await startHerdrEventSubscription();
 
-    monitorLoop.start();
+      monitorLoop.start();
 
-    await updateFromPanes();
+      await updateFromPanes();
+    } catch (error) {
+      await runtimeMarker?.removeIfOwned().catch(() => undefined);
+      throw error;
+    }
   };
 
   const stop = (): Promise<void> => {
     if (stopPromise != null) return stopPromise;
     monitorLoop.stop();
     logActivity.stop();
-    jsonlTailer.stop();
-    codexJsonlTailer.stop();
     const subscription = herdrEventSubscription;
     herdrEventSubscription = null;
     observationCoordinator.dispose();
     stopPromise = (async () => {
+      await Promise.allSettled([runtimeMarker?.removeIfOwned() ?? Promise.resolve()]);
+      jsonlTailer.stop();
+      codexJsonlTailer.stop();
       await Promise.allSettled([subscription?.stop() ?? Promise.resolve(), paneUpdater.stop()]);
       await detachOwnedPipesForShutdown({
         paneIds: resolveShutdownPaneIds(

@@ -59,7 +59,9 @@ const createPaneLogManager = (overrides: Partial<PaneLogManager> = {}): PaneLogM
 
 const basePane: PaneMeta = {
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 1,
   windowActivity: null,

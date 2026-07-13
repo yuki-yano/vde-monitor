@@ -368,7 +368,12 @@ export const useScreenFetch = ({
   // REST lifecycle (no in-flight tracking needed for push events).
   const handleSseScreenEvent = useCallback(
     (response: ScreenResponse) => {
-      if (!response.ok) return;
+      if (!response.ok) {
+        setFallbackReason(null);
+        setError(response.error?.message ?? API_ERROR_MESSAGES.screenCapture);
+        onModeLoaded(mode);
+        return;
+      }
       setError(null);
       setFallbackReason(response.fallbackReason ?? null);
       // react-doctor-disable-next-line no-event-handler

@@ -19,7 +19,7 @@ describe("parseArgs", () => {
       "--port",
       "3000",
       "--multiplexer",
-      "wezterm",
+      "cmux",
       "--backend",
       "wezterm",
     ]);
@@ -29,7 +29,7 @@ describe("parseArgs", () => {
     expect(result.public).toBe(true);
     expect(result.bind).toBe("192.168.0.10");
     expect(result.port).toBe("3000");
-    expect(result.multiplexer).toBe("wezterm");
+    expect(result.multiplexer).toBe("cmux");
     expect(result.backend).toBe("wezterm");
   });
 
@@ -138,7 +138,7 @@ describe("resolveHosts", () => {
 });
 
 describe("resolveMultiplexerOverrides", () => {
-  it("resolves multiplexer/backend and wezterm flags", () => {
+  it("resolves multiplexer/backend and multiplexer-specific flags", () => {
     const result = resolveMultiplexerOverrides(
       parseArgs([
         "--multiplexer",
@@ -149,6 +149,10 @@ describe("resolveMultiplexerOverrides", () => {
         "/opt/homebrew/bin/wezterm",
         "--wezterm-target",
         " dev ",
+        "--cmux-cli",
+        "/Applications/cmux.app/Contents/Resources/bin/cmux",
+        "--cmux-socket",
+        "/Users/test/.cmux/cmux.sock",
       ]),
     );
 
@@ -157,6 +161,8 @@ describe("resolveMultiplexerOverrides", () => {
       screenImageBackend: "ghostty",
       weztermCliPath: "/opt/homebrew/bin/wezterm",
       weztermTarget: " dev ",
+      cmuxCliPath: "/Applications/cmux.app/Contents/Resources/bin/cmux",
+      cmuxSocketPath: "/Users/test/.cmux/cmux.sock",
     });
   });
 
@@ -171,6 +177,12 @@ describe("resolveMultiplexerOverrides", () => {
     );
     expect(() => resolveMultiplexerOverrides(parseArgs(["--wezterm-target"]))).toThrow(
       /--wezterm-target requires a value/,
+    );
+    expect(() => resolveMultiplexerOverrides(parseArgs(["--cmux-cli"]))).toThrow(
+      /--cmux-cli requires a value/,
+    );
+    expect(() => resolveMultiplexerOverrides(parseArgs(["--cmux-socket"]))).toThrow(
+      /--cmux-socket requires a value/,
     );
   });
 });

@@ -9,8 +9,8 @@ const mocks = vi.hoisted(() => ({
   statSync: vi.fn(),
 }));
 
-vi.mock("@vde-monitor/shared", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@vde-monitor/shared")>();
+vi.mock("@vde-monitor/shared/node", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@vde-monitor/shared/node")>();
   return {
     ...actual,
     resolveConfigDir: () => "/mock/config",
@@ -136,6 +136,7 @@ describe("hooks config loading", () => {
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yml-target",
+      cmuxSocketPath: configDefaults.multiplexer.cmux.socketPath,
     });
   });
 
@@ -178,6 +179,7 @@ describe("hooks config loading", () => {
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "yaml-target",
+      cmuxSocketPath: configDefaults.multiplexer.cmux.socketPath,
     });
   });
 
@@ -208,6 +210,7 @@ describe("hooks config loading", () => {
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: "json-target",
+      cmuxSocketPath: configDefaults.multiplexer.cmux.socketPath,
     });
   });
 
@@ -236,6 +239,7 @@ describe("hooks config loading", () => {
       tmuxSocketName: configDefaults.tmux.socketName,
       tmuxSocketPath: configDefaults.tmux.socketPath,
       weztermTarget: configDefaults.multiplexer.wezterm.target,
+      cmuxSocketPath: configDefaults.multiplexer.cmux.socketPath,
     });
   });
 
@@ -285,6 +289,35 @@ describe("hooks config loading", () => {
       tmuxSocketName: "sock",
       tmuxSocketPath: "/tmp/tmux.sock",
       weztermTarget: "custom-target",
+      cmuxSocketPath: configDefaults.multiplexer.cmux.socketPath,
+    });
+  });
+
+  it("loads cmux socket configuration without retaining its password", () => {
+    setFile(
+      "/mock/config/config.yml",
+      YAML.stringify({
+        ...configDefaults,
+        multiplexer: {
+          ...configDefaults.multiplexer,
+          backend: "cmux",
+          cmux: {
+            cliPath: "cmux",
+            socketPath: "/tmp/cmux.sock",
+            password: "secret",
+          },
+        },
+      }),
+    );
+
+    expect(loadConfig()).toEqual({
+      bind: configDefaults.bind,
+      port: configDefaults.port,
+      multiplexerBackend: "cmux",
+      tmuxSocketName: configDefaults.tmux.socketName,
+      tmuxSocketPath: configDefaults.tmux.socketPath,
+      weztermTarget: configDefaults.multiplexer.wezterm.target,
+      cmuxSocketPath: "/tmp/cmux.sock",
     });
   });
 });

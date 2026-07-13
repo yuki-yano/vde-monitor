@@ -2,7 +2,7 @@ import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { ArgsDef, ParsedArgs as CittyParsedArgs } from "citty";
 import { parseArgs as parseCittyArgs } from "citty";
 
-const multiplexerBackends = ["tmux", "wezterm", "herdr"] as const;
+const multiplexerBackends = ["tmux", "wezterm", "herdr", "cmux"] as const;
 const imageBackends = ["alacritty", "terminal", "iterm", "wezterm", "ghostty"] as const;
 
 const cliArgDefinitions = {
@@ -22,6 +22,8 @@ const cliArgDefinitions = {
   backend: { type: "enum", options: [...imageBackends] },
   weztermCli: { type: "string" },
   weztermTarget: { type: "string" },
+  cmuxCli: { type: "string" },
+  cmuxSocket: { type: "string" },
 } satisfies ArgsDef;
 
 export type ParsedArgs = CittyParsedArgs<typeof cliArgDefinitions>;
@@ -36,6 +38,8 @@ export type MultiplexerOverrides = {
   screenImageBackend?: AgentMonitorConfig["screen"]["image"]["backend"];
   weztermCliPath?: string;
   weztermTarget?: string;
+  cmuxCliPath?: string;
+  cmuxSocketPath?: string;
 };
 
 type ResolveHostsOptions = {
@@ -214,6 +218,16 @@ export const resolveMultiplexerOverrides = (args: ParsedArgs): MultiplexerOverri
   const weztermTarget = readOptionalString(args.weztermTarget, "--wezterm-target");
   if (weztermTarget) {
     overrides.weztermTarget = weztermTarget;
+  }
+
+  const cmuxCliPath = readOptionalString(args.cmuxCli, "--cmux-cli");
+  if (cmuxCliPath) {
+    overrides.cmuxCliPath = cmuxCliPath;
+  }
+
+  const cmuxSocketPath = readOptionalString(args.cmuxSocket, "--cmux-socket");
+  if (cmuxSocketPath) {
+    overrides.cmuxSocketPath = cmuxSocketPath;
   }
 
   return overrides;

@@ -1,6 +1,6 @@
 # vde-monitor
 
-Monitor tmux/WezTerm/herdr coding sessions from a browser with a single CLI.
+Monitor tmux/WezTerm/herdr/cmux coding sessions from a browser with a single CLI.
 It is designed for Codex CLI / Claude Code workflows and optimized for quick checks and control from both desktop and mobile devices.
 Mobile application-grade UI/UX is a first-class goal, with touch-friendly controls and compact layouts prioritized for small screens.
 
@@ -10,8 +10,8 @@ Japanese version: [`README.ja.md`](README.ja.md)
 
 - See active sessions in one place, with recent activity and status
 - Open a session and send text, key input, or raw input to the pane
-- Monitor terminal output in text mode (cross-platform)
-- Use image mode on macOS terminals (when enabled)
+- Monitor terminal output in text mode (cross-platform except for the macOS-only cmux backend)
+- Use image mode on supported macOS terminal backends (when enabled)
 - Track session/repo timeline and activity history across restarts
 - Inspect Git diff/commits and keep repo-scoped notes while monitoring
 - Launch Codex/Claude agents into tmux or herdr sessions
@@ -25,7 +25,7 @@ Japanese version: [`README.ja.md`](README.ja.md)
 - Session Detail: live screen view (text/image), timeline, notes, diff, commits, file navigator, worktree context switch, and input composer (text/keys/raw/image attachment)
 - Timeline and context: state timeline, repo notes, git diff/commits, and file browsing
 - Worktree context: inspect timeline/git/files against a selected worktree without leaving the session ([`vde-worktree`](https://github.com/yuki-yano/vde-worktree) / `vw` required)
-- Agent operations: launch Codex/Claude, or resume/move an existing session into another worktree context
+- Agent operations: where supported by the backend, launch Codex/Claude or resume/move an existing session into another worktree context
 - Multi-pane monitoring: desktop-oriented Chat Grid for side-by-side pane tracking
 - Mobile-first UI/UX: primary monitor/control flows are treated as first-class for phone browsers
 - PWA push notifications: per-session notification toggle (default off) plus global config-level enable/disable
@@ -34,10 +34,11 @@ Japanese version: [`README.ja.md`](README.ja.md)
 ## Requirements
 
 - Node.js `24.11+`
-- tmux `2.0+`, WezTerm with `wezterm cli`, or herdr `0.7.1+`
+- tmux `2.0+`, WezTerm with `wezterm cli`, herdr `0.7.1+`, or cmux `0.64.17+`
+- cmux requires macOS 14 or later
 - Worktree integration requires [`vde-worktree`](https://github.com/yuki-yano/vde-worktree) CLI (`vw`) and is unavailable when `vw` snapshot cannot be resolved
-- macOS-only features (image capture / pane focus) require `osascript`
-- On macOS, Screen Recording and Accessibility permissions may be required
+- macOS-only image capture and platform focus integrations require `osascript`
+- On macOS, Screen Recording and Accessibility permissions may be required depending on the backend; cmux text capture/control does not require them
 
 ## Install
 
@@ -165,7 +166,7 @@ Common options:
 --tailscale             Use Tailscale IP for access URL
 --https                 Enable Tailscale HTTPS guidance/QR (effective with `--tailscale`)
 --bind <ip>             Bind to specific IPv4
---multiplexer <name>    `tmux`, `wezterm`, or `herdr`
+--multiplexer <name>    `tmux`, `wezterm`, `herdr`, or `cmux`
 --backend <name>        image backend (`alacritty`, `terminal`, `iterm`, `wezterm`, `ghostty`)
 ```
 
@@ -175,6 +176,8 @@ Advanced options:
 --web-port <port>       Override displayed web port in URL
 --wezterm-cli <path>    wezterm binary path (default: `wezterm`)
 --wezterm-target <t>    wezterm target (`auto` or explicit target)
+--cmux-cli <path>       cmux binary path (default: `cmux`)
+--cmux-socket <path>    Explicit cmux socket path (default: auto-detect)
 --socket-name <name>    tmux socket name
 --socket-path <path>    tmux socket path
 ```
@@ -233,7 +236,7 @@ Auto-generated required settings (`config.yml`):
 
 | Key                            | Default                     | Meaning                                                                             |
 | ------------------------------ | --------------------------- | ----------------------------------------------------------------------------------- |
-| `multiplexer.backend`          | `tmux`                      | Multiplexer backend (`tmux`, `wezterm`, or `herdr`)                                 |
+| `multiplexer.backend`          | `tmux`                      | Multiplexer backend (`tmux`, `wezterm`, `herdr`, or `cmux`)                         |
 | `screen.image.backend`         | `terminal`                  | Image capture backend on macOS (`alacritty`/`terminal`/`iterm`/`wezterm`/`ghostty`) |
 | `dangerKeys`                   | `["C-c","C-d","C-z"]`       | Blocked danger keys                                                                 |
 | `dangerCommandPatterns`        | existing default regex list | Regex list for dangerous command detection                                          |
@@ -255,6 +258,9 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 | `screen.highlightCorrection.claude`      | `true`                                              |
 | `multiplexer.wezterm.cliPath`            | `wezterm`                                           |
 | `multiplexer.wezterm.target`             | `auto`                                              |
+| `multiplexer.cmux.cliPath`               | `cmux`                                              |
+| `multiplexer.cmux.socketPath`            | `null` (auto-detect)                                |
+| `multiplexer.cmux.password`              | `null`                                              |
 | `notifications.pushEnabled`              | `true`                                              |
 | `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
 | `usage.session.providers.codex.enabled`  | `true`                                              |
@@ -308,6 +314,81 @@ Current limitations:
 - herdr does not expose pane TTY or alternate-screen state through the verified socket API
 - resume into a new window is unsupported on herdr; normal launch and Codex/Claude session resume arguments are supported
 
+### cmux backend
+
+The cmux backend requires cmux `0.64.17+` and macOS 14 or later. After installing cmux.app, run
+**Install cmux CLI** from the Command Palette to add the CLI to `PATH`, then verify the installation:
+
+```bash
+cmux --version
+```
+
+Once the CLI is ready, start vde-monitor with:
+
+```bash
+npx vde-monitor@latest --multiplexer cmux
+```
+
+Or select it in the global config:
+
+```yaml
+# ~/.config/vde/monitor/config.yml
+multiplexer:
+  backend: cmux
+  cmux:
+    cliPath: cmux
+    socketPath: null
+```
+
+Keep `socketPath` unset for normal use. vde-monitor asks the cmux CLI for the active socket during
+startup instead of assuming a fixed filesystem path. Use `--cmux-socket` or
+`multiplexer.cmux.socketPath` only when you intentionally need to select a specific cmux instance.
+Use `--cmux-cli` or `multiplexer.cmux.cliPath` when the CLI is not available as `cmux` on `PATH`. For
+example, the CLI bundled with the app can be selected directly:
+
+```bash
+npx vde-monitor@latest --multiplexer cmux \
+  --cmux-cli /Applications/cmux.app/Contents/Resources/bin/cmux
+```
+
+An explicit `--cmux-socket` or `multiplexer.cmux.socketPath` takes precedence over an inherited
+`CMUX_SOCKET_PATH`.
+
+cmux socket access must be configured explicitly for the way vde-monitor is launched:
+
+- Select the mode under **cmux Settings > Automation > Socket Control Mode**.
+- With the default cmux-only access mode, start vde-monitor from a terminal inside cmux so it is an
+  authorized descendant process.
+- For a process launched outside cmux, Automation mode allows local clients running as the same
+  macOS user without the descendant check. Use Password mode when authentication is required.
+- For Password mode, prefer the `CMUX_SOCKET_PASSWORD` environment variable over storing the secret
+  in `multiplexer.cmux.password`, and configure the matching password in cmux. Do not commit a
+  password to a config file.
+- `allowAll` is not recommended and is intentionally rejected because it exposes the control socket
+  without authentication.
+
+The cmux backend reads and controls terminal Surfaces through the local Unix socket. Its text-only
+operation does not require macOS Screen Recording or Accessibility permission. Those permissions
+may still be needed when using image capture or platform integrations with another backend.
+
+At startup, vde-monitor verifies the cmux version, access mode, socket metadata, and all required v2
+socket methods. Startup fails immediately when the endpoint does not satisfy that contract; it does
+not fall back to a hard-coded socket or the tmux compatibility layer.
+
+Supported:
+
+- terminal Surface discovery and grouping by stable cmux UUIDs
+- text screen capture, text/key/raw input, focus, and close operations
+- Claude/Codex hook correlation by validating the `CMUX_SURFACE_ID` injected by cmux against the
+  hook parent process's controlling TTY (fail closed on mismatch or ambiguity)
+
+Current limitations:
+
+- capture is text-only; cmux image capture is unsupported
+- browser Surfaces are excluded
+- launching or resuming Codex/Claude from the UI is unsupported
+- tmux pipe mode has no cmux equivalent; activity uses polling and hook events
+
 ## Transport (SSE + polling fallback)
 
 - The web UI receives session list and text screen updates over SSE (`GET /api/streams/sessions`, `GET /api/streams/sessions/:paneId/screen`) when available.
@@ -320,7 +401,8 @@ Current limitations:
 
 ## Platform behavior
 
-- Text screen capture works cross-platform
+- Text screen capture works cross-platform with tmux, WezTerm, and herdr
+- The cmux backend requires macOS 14 or later and supports text capture only
 - Image capture is macOS-only
 - Pane focus integration is macOS-only
 
@@ -385,8 +467,11 @@ pnpm run build:watch
 ## Troubleshooting
 
 - No sessions appear:
-  - confirm tmux/WezTerm is running
-  - verify socket/target options (`--socket-name`, `--socket-path`, `--multiplexer`)
+  - confirm the selected tmux/WezTerm/herdr/cmux backend is running
+  - verify socket/target options (`--socket-name`, `--socket-path`, `--cmux-socket`, `--multiplexer`)
+  - for cmux, confirm version `0.64.17+`, macOS 14+, and an allowed socket access mode
+  - with cmux-only access, launch vde-monitor from inside cmux; for Password mode, set
+    `CMUX_SOCKET_PASSWORD`
 - URL opens but API fails:
   - check token in URL hash (`#token=...`)
   - rotate token with `npx vde-monitor@latest token rotate`

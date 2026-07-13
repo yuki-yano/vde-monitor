@@ -7,7 +7,7 @@ import { useScreenPanelState } from "./useScreenPanelState";
 export const useSessionDetailViewExplorerSectionProps = () => {
   const { base, diffs, files, terminal, timelineLogsActions } = useSessionDetailContext();
   const screen = useScreenPanelState();
-  const { paneId, session, connectionIssue, resolvedTheme, launchConfig } = base;
+  const { paneId, session, connectionIssue, resolvedTheme, launchConfig, capabilities } = base;
   const { handleLaunchAgentInSession } = timelineLogsActions.actions;
   const {
     mode,
@@ -313,6 +313,8 @@ export const useSessionDetailViewExplorerSectionProps = () => {
         virtualWorktreePath,
         sourceSession: session ?? null,
         launchConfig,
+        screenImageAvailable: capabilities.screenImage,
+        resumeAgentAvailable: capabilities.resumeAgent,
         notificationStatus,
         notificationPushEnabled,
         notificationSubscribed,
@@ -374,6 +376,8 @@ export const useSessionDetailViewExplorerSectionProps = () => {
       virtualWorktreePath,
       session,
       launchConfig,
+      capabilities.screenImage,
+      capabilities.resumeAgent,
       notificationStatus,
       notificationPushEnabled,
       notificationSubscribed,

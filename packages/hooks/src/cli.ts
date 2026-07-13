@@ -10,11 +10,14 @@ import {
   type CodexHookEvent,
   configDefaults,
   pickUserConfigAllowlist,
-  resolveConfigDir,
-  resolveConfigFilePath,
-  resolveMonitorServerKey,
   userConfigSchema,
 } from "@vde-monitor/shared";
+import {
+  resolveConfigDir,
+  resolveConfigFilePath,
+  resolveMonitorRuntimeMarkerDirectory,
+  resolveMonitorServerKey,
+} from "@vde-monitor/shared/node";
 import YAML from "yaml";
 
 import { isMainModule } from "./main-module";
@@ -32,6 +35,7 @@ type HookPayloadBaseFields = {
   tty?: string;
   tmuxPane: string | null;
   herdrPane?: string | null;
+  cmuxSurface?: string | null;
   transcriptPath?: string | null;
 };
 
@@ -51,10 +55,11 @@ type HerdrAgentStatus = "working" | "blocked" | "idle";
 type HookServerConfig = {
   bind: "127.0.0.1" | "0.0.0.0";
   port: number;
-  multiplexerBackend: "tmux" | "wezterm" | "herdr";
+  multiplexerBackend: "tmux" | "wezterm" | "herdr" | "cmux";
   tmuxSocketName: string | null;
   tmuxSocketPath: string | null;
   weztermTarget: string | null;
+  cmuxSocketPath?: string | null;
 };
 
 const readStdin = (): string => {
@@ -143,6 +148,36 @@ const normalizeTmuxPane = (value: string | null | undefined): string | null => {
     return null;
   }
   return trimmed;
+};
+
+const normalizeTty = (value: string | null | undefined): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed === "?" || trimmed === "??" || trimmed === "-") {
+    return null;
+  }
+  return trimmed.startsWith("/") ? trimmed : `/dev/${trimmed}`;
+};
+
+export const resolveProcessTty = (
+  pid: number = process.ppid,
+  options: { spawnSyncFn?: typeof spawnSync } = {},
+): string | null => {
+  if (!Number.isSafeInteger(pid) || pid <= 1) {
+    return null;
+  }
+  const spawnSyncFn = options.spawnSyncFn ?? spawnSync;
+  const result = spawnSyncFn("ps", ["-p", String(pid), "-o", "tty="], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 1000,
+  });
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+  return normalizeTty(typeof result.stdout === "string" ? result.stdout : null);
 };
 
 export const resolveTmuxPane = (
@@ -361,6 +396,10 @@ const parseHookServerConfig = (value: unknown): HookServerConfig | null => {
         config.multiplexer?.wezterm?.target,
         configDefaults.multiplexer.wezterm.target,
       ),
+      cmuxSocketPath: resolveWithDefault(
+        config.multiplexer?.cmux?.socketPath,
+        configDefaults.multiplexer.cmux.socketPath,
+      ),
     };
   }
   return null;
@@ -395,6 +434,105 @@ export const loadConfig = (): HookServerConfig | null => {
   }
 };
 
+type HookRuntimeMarker = {
+  backend: "cmux";
+  serverKey: string;
+  pid: number;
+  processStartedAt: string;
+};
+
+const isRunningProcess = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
+
+const resolveProcessStartedAt = (pid: number): string | null => {
+  const result = spawnSync("ps", ["-p", String(pid), "-o", "lstart="], {
+    encoding: "utf8",
+    env: { ...process.env, LC_ALL: "C" },
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 1000,
+  });
+  const startedAt =
+    result.status === 0 && typeof result.stdout === "string" ? result.stdout.trim() : "";
+  return result.error || startedAt.length === 0 ? null : startedAt;
+};
+
+export const resolveActiveHookConfig = (
+  config: HookServerConfig | null,
+  env: NodeJS.ProcessEnv = process.env,
+  options: {
+    baseDir?: string;
+    getProcessStartedAt?: (pid: number) => string | null;
+    isProcessRunning?: (pid: number) => boolean;
+    readDir?: (directoryPath: string) => string[];
+    readFile?: (filePath: string) => string;
+  } = {},
+): HookServerConfig | null => {
+  const surfaceId = env.CMUX_SURFACE_ID?.trim();
+  const socketPath = env.CMUX_SOCKET_PATH?.trim();
+  if (!surfaceId || !socketPath) return config;
+
+  const serverKey = resolveMonitorServerKey({
+    multiplexerBackend: "cmux",
+    tmuxSocketName: null,
+    tmuxSocketPath: null,
+    weztermTarget: null,
+    cmuxSocketPath: socketPath,
+  });
+  const baseDir = options.baseDir ?? path.join(os.homedir(), ".vde-monitor");
+  const markerDirectory = resolveMonitorRuntimeMarkerDirectory(baseDir, serverKey);
+  const readDir = options.readDir ?? ((directoryPath) => fs.readdirSync(directoryPath));
+  const readFile = options.readFile ?? ((filePath) => fs.readFileSync(filePath, "utf8"));
+  const isProcessRunningFn = options.isProcessRunning ?? isRunningProcess;
+  const getProcessStartedAt = options.getProcessStartedAt ?? resolveProcessStartedAt;
+
+  const activeMarkers: HookRuntimeMarker[] = [];
+  try {
+    for (const entry of readDir(markerDirectory)) {
+      if (!/^\.runtime\.\d+\.json$/.test(entry)) continue;
+      try {
+        const marker = JSON.parse(
+          readFile(path.join(markerDirectory, entry)),
+        ) as Partial<HookRuntimeMarker>;
+        if (
+          marker.backend === "cmux" &&
+          marker.serverKey === serverKey &&
+          Number.isSafeInteger(marker.pid) &&
+          marker.pid != null &&
+          marker.pid > 0 &&
+          typeof marker.processStartedAt === "string" &&
+          marker.processStartedAt.length > 0 &&
+          entry === `.runtime.${marker.pid}.json` &&
+          isProcessRunningFn(marker.pid) &&
+          getProcessStartedAt(marker.pid) === marker.processStartedAt
+        ) {
+          activeMarkers.push(marker as HookRuntimeMarker);
+        }
+      } catch {
+        // Ignore malformed or concurrently removed process-owned marker files.
+      }
+    }
+  } catch {
+    return config;
+  }
+  if (activeMarkers.length !== 1) return config;
+
+  return {
+    bind: config?.bind ?? configDefaults.bind,
+    port: config?.port ?? configDefaults.port,
+    multiplexerBackend: "cmux",
+    tmuxSocketName: config?.tmuxSocketName ?? configDefaults.tmux.socketName,
+    tmuxSocketPath: config?.tmuxSocketPath ?? configDefaults.tmux.socketPath,
+    weztermTarget: config ? config.weztermTarget : configDefaults.multiplexer.wezterm.target,
+    cmuxSocketPath: socketPath,
+  };
+};
+
 export const resolveHookServerKey = (
   config: HookServerConfig | null,
   env: NodeJS.ProcessEnv = process.env,
@@ -413,6 +551,7 @@ export const resolveHookServerKey = (
     tmuxSocketPath: config.tmuxSocketPath,
     weztermTarget: config.weztermTarget,
     herdrSocketPath: env.HERDR_SOCKET_PATH,
+    cmuxSocketPath: env.CMUX_SOCKET_PATH ?? config.cmuxSocketPath,
   });
 };
 
@@ -422,6 +561,8 @@ export const extractPayloadFields = (
   payload: HookPayload,
   env: NodeJS.ProcessEnv = process.env,
   options: {
+    multiplexerBackend?: HookServerConfig["multiplexerBackend"];
+    resolveProcessTtyFn?: typeof resolveProcessTty;
     resolveTmuxPaneFn?: typeof resolveTmuxPane;
   } = {},
 ): HookPayloadFields => {
@@ -430,12 +571,29 @@ export const extractPayloadFields = (
   const transcriptPath =
     toOptionalString(payload.transcript_path) ?? resolveTranscriptPath(cwd, sessionId);
   const resolveTmuxPaneFn = options.resolveTmuxPaneFn ?? resolveTmuxPane;
+  const includeTmuxIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "tmux";
+  const includeHerdrIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "herdr";
+  const includeCmuxIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "cmux";
+  const resolveProcessTtyFn = options.resolveProcessTtyFn ?? resolveProcessTty;
   return {
     sessionId,
     cwd,
-    tty: toOptionalString(payload.tty),
-    tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
-    herdrPane: toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null,
+    tty:
+      options.multiplexerBackend === "cmux"
+        ? (resolveProcessTtyFn() ?? undefined)
+        : toOptionalString(payload.tty),
+    tmuxPane: includeTmuxIdentity
+      ? (toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env))
+      : null,
+    herdrPane: includeHerdrIdentity
+      ? (toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null)
+      : null,
+    cmuxSurface: includeCmuxIdentity
+      ? (toOptionalString(payload.cmux_surface) ?? toOptionalString(env.CMUX_SURFACE_ID) ?? null)
+      : null,
     notificationType: normalizeNotificationType(payload.notification_type),
     transcriptPath,
   };
@@ -445,22 +603,41 @@ export const extractCodexPayloadFields = (
   payload: HookPayload,
   env: NodeJS.ProcessEnv = process.env,
   options: {
+    multiplexerBackend?: HookServerConfig["multiplexerBackend"];
+    resolveProcessTtyFn?: typeof resolveProcessTty;
     resolveTmuxPaneFn?: typeof resolveTmuxPane;
   } = {},
 ): CodexHookPayloadFields => {
   const resolveTmuxPaneFn = options.resolveTmuxPaneFn ?? resolveTmuxPane;
+  const includeTmuxIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "tmux";
+  const includeHerdrIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "herdr";
+  const includeCmuxIdentity =
+    options.multiplexerBackend == null || options.multiplexerBackend === "cmux";
+  const resolveProcessTtyFn = options.resolveProcessTtyFn ?? resolveProcessTty;
   return {
     sessionId: toOptionalString(payload.session_id),
     cwd: toOptionalString(payload.cwd),
-    tty: toOptionalString(payload.tty),
-    tmuxPane: toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env),
-    herdrPane: toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null,
+    tty:
+      options.multiplexerBackend === "cmux"
+        ? (resolveProcessTtyFn() ?? undefined)
+        : toOptionalString(payload.tty),
+    tmuxPane: includeTmuxIdentity
+      ? (toOptionalString(payload.tmux_pane) ?? resolveTmuxPaneFn(env))
+      : null,
+    herdrPane: includeHerdrIdentity
+      ? (toOptionalString(payload.herdr_pane) ?? toOptionalString(env.HERDR_PANE_ID) ?? null)
+      : null,
+    cmuxSurface: includeCmuxIdentity
+      ? (toOptionalString(payload.cmux_surface) ?? toOptionalString(env.CMUX_SURFACE_ID) ?? null)
+      : null,
     transcriptPath: toOptionalString(payload.transcript_path) ?? null,
   };
 };
 
 const buildFallback = (fields: HookPayloadBaseFields): HookEvent["fallback"] => {
-  if (fields.tmuxPane != null) {
+  if (fields.tmuxPane != null || fields.herdrPane != null || fields.cmuxSurface != null) {
     return undefined;
   }
   return {
@@ -585,6 +762,7 @@ export const buildHookEvent = (
   tty: fields.tty,
   tmux_pane: fields.tmuxPane,
   herdr_pane: fields.herdrPane ?? null,
+  cmux_surface: fields.cmuxSurface ?? null,
   transcript_path: fields.transcriptPath ?? undefined,
   fallback: buildFallback(fields),
   payload: {
@@ -604,6 +782,7 @@ export const buildCodexHookEvent = (
   tty: fields.tty,
   tmux_pane: fields.tmuxPane,
   herdr_pane: fields.herdrPane ?? null,
+  cmux_surface: fields.cmuxSurface ?? null,
   transcript_path: fields.transcriptPath ?? undefined,
   fallback: buildFallback(fields),
   payload: {
@@ -680,9 +859,8 @@ const main = async () => {
     console.error("Invalid JSON payload");
     process.exit(1);
   }
-  const config = loadConfig();
-  const extractOptions =
-    config?.multiplexerBackend === "herdr" ? { resolveTmuxPaneFn: () => null } : undefined;
+  const config = resolveActiveHookConfig(loadConfig(), process.env);
+  const extractOptions = { multiplexerBackend: config?.multiplexerBackend };
 
   if (agent === "codex") {
     if (!shouldPersistCodexHookPayload(payload, hookEventName)) {

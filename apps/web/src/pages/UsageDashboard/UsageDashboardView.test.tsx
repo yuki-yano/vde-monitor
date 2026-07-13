@@ -124,6 +124,7 @@ const createViewModel = (
   connected: true,
   connectionIssue: null,
   launchConfig: {} as UsageDashboardVM["launchConfig"],
+  capabilities: { screenImage: true, launchAgent: true, resumeAgent: true },
   requestWorktrees: vi.fn() as UsageDashboardVM["requestWorktrees"],
   requestStateTimeline: vi.fn() as UsageDashboardVM["requestStateTimeline"],
   requestScreen: vi.fn() as UsageDashboardVM["requestScreen"],

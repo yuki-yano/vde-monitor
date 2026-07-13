@@ -10,6 +10,16 @@ describe("renderAnsiLines", () => {
     expect(lines[0]).not.toContain("text-latte-red");
   });
 
+  it("renders separately emitted truecolor as a foreground color", () => {
+    const text = "\u001b[0m\u001b[38;2;255;107;128mNot logged in\u001b[0m";
+    const lines = renderAnsiLines(text, "mocha", { agent: "claude" });
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("color:#ff6b80");
+    expect(lines[0]).not.toContain("background-color");
+    expect(lines[0]).not.toContain("display: none");
+  });
+
   it("formats Claude diff lines with plain classes", () => {
     const text = ["Update(file)", "  10 +foo", "  11 -bar", "  12 baz"].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });

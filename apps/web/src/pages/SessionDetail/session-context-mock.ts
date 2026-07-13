@@ -45,6 +45,11 @@ export const createSessionConfigDataMock = (
     highlightCorrections: { codex: false, claude: true },
     fileNavigatorConfig: { autoExpandMatchLimit: 100 },
     launchConfig: defaultLaunchConfig,
+    capabilities: {
+      screenImage: true,
+      launchAgent: true,
+      resumeAgent: true,
+    },
     ...overrides,
   }) satisfies SessionConfigDataContextValue;
 

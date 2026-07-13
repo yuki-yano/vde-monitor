@@ -16,8 +16,8 @@ const mocks = vi.hoisted(() => ({
   homedir: vi.fn(() => "/mock/home"),
 }));
 
-vi.mock("@vde-monitor/shared", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@vde-monitor/shared")>();
+vi.mock("@vde-monitor/shared/node", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@vde-monitor/shared/node")>();
   return {
     ...actual,
     resolveConfigDir: () => "/mock/config",
@@ -315,6 +315,35 @@ describe("ensureConfig", () => {
     const result = ensureConfig();
 
     expect(result.multiplexer.backend).toBe("herdr");
+    expect(result.token).toBe("existing-token");
+    expect(mocks.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("preserves cmux settings through allowlist, schema parsing, and default merge", () => {
+    setConfigFile({
+      ...expectedGeneratedTemplate,
+      multiplexer: {
+        backend: "cmux",
+        cmux: {
+          cliPath: "/Applications/cmux.app/Contents/Resources/bin/cmux",
+          socketPath: "/Users/test/.cmux/cmux.sock",
+          password: "configured-secret",
+        },
+      },
+    });
+    setTokenFile("existing-token");
+
+    const result = ensureConfig();
+
+    expect(result.multiplexer).toEqual({
+      backend: "cmux",
+      wezterm: configDefaults.multiplexer.wezterm,
+      cmux: {
+        cliPath: "/Applications/cmux.app/Contents/Resources/bin/cmux",
+        socketPath: "/Users/test/.cmux/cmux.sock",
+        password: "configured-secret",
+      },
+    });
     expect(result.token).toBe("existing-token");
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });

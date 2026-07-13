@@ -11,10 +11,9 @@ import {
   generatedConfigTemplateSchema,
   pickGeneratedConfigTemplateAllowlist,
   pickUserConfigAllowlist,
-  resolveConfigDir,
-  resolveConfigFilePath,
   userConfigAllowlist,
 } from "@vde-monitor/shared";
+import { resolveConfigDir, resolveConfigFilePath } from "@vde-monitor/shared/node";
 import YAML from "yaml";
 
 import {

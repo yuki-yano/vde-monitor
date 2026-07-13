@@ -34,7 +34,7 @@ import {
 export const useChatGridVM = () => {
   const { sessions, connected, connectionStatus, connectionIssue, transport } =
     useSessionStreamData();
-  const { launchConfig, highlightCorrections } = useSessionConfigData();
+  const { launchConfig, highlightCorrections, capabilities } = useSessionConfigData();
   const { requestStateTimeline, requestScreen, touchSession, refreshSessions } =
     useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
@@ -277,6 +277,7 @@ export const useChatGridVM = () => {
     connectionIssue,
     transport,
     launchConfig,
+    capabilities,
     requestStateTimeline,
     requestScreen,
     requestWorktrees,

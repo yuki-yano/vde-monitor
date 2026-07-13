@@ -30,6 +30,8 @@ describe("createHerdrInspector", () => {
     await expect(inspector.listPanes()).resolves.toEqual([
       {
         paneId: "wB:p1",
+        sessionId: "wB",
+        windowId: "wB:t1",
         sessionName: "wB",
         windowIndex: 1,
         paneIndex: 1,

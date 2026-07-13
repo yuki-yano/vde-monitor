@@ -107,7 +107,9 @@ vi.mock("@/features/pwa-tabs/context/workspace-tabs-context", () => ({
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",
+  sessionId: "session-id-1",
   sessionName: "session-1",
+  windowId: "window-id-1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,
@@ -280,6 +282,11 @@ describe("useSessionListVM", () => {
       touchSession: vi.fn(),
       highlightCorrections: { codex: true, claude: true },
       launchConfig: defaultLaunchConfig,
+      capabilities: {
+        screenImage: true,
+        launchAgent: true,
+        resumeAgent: true,
+      },
     });
   });
 

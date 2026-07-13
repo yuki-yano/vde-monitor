@@ -1,5 +1,5 @@
 import type { AgentMonitorConfig, MultiplexerRuntime } from "@vde-monitor/multiplexer";
-import { resolveMonitorServerKey } from "@vde-monitor/shared";
+import { resolveMonitorServerKey } from "@vde-monitor/shared/node";
 import {
   createInspector,
   createPipeManager,

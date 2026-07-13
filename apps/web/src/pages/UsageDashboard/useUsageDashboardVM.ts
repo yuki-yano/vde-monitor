@@ -27,7 +27,8 @@ import { useRepositoryActivityData } from "./useRepositoryActivityData";
 
 export const useUsageDashboardVM = () => {
   const { sessions, connected, connectionIssue } = useSessionStreamData();
-  const { token, apiBaseUrl, launchConfig, highlightCorrections } = useSessionConfigData();
+  const { token, apiBaseUrl, launchConfig, highlightCorrections, capabilities } =
+    useSessionConfigData();
   const { requestStateTimeline, requestScreen, touchSession } = useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
@@ -184,6 +185,7 @@ export const useUsageDashboardVM = () => {
     connected,
     connectionIssue,
     launchConfig,
+    capabilities,
     requestWorktrees,
     requestStateTimeline,
     requestScreen,

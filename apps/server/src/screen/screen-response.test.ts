@@ -154,6 +154,48 @@ describe("createScreenResponse", () => {
     );
   });
 
+  it("reports physical cmux text capture metadata", async () => {
+    const captureText = vi.fn(async () => ({
+      screen: "hello",
+      alternateOn: false,
+      truncated: false,
+    }));
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "surface-1",
+      paneTty: "ttys001",
+      alternateOn: false,
+      agent: "codex",
+    } as SessionDetail;
+    const screenCache = createScreenCache();
+    const config: AgentMonitorConfig = {
+      ...baseConfig,
+      multiplexer: { ...baseConfig.multiplexer, backend: "cmux" },
+    };
+
+    const response = await createScreenResponse({
+      config,
+      monitor,
+      target,
+      mode: "text",
+      lines: 5,
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: screenCache.buildTextResponse,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.captureMeta).toEqual({
+      backend: "cmux",
+      lineModel: "physical",
+      joinLinesApplied: false,
+      captureMethod: "cmux-read-screen",
+    });
+    expect(captureText).toHaveBeenCalledWith(expect.objectContaining({ joinLines: false }));
+  });
+
   it("forces altScreen on for editor sessions", async () => {
     const captureText = vi.fn(async () => ({
       screen: "hello",
@@ -339,6 +381,49 @@ describe("createScreenResponse", () => {
       joinLinesApplied: true,
       captureMethod: "tmux-capture-pane",
     });
+  });
+
+  it("returns an explicit unsupported error for cmux image capture", async () => {
+    vi.mocked(captureTerminalScreen).mockClear();
+    const captureText = vi.fn();
+    const monitor = {
+      getScreenCapture: () => ({ captureText }),
+    } as unknown as Monitor;
+    const target = {
+      paneId: "surface-1",
+      paneTty: "ttys001",
+      alternateOn: false,
+    } as SessionDetail;
+    const config: AgentMonitorConfig = {
+      ...baseConfig,
+      multiplexer: { ...baseConfig.multiplexer, backend: "cmux" },
+    };
+
+    const response = await createScreenResponse({
+      config,
+      monitor,
+      target,
+      mode: "image",
+      screenLimiter: () => true,
+      limiterKey: "rest",
+      buildTextResponse: vi.fn(),
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      paneId: "surface-1",
+      mode: "image",
+      captureMeta: {
+        backend: "cmux",
+        captureMethod: "none",
+      },
+      error: {
+        code: "INVALID_PAYLOAD",
+        message: "image screen capture is not supported for cmux",
+      },
+    });
+    expect(captureTerminalScreen).not.toHaveBeenCalled();
+    expect(captureText).not.toHaveBeenCalled();
   });
 
   it("returns internal error when captureText throws", async () => {

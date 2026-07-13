@@ -1,4 +1,5 @@
 import type {
+  ClientCapabilities,
   ClientFileNavigatorConfig,
   HighlightCorrectionConfig,
   LaunchConfig,
@@ -19,3 +20,8 @@ export const sessionFileNavigatorConfigAtom = atom<ClientFileNavigatorConfig>({
 });
 export const sessionWorkspaceTabsDisplayModeAtom = atom<WorkspaceTabsDisplayMode>("all");
 export const sessionLaunchConfigAtom = atom<LaunchConfig>(defaultLaunchConfig);
+export const sessionCapabilitiesAtom = atom<ClientCapabilities>({
+  screenImage: false,
+  launchAgent: false,
+  resumeAgent: false,
+});

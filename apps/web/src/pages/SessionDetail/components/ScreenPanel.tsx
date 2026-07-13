@@ -86,6 +86,8 @@ type ScreenPanelState = {
   virtualWorktreePath: string | null;
   sourceSession: SessionSummary | null;
   launchConfig: LaunchConfig;
+  screenImageAvailable: boolean;
+  resumeAgentAvailable: boolean;
   notificationStatus: PushUiStatus;
   notificationPushEnabled: boolean;
   notificationSubscribed: boolean;
@@ -184,7 +186,11 @@ const handleModeValueChange = (
   onModeChange(nextMode);
 };
 
-const screenModeTabs = (mode: ScreenMode, onModeChange: (mode: ScreenMode) => void) => (
+const screenModeTabs = (
+  mode: ScreenMode,
+  imageAvailable: boolean,
+  onModeChange: (mode: ScreenMode) => void,
+) => (
   <Tabs value={mode} onValueChange={(value) => handleModeValueChange(value, mode, onModeChange)}>
     <TabsList aria-label="Screen mode">
       <TabsTrigger value="text">
@@ -193,7 +199,11 @@ const screenModeTabs = (mode: ScreenMode, onModeChange: (mode: ScreenMode) => vo
           <span>Text</span>
         </span>
       </TabsTrigger>
-      <TabsTrigger value="image">
+      <TabsTrigger
+        value="image"
+        disabled={!imageAvailable}
+        title={imageAvailable ? undefined : "Image capture is unavailable for this backend"}
+      >
         <span className="inline-flex items-center gap-1.5">
           <Image className="h-3.5 w-3.5" />
           <span>Image</span>
@@ -260,6 +270,8 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     virtualWorktreePath,
     sourceSession,
     launchConfig,
+    screenImageAvailable,
+    resumeAgentAvailable,
     notificationStatus,
     notificationPushEnabled,
     notificationSubscribed,
@@ -290,18 +302,14 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
   const gitAdditionsLabel = formatGitMetric(promptGitContext?.additions ?? null);
   const gitDeletionsLabel = formatGitMetric(promptGitContext?.deletions ?? null);
   const isVirtualActive = Boolean(virtualWorktreePath);
-  const visibleFileChangeCategories = useMemo(
-    () => buildVisibleFileChangeCategories(gitFileChanges),
-    [gitFileChanges],
-  );
+  const visibleFileChangeCategories = buildVisibleFileChangeCategories(gitFileChanges);
   const displayedWorktreeEntries = useMemo(
     () => sortWorktreeEntriesByRepoRoot(worktreeEntries, worktreeRepoRoot),
     [worktreeEntries, worktreeRepoRoot],
   );
-  const visibleFileChangeCategoriesKey = useMemo(
-    () => visibleFileChangeCategories.map((item) => `${item.key}:${item.value}`).join("|"),
-    [visibleFileChangeCategories],
-  );
+  const visibleFileChangeCategoriesKey = visibleFileChangeCategories
+    .map((item) => `${item.key}:${item.value}`)
+    .join("|");
   const {
     isContextInStatusRow,
     displayGitBranchLabel,
@@ -350,7 +358,10 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
   );
   const showPaneNotificationToggle = notificationStatus !== "needs-ios-install";
   const showResumeWorktreeButton =
-    Boolean(sourceSession) && Boolean(onLaunchAgentInSession) && worktreeSelectorEnabled;
+    resumeAgentAvailable &&
+    Boolean(sourceSession) &&
+    Boolean(onLaunchAgentInSession) &&
+    worktreeSelectorEnabled;
   const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
   const paneNotificationClickHandler = notificationSubscribed
     ? onTogglePaneNotification
@@ -406,7 +417,9 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
       )}
     >
       <Toolbar className="gap-2 sm:gap-3">
-        <div className="flex items-center gap-2">{screenModeTabs(mode, onModeChange)}</div>
+        <div className="flex items-center gap-2">
+          {screenModeTabs(mode, screenImageAvailable, onModeChange)}
+        </div>
         <div className="flex items-center gap-2">
           <RawModeIndicator rawMode={rawMode} allowDangerKeys={allowDangerKeys} />
           {showResumeWorktreeButton && sourceSession && onLaunchAgentInSession ? (

@@ -9,7 +9,7 @@ import {
   createHerdrScreenCapture,
   resolveSocketPath,
 } from "@vde-monitor/herdr";
-import { resolveMonitorServerKey } from "@vde-monitor/shared";
+import { resolveMonitorServerKey } from "@vde-monitor/shared/node";
 
 export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRuntime => {
   const socketPath = resolveSocketPath(process.env, os.homedir());

@@ -8,7 +8,9 @@ const STORAGE_KEY = "vde-monitor-session-list-pins";
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@1",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: false,

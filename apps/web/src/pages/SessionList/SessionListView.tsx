@@ -119,6 +119,7 @@ type SessionListSidebarPanelProps = Pick<
   | "connected"
   | "connectionIssue"
   | "launchConfig"
+  | "capabilities"
   | "requestWorktrees"
   | "requestStateTimeline"
   | "requestScreen"
@@ -139,6 +140,7 @@ const SessionListSidebarPanel = ({
   connected,
   connectionIssue,
   launchConfig,
+  capabilities,
   requestWorktrees,
   requestStateTimeline,
   requestScreen,
@@ -162,6 +164,7 @@ const SessionListSidebarPanel = ({
         connected,
         connectionIssue,
         launchConfig,
+        launchAgentAvailable: capabilities.launchAgent,
         requestWorktrees,
         requestStateTimeline,
         requestScreen,
@@ -195,6 +198,7 @@ type SessionListGroupsProps = Pick<
   | "nowMs"
   | "launchPendingSessions"
   | "launchConfig"
+  | "capabilities"
   | "requestWorktrees"
   | "onLaunchAgentInSession"
 > & {
@@ -210,6 +214,7 @@ const SessionListGroups = ({
   nowMs,
   launchPendingSessions,
   launchConfig,
+  capabilities,
   requestWorktrees,
   onLaunchAgentInSession,
   onTouchRepoPin,
@@ -232,6 +237,7 @@ const SessionListGroups = ({
             nowMs={nowMs}
             launchPendingSessions={launchPendingSessions}
             launchConfig={launchConfig}
+            launchAgentAvailable={capabilities.launchAgent}
             requestWorktrees={requestWorktrees}
             onLaunchAgentInSession={onLaunchAgentInSession}
             onTouchRepoPin={onTouchRepoPin}
@@ -260,6 +266,7 @@ type SessionListMainContentProps = Pick<
   | "nowMs"
   | "launchPendingSessions"
   | "launchConfig"
+  | "capabilities"
   | "requestWorktrees"
   | "onFilterChange"
   | "onSearchQueryChange"
@@ -290,6 +297,7 @@ const SessionListMainContent = ({
   nowMs,
   launchPendingSessions,
   launchConfig,
+  capabilities,
   requestWorktrees,
   isDiscoveringSessions,
   onFilterChange,
@@ -404,6 +412,7 @@ const SessionListMainContent = ({
             nowMs={nowMs}
             launchPendingSessions={launchPendingSessions}
             launchConfig={launchConfig}
+            capabilities={capabilities}
             requestWorktrees={requestWorktrees}
             onLaunchAgentInSession={onLaunchAgentInSession}
             onTouchRepoPin={onTouchRepoPin}
@@ -513,6 +522,7 @@ export const SessionListView = ({
   requestWorktrees,
   highlightCorrections,
   launchConfig,
+  capabilities,
   resolvedTheme,
   nowMs,
   sidebarWidth,
@@ -645,6 +655,7 @@ export const SessionListView = ({
         connected={connected}
         connectionIssue={connectionIssue}
         launchConfig={launchConfig}
+        capabilities={capabilities}
         requestWorktrees={requestWorktrees}
         requestStateTimeline={requestStateTimeline}
         requestScreen={requestScreen}
@@ -672,6 +683,7 @@ export const SessionListView = ({
         nowMs={nowMs}
         launchPendingSessions={launchPendingSessions}
         launchConfig={launchConfig}
+        capabilities={capabilities}
         requestWorktrees={requestWorktrees}
         isDiscoveringSessions={isDiscoveringSessions}
         onFilterChange={onFilterChange}

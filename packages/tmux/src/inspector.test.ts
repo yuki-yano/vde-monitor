@@ -7,7 +7,7 @@ describe("createInspector", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({
         stdout:
-          "%1\tsession\t0\t1\t1700000000\t1700000001\t1\tcodex\t/path\t/dev/ttys001\t0\t1\t1\t1234\tTitle\tstart\t1\n",
+          "%1\t$1\t@1\tsession\t0\t1\t1700000000\t1700000001\t1\tcodex\t/path\t/dev/ttys001\t0\t1\t1\t1234\tTitle\tstart\t1\n",
         stderr: "",
         exitCode: 0,
       }),
@@ -17,6 +17,8 @@ describe("createInspector", () => {
     expect(panes).toHaveLength(1);
     expect(panes[0]).toMatchObject({
       paneId: "%1",
+      sessionId: "$1",
+      windowId: "@1",
       sessionName: "session",
       windowIndex: 0,
       paneIndex: 1,
@@ -40,7 +42,7 @@ describe("createInspector", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({
         stdout:
-          "%1\tsession\t0\t1\t0\t0\t0\tcmd\t/path\t/dev/ttys001\t0\t0\ton\t1234\tTitle\tstart\t1\n",
+          "%1\t$1\t@1\tsession\t0\t1\t0\t0\t0\tcmd\t/path\t/dev/ttys001\t0\t0\ton\t1234\tTitle\tstart\t1\n",
         stderr: "",
         exitCode: 0,
       }),
@@ -59,7 +61,7 @@ describe("createInspector", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({
         stdout:
-          "%1\tsession\t0\t1\t1700000000\t1700000000\ttrue\tcmd\t/path\t/dev/ttys001\ttrue\ttrue\ttrue\t1234\tTitle\tstart\t1\n",
+          "%1\t$1\t@1\tsession\t0\t1\t1700000000\t1700000000\ttrue\tcmd\t/path\t/dev/ttys001\ttrue\ttrue\ttrue\t1234\tTitle\tstart\t1\n",
         stderr: "",
         exitCode: 0,
       }),
@@ -78,7 +80,7 @@ describe("createInspector", () => {
     const adapter = {
       run: vi.fn().mockResolvedValue({
         stdout:
-          "bad line\n%1\tsession\t0\t1\t1700000000\t1700000000\t1\tcmd\t/path\t/dev/ttys001\t0\t1\t1\t1234\tTitle\tstart\t1\n",
+          "bad line\n%1\t$1\t@1\tsession\t0\t1\t1700000000\t1700000000\t1\tcmd\t/path\t/dev/ttys001\t0\t1\t1\t1234\tTitle\tstart\t1\n",
         stderr: "",
         exitCode: 0,
       }),

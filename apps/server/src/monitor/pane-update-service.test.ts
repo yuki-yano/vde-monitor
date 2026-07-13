@@ -33,7 +33,9 @@ vi.mock("./vw-worktree", () => ({
 
 const basePane: PaneMeta = {
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "session",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   windowActivity: null,
@@ -53,7 +55,9 @@ const basePane: PaneMeta = {
 
 const createDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "session",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

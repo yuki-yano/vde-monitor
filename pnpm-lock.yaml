@@ -108,6 +108,9 @@ importers:
       '@hono/zod-validator':
         specifier: 'catalog:'
         version: 0.8.0(hono@4.12.28)(zod@4.4.3)
+      '@vde-monitor/cmux':
+        specifier: workspace:*
+        version: link:../../packages/cmux
       '@vde-monitor/herdr':
         specifier: workspace:*
         version: link:../../packages/herdr
@@ -242,6 +245,15 @@ importers:
       vite:
         specifier: ^8.1.4
         version: 8.1.4(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.0)
+
+  packages/cmux:
+    dependencies:
+      '@vde-monitor/multiplexer':
+        specifier: workspace:*
+        version: link:../multiplexer
+      '@vde-monitor/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/herdr:
     dependencies:

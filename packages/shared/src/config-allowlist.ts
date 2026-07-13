@@ -83,6 +83,11 @@ export const userConfigAllowlist = {
       cliPath: true,
       target: true,
     },
+    cmux: {
+      cliPath: true,
+      socketPath: true,
+      password: true,
+    },
   },
   launch: {
     agents: {

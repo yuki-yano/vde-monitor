@@ -8,7 +8,9 @@ import { useSessionStore } from "./use-session-store";
 
 const createSession = (paneId: string, overrides?: Partial<SessionSummary>): SessionSummary => ({
   paneId,
+  sessionId: "session-id-1",
   sessionName: "session",
+  windowId: "window-id-1",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

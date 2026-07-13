@@ -113,9 +113,20 @@ const findSinglePaneId = (
   return matches[0]?.paneId ?? null;
 };
 
+const normalizeTty = (value: string | null | undefined): string | null => {
+  const normalized = value?.trim().replace(/^\/dev\//, "");
+  return normalized ? normalized : null;
+};
+
 export const mapHookToPane = (
   panes: Array<{ paneId: string; paneTty: string | null; currentPath: string | null }>,
-  hook: { tmux_pane?: string | null; herdr_pane?: string | null; tty?: string; cwd?: string },
+  hook: {
+    cmux_surface?: string | null;
+    tmux_pane?: string | null;
+    herdr_pane?: string | null;
+    tty?: string;
+    cwd?: string;
+  },
 ) => {
   if (hook.tmux_pane) {
     return hook.tmux_pane;
@@ -124,7 +135,19 @@ export const mapHookToPane = (
     return hook.herdr_pane;
   }
   if (hook.tty) {
-    return findSinglePaneId(panes, (pane) => pane.paneTty === hook.tty);
+    const hookTty = normalizeTty(hook.tty);
+    const paneId =
+      hookTty == null
+        ? null
+        : findSinglePaneId(panes, (pane) => normalizeTty(pane.paneTty) === hookTty);
+    if (paneId != null || hook.cmux_surface != null) {
+      return paneId;
+    }
+  }
+  if (hook.cmux_surface) {
+    // CMUX_SURFACE_ID can leak across restored/launched terminals. A cmux hook is
+    // accepted only when its controlling TTY uniquely resolves to a monitored surface.
+    return null;
   }
   if (hook.cwd) {
     return findSinglePaneId(panes, (pane) => pane.currentPath === hook.cwd);

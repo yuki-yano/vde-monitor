@@ -30,7 +30,9 @@ describe("ScreenPanel", () => {
   type ScreenPanelActions = Parameters<typeof ScreenPanel>[0]["actions"];
   const buildSourceSession = () => ({
     paneId: "pane-1",
+    sessionId: "session-id-1",
     sessionName: "dev-main",
+    windowId: "window-id-1",
     windowIndex: 0,
     paneIndex: 0,
     paneActive: true,
@@ -109,6 +111,8 @@ describe("ScreenPanel", () => {
         claude: { options: [] },
       },
     },
+    screenImageAvailable: true,
+    resumeAgentAvailable: true,
     notificationStatus: "idle",
     notificationPushEnabled: true,
     notificationSubscribed: false,
@@ -251,6 +255,22 @@ describe("ScreenPanel", () => {
     const actions = buildActions();
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
+    expect(screen.queryByRole("button", { name: "Resume or move to worktree" })).toBeNull();
+  });
+
+  it("disables unsupported image capture and hides unsupported resume controls", () => {
+    const state = buildState({
+      screenImageAvailable: false,
+      resumeAgentAvailable: false,
+      sourceSession: buildSourceSession(),
+      worktreeSelectorEnabled: true,
+    });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const imageTab = screen.getByRole("tab", { name: "Image" });
+    expect(imageTab.hasAttribute("disabled")).toBe(true);
+    expect(imageTab.getAttribute("title")).toBe("Image capture is unavailable for this backend");
     expect(screen.queryByRole("button", { name: "Resume or move to worktree" })).toBeNull();
   });
 

@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
 
 import type { MultiplexerPipeCapability, MultiplexerPipeState } from "@vde-monitor/multiplexer";
-import { resolveLogPaths } from "@vde-monitor/shared";
 
 import { ensureDir, rotateLogIfNeeded } from "../logs";
+import { resolveLogPaths } from "./log-paths";
 
 export type PaneLogManager = ReturnType<typeof createPaneLogManager>;
 

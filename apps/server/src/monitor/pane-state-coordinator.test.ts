@@ -7,7 +7,9 @@ import { createPaneInstanceKey, createPaneStateCoordinator } from "./pane-state-
 
 const pane: PaneMeta = {
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   windowActivity: null,
@@ -27,7 +29,9 @@ const pane: PaneMeta = {
 
 const detail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

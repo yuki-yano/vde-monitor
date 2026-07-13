@@ -10,5 +10,28 @@
     "sort-imports": ["error", { "ignoreDeclarationSort": true }],
     "func-style": ["error", "expression"]
   },
+  "overrides": [
+    {
+      "files": ["apps/web/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          { "patterns": [{ "group": ["@vde-monitor/shared/node", "@vde-monitor/shared/node/*"] }] }
+        ]
+      }
+    },
+    {
+      "files": ["packages/shared/src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [{ "group": ["node:*"] }] }]
+      }
+    },
+    {
+      "files": ["packages/shared/src/node/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["**/dist/**", "**/node_modules/**", ".worktree/**", "tmp/**"]
 }

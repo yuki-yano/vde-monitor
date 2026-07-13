@@ -38,7 +38,9 @@ const createSession = (
   overrides: Partial<SessionSummary> = {},
 ): SessionSummary => ({
   paneId,
+  sessionId: "session-id-1",
   sessionName: "session",
+  windowId: "window-id-1",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,
@@ -537,10 +539,24 @@ describe("session-api-request-executors", () => {
     const onConnectionIssue = vi.fn();
     const onHighlightCorrections = vi.fn();
     const onFileNavigatorConfig = vi.fn();
+    const onCapabilities = vi.fn();
     const sessions = [createSession("pane-1")];
     server.use(
       http.get(pathToUrl("/sessions"), () => {
-        return HttpResponse.json({ sessions });
+        return HttpResponse.json({
+          sessions,
+          clientConfig: {
+            capabilities: {
+              screenImage: false,
+              launchAgent: false,
+              resumeAgent: false,
+            },
+            screen: { highlightCorrection: { codex: true, claude: true } },
+            fileNavigator: { autoExpandMatchLimit: 100 },
+            workspaceTabs: { displayMode: "all" },
+            launch: { agents: { codex: { options: [] }, claude: { options: [] } } },
+          },
+        });
       }),
     );
 
@@ -551,12 +567,17 @@ describe("session-api-request-executors", () => {
       onConnectionIssue,
       onHighlightCorrections,
       onFileNavigatorConfig,
+      onCapabilities,
     });
 
     expect(result).toEqual({ ok: true, status: 200 });
     expect(onSessions).toHaveBeenCalledWith(sessions);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
-    expect(onFileNavigatorConfig).not.toHaveBeenCalled();
+    expect(onCapabilities).toHaveBeenCalledWith({
+      screenImage: false,
+      launchAgent: false,
+      resumeAgent: false,
+    });
   });
 
   it("refreshSessions marks auth failures from response status", async () => {

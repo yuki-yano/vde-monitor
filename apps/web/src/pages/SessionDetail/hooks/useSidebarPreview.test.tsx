@@ -87,7 +87,9 @@ describe("useSidebarPreview", () => {
 
   const createSession = (): SessionSummary => ({
     paneId: "pane-1",
+    sessionId: "session-id-1",
     sessionName: "session-1",
+    windowId: "window-id-1",
     windowIndex: 1,
     paneIndex: 1,
     paneActive: true,

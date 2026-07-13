@@ -1,6 +1,7 @@
 import {
   type ApiEnvelope,
   type ApiError,
+  type ClientCapabilities,
   type ClientFileNavigatorConfig,
   type CommandResponse,
   type HighlightCorrectionConfig,
@@ -44,6 +45,7 @@ type UseSessionApiParams = {
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
   onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
+  onCapabilities?: (capabilities: ClientCapabilities) => void;
 };
 
 type PaneParam = ReturnType<typeof buildPaneParam>;
@@ -63,6 +65,7 @@ export const useSessionApi = ({
   onFileNavigatorConfig,
   onWorkspaceTabsDisplayMode,
   onLaunchConfig,
+  onCapabilities,
 }: UseSessionApiParams) => {
   const ensureToken = useCallback(() => {
     if (!token) {
@@ -114,6 +117,7 @@ export const useSessionApi = ({
       onFileNavigatorConfig,
       onWorkspaceTabsDisplayMode,
       onLaunchConfig,
+      onCapabilities,
     });
   }, [
     apiClient,
@@ -121,6 +125,7 @@ export const useSessionApi = ({
     onFileNavigatorConfig,
     onHighlightCorrections,
     onLaunchConfig,
+    onCapabilities,
     onWorkspaceTabsDisplayMode,
     onSessions,
     token,

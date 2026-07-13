@@ -67,3 +67,46 @@ export const buildSessionGroupLabelByName = (sessionNames: string[]): Map<string
     }),
   );
 };
+
+type SessionGroupLabelEntry = {
+  key: string;
+  name: string | null | undefined;
+};
+
+const compareStableKeys = (left: string, right: string): number => {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+};
+
+export const buildSessionGroupLabelByKey = (
+  entries: SessionGroupLabelEntry[],
+): Map<string, string> => {
+  const nameByKey = new Map<string, string>();
+  for (const entry of entries) {
+    if (!nameByKey.has(entry.key)) {
+      nameByKey.set(entry.key, normalizeSessionGroupName(entry.name));
+    }
+  }
+
+  const labelByName = buildSessionGroupLabelByName([...nameByKey.values()]);
+  const keysByName = new Map<string, string[]>();
+  for (const [key, name] of nameByKey) {
+    const keys = keysByName.get(name);
+    if (keys == null) {
+      keysByName.set(name, [key]);
+    } else {
+      keys.push(key);
+    }
+  }
+
+  const labelByKey = new Map<string, string>();
+  for (const [name, keys] of keysByName) {
+    const baseLabel = labelByName.get(name) ?? name.slice(0, GROUP_LABEL_MAX_LENGTH).toUpperCase();
+    const sortedKeys = [...keys].sort(compareStableKeys);
+    sortedKeys.forEach((key, index) => {
+      labelByKey.set(key, sortedKeys.length === 1 ? baseLabel : `${baseLabel}·${index + 1}`);
+    });
+  }
+  return labelByKey;
+};

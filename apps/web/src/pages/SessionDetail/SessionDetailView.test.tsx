@@ -147,6 +147,11 @@ const buildDefaultContextValue = () => {
           claude: { options: [] },
         },
       },
+      capabilities: {
+        screenImage: true,
+        launchAgent: true,
+        resumeAgent: true,
+      },
       resolvedTheme: "latte" as const,
       screenText: "",
       sessions: [] as SessionDetail[],

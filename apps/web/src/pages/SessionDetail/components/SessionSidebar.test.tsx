@@ -89,6 +89,7 @@ describe("SessionSidebar", () => {
     nowMs: Date.now(),
     connected: true,
     connectionIssue: null,
+    launchAgentAvailable: true,
     requestStateTimeline: vi.fn(),
     requestScreen: vi.fn(),
     launchConfig: {
@@ -138,6 +139,8 @@ describe("SessionSidebar", () => {
   it("filters non-agent sessions and groups by window", () => {
     const sessionOne = createSessionDetail({
       paneId: "pane-1",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-1",
       title: "Codex Session",
       agent: "codex",
       branch: "feature/codex",
@@ -150,6 +153,8 @@ describe("SessionSidebar", () => {
     });
     const sessionTwo = createSessionDetail({
       paneId: "pane-2",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-2",
       title: "Claude Session",
       agent: "claude",
       branch: "feature/claude",
@@ -159,6 +164,8 @@ describe("SessionSidebar", () => {
     });
     const sessionUnknown = createSessionDetail({
       paneId: "pane-3",
+      sessionId: "session-alpha",
+      windowId: "window-alpha-1",
       title: "Shell Session",
       agent: "unknown",
       state: "SHELL",
@@ -578,5 +585,23 @@ describe("SessionSidebar", () => {
     expect(onLaunchAgentInSession).toHaveBeenCalledWith("alpha", "codex", {
       cwd: "/Users/test/repo",
     });
+  });
+
+  it("hides launch controls when the backend does not support launching agents", () => {
+    const session = createSessionDetail({ sessionName: "alpha" });
+    const state = buildState({
+      launchAgentAvailable: false,
+      sessionGroups: [
+        {
+          repoRoot: "/Users/test/repo",
+          sessions: [session],
+          lastInputAt: session.lastInputAt,
+        },
+      ],
+    });
+
+    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
+
+    expect(screen.queryByRole("button", { name: "Launch Agent" })).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { Pin } from "lucide-react";
 import { LaunchAgentButton } from "@/features/launch-agent/LaunchAgentButton";
 import { IconButton, TagPill } from "@/components/ui";
 import { selectLaunchSourceSession } from "@/features/shared-session-ui/model/launch-source-session";
+import { getSessionWindowGroupKey } from "@/features/shared-session-ui/model/session-window-group";
 import { formatRepoDirLabel } from "@/lib/quick-panel-utils";
 import type { LaunchAgentHandler } from "@/state/launch-agent-options";
 
@@ -18,6 +19,7 @@ type SessionSidebarGroupListProps = {
   focusPendingPaneIds: Set<string>;
   launchPendingSessions: Set<string>;
   launchConfig: LaunchConfig;
+  launchAgentAvailable: boolean;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onHoverStart: (paneId: string) => void;
   onHoverEnd: (paneId: string) => void;
@@ -39,6 +41,7 @@ export const SessionSidebarGroupList = ({
   focusPendingPaneIds,
   launchPendingSessions,
   launchConfig,
+  launchAgentAvailable,
   requestWorktrees,
   onHoverStart,
   onHoverEnd,
@@ -65,21 +68,17 @@ export const SessionSidebarGroupList = ({
           (total, windowGroup) => total + windowGroup.sessions.length,
           0,
         );
-        const sessionPaneCandidatesBySessionName = new Map<
+        const sessionPaneCandidatesBySessionId = new Map<
           string,
           (typeof group.windowGroups)[number]["sessions"]
         >();
         group.windowGroups.forEach((windowGroup) => {
-          const existingCandidates = sessionPaneCandidatesBySessionName.get(
-            windowGroup.sessionName,
-          );
+          const existingCandidates = sessionPaneCandidatesBySessionId.get(windowGroup.sessionId);
           if (existingCandidates) {
             existingCandidates.push(...windowGroup.sessions);
             return;
           }
-          sessionPaneCandidatesBySessionName.set(windowGroup.sessionName, [
-            ...windowGroup.sessions,
-          ]);
+          sessionPaneCandidatesBySessionId.set(windowGroup.sessionId, [...windowGroup.sessions]);
         });
         return (
           <div key={group.repoRoot ?? "no-repo"} className="space-y-3">
@@ -110,17 +109,17 @@ export const SessionSidebarGroupList = ({
             </div>
             <div className="space-y-4 pl-2.5">
               {group.windowGroups.map((windowGroup) => {
-                const shouldRenderLaunchButtons = !launchedSessions.has(windowGroup.sessionName);
+                const shouldRenderLaunchButtons = !launchedSessions.has(windowGroup.sessionId);
                 if (shouldRenderLaunchButtons) {
-                  launchedSessions.add(windowGroup.sessionName);
+                  launchedSessions.add(windowGroup.sessionId);
                 }
                 const sessionPaneCandidates =
-                  sessionPaneCandidatesBySessionName.get(windowGroup.sessionName) ?? [];
+                  sessionPaneCandidatesBySessionId.get(windowGroup.sessionId) ?? [];
                 const launchSourceSession = selectLaunchSourceSession(sessionPaneCandidates);
 
                 return (
                   <div
-                    key={`${windowGroup.sessionName}:${windowGroup.windowIndex}`}
+                    key={getSessionWindowGroupKey(windowGroup)}
                     className="border-latte-surface2/60 bg-latte-crust/70 rounded-2xl border px-3 py-3"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -136,7 +135,7 @@ export const SessionSidebarGroupList = ({
                         {windowGroup.sessions.length} / {groupTotalPanes} panes
                       </TagPill>
                     </div>
-                    {shouldRenderLaunchButtons ? (
+                    {shouldRenderLaunchButtons && launchAgentAvailable ? (
                       <div className="mt-2 flex items-center gap-1.5">
                         <LaunchAgentButton
                           sessionName={windowGroup.sessionName}

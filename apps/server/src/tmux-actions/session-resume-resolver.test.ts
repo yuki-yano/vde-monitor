@@ -5,7 +5,9 @@ import { resolveSessionByPane } from "./session-resume-resolver";
 
 const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

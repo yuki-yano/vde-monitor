@@ -9,6 +9,8 @@ import type { TmuxAdapter } from "./adapter";
 
 const format = [
   "#{pane_id}",
+  "#{session_id}",
+  "#{window_id}",
   "#{session_name}",
   "#{window_index}",
   "#{pane_index}",
@@ -47,11 +49,13 @@ const parseLine = (line: string): PaneMeta | null => {
     return null;
   }
   const parts = line.split("\t");
-  if (parts.length < 17) {
+  if (parts.length < 19) {
     return null;
   }
   const [
     paneIdRaw,
+    sessionIdRaw,
+    windowIdRaw,
     sessionNameRaw,
     windowIndexRaw,
     paneIndexRaw,
@@ -70,7 +74,7 @@ const parseLine = (line: string): PaneMeta | null => {
     pipeTagValue,
   ] = parts;
 
-  if (!paneIdRaw || !sessionNameRaw) {
+  if (!paneIdRaw || !sessionIdRaw || !windowIdRaw || !sessionNameRaw) {
     return null;
   }
 
@@ -81,6 +85,8 @@ const parseLine = (line: string): PaneMeta | null => {
 
   return {
     paneId,
+    sessionId: sessionIdRaw,
+    windowId: windowIdRaw,
     sessionName,
     windowIndex: Number.parseInt(windowIndex, 10),
     paneIndex: Number.parseInt(paneIndex, 10),

@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { resolveCmuxServerKey } from "@vde-monitor/shared/node";
+
 import {
   buildCodexHookEvent,
   buildHookEvent,
@@ -16,7 +18,9 @@ import {
   isCodexNonInteractivePayload,
   isMainModule,
   parseHookCliArgs,
+  resolveActiveHookConfig,
   resolveHookServerKey,
+  resolveProcessTty,
   resolveTmuxPane,
   resolveTranscriptPath,
   shouldPersistCodexHookPayload,
@@ -24,6 +28,8 @@ import {
 } from "./cli";
 
 describe("hooks cli helpers", () => {
+  const cmuxServerKey = resolveCmuxServerKey("/tmp/cmux.sock");
+
   it("resolves transcript path from cwd and session id", () => {
     const transcriptPath = resolveTranscriptPath("apps/web", "session-1");
     expect(transcriptPath).toBe(
@@ -61,6 +67,89 @@ describe("hooks cli helpers", () => {
     );
 
     expect(fields.notificationType).toBe("permission_prompt");
+  });
+
+  it("extracts cmux surface from payload or environment", () => {
+    const fromPayload = extractPayloadFields(
+      { cmux_surface: "surface-payload" },
+      { CMUX_SURFACE_ID: "surface-env" },
+      {
+        multiplexerBackend: "cmux",
+        resolveProcessTtyFn: () => "/dev/ttys001",
+        resolveTmuxPaneFn: () => null,
+      },
+    );
+    const fromEnv = extractCodexPayloadFields(
+      {},
+      { CMUX_SURFACE_ID: "surface-env" },
+      {
+        multiplexerBackend: "cmux",
+        resolveProcessTtyFn: () => "/dev/ttys001",
+        resolveTmuxPaneFn: () => null,
+      },
+    );
+
+    expect(fromPayload.cmuxSurface).toBe("surface-payload");
+    expect(fromEnv.cmuxSurface).toBe("surface-env");
+    expect(fromPayload.tty).toBe("/dev/ttys001");
+    expect(fromEnv.tty).toBe("/dev/ttys001");
+  });
+
+  it("uses the measured controlling tty for cmux instead of a stale payload tty", () => {
+    const claudeFields = extractPayloadFields(
+      { tty: "/dev/ttys-stale" },
+      {},
+      {
+        multiplexerBackend: "cmux",
+        resolveProcessTtyFn: () => "/dev/ttys-current",
+      },
+    );
+    const codexFields = extractCodexPayloadFields(
+      { tty: "/dev/ttys-stale" },
+      {},
+      {
+        multiplexerBackend: "cmux",
+        resolveProcessTtyFn: () => "/dev/ttys-current",
+      },
+    );
+
+    expect(claudeFields.tty).toBe("/dev/ttys-current");
+    expect(codexFields.tty).toBe("/dev/ttys-current");
+  });
+
+  it("resolves the hook parent controlling tty through ps", () => {
+    const tty = resolveProcessTty(4242, {
+      spawnSyncFn: (() => ({
+        status: 0,
+        stdout: "ttys007\n",
+      })) as unknown as typeof import("node:child_process").spawnSync,
+    });
+
+    expect(tty).toBe("/dev/ttys007");
+  });
+
+  it("keeps only the identity for the configured multiplexer in nested terminals", () => {
+    const env = {
+      CMUX_SURFACE_ID: "surface-env",
+      HERDR_PANE_ID: "herdr-pane-env",
+      TMUX_PANE: "%42",
+    };
+    const payload = {
+      cmux_surface: "surface-payload",
+      herdr_pane: "herdr-pane-payload",
+      tmux_pane: "%24",
+    };
+
+    expect(extractPayloadFields(payload, env, { multiplexerBackend: "cmux" })).toMatchObject({
+      cmuxSurface: "surface-payload",
+      herdrPane: null,
+      tmuxPane: null,
+    });
+    expect(extractCodexPayloadFields(payload, env, { multiplexerBackend: "tmux" })).toMatchObject({
+      cmuxSurface: null,
+      herdrPane: null,
+      tmuxPane: "%24",
+    });
   });
 
   it("resolves tmux pane from display-message when TMUX_PANE is missing", () => {
@@ -146,6 +235,166 @@ describe("hooks cli helpers", () => {
         { HERDR_SOCKET_PATH: "/tmp/herdr.sock" },
       ),
     ).toBe("herdr-_tmp_herdr-sock");
+  });
+
+  it("resolves cmux server key from CMUX_SOCKET_PATH before config", () => {
+    expect(
+      resolveHookServerKey(
+        {
+          bind: "127.0.0.1",
+          port: 11080,
+          multiplexerBackend: "cmux",
+          tmuxSocketName: null,
+          tmuxSocketPath: null,
+          weztermTarget: null,
+          cmuxSocketPath: "/tmp/config-cmux.sock",
+        },
+        { CMUX_SOCKET_PATH: "/tmp/env-cmux.sock" },
+      ),
+    ).toBe(resolveCmuxServerKey("/tmp/env-cmux.sock"));
+  });
+
+  it("uses an active cmux runtime marker over stale persisted backend config", () => {
+    const persistedConfig = {
+      bind: "127.0.0.1" as const,
+      port: 11080,
+      multiplexerBackend: "tmux" as const,
+      tmuxSocketName: null,
+      tmuxSocketPath: null,
+      weztermTarget: null,
+    };
+    const marker = {
+      backend: "cmux",
+      serverKey: cmuxServerKey,
+      pid: 1234,
+      processStartedAt: "started-1234",
+    };
+
+    expect(
+      resolveActiveHookConfig(
+        persistedConfig,
+        {
+          CMUX_SOCKET_PATH: "/tmp/cmux.sock",
+          CMUX_SURFACE_ID: "surface-id",
+          TMUX_PANE: "%1",
+        },
+        {
+          baseDir: "/state",
+          readDir: (directoryPath) => {
+            expect(directoryPath).toBe(`/state/events/${cmuxServerKey}`);
+            return [".runtime.1234.json"];
+          },
+          readFile: (filePath) => {
+            expect(filePath).toBe(`/state/events/${cmuxServerKey}/.runtime.1234.json`);
+            return JSON.stringify(marker);
+          },
+          getProcessStartedAt: () => "started-1234",
+          isProcessRunning: (pid) => pid === 1234,
+        },
+      ),
+    ).toEqual({
+      ...persistedConfig,
+      multiplexerBackend: "cmux",
+      cmuxSocketPath: "/tmp/cmux.sock",
+    });
+  });
+
+  it("ignores stale or mismatched cmux runtime markers", () => {
+    const persistedConfig = {
+      bind: "127.0.0.1" as const,
+      port: 11080,
+      multiplexerBackend: "tmux" as const,
+      tmuxSocketName: null,
+      tmuxSocketPath: null,
+      weztermTarget: null,
+    };
+
+    expect(
+      resolveActiveHookConfig(
+        persistedConfig,
+        { CMUX_SOCKET_PATH: "/tmp/cmux.sock", CMUX_SURFACE_ID: "surface-id" },
+        {
+          readDir: () => [".runtime.1234.json"],
+          readFile: () =>
+            JSON.stringify({
+              backend: "cmux",
+              serverKey: resolveCmuxServerKey("/tmp/other.sock"),
+              pid: 1234,
+              processStartedAt: "started-1234",
+            }),
+          getProcessStartedAt: () => "started-1234",
+          isProcessRunning: () => true,
+        },
+      ),
+    ).toBe(persistedConfig);
+
+    expect(
+      resolveActiveHookConfig(
+        persistedConfig,
+        { CMUX_SOCKET_PATH: "/tmp/cmux.sock", CMUX_SURFACE_ID: "surface-id" },
+        {
+          readDir: () => [".runtime.1234.json"],
+          readFile: () =>
+            JSON.stringify({
+              backend: "cmux",
+              serverKey: cmuxServerKey,
+              pid: 1234,
+              processStartedAt: "started-1234",
+            }),
+          getProcessStartedAt: () => "started-1234",
+          isProcessRunning: () => false,
+        },
+      ),
+    ).toBe(persistedConfig);
+
+    expect(
+      resolveActiveHookConfig(
+        persistedConfig,
+        { CMUX_SOCKET_PATH: "/tmp/cmux.sock", CMUX_SURFACE_ID: "surface-id" },
+        {
+          readDir: () => [".runtime.1234.json"],
+          readFile: () =>
+            JSON.stringify({
+              backend: "cmux",
+              serverKey: cmuxServerKey,
+              pid: 1234,
+              processStartedAt: "old-process-start",
+            }),
+          getProcessStartedAt: () => "reused-pid-process-start",
+          isProcessRunning: () => true,
+        },
+      ),
+    ).toBe(persistedConfig);
+  });
+
+  it("fails closed when multiple cmux monitor processes are active", () => {
+    const persistedConfig = {
+      bind: "127.0.0.1" as const,
+      port: 11080,
+      multiplexerBackend: "tmux" as const,
+      tmuxSocketName: null,
+      tmuxSocketPath: null,
+      weztermTarget: null,
+    };
+
+    expect(
+      resolveActiveHookConfig(
+        persistedConfig,
+        { CMUX_SOCKET_PATH: "/tmp/cmux.sock", CMUX_SURFACE_ID: "surface-id" },
+        {
+          readDir: () => [".runtime.1234.json", ".runtime.5678.json"],
+          readFile: (filePath) =>
+            JSON.stringify({
+              backend: "cmux",
+              serverKey: cmuxServerKey,
+              pid: filePath.includes("1234") ? 1234 : 5678,
+              processStartedAt: filePath.includes("1234") ? "started-1234" : "started-5678",
+            }),
+          getProcessStartedAt: (pid) => `started-${pid}`,
+          isProcessRunning: () => true,
+        },
+      ),
+    ).toBe(persistedConfig);
   });
 
   it("maps hook events to herdr agent statuses", () => {
@@ -416,6 +665,19 @@ describe("codex hooks cli helpers", () => {
     expect(event.payload).toEqual({ raw: "{}" });
     expect(event.fallback).toBeUndefined();
     expect("notification_type" in event).toBe(false);
+  });
+
+  it("builds a directly addressable cmux hook event without cwd fallback", () => {
+    const event = buildCodexHookEvent("Stop", "{}", {
+      sessionId: "codex-session-1",
+      cwd: "/repo",
+      tmuxPane: null,
+      cmuxSurface: "surface-1",
+      transcriptPath: null,
+    });
+
+    expect(event.cmux_surface).toBe("surface-1");
+    expect(event.fallback).toBeUndefined();
   });
 
   it("includes fallback when codex tmux pane is missing", () => {

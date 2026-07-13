@@ -1,6 +1,6 @@
 {
   "name": "vde-monitor",
-  "description": "Monitor tmux sessions with a web UI.",
+  "description": "Monitor coding sessions across supported terminal backends with a web UI.",
   "author": "Yuki Yano",
   "license": "MIT",
   "repository": {

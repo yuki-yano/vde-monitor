@@ -1,6 +1,7 @@
 import type {
   AllowedKey,
   BranchList,
+  ClientCapabilities,
   ClientFileNavigatorConfig,
   CommandResponse,
   CommitDetail,
@@ -39,6 +40,7 @@ import {
 import { type LaunchAgentRequestOptions, defaultLaunchConfig } from "./launch-agent-options";
 import {
   type SessionConnectionStatus,
+  sessionCapabilitiesAtom,
   sessionFileNavigatorConfigAtom,
   sessionHighlightCorrectionsAtom,
   sessionLaunchConfigAtom,
@@ -103,6 +105,7 @@ export type SessionConfigDataContextValue = {
   highlightCorrections: HighlightCorrectionConfig;
   fileNavigatorConfig: ClientFileNavigatorConfig;
   launchConfig: LaunchConfig;
+  capabilities: ClientCapabilities;
 };
 
 // ---------------------------------------------------------------------------
@@ -260,10 +263,12 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
   const highlightCorrections = useAtomValue(sessionHighlightCorrectionsAtom);
   const fileNavigatorConfig = useAtomValue(sessionFileNavigatorConfigAtom);
   const launchConfig = useAtomValue(sessionLaunchConfigAtom);
+  const capabilities = useAtomValue(sessionCapabilitiesAtom);
   const setHighlightCorrections = useSetAtom(sessionHighlightCorrectionsAtom);
   const setFileNavigatorConfig = useSetAtom(sessionFileNavigatorConfigAtom);
   const setWorkspaceTabsDisplayMode = useSetAtom(sessionWorkspaceTabsDisplayModeAtom);
   const setLaunchConfig = useSetAtom(sessionLaunchConfigAtom);
+  const setCapabilities = useSetAtom(sessionCapabilitiesAtom);
   const {
     connectionIssue,
     setConnectionIssue,
@@ -311,6 +316,7 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     onFileNavigatorConfig: setFileNavigatorConfig,
     onWorkspaceTabsDisplayMode: setWorkspaceTabsDisplayMode,
     onLaunchConfig: setLaunchConfig,
+    onCapabilities: setCapabilities,
   });
 
   const refreshSessions = useCallback(async () => {
@@ -358,7 +364,14 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
     setFileNavigatorConfig({ autoExpandMatchLimit: 100 });
     setWorkspaceTabsDisplayMode("all");
     setLaunchConfig(defaultLaunchConfig);
-  }, [setFileNavigatorConfig, setLaunchConfig, setWorkspaceTabsDisplayMode, token]);
+    setCapabilities({ screenImage: false, launchAgent: false, resumeAgent: false });
+  }, [
+    setCapabilities,
+    setFileNavigatorConfig,
+    setLaunchConfig,
+    setWorkspaceTabsDisplayMode,
+    token,
+  ]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -426,8 +439,17 @@ const SessionRuntime = ({ children }: { children: ReactNode }) => {
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
+      capabilities,
     }),
-    [token, apiBaseUrl, authError, highlightCorrections, fileNavigatorConfig, launchConfig],
+    [
+      token,
+      apiBaseUrl,
+      authError,
+      highlightCorrections,
+      fileNavigatorConfig,
+      launchConfig,
+      capabilities,
+    ],
   );
 
   return (

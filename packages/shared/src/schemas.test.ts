@@ -153,7 +153,9 @@ describe("usageRepositoryActivityResponseSchema", () => {
 describe("session completion schemas", () => {
   const summary = {
     paneId: "%1",
+    sessionId: "$1",
     sessionName: "main",
+    windowId: "@1",
     windowIndex: 0,
     paneIndex: 0,
     paneActive: true,
@@ -187,6 +189,11 @@ describe("session completion schemas", () => {
     const { completion: _completion, ...missing } = summary;
     expect(sessionSummarySchema.safeParse(missing).success).toBe(false);
     expect(sessionSummarySchema.safeParse({ ...summary, completion: null }).success).toBe(true);
+  });
+
+  it("rejects empty session and window identifiers", () => {
+    expect(sessionSummarySchema.safeParse({ ...summary, sessionId: "" }).success).toBe(false);
+    expect(sessionSummarySchema.safeParse({ ...summary, windowId: "" }).success).toBe(false);
   });
 
   it("validates strict acknowledge request boundaries", () => {
@@ -254,6 +261,38 @@ describe("configSchema", () => {
   it("accepts runtime defaults", () => {
     const result = configSchema.safeParse(configDefaults);
     expect(result.success).toBe(true);
+  });
+
+  it("accepts cmux configuration and capture metadata", () => {
+    expect(
+      configSchema.safeParse({
+        ...configDefaults,
+        multiplexer: {
+          ...configDefaults.multiplexer,
+          backend: "cmux",
+          cmux: {
+            cliPath: "/Applications/cmux.app/Contents/Resources/bin/cmux",
+            socketPath: "/tmp/cmux.sock",
+            password: "secret",
+          },
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      screenResponseSchema.safeParse({
+        ok: true,
+        paneId: "surface-1",
+        mode: "text",
+        capturedAt: "2026-07-13T00:00:00.000Z",
+        captureMeta: {
+          backend: "cmux",
+          lineModel: "physical",
+          joinLinesApplied: false,
+          captureMethod: "cmux-read-screen",
+        },
+        screen: "hello",
+      }).success,
+    ).toBe(true);
   });
 
   it("rejects removed keys (rateLimit/input/logs)", () => {

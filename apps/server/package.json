@@ -10,6 +10,7 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@hono/zod-validator": "catalog:",
+    "@vde-monitor/cmux": "workspace:*",
     "@vde-monitor/herdr": "workspace:*",
     "@vde-monitor/multiplexer": "workspace:*",
     "@vde-monitor/shared": "workspace:*",

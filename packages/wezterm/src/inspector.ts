@@ -109,8 +109,7 @@ const buildFocusedPaneSet = (clients: WeztermClientRaw[]): Set<string> => {
   return focused;
 };
 
-const resolvePaneWindowIndex = (pane: WeztermPaneRaw) =>
-  toNumber(pane.tab_id ?? pane.tabId ?? pane.window_id ?? pane.windowId) ?? 0;
+const resolvePaneWindowIndex = (pane: WeztermPaneRaw) => toNumber(pane.tab_id ?? pane.tabId);
 
 const buildActivityMaps = ({
   panes,
@@ -127,7 +126,11 @@ const buildActivityMaps = ({
     if (!paneId) {
       continue;
     }
-    paneWindowIndexById.set(paneId, resolvePaneWindowIndex(pane));
+    const windowIndex = resolvePaneWindowIndex(pane);
+    if (windowIndex == null) {
+      continue;
+    }
+    paneWindowIndexById.set(paneId, windowIndex);
   }
 
   const paneActivityByPaneId = new Map<string, number>();
@@ -171,10 +174,11 @@ const toPaneMetaList = (
   const results: PaneMeta[] = [];
   for (const pane of panes) {
     const paneId = toPaneId(pane.pane_id ?? pane.paneId);
-    if (!paneId) {
+    const sessionId = toNullable(pane.workspace);
+    const windowIndex = resolvePaneWindowIndex(pane);
+    if (!paneId || !sessionId || windowIndex == null) {
       continue;
     }
-    const windowIndex = resolvePaneWindowIndex(pane);
     const providedPaneIndex = toNumber(pane.pane_index ?? pane.paneIndex);
     const fallbackPaneIndex = nextPaneIndexByWindow.get(windowIndex) ?? 0;
     const paneIndex = providedPaneIndex ?? fallbackPaneIndex;
@@ -182,7 +186,9 @@ const toPaneMetaList = (
 
     results.push({
       paneId,
-      sessionName: toNullable(pane.workspace) ?? "default",
+      sessionId,
+      windowId: String(windowIndex),
+      sessionName: sessionId,
       windowIndex,
       paneIndex,
       windowActivity: windowActivityByWindowIndex.get(windowIndex) ?? null,

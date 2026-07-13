@@ -1,5 +1,3 @@
-import path from "node:path";
-
 export const encodePaneId = (paneId: string): string => {
   return encodeURIComponent(paneId);
 };
@@ -50,41 +48,3 @@ export const resolveWeztermServerKey = (target: string | null | undefined): stri
 
 export const resolveHerdrServerKey = (socketPath: string): string =>
   sanitizeServerKey(`herdr:${socketPath}`);
-
-type MonitorServerKeyParams = {
-  multiplexerBackend: "tmux" | "wezterm" | "herdr";
-  tmuxSocketName: string | null;
-  tmuxSocketPath: string | null;
-  weztermTarget: string | null | undefined;
-  herdrSocketPath?: string;
-};
-
-export const resolveMonitorServerKey = ({
-  multiplexerBackend,
-  tmuxSocketName,
-  tmuxSocketPath,
-  weztermTarget,
-  herdrSocketPath,
-}: MonitorServerKeyParams): string => {
-  if (multiplexerBackend === "herdr") {
-    return resolveHerdrServerKey(herdrSocketPath ?? "default");
-  }
-  if (multiplexerBackend === "wezterm") {
-    return resolveWeztermServerKey(weztermTarget);
-  }
-  return resolveServerKey(tmuxSocketName, tmuxSocketPath);
-};
-
-export const resolveLogPaths = (baseDir: string, serverKey: string, paneId: string) => {
-  const paneIdEncoded = encodePaneId(paneId);
-  const paneLogFileId = paneIdEncoded.replaceAll("_", "_u").replaceAll("%", "_p");
-  const panesDir = path.join(baseDir, "panes", serverKey);
-  const eventsDir = path.join(baseDir, "events", serverKey);
-  return {
-    paneIdEncoded,
-    panesDir,
-    eventsDir,
-    paneLogPath: path.join(panesDir, `${paneLogFileId}.log`),
-    eventLogPath: path.join(eventsDir, "claude.jsonl"),
-  };
-};

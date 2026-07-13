@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useRef } from "react";
+import { useLayoutEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, http, server } from "@/test/msw/server";
@@ -41,7 +41,9 @@ const InitialSessionsLoadProbe = () => {
 
 const buildSession = (paneId: string): SessionSummary => ({
   paneId,
+  sessionId: `session-${paneId}`,
   sessionName: paneId,
+  windowId: `window-${paneId}`,
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,
@@ -69,28 +71,16 @@ const buildSession = (paneId: string): SessionSummary => ({
 // context into a high-frequency "stream" data context and a low-frequency
 // "config" data context stops sessions-stream updates from re-rendering
 // consumers that only read config/auth fields (T9 domain split).
-const StreamProbe = () => {
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
+const StreamProbe = ({ onCommit }: { onCommit?: () => void }) => {
   const { sessions } = useSessionStreamData();
-  return (
-    <>
-      <div data-testid="stream-render-count">{renderCountRef.current}</div>
-      <div data-testid="stream-session-count">{sessions.length}</div>
-    </>
-  );
+  useLayoutEffect(() => onCommit?.());
+  return <div data-testid="stream-session-count">{sessions.length}</div>;
 };
 
-const ConfigProbe = () => {
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
+const ConfigProbe = ({ onCommit }: { onCommit?: () => void }) => {
   const { authError } = useSessionConfigData();
-  return (
-    <>
-      <div data-testid="config-render-count">{renderCountRef.current}</div>
-      <div data-testid="config-auth-error">{authError ?? "none"}</div>
-    </>
-  );
+  useLayoutEffect(() => onCommit?.());
+  return <div data-testid="config-auth-error">{authError ?? "none"}</div>;
 };
 
 const RefreshTrigger = () => {
@@ -185,6 +175,14 @@ describe("SessionProvider", () => {
 
   it("does not re-render config-data consumers when stream data (sessions) updates", async () => {
     let requestCount = 0;
+    let configRenderCount = 0;
+    let streamRenderCount = 0;
+    const countConfigRender = () => {
+      configRenderCount += 1;
+    };
+    const countStreamRender = () => {
+      streamRenderCount += 1;
+    };
     server.use(
       http.get(pathToUrl("/sessions"), () => {
         requestCount += 1;
@@ -197,8 +195,8 @@ describe("SessionProvider", () => {
 
     render(
       <SessionProvider>
-        <ConfigProbe />
-        <StreamProbe />
+        <ConfigProbe onCommit={countConfigRender} />
+        <StreamProbe onCommit={countStreamRender} />
         <RefreshTrigger />
       </SessionProvider>,
     );
@@ -208,8 +206,8 @@ describe("SessionProvider", () => {
       expect(screen.getByTestId("stream-session-count").textContent).toBe("1");
     });
 
-    const configRendersAfterMount = Number(screen.getByTestId("config-render-count").textContent);
-    const streamRendersAfterMount = Number(screen.getByTestId("stream-render-count").textContent);
+    const configRendersAfterMount = configRenderCount;
+    const streamRendersAfterMount = streamRenderCount;
 
     fireEvent.click(screen.getByTestId("refresh-button"));
 
@@ -217,8 +215,8 @@ describe("SessionProvider", () => {
       expect(screen.getByTestId("stream-session-count").textContent).toBe("2");
     });
 
-    const configRendersAfterRefresh = Number(screen.getByTestId("config-render-count").textContent);
-    const streamRendersAfterRefresh = Number(screen.getByTestId("stream-render-count").textContent);
+    const configRendersAfterRefresh = configRenderCount;
+    const streamRendersAfterRefresh = streamRenderCount;
 
     // The stream-data consumer re-renders because `sessions` changed...
     expect(streamRendersAfterRefresh).toBeGreaterThan(streamRendersAfterMount);

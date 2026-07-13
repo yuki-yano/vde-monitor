@@ -37,7 +37,9 @@ vi.mock("./components/ChatGridCandidateModal", () => ({
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",
+  sessionId: "session-id-1",
   sessionName: "session-1",
+  windowId: "window-id-1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,
@@ -75,6 +77,7 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
   connectionStatus: "healthy",
   connectionIssue: null,
   launchConfig: { agents: { codex: { options: [] }, claude: { options: [] } } },
+  capabilities: { screenImage: true, launchAgent: true, resumeAgent: true },
   requestStateTimeline: vi.fn(async () => ({
     paneId: "pane-1",
     now: "2026-02-17T00:10:00.000Z",

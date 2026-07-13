@@ -187,6 +187,7 @@ describe("useUsageDashboardVM", () => {
       connected: true,
       connectionIssue: null,
       launchConfig: defaultLaunchConfig,
+      capabilities: { screenImage: true, launchAgent: true, resumeAgent: true },
       requestWorktrees: vi.fn(),
       requestStateTimeline: vi.fn(),
       requestScreen: vi.fn(),

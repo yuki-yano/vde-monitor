@@ -24,6 +24,7 @@ export const apiErrorSchema = z.object({
     "PERMISSION_DENIED",
     "TMUX_UNAVAILABLE",
     "WEZTERM_UNAVAILABLE",
+    "CMUX_UNAVAILABLE",
     "RESUME_NOT_FOUND",
     "RESUME_AMBIGUOUS",
     "RESUME_UNSUPPORTED",
@@ -115,7 +116,7 @@ export const screenDeltaSchema = z.object({
 });
 
 export const screenCaptureMetaSchema = z.object({
-  backend: z.enum(["tmux", "wezterm", "herdr", "unknown"]),
+  backend: z.enum(["tmux", "wezterm", "herdr", "cmux", "unknown"]),
   // "logical" is reserved for future backends/modes that can return logical lines.
   lineModel: z.enum(["joined-physical", "physical", "logical", "none"]),
   joinLinesApplied: z.boolean().nullable(),
@@ -125,6 +126,7 @@ export const screenCaptureMetaSchema = z.object({
     "wezterm-get-text",
     "wezterm-logical-lines",
     "herdr-pane-read",
+    "cmux-read-screen",
     "terminal-image",
     "none",
   ]),
@@ -338,7 +340,9 @@ export const rawItemSchema = z.discriminatedUnion("kind", [
 
 export const sessionSummarySchema = z.object({
   paneId: z.string(),
+  sessionId: z.string().min(1),
   sessionName: z.string(),
+  windowId: z.string().min(1),
   windowIndex: z.number(),
   paneIndex: z.number(),
   paneActive: z.boolean(),
@@ -680,6 +684,11 @@ const includeIgnoredPatternSchema = z.string().superRefine((value, ctx) => {
 });
 
 export const clientConfigSchema = z.object({
+  capabilities: z.object({
+    screenImage: z.boolean(),
+    launchAgent: z.boolean(),
+    resumeAgent: z.boolean(),
+  }),
   screen: z.object({
     highlightCorrection: highlightCorrectionSchema,
   }),
@@ -753,6 +762,7 @@ export const claudeHookEventSchema = z.object({
   tty: z.string().optional(),
   tmux_pane: z.string().nullable().optional(),
   herdr_pane: z.string().nullable().optional(),
+  cmux_surface: z.string().nullable().optional(),
   transcript_path: z.string().optional(),
   fallback: z
     .object({
@@ -777,6 +787,7 @@ export const codexHookEventSchema = z.object({
   tty: z.string().optional(),
   tmux_pane: z.string().nullable().optional(),
   herdr_pane: z.string().nullable().optional(),
+  cmux_surface: z.string().nullable().optional(),
   transcript_path: z.string().optional(),
   fallback: z
     .object({
@@ -793,10 +804,15 @@ export const workspaceTabsDisplayModeSchema = z.preprocess(
 );
 
 const multiplexerConfigSchema = strictObject({
-  backend: z.enum(["tmux", "wezterm", "herdr"]),
+  backend: z.enum(["tmux", "wezterm", "herdr", "cmux"]),
   wezterm: strictObject({
     cliPath: z.string(),
     target: z.string().nullable(),
+  }),
+  cmux: strictObject({
+    cliPath: z.string(),
+    socketPath: z.string().nullable(),
+    password: z.string().nullable(),
   }),
 });
 
@@ -845,7 +861,7 @@ export const configSchema = strictObject({
 
 export const generatedConfigTemplateSchema = strictObject({
   multiplexer: strictObject({
-    backend: z.enum(["tmux", "wezterm", "herdr"]),
+    backend: z.enum(["tmux", "wezterm", "herdr", "cmux"]),
   }),
   screen: strictObject({
     image: strictObject({
@@ -879,10 +895,15 @@ export const configOverrideSchema = strictObject({
     }).optional(),
   }).optional(),
   multiplexer: strictObject({
-    backend: z.enum(["tmux", "wezterm", "herdr"]).optional(),
+    backend: z.enum(["tmux", "wezterm", "herdr", "cmux"]).optional(),
     wezterm: strictObject({
       cliPath: z.string().optional(),
       target: z.string().nullable().optional(),
+    }).optional(),
+    cmux: strictObject({
+      cliPath: z.string().optional(),
+      socketPath: z.string().nullable().optional(),
+      password: z.string().nullable().optional(),
     }).optional(),
   }).optional(),
   launch: strictObject({

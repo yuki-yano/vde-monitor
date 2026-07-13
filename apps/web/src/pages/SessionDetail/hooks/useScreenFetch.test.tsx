@@ -408,4 +408,45 @@ describe("useScreenFetch", () => {
 
     expect(setScreen).toHaveBeenCalledWith("from-sse");
   });
+
+  it("surfaces an SSE capture error and finishes the initial loading state", async () => {
+    const enc = new TextEncoder();
+    const screenPayload: ScreenResponse = {
+      ok: false,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(0).toISOString(),
+      error: { code: "CMUX_UNAVAILABLE", message: "cmux socket closed" },
+    };
+
+    server.use(
+      http.get("/api/streams/sessions/pane-1/screen", () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              enc.encode(`event: screen\ndata: ${JSON.stringify(screenPayload)}\n\n`),
+            );
+          },
+          cancel() {},
+        });
+        return new HttpResponse(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+    );
+
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+    const onModeLoaded = vi.fn();
+    const { result } = setup({
+      requestScreen,
+      onModeLoaded,
+      apiBasePath: "/api",
+      token: "test-token",
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe("cmux socket closed");
+    });
+    expect(onModeLoaded).toHaveBeenCalledWith("text");
+  });
 });

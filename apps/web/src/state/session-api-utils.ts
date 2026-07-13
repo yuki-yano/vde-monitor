@@ -1,6 +1,7 @@
 import type {
   ApiEnvelope,
   ApiError,
+  ClientCapabilities,
   ClientConfig,
   ClientFileNavigatorConfig,
   HighlightCorrectionConfig,
@@ -224,6 +225,7 @@ export const applyRefreshSessionsSuccess = ({
   onFileNavigatorConfig,
   onWorkspaceTabsDisplayMode,
   onLaunchConfig,
+  onCapabilities,
   onConnectionIssue,
 }: {
   res: Response;
@@ -233,6 +235,7 @@ export const applyRefreshSessionsSuccess = ({
   onFileNavigatorConfig: (config: ClientFileNavigatorConfig) => void;
   onWorkspaceTabsDisplayMode?: (displayMode: WorkspaceTabsDisplayMode) => void;
   onLaunchConfig?: (config: LaunchConfig) => void;
+  onCapabilities?: (capabilities: ClientCapabilities) => void;
   onConnectionIssue: (message: string | null) => void;
 }): RefreshSessionsResult => {
   onSessions(data.sessions ?? []);
@@ -251,6 +254,10 @@ export const applyRefreshSessionsSuccess = ({
   const nextLaunchConfig = data.clientConfig?.launch;
   if (nextLaunchConfig && onLaunchConfig) {
     onLaunchConfig(nextLaunchConfig);
+  }
+  const nextCapabilities = data.clientConfig?.capabilities;
+  if (nextCapabilities && onCapabilities) {
+    onCapabilities(nextCapabilities);
   }
   onConnectionIssue(null);
   return { ok: true, status: res.status };

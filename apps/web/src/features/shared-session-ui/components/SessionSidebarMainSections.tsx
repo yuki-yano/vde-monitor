@@ -23,6 +23,7 @@ export type SessionSidebarListSectionViewModel = {
   focusPendingPaneIds: Set<string>;
   launchPendingSessions: Set<string>;
   launchConfig: LaunchConfig;
+  launchAgentAvailable: boolean;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onHoverStart: (paneId: string) => void;
   onHoverEnd: (paneId: string) => void;
@@ -124,6 +125,7 @@ const SessionSidebarListSection = ({ list }: SessionSidebarListSectionProps) => 
       focusPendingPaneIds={list.focusPendingPaneIds}
       launchPendingSessions={list.launchPendingSessions}
       launchConfig={list.launchConfig}
+      launchAgentAvailable={list.launchAgentAvailable}
       requestWorktrees={list.requestWorktrees}
       onHoverStart={list.onHoverStart}
       onHoverEnd={list.onHoverEnd}

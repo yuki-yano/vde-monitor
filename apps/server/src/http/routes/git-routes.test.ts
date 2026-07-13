@@ -30,7 +30,9 @@ vi.mock("../../domain/git/git-diff", () => ({
 
 const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "%13",
+  sessionId: "$1",
   sessionName: "dev",
+  windowId: "@1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,

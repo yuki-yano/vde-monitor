@@ -115,6 +115,60 @@ describe("createScreenStreamScheduler", () => {
     scheduler.dispose();
   });
 
+  it("delivers cmux screen streams as text with cmux capture metadata", async () => {
+    config = {
+      ...config,
+      multiplexer: { ...config.multiplexer, backend: "cmux" },
+    };
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+
+    scheduler.subscribe("pane-1", vi.fn());
+    await flushMicrotasks();
+
+    expect(buildTextResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureMeta: {
+          backend: "cmux",
+          lineModel: "physical",
+          joinLinesApplied: false,
+          captureMethod: "cmux-read-screen",
+        },
+      }),
+    );
+    expect(captureText).toHaveBeenCalledWith(expect.objectContaining({ joinLines: false }));
+
+    scheduler.dispose();
+  });
+
+  it("delivers capture errors once and sends a fresh screen after recovery", async () => {
+    captureText
+      .mockRejectedValueOnce(new Error("socket closed"))
+      .mockResolvedValueOnce({ screen: "recovered", alternateOn: false, truncated: null });
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+    const listener = vi.fn();
+
+    scheduler.subscribe("pane-1", listener);
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: { code: "INTERNAL", message: "screen capture failed" },
+      }),
+    );
+
+    listener.mockClear();
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+    expect(buildTextResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ screen: "recovered" }),
+    );
+
+    scheduler.dispose();
+  });
+
   it("tick sends response only when screen content changes", async () => {
     const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
     const listener = vi.fn();
@@ -367,7 +421,7 @@ describe("createScreenStreamScheduler", () => {
     scheduler.dispose();
   });
 
-  it("skips capture for tick when pane detail is not in registry", async () => {
+  it("reports a missing pane once when detail is not in registry", async () => {
     const mockGetDetail = vi.fn(() => null);
     monitor = {
       registry: { getDetail: mockGetDetail },
@@ -381,12 +435,17 @@ describe("createScreenStreamScheduler", () => {
     scheduler.subscribe("pane-1", listener);
     await flushMicrotasks();
 
-    // Initial capture: no detail → no delivery
-    expect(listener).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: { code: "INVALID_PANE", message: "pane is no longer available" },
+      }),
+    );
+    listener.mockClear();
 
     await vi.advanceTimersByTimeAsync(1000);
     await flushMicrotasks();
-    // Tick: still no detail → still no delivery
+    // Repeated identical failures are deduplicated while the stream remains open.
     expect(listener).not.toHaveBeenCalled();
 
     scheduler.dispose();

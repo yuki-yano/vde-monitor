@@ -11,7 +11,11 @@ import { formatRelativeTime, getLastInputTone } from "@/lib/session-format";
 import type { SessionGroup } from "@/lib/session-group";
 import type { LaunchAgentRequestOptions } from "@/state/launch-agent-options";
 
-import { type SessionWindowGroup, buildSessionWindowGroups } from "../session-window-group";
+import {
+  type SessionWindowGroup,
+  buildSessionWindowGroups,
+  getSessionWindowGroupKey,
+} from "../session-window-group";
 import { formatRepoName, formatRepoPath } from "../sessionListFormat";
 import { SessionWindowSection } from "./SessionWindowSection";
 
@@ -21,6 +25,7 @@ type SessionGroupSectionProps = {
   allSessions: SessionSummary[];
   launchPendingSessions: Set<string>;
   launchConfig: LaunchConfig;
+  launchAgentAvailable: boolean;
   requestWorktrees: (paneId: string) => Promise<WorktreeList>;
   onLaunchAgentInSession: (
     sessionName: string,
@@ -38,6 +43,7 @@ export const SessionGroupSection = ({
   allSessions,
   launchPendingSessions,
   launchConfig,
+  launchAgentAvailable,
   requestWorktrees,
   onLaunchAgentInSession,
   onTouchRepoPin,
@@ -54,20 +60,27 @@ export const SessionGroupSection = ({
   const totalWindowGroups = buildSessionWindowGroups(repoSessions);
   const totalPaneMap = new Map(
     totalWindowGroups.map((windowGroup) => [
-      `${windowGroup.sessionName}:${windowGroup.windowIndex}`,
+      getSessionWindowGroupKey(windowGroup),
       windowGroup.sessions.length,
     ]),
   );
   const windowGroups = buildSessionWindowGroups(group.sessions);
-  const sessionSections: { sessionName: string; windowGroups: SessionWindowGroup[] }[] = [];
+  const sessionSections: {
+    sessionId: string;
+    sessionName: string;
+    windowGroups: SessionWindowGroup[];
+  }[] = [];
   const bySession = new Map<string, SessionWindowGroup[]>();
   windowGroups.forEach((windowGroup) => {
-    const bucket = bySession.get(windowGroup.sessionName) ?? [];
+    const bucket = bySession.get(windowGroup.sessionId) ?? [];
     bucket.push(windowGroup);
-    bySession.set(windowGroup.sessionName, bucket);
+    bySession.set(windowGroup.sessionId, bucket);
   });
-  bySession.forEach((sessionWindowGroups, sessionName) => {
-    sessionSections.push({ sessionName, windowGroups: sessionWindowGroups });
+  bySession.forEach((sessionWindowGroups, sessionId) => {
+    const sessionName = sessionWindowGroups[0]?.sessionName;
+    if (sessionName) {
+      sessionSections.push({ sessionId, sessionName, windowGroups: sessionWindowGroups });
+    }
   });
 
   return (
@@ -140,33 +153,35 @@ export const SessionGroupSection = ({
         <div className="flex flex-col gap-2.5 sm:gap-4">
           {sessionSections.map((sessionSection, sessionIndex) => (
             <div
-              key={sessionSection.sessionName}
+              key={sessionSection.sessionId}
               className={cn(sessionIndex > 0 ? "pt-2.5 sm:pt-4" : null)}
             >
               <div className="mb-2.5 flex flex-wrap items-center gap-2.5 px-1">
                 <TagPill tone="neutral" className="text-[10px]">
                   Session {sessionSection.sessionName}
                 </TagPill>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <LaunchAgentButton
-                    sessionName={sessionSection.sessionName}
-                    sourceSession={selectLaunchSourceSession(
-                      sessionSection.windowGroups.flatMap((windowGroup) => windowGroup.sessions),
-                    )}
-                    launchConfig={launchConfig}
-                    launchPendingSessions={launchPendingSessions}
-                    requestWorktrees={requestWorktrees}
-                    onLaunchAgentInSession={onLaunchAgentInSession}
-                  />
-                </div>
+                {launchAgentAvailable ? (
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <LaunchAgentButton
+                      sessionName={sessionSection.sessionName}
+                      sourceSession={selectLaunchSourceSession(
+                        sessionSection.windowGroups.flatMap((windowGroup) => windowGroup.sessions),
+                      )}
+                      launchConfig={launchConfig}
+                      launchPendingSessions={launchPendingSessions}
+                      requestWorktrees={requestWorktrees}
+                      onLaunchAgentInSession={onLaunchAgentInSession}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-2.5 sm:space-y-4">
                 {sessionSection.windowGroups.map((windowGroup) => (
                   <SessionWindowSection
-                    key={`${windowGroup.sessionName}:${windowGroup.windowIndex}`}
+                    key={getSessionWindowGroupKey(windowGroup)}
                     group={windowGroup}
                     totalPanes={
-                      totalPaneMap.get(`${windowGroup.sessionName}:${windowGroup.windowIndex}`) ??
+                      totalPaneMap.get(getSessionWindowGroupKey(windowGroup)) ??
                       windowGroup.sessions.length
                     }
                     nowMs={nowMs}

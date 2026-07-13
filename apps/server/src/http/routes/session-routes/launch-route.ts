@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import type {
+  ApiErrorCode,
   LaunchCommandResponse,
   LaunchResumeMeta,
   LaunchResumePolicy,
@@ -36,11 +37,13 @@ type LaunchIdempotencyPayload = {
 export const createLaunchRoute = ({
   monitor,
   launchCapability,
+  multiplexerBackend,
   sendLimiter,
   getLimiterKey,
 }: {
   monitor: SessionRouteDeps["monitor"];
   launchCapability?: SessionRouteDeps["launchCapability"];
+  multiplexerBackend: SessionRouteDeps["config"]["multiplexer"]["backend"];
   sendLimiter: SendLimiter;
   getLimiterKey: SessionRouteDeps["getLimiterKey"];
 }) => {
@@ -115,6 +118,25 @@ export const createLaunchRoute = ({
     policy,
     failureReason: "unsupported",
   });
+
+  const resolveUnavailableLaunchError = (): { code: ApiErrorCode; message: string } => {
+    if (multiplexerBackend === "cmux") {
+      return {
+        code: "CMUX_UNAVAILABLE",
+        message: "launch-agent is not supported for cmux backend",
+      };
+    }
+    if (multiplexerBackend === "tmux") {
+      return {
+        code: "TMUX_UNAVAILABLE",
+        message: "launch-agent is unavailable for tmux backend",
+      };
+    }
+    return {
+      code: "WEZTERM_UNAVAILABLE",
+      message: "launch-agent requires tmux backend",
+    };
+  };
 
   const createRequestedResumeMeta = (
     policy: LaunchResumePolicy | null,
@@ -206,9 +228,10 @@ export const createLaunchRoute = ({
         resumeMetaForError = resumePlan.meta;
 
         if (!launchCapability) {
+          const unavailable = resolveUnavailableLaunchError();
           return {
             ok: false as const,
-            error: buildError("WEZTERM_UNAVAILABLE", "launch-agent requires tmux backend"),
+            error: buildError(unavailable.code, unavailable.message),
             rollback: { attempted: false, ok: true },
             ...(resumePlan.requested
               ? { resume: createUnsupportedResumeMeta(resumePlan.effectivePolicy) }

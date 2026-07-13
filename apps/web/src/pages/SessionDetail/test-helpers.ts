@@ -9,7 +9,9 @@ import type {
 
 export const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "pane-1",
+  sessionId: "session-id-1",
   sessionName: "session-1",
+  windowId: "window-id-1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,

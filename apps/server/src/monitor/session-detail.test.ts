@@ -5,7 +5,9 @@ import { hostCandidates } from "./monitor-utils";
 
 const buildPane = (overrides: Partial<PaneSnapshot> = {}): PaneSnapshot => ({
   paneId: "1",
+  sessionId: "session-1",
   sessionName: "main",
+  windowId: "window-0",
   windowIndex: 0,
   paneIndex: 1,
   paneActive: true,
@@ -45,6 +47,8 @@ describe("buildSessionDetail", () => {
       repoRoot: "/Users/test/project",
     });
     expect(detail.title).toBe("MyPane");
+    expect(detail.sessionId).toBe("session-1");
+    expect(detail.windowId).toBe("window-0");
     expect(detail.branch).toBe("main");
   });
 

@@ -1,9 +1,12 @@
+import { CMUX_METHODS } from "@vde-monitor/cmux";
 import { HerdrClient, resolveSocketPath } from "@vde-monitor/herdr";
 import { normalizeWeztermTarget } from "@vde-monitor/shared";
 import { createTmuxAdapter } from "@vde-monitor/tmux";
 import { createWeztermAdapter } from "@vde-monitor/wezterm";
 import os from "node:os";
+import path from "node:path";
 import { serve } from "@hono/node-server";
+import { execa } from "execa";
 import qrcode from "qrcode-terminal";
 
 import { createApp } from "../../app";
@@ -59,6 +62,193 @@ export const ensureHerdrAvailable = async (client: Pick<HerdrClient, "request" |
   }
 };
 
+const MINIMUM_CMUX_VERSION = [0, 64, 17] as const;
+const MINIMUM_CMUX_DARWIN_MAJOR = 23;
+const SUPPORTED_CMUX_ACCESS_MODES = new Set(["cmuxOnly", "automation", "password"]);
+
+export type CmuxCapabilities = {
+  protocol: "cmux-socket";
+  version: number;
+  socket_path: string;
+  access_mode: string;
+  methods: string[];
+};
+
+type CmuxCliResult = {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+};
+
+type RunCmuxCli = (
+  cliPath: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+) => Promise<CmuxCliResult>;
+
+type ResolveCmuxConnectionOptions = {
+  socketPath: string | null;
+  password: string | null;
+  env?: NodeJS.ProcessEnv;
+};
+
+const runCmuxCli: RunCmuxCli = async (cliPath, args, env) => {
+  const result = await execa(cliPath, args, {
+    env,
+    reject: false,
+    timeout: 10_000,
+  });
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode ?? -1,
+  };
+};
+
+export const resolveCmuxConnectionOptions = ({
+  socketPath,
+  password,
+  env = process.env,
+}: ResolveCmuxConnectionOptions) => {
+  const environmentPassword = env.CMUX_SOCKET_PASSWORD;
+  if (environmentPassword === "") {
+    throw new Error("CMUX_SOCKET_PASSWORD must not be empty");
+  }
+  return {
+    socketPath: socketPath?.trim() || env.CMUX_SOCKET_PATH?.trim() || null,
+    password: environmentPassword ?? password,
+  };
+};
+
+const parseCmuxVersion = (raw: string): readonly [number, number, number] | null => {
+  const match = raw.match(/\b(\d+)\.(\d+)\.(\d+)\b/);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+};
+
+const isMinimumCmuxVersion = (version: readonly [number, number, number]) => {
+  for (let index = 0; index < MINIMUM_CMUX_VERSION.length; index += 1) {
+    const actual = version[index] ?? 0;
+    const minimum = MINIMUM_CMUX_VERSION[index] ?? 0;
+    if (actual !== minimum) return actual > minimum;
+  }
+  return true;
+};
+
+const parseCmuxCapabilities = (raw: string): CmuxCapabilities => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("cmux capabilities returned invalid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error("cmux capabilities returned an invalid payload");
+  }
+  const capabilities = parsed as Record<string, unknown>;
+  if (
+    capabilities.protocol !== "cmux-socket" ||
+    capabilities.version !== 2 ||
+    typeof capabilities.socket_path !== "string" ||
+    capabilities.socket_path.trim().length === 0 ||
+    typeof capabilities.access_mode !== "string" ||
+    !Array.isArray(capabilities.methods) ||
+    capabilities.methods.some((method) => typeof method !== "string")
+  ) {
+    throw new Error("cmux capabilities is missing the required v2 socket metadata");
+  }
+  return capabilities as CmuxCapabilities;
+};
+
+export const ensureCmuxPlatformSupported = (
+  platform: NodeJS.Platform = process.platform,
+  osRelease: string = os.release(),
+): void => {
+  if (platform !== "darwin") {
+    throw new Error("cmux requires macOS 14 or newer");
+  }
+  const darwinMajor = Number.parseInt(osRelease.split(".")[0] ?? "", 10);
+  if (!Number.isSafeInteger(darwinMajor) || darwinMajor < MINIMUM_CMUX_DARWIN_MAJOR) {
+    throw new Error("cmux requires macOS 14 or newer");
+  }
+};
+
+export const ensureCmuxAvailable = async ({
+  cliPath,
+  socketPath,
+  password,
+  requiredMethods,
+  run = runCmuxCli,
+  platform = process.platform,
+  osRelease = os.release(),
+}: {
+  cliPath: string;
+  socketPath: string | null;
+  password: string | null;
+  requiredMethods: readonly string[];
+  run?: RunCmuxCli;
+  platform?: NodeJS.Platform;
+  osRelease?: string;
+}): Promise<CmuxCapabilities> => {
+  ensureCmuxPlatformSupported(platform, osRelease);
+  const versionResult = await run(cliPath, ["--version"], { ...process.env });
+  if (versionResult.exitCode !== 0) {
+    throw new Error(versionResult.stderr.trim() || "cmux CLI is not available");
+  }
+  const version = parseCmuxVersion(versionResult.stdout);
+  if (!version) {
+    throw new Error("unable to determine cmux version");
+  }
+  if (!isMinimumCmuxVersion(version)) {
+    throw new Error("cmux 0.64.17 or newer is required");
+  }
+
+  const selectedSocketPath = socketPath?.trim() || null;
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.CMUX_SOCKET;
+  if (selectedSocketPath) {
+    env.CMUX_SOCKET_PATH = selectedSocketPath;
+  } else {
+    delete env.CMUX_SOCKET_PATH;
+  }
+  if (password != null) {
+    env.CMUX_SOCKET_PASSWORD = password;
+  } else {
+    delete env.CMUX_SOCKET_PASSWORD;
+  }
+
+  const capabilitiesResult = await run(
+    cliPath,
+    ["--json", "--id-format", "uuids", "capabilities"],
+    env,
+  );
+  if (capabilitiesResult.exitCode !== 0) {
+    const detail = capabilitiesResult.stderr.trim() || "cmux socket is not available";
+    throw new Error(
+      `cmux socket preflight failed: ${detail}. Start vde-monitor inside a cmux terminal, or select Automation/Password under cmux Settings > Automation > Socket Control Mode.`,
+    );
+  }
+  const capabilities = parseCmuxCapabilities(capabilitiesResult.stdout);
+  if (!path.isAbsolute(capabilities.socket_path) || capabilities.socket_path.includes("\0")) {
+    throw new Error("cmux requires a local Unix socket with an absolute filesystem path");
+  }
+  if (!SUPPORTED_CMUX_ACCESS_MODES.has(capabilities.access_mode)) {
+    throw new Error(`cmux access mode is not supported: ${capabilities.access_mode}`);
+  }
+  if (capabilities.access_mode === "password" && password == null) {
+    throw new Error("cmux password access mode requires a socket password");
+  }
+
+  const advertisedMethods = new Set(capabilities.methods);
+  const missingMethods = [...new Set(requiredMethods)].filter(
+    (method) => !advertisedMethods.has(method),
+  );
+  if (missingMethods.length > 0) {
+    throw new Error(`cmux is missing required socket methods: ${missingMethods.join(", ")}`);
+  }
+  return capabilities;
+};
+
 export const ensureBackendAvailable = async (
   config: ReturnType<typeof ensureConfig>,
 ): Promise<void> => {
@@ -73,6 +263,21 @@ export const ensureBackendAvailable = async (
   if (config.multiplexer.backend === "herdr") {
     const client = new HerdrClient(resolveSocketPath(process.env, os.homedir()));
     await ensureHerdrAvailable(client);
+    return;
+  }
+  if (config.multiplexer.backend === "cmux") {
+    const connection = resolveCmuxConnectionOptions({
+      socketPath: config.multiplexer.cmux.socketPath,
+      password: config.multiplexer.cmux.password,
+    });
+    const capabilities = await ensureCmuxAvailable({
+      cliPath: config.multiplexer.cmux.cliPath,
+      socketPath: connection.socketPath,
+      password: connection.password,
+      requiredMethods: Object.values(CMUX_METHODS),
+    });
+    config.multiplexer.cmux.socketPath = capabilities.socket_path;
+    config.multiplexer.cmux.password = connection.password;
     return;
   }
   const weztermAdapter = createWeztermAdapter({
@@ -110,10 +315,26 @@ type CliOverrides = {
   screenImageBackend?: string;
   weztermCliPath?: string;
   weztermTarget?: string;
+  cmuxCliPath?: string;
+  cmuxSocketPath?: string;
 };
 
 const MONITOR_STOP_TIMEOUT_MS = 5000;
 const SERVER_CLOSE_TIMEOUT_MS = 3000;
+
+export const stopMonitorAndDisposeRuntime = async ({
+  stopMonitor,
+  disposeRuntime,
+}: {
+  stopMonitor: () => void | Promise<void>;
+  disposeRuntime?: () => void | Promise<void>;
+}): Promise<void> => {
+  try {
+    await stopMonitor();
+  } finally {
+    await disposeRuntime?.();
+  }
+};
 
 export const createGracefulShutdown = ({
   closeStreams,
@@ -213,6 +434,12 @@ const applyCliOverrides = (
   if (overrides.weztermTarget != null) {
     config.multiplexer.wezterm.target = overrides.weztermTarget;
   }
+  if (overrides.cmuxCliPath != null) {
+    config.multiplexer.cmux.cliPath = overrides.cmuxCliPath;
+  }
+  if (overrides.cmuxSocketPath != null) {
+    config.multiplexer.cmux.socketPath = overrides.cmuxSocketPath;
+  }
   // Always normalise the wezterm target after all overrides are applied
   config.multiplexer.wezterm.target = normalizeWeztermTarget(config.multiplexer.wezterm.target);
 };
@@ -237,6 +464,8 @@ export const runServe = async (args: ParsedArgs) => {
     screenImageBackend: multiplexerOverrides.screenImageBackend ?? undefined,
     weztermCliPath: multiplexerOverrides.weztermCliPath ?? undefined,
     weztermTarget: multiplexerOverrides.weztermTarget ?? undefined,
+    cmuxCliPath: multiplexerOverrides.cmuxCliPath ?? undefined,
+    cmuxSocketPath: multiplexerOverrides.cmuxSocketPath ?? undefined,
   });
 
   const host = bindHost;
@@ -334,7 +563,11 @@ export const runServe = async (args: ParsedArgs) => {
       screenScheduler.dispose();
     },
     // 2. owned pipe detachを含むモニター停止を最大5秒待つ。
-    stopMonitor: () => monitor.stop(),
+    stopMonitor: () =>
+      stopMonitorAndDisposeRuntime({
+        stopMonitor: () => monitor.stop(),
+        disposeRuntime: runtime.dispose,
+      }),
     // 3. HTTP サーバーの新規受付を止め、既存 keep-alive を閉じる。
     closeServer: (onClosed) => server.close(onClosed),
   });

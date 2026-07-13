@@ -25,7 +25,9 @@ export type AgentMonitorConfigFile = ResolvedConfig;
 
 export type PaneMeta = {
   paneId: string;
+  sessionId: string;
   sessionName: string;
+  windowId: string;
   windowIndex: number;
   paneIndex: number;
   windowActivity: number | null;
@@ -74,7 +76,7 @@ export type StateSignals = {
 
 // ---- Multiplexer abstraction types (formerly in apps/server/src/multiplexer/types.ts) ----
 
-export type MultiplexerBackend = "tmux" | "wezterm" | "herdr";
+export type MultiplexerBackend = "tmux" | "wezterm" | "herdr" | "cmux";
 
 export type MultiplexerInspector = {
   listPanes: () => Promise<PaneMeta[]>;
@@ -174,4 +176,5 @@ export type MultiplexerRuntime = {
   screenCapture: MultiplexerScreenCapture;
   actions: MultiplexerInputActions;
   capabilities: MultiplexerCapabilities;
+  dispose?: () => void | Promise<void>;
 };

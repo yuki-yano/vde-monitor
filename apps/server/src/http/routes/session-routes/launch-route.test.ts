@@ -6,7 +6,9 @@ import { createLaunchRoute } from "./launch-route";
 
 const buildPane = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "%13",
+  sessionId: "$1",
   sessionName: "dev",
+  windowId: "@1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,
@@ -72,6 +74,7 @@ describe("createLaunchRoute", () => {
         registry: { getDetail },
       } as unknown as SessionRouteDeps["monitor"],
       launchCapability: { launchAgentInSession },
+      multiplexerBackend: "tmux",
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -118,6 +121,7 @@ describe("createLaunchRoute", () => {
         registry: { getDetail: () => null },
       } as unknown as SessionRouteDeps["monitor"],
       launchCapability: { launchAgentInSession },
+      multiplexerBackend: "tmux",
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -152,6 +156,7 @@ describe("createLaunchRoute", () => {
       monitor: {
         registry: { getDetail: () => null },
       } as unknown as SessionRouteDeps["monitor"],
+      multiplexerBackend: "wezterm",
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -189,6 +194,7 @@ describe("createLaunchRoute", () => {
       monitor: {
         registry: { getDetail: () => null },
       } as unknown as SessionRouteDeps["monitor"],
+      multiplexerBackend: "wezterm",
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });
@@ -219,6 +225,35 @@ describe("createLaunchRoute", () => {
     expect(json.command.resume).toBeUndefined();
   });
 
+  it("returns CMUX_UNAVAILABLE when launch capability is absent on cmux", async () => {
+    const app = createLaunchRoute({
+      monitor: {
+        registry: { getDetail: () => null },
+      } as unknown as SessionRouteDeps["monitor"],
+      multiplexerBackend: "cmux",
+      sendLimiter: () => true,
+      getLimiterKey: () => "limiter-key",
+    });
+
+    const res = await app.request("/sessions/launch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sessionName: "dev",
+        agent: "codex",
+        requestId: "req-cmux-no-resume",
+      }),
+    });
+    const json = (await res.json()) as {
+      command: { ok: false; error: { code: string; message: string } };
+    };
+
+    expect(json.command.error).toEqual({
+      code: "CMUX_UNAVAILABLE",
+      message: "launch-agent is not supported for cmux backend",
+    });
+  });
+
   it("forwards resumeTarget to launch action when provided", async () => {
     const launchAgentInSession = vi.fn(async () => ({
       ok: true as const,
@@ -245,6 +280,7 @@ describe("createLaunchRoute", () => {
         registry: { getDetail: () => buildPane({ agentSessionId: "sess-1" }) },
       } as unknown as SessionRouteDeps["monitor"],
       launchCapability: { launchAgentInSession },
+      multiplexerBackend: "tmux",
       sendLimiter: () => true,
       getLimiterKey: () => "limiter-key",
     });

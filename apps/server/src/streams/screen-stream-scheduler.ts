@@ -20,6 +20,8 @@ type PaneState = {
   subscribers: Map<symbol, Subscriber>;
   /** Raw screen text from the last successful capture tick (for dedup). */
   lastScreen: string | null;
+  /** Error message from the last failed capture tick (for dedup and recovery detection). */
+  lastError: string | null;
 };
 
 const TICK_INTERVAL_MS = 1000;
@@ -36,7 +38,7 @@ const resolveAltScreen = (
 
 const resolveBackend = (config: AgentMonitorConfig): ScreenCaptureMeta["backend"] => {
   const b = config.multiplexer.backend;
-  return b === "tmux" || b === "wezterm" || b === "herdr" ? b : "unknown";
+  return b === "tmux" || b === "wezterm" || b === "herdr" || b === "cmux" ? b : "unknown";
 };
 
 const buildTextCaptureMeta = (
@@ -50,7 +52,7 @@ const buildTextCaptureMeta = (
         : "physical"
       : backend === "wezterm"
         ? "physical"
-        : backend === "herdr"
+        : backend === "herdr" || backend === "cmux"
           ? "physical"
           : "none";
   const captureMethod: ScreenCaptureMeta["captureMethod"] =
@@ -60,7 +62,9 @@ const buildTextCaptureMeta = (
         ? "wezterm-get-text"
         : backend === "herdr"
           ? "herdr-pane-read"
-          : "none";
+          : backend === "cmux"
+            ? "cmux-read-screen"
+            : "none";
   return { backend, lineModel, joinLinesApplied, captureMethod };
 };
 
@@ -85,22 +89,54 @@ export const createScreenStreamScheduler = ({
 
   // ---- capture helpers ----
 
-  const doCapture = async (paneId: string) => {
+  const buildCaptureError = (
+    paneId: string,
+    code: "INTERNAL" | "INVALID_PANE",
+    message: string,
+  ): ScreenResponse => ({
+    ok: false,
+    paneId,
+    mode: "text",
+    capturedAt: new Date().toISOString(),
+    captureMeta,
+    error: { code, message },
+  });
+
+  const doCapture = async (
+    paneId: string,
+  ): Promise<
+    | {
+        ok: true;
+        result: { screen: string; alternateOn: boolean; truncated: boolean | null };
+      }
+    | { ok: false; response: ScreenResponse }
+  > => {
     const detail = monitor.registry.getDetail(paneId);
-    if (!detail) return null;
+    if (!detail) {
+      return {
+        ok: false,
+        response: buildCaptureError(paneId, "INVALID_PANE", "pane is no longer available"),
+      };
+    }
     try {
-      return await monitor.getScreenCapture("background").captureText({
-        paneId,
-        lines: lineCount,
-        joinLines: joinLinesApplied,
-        includeAnsi: true,
-        includeTruncated: false,
-        altScreen: resolveAltScreen(detail.currentCommand, detail.startCommand),
-        alternateOn: detail.alternateOn,
-        currentCommand: detail.currentCommand ?? detail.startCommand,
-      });
+      return {
+        ok: true,
+        result: await monitor.getScreenCapture("background").captureText({
+          paneId,
+          lines: lineCount,
+          joinLines: joinLinesApplied,
+          includeAnsi: true,
+          includeTruncated: false,
+          altScreen: resolveAltScreen(detail.currentCommand, detail.startCommand),
+          alternateOn: detail.alternateOn,
+          currentCommand: detail.currentCommand ?? detail.startCommand,
+        }),
+      };
     } catch {
-      return null;
+      return {
+        ok: false,
+        response: buildCaptureError(paneId, "INTERNAL", "screen capture failed"),
+      };
     }
   };
 
@@ -127,9 +163,21 @@ export const createScreenStreamScheduler = ({
   const tick = async (): Promise<void> => {
     const captures = [...panes.entries()].map(async ([paneId, state]) => {
       if (state.subscribers.size === 0) return;
-      const result = await doCapture(paneId);
-      if (!result) return;
-      const screenChanged = state.lastScreen !== result.screen;
+      const outcome = await doCapture(paneId);
+      if (!outcome.ok) {
+        const errorMessage = outcome.response.error?.message ?? "screen capture failed";
+        const errorChanged = state.lastError !== errorMessage;
+        state.lastError = errorMessage;
+        state.subscribers.forEach((subscriber) => {
+          if (!errorChanged && !subscriber.initialPending) return;
+          subscriber.listener(outcome.response);
+          subscriber.initialPending = false;
+        });
+        return;
+      }
+      const result = outcome.result;
+      const screenChanged = state.lastError != null || state.lastScreen !== result.screen;
+      state.lastError = null;
       state.lastScreen = result.screen;
       // Fan-out: one buildTextResponse per subscriber (each has its own cursor).
       state.subscribers.forEach((subscriber) => {
@@ -176,7 +224,7 @@ export const createScreenStreamScheduler = ({
   ): (() => void) => {
     let state = panes.get(paneId);
     if (!state) {
-      state = { subscribers: new Map(), lastScreen: null };
+      state = { subscribers: new Map(), lastScreen: null, lastError: null };
       panes.set(paneId, state);
     }
 

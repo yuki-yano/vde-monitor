@@ -9,7 +9,14 @@ export const useSessionDetailViewShellSectionProps = () => {
   const { base, repoPins, terminal, timelineLogsActions } = useSessionDetailContext();
   const { paneId, session, nowMs, connectionIssue } = base;
   const { sessionGroups, getRepoSortAnchorAt } = repoPins;
-  const { connected, launchConfig, requestWorktrees, requestStateTimeline, requestScreen } = base;
+  const {
+    connected,
+    launchConfig,
+    capabilities,
+    requestWorktrees,
+    requestStateTimeline,
+    requestScreen,
+  } = base;
   const { highlightCorrections, resolvedTheme } = base;
   const { controls } = terminal;
   const { autoEnter, shiftHeld, ctrlHeld, rawMode, allowDangerKeys, isSendingText } = controls;
@@ -178,6 +185,7 @@ export const useSessionDetailViewShellSectionProps = () => {
         connected,
         connectionIssue,
         launchConfig,
+        launchAgentAvailable: capabilities.launchAgent,
         requestWorktrees,
         requestStateTimeline,
         requestScreen,
@@ -200,6 +208,7 @@ export const useSessionDetailViewShellSectionProps = () => {
       connected,
       connectionIssue,
       launchConfig,
+      capabilities.launchAgent,
       requestWorktrees,
       requestStateTimeline,
       requestScreen,

@@ -37,6 +37,8 @@ describe("createInspector", () => {
     expect(panes).toEqual([
       {
         paneId: "1",
+        sessionId: "main",
+        windowId: "10",
         sessionName: "main",
         windowIndex: 10,
         paneIndex: 2,
@@ -63,9 +65,11 @@ describe("createInspector", () => {
         .fn()
         .mockResolvedValueOnce({
           stdout: JSON.stringify([
-            { pane_id: 1, tab_id: 3 },
-            { pane_id: 2, tab_id: 3 },
-            { pane_id: null, tab_id: 3 },
+            { pane_id: 1, workspace: "main", tab_id: 3 },
+            { pane_id: 2, workspace: "main", tab_id: 3 },
+            { pane_id: null, workspace: "main", tab_id: 3 },
+            { pane_id: 4, tab_id: 3 },
+            { pane_id: 5, workspace: "main" },
           ]),
           stderr: "",
           exitCode: 0,
@@ -91,9 +95,9 @@ describe("createInspector", () => {
         .fn()
         .mockResolvedValueOnce({
           stdout: JSON.stringify([
-            { pane_id: 1, tab_id: 3 },
-            { pane_id: 2, tab_id: 3 },
-            { pane_id: 5, tab_id: 8 },
+            { pane_id: 1, workspace: "main", tab_id: 3 },
+            { pane_id: 2, workspace: "main", tab_id: 3 },
+            { pane_id: 5, workspace: "main", tab_id: 8 },
           ]),
           stderr: "",
           exitCode: 0,

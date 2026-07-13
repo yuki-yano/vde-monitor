@@ -27,6 +27,11 @@ export const configDefaults: ResolvedConfig = {
       cliPath: "wezterm",
       target: "auto",
     },
+    cmux: {
+      cliPath: "cmux",
+      socketPath: null,
+      password: null,
+    },
   },
   launch: {
     agents: {

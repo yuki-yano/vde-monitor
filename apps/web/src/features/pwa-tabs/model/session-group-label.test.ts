@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSessionGroupLabelByName, normalizeSessionGroupName } from "./session-group-label";
+import {
+  buildSessionGroupLabelByKey,
+  buildSessionGroupLabelByName,
+  normalizeSessionGroupName,
+} from "./session-group-label";
 
 describe("normalizeSessionGroupName", () => {
   it("normalizes empty values to inactive", () => {
@@ -36,5 +40,28 @@ describe("buildSessionGroupLabelByName", () => {
 
     expect(labels.get("workspace/main-a")).toBe("A");
     expect(labels.get("workspace/main-b")).toBe("B");
+  });
+});
+
+describe("buildSessionGroupLabelByKey", () => {
+  it("distinguishes same-named sessions with short ordinals ordered by stable key", () => {
+    const labels = buildSessionGroupLabelByKey([
+      { key: "session:workspace-2", name: "same-name" },
+      { key: "session:workspace-1", name: "same-name" },
+      { key: "session:workspace-2", name: "same-name" },
+    ]);
+
+    expect(labels.get("session:workspace-1")).toBe("SAME·1");
+    expect(labels.get("session:workspace-2")).toBe("SAME·2");
+  });
+
+  it("preserves shared-prefix abbreviations for differently named sessions", () => {
+    const labels = buildSessionGroupLabelByKey([
+      { key: "session:login", name: "repo/feature-login" },
+      { key: "session:settings", name: "repo/feature-settings" },
+    ]);
+
+    expect(labels.get("session:login")).toBe("LOGI");
+    expect(labels.get("session:settings")).toBe("SETT");
   });
 });

@@ -3,11 +3,17 @@ import type { SessionSummary } from "@vde-monitor/shared";
 import { compareTimeDesc, pickLatestInputAt } from "@/lib/session-time";
 
 export type SessionWindowGroup = {
+  sessionId: string;
+  windowId: string;
   sessionName: string;
   windowIndex: number;
   sessions: SessionSummary[];
   lastInputAt: string | null;
 };
+
+export const getSessionWindowGroupKey = (
+  group: Pick<SessionWindowGroup, "sessionId" | "windowId">,
+) => `${group.sessionId}:${group.windowId}`;
 
 const comparePanes = (a: SessionSummary, b: SessionSummary) => {
   const inputCompare = compareTimeDesc(a.lastInputAt, b.lastInputAt);
@@ -34,30 +40,43 @@ const compareGroups = (a: SessionWindowGroup, b: SessionWindowGroup) => {
     return sessionCompare;
   }
 
-  return a.windowIndex - b.windowIndex;
+  const windowIndexCompare = a.windowIndex - b.windowIndex;
+  if (windowIndexCompare !== 0) {
+    return windowIndexCompare;
+  }
+
+  const sessionIdCompare = a.sessionId.localeCompare(b.sessionId);
+  if (sessionIdCompare !== 0) {
+    return sessionIdCompare;
+  }
+
+  return a.windowId.localeCompare(b.windowId);
 };
 
 export const buildSessionWindowGroups = (sessions: SessionSummary[]): SessionWindowGroup[] => {
-  const grouped = new Map<string, Map<number, SessionSummary[]>>();
+  const grouped = new Map<string, SessionSummary[]>();
 
   sessions.forEach((session) => {
-    const bySession = grouped.get(session.sessionName) ?? new Map<number, SessionSummary[]>();
-    const byWindow = bySession.get(session.windowIndex) ?? [];
-    byWindow.push(session);
-    bySession.set(session.windowIndex, byWindow);
-    grouped.set(session.sessionName, bySession);
+    const key = `${session.sessionId}:${session.windowId}`;
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(session);
+    grouped.set(key, bucket);
   });
 
   const groups: SessionWindowGroup[] = [];
-  grouped.forEach((byWindow, sessionName) => {
-    byWindow.forEach((groupSessions, windowIndex) => {
-      const sorted = [...groupSessions].sort(comparePanes);
-      groups.push({
-        sessionName,
-        windowIndex,
-        sessions: sorted,
-        lastInputAt: pickLatestInputAt(sorted),
-      });
+  grouped.forEach((groupSessions) => {
+    const sorted = [...groupSessions].sort(comparePanes);
+    const first = sorted[0];
+    if (!first) {
+      return;
+    }
+    groups.push({
+      sessionId: first.sessionId,
+      windowId: first.windowId,
+      sessionName: first.sessionName,
+      windowIndex: first.windowIndex,
+      sessions: sorted,
+      lastInputAt: pickLatestInputAt(sorted),
     });
   });
 

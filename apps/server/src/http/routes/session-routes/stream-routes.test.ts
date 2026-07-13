@@ -13,7 +13,9 @@ import { createStreamRoutes } from "./stream-routes";
 
 const makeSessionSummary = (paneId = "pane-1") => ({
   paneId,
+  sessionId: "session",
   sessionName: "session",
+  windowId: "window-0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

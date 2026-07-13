@@ -18,6 +18,7 @@ import {
 import {
   type SessionWindowGroup,
   buildSessionWindowGroups,
+  getSessionWindowGroupKey,
 } from "@/features/shared-session-ui/model/session-window-group";
 import { cn } from "@/lib/cn";
 import { isPwaDisplayMode } from "@/lib/pwa-display-mode";
@@ -308,7 +309,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                 const totalWindowGroups = buildSessionWindowGroups(repoSessions);
                 const totalPaneMap = new Map(
                   totalWindowGroups.map((windowGroup) => [
-                    `${windowGroup.sessionName}:${windowGroup.windowIndex}`,
+                    getSessionWindowGroupKey(windowGroup),
                     windowGroup.sessions.length,
                   ]),
                 );
@@ -327,7 +328,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                     </div>
                     <div className="space-y-3 pl-2 sm:pl-2.5">
                       {group.windowGroups.map((windowGroup, index) => (
-                        <div key={`${windowGroup.sessionName}:${windowGroup.windowIndex}`}>
+                        <div key={getSessionWindowGroupKey(windowGroup)}>
                           {index > 0 && <div className="border-latte-surface2/70 mb-3 border-t" />}
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
@@ -340,9 +341,8 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                             </div>
                             <TagPill tone="neutral" className="text-[9px]">
                               {windowGroup.sessions.length} /{" "}
-                              {totalPaneMap.get(
-                                `${windowGroup.sessionName}:${windowGroup.windowIndex}`,
-                              ) ?? windowGroup.sessions.length}{" "}
+                              {totalPaneMap.get(getSessionWindowGroupKey(windowGroup)) ??
+                                windowGroup.sessions.length}{" "}
                               panes
                             </TagPill>
                           </div>

@@ -42,6 +42,7 @@ export const createInputRoutes = ({
         return 404;
       case "TMUX_UNAVAILABLE":
       case "WEZTERM_UNAVAILABLE":
+      case "CMUX_UNAVAILABLE":
         return 503;
       default:
         return 500;

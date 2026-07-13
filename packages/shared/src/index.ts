@@ -1,7 +1,6 @@
 export * from "./api-contract";
 export * from "./coercion";
 export * from "./config-allowlist";
-export * from "./config-path-resolver";
 export * from "./constants";
 export * from "./danger";
 export * from "./editor-command";
@@ -13,4 +12,3 @@ export * from "./schemas";
 export * from "./screen-capture";
 export * from "./types";
 export * from "./utils";
-export * from "./xdg";

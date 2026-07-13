@@ -24,8 +24,14 @@ export const useSessionDetailVMState = (paneId: string) => {
     connectionIssue,
     getSessionDetail,
   } = useSessionStreamData();
-  const { token, apiBaseUrl, highlightCorrections, fileNavigatorConfig, launchConfig } =
-    useSessionConfigData();
+  const {
+    token,
+    apiBaseUrl,
+    highlightCorrections,
+    fileNavigatorConfig,
+    launchConfig,
+    capabilities,
+  } = useSessionConfigData();
   const {
     refreshSessions,
     requestStateTimeline,
@@ -79,6 +85,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
+      capabilities,
       resolvedTheme,
       session,
       screenText,
@@ -127,6 +134,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       highlightCorrections,
       fileNavigatorConfig,
       launchConfig,
+      capabilities,
       resolvedTheme,
       session,
       screenText,

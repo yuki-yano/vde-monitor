@@ -47,7 +47,7 @@ export const useSessionListVM = () => {
     connectionIssue,
     transport,
   } = useSessionStreamData();
-  const { highlightCorrections, launchConfig } = useSessionConfigData();
+  const { highlightCorrections, launchConfig, capabilities } = useSessionConfigData();
   const { refreshSessions, requestStateTimeline, requestScreen, touchSession } =
     useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
@@ -232,6 +232,7 @@ export const useSessionListVM = () => {
     requestWorktrees,
     highlightCorrections,
     launchConfig,
+    capabilities,
     resolvedTheme,
     nowMs,
     sidebarWidth,

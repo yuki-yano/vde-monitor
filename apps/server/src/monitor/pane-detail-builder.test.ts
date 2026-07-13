@@ -7,7 +7,9 @@ import type { PaneObservation } from "./pane-observation";
 
 const pane: PaneMeta = {
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "main",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 1,
   windowActivity: null,
@@ -94,6 +96,8 @@ describe("buildPaneDetail", () => {
     });
 
     expect(detail.paneId).toBe("%1");
+    expect(detail.sessionId).toBe("$1");
+    expect(detail.windowId).toBe("@0");
     expect(detail.agent).toBe("codex");
     expect(detail.state).toBe("RUNNING");
     expect(detail.stateReason).toBe("estimated");

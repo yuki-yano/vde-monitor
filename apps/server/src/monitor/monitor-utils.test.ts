@@ -95,6 +95,36 @@ describe("monitor-utils", () => {
     expect(mapHookToPane(panes, { tmux_pane: "1" })).toBe("1");
   });
 
+  it("maps a cmux hook by controlling tty instead of a stale ambient surface id", () => {
+    const panes = [
+      { paneId: "surface-1", paneTty: "/dev/tty1", currentPath: "/tmp" },
+      { paneId: "surface-2", paneTty: "/dev/tty2", currentPath: "/var" },
+    ];
+    expect(
+      mapHookToPane(panes, {
+        cmux_surface: "surface-2",
+        tty: "tty1",
+      }),
+    ).toBe("surface-1");
+  });
+
+  it("rejects a cmux hook when its controlling tty is missing or ambiguous", () => {
+    const panes = [
+      { paneId: "surface-1", paneTty: "/dev/tty1", currentPath: "/tmp" },
+      { paneId: "surface-2", paneTty: "/dev/tty1", currentPath: "/var" },
+    ];
+
+    expect(mapHookToPane(panes, { cmux_surface: "surface-1" })).toBeNull();
+    expect(mapHookToPane(panes, { cmux_surface: "surface-1", tty: "tty1" })).toBeNull();
+  });
+
+  it("does not match a blank tty to a pane whose tty is missing", () => {
+    const panes = [{ paneId: "surface-1", paneTty: null, currentPath: "/tmp" }];
+
+    expect(mapHookToPane(panes, { cmux_surface: "surface-1", tty: "  " })).toBeNull();
+    expect(mapHookToPane(panes, { tty: "  ", cwd: "/tmp" })).toBe("surface-1");
+  });
+
   it("maps hook to pane by herdr pane id before fallback matching", () => {
     const panes = [{ paneId: "wA:p1", paneTty: null, currentPath: "/tmp" }];
     expect(mapHookToPane(panes, { herdr_pane: "wB:p2", cwd: "/tmp" })).toBe("wB:p2");

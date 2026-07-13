@@ -166,7 +166,9 @@ const renderWithRouter = (ui: ReactNode) => {
 
 const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   paneId: "pane-1",
+  sessionId: "session-id-1",
   sessionName: "session-1",
+  windowId: "window-id-1",
   windowIndex: 1,
   paneIndex: 0,
   paneActive: true,
@@ -223,6 +225,11 @@ const createViewProps = (overrides: Partial<SessionListViewProps> = {}): Session
     requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
     highlightCorrections: { codex: true, claude: true },
     launchConfig: defaultLaunchConfig,
+    capabilities: {
+      screenImage: true,
+      launchAgent: true,
+      resumeAgent: true,
+    },
     resolvedTheme: "latte",
     nowMs: Date.now(),
     sidebarWidth: 280,
@@ -474,6 +481,21 @@ describe("SessionListView", () => {
     });
   });
 
+  it("hides session launch controls when the backend does not support launching agents", () => {
+    const props = createViewProps({
+      sessions: [buildSession({ sessionName: "launch-target" })],
+      capabilities: {
+        screenImage: false,
+        launchAgent: false,
+        resumeAgent: false,
+      },
+    });
+
+    renderWithRouter(<SessionListView {...props} />);
+
+    expect(screen.queryByRole("button", { name: "Launch Agent" })).toBeNull();
+  });
+
   it("prefers repo root pane for launch options even when another pane is vw worktree", () => {
     const activeNonWorktreePane = buildSession({
       paneId: "pane-active",
@@ -507,24 +529,28 @@ describe("SessionListView", () => {
   it("uses window-level pane totals for each window section", () => {
     const agentPane = buildSession({
       paneId: "pane-1",
+      windowId: "window-1",
       windowIndex: 1,
       paneIndex: 0,
       state: "RUNNING",
     });
     const shellPane1 = buildSession({
       paneId: "pane-2",
+      windowId: "window-1",
       windowIndex: 1,
       paneIndex: 1,
       state: "SHELL",
     });
     const shellPane2 = buildSession({
       paneId: "pane-3",
+      windowId: "window-1",
       windowIndex: 1,
       paneIndex: 2,
       state: "SHELL",
     });
     const agentPane2 = buildSession({
       paneId: "pane-4",
+      windowId: "window-2",
       windowIndex: 2,
       paneIndex: 0,
       state: "RUNNING",
@@ -547,13 +573,17 @@ describe("SessionListView", () => {
   it("orders tmux sessions by latest pane activity within a repo", () => {
     const alpha = buildSession({
       paneId: "pane-alpha",
+      sessionId: "session-alpha",
       sessionName: "alpha",
+      windowId: "window-alpha-1",
       windowIndex: 1,
       lastInputAt: "2026-02-07T10:00:00.000Z",
     });
     const beta = buildSession({
       paneId: "pane-beta",
+      sessionId: "session-beta",
       sessionName: "beta",
+      windowId: "window-beta-1",
       windowIndex: 1,
       lastInputAt: "2026-02-07T12:00:00.000Z",
     });

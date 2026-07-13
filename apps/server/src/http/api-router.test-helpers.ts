@@ -26,7 +26,9 @@ type Monitor = ReturnType<typeof createSessionMonitor>;
 
 const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   paneId: "pane-1",
+  sessionId: "session",
   sessionName: "session",
+  windowId: "window-0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

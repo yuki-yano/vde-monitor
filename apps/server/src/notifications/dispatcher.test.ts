@@ -19,7 +19,9 @@ const createTempStorePath = () => {
 
 const createDetail = (state: SessionDetail["state"], stateReason: string): SessionDetail => ({
   paneId: "%1",
+  sessionId: "$1",
   sessionName: "backend",
+  windowId: "@0",
   windowIndex: 0,
   paneIndex: 0,
   paneActive: true,

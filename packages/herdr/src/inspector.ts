@@ -36,14 +36,17 @@ const toPaneMeta = (pane: HerdrPane): PaneMeta | null => {
   const paneId = toNullable(pane.pane_id);
   if (paneId == null) return null;
 
-  const workspaceId = toNullable(pane.workspace_id) ?? "default";
+  const workspaceId = toNullable(pane.workspace_id);
   const tabId = toNullable(pane.tab_id);
+  if (workspaceId == null || tabId == null) return null;
   const windowIndex = extractOrdinal(tabId, ":t") ?? 0;
   const paneIndex = extractOrdinal(paneId, ":p") ?? 0;
   const currentPath = toNullable(pane.foreground_cwd) ?? toNullable(pane.cwd);
 
   return {
     paneId,
+    sessionId: workspaceId,
+    windowId: tabId,
     sessionName: workspaceId,
     windowIndex,
     paneIndex,
