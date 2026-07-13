@@ -117,20 +117,22 @@ export const useSessionsStream = ({
         onAuthError: handleAuthError,
       });
 
-    const sub = createSub();
-    subRef.current = sub;
+    let activeSubscription = createSub();
+    subRef.current = activeSubscription;
 
     // Force-reconnect bypasses the internal backoff by closing and re-creating.
     reconnectRef.current = () => {
-      subRef.current?.close();
-      const next = createSub();
-      subRef.current = next;
+      activeSubscription.close();
+      activeSubscription = createSub();
+      subRef.current = activeSubscription;
     };
 
     return () => {
-      sub.close();
-      subRef.current = null;
-      reconnectRef.current = null;
+      activeSubscription.close();
+      if (subRef.current === activeSubscription) {
+        subRef.current = null;
+        reconnectRef.current = null;
+      }
       transportRef.current = "polling";
       onTransportChangeRef.current("polling");
     };
@@ -149,11 +151,16 @@ export const useSessionsStream = ({
       reconnectRef.current?.();
     };
 
-    window.addEventListener("visibilitychange", handleResume);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      handleResume();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleResume);
 
     return () => {
-      window.removeEventListener("visibilitychange", handleResume);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("online", handleResume);
     };
   }, [enabled]);

@@ -1,5 +1,5 @@
 import { type NotificationSettings, dedupeStrings } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useLazyRef } from "@/lib/use-lazy-ref";
 import { useSessionConfigData } from "@/state/session-context";
@@ -109,6 +109,12 @@ type UsePushNotificationsArgs = {
   paneId: string;
 };
 
+type PaneScopeSyncContext = {
+  key: string;
+  generation: number;
+  controller: AbortController;
+};
+
 export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
   const { token, apiBaseUrl, authError } = useSessionConfigData();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
@@ -121,6 +127,10 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
   );
   const [isSubscribed, setIsSubscribed] = useState(false);
   const deviceIdRef = useLazyRef(() => readOrCreateDeviceId());
+  const enabledPaneIdsRef = useRef(enabledPaneIds);
+  const confirmedPaneIdsRef = useRef(enabledPaneIds);
+  const paneScopePostQueueRef = useLazyRef<Promise<void>>(() => Promise.resolve());
+  const paneScopeSyncVersionRef = useRef(0);
 
   useEffect(() => {
     subscriptionIdRef.current = subscriptionId;
@@ -130,34 +140,77 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
     const normalized = apiBaseUrl?.trim();
     return normalized && normalized.length > 0 ? normalized : "/api";
   }, [apiBaseUrl]);
+  const paneScopeContextKey = `${apiBasePath}\0${token ?? ""}`;
+  const paneScopeContextRef = useLazyRef<PaneScopeSyncContext>(() => ({
+    key: paneScopeContextKey,
+    generation: 0,
+    controller: new AbortController(),
+  }));
+
+  useLayoutEffect(() => {
+    const previous = paneScopeContextRef.current;
+    if (previous.key !== paneScopeContextKey || previous.controller.signal.aborted) {
+      previous.controller.abort();
+      paneScopeContextRef.current = {
+        key: paneScopeContextKey,
+        generation: previous.generation + 1,
+        controller: new AbortController(),
+      };
+      paneScopePostQueueRef.current = Promise.resolve();
+      paneScopeSyncVersionRef.current += 1;
+    }
+    const active = paneScopeContextRef.current;
+    return () => {
+      active.controller.abort();
+      if (paneScopeContextRef.current === active) {
+        paneScopeSyncVersionRef.current += 1;
+      }
+    };
+  }, [paneScopeContextKey, paneScopeContextRef, paneScopePostQueueRef]);
 
   const isPaneEnabled = enabledPaneIds.includes(paneId);
   const pushEnabled = settings?.pushEnabled ?? false;
 
-  const upsertSubscription = useCallback(
-    async (subscription: PushSubscription, paneIds: string[]) => {
-      if (!token) {
-        return;
+  const postSubscription = useCallback(
+    async (subscription: PushSubscription, paneIds: string[], context: PaneScopeSyncContext) => {
+      if (
+        !token ||
+        context.key !== paneScopeContextKey ||
+        context !== paneScopeContextRef.current ||
+        context.controller.signal.aborted
+      ) {
+        return false;
       }
-      const response = await fetch(`${apiBasePath}/notifications/subscriptions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          deviceId: deviceIdRef.current,
-          subscription: subscription.toJSON(),
-          scope: {
-            paneIds,
+      let response: Response;
+      try {
+        response = await fetch(`${apiBasePath}/notifications/subscriptions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-          client: {
-            platform: resolvePlatform(),
-            standalone: isStandalone(),
-            userAgent: navigator.userAgent,
-          },
-        }),
-      });
+          body: JSON.stringify({
+            deviceId: deviceIdRef.current,
+            subscription: subscription.toJSON(),
+            scope: {
+              paneIds,
+            },
+            client: {
+              platform: resolvePlatform(),
+              standalone: isStandalone(),
+              userAgent: navigator.userAgent,
+            },
+          }),
+          signal: context.controller.signal,
+        });
+      } catch (error) {
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
+        throw error;
+      }
+      if (context !== paneScopeContextRef.current || context.controller.signal.aborted)
+        return false;
       if (!response.ok) {
         let message = `Failed to upsert subscription (${response.status})`;
         try {
@@ -168,11 +221,16 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         } catch {
           // ignore
         }
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
         setErrorMessage(message);
         setStatus("error");
-        return;
+        return false;
       }
       const data = (await response.json()) as { subscriptionId?: string };
+      if (context !== paneScopeContextRef.current || context.controller.signal.aborted)
+        return false;
       if (data.subscriptionId) {
         localStorage.setItem(SUBSCRIPTION_ID_STORAGE_KEY, data.subscriptionId);
         subscriptionIdRef.current = data.subscriptionId;
@@ -181,8 +239,43 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
       setErrorMessage(null);
       setStatus("subscribed");
       setIsSubscribed(true);
+      return true;
     },
-    [apiBasePath, deviceIdRef, subscriptionIdRef, token],
+    [apiBasePath, deviceIdRef, paneScopeContextKey, paneScopeContextRef, subscriptionIdRef, token],
+  );
+
+  const enqueuePaneScopePost = useCallback(
+    (
+      paneIds: string[],
+      post: (scope: string[], context: PaneScopeSyncContext) => Promise<boolean>,
+    ) => {
+      const scope = dedupeStrings(paneIds);
+      const context = paneScopeContextRef.current;
+      const queued = paneScopePostQueueRef.current.then(async () => {
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
+        const synced = await post(scope, context);
+        if (synced && context === paneScopeContextRef.current) {
+          confirmedPaneIdsRef.current = scope;
+        }
+        return synced;
+      });
+      paneScopePostQueueRef.current = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
+    },
+    [paneScopeContextRef, paneScopePostQueueRef],
+  );
+
+  const upsertSubscription = useCallback(
+    (subscription: PushSubscription, paneIds: string[]) =>
+      enqueuePaneScopePost(paneIds, (scope, context) =>
+        postSubscription(subscription, scope, context),
+      ),
+    [enqueuePaneScopePost, postSubscription],
   );
 
   const revokeServerSubscription = useCallback(
@@ -219,50 +312,70 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
     [apiBasePath, deviceIdRef, subscriptionIdRef, token],
   );
 
-  const disableNotifications = useCallback(async () => {
-    if (!("serviceWorker" in navigator)) {
-      localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
-      subscriptionIdRef.current = null;
-      setSubscriptionId(null);
-      setIsSubscribed(false);
-      setStatus("idle");
-      return;
-    }
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const current = await registration.pushManager.getSubscription();
-      try {
-        await revokeServerSubscription(current?.endpoint);
-      } catch {
-        // best-effort server revoke
-      }
-      await current?.unsubscribe();
-    } catch {
-      // continue local cleanup
-    } finally {
-      localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
-      subscriptionIdRef.current = null;
-      setSubscriptionId(null);
-      setIsSubscribed(false);
-      setStatus("idle");
-    }
-  }, [revokeServerSubscription, subscriptionIdRef]);
-
-  const syncCurrentSubscription = useCallback(
-    async (paneIds: string[]) => {
+  const disableNotifications = useCallback(
+    async (isCurrent: () => boolean = () => true) => {
+      if (!isCurrent()) return;
       if (!("serviceWorker" in navigator)) {
-        return;
-      }
-      const registration = await navigator.serviceWorker.ready;
-      const current = await registration.pushManager.getSubscription();
-      if (!current) {
+        if (!isCurrent()) return;
+        localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
+        subscriptionIdRef.current = null;
+        setSubscriptionId(null);
         setIsSubscribed(false);
         setStatus("idle");
         return;
       }
-      await upsertSubscription(current, paneIds);
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (!isCurrent()) return;
+        const current = await registration.pushManager.getSubscription();
+        if (!isCurrent()) return;
+        try {
+          await revokeServerSubscription(current?.endpoint);
+        } catch {
+          // best-effort server revoke
+        }
+        if (!isCurrent()) return;
+        await current?.unsubscribe();
+      } catch {
+        // continue local cleanup
+      } finally {
+        if (isCurrent()) {
+          localStorage.removeItem(SUBSCRIPTION_ID_STORAGE_KEY);
+          subscriptionIdRef.current = null;
+          setSubscriptionId(null);
+          setIsSubscribed(false);
+          setStatus("idle");
+        }
+      }
     },
-    [upsertSubscription],
+    [revokeServerSubscription, subscriptionIdRef],
+  );
+
+  const syncCurrentSubscription = useCallback(
+    (paneIds: string[]) =>
+      enqueuePaneScopePost(paneIds, async (scope, context) => {
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
+        if (!("serviceWorker" in navigator)) {
+          return false;
+        }
+        const registration = await navigator.serviceWorker.ready;
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
+        const current = await registration.pushManager.getSubscription();
+        if (context !== paneScopeContextRef.current || context.controller.signal.aborted) {
+          return false;
+        }
+        if (!current) {
+          setIsSubscribed(false);
+          setStatus("idle");
+          return false;
+        }
+        return postSubscription(current, scope, context);
+      }),
+    [enqueuePaneScopePost, paneScopeContextRef, postSubscription],
   );
 
   const requestPermissionAndSubscribe = useCallback(async () => {
@@ -285,10 +398,16 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
       setStatus("needs-ios-install");
       return;
     }
+    const context = paneScopeContextRef.current;
+    const isCurrentContext = () =>
+      context.key === paneScopeContextKey &&
+      context === paneScopeContextRef.current &&
+      !context.controller.signal.aborted;
 
     try {
       setStatus("requesting-permission");
       const permission = await Notification.requestPermission();
+      if (!isCurrentContext()) return;
       if (permission !== "granted") {
         setStatus(permission === "denied" ? "denied" : "idle");
         return;
@@ -296,44 +415,62 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
 
       setStatus("subscribing");
       const registration = await navigator.serviceWorker.ready;
+      if (!isCurrentContext()) return;
       let current = await registration.pushManager.getSubscription();
+      if (!isCurrentContext()) return;
       if (!current) {
         current = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(settings.vapidPublicKey),
         });
+        if (!isCurrentContext()) return;
       }
-      await upsertSubscription(current, enabledPaneIds);
+      await upsertSubscription(current, enabledPaneIdsRef.current);
     } catch (error) {
+      if (!isCurrentContext()) return;
       const message =
         error instanceof Error ? error.message : "Failed to subscribe push notification";
       setErrorMessage(message);
       setStatus("error");
     }
-  }, [authError, enabledPaneIds, settings, token, upsertSubscription]);
+  }, [authError, paneScopeContextKey, paneScopeContextRef, settings, token, upsertSubscription]);
 
   const togglePaneEnabled = useCallback(async () => {
-    const nextPaneIds = isPaneEnabled
-      ? enabledPaneIds.filter((id) => id !== paneId)
-      : dedupeStrings([...enabledPaneIds, paneId]);
+    const previousPaneIds = enabledPaneIdsRef.current;
+    const nextPaneIds = previousPaneIds.includes(paneId)
+      ? previousPaneIds.filter((id) => id !== paneId)
+      : dedupeStrings([...previousPaneIds, paneId]);
+    const syncVersion = paneScopeSyncVersionRef.current + 1;
+    paneScopeSyncVersionRef.current = syncVersion;
+    enabledPaneIdsRef.current = nextPaneIds;
     setEnabledPaneIds(nextPaneIds);
     writeEnabledPaneIds(nextPaneIds);
     if (isSubscribed && settings?.pushEnabled) {
-      await syncCurrentSubscription(nextPaneIds);
+      let synced = false;
+      try {
+        synced = await syncCurrentSubscription(nextPaneIds);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update push notification scope";
+        setErrorMessage(message);
+        setStatus("error");
+      }
+      if (!synced && paneScopeSyncVersionRef.current === syncVersion) {
+        const rollbackPaneIds = confirmedPaneIdsRef.current;
+        enabledPaneIdsRef.current = rollbackPaneIds;
+        setEnabledPaneIds(rollbackPaneIds);
+        writeEnabledPaneIds(rollbackPaneIds);
+      }
     }
-  }, [
-    enabledPaneIds,
-    isPaneEnabled,
-    isSubscribed,
-    paneId,
-    settings?.pushEnabled,
-    syncCurrentSubscription,
-  ]);
+  }, [isSubscribed, paneId, settings?.pushEnabled, syncCurrentSubscription]);
 
   // Push availability and subscription state must be reconciled when notification context changes.
   // react-doctor-disable-next-line no-fetch-in-effect
   useEffect(() => {
     let cancelled = false;
+    const context = paneScopeContextRef.current;
+    const isCurrentRun = () =>
+      !cancelled && context === paneScopeContextRef.current && !context.controller.signal.aborted;
     const run = async () => {
       if (!token || authError != null) {
         if (!cancelled) {
@@ -364,6 +501,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
             Authorization: `Bearer ${token}`,
           },
         });
+        if (!isCurrentRun()) return;
         if (!response.ok) {
           if (!cancelled) {
             setErrorMessage(`Failed to load push settings (${response.status})`);
@@ -372,6 +510,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
           return;
         }
         const data = (await response.json()) as { settings?: NotificationSettings };
+        if (!isCurrentRun()) return;
         const nextSettings = data.settings ?? null;
         if (!nextSettings) {
           if (!cancelled) {
@@ -380,9 +519,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
           }
           return;
         }
-        if (cancelled) {
-          return;
-        }
+        if (!isCurrentRun()) return;
         setSettings((prev) =>
           isSameNotificationSettings(prev, nextSettings) ? prev : nextSettings,
         );
@@ -396,10 +533,12 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         }
 
         const registration = await navigator.serviceWorker.ready;
+        if (!isCurrentRun()) return;
         const current = await registration.pushManager.getSubscription();
+        if (!isCurrentRun()) return;
         if (!nextSettings.pushEnabled) {
           if (current) {
-            await disableNotifications();
+            await disableNotifications(isCurrentRun);
           } else {
             setStatus("idle");
             setIsSubscribed(false);
@@ -415,9 +554,7 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
         setIsSubscribed(false);
         setStatus("idle");
       } catch (error) {
-        if (cancelled) {
-          return;
-        }
+        if (!isCurrentRun()) return;
         const message =
           error instanceof Error ? error.message : "Failed to initialize push notifications";
         setErrorMessage(message);
@@ -428,7 +565,14 @@ export const usePushNotifications = ({ paneId }: UsePushNotificationsArgs) => {
     return () => {
       cancelled = true;
     };
-  }, [apiBasePath, authError, disableNotifications, token, upsertSubscription]);
+  }, [
+    apiBasePath,
+    authError,
+    disableNotifications,
+    paneScopeContextRef,
+    token,
+    upsertSubscription,
+  ]);
 
   return {
     status,

@@ -47,21 +47,26 @@ const readSessionAccessFromUrl = () => {
     ? window.location.hash.slice(1)
     : window.location.hash;
   const hashParams = new URLSearchParams(rawHash);
-  const token = hashParams.get("token");
+  const tokenRaw = hashParams.get("token");
+  const token = tokenRaw?.trim() || null;
+  const hasTokenParam = tokenRaw != null;
   const apiBaseUrlRaw = hashParams.get("api");
-  const apiBaseUrl = normalizeApiBaseUrl(apiBaseUrlRaw);
   const hasApiParam = apiBaseUrlRaw != null;
-  const hasApiDirective = hasApiParam || Boolean(token);
-  const shouldStripFromUrl = Boolean(token) || apiBaseUrlRaw != null;
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+  const hasAccessDirective = hasApiParam || hasTokenParam;
+  const apiBaseUrl = token && hasApiParam ? normalizeApiBaseUrl(apiBaseUrlRaw) : null;
+  if (hasAccessDirective) {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    if (apiBaseUrl) {
+      localStorage.setItem(API_BASE_URL_KEY, apiBaseUrl);
+    } else {
+      localStorage.removeItem(API_BASE_URL_KEY);
+    }
   }
-  if (hasApiParam && apiBaseUrl) {
-    localStorage.setItem(API_BASE_URL_KEY, apiBaseUrl);
-  } else if (hasApiParam || token) {
-    localStorage.removeItem(API_BASE_URL_KEY);
-  }
-  if (shouldStripFromUrl) {
+  if (hasAccessDirective) {
     hashParams.delete("token");
     hashParams.delete("api");
     const nextSearch = window.location.search;
@@ -69,7 +74,7 @@ const readSessionAccessFromUrl = () => {
     const next = `${window.location.pathname}${nextSearch}${nextHash ? `#${nextHash}` : ""}`;
     window.history.replaceState({}, "", next);
   }
-  return { token, apiBaseUrl, hasApiDirective };
+  return { token, apiBaseUrl, hasAccessDirective };
 };
 
 const readStoredApiBaseUrl = () => {
@@ -87,10 +92,13 @@ export const useSessionToken = () => {
     initialAccessRef.current = readSessionAccessFromUrl();
   }
   const [token, setTokenState] = useState<string | null>(() => {
-    return initialAccessRef.current?.token ?? localStorage.getItem(TOKEN_KEY);
+    if (initialAccessRef.current?.hasAccessDirective) {
+      return initialAccessRef.current.token;
+    }
+    return localStorage.getItem(TOKEN_KEY);
   });
   const [apiBaseUrl] = useState<string | null>(() => {
-    if (initialAccessRef.current?.hasApiDirective) {
+    if (initialAccessRef.current?.hasAccessDirective) {
       return initialAccessRef.current.apiBaseUrl;
     }
     return readStoredApiBaseUrl();

@@ -133,6 +133,7 @@ export const createSseSubscription = (options: SseSubscriptionOptions): SseSubsc
     currentController = controller;
 
     setState(reconnectAttempt === 0 ? "connecting" : "reconnecting");
+    if (isClosed) return;
 
     try {
       const extraHeaders: Record<string, string> =
@@ -146,6 +147,7 @@ export const createSseSubscription = (options: SseSubscriptionOptions): SseSubsc
         },
         signal: controller.signal,
       });
+      if (isClosed) return;
 
       // Auth failure: close permanently, notify caller
       if (response.status === 401 || response.status === 403) {
@@ -159,9 +161,11 @@ export const createSseSubscription = (options: SseSubscriptionOptions): SseSubsc
       if (!response.ok || response.body == null) {
         throw new Error(`SSE HTTP error: ${response.status}`);
       }
+      if (isClosed) return;
 
       // Connection established
       setState("open");
+      if (isClosed) return;
       reconnectAttempt = 0;
       resetHeartbeatTimer();
 
@@ -169,6 +173,7 @@ export const createSseSubscription = (options: SseSubscriptionOptions): SseSubsc
       const reader = currentReader;
       const decoder = new TextDecoder();
       const parser = createSseParser((event) => {
+        if (isClosed) return;
         // Keep the last event ID up to date for reconnect
         if (event.id != null) {
           lastEventId = event.id;
@@ -181,13 +186,16 @@ export const createSseSubscription = (options: SseSubscriptionOptions): SseSubsc
       try {
         for (;;) {
           const { done, value } = await reader.read();
+          if (isClosed) break;
           if (done) break;
           parser.push(decoder.decode(value, { stream: true }));
         }
         // Flush any multibyte sequence that was split across the last chunk
-        const remaining = decoder.decode();
-        if (remaining) {
-          parser.push(remaining);
+        if (!isClosed) {
+          const remaining = decoder.decode();
+          if (remaining) {
+            parser.push(remaining);
+          }
         }
       } finally {
         // Always clear the heartbeat timer when the read loop exits

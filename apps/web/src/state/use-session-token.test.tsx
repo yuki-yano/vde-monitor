@@ -99,6 +99,20 @@ describe("useSessionToken", () => {
     expect(localStorage.getItem("vde-monitor-api-base-url")).toBeNull();
   });
 
+  it("does not pair a stored token with an api-only URL directive", () => {
+    localStorage.setItem("vde-monitor-token", "stored-token");
+    localStorage.setItem("vde-monitor-api-base-url", "http://localhost:11080/api");
+    resetLocation("/sessions#api=http%3A%2F%2Flocalhost%3A11081%2Fapi&tab=timeline");
+
+    const { result } = renderHook(() => useSessionToken());
+
+    expect(result.current.token).toBeNull();
+    expect(result.current.apiBaseUrl).toBeNull();
+    expect(localStorage.getItem("vde-monitor-token")).toBeNull();
+    expect(localStorage.getItem("vde-monitor-api-base-url")).toBeNull();
+    expect(window.location.hash).toBe("#tab=timeline");
+  });
+
   it("drops cross-host stored api base url", () => {
     localStorage.setItem("vde-monitor-token", "stored-token");
     localStorage.setItem("vde-monitor-api-base-url", "http://evil.example/api");

@@ -117,6 +117,7 @@ describe("ScreenPanel", () => {
     notificationPushEnabled: true,
     notificationSubscribed: false,
     notificationPaneEnabled: false,
+    notificationErrorMessage: null,
     ...overrides,
   });
 
@@ -379,6 +380,16 @@ describe("ScreenPanel", () => {
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     expect(screen.getByText("Failed to send keys.")).toBeTruthy();
+  });
+
+  it("shows push notification scope sync errors", () => {
+    const state = buildState({ notificationErrorMessage: "Failed to update notification scope" });
+    const actions = buildActions();
+    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Failed to update notification scope");
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
   });
 
   it("prioritizes the send-scoped error over a concurrent screen error", () => {

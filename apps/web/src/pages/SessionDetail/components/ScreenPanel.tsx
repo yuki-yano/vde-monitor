@@ -92,6 +92,7 @@ type ScreenPanelState = {
   notificationPushEnabled: boolean;
   notificationSubscribed: boolean;
   notificationPaneEnabled: boolean;
+  notificationErrorMessage: string | null;
 };
 
 type ScreenPanelActions = {
@@ -276,6 +277,7 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     notificationPushEnabled,
     notificationSubscribed,
     notificationPaneEnabled,
+    notificationErrorMessage,
   } = state;
   const {
     onModeChange,
@@ -497,6 +499,11 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
       {displayedError && (
         <Callout tone="error" size="xs">
           {displayedError}
+        </Callout>
+      )}
+      {notificationErrorMessage && (
+        <Callout tone="error" size="xs" role="alert" aria-live="assertive">
+          {notificationErrorMessage}
         </Callout>
       )}
       {fileResolveError && (

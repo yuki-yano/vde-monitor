@@ -60,6 +60,7 @@ export const useScreenPanelState = () => {
       notificationPushEnabled: pushNotifications.pushEnabled,
       notificationSubscribed: pushNotifications.isSubscribed,
       notificationPaneEnabled: pushNotifications.isPaneEnabled,
+      notificationErrorMessage: pushNotifications.errorMessage,
       requestNotificationPermission: pushNotifications.requestPermissionAndSubscribe,
       togglePaneNotification: pushNotifications.togglePaneEnabled,
     }),

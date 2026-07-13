@@ -47,6 +47,7 @@ export const useSessionDetailViewExplorerSectionProps = () => {
     notificationPushEnabled,
     notificationSubscribed,
     notificationPaneEnabled,
+    notificationErrorMessage,
     requestNotificationPermission,
     togglePaneNotification,
   } = screen;
@@ -319,6 +320,7 @@ export const useSessionDetailViewExplorerSectionProps = () => {
         notificationPushEnabled,
         notificationSubscribed,
         notificationPaneEnabled,
+        notificationErrorMessage,
       },
       actions: {
         onModeChange: handleModeChange,
@@ -382,6 +384,7 @@ export const useSessionDetailViewExplorerSectionProps = () => {
       notificationPushEnabled,
       notificationSubscribed,
       notificationPaneEnabled,
+      notificationErrorMessage,
       handleLaunchAgentInSession,
       handleModeChange,
       handleRefreshScreen,
