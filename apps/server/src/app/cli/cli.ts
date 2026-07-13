@@ -130,11 +130,11 @@ const resolveBindHost = ({
   if (bindFlag) {
     return bindFlag;
   }
-  if (tailscaleHttps) {
-    return "127.0.0.1";
-  }
   if (publicBind) {
     return "0.0.0.0";
+  }
+  if (tailscaleHttps) {
+    return "127.0.0.1";
   }
   if (tailscaleIP) {
     return tailscaleIP;

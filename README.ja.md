@@ -188,7 +188,8 @@ npx vde-monitor@latest [options]
 - `--bind` は `--public` より優先
 - `--tailscale` には解決可能な Tailscale IP が必要
 - `--tailscale` 単体では Tailscale IP に bind
-- `--public --tailscale` では `0.0.0.0` に bind しつつ Tailscale URL を表示
+- `--public --tailscale` では、`--https` の有無にかかわらず `0.0.0.0` に bind しつつ Tailscale URL を表示
+- `--public --tailscale --https` でも、Tailscale Serve の内部 upstream には loopback (`127.0.0.1`) を使用
 - `--https` は `--tailscale` 併用時のみ有効（それ以外は通常の HTTP 案内）
 - `--tailscale --https` では `tailscale serve --bg <port>` の自動実行前に確認プロンプトを表示（既定 `N`）
 - 既存の `tailscale serve` 設定は自動で上書きしない

@@ -455,6 +455,15 @@ describe("buildTailscaleServeProxyTarget", () => {
       }),
     ).toBe("http://127.0.0.1:11080");
   });
+
+  it("uses loopback as the Tailscale Serve upstream for a public bind", () => {
+    expect(
+      buildTailscaleServeProxyTarget({
+        proxyHost: "0.0.0.0",
+        displayPort: 11080,
+      }),
+    ).toBe("http://127.0.0.1:11080");
+  });
 });
 
 describe("buildTailscaleServeCommand", () => {

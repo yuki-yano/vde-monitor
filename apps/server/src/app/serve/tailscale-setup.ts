@@ -20,7 +20,7 @@ export const buildTailscaleServeProxyTarget = ({
 }: {
   proxyHost: string;
   displayPort: number;
-}) => `http://${proxyHost}:${displayPort}`;
+}) => `http://${proxyHost === "0.0.0.0" ? "127.0.0.1" : proxyHost}:${displayPort}`;
 
 export const buildTailscaleServeCommand = (proxyTarget: string) =>
   `tailscale serve --bg ${proxyTarget}`;

@@ -100,6 +100,14 @@ describe("resolveHosts", () => {
     expect(result).toEqual({ bindHost: "0.0.0.0", displayHost: "100.64.0.1" });
   });
 
+  it("keeps the public bind when tailscale HTTPS is also enabled", () => {
+    const result = resolveHosts({
+      ...baseOptions,
+      args: parseArgs(["--public", "--tailscale", "--https"]),
+    });
+    expect(result).toEqual({ bindHost: "0.0.0.0", displayHost: "100.64.0.1" });
+  });
+
   it("uses bind value when provided", () => {
     const result = resolveHosts({
       ...baseOptions,

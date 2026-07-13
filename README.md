@@ -188,7 +188,8 @@ Notes:
 - `--bind` takes priority over `--public`
 - `--tailscale` requires a resolvable Tailscale IP
 - `--tailscale` without `--public` binds to the Tailscale IP
-- `--public --tailscale` binds to `0.0.0.0` and prints a Tailscale URL
+- `--public --tailscale` binds to `0.0.0.0` and prints a Tailscale URL, with or without `--https`
+- `--public --tailscale --https` still uses loopback (`127.0.0.1`) for the internal Tailscale Serve upstream
 - `--https` only takes effect when used with `--tailscale` (otherwise standard HTTP guidance is shown)
 - `--tailscale --https` asks before auto-running `tailscale serve --bg <port>` (default `N`)
 - Existing `tailscale serve` settings are never auto-overwritten
