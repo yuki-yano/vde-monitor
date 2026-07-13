@@ -10,6 +10,7 @@ import { sleep } from "../async-utils";
 
 import { setMapEntryWithLimit } from "../cache";
 import type { ActionResultHelpers } from "./action-results";
+import type { SerializePaneInput } from "./pane-input-serializer";
 
 const PENDING_COMMANDS_MAX_ENTRIES = 500;
 
@@ -19,6 +20,7 @@ type CreateSendActionsParams = {
   pendingCommands: Map<string, string>;
   dangerKeys: ReadonlySet<string>;
   actionResults: ActionResultHelpers;
+  serializePaneInput: SerializePaneInput;
 };
 
 export const createSendActions = ({
@@ -27,6 +29,7 @@ export const createSendActions = ({
   pendingCommands,
   dangerKeys,
   actionResults,
+  serializePaneInput,
 }: CreateSendActionsParams) => {
   const { okResult, invalidPayload, internalError, dangerousCommand, dangerousKey } = actionResults;
 
@@ -37,7 +40,6 @@ export const createSendActions = ({
   const maxTextLength = 2000;
   const bracketedPaste = (value: string) => `\u001b[200~${value}\u001b[201~`;
   const normalizeText = (value: string) => value.replace(/\r\n/g, "\n");
-
   const ensureTextLength = (value: string) => {
     if (value.length > maxTextLength) {
       return invalidPayload("text too long");
@@ -97,7 +99,7 @@ export const createSendActions = ({
     return null;
   };
 
-  const exitCopyModeIfNeeded = async (paneId: string) => {
+  const exitCopyModeIfNeededUnlocked = async (paneId: string) => {
     await adapter.run([
       "if-shell",
       "-t",
@@ -107,6 +109,9 @@ export const createSendActions = ({
     ]);
   };
 
+  const exitCopyModeIfNeeded = (paneId: string) =>
+    serializePaneInput(paneId, () => exitCopyModeIfNeededUnlocked(paneId));
+
   const sendLiteralKeys = async (paneId: string, payload: string) => {
     const result = await adapter.run(["send-keys", "-l", "-t", paneId, "--", payload]);
     if (result.exitCode !== 0) {
@@ -115,7 +120,7 @@ export const createSendActions = ({
     return okResult();
   };
 
-  const sendEnterKey = async (paneId: string) => {
+  const sendEnterKeyUnlocked = async (paneId: string) => {
     if (enterDelayMs > 0) {
       await sleep(enterDelayMs);
     }
@@ -125,6 +130,9 @@ export const createSendActions = ({
     }
     return okResult();
   };
+
+  const sendEnterKey = (paneId: string) =>
+    serializePaneInput(paneId, () => sendEnterKeyUnlocked(paneId));
 
   const sendRawText = async (paneId: string, value: string) => {
     if (!value) {
@@ -172,7 +180,7 @@ export const createSendActions = ({
     return okResult();
   };
 
-  const sendText = async (paneId: string, text: string, enter = true) => {
+  const sendTextUnlocked = async (paneId: string, text: string, enter: boolean) => {
     const inputError = validateSendTextInput(text);
     if (inputError) {
       return inputError;
@@ -184,7 +192,7 @@ export const createSendActions = ({
       return combinedError;
     }
 
-    await exitCopyModeIfNeeded(paneId);
+    await exitCopyModeIfNeededUnlocked(paneId);
     const payload = resolveTextPayload(prepared.normalized);
     const sendResult = await sendLiteralKeys(paneId, payload);
     if (!sendResult.ok) {
@@ -192,7 +200,7 @@ export const createSendActions = ({
     }
 
     if (enter) {
-      const enterResult = await sendEnterKey(paneId);
+      const enterResult = await sendEnterKeyUnlocked(paneId);
       if (!enterResult.ok) {
         return enterResult;
       }
@@ -205,7 +213,10 @@ export const createSendActions = ({
     });
   };
 
-  const sendKeys = async (paneId: string, keys: string[]) => {
+  const sendText = (paneId: string, text: string, enter = true) =>
+    serializePaneInput(paneId, () => sendTextUnlocked(paneId, text, enter));
+
+  const sendKeysUnlocked = async (paneId: string, keys: string[]) => {
     const validationError = validateSendKeysInput(keys);
     if (validationError) {
       return validationError;
@@ -219,13 +230,16 @@ export const createSendActions = ({
     return okResult();
   };
 
-  const sendRaw = async (paneId: string, items: RawItem[], unsafe = false) => {
+  const sendKeys = (paneId: string, keys: string[]) =>
+    serializePaneInput(paneId, () => sendKeysUnlocked(paneId, keys));
+
+  const sendRawUnlocked = async (paneId: string, items: RawItem[], unsafe: boolean) => {
     const validationError = validateRawItems(items, unsafe);
     if (validationError) {
       return validationError;
     }
 
-    await exitCopyModeIfNeeded(paneId);
+    await exitCopyModeIfNeededUnlocked(paneId);
     for (const item of items) {
       const result = await sendRawItem(paneId, item);
       if (!result.ok) {
@@ -234,6 +248,9 @@ export const createSendActions = ({
     }
     return okResult();
   };
+
+  const sendRaw = (paneId: string, items: RawItem[], unsafe = false) =>
+    serializePaneInput(paneId, () => sendRawUnlocked(paneId, items, unsafe));
 
   return {
     sendText,

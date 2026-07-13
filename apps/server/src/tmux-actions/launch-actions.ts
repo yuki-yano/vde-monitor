@@ -11,6 +11,7 @@ import type { TmuxAdapter } from "@vde-monitor/tmux";
 
 import { buildError } from "../errors";
 import type { ActionResult, ActionResultHelpers } from "./action-results";
+import type { SerializePaneInput } from "./pane-input-serializer";
 import {
   assertSessionExists,
   createDetachedWindow,
@@ -42,6 +43,7 @@ type CreateLaunchActionsParams = {
   actionResults: ActionResultHelpers;
   exitCopyModeIfNeeded: (paneId: string) => Promise<void>;
   sendEnterKey: (paneId: string) => Promise<ActionResult>;
+  serializePaneInput: SerializePaneInput;
 };
 
 type LaunchResult = LaunchCommandResponse;
@@ -66,6 +68,7 @@ export const createLaunchActions = ({
   actionResults,
   exitCopyModeIfNeeded,
   sendEnterKey,
+  serializePaneInput,
 }: CreateLaunchActionsParams) => {
   const { internalError } = actionResults;
 
@@ -227,14 +230,16 @@ export const createLaunchActions = ({
 
     if (sourceTarget && normalizedResumeTarget === "pane") {
       if (agent === "claude" && resumeCommandCwd) {
-        const sendResult = await sendClaudeWorktreeCdCommand({
-          adapter,
-          paneId: sourceTarget.paneId,
-          worktreePath: resumeCommandCwd,
-          exitCopyModeIfNeeded,
-          sendEnterKey,
-          internalError,
-        });
+        const sendResult = await serializePaneInput(sourceTarget.paneId, () =>
+          sendClaudeWorktreeCdCommand({
+            adapter,
+            paneId: sourceTarget.paneId,
+            worktreePath: resumeCommandCwd,
+            exitCopyModeIfNeeded,
+            sendEnterKey,
+            internalError,
+          }),
+        );
         if (!sendResult.ok) {
           console.warn(
             `[vde-monitor] claude worktree move send failed: session=${normalizedSessionName} pane=${sourceTarget.paneId} window=${sourceTarget.windowId}:${sourceTarget.windowName} error=${sendResult.error.message}`,
@@ -261,29 +266,37 @@ export const createLaunchActions = ({
         });
       }
 
-      const interruptError = await interruptPaneForRelaunch({
-        adapter,
-        paneId: sourceTarget.paneId,
-        agent,
-        exitCopyModeIfNeeded,
+      const relaunchResult = await serializePaneInput(sourceTarget.paneId, async () => {
+        const interruptError = await interruptPaneForRelaunch({
+          adapter,
+          paneId: sourceTarget.paneId,
+          agent,
+          exitCopyModeIfNeeded,
+        });
+        if (interruptError) {
+          return { ok: false as const, error: interruptError };
+        }
+
+        const sendResult = await sendLaunchCommand({
+          adapter,
+          paneId: sourceTarget.paneId,
+          agent,
+          options: resolvedOptions,
+          resumeSessionId: normalizedResumeSessionId,
+          finalCwd: resumeCommandCwd,
+          exitCopyModeIfNeeded,
+          sendEnterKey,
+          internalError,
+          skipExitCopyMode: true,
+          forceShellCwdPrefix: true,
+        });
+        return { ok: true as const, sendResult };
       });
-      if (interruptError) {
-        return launchError(interruptError, defaultLaunchRollback());
+      if (!relaunchResult.ok) {
+        return launchError(relaunchResult.error, defaultLaunchRollback());
       }
 
-      const sendResult = await sendLaunchCommand({
-        adapter,
-        paneId: sourceTarget.paneId,
-        agent,
-        options: resolvedOptions,
-        resumeSessionId: normalizedResumeSessionId,
-        finalCwd: resumeCommandCwd,
-        exitCopyModeIfNeeded,
-        sendEnterKey,
-        internalError,
-        skipExitCopyMode: true,
-        forceShellCwdPrefix: true,
-      });
+      const sendResult = relaunchResult.sendResult;
       if (!sendResult.ok) {
         console.warn(
           `[vde-monitor] relaunch send failed after interrupt: session=${normalizedSessionName} pane=${sourceTarget.paneId} window=${sourceTarget.windowId}:${sourceTarget.windowName} agent=${agent} error=${sendResult.error.message}`,
@@ -320,12 +333,14 @@ export const createLaunchActions = ({
       }
       resumeWindowBaseCwd = sourcePaneCurrentPath.cwd;
 
-      const interruptError = await interruptPaneForRelaunch({
-        adapter,
-        paneId: sourceTarget.paneId,
-        agent,
-        exitCopyModeIfNeeded,
-      });
+      const interruptError = await serializePaneInput(sourceTarget.paneId, () =>
+        interruptPaneForRelaunch({
+          adapter,
+          paneId: sourceTarget.paneId,
+          agent,
+          exitCopyModeIfNeeded,
+        }),
+      );
       if (interruptError) {
         return launchError(interruptError, defaultLaunchRollback());
       }
@@ -363,18 +378,20 @@ export const createLaunchActions = ({
       resumeCommandCwd
         ? `!cd ${quoteShellValue(resumeCommandCwd)}`
         : undefined;
-    const sendResult = await sendLaunchCommand({
-      adapter,
-      paneId: created.paneId,
-      agent,
-      options: resolvedOptions,
-      resumeSessionId: normalizedResumeSessionId,
-      resumePrompt: newWindowResumePrompt,
-      finalCwd: newWindowResumePrompt ? undefined : resumeCommandCwd,
-      exitCopyModeIfNeeded,
-      sendEnterKey,
-      internalError,
-    });
+    const sendResult = await serializePaneInput(created.paneId, () =>
+      sendLaunchCommand({
+        adapter,
+        paneId: created.paneId,
+        agent,
+        options: resolvedOptions,
+        resumeSessionId: normalizedResumeSessionId,
+        resumePrompt: newWindowResumePrompt,
+        finalCwd: newWindowResumePrompt ? undefined : resumeCommandCwd,
+        exitCopyModeIfNeeded,
+        sendEnterKey,
+        internalError,
+      }),
+    );
     if (!sendResult.ok) {
       const rollback = await rollbackCreatedWindow(adapter, created.windowId);
       return launchError(sendResult.error, rollback);

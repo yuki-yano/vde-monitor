@@ -119,6 +119,32 @@ describe("createTmuxActions.killPane / killWindow", () => {
     expect(adapter.run).toHaveBeenNthCalledWith(5, ["kill-pane", "-t", "%1"]);
   });
 
+  it("does not allow another send to interleave with graceful pane termination", async () => {
+    vi.useFakeTimers();
+    const calls: string[][] = [];
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        calls.push(args);
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, {
+      ...configDefaults,
+      token: "test-token",
+    });
+
+    const killing = tmuxActions.killPane("%1");
+    await vi.waitFor(() => expect(calls).toContainEqual(["send-keys", "-t", "%1", "C-c"]));
+    const sending = tmuxActions.sendText("%1", "echo after", false);
+    await vi.runAllTimersAsync();
+    await Promise.all([killing, sending]);
+
+    const killIndex = calls.findIndex((args) => args[0] === "kill-pane");
+    const sendIndex = calls.findIndex((args) => args.includes("echo after"));
+    expect(killIndex).toBeGreaterThanOrEqual(0);
+    expect(sendIndex).toBeGreaterThan(killIndex);
+  });
+
   it("kills pane window after graceful termination", async () => {
     vi.useFakeTimers();
     const adapter = {

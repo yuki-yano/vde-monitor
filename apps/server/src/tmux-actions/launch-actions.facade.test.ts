@@ -99,6 +99,67 @@ describe("createTmuxActions.launchAgentInSession", () => {
     expect(result.rollback).toEqual({ attempted: false, ok: true });
   });
 
+  it("does not interleave pane input while sending a launch command", async () => {
+    let releaseLaunchCommand: () => void = () => undefined;
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "has-session") {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "list-windows") {
+          return { stdout: "main\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "new-window") {
+          return { stdout: "@42\t3\tcodex-work\t%128\n", stderr: "", exitCode: 0 };
+        }
+        if (args[0] === "send-keys" && args.includes("codex --model gpt-5-codex")) {
+          await new Promise<void>((resolve) => {
+            releaseLaunchCommand = resolve;
+          });
+        }
+        if (args[0] === "list-panes") {
+          return { stdout: "codex\n", stderr: "", exitCode: 0 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, createLaunchConfig());
+
+    const launch = tmuxActions.launchAgentInSession({
+      sessionName: "dev-main",
+      agent: "codex",
+      windowName: "codex-work",
+    });
+    await vi.waitFor(() =>
+      expect(adapter.run).toHaveBeenCalledWith([
+        "send-keys",
+        "-l",
+        "-t",
+        "%128",
+        "--",
+        "codex --model gpt-5-codex",
+      ]),
+    );
+
+    const concurrentSend = tmuxActions.sendKeys("%128", ["Escape"]);
+    await Promise.resolve();
+    expect(adapter.run).not.toHaveBeenCalledWith(["send-keys", "-t", "%128", "Escape"]);
+
+    releaseLaunchCommand();
+    await expect(Promise.all([launch, concurrentSend])).resolves.toEqual([
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+    ]);
+    const paneInputCalls = adapter.run.mock.calls
+      .map(([args]) => args)
+      .filter((args) => args[0] === "send-keys");
+    expect(paneInputCalls).toEqual([
+      ["send-keys", "-l", "-t", "%128", "--", "codex --model gpt-5-codex"],
+      ["send-keys", "-t", "%128", "C-m"],
+      ["send-keys", "-t", "%128", "Escape"],
+    ]);
+  });
+
   it("builds resume command with quoted cwd and session id", async () => {
     const adapter = createStandardAdapter({
       listWindows: { stdout: "", stderr: "", exitCode: 0 },

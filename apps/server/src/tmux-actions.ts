@@ -3,6 +3,7 @@ import type { TmuxAdapter } from "@vde-monitor/tmux";
 
 import { createActionResultHelpers } from "./tmux-actions/action-results";
 import { createLaunchActions } from "./tmux-actions/launch-actions";
+import { createPaneInputSerializer } from "./tmux-actions/pane-input-serializer";
 import { createPaneActions } from "./tmux-actions/pane-actions";
 import { createSendActions } from "./tmux-actions/send-actions";
 
@@ -12,6 +13,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
   const pendingCommands = new Map<string, string>();
   const dangerKeys = new Set(config.dangerKeys);
   const actionResults = createActionResultHelpers();
+  const serializePaneInput = createPaneInputSerializer();
 
   const sendActions = createSendActions({
     adapter,
@@ -19,6 +21,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     pendingCommands,
     dangerKeys,
     actionResults,
+    serializePaneInput,
   });
 
   const paneActions = createPaneActions({
@@ -28,6 +31,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     actionResults,
     exitCopyModeIfNeeded: sendActions.exitCopyModeIfNeeded,
     sendEnterKey: sendActions.sendEnterKey,
+    serializePaneInput,
   });
 
   const launchActions = createLaunchActions({
@@ -36,6 +40,7 @@ export const createTmuxActions = (adapter: TmuxAdapter, config: AgentMonitorConf
     actionResults,
     exitCopyModeIfNeeded: sendActions.exitCopyModeIfNeeded,
     sendEnterKey: sendActions.sendEnterKey,
+    serializePaneInput,
   });
 
   return {

@@ -100,6 +100,80 @@ describe("createTmuxActions.sendText", () => {
     expect(second.error?.code).toBe("DANGEROUS_COMMAND");
     expect(adapter.run).toHaveBeenCalledTimes(2);
   });
+
+  it("serializes concurrent sends to the same pane", async () => {
+    let releaseFirstLiteral: () => void = () => undefined;
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args.includes("first")) {
+          await new Promise<void>((resolve) => {
+            releaseFirstLiteral = resolve;
+          });
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
+
+    const first = tmuxActions.sendText("%1", "first", false);
+    await vi.waitFor(() => expect(adapter.run).toHaveBeenCalledTimes(2));
+    const second = tmuxActions.sendText("%1", "second", false);
+    await Promise.resolve();
+
+    expect(adapter.run).toHaveBeenCalledTimes(2);
+    releaseFirstLiteral();
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+    ]);
+    expect(adapter.run).toHaveBeenNthCalledWith(4, ["send-keys", "-l", "-t", "%1", "--", "second"]);
+  });
+
+  it("does not let sendKeys interleave between text and Enter on the same pane", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
+
+    const textSend = tmuxActions.sendText("%1", "first", true);
+    await vi.waitFor(() => expect(adapter.run).toHaveBeenCalledTimes(2));
+    const keySend = tmuxActions.sendKeys("%1", ["Enter"]);
+    await Promise.resolve();
+
+    expect(adapter.run).toHaveBeenCalledTimes(2);
+    await expect(Promise.all([textSend, keySend])).resolves.toEqual([
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+    ]);
+    expect(adapter.run).toHaveBeenNthCalledWith(3, ["send-keys", "-t", "%1", "C-m"]);
+    expect(adapter.run).toHaveBeenNthCalledWith(4, ["send-keys", "-t", "%1", "Enter"]);
+  });
+
+  it("keeps input operations for different panes parallel", async () => {
+    let releaseFirstPane: () => void = () => undefined;
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args.includes("first")) {
+          await new Promise<void>((resolve) => {
+            releaseFirstPane = resolve;
+          });
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const tmuxActions = createTmuxActions(adapter, { ...configDefaults, token: "test-token" });
+
+    const firstPaneSend = tmuxActions.sendText("%1", "first", false);
+    await vi.waitFor(() => expect(adapter.run).toHaveBeenCalledTimes(2));
+
+    await expect(tmuxActions.sendKeys("%2", ["Enter"])).resolves.toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    expect(adapter.run).toHaveBeenNthCalledWith(3, ["send-keys", "-t", "%2", "Enter"]);
+
+    releaseFirstPane();
+    await expect(firstPaneSend).resolves.toEqual(expect.objectContaining({ ok: true }));
+  });
 });
 
 describe("createTmuxActions.sendKeys", () => {

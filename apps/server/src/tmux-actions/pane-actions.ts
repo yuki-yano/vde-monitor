@@ -8,6 +8,7 @@ import { resolveBackendApp } from "../screen/macos-app";
 import { focusTerminalApp, isAppRunning } from "../screen/macos-applescript";
 import { focusTmuxPane } from "../screen/tmux-geometry";
 import type { ActionOutcome, ActionResult, ActionResultHelpers } from "./action-results";
+import type { SerializePaneInput } from "./pane-input-serializer";
 import { sleep } from "../async-utils";
 
 const GRACEFUL_TERMINATE_INTERRUPT_DELAY_MS = 120;
@@ -20,6 +21,7 @@ type CreatePaneActionsParams = {
   actionResults: ActionResultHelpers;
   exitCopyModeIfNeeded: (paneId: string) => Promise<void>;
   sendEnterKey: (paneId: string) => Promise<ActionResult>;
+  serializePaneInput: SerializePaneInput;
 };
 
 const isTmuxTargetMissing = (message: string) =>
@@ -34,6 +36,7 @@ export const createPaneActions = ({
   actionResults,
   exitCopyModeIfNeeded,
   sendEnterKey,
+  serializePaneInput,
 }: CreatePaneActionsParams) => {
   const { okResult, invalidPayload, internalError } = actionResults;
 
@@ -81,13 +84,15 @@ export const createPaneActions = ({
       return invalidPayload("pane id is required");
     }
 
-    await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
-    const killed = await adapter.run(["kill-pane", "-t", targetPaneId]);
-    if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
-      pendingCommands.delete(targetPaneId);
-      return okResult();
-    }
-    return internalError(killed.stderr || "kill-pane failed");
+    return serializePaneInput(targetPaneId, async () => {
+      await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
+      const killed = await adapter.run(["kill-pane", "-t", targetPaneId]);
+      if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
+        pendingCommands.delete(targetPaneId);
+        return okResult();
+      }
+      return internalError(killed.stderr || "kill-pane failed");
+    });
   };
 
   const clearPaneTitle = async (paneId: string): Promise<ActionResult> => {
@@ -109,22 +114,24 @@ export const createPaneActions = ({
       return invalidPayload("pane id is required");
     }
 
-    const resolvedWindow = await resolveWindowIdFromPane(targetPaneId);
-    if (resolvedWindow == null) {
-      pendingCommands.delete(targetPaneId);
-      return okResult();
-    }
-    if (!resolvedWindow.ok) {
-      return { ok: false, error: resolvedWindow.error };
-    }
+    return serializePaneInput(targetPaneId, async () => {
+      const resolvedWindow = await resolveWindowIdFromPane(targetPaneId);
+      if (resolvedWindow == null) {
+        pendingCommands.delete(targetPaneId);
+        return okResult();
+      }
+      if (!resolvedWindow.ok) {
+        return { ok: false, error: resolvedWindow.error };
+      }
 
-    await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
-    const killed = await adapter.run(["kill-window", "-t", resolvedWindow.windowId]);
-    if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
-      pendingCommands.delete(targetPaneId);
-      return okResult();
-    }
-    return internalError(killed.stderr || "kill-window failed");
+      await gracefullyTerminatePaneSession(targetPaneId).catch(() => null);
+      const killed = await adapter.run(["kill-window", "-t", resolvedWindow.windowId]);
+      if (killed.exitCode === 0 || isTmuxTargetMissing(killed.stderr || "")) {
+        pendingCommands.delete(targetPaneId);
+        return okResult();
+      }
+      return internalError(killed.stderr || "kill-window failed");
+    });
   };
 
   const focusPane = async (paneId: string): Promise<ActionResult> => {
