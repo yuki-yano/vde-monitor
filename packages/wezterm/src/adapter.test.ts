@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWeztermAdapter } from "./adapter";
+import { WEZTERM_COMMAND_TIMEOUT_MS, createWeztermAdapter } from "./adapter";
 
 vi.mock("execa", () => {
   return {
@@ -38,6 +38,7 @@ describe("createWeztermAdapter", () => {
     const execa = await getExeca();
     expect(execa).toHaveBeenCalledWith("wezterm", ["cli", "list", "--format", "json"], {
       reject: false,
+      timeout: WEZTERM_COMMAND_TIMEOUT_MS,
     });
   });
 
@@ -49,7 +50,7 @@ describe("createWeztermAdapter", () => {
     expect(execa).toHaveBeenCalledWith(
       "/bin/wezterm",
       ["cli", "--target", "dev", "list", "--format", "json"],
-      { reject: false },
+      { reject: false, timeout: WEZTERM_COMMAND_TIMEOUT_MS },
     );
   });
 
@@ -70,7 +71,43 @@ describe("createWeztermAdapter", () => {
     const execa = await getExeca();
     expect(execa).toHaveBeenLastCalledWith("wezterm", ["cli", "get-text"], {
       reject: false,
+      timeout: WEZTERM_COMMAND_TIMEOUT_MS,
       cancelSignal: controller.signal,
+    });
+  });
+
+  it("normalizes a timed out process to exit code 124", async () => {
+    const execa = await getExeca();
+    execa.mockResolvedValueOnce({
+      stdout: "",
+      stderr: "",
+      exitCode: undefined,
+      timedOut: true,
+    });
+    const adapter = createWeztermAdapter();
+
+    await expect(adapter.run(["list", "--format", "json"])).resolves.toEqual({
+      stdout: "",
+      stderr: "wezterm command timed out",
+      exitCode: 124,
+    });
+  });
+
+  it("normalizes a failed process without an exit code to a non-zero exit code", async () => {
+    const execa = await getExeca();
+    execa.mockResolvedValueOnce({
+      stdout: "",
+      stderr: "spawn failed",
+      exitCode: null,
+      timedOut: false,
+      failed: true,
+    });
+    const adapter = createWeztermAdapter();
+
+    await expect(adapter.run(["list", "--format", "json"])).resolves.toEqual({
+      stdout: "",
+      stderr: "spawn failed",
+      exitCode: 1,
     });
   });
 

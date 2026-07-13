@@ -16,6 +16,25 @@ import { type WeztermOptions, focusWeztermPane, getWeztermPaneGeometry } from ".
 import { sleep } from "../async-utils";
 
 const debugWeztermCropEnabled = process.env.VDE_MONITOR_DEBUG_WEZTERM_CROP === "1";
+let captureFocusTail = Promise.resolve();
+
+const runWithSerializedFocus = async <T>(operation: () => Promise<T>): Promise<T> => {
+  const previous = captureFocusTail;
+  let release: () => void = () => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  captureFocusTail = current;
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (captureFocusTail === current) {
+      captureFocusTail = Promise.resolve();
+    }
+  }
+};
 const debugWeztermCrop = (payload: Record<string, unknown>) => {
   if (!debugWeztermCropEnabled) {
     return;
@@ -248,21 +267,23 @@ export const captureTerminalScreenMacos = async (
   if (!app) {
     return null;
   }
-  await focusCaptureTarget(app.appName, options);
+  return runWithSerializedFocus(async () => {
+    await focusCaptureTarget(app.appName, options);
 
-  const maxAttempts = 3;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (attempt > 0) {
-      await focusCaptureTarget(app.appName, options);
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (attempt > 0) {
+        await focusCaptureTarget(app.appName, options);
+      }
+      const allowWindowFallbackForCrop = attempt === maxAttempts - 1;
+      const captureResult = await captureAttempt(app.appName, options, allowWindowFallbackForCrop);
+      if (captureResult) {
+        return captureResult;
+      }
+      if (attempt < maxAttempts - 1) {
+        await sleep(200);
+      }
     }
-    const allowWindowFallbackForCrop = attempt === maxAttempts - 1;
-    const captureResult = await captureAttempt(app.appName, options, allowWindowFallbackForCrop);
-    if (captureResult) {
-      return captureResult;
-    }
-    if (attempt < maxAttempts - 1) {
-      await sleep(200);
-    }
-  }
-  return null;
+    return null;
+  });
 };

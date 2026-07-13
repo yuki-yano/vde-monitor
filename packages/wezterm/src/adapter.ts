@@ -16,6 +16,8 @@ type AdapterOptions = {
   target?: string | null;
 };
 
+export const WEZTERM_COMMAND_TIMEOUT_MS = 5000;
+
 export const createWeztermAdapter = ({
   cliPath = "wezterm",
   target = "auto",
@@ -28,12 +30,19 @@ export const createWeztermAdapter = ({
   ): Promise<AdapterRunResult> => {
     const result = await execa(cliPath, ["cli", ...targetArgs, ...args], {
       reject: false,
+      timeout: WEZTERM_COMMAND_TIMEOUT_MS,
       ...(runOptions.signal == null ? {} : { cancelSignal: runOptions.signal }),
     });
     return {
       stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode ?? 0,
+      stderr: result.timedOut ? result.stderr || "wezterm command timed out" : result.stderr,
+      exitCode: result.timedOut
+        ? 124
+        : typeof result.exitCode === "number"
+          ? result.exitCode
+          : result.failed
+            ? 1
+            : 0,
     };
   };
   const spawnProxy = () => spawn(cliPath, ["cli", ...targetArgs, "proxy"], { stdio: "pipe" });

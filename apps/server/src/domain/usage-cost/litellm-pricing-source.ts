@@ -32,12 +32,14 @@ export type LiteLLMPricingSourceOptions = {
   fetchImpl?: typeof fetch;
   ttlMs?: number;
   staleMaxAgeMs?: number;
+  timeoutMs?: number;
 };
 
 const DEFAULT_PRICING_URL =
   "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_STALE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_TIMEOUT_MS = 10_000;
 const SOURCE_LABEL = "LiteLLM";
 const STALE_SOURCE_LABEL = "LiteLLM (stale-cache)";
 const VERSION_TOKEN_PATTERN = /\d+(?:\.\d+)*/;
@@ -225,6 +227,7 @@ export class LiteLLMPricingSource implements UsagePricingSource {
   private readonly fetchImpl: typeof fetch;
   private readonly ttlMs: number;
   private readonly staleMaxAgeMs: number;
+  private readonly timeoutMs: number;
   private cache: PricingCache | null = null;
 
   constructor(options: LiteLLMPricingSourceOptions = {}) {
@@ -232,6 +235,7 @@ export class LiteLLMPricingSource implements UsagePricingSource {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     this.staleMaxAgeMs = options.staleMaxAgeMs ?? DEFAULT_STALE_MAX_AGE_MS;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   private isFresh = (nowMs: number) =>
@@ -253,7 +257,16 @@ export class LiteLLMPricingSource implements UsagePricingSource {
     }
 
     try {
-      const response = await this.fetchImpl(this.url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort(new Error(`pricing request timed out after ${this.timeoutMs}ms`));
+      }, this.timeoutMs);
+      let response: Response;
+      try {
+        response = await this.fetchImpl(this.url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!response.ok) {
         throw new Error(`failed to fetch pricing: ${response.status} ${response.statusText}`);
       }

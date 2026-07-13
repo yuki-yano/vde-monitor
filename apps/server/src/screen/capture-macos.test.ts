@@ -243,4 +243,31 @@ describe("captureTerminalScreenMacos", () => {
     expect(captureRegion).toHaveBeenNthCalledWith(3, croppedBounds);
     expect(captureRegion).toHaveBeenNthCalledWith(4, baseBounds);
   });
+
+  it("serializes focus and capture across concurrent pane requests", async () => {
+    let resolveFirstCapture: (value: string | null) => void = () => undefined;
+    vi.mocked(captureRegion)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirstCapture = resolve;
+        }),
+      )
+      .mockResolvedValueOnce("pane-2-image");
+
+    const first = captureTerminalScreenMacos("/dev/ttys001", { paneId: "%1" });
+    const second = captureTerminalScreenMacos("/dev/ttys002", { paneId: "%2" });
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(focusTmuxPane).toHaveBeenCalledTimes(1);
+    expect(focusTmuxPane).toHaveBeenNthCalledWith(1, "%1", undefined);
+
+    resolveFirstCapture("pane-1-image");
+    await vi.advanceTimersByTimeAsync(400);
+
+    await expect(first).resolves.toEqual({ imageBase64: "pane-1-image", cropped: true });
+    await expect(second).resolves.toEqual({ imageBase64: "pane-2-image", cropped: true });
+    expect(focusTmuxPane).toHaveBeenNthCalledWith(2, "%2", undefined);
+    expect(captureRegion).toHaveBeenNthCalledWith(1, croppedBounds);
+    expect(captureRegion).toHaveBeenNthCalledWith(2, croppedBounds);
+  });
 });
