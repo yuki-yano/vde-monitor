@@ -6,7 +6,7 @@ describe("createMonitorLoop", () => {
   it("invokes update and rotate on tick", async () => {
     vi.useFakeTimers();
     const updateFromPanes = vi.fn(async () => {});
-    const rotateLogIfNeeded = vi.fn(async () => {});
+    const rotateLogIfNeeded = vi.fn(async () => false);
     const loop = createMonitorLoop(
       {
         intervalMs: 1000,
@@ -34,7 +34,7 @@ describe("createMonitorLoop", () => {
       resolveUpdate = resolve;
     });
     const updateFromPanes = vi.fn(() => updatePending);
-    const rotateLogIfNeeded = vi.fn(async () => {});
+    const rotateLogIfNeeded = vi.fn(async () => false);
     const loop = createMonitorLoop(
       {
         intervalMs: 1000,

@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   mkdir: vi.fn(),
   stat: vi.fn(),
-  readFile: vi.fn(),
-  writeFile: vi.fn(),
   truncate: vi.fn(),
+  rename: vi.fn(),
   readdir: vi.fn(),
   unlink: vi.fn(),
   open: vi.fn(),
@@ -15,24 +14,15 @@ vi.mock("node:fs/promises", () => ({
   default: {
     mkdir: mocks.mkdir,
     stat: mocks.stat,
-    readFile: mocks.readFile,
-    writeFile: mocks.writeFile,
     truncate: mocks.truncate,
+    rename: mocks.rename,
     readdir: mocks.readdir,
     unlink: mocks.unlink,
     open: mocks.open,
   },
-  mkdir: mocks.mkdir,
-  stat: mocks.stat,
-  readFile: mocks.readFile,
-  writeFile: mocks.writeFile,
-  truncate: mocks.truncate,
-  readdir: mocks.readdir,
-  unlink: mocks.unlink,
-  open: mocks.open,
 }));
 
-import { createJsonlTailer, createLogActivityPoller } from "./logs";
+import { createLogActivityPoller, rotateLogIfNeeded } from "./logs";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -41,6 +31,54 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("rotateLogIfNeeded", () => {
+  it("renames the active log before creating a new file so concurrent appends are retained", async () => {
+    const close = vi.fn(async () => undefined);
+    mocks.stat.mockResolvedValue({ size: 101 });
+    mocks.rename.mockResolvedValue(undefined);
+    mocks.open.mockResolvedValue({ close });
+    mocks.readdir.mockResolvedValue([]);
+
+    await expect(rotateLogIfNeeded("/tmp/events.jsonl", 100, 5)).resolves.toBe(true);
+
+    expect(mocks.rename).toHaveBeenCalledWith(
+      "/tmp/events.jsonl",
+      expect.stringMatching(/^\/tmp\/events\.jsonl\.\d+\./),
+    );
+    expect(mocks.open).toHaveBeenCalledWith("/tmp/events.jsonl", "a", 0o600);
+    expect(mocks.truncate).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("does not invoke rotation hooks when the size is within the limit", async () => {
+    mocks.stat.mockResolvedValue({ size: 100 });
+    const beforeRotate = vi.fn();
+    const afterRotate = vi.fn();
+
+    await expect(
+      rotateLogIfNeeded("/tmp/events.jsonl", 100, 5, { beforeRotate, afterRotate }),
+    ).resolves.toBe(false);
+
+    expect(beforeRotate).not.toHaveBeenCalled();
+    expect(afterRotate).not.toHaveBeenCalled();
+    expect(mocks.rename).not.toHaveBeenCalled();
+  });
+
+  it("runs afterRotate even when rotation fails after beforeRotate", async () => {
+    mocks.stat.mockResolvedValue({ size: 101 });
+    mocks.rename.mockRejectedValue(new Error("rename failed"));
+    const beforeRotate = vi.fn(async () => true);
+    const afterRotate = vi.fn(async () => undefined);
+
+    await expect(
+      rotateLogIfNeeded("/tmp/events.jsonl", 100, 5, { beforeRotate, afterRotate }),
+    ).rejects.toThrow("rename failed");
+
+    expect(beforeRotate).toHaveBeenCalledOnce();
+    expect(afterRotate).toHaveBeenCalledOnce();
+  });
 });
 
 describe("createLogActivityPoller", () => {
@@ -99,99 +137,5 @@ describe("createLogActivityPoller", () => {
     expect(mocks.stat).toHaveBeenCalledWith("/tmp/pane-2.log");
 
     poller.stop();
-  });
-});
-
-describe("createJsonlTailer", () => {
-  it("keeps persisted completion generations unchanged when old JSONL content exists", async () => {
-    mocks.stat.mockResolvedValue({ size: 128 });
-    const restored = { completedSeq: 3, notificationCount: 0 };
-    const tailer = createJsonlTailer(1000);
-    tailer.onLine(() => {
-      restored.completedSeq += 1;
-      restored.notificationCount += 1;
-    });
-
-    await tailer.start("/tmp/events.jsonl");
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(restored).toEqual({ completedSeq: 3, notificationCount: 0 });
-    expect(mocks.open).not.toHaveBeenCalled();
-    tailer.stop();
-  });
-
-  it("emits only complete lines appended after start resolves", async () => {
-    mocks.stat.mockResolvedValueOnce({ size: 8 }).mockResolvedValueOnce({ size: 12 });
-    const read = vi.fn(
-      async (buffer: Buffer, _offset: number, length: number, position: number) => {
-        expect(length).toBe(4);
-        expect(position).toBe(8);
-        buffer.write("new\n");
-        return { bytesRead: 4, buffer };
-      },
-    );
-    const close = vi.fn();
-    mocks.open.mockResolvedValue({ read, close });
-    const onLine = vi.fn();
-    const tailer = createJsonlTailer(1000);
-    tailer.onLine(onLine);
-
-    await tailer.start("/tmp/events.jsonl");
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(onLine).toHaveBeenCalledOnce();
-    expect(onLine).toHaveBeenCalledWith("new");
-    expect(close).toHaveBeenCalledOnce();
-    tailer.stop();
-  });
-
-  it("rejects start without scheduling a poll when the baseline stat fails", async () => {
-    mocks.stat.mockRejectedValueOnce(new Error("stat failed"));
-    const tailer = createJsonlTailer(1000);
-
-    await expect(tailer.start("/tmp/events.jsonl")).rejects.toThrow("stat failed");
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(mocks.stat).toHaveBeenCalledOnce();
-    expect(mocks.open).not.toHaveBeenCalled();
-    tailer.stop();
-  });
-
-  it("does not finish a two-tailer startup before both baselines are known", async () => {
-    let resolveFirst = (_value: { size: number }) => {};
-    let resolveSecond = (_value: { size: number }) => {};
-    mocks.stat
-      .mockReturnValueOnce(
-        new Promise((resolve) => {
-          resolveFirst = resolve;
-        }),
-      )
-      .mockReturnValueOnce(
-        new Promise((resolve) => {
-          resolveSecond = resolve;
-        }),
-      );
-    const first = createJsonlTailer(1000);
-    const second = createJsonlTailer(1000);
-    let started = false;
-    const starting = Promise.all([
-      first.start("/tmp/claude.jsonl"),
-      second.start("/tmp/codex.jsonl"),
-    ]).then(() => {
-      started = true;
-    });
-
-    await Promise.resolve();
-    expect(started).toBe(false);
-
-    resolveFirst({ size: 0 });
-    await Promise.resolve();
-    expect(started).toBe(false);
-
-    resolveSecond({ size: 0 });
-    await starting;
-    expect(started).toBe(true);
-    first.stop();
-    second.stop();
   });
 });

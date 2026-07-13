@@ -76,6 +76,7 @@ describe("HerdrClient", () => {
       markReceived = resolve;
     });
     const server = createServer((socket) => {
+      socket.on("error", () => undefined);
       socket.setEncoding("utf8");
       let buffer = "";
       socket.on("data", (chunk: string) => {
@@ -183,5 +184,158 @@ describe("HerdrClient", () => {
       server.close((error) => (error ? reject(error) : resolve())),
     );
     expect(received).toEqual(["pane.get", "pane.get"]);
+  });
+
+  it("does not resend a mutating request when the connection drops before a response", async () => {
+    const socketPath = await makeTempSocketPath();
+    const received: string[] = [];
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      socket.on("data", (chunk: string) => {
+        const request = JSON.parse(chunk.trim()) as { method: string };
+        received.push(request.method);
+        socket.destroy();
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(
+      client.request("pane.send_input", { pane_id: "wD:p2", text: "hello" }),
+    ).rejects.toThrow("herdr socket closed");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+
+    expect(received).toEqual(["pane.send_input"]);
+  });
+
+  it("serializes concurrent requests across one-request connections", async () => {
+    const socketPath = await makeTempSocketPath();
+    let connectionCount = 0;
+    const received: string[] = [];
+    const server = createServer((socket) => {
+      connectionCount += 1;
+      socket.setEncoding("utf8");
+      socket.once("data", (chunk: string) => {
+        const request = JSON.parse(chunk.split("\n", 1)[0]!) as { id: string; method: string };
+        received.push(request.method);
+        socket.write(`${JSON.stringify({ id: request.id, result: request.method })}\n`, () => {
+          socket.end();
+        });
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(
+      Promise.all([client.request("ping"), client.request("pane.list")]),
+    ).resolves.toEqual(["ping", "pane.list"]);
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+
+    expect(connectionCount).toBe(2);
+    expect(received).toEqual(["ping", "pane.list"]);
+  });
+
+  it("keeps response buffers isolated across a reconnect", async () => {
+    const socketPath = await makeTempSocketPath();
+    let connectionCount = 0;
+    const server = createServer((socket) => {
+      connectionCount += 1;
+      const currentConnection = connectionCount;
+      socket.setEncoding("utf8");
+      socket.once("data", (chunk: string) => {
+        const request = JSON.parse(chunk.trim()) as { id: string };
+        if (currentConnection === 1) {
+          socket.write(`{"id":"${request.id}"`);
+          socket.destroy();
+          return;
+        }
+        socket.write(`${JSON.stringify({ id: request.id, result: "reconnected" })}\n`);
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("pane.get", { pane_id: "wD:p2" })).resolves.toBe("reconnected");
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
+  it("rejects invalid JSON without crashing the process", async () => {
+    const socketPath = await makeTempSocketPath();
+    const server = createServer((socket) => {
+      socket.once("data", () => socket.write("{not-json}\n"));
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("pane.send_input", { pane_id: "wD:p2" })).rejects.toMatchObject({
+      code: "protocol_error",
+    });
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
+  it("rejects a response that has neither a result nor an error", async () => {
+    const socketPath = await makeTempSocketPath();
+    const server = createServer((socket) => {
+      socket.once("data", (chunk) => {
+        const request = JSON.parse(chunk.toString().trim()) as { id: string };
+        socket.write(`${JSON.stringify({ id: request.id })}\n`);
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("pane.send_input", { pane_id: "wD:p2" })).rejects.toMatchObject({
+      code: "protocol_error",
+    });
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
+  it("times out when the server does not respond", async () => {
+    const socketPath = await makeTempSocketPath();
+    const server = createServer((socket) => socket.resume());
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socketPath, resolve);
+    });
+
+    const client = new HerdrClient(socketPath);
+    await expect(client.request("ping", {}, { timeoutMs: 20 })).rejects.toMatchObject({
+      code: "timeout",
+    });
+    await client.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   });
 });

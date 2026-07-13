@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { PaneRuntimeState } from "./pane-state";
+
 import {
+  applyHerdrAgentStatusSignal,
   deriveCodexHookState,
   deriveHookState,
   hostCandidates,
@@ -88,6 +91,29 @@ describe("monitor-utils", () => {
     markHerdrLifecycleDirty({ paneId: null }, markDirty);
 
     expect(marked).toEqual([["wB:p1", "herdr"]]);
+  });
+
+  it("clears a stale Herdr status when the backend reports unknown", () => {
+    const state: Pick<
+      PaneRuntimeState,
+      "herdrAgentStatus" | "pendingAgentLifecycleEvents" | "lastEventAt"
+    > = {
+      herdrAgentStatus: {
+        agentStatus: "working",
+        at: "2026-07-02T00:00:00.000Z",
+      },
+      pendingAgentLifecycleEvents: [],
+      lastEventAt: "2026-07-02T00:00:00.000Z",
+    };
+
+    applyHerdrAgentStatusSignal(state, {
+      agentStatus: "unknown",
+      at: "2026-07-02T00:00:01.000Z",
+    });
+
+    expect(state.herdrAgentStatus).toBeNull();
+    expect(state.pendingAgentLifecycleEvents).toEqual([]);
+    expect(state.lastEventAt).toBe("2026-07-02T00:00:01.000Z");
   });
 
   it("maps hook to pane by tmux pane id first", () => {

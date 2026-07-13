@@ -2,6 +2,8 @@ import os from "node:os";
 
 import type { AgentLifecycle } from "@vde-monitor/multiplexer";
 
+import type { PaneRuntimeState } from "./pane-state";
+
 const fingerprintLineCount = 20;
 
 export const normalizeFingerprint = (text: string, maxLines = fingerprintLineCount) => {
@@ -96,6 +98,29 @@ export const markHerdrLifecycleDirty = (
 ) => {
   if (event.paneId == null) return;
   markDirty(event.paneId, "herdr");
+};
+
+export const applyHerdrAgentStatusSignal = (
+  state: Pick<PaneRuntimeState, "herdrAgentStatus" | "pendingAgentLifecycleEvents" | "lastEventAt">,
+  signal: {
+    agentStatus: "working" | "blocked" | "done" | "idle" | "unknown";
+    at: string;
+  },
+) => {
+  state.lastEventAt = signal.at;
+  if (signal.agentStatus === "unknown") {
+    state.herdrAgentStatus = null;
+    return;
+  }
+  state.herdrAgentStatus = {
+    agentStatus: signal.agentStatus,
+    at: signal.at,
+  };
+  state.pendingAgentLifecycleEvents.push({
+    source: "herdr",
+    agentStatus: signal.agentStatus,
+    at: signal.at,
+  });
 };
 
 const findSinglePaneId = (

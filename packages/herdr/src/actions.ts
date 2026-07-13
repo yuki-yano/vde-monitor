@@ -37,11 +37,6 @@ const requestError = (error: unknown, fallbackMessage: string): MultiplexerActio
 
 const normalizeText = (value: string) => value.replace(/\r\n/g, "\n");
 
-const deriveTabId = (paneId: string): string | null => {
-  const match = /^(.*):p\d+$/.exec(paneId);
-  return match == null ? null : `${match[1]}:t1`;
-};
-
 const sendInput = async (
   client: HerdrRequester,
   paneId: string,
@@ -191,16 +186,9 @@ export const createHerdrActions = (client: HerdrRequester, config: AgentMonitorC
     }
   };
 
-  const killWindow = async (paneId: string): Promise<MultiplexerActionResult> => {
-    const tabId = deriveTabId(paneId);
-    if (tabId == null) {
-      return {
-        ok: false,
-        error: buildError(
-          "TMUX_UNAVAILABLE",
-          "kill-window requires a herdr pane id with workspace",
-        ),
-      };
+  const killWindow = async (_paneId: string, tabId: string): Promise<MultiplexerActionResult> => {
+    if (tabId.trim().length === 0) {
+      return invalidPayload("tab id is required");
     }
     try {
       await client.request(HERDR_METHODS.tabClose, { tab_id: tabId });

@@ -58,7 +58,7 @@ describe("createHerdrActions", () => {
 
     await expect(actions.focusPane("wB:p1")).resolves.toEqual({ ok: true });
     await expect(actions.killPane("wB:p1")).resolves.toEqual({ ok: true });
-    await expect(actions.killWindow("wB:p1")).resolves.toEqual({ ok: true });
+    await expect(actions.killWindow("wB:p7", "wB:t9")).resolves.toEqual({ ok: true });
     expect(client.request).toHaveBeenNthCalledWith(1, HERDR_METHODS.paneFocus, {
       pane_id: "wB:p1",
     });
@@ -66,7 +66,18 @@ describe("createHerdrActions", () => {
       pane_id: "wB:p1",
     });
     expect(client.request).toHaveBeenNthCalledWith(3, HERDR_METHODS.tabClose, {
-      tab_id: "wB:t1",
+      tab_id: "wB:t9",
     });
+  });
+
+  it("requires the owning tab id instead of deriving it from the pane id", async () => {
+    const client = { request: vi.fn() };
+    const actions = createHerdrActions(client, makeConfig());
+
+    await expect(actions.killWindow("wB:p7", "")).resolves.toEqual({
+      ok: false,
+      error: { code: "INVALID_PAYLOAD", message: "tab id is required" },
+    });
+    expect(client.request).not.toHaveBeenCalled();
   });
 });
