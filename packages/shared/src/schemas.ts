@@ -394,13 +394,13 @@ export const sessionDetailSchema = sessionSummarySchema.extend({
 // Wire format (text/event-stream):
 //   - sessions stream (`GET /api/streams/sessions`):
 //       event: sessions / id: <monotonic integer> / data: SessionsStreamEvent JSON
-//       接続直後に type=snapshot を送る。Last-Event-ID が replay バッファ内なら
-//       snapshot を省略して差分 (upsert/remove) のみ再送する。
+//       Sends type=snapshot immediately after connection. If Last-Event-ID is still in the replay
+//       buffer, omits the snapshot and replays only the upsert/remove deltas.
 //   - screen stream (`GET /api/streams/sessions/:paneId/screen`):
 //       event: screen / data: ScreenResponse JSON
-//       接続直後は full レスポンス、以降はサーバー保持カーソルによる delta。
-//       replay は持たない (再接続時は full を再送)。
-//   - heartbeat: event: heartbeat / data: "{}" を一定間隔で送る。
+//       Sends a full response immediately after connection, followed by deltas from a server-side
+//       cursor. No replay buffer is kept, so reconnecting sends a new full response.
+//   - heartbeat: sends event: heartbeat / data: "{}" at a fixed interval.
 // ---------------------------------------------------------------------------
 
 export const sessionsStreamEventSchema = z.discriminatedUnion("type", [

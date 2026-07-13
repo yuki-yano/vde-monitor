@@ -55,11 +55,11 @@ const expectValid = (state: CompletionState): void => {
 };
 
 describe("completion state reducer", () => {
-  it("S1-S8: run、completion、acknowledgeを世代単位で単調に進める", () => {
+  it("S1-S8: advances runs, completions, and acknowledgements monotonically by generation", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
 
-    // S1: 最初の実行開始。
+    // S1: Start the first run.
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
     expect(requireCursor(state)).toMatchObject({
       runSeq: 1,
@@ -70,7 +70,7 @@ describe("completion state reducer", () => {
     });
     expect(resolvePublicPaneState(state)).toBe("RUNNING");
 
-    // S2: 重複した Begin は新しい世代を作らない。
+    // S2: A duplicate Begin does not create a new generation.
     const duplicateBegin = reducer.reduce(state, {
       type: "begin-run",
       source: "hook:start:duplicate",
@@ -78,7 +78,7 @@ describe("completion state reducer", () => {
     expect(duplicateBegin.state.cursor).toEqual(state.cursor);
     expect(duplicateBegin.completionAdvanced).toBe(false);
 
-    // S3: open run の Stop が completion を進め DONE になる。
+    // S3: A Stop for an open run advances completion and produces DONE.
     const firstCompletion = reducer.reduce(state, {
       type: "complete-run",
       source: "hook:stop",
@@ -93,7 +93,7 @@ describe("completion state reducer", () => {
     });
     expect(resolvePublicPaneState(state)).toBe("DONE");
 
-    // S4: 重複した Complete は同じ世代を再完了しない。
+    // S4: A duplicate Complete does not complete the same generation again.
     const duplicateCompletion = reducer.reduce(state, {
       type: "complete-run",
       source: "hook:stop",
@@ -101,7 +101,7 @@ describe("completion state reducer", () => {
     expect(duplicateCompletion.completionAdvanced).toBe(false);
     expect(duplicateCompletion.state.cursor).toEqual(state.cursor);
 
-    // S5-S6: 同じ epoch の表示 ack 後は WAITING_INPUT、再評価しても戻らない。
+    // S5-S6: Display acknowledgement for the same epoch produces WAITING_INPUT without reverting.
     const firstCursor = requireCursor(state);
     const acknowledged = reducer.reduce(state, {
       type: "acknowledge-view",
@@ -117,7 +117,7 @@ describe("completion state reducer", () => {
     }).state;
     expect(resolvePublicPaneState(state)).toBe("WAITING_INPUT");
 
-    // S7: 次の Begin は世代 2 を開く。
+    // S7: The next Begin opens generation 2.
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
     expect(requireCursor(state)).toMatchObject({
       runSeq: 2,
@@ -127,7 +127,7 @@ describe("completion state reducer", () => {
     });
     expect(resolvePublicPaneState(state)).toBe("RUNNING");
 
-    // S8: 古い throughSeq の ack は世代 2 の完了を先取りしない。
+    // S8: An acknowledgement with an old throughSeq does not preempt generation 2 completion.
     const staleAck = reducer.reduce(state, {
       type: "acknowledge-view",
       epoch: requireCursor(state).epoch,
@@ -143,7 +143,7 @@ describe("completion state reducer", () => {
     expectValid(state);
   });
 
-  it("S9: stale epoch の acknowledgement は成功扱いの no-op にする", () => {
+  it("S9: treats acknowledgement for a stale epoch as a successful no-op", () => {
     const { reducer, observeInitialPresence } = createHarness();
     const oldState = observeInitialPresence({ agentSessionId: "session-a" });
     const oldEpoch = requireCursor(oldState).epoch;
@@ -167,7 +167,7 @@ describe("completion state reducer", () => {
     expect(requireCursor(result.state).epoch).not.toBe(oldEpoch);
   });
 
-  it("S10-S11: WAITING_PERMISSION と RUNNING は未acknowledgeのDONEより優先する", () => {
+  it("S10-S11: prioritizes WAITING_PERMISSION and RUNNING over unacknowledged DONE", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
@@ -184,7 +184,7 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(state)).toBe("RUNNING");
   });
 
-  it("S12-S13: restore は同一identityだけを採用する", () => {
+  it("S12-S13: restores state only for the same identity", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence({
       agentSessionId: "session-a",
@@ -219,10 +219,10 @@ describe("completion state reducer", () => {
     ).toBe(false);
   });
 
-  it("S14-S17: authoritative completionだけがarmed cursorへsynthetic completionを一度生成する", () => {
+  it("S14-S17: generates one synthetic completion for an armed cursor from authoritative input", () => {
     const { reducer, observeInitialPresence } = createHarness();
 
-    // S14: Herdr done は authoritative completion。
+    // S14: Herdr done is an authoritative completion.
     let herdr = observeInitialPresence({ agent: "claude" });
     const herdrResult = reducer.reduce(herdr, {
       type: "complete-run",
@@ -234,14 +234,14 @@ describe("completion state reducer", () => {
     expect(requireCursor(herdr)).toMatchObject({ runSeq: 1, completedSeq: 1 });
     expect(resolvePublicPaneState(herdr)).toBe("DONE");
 
-    // S15: 明示的に開いた run は poll でも閉じられる。
+    // S15: Polling can close an explicitly opened run.
     let poll = observeInitialPresence();
     poll = reducer.reduce(poll, { type: "begin-run", source: "poll:running" }).state;
     const pollResult = reducer.reduce(poll, { type: "complete-run", source: "poll" });
     expect(pollResult.completionAdvanced).toBe(true);
     expect(requireCursor(pollResult.state)).toMatchObject({ runSeq: 1, completedSeq: 1 });
 
-    // S16: session ID未確定のarmed cursorはStopのIDをbindしてsynthetic完了する。
+    // S16: An armed cursor without a session ID binds the Stop ID and completes synthetically.
     let stop = observeInitialPresence();
     const stopResult = reducer.reduce(stop, {
       type: "complete-run",
@@ -265,7 +265,7 @@ describe("completion state reducer", () => {
     });
     expect(duplicateStop.completionAdvanced).toBe(false);
 
-    // S17: explicit startで作ったcursorはarmedでないため、open runなしのStopを無視する。
+    // S17: A cursor created by an explicit start is not armed and ignores Stop without an open run.
     let explicit = reducer.reduce(createInitialCompletionState(), {
       type: "observe-agent-identity",
       origin: "explicit-session-start",
@@ -287,7 +287,7 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(explicit)).toBe("WAITING_INPUT");
   });
 
-  it("S18: 成功snapshotで2回連続 absent の場合だけ不在を確定しopen runを閉じる", () => {
+  it("S18: closes an open run only after two successful snapshots report absence", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
@@ -348,7 +348,7 @@ describe("completion state reducer", () => {
     expectValid(state);
   });
 
-  it("S19: pollingで観測した終了も明示的なopen runを完了する", () => {
+  it("S19: completes an explicitly opened run when polling observes its end", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
     state = reducer.reduce(state, { type: "begin-run", source: "poll:running" }).state;
@@ -359,12 +359,12 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(completed.state)).toBe("DONE");
   });
 
-  it("S20-S21: 遅延した旧identity eventを捨て、新しい明示的startだけがepochを切り替える", () => {
+  it("S20-S21: drops delayed old-identity events and changes epoch on a newer explicit start", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence({ agentSessionId: "session-a" });
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
 
-    // S20: 現在のidentityと矛盾する旧Stopはlifecycleを含め一切変更しない。
+    // S20: An old Stop that conflicts with the current identity changes nothing, including lifecycle.
     const delayedStop = reducer.reduce(state, {
       type: "complete-run",
       source: "hook:stop",
@@ -397,7 +397,7 @@ describe("completion state reducer", () => {
     });
     expect(invalidStart.identityRejected).toBe(true);
 
-    // S21: より新しい明示的session startだけが新しいepochを作る。
+    // S21: Only a newer explicit session start creates a new epoch.
     const oldEpoch = requireCursor(state).epoch;
     const switched = reducer.reduce(state, {
       type: "observe-agent-identity",
@@ -420,7 +420,7 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(switched.state)).toBe("RUNNING");
   });
 
-  it("S22: processless backendは権威あるinventoryがpresentなら不在カウンタを進めない", () => {
+  it("S22: keeps the absence count when authoritative inventory reports a processless backend present", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence({ paneInstanceKey: null, agentSessionId: null });
 
@@ -448,7 +448,7 @@ describe("completion state reducer", () => {
     ).toBe(false);
   });
 
-  it("acknowledgementをcompletedSeqでclampし、無効値をno-opにする", () => {
+  it("clamps acknowledgement to completedSeq and treats invalid values as no-ops", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
@@ -473,7 +473,7 @@ describe("completion state reducer", () => {
     }
   });
 
-  it("active agent種別またはpane instance変更のpresence epochではsyntheticをarmする", () => {
+  it("arms synthetic completion when the active agent type or pane instance changes", () => {
     const { reducer, observeInitialPresence } = createHarness();
     const initial = observeInitialPresence();
     const initialEpoch = requireCursor(initial).epoch;
@@ -509,7 +509,7 @@ describe("completion state reducer", () => {
     });
   });
 
-  it("public state priorityとauthoritative source集合を固定する", () => {
+  it("defines public state priority and the authoritative source set", () => {
     const { observeInitialPresence } = createHarness();
     const base = observeInitialPresence();
     const cursor = {
@@ -532,7 +532,7 @@ describe("completion state reducer", () => {
     expect(isAuthoritativeCompletionSource("confirmed-absent")).toBe(false);
   });
 
-  it("invariant違反を検出する", () => {
+  it("detects invariant violations", () => {
     const { observeInitialPresence } = createHarness();
     const cursor = requireCursor(observeInitialPresence());
 

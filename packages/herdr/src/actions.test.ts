@@ -10,7 +10,7 @@ const makeConfig = (): AgentMonitorConfig =>
   }) as AgentMonitorConfig;
 
 describe("createHerdrActions", () => {
-  it("sendText は text と Enter key を pane.send_input で送る", async () => {
+  it("sends text and the Enter key through pane.send_input", async () => {
     const client = { request: vi.fn().mockResolvedValue({ type: "ok" }) };
     const actions = createHerdrActions(client, makeConfig());
 
@@ -22,7 +22,7 @@ describe("createHerdrActions", () => {
     });
   });
 
-  it("dangerCommandPatterns に一致する sendText を拒否する", async () => {
+  it("rejects sendText values that match dangerCommandPatterns", async () => {
     const client = { request: vi.fn() };
     const actions = createHerdrActions(client, makeConfig());
 
@@ -33,7 +33,7 @@ describe("createHerdrActions", () => {
     expect(client.request).not.toHaveBeenCalled();
   });
 
-  it("sendKeys は dangerKeys を拒否する", async () => {
+  it("rejects dangerKeys in sendKeys", async () => {
     const client = { request: vi.fn() };
     const actions = createHerdrActions(client, makeConfig());
 
@@ -44,7 +44,7 @@ describe("createHerdrActions", () => {
     expect(client.request).not.toHaveBeenCalled();
   });
 
-  it("focusPane / killPane / killWindow を herdr method に変換する", async () => {
+  it("maps focusPane, killPane, and killWindow to Herdr methods", async () => {
     const client = {
       request: vi
         .fn()

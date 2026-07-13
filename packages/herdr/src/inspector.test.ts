@@ -21,7 +21,7 @@ const paneListResult = {
 };
 
 describe("createHerdrInspector", () => {
-  it("pane.list の実応答を PaneMeta に変換する", async () => {
+  it("converts an actual pane.list response to PaneMeta", async () => {
     const client = {
       request: vi.fn().mockResolvedValue(paneListResult),
     };
@@ -53,7 +53,7 @@ describe("createHerdrInspector", () => {
     expect(client.request).toHaveBeenCalledWith(HERDR_METHODS.paneList, {});
   });
 
-  it("readUserOption は null stub", async () => {
+  it("returns null from the readUserOption stub", async () => {
     const inspector = createHerdrInspector({ request: vi.fn() });
 
     await expect(inspector.readUserOption("wB:p1", "@vde:test")).resolves.toBeNull();

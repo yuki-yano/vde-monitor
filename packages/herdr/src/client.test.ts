@@ -18,25 +18,25 @@ afterEach(async () => {
 });
 
 describe("resolveSocketPath", () => {
-  it("HERDR_SOCKET_PATH を最優先で使う", () => {
+  it("prefers HERDR_SOCKET_PATH", () => {
     expect(
       resolveSocketPath({ HERDR_SOCKET_PATH: "/tmp/x.sock", HERDR_SESSION: "work" }, "/home/u"),
     ).toBe("/tmp/x.sock");
   });
 
-  it("HERDR_SESSION から named session の socket を解決する", () => {
+  it("resolves a named session socket from HERDR_SESSION", () => {
     expect(resolveSocketPath({ HERDR_SESSION: "work" }, "/home/u")).toBe(
       "/home/u/.config/herdr/sessions/work/herdr.sock",
     );
   });
 
-  it("既定は default session の socket", () => {
+  it("defaults to the default session socket", () => {
     expect(resolveSocketPath({}, "/home/u")).toBe("/home/u/.config/herdr/herdr.sock");
   });
 });
 
 describe("HerdrClient", () => {
-  it("request が同一 id のレスポンスを解決する", async () => {
+  it("resolves a request with the response that has the same id", async () => {
     const socketPath = await makeTempSocketPath();
     const received: unknown[] = [];
     const server = createServer((socket) => {
@@ -108,7 +108,7 @@ describe("HerdrClient", () => {
     );
   });
 
-  it("server がレスポンス後に接続を閉じた場合は次の request で再接続する", async () => {
+  it("reconnects on the next request when the server closes after a response", async () => {
     const socketPath = await makeTempSocketPath();
     const received: string[] = [];
     const server = createServer((socket) => {
@@ -144,7 +144,7 @@ describe("HerdrClient", () => {
     expect(received).toEqual(["pane.list", "pane.read"]);
   });
 
-  it("応答前に接続が落ちた request は一度だけ再接続して再送する", async () => {
+  it("reconnects once and resends a request when the connection drops before a response", async () => {
     const socketPath = await makeTempSocketPath();
     const received: string[] = [];
     let connectionCount = 0;

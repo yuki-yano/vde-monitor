@@ -308,8 +308,8 @@ const detectPromptFromSegment = async ({
 };
 
 /**
- * セグメント走査ループ本体。detected / duplicate / no-pattern / DELTA_READ_ERROR の
- * いずれかに帰着するまで各セグメントを順に読み、プロンプト検知を試みる。
+ * Scans segments in order for a prompt until the result resolves to detected, duplicate,
+ * no-pattern, or DELTA_READ_ERROR.
  */
 const scanSegmentsForExternalInput = async ({
   paneId,
@@ -394,11 +394,11 @@ const scanSegmentsForExternalInput = async ({
   });
 };
 
-// 以降のガードは前段の非同期処理（stat 取得など）に依存して段階的に状態が
-// 確定していくため、テーブル駆動ではなく「型ガード付きの named predicate + 早期
-// return」で表現する。型ガードにすることで isAgentPane/logPath・stat・
-// previousCursor の non-null 化が後続コードにそのまま伝播し、余分な null
-// チェックや non-null assertion を増やさずに済む。
+// The following guards depend on earlier asynchronous work, such as stat calls, and refine state
+// incrementally. Named predicates with type guards and early returns express that flow more clearly
+// than a table-driven approach. The type guards carry the non-null refinements for
+// isAgentPane/logPath, stat, and previousCursor into the remaining code without extra null checks or
+// non-null assertions.
 const hasAgentLogPath = (isAgentPane: boolean, logPath: string | null): logPath is string =>
   isAgentPane && Boolean(logPath);
 

@@ -66,12 +66,12 @@ export const createApp = ({
     }),
   );
 
-  // 認証・Origin チェックは api ルーターの api.use("*") が /api/* 全体に適用される。
+  // The API router's api.use("*") applies authentication and Origin checks to all /api/* routes.
   app.post("/api/admin/token/rotate", (c) => {
     const next = rotateToken();
     config.token = next.token;
     notificationService.removeAllSubscriptions();
-    // 旧トークンで確立済みの SSE 接続をすべて切断する。
+    // Disconnect every SSE connection established with the previous token.
     streamConnections.closeAll();
     previewTicketService.revokeAll();
     return c.json({ token: next.token });

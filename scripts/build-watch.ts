@@ -12,8 +12,8 @@ const spawnPnpm = (args: string[]) =>
 const main = async () => {
   let shuttingDown = false;
 
-  // バンドルの .js 同期（shebang 付与・chmod 755）は tsdown.config.ts の onSuccess が
-  // 各ビルド成功時に行うため、このスクリプトはプロセス管理のみを担当する。
+  // tsdown.config.ts synchronizes bundled .js files, adds shebangs, and runs chmod 755 in onSuccess
+  // after each successful build, so this script only manages processes.
   const tsdownWatch = spawnPnpm(["exec", "tsdown", "--config", "tsdown.config.ts", "--watch"]);
   const webWatch = spawnPnpm([
     "--filter",

@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { defineConfig } from "tsdown";
 
-// scripts/bundle-utils.ts と同等の同期処理。tsdown の config loader は
-// ローカル TS モジュールの拡張子なし import を解決できないためここにインライン定義する。
+// Equivalent to the synchronization in scripts/bundle-utils.ts. This is defined inline because the
+// tsdown config loader cannot resolve extensionless imports of local TypeScript modules.
 const syncBundleJs = (distDir: string, base: string) => {
   const candidates = [`${base}.mjs`, `${base}.cjs`, `${base}.js`].map((name) =>
     path.join(distDir, name),
@@ -37,8 +37,8 @@ export default defineConfig({
   shims: false,
   deps: {
     onlyBundle: false,
-    // ルート package.json の dependencies は外部化、それ以外はバンドルされる。
-    // citty は意図的にルート deps へ置かずバンドルする境界なので明示する。
+    // Dependencies in the root package.json are externalized; everything else is bundled.
+    // citty intentionally stays out of the root dependencies, so mark the bundle boundary explicitly.
     alwaysBundle: ["citty"],
   },
   onSuccess: async () => {

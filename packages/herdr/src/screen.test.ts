@@ -12,7 +12,7 @@ const makeOptions = (paneId: string) => ({
 });
 
 describe("createHerdrScreenCapture", () => {
-  it("pane.read の visible text を TextCaptureResult に変換する", async () => {
+  it("converts visible pane.read text to TextCaptureResult", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({
         type: "pane_read",
@@ -53,7 +53,7 @@ describe("createHerdrScreenCapture", () => {
     });
   });
 
-  it("request単位の失敗を保持し、batch順序を維持する", async () => {
+  it("preserves per-request failures and batch order", async () => {
     const request = vi.fn();
     request.mockImplementation(async (_method: string, params: Record<string, unknown>) => {
       if (params.pane_id === "bad") {
@@ -84,7 +84,7 @@ describe("createHerdrScreenCapture", () => {
     expect(client.request).toHaveBeenCalledTimes(3);
   });
 
-  it("batchの同時実行数を4 requestへ制限する", async () => {
+  it("limits batch concurrency to four requests", async () => {
     let active = 0;
     let maxActive = 0;
     let release = () => {};
@@ -119,7 +119,7 @@ describe("createHerdrScreenCapture", () => {
     expect(maxActive).toBe(4);
   });
 
-  it("batchのAbortSignalを伝播し、abortをrequest失敗として返す", async () => {
+  it("propagates the batch AbortSignal and returns aborts as request failures", async () => {
     const controller = new AbortController();
     const request = vi.fn();
     request.mockImplementation(

@@ -480,7 +480,7 @@ export const runServe = async (args: ParsedArgs) => {
   });
   await monitor.start();
 
-  // SSE インフラのインスタンス化
+  // Instantiate the SSE infrastructure.
   const schedulerScreenCache = createScreenCache();
   const streamConnections = createStreamConnections();
   const streamSource = createSessionsStreamSource({ registry: monitor.registry });
@@ -556,19 +556,19 @@ export const runServe = async (args: ParsedArgs) => {
   qrcode.generate(qrUrl, { small: true });
 
   const shutdown = createGracefulShutdown({
-    // 1. SSE 接続を全切断し、クライアントに再接続を促す。
+    // 1. Disconnect all SSE connections so clients reconnect.
     closeStreams: () => {
       streamConnections.closeAll();
       streamSource.dispose();
       screenScheduler.dispose();
     },
-    // 2. owned pipe detachを含むモニター停止を最大5秒待つ。
+    // 2. Wait up to five seconds for the monitor to stop, including owned pipe detachment.
     stopMonitor: () =>
       stopMonitorAndDisposeRuntime({
         stopMonitor: () => monitor.stop(),
         disposeRuntime: runtime.dispose,
       }),
-    // 3. HTTP サーバーの新規受付を止め、既存 keep-alive を閉じる。
+    // 3. Stop accepting new HTTP connections and close existing keep-alive connections.
     closeServer: (onClosed) => server.close(onClosed),
   });
 
