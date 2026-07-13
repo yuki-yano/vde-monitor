@@ -72,7 +72,7 @@ type ScreenPanelState = {
   virtuosoRef: RefObject<VirtuosoHandle | null>;
   scrollerRef: RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
-  forceFollow: boolean;
+  shouldFollowOutput: boolean;
   rawMode: boolean;
   allowDangerKeys: boolean;
   fileResolveError: string | null;
@@ -256,7 +256,7 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     virtuosoRef,
     scrollerRef,
     isAtBottom,
-    forceFollow,
+    shouldFollowOutput,
     rawMode,
     allowDangerKeys,
     fileResolveError,
@@ -346,7 +346,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     isAtBottom,
     enabled: mode === "text" && effectiveWrapMode === "off",
     scrollerRef,
-    isUserScrolling: forceFollow,
     onUserScrollStateChange,
   });
   const smartLineClassifications = useMemo(
@@ -508,8 +507,10 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
       <ScreenPanelViewport
         mode={mode}
         effectiveWrapMode={effectiveWrapMode}
+        scrollContextKey={`${paneId}\0${mode}\0${effectiveWrapMode}`}
         imageBase64={imageBase64}
         isAtBottom={isAtBottom}
+        shouldFollowOutput={shouldFollowOutput}
         isScreenLoading={isScreenLoading}
         screenLines={linkifiedScreenLines}
         smartLineClassifications={smartLineClassifications}

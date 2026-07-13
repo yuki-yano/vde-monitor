@@ -31,6 +31,26 @@ const findSequenceInRange = (lines: string[], sequence: string[], start: number,
   return null;
 };
 
+const findNearestSequenceInRange = (
+  lines: string[],
+  sequence: string[],
+  expectedIndex: number,
+  start: number,
+  end: number,
+) => {
+  let nearestIndex: number | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (let i = start; i <= end; i += 1) {
+    if (!matchesSequenceAt(lines, sequence, i)) continue;
+    const distance = Math.abs(i - expectedIndex);
+    if (distance < nearestDistance) {
+      nearestIndex = i;
+      nearestDistance = distance;
+    }
+  }
+  return nearestIndex;
+};
+
 const findSequenceIndex = (
   lines: string[],
   sequence: string[],
@@ -42,10 +62,17 @@ const findSequenceIndex = (
   if (expectedIndex != null) {
     const windowStart = Math.max(0, expectedIndex - windowSize);
     const windowEnd = Math.min(maxStart, expectedIndex + windowSize);
-    const nearbyMatch = findSequenceInRange(lines, sequence, windowStart, windowEnd);
+    const nearbyMatch = findNearestSequenceInRange(
+      lines,
+      sequence,
+      expectedIndex,
+      windowStart,
+      windowEnd,
+    );
     if (nearbyMatch != null) {
       return nearbyMatch;
     }
+    return findNearestSequenceInRange(lines, sequence, expectedIndex, 0, maxStart);
   }
   return findSequenceInRange(lines, sequence, 0, maxStart);
 };

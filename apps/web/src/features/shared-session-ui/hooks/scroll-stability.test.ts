@@ -22,6 +22,17 @@ describe("scroll-stability", () => {
     expect(mapAnchorIndex(prev, next, 1)).toBe(1);
   });
 
+  it("chooses the duplicate sequence nearest to the expected index", () => {
+    const repeated = Array.from({ length: 400 }, () => "same");
+    expect(mapAnchorIndex(repeated, repeated.slice(), 200)).toBe(200);
+  });
+
+  it("chooses the lower duplicate index when matches are equally near", () => {
+    const { findSequenceIndex } = __testables;
+    const lines = ["match", "x", "match"];
+    expect(findSequenceIndex(lines, ["match"], 1)).toBe(0);
+  });
+
   it("finds dropped lines via suffix/prefix overlap", () => {
     const { findDropTop } = __testables;
     const prev = ["a", "b", "c", "d"];

@@ -37,6 +37,7 @@ type AnsiVirtualizedViewportProps = {
   onAtBottomChange: (value: boolean) => void;
   onRangeChanged?: (range: { startIndex: number; endIndex: number }) => void;
   followOutput?: "auto" | "smooth" | boolean;
+  shouldFollowOutput?: boolean;
   initialTopMostItemIndex?: number;
   virtuosoRef?: React.RefObject<VirtuosoHandle | null>;
   scroller?: ScrollerComponent;
@@ -74,6 +75,9 @@ const DefaultScroller = ({ className, context, ref, ...props }: AnsiVirtuosoComp
   return (
     <div
       ref={setScrollerRef}
+      role="region"
+      aria-label="Scrollable terminal output"
+      tabIndex={0}
       {...props}
       className={cn(
         "custom-scrollbar w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto rounded-2xl",
@@ -109,6 +113,7 @@ export const AnsiVirtualizedViewport = ({
   onAtBottomChange,
   onRangeChanged,
   followOutput = "auto",
+  shouldFollowOutput = isAtBottom,
   initialTopMostItemIndex,
   virtuosoRef,
   scroller,
@@ -189,7 +194,7 @@ export const AnsiVirtualizedViewport = ({
         ref={virtuosoRef}
         data={lines}
         initialTopMostItemIndex={initialTopMostItemIndex ?? Math.max(lines.length - 1, 0)}
-        followOutput={followOutput}
+        followOutput={shouldFollowOutput ? followOutput : false}
         atBottomStateChange={onAtBottomChange}
         rangeChanged={onRangeChanged}
         components={virtuosoComponents}

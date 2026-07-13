@@ -13,10 +13,8 @@ import {
   controlsShiftHeldAtom,
 } from "../atoms/controlAtoms";
 import {
-  screenAtBottomAtom,
   screenErrorAtom,
   screenFallbackReasonAtom,
-  screenForceFollowAtom,
   screenImageAtom,
   screenLoadingAtom,
   screenModeAtom,
@@ -44,8 +42,6 @@ describe("useSessionDetailScreenControls", () => {
     store.set(controlsAllowDangerKeysAtom, false);
     store.set(screenModeAtom, "text");
     store.set(screenModeLoadedAtom, { text: false, image: false });
-    store.set(screenAtBottomAtom, true);
-    store.set(screenForceFollowAtom, false);
     store.set(screenTextAtom, "");
     store.set(screenImageAtom, null);
     store.set(screenFallbackReasonAtom, null);

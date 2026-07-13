@@ -366,7 +366,7 @@ const buildDefaultContextValue = () => {
         isAtBottom: true,
         handleAtBottomChange: vi.fn(),
         handleUserScrollStateChange: vi.fn(),
-        forceFollow: false,
+        shouldFollowOutput: true,
         refreshScreen: vi.fn(),
         scrollToBottom: vi.fn(),
         handleModeChange: vi.fn(),

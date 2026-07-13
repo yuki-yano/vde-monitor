@@ -5,8 +5,6 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  logModalDisplayLinesAtom,
-  logModalIsAtBottomAtom,
   logModalOpenAtom,
   quickPanelOpenAtom,
   selectedPaneIdAtom,
@@ -35,8 +33,6 @@ describe("useSessionLogs", () => {
     const store = createStore();
     store.set(quickPanelOpenAtom, false);
     store.set(logModalOpenAtom, false);
-    store.set(logModalIsAtBottomAtom, true);
-    store.set(logModalDisplayLinesAtom, []);
     store.set(selectedPaneIdAtom, null);
     store.set(getScreenCacheAtom("logs"), {});
     store.set(getScreenCacheLoadingAtom("logs"), {});
@@ -175,45 +171,6 @@ describe("useSessionLogs", () => {
     expect(result.current.logModalOpen).toBe(true);
   });
 
-  it("resets log modal bottom state when opening a pane", () => {
-    const session = createSessionDetail();
-    const store = createStore();
-    store.set(quickPanelOpenAtom, false);
-    store.set(logModalOpenAtom, false);
-    store.set(logModalIsAtBottomAtom, false);
-    store.set(logModalDisplayLinesAtom, []);
-    store.set(selectedPaneIdAtom, null);
-    store.set(getScreenCacheAtom("logs"), {});
-    store.set(getScreenCacheLoadingAtom("logs"), {});
-    store.set(getScreenCacheErrorAtom("logs"), {});
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <JotaiProvider store={store}>{children}</JotaiProvider>
-    );
-    const { result } = renderHook(
-      () =>
-        useSessionLogs({
-          connected: true,
-          connectionIssue: null,
-          sessions: [session],
-          requestScreen: vi.fn().mockResolvedValue({
-            ok: true,
-            paneId: session.paneId,
-            mode: "text",
-            capturedAt: new Date(0).toISOString(),
-            screen: "line1",
-          }),
-          resolvedTheme: "latte",
-        }),
-      { wrapper },
-    );
-
-    act(() => {
-      result.current.openLogModal(session.paneId);
-    });
-
-    expect(store.get(logModalIsAtBottomAtom)).toBe(true);
-  });
-
   it("closes log modal when quick panel closes", async () => {
     const session = createSessionDetail();
     const wrapper = createWrapper();
@@ -260,8 +217,6 @@ describe("useSessionLogs", () => {
     const store = createStore();
     store.set(quickPanelOpenAtom, false);
     store.set(logModalOpenAtom, false);
-    store.set(logModalIsAtBottomAtom, true);
-    store.set(logModalDisplayLinesAtom, []);
     store.set(selectedPaneIdAtom, null);
     store.set(getScreenCacheAtom("logs"), {
       "pane-1": {
@@ -319,8 +274,6 @@ describe("useSessionLogs", () => {
     const store = createStore();
     store.set(quickPanelOpenAtom, false);
     store.set(logModalOpenAtom, true);
-    store.set(logModalIsAtBottomAtom, true);
-    store.set(logModalDisplayLinesAtom, []);
     store.set(selectedPaneIdAtom, "pane-1");
     store.set(getScreenCacheAtom("logs"), {
       "pane-1": {

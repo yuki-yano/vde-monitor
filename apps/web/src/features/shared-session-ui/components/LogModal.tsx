@@ -1,7 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useReducer, useRef, useState } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import {
@@ -16,11 +16,7 @@ import {
   Toolbar,
 } from "@/components/ui";
 import { useWorkspaceTabs } from "@/features/pwa-tabs/context/workspace-tabs-context";
-import {
-  logModalDisplayLinesAtom,
-  logModalIsAtBottomAtom,
-  logModalSnapRequestAtom,
-} from "@/features/shared-session-ui/atoms/logAtoms";
+import { logModalSnapRequestAtom } from "@/features/shared-session-ui/atoms/logAtoms";
 import { AnsiVirtualizedViewport } from "@/features/shared-session-ui/components/AnsiVirtualizedViewport";
 import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 import { resolveSessionDisplayTitle } from "@/features/shared-session-ui/model/session-display";
@@ -45,80 +41,155 @@ type LogModalProps = {
   actions: LogModalActions;
 };
 
+type LogSnapshot = {
+  paneId: string;
+  snapVersion: number;
+  lines: string[];
+};
+
+type LogScrollState = {
+  isAtBottom: boolean;
+  followIntent: boolean;
+};
+
+type LogScrollAction =
+  | { type: "measure-bottom"; value: boolean }
+  | { type: "pause-following" }
+  | { type: "resume-following" }
+  | { type: "reset" };
+
+const initialLogScrollState: LogScrollState = {
+  isAtBottom: true,
+  followIntent: true,
+};
+
+const reduceLogScrollState = (state: LogScrollState, action: LogScrollAction): LogScrollState => {
+  switch (action.type) {
+    case "measure-bottom":
+      return {
+        isAtBottom: action.value,
+        followIntent: action.value ? true : state.followIntent,
+      };
+    case "pause-following":
+      return { ...state, followIntent: false };
+    case "resume-following":
+      return { ...state, followIntent: true };
+    case "reset":
+      return initialLogScrollState;
+  }
+};
+
+const matchesContext = (
+  snapshot: Pick<LogSnapshot, "paneId" | "snapVersion"> | null,
+  paneId: string | null,
+  snapVersion: number,
+) => snapshot?.paneId === paneId && snapshot.snapVersion === snapVersion;
+
 export const LogModal = ({ state, actions }: LogModalProps) => {
   const { open, session, logLines, loading, error } = state;
   const { onClose, onOpenHere, onOpenNewTab } = actions;
   const { enabled: pwaTabsEnabled } = useWorkspaceTabs();
   const snapRequest = useAtomValue(logModalSnapRequestAtom);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  const [isAtBottom, setIsAtBottom] = useAtom(logModalIsAtBottomAtom);
-  const [displayLines, setDisplayLines] = useAtom(logModalDisplayLinesAtom);
-  const pendingLinesRef = useRef<string[] | null>(null);
+  const [{ isAtBottom, followIntent }, dispatchScrollState] = useReducer(
+    reduceLogScrollState,
+    initialLogScrollState,
+  );
+  const [displaySnapshot, setDisplaySnapshot] = useState<LogSnapshot | null>(null);
+  const activeContextRef = useRef<Pick<LogSnapshot, "paneId" | "snapVersion"> | null>(null);
+  const pendingSnapshotRef = useRef<LogSnapshot | null>(null);
+  const pendingSnapRef = useRef<Pick<LogSnapshot, "paneId" | "snapVersion"> | null>(null);
   const isUserScrollingRef = useRef(false);
-  const shouldSnapOnNextLinesRef = useRef(open);
-  const lastSnapRequestRef = useRef(snapRequest);
-  if (lastSnapRequestRef.current !== snapRequest) {
-    lastSnapRequestRef.current = snapRequest;
-    shouldSnapOnNextLinesRef.current = true;
-  }
+  const paneId = open && session ? session.paneId : null;
+  const snapVersion = snapRequest.paneId === paneId ? snapRequest.version : -1;
+  const displayLines = matchesContext(displaySnapshot, paneId, snapVersion)
+    ? (displaySnapshot?.lines ?? [])
+    : [];
+  const effectiveIsAtBottom = displayLines.length === 0 ? true : isAtBottom;
+
   const handleUserScrollStateChange = useCallback(
     (value: boolean) => {
+      if (!matchesContext(activeContextRef.current, paneId, snapVersion)) {
+        return;
+      }
       isUserScrollingRef.current = value;
-      if (!value && pendingLinesRef.current) {
-        setDisplayLines(pendingLinesRef.current);
-        pendingLinesRef.current = null;
+      if (value) {
+        dispatchScrollState({ type: "pause-following" });
+      }
+      if (!value && matchesContext(pendingSnapshotRef.current, paneId, snapVersion)) {
+        setDisplaySnapshot(pendingSnapshotRef.current);
+        pendingSnapshotRef.current = null;
       }
     },
-    [setDisplayLines],
+    [paneId, snapVersion],
   );
   const { scrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
     items: displayLines,
-    isAtBottom,
+    isAtBottom: effectiveIsAtBottom,
     enabled: open,
     onUserScrollStateChange: handleUserScrollStateChange,
   });
 
-  useEffect(() => {
-    if (!open) {
-      pendingLinesRef.current = null;
+  useLayoutEffect(() => {
+    if (!open || !paneId) {
+      activeContextRef.current = null;
+      pendingSnapshotRef.current = null;
+      pendingSnapRef.current = null;
+      isUserScrollingRef.current = false;
+      setDisplaySnapshot(null);
+      dispatchScrollState({ type: "reset" });
       return;
     }
+
+    const snapshot = { paneId, snapVersion, lines: logLines };
+    const contextChanged = !matchesContext(activeContextRef.current, paneId, snapVersion);
+    if (contextChanged) {
+      activeContextRef.current = { paneId, snapVersion };
+      pendingSnapshotRef.current = null;
+      pendingSnapRef.current = snapRequest.paneId === paneId ? { paneId, snapVersion } : null;
+      isUserScrollingRef.current = false;
+      dispatchScrollState({ type: "reset" });
+    }
+
     if (isUserScrollingRef.current) {
-      pendingLinesRef.current = logLines;
+      pendingSnapshotRef.current = snapshot;
       return;
     }
-    setDisplayLines(logLines);
-    pendingLinesRef.current = null;
-  }, [logLines, open, setDisplayLines]);
+
+    setDisplaySnapshot(snapshot);
+    pendingSnapshotRef.current = null;
+  }, [logLines, open, paneId, snapRequest.paneId, snapVersion]);
 
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "smooth") => {
       if (displayLines.length === 0) {
         return;
       }
+      dispatchScrollState({ type: "resume-following" });
       virtuosoRef.current?.scrollToIndex({
         index: displayLines.length - 1,
         behavior,
         align: "end",
       });
-      if (scrollerRef.current) {
-        scrollerRef.current.scrollTo({
-          top: scrollerRef.current.scrollHeight,
-          left: 0,
-          behavior,
-        });
-      }
     },
-    [displayLines.length, scrollerRef],
+    [displayLines.length],
   );
 
   useLayoutEffect(() => {
-    if (!open || displayLines.length === 0 || !shouldSnapOnNextLinesRef.current) {
+    if (
+      !open ||
+      displayLines.length === 0 ||
+      !matchesContext(pendingSnapRef.current, paneId, snapVersion)
+    ) {
       return;
     }
     scrollToBottom("auto");
-    shouldSnapOnNextLinesRef.current = false;
-  }, [displayLines.length, open, scrollToBottom]);
+    pendingSnapRef.current = null;
+  }, [displayLines.length, open, paneId, scrollToBottom, snapVersion]);
+
+  const handleAtBottomChange = useCallback((value: boolean) => {
+    dispatchScrollState({ type: "measure-bottom", value });
+  }, []);
 
   if (!open || !session) return null;
 
@@ -201,8 +272,9 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
             lines={displayLines}
             loading={loading}
             loadingLabel="Loading log..."
-            isAtBottom={isAtBottom}
-            onAtBottomChange={setIsAtBottom}
+            isAtBottom={effectiveIsAtBottom}
+            shouldFollowOutput={effectiveIsAtBottom || followIntent}
+            onAtBottomChange={handleAtBottomChange}
             onRangeChanged={handleRangeChanged}
             virtuosoRef={virtuosoRef}
             scrollerRef={scrollerRef}

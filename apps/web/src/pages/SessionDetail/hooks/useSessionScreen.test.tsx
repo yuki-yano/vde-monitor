@@ -6,10 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { initialScreenLoadingState } from "@/lib/screen-loading";
 
 import {
-  screenAtBottomAtom,
   screenErrorAtom,
   screenFallbackReasonAtom,
-  screenForceFollowAtom,
   screenImageAtom,
   screenLoadingAtom,
   screenModeAtom,
@@ -27,8 +25,6 @@ describe("useSessionScreen", () => {
     const store = createStore();
     store.set(screenModeAtom, "text");
     store.set(screenModeLoadedAtom, { text: false, image: false });
-    store.set(screenAtBottomAtom, true);
-    store.set(screenForceFollowAtom, false);
     store.set(screenTextAtom, "");
     store.set(screenImageAtom, null);
     store.set(screenFallbackReasonAtom, null);

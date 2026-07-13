@@ -36,7 +36,7 @@ export const useScreenPanelState = () => {
       isAtBottom: screen.isAtBottom,
       handleAtBottomChange: screen.handleAtBottomChange,
       handleUserScrollStateChange: screen.handleUserScrollStateChange,
-      forceFollow: screen.forceFollow,
+      shouldFollowOutput: screen.shouldFollowOutput,
       scrollToBottom: screen.scrollToBottom,
       handleModeChange: screen.handleModeChange,
       toggleWrapMode: screen.toggleWrapMode,

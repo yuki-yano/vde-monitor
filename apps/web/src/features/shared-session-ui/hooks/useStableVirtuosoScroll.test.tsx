@@ -260,7 +260,7 @@ describe("useStableVirtuosoScroll", () => {
         }}
       />,
     );
-    expect(getControl().scroller.scrollTop).toBe(10);
+    expect(getControl().scroller.scrollTop).toBe(20);
 
     rectSpy.mockRestore();
   });
@@ -270,17 +270,13 @@ describe("useStableVirtuosoScroll", () => {
       __testables.shouldSuppressCorrection({
         isInternalUserScrolling: true,
         isExternalUserScrolling: false,
-        recentlyScrolled: false,
       }),
     ).toBe(true);
   });
 
-  it("keeps correction suppressed during recent-scroll cooldown after internal scroll end", () => {
+  it("applies a pending correction immediately after internal scroll ends", () => {
     vi.useFakeTimers();
     const rectSpy = mockRects();
-    const nowSpy = vi.spyOn(performance, "now");
-    let now = 1_000;
-    nowSpy.mockImplementation(() => now);
     let control: Control | null = null;
     const getControl = () => {
       if (!control) throw new Error("control not ready");
@@ -304,12 +300,6 @@ describe("useStableVirtuosoScroll", () => {
       getControl().scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: 20 }));
     });
 
-    now += 121;
-    act(() => {
-      vi.advanceTimersByTime(121);
-    });
-
-    now += 5;
     rerender(
       <TestHarness
         items={["X", "A", "B", "C", "D"]}
@@ -321,19 +311,11 @@ describe("useStableVirtuosoScroll", () => {
     );
     expect(getControl().scroller.scrollTop).toBe(0);
 
-    now += 200;
-    rerender(
-      <TestHarness
-        items={["Y", "X", "A", "B", "C", "D"]}
-        isAtBottom={false}
-        onReady={(next) => {
-          control = next;
-        }}
-      />,
-    );
+    act(() => {
+      vi.advanceTimersByTime(120);
+    });
     expect(getControl().scroller.scrollTop).toBe(10);
 
-    nowSpy.mockRestore();
     rectSpy.mockRestore();
     vi.useRealTimers();
   });
@@ -419,7 +401,42 @@ describe("useStableVirtuosoScroll", () => {
     rectSpy.mockRestore();
   });
 
-  it("suppresses correction after programmatic scroll", () => {
+  it("tracks horizontal keyboard navigation as user scrolling", () => {
+    vi.useFakeTimers();
+    const rectSpy = mockRects();
+    let control: Control | null = null;
+    const onUserScrollStateChange = vi.fn();
+    const getControl = () => {
+      if (!control) throw new Error("control not ready");
+      return control;
+    };
+
+    render(
+      <TestHarness
+        items={["A", "B", "C"]}
+        isAtBottom={false}
+        onUserScrollStateChange={onUserScrollStateChange}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    act(() => {
+      getControl().scroller.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(onUserScrollStateChange).toHaveBeenLastCalledWith(true);
+
+    act(() => {
+      vi.advanceTimersByTime(120);
+    });
+    expect(onUserScrollStateChange).toHaveBeenLastCalledWith(false);
+
+    rectSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("does not suppress correction after programmatic scroll", () => {
     const rectSpy = mockRects();
     let control: Control | null = null;
     const getControl = () => {
@@ -455,7 +472,93 @@ describe("useStableVirtuosoScroll", () => {
       />,
     );
 
-    expect(getControl().scroller.scrollTop).toBe(20);
+    expect(getControl().scroller.scrollTop).toBe(30);
     rectSpy.mockRestore();
+  });
+
+  it("releases user scrolling state when disabled", () => {
+    vi.useFakeTimers();
+    const rectSpy = mockRects();
+    let control: Control | null = null;
+    const onUserScrollStateChange = vi.fn();
+    const getControl = () => {
+      if (!control) throw new Error("control not ready");
+      return control;
+    };
+
+    const { rerender } = render(
+      <TestHarness
+        items={["A", "B", "C"]}
+        isAtBottom={false}
+        onUserScrollStateChange={onUserScrollStateChange}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    act(() => {
+      getControl().scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: 20 }));
+    });
+    expect(onUserScrollStateChange).toHaveBeenLastCalledWith(true);
+
+    rerender(
+      <TestHarness
+        items={["A", "B", "C"]}
+        isAtBottom={false}
+        enabled={false}
+        onUserScrollStateChange={onUserScrollStateChange}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    expect(onUserScrollStateChange).toHaveBeenLastCalledWith(false);
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    expect(onUserScrollStateChange).toHaveBeenCalledTimes(2);
+
+    rectSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("releases user scrolling state when unmounted", () => {
+    vi.useFakeTimers();
+    const rectSpy = mockRects();
+    let control: Control | null = null;
+    const onUserScrollStateChange = vi.fn();
+    const getControl = () => {
+      if (!control) throw new Error("control not ready");
+      return control;
+    };
+
+    const { unmount } = render(
+      <TestHarness
+        items={["A", "B", "C"]}
+        isAtBottom={false}
+        onUserScrollStateChange={onUserScrollStateChange}
+        onReady={(next) => {
+          control = next;
+        }}
+      />,
+    );
+
+    act(() => {
+      getControl().scroller.dispatchEvent(new WheelEvent("wheel", { deltaY: 20 }));
+    });
+    unmount();
+
+    expect(onUserScrollStateChange).toHaveBeenCalledTimes(2);
+    expect(onUserScrollStateChange).toHaveBeenNthCalledWith(1, true);
+    expect(onUserScrollStateChange).toHaveBeenNthCalledWith(2, false);
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    expect(onUserScrollStateChange).toHaveBeenCalledTimes(2);
+
+    rectSpy.mockRestore();
+    vi.useRealTimers();
   });
 });

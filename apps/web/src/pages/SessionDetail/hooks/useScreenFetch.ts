@@ -7,6 +7,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from "react";
 
@@ -39,6 +40,17 @@ const buildScreenOptions = (mode: ScreenMode, cursor: string | null) => {
     options.cursor = cursor;
   }
   return options;
+};
+
+type AppliedScreenResponse = {
+  contextKey: string;
+  capturedAtMs: number;
+};
+
+type ScreenFetchContext = {
+  key: string;
+  paneId: string;
+  mode: ScreenMode;
 };
 
 // Suppress renders while the user is actively scrolling (any axis, even at the
@@ -130,11 +142,25 @@ export const useScreenFetch = ({
 }: UseScreenFetchParams) => {
   const [fallbackReason, setFallbackReason] = useAtom(screenFallbackReasonAtom);
   const [error, setError] = useAtom(screenErrorAtom);
+  const screenContextKey = `${paneId}\0${mode}`;
+  const currentContextRef = useRef<ScreenFetchContext>({
+    key: screenContextKey,
+    paneId,
+    mode,
+  });
+  useLayoutEffect(() => {
+    currentContextRef.current = { key: screenContextKey, paneId, mode };
+  }, [mode, paneId, screenContextKey]);
   const pollingPauseReason = useScreenPollingPauseReason({
     connected,
     connectionIssue,
   });
   const refreshLifecycleRef = useRef(initialScreenFetchLifecycleState);
+  const latestAppliedResponseRef = useRef<AppliedScreenResponse>({
+    contextKey: "",
+    capturedAtMs: Number.NEGATIVE_INFINITY,
+  });
+  const sseGenerationRef = useRef(0);
   const applyRefreshLifecycleAction = useCallback((action: ScreenFetchLifecycleAction) => {
     refreshLifecycleRef.current = screenFetchLifecycleReducer(refreshLifecycleRef.current, action);
     return refreshLifecycleRef.current;
@@ -144,6 +170,34 @@ export const useScreenFetch = ({
     () => connectionIssue !== API_ERROR_MESSAGES.unauthorized,
     [connectionIssue],
   );
+
+  const acceptCurrentResponse = useCallback((response: ScreenResponse) => {
+    const currentContext = currentContextRef.current;
+    if (response.paneId !== currentContext.paneId || response.mode !== currentContext.mode) {
+      return false;
+    }
+
+    const capturedAtMs = Date.parse(response.capturedAt);
+    if (!Number.isFinite(capturedAtMs)) {
+      return false;
+    }
+
+    const latestApplied = latestAppliedResponseRef.current;
+    if (
+      latestApplied.contextKey === currentContext.key &&
+      capturedAtMs < latestApplied.capturedAtMs
+    ) {
+      return false;
+    }
+
+    if (response.ok) {
+      latestAppliedResponseRef.current = {
+        contextKey: currentContext.key,
+        capturedAtMs,
+      };
+    }
+    return true;
+  }, []);
 
   const updateImageScreen = useCallback(
     (nextImage: string | null, immediateCommit: boolean) => {
@@ -267,6 +321,7 @@ export const useScreenFetch = ({
       mode === "image" ? imageRef.current != null : screenRef.current.length > 0;
     const nextLifecycle = applyRefreshLifecycleAction({
       type: "request",
+      contextKey: screenContextKey,
       mode,
       modeSwitch: modeSwitchRef.current,
       modeLoaded: modeLoadedRef.current,
@@ -289,11 +344,15 @@ export const useScreenFetch = ({
     modeLoadedRef,
     modeSwitchRef,
     screenRef,
+    screenContextKey,
     setError,
   ]);
 
   const applyRefreshResponse = useCallback(
     (response: ScreenResponse, suppressRender: boolean, immediateCommit: boolean) => {
+      if (!acceptCurrentResponse(response)) {
+        return;
+      }
       if (!response.ok) {
         setError(response.error?.message ?? API_ERROR_MESSAGES.screenCapture);
         return;
@@ -306,7 +365,15 @@ export const useScreenFetch = ({
       }
       onModeLoaded(mode);
     },
-    [applyTextResponse, mode, onModeLoaded, setError, setFallbackReason, updateImageScreen],
+    [
+      acceptCurrentResponse,
+      applyTextResponse,
+      mode,
+      onModeLoaded,
+      setError,
+      setFallbackReason,
+      updateImageScreen,
+    ],
   );
 
   const finishRefreshAttempt = useCallback(
@@ -335,15 +402,24 @@ export const useScreenFetch = ({
     if (!attempt) {
       return;
     }
+    const requestCursor = cursorRef.current;
+    const requestSseGeneration = sseGenerationRef.current;
+    const isCurrentAttempt = () =>
+      refreshLifecycleRef.current.inFlight?.id === attempt.requestId &&
+      currentContextRef.current.key === attempt.contextKey &&
+      sseGenerationRef.current === requestSseGeneration &&
+      cursorRef.current === requestCursor;
     try {
-      const response = await requestScreen(paneId, buildScreenOptions(mode, cursorRef.current));
-      if (refreshLifecycleRef.current.inFlight?.id !== attempt.requestId) {
+      const response = await requestScreen(paneId, buildScreenOptions(mode, requestCursor));
+      if (!isCurrentAttempt()) {
         return;
       }
       const suppressRender = shouldSuppressTextRender(mode, isUserScrollingRef.current);
       applyRefreshResponse(response, suppressRender, attempt.shouldShowLoading);
     } catch (err) {
-      setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.screenRequestFailed));
+      if (isCurrentAttempt()) {
+        setError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.screenRequestFailed));
+      }
     } finally {
       finishRefreshAttempt(attempt);
     }
@@ -368,12 +444,16 @@ export const useScreenFetch = ({
   // REST lifecycle (no in-flight tracking needed for push events).
   const handleSseScreenEvent = useCallback(
     (response: ScreenResponse) => {
+      if (!acceptCurrentResponse(response)) {
+        return;
+      }
       if (!response.ok) {
         setFallbackReason(null);
         setError(response.error?.message ?? API_ERROR_MESSAGES.screenCapture);
         onModeLoaded(mode);
         return;
       }
+      sseGenerationRef.current += 1;
       setError(null);
       setFallbackReason(response.fallbackReason ?? null);
       // react-doctor-disable-next-line no-event-handler
@@ -382,7 +462,15 @@ export const useScreenFetch = ({
       // react-doctor-disable-next-line no-event-handler
       onModeLoaded(mode);
     },
-    [applyTextResponse, isUserScrollingRef, mode, onModeLoaded, setError, setFallbackReason],
+    [
+      acceptCurrentResponse,
+      applyTextResponse,
+      isUserScrollingRef,
+      mode,
+      onModeLoaded,
+      setError,
+      setFallbackReason,
+    ],
   );
 
   const { transport } = useScreenStream({
@@ -411,7 +499,7 @@ export const useScreenFetch = ({
   // False positive: initial and parameter-change screen loads are lifecycle IO,
   // not render-time data flowing back to the parent.
   useEffect(() => {
-    // react-doctor-disable-next-line no-pass-data-to-parent
+    // react-doctor-disable-next-line no-pass-data-to-parent, react-doctor/no-pass-live-state-to-parent
     refreshScreen();
   }, [refreshScreen]);
 

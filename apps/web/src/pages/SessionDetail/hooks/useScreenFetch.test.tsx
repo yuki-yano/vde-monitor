@@ -186,6 +186,78 @@ describe("useScreenFetch", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("starts the new pane request and rejects the old pane REST response", async () => {
+    let resolvePaneOne!: (value: ScreenResponse) => void;
+    let resolvePaneTwo!: (value: ScreenResponse) => void;
+    const requestScreen = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<ScreenResponse>((resolve) => {
+          resolvePaneOne = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<ScreenResponse>((resolve) => {
+          resolvePaneTwo = resolve;
+        }),
+      );
+    const setScreen = vi.fn();
+    const screenRef = { current: "" };
+    const sharedParams = {
+      connected: true,
+      connectionIssue: null,
+      requestScreen,
+      mode: "text" as const,
+      isUserScrollingRef: { current: false },
+      modeLoadedRef: { current: { text: false, image: false } },
+      modeSwitchRef: { current: null },
+      screenRef,
+      imageRef: { current: null },
+      cursorRef: { current: null },
+      screenLinesRef: { current: [] as string[] },
+      pendingScreenRef: { current: null as string | null },
+      setScreen,
+      setImageBase64: vi.fn(),
+      dispatchScreenLoading: vi.fn(),
+      onModeLoaded: vi.fn(),
+    };
+    const { rerender } = renderHook(
+      (paneId: string) => useScreenFetch({ ...sharedParams, paneId }),
+      { initialProps: "pane-1" },
+    );
+
+    await waitFor(() => {
+      expect(requestScreen).toHaveBeenCalledWith("pane-1", { mode: "text" });
+    });
+    rerender("pane-2");
+    await waitFor(() => {
+      expect(requestScreen).toHaveBeenCalledWith("pane-2", { mode: "text" });
+    });
+
+    await act(async () => {
+      resolvePaneOne({
+        ok: true,
+        paneId: "pane-1",
+        mode: "text",
+        capturedAt: new Date(2_000).toISOString(),
+        screen: "old-pane",
+      });
+    });
+    expect(setScreen).not.toHaveBeenCalledWith("old-pane");
+
+    await act(async () => {
+      resolvePaneTwo({
+        ok: true,
+        paneId: "pane-2",
+        mode: "text",
+        capturedAt: new Date(1_000).toISOString(),
+        screen: "new-pane",
+      });
+    });
+    expect(screenRef.current).toBe("new-pane");
+    expect(setScreen).toHaveBeenCalledWith("new-pane");
+  });
+
   it("skips polling while document is hidden", async () => {
     vi.useFakeTimers();
     Object.defineProperty(document, "hidden", { value: true, configurable: true });
@@ -407,6 +479,186 @@ describe("useScreenFetch", () => {
     await firstEventDelivered;
 
     expect(setScreen).toHaveBeenCalledWith("from-sse");
+  });
+
+  it("does not let an older REST response overwrite a newer SSE screen", async () => {
+    const enc = new TextEncoder();
+    const sseResponse: ScreenResponse = {
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(2_000).toISOString(),
+      screen: "newer-sse",
+      full: true,
+    };
+
+    server.use(
+      http.get("/api/streams/sessions/pane-1/screen", () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              enc.encode(`event: screen\ndata: ${JSON.stringify(sseResponse)}\n\n`),
+            );
+          },
+          cancel() {},
+        });
+        return new HttpResponse(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+    );
+
+    let resolveRest!: (response: ScreenResponse) => void;
+    const requestScreen = vi.fn(
+      () =>
+        new Promise<ScreenResponse>((resolve) => {
+          resolveRest = resolve;
+        }),
+    );
+    const screenRef = { current: "" };
+    const setScreen = vi.fn();
+    const { params } = setup({
+      requestScreen,
+      screenRef,
+      setScreen,
+      apiBasePath: "/api",
+      token: "test-token",
+    });
+
+    await waitFor(() => {
+      expect(setScreen).toHaveBeenCalledWith("newer-sse");
+    });
+
+    await act(async () => {
+      resolveRest({
+        ok: true,
+        paneId: "pane-1",
+        mode: "text",
+        capturedAt: new Date(1_000).toISOString(),
+        screen: "older-rest",
+        full: true,
+      });
+    });
+
+    expect(screenRef.current).toBe("newer-sse");
+    expect(setScreen).not.toHaveBeenCalledWith("older-rest");
+    expect(params.onModeLoaded).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a newer REST delta when SSE changed its cursor base", async () => {
+    const enc = new TextEncoder();
+    const sseResponse: ScreenResponse = {
+      ok: true,
+      paneId: "pane-1",
+      mode: "text",
+      capturedAt: new Date(1_000).toISOString(),
+      cursor: "sse-cursor",
+      screen: "sse-a\nsse-b",
+      full: true,
+    };
+    server.use(
+      http.get("/api/streams/sessions/pane-1/screen", () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              enc.encode(`event: screen\ndata: ${JSON.stringify(sseResponse)}\n\n`),
+            );
+          },
+          cancel() {},
+        });
+        return new HttpResponse(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+    );
+
+    let resolveRest!: (response: ScreenResponse) => void;
+    const requestScreen = vi.fn(
+      () =>
+        new Promise<ScreenResponse>((resolve) => {
+          resolveRest = resolve;
+        }),
+    );
+    const cursorRef = { current: "rest-base" as string | null };
+    const screenRef = { current: "rest-a\nrest-b" };
+    const screenLinesRef = { current: ["rest-a", "rest-b"] };
+    const setScreen = vi.fn();
+    setup({
+      requestScreen,
+      cursorRef,
+      screenRef,
+      screenLinesRef,
+      setScreen,
+      apiBasePath: "/api",
+      token: "test-token",
+    });
+
+    await waitFor(() => {
+      expect(setScreen).toHaveBeenCalledWith("sse-a\nsse-b");
+    });
+    expect(cursorRef.current).toBe("sse-cursor");
+
+    await act(async () => {
+      resolveRest({
+        ok: true,
+        paneId: "pane-1",
+        mode: "text",
+        capturedAt: new Date(1_000).toISOString(),
+        cursor: "rest-next",
+        full: false,
+        deltas: [{ start: 0, deleteCount: 1, insertLines: ["corrupt"] }],
+      });
+    });
+
+    expect(screenRef.current).toBe("sse-a\nsse-b");
+    expect(screenLinesRef.current).toEqual(["sse-a", "sse-b"]);
+    expect(setScreen).not.toHaveBeenCalledWith("corrupt\nsse-b");
+    expect(cursorRef.current).toBe("sse-cursor");
+  });
+
+  it("ignores SSE screen events for another pane", async () => {
+    const enc = new TextEncoder();
+    const wrongPaneResponse: ScreenResponse = {
+      ok: true,
+      paneId: "pane-2",
+      mode: "text",
+      capturedAt: new Date(1_000).toISOString(),
+      screen: "wrong-pane",
+      full: true,
+    };
+
+    server.use(
+      http.get("/api/streams/sessions/pane-1/screen", () => {
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              enc.encode(`event: screen\ndata: ${JSON.stringify(wrongPaneResponse)}\n\n`),
+            );
+          },
+          cancel() {},
+        });
+        return new HttpResponse(stream, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
+      }),
+    );
+
+    const requestScreen = vi.fn(() => new Promise<ScreenResponse>(() => {}));
+    const setScreen = vi.fn();
+    const { result, params } = setup({
+      requestScreen,
+      setScreen,
+      apiBasePath: "/api",
+      token: "test-token",
+    });
+
+    await waitFor(() => {
+      expect(result.current.transport).toBe("sse");
+    });
+    await act(async () => {});
+
+    expect(setScreen).not.toHaveBeenCalledWith("wrong-pane");
+    expect(params.onModeLoaded).not.toHaveBeenCalled();
   });
 
   it("surfaces an SSE capture error and finishes the initial loading state", async () => {

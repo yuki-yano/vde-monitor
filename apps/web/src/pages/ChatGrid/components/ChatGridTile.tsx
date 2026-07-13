@@ -8,6 +8,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -34,6 +35,7 @@ import { useTerminalControls } from "@/features/shared-session-ui/hooks/useTermi
 import { useTitleEditor } from "@/features/shared-session-ui/hooks/useTitleEditor";
 import { confirmDangerousText } from "@/features/shared-session-ui/model/danger-confirm";
 import { useRawInputHandlers } from "@/features/shared-session-ui/hooks/useRawInputHandlers";
+import { useStableVirtuosoScroll } from "@/features/shared-session-ui/hooks/useStableVirtuosoScroll";
 import {
   linkifyLogLineFileReferences,
   linkifyLogLineHttpUrls,
@@ -64,6 +66,11 @@ type ChatGridTileProps = {
   screenError: string | null;
   onTouchSession?: (paneId: string) => Promise<void> | void;
   onRemoveFromGrid?: (paneId: string) => void;
+};
+
+type ScreenSnapshot = {
+  paneId: string;
+  lines: string[];
 };
 
 type ChatGridTileHeaderProps = {
@@ -228,6 +235,7 @@ export const ChatGridTile = ({
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [forceFollow, setForceFollow] = useState(true);
   const [autoEnter, setAutoEnter] = useState(true);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [ctrlHeld, setCtrlHeld] = useState(false);
@@ -256,7 +264,7 @@ export const ChatGridTile = ({
     resetSessionTitle,
     skipSaveIfUnchanged: true,
   });
-  const displayLines = useMemo(() => {
+  const renderedScreenLines = useMemo(() => {
     if (screenLines.length > 0) {
       return screenLines.map((line) => {
         let linkified = linkifyLogLineFileReferences(line, {
@@ -273,8 +281,60 @@ export const ChatGridTile = ({
     }
     return ["No screen data yet."];
   }, [screenLines, screenLoading]);
+  const [displaySnapshot, setDisplaySnapshot] = useState<ScreenSnapshot>(() => ({
+    paneId: session.paneId,
+    lines: renderedScreenLines,
+  }));
+  const activePaneIdRef = useRef(session.paneId);
+  const pendingSnapshotRef = useRef<ScreenSnapshot | null>(null);
+  const isUserScrollingRef = useRef(false);
+  const displayLines =
+    displaySnapshot.paneId === session.paneId ? displaySnapshot.lines : ([] as string[]);
+  const effectiveIsAtBottom = displayLines.length === 0 ? true : isAtBottom;
+
+  useLayoutEffect(() => {
+    const snapshot = { paneId: session.paneId, lines: renderedScreenLines };
+    if (activePaneIdRef.current !== session.paneId) {
+      activePaneIdRef.current = session.paneId;
+      pendingSnapshotRef.current = null;
+      isUserScrollingRef.current = false;
+      setIsAtBottom(true);
+      setForceFollow(true);
+    }
+    if (isUserScrollingRef.current) {
+      pendingSnapshotRef.current = snapshot;
+      return;
+    }
+    pendingSnapshotRef.current = null;
+    setDisplaySnapshot(snapshot);
+  }, [renderedScreenLines, session.paneId]);
+
+  const handleUserScrollStateChange = useCallback(
+    (value: boolean) => {
+      if (activePaneIdRef.current !== session.paneId) {
+        return;
+      }
+      isUserScrollingRef.current = value;
+      if (value) {
+        setForceFollow(false);
+        return;
+      }
+      const pendingSnapshot = pendingSnapshotRef.current;
+      if (pendingSnapshot?.paneId === session.paneId) {
+        pendingSnapshotRef.current = null;
+        setDisplaySnapshot(pendingSnapshot);
+      }
+    },
+    [session.paneId],
+  );
+  const { scrollerRef, handleRangeChanged } = useStableVirtuosoScroll({
+    items: displayLines,
+    isAtBottom: effectiveIsAtBottom,
+    onUserScrollStateChange: handleUserScrollStateChange,
+  });
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "smooth") => {
+      setForceFollow(true);
       virtuosoRef.current?.scrollToIndex({
         index: Math.max(displayLines.length - 1, 0),
         behavior,
@@ -437,9 +497,12 @@ export const ChatGridTile = ({
             lines={displayLines}
             loading={screenLoading}
             loadingLabel="Loading screen..."
-            isAtBottom={isAtBottom}
+            isAtBottom={effectiveIsAtBottom}
+            shouldFollowOutput={effectiveIsAtBottom || forceFollow}
             onAtBottomChange={setIsAtBottom}
+            onRangeChanged={handleRangeChanged}
             virtuosoRef={virtuosoRef}
+            scrollerRef={scrollerRef}
             onScrollToBottom={scrollToBottom}
             className="border-latte-surface2/80 bg-latte-crust/95 shadow-inner-soft relative min-h-[180px] w-full min-w-0 flex-1 rounded-2xl border"
             viewportClassName="h-full w-full min-w-0"

@@ -3,8 +3,11 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type RefObject,
+  type TouchEvent,
   type UIEvent,
+  type WheelEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -24,7 +27,9 @@ type SmartScreenViewportProps = {
   classifications: SmartWrapLineClassification[];
   loading: boolean;
   loadingLabel: string;
+  scrollContextKey: string;
   isAtBottom: boolean;
+  shouldFollowOutput: boolean;
   onAtBottomChange: (value: boolean) => void;
   onRangeChanged: (range: { startIndex: number; endIndex: number }) => void;
   scrollerRef: RefObject<HTMLDivElement | null>;
@@ -39,12 +44,27 @@ type SmartScreenViewportProps = {
 const resolveIsAtBottom = (node: HTMLDivElement) =>
   node.scrollHeight - (node.scrollTop + node.clientHeight) <= 2;
 
+const SCROLL_END_DELAY_MS = 120;
+const SCROLL_KEYS = new Set([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+  " ",
+]);
+
 export const SmartScreenViewport = ({
   lines,
   classifications,
   loading,
   loadingLabel,
+  scrollContextKey,
   isAtBottom,
+  shouldFollowOutput,
   onAtBottomChange,
   onRangeChanged,
   scrollerRef,
@@ -56,6 +76,8 @@ export const SmartScreenViewport = ({
   height = "100%",
 }: SmartScreenViewportProps) => {
   const scrollEndTimerRef = useRef<number | null>(null);
+  const isUserScrollingRef = useRef(false);
+  const previousScrollContextKeyRef = useRef(scrollContextKey);
   const decoratedLines = useMemo(
     () => decorateSmartWrapLines(lines, classifications),
     [classifications, lines],
@@ -82,7 +104,7 @@ export const SmartScreenViewport = ({
   }, [lines.length, onRangeChanged]);
 
   useLayoutEffect(() => {
-    if (!isAtBottom) {
+    if (!shouldFollowOutput) {
       return;
     }
     const node = scrollerRef.current;
@@ -96,7 +118,7 @@ export const SmartScreenViewport = ({
       return;
     }
     node.scrollTop = node.scrollHeight;
-  }, [decoratedLines, isAtBottom, scrollerRef]);
+  }, [decoratedLines, scrollerRef, shouldFollowOutput]);
 
   // False positive: the viewport owns the DOM measurement, and the parent owns
   // the toolbar state that depends on it. There is no render-time value to lift.
@@ -109,14 +131,49 @@ export const SmartScreenViewport = ({
     onAtBottomChange(resolveIsAtBottom(node));
   }, [decoratedLines, onAtBottomChange, scrollerRef]);
 
-  useEffect(
-    () => () => {
-      if (scrollEndTimerRef.current != null) {
-        window.clearTimeout(scrollEndTimerRef.current);
-      }
-    },
-    [],
-  );
+  const finishUserScroll = useCallback(() => {
+    if (!isUserScrollingRef.current) {
+      return;
+    }
+    isUserScrollingRef.current = false;
+    onUserScrollStateChange(false);
+  }, [onUserScrollStateChange]);
+
+  const scheduleUserScrollEnd = useCallback(() => {
+    if (scrollEndTimerRef.current != null) {
+      window.clearTimeout(scrollEndTimerRef.current);
+    }
+    scrollEndTimerRef.current = window.setTimeout(() => {
+      scrollEndTimerRef.current = null;
+      finishUserScroll();
+    }, SCROLL_END_DELAY_MS);
+  }, [finishUserScroll]);
+
+  const beginUserScroll = useCallback(() => {
+    if (!isUserScrollingRef.current) {
+      isUserScrollingRef.current = true;
+      onUserScrollStateChange(true);
+    }
+    scheduleUserScrollEnd();
+  }, [onUserScrollStateChange, scheduleUserScrollEnd]);
+
+  const resetUserScroll = useCallback(() => {
+    if (scrollEndTimerRef.current != null) {
+      window.clearTimeout(scrollEndTimerRef.current);
+      scrollEndTimerRef.current = null;
+    }
+    finishUserScroll();
+  }, [finishUserScroll]);
+
+  useEffect(() => {
+    if (previousScrollContextKeyRef.current === scrollContextKey) {
+      return;
+    }
+    previousScrollContextKeyRef.current = scrollContextKey;
+    resetUserScroll();
+  }, [resetUserScroll, scrollContextKey]);
+
+  useEffect(() => () => resetUserScroll(), [resetUserScroll]);
 
   const handleCopy = useCallback(
     (event: ClipboardEvent<HTMLDivElement>) => {
@@ -139,19 +196,49 @@ export const SmartScreenViewport = ({
     (event: UIEvent<HTMLDivElement>) => {
       const node = event.currentTarget;
       onAtBottomChange(resolveIsAtBottom(node));
-      if (!event.isTrusted) {
-        return;
+      if (isUserScrollingRef.current) {
+        scheduleUserScrollEnd();
       }
-      onUserScrollStateChange(true);
-      if (scrollEndTimerRef.current != null) {
-        window.clearTimeout(scrollEndTimerRef.current);
-      }
-      scrollEndTimerRef.current = window.setTimeout(() => {
-        onUserScrollStateChange(false);
-        scrollEndTimerRef.current = null;
-      }, 120);
     },
-    [onAtBottomChange, onUserScrollStateChange],
+    [onAtBottomChange, scheduleUserScrollEnd],
+  );
+
+  const handleWheel = useCallback(
+    (_event: WheelEvent<HTMLDivElement>) => beginUserScroll(),
+    [beginUserScroll],
+  );
+
+  const handleTouchStart = useCallback(
+    (_event: TouchEvent<HTMLDivElement>) => beginUserScroll(),
+    [beginUserScroll],
+  );
+
+  const handleTouchEnd = useCallback(
+    (_event: TouchEvent<HTMLDivElement>) => scheduleUserScrollEnd(),
+    [scheduleUserScrollEnd],
+  );
+
+  const handlePointerDown = useCallback(
+    (_event: PointerEvent<HTMLDivElement>) => beginUserScroll(),
+    [beginUserScroll],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (event.buttons !== 0) {
+        beginUserScroll();
+      }
+    },
+    [beginUserScroll],
+  );
+
+  const handleScrollKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (SCROLL_KEYS.has(event.key)) {
+        beginUserScroll();
+      }
+    },
+    [beginUserScroll],
   );
 
   const handleScrollToBottom = useCallback(() => onScrollToBottom("smooth"), [onScrollToBottom]);
@@ -165,9 +252,21 @@ export const SmartScreenViewport = ({
       <div
         ref={scrollerRef}
         data-testid="smart-screen-scroller"
+        role="region"
+        aria-label="Screen output"
         className="custom-scrollbar h-full w-full overflow-x-auto overflow-y-auto rounded-2xl"
         style={{ height }}
+        tabIndex={0}
         onScroll={handleScroll}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={scheduleUserScrollEnd}
+        onPointerCancel={scheduleUserScrollEnd}
+        onKeyDown={handleScrollKeyDown}
       >
         <div
           data-testid="smart-screen-lines"

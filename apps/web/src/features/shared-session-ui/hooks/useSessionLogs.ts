@@ -7,7 +7,6 @@ import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 
 import {
-  logModalIsAtBottomAtom,
   logModalOpenAtom,
   logModalSnapRequestAtom,
   quickPanelOpenAtom,
@@ -66,7 +65,6 @@ export const useSessionLogs = ({
 }: UseSessionLogsParams) => {
   const [quickPanelOpen, setQuickPanelOpen] = useAtom(quickPanelOpenAtom);
   const [logModalOpen, setLogModalOpen] = useAtom(logModalOpenAtom);
-  const [, setLogModalIsAtBottom] = useAtom(logModalIsAtBottomAtom);
   const [, setLogModalSnapRequest] = useAtom(logModalSnapRequestAtom);
   const [selectedPaneId, setSelectedPaneId] = useAtom(selectedPaneIdAtom);
   const feedPaneIds = useMemo(() => {
@@ -147,11 +145,10 @@ export const useSessionLogs = ({
   const openLogModal = useCallback(
     (paneId: string) => {
       setSelectedPaneId(paneId);
-      setLogModalIsAtBottom(true);
-      setLogModalSnapRequest((version) => version + 1);
+      setLogModalSnapRequest((request) => ({ paneId, version: request.version + 1 }));
       setLogModalOpen(true);
     },
-    [setLogModalIsAtBottom, setLogModalOpen, setLogModalSnapRequest, setSelectedPaneId],
+    [setLogModalOpen, setLogModalSnapRequest, setSelectedPaneId],
   );
 
   const closeLogModal = useCallback(() => {

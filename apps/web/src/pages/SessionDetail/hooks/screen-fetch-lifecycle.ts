@@ -2,7 +2,7 @@ import type { ScreenMode } from "@/lib/screen-loading";
 
 type ScreenFetchInFlight = {
   id: number;
-  mode: ScreenMode;
+  contextKey: string;
 };
 
 type ScreenFetchModeLoadedState = {
@@ -12,6 +12,7 @@ type ScreenFetchModeLoadedState = {
 
 export type ScreenFetchLifecycleAttempt = {
   requestId: number;
+  contextKey: string;
   isModeSwitch: boolean;
   shouldShowLoading: boolean;
 };
@@ -25,6 +26,7 @@ type ScreenFetchLifecycleState = {
 export type ScreenFetchLifecycleAction =
   | {
       type: "request";
+      contextKey: string;
       mode: ScreenMode;
       modeSwitch: ScreenMode | null;
       modeLoaded: ScreenFetchModeLoadedState;
@@ -44,7 +46,7 @@ export const screenFetchLifecycleReducer = (
   action: ScreenFetchLifecycleAction,
 ): ScreenFetchLifecycleState => {
   if (action.type === "request") {
-    if (state.inFlight?.mode === action.mode) {
+    if (state.inFlight?.contextKey === action.contextKey) {
       return {
         ...state,
         latestAttempt: null,
@@ -57,11 +59,12 @@ export const screenFetchLifecycleReducer = (
     return {
       inFlight: {
         id: requestId,
-        mode: action.mode,
+        contextKey: action.contextKey,
       },
       nextRequestId: requestId + 1,
       latestAttempt: {
         requestId,
+        contextKey: action.contextKey,
         isModeSwitch,
         shouldShowLoading,
       },

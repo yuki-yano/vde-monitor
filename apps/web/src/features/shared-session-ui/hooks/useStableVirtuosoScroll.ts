@@ -4,6 +4,18 @@ import { mapAnchorIndex } from "./scroll-stability";
 
 type Range = { startIndex: number; endIndex: number };
 
+const SCROLL_KEYS = new Set([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+  " ",
+]);
+
 type UseStableVirtuosoScrollParams = {
   items: string[];
   isAtBottom: boolean;
@@ -62,17 +74,10 @@ const resolveScrollDelta = ({
 const shouldSuppressCorrection = ({
   isInternalUserScrolling,
   isExternalUserScrolling,
-  recentlyScrolled,
 }: {
   isInternalUserScrolling: boolean;
   isExternalUserScrolling: boolean;
-  recentlyScrolled: boolean;
-}) => {
-  if (isInternalUserScrolling || isExternalUserScrolling) {
-    return true;
-  }
-  return recentlyScrolled;
-};
+}) => isInternalUserScrolling || isExternalUserScrolling;
 
 export const useStableVirtuosoScroll = ({
   items,
@@ -90,12 +95,21 @@ export const useStableVirtuosoScroll = ({
   const prevAnchorHeightRef = useRef<number | null>(null);
   const prevScrollTopRef = useRef<number | null>(null);
   const prevItemsRef = useRef(items);
+  const itemsRef = useRef(items);
+  const enabledRef = useRef(enabled);
+  const isAtBottomRef = useRef(isAtBottom);
+  const isExternalUserScrollingRef = useRef(Boolean(isUserScrolling));
   const isUserScrollingRef = useRef(false);
-  const lastUserScrollAtRef = useRef(Number.NEGATIVE_INFINITY);
   const scrollEndTimerRef = useRef<number | null>(null);
   const isAdjustingRef = useRef(false);
-  const scrollSuppressMs = 300;
   const onUserScrollStateChangeRef = useRef(onUserScrollStateChange);
+
+  useLayoutEffect(() => {
+    itemsRef.current = items;
+    enabledRef.current = enabled;
+    isAtBottomRef.current = isAtBottom;
+    isExternalUserScrollingRef.current = Boolean(isUserScrolling);
+  }, [enabled, isAtBottom, isUserScrolling, items]);
 
   useEffect(() => {
     onUserScrollStateChangeRef.current = onUserScrollStateChange;
@@ -105,7 +119,7 @@ export const useStableVirtuosoScroll = ({
     (index: number) => {
       const scroller = scrollerRef.current;
       if (!scroller) return;
-      const clamped = clampIndex(index, items.length);
+      const clamped = clampIndex(index, itemsRef.current.length);
       const item = getItem(scroller, clamped);
       const offset = item ? getItemOffset(scroller, clamped) : null;
       const height = getItemHeight(item);
@@ -114,61 +128,20 @@ export const useStableVirtuosoScroll = ({
       prevAnchorIndexRef.current = clamped;
       prevScrollTopRef.current = scroller.scrollTop;
     },
-    [items.length, scrollerRef],
+    [scrollerRef],
   );
 
   const handleRangeChanged = useCallback(
     (range: Range) => {
       anchorIndexRef.current = range.startIndex;
-      const recentlyScrolled = performance.now() - lastUserScrollAtRef.current < scrollSuppressMs;
-      if (isUserScrollingRef.current || isUserScrolling || recentlyScrolled) {
+      if (
+        (isUserScrollingRef.current || isExternalUserScrollingRef.current) &&
+        prevItemsRef.current === itemsRef.current
+      ) {
         updateBaseline(range.startIndex);
       }
     },
-    [isUserScrolling, updateBaseline],
-  );
-
-  const setUserScrolling = useCallback(
-    (value: boolean) => {
-      if (isUserScrollingRef.current === value) return;
-      isUserScrollingRef.current = value;
-      if (!value) {
-        updateBaseline(anchorIndexRef.current);
-      }
-      onUserScrollStateChangeRef.current?.(value);
-    },
     [updateBaseline],
-  );
-
-  const scheduleScrollEnd = useCallback(() => {
-    if (scrollEndTimerRef.current != null) {
-      window.clearTimeout(scrollEndTimerRef.current);
-    }
-    scrollEndTimerRef.current = window.setTimeout(() => {
-      setUserScrolling(false);
-      scrollEndTimerRef.current = null;
-    }, 120);
-  }, [setUserScrolling]);
-
-  const startUserScroll = useCallback(() => {
-    if (isAdjustingRef.current) return;
-    setUserScrolling(true);
-    lastUserScrollAtRef.current = performance.now();
-    updateBaseline(anchorIndexRef.current);
-    scheduleScrollEnd();
-  }, [scheduleScrollEnd, setUserScrolling, updateBaseline]);
-  const handleScrollEvent = useCallback(
-    (event: Event) => {
-      if (event.type === "scroll" && !event.isTrusted) {
-        if (!isAdjustingRef.current) {
-          lastUserScrollAtRef.current = performance.now();
-        }
-        updateBaseline(anchorIndexRef.current);
-        return;
-      }
-      startUserScroll();
-    },
-    [startUserScroll, updateBaseline],
   );
 
   const withAdjustingScroll = useCallback((scroller: HTMLDivElement, nextScrollTop: number) => {
@@ -180,9 +153,9 @@ export const useStableVirtuosoScroll = ({
   }, []);
 
   const applyAnchorCorrection = useCallback(
-    (scroller: HTMLDivElement, prevItems: string[]) => {
+    (scroller: HTMLDivElement, prevItems: string[], nextItems: string[]) => {
       const anchorIndex = clampIndex(prevAnchorIndexRef.current, prevItems.length);
-      const nextIndex = mapAnchorIndex(prevItems, items, anchorIndex);
+      const nextIndex = mapAnchorIndex(prevItems, nextItems, anchorIndex);
       const nextItem = getItem(scroller, nextIndex);
       const nextOffset = nextItem ? getItemOffset(scroller, nextIndex) : null;
       const nextHeight = getItemHeight(nextItem);
@@ -197,23 +170,22 @@ export const useStableVirtuosoScroll = ({
 
       if (delta != null && Math.abs(delta) >= 0.5) {
         withAdjustingScroll(scroller, scroller.scrollTop + delta);
-        return;
+        return nextIndex;
       }
       if (prevScrollTopRef.current != null) {
         withAdjustingScroll(scroller, prevScrollTopRef.current);
       }
+      return nextIndex;
     },
-    [items, withAdjustingScroll],
+    [withAdjustingScroll],
   );
 
   const isScrollCorrectionSuppressed = useCallback(() => {
-    const recentlyScrolled = performance.now() - lastUserScrollAtRef.current < scrollSuppressMs;
     return shouldSuppressCorrection({
       isInternalUserScrolling: isUserScrollingRef.current,
-      isExternalUserScrolling: Boolean(isUserScrolling),
-      recentlyScrolled,
+      isExternalUserScrolling: isExternalUserScrollingRef.current,
     });
-  }, [isUserScrolling]);
+  }, []);
 
   const resetStabilityState = useCallback(() => {
     prevAnchorOffsetRef.current = null;
@@ -222,29 +194,110 @@ export const useStableVirtuosoScroll = ({
     prevAnchorIndexRef.current = 0;
   }, []);
 
+  const flushPendingCorrection = useCallback(() => {
+    if (!enabledRef.current || isScrollCorrectionSuppressed()) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const prevItems = prevItemsRef.current;
+    const nextItems = itemsRef.current;
+    if (prevItems === nextItems) {
+      updateBaseline(anchorIndexRef.current);
+      return;
+    }
+
+    const nextIndex = isAtBottomRef.current
+      ? clampIndex(anchorIndexRef.current, nextItems.length)
+      : applyAnchorCorrection(scroller, prevItems, nextItems);
+    prevItemsRef.current = nextItems;
+    anchorIndexRef.current = nextIndex;
+    updateBaseline(nextIndex);
+  }, [applyAnchorCorrection, isScrollCorrectionSuppressed, scrollerRef, updateBaseline]);
+
+  const setUserScrolling = useCallback(
+    (value: boolean, flushPending = true) => {
+      if (isUserScrollingRef.current === value) return;
+      isUserScrollingRef.current = value;
+      onUserScrollStateChangeRef.current?.(value);
+      if (!value && flushPending) {
+        flushPendingCorrection();
+      }
+    },
+    [flushPendingCorrection],
+  );
+
+  const scheduleScrollEnd = useCallback(() => {
+    if (scrollEndTimerRef.current != null) {
+      window.clearTimeout(scrollEndTimerRef.current);
+    }
+    scrollEndTimerRef.current = window.setTimeout(() => {
+      scrollEndTimerRef.current = null;
+      setUserScrolling(false);
+    }, 120);
+  }, [setUserScrolling]);
+
+  const startUserScroll = useCallback(() => {
+    if (isAdjustingRef.current) return;
+    if (prevItemsRef.current === itemsRef.current) {
+      updateBaseline(anchorIndexRef.current);
+    }
+    setUserScrolling(true);
+    scheduleScrollEnd();
+  }, [scheduleScrollEnd, setUserScrolling, updateBaseline]);
+
+  const handleScrollEvent = useCallback(() => {
+    if (isAdjustingRef.current) return;
+    if (isUserScrollingRef.current) {
+      if (prevItemsRef.current === itemsRef.current) {
+        updateBaseline(anchorIndexRef.current);
+      }
+      scheduleScrollEnd();
+      return;
+    }
+    updateBaseline(anchorIndexRef.current);
+  }, [scheduleScrollEnd, updateBaseline]);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(event.key)) {
+        startUserScroll();
+      }
+    },
+    [startUserScroll],
+  );
+
   useLayoutEffect(() => {
     if (!enabled) return undefined;
     const scroller = scrollerRef.current;
     if (!scroller) return undefined;
     scroller.addEventListener("scroll", handleScrollEvent, { passive: true });
-    scroller.addEventListener("wheel", handleScrollEvent, { passive: true });
-    scroller.addEventListener("touchmove", handleScrollEvent, { passive: true });
-    scroller.addEventListener("pointerdown", handleScrollEvent, { passive: true });
+    scroller.addEventListener("wheel", startUserScroll, { passive: true });
+    scroller.addEventListener("touchmove", startUserScroll, { passive: true });
+    scroller.addEventListener("pointerdown", startUserScroll, { passive: true });
+    scroller.addEventListener("keydown", handleKeyDown);
     return () => {
       scroller.removeEventListener("scroll", handleScrollEvent);
-      scroller.removeEventListener("wheel", handleScrollEvent);
-      scroller.removeEventListener("touchmove", handleScrollEvent);
-      scroller.removeEventListener("pointerdown", handleScrollEvent);
+      scroller.removeEventListener("wheel", startUserScroll);
+      scroller.removeEventListener("touchmove", startUserScroll);
+      scroller.removeEventListener("pointerdown", startUserScroll);
+      scroller.removeEventListener("keydown", handleKeyDown);
+      if (scrollEndTimerRef.current != null) {
+        window.clearTimeout(scrollEndTimerRef.current);
+        scrollEndTimerRef.current = null;
+      }
+      setUserScrolling(false, false);
     };
-  }, [enabled, handleScrollEvent, scrollerRef]);
+  }, [enabled, handleKeyDown, handleScrollEvent, scrollerRef, setUserScrolling, startUserScroll]);
 
   useEffect(() => {
     return () => {
       if (scrollEndTimerRef.current != null) {
         window.clearTimeout(scrollEndTimerRef.current);
+        scrollEndTimerRef.current = null;
       }
+      setUserScrolling(false, false);
     };
-  }, []);
+  }, [setUserScrolling]);
 
   useLayoutEffect(() => {
     if (!enabled) {
@@ -256,13 +309,16 @@ export const useStableVirtuosoScroll = ({
     const scroller = scrollerRef.current;
     const prevItems = prevItemsRef.current;
     const itemsChanged = prevItems !== items;
-    const canCorrect = itemsChanged && scroller && !isAtBottom && !isScrollCorrectionSuppressed();
-    if (canCorrect) {
-      applyAnchorCorrection(scroller, prevItems);
+    if (itemsChanged && isScrollCorrectionSuppressed()) {
+      return;
     }
 
     if (scroller) {
-      const currentIndex = clampIndex(anchorIndexRef.current, items.length);
+      const currentIndex =
+        itemsChanged && !isAtBottom
+          ? applyAnchorCorrection(scroller, prevItems, items)
+          : clampIndex(anchorIndexRef.current, items.length);
+      anchorIndexRef.current = currentIndex;
       updateBaseline(currentIndex);
     }
 

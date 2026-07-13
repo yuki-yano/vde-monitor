@@ -15,8 +15,10 @@ const SCREEN_VIEWPORT_HEIGHT = "60vh";
 type ScreenPanelViewportProps = {
   mode: ScreenMode;
   effectiveWrapMode: ScreenWrapMode;
+  scrollContextKey: string;
   imageBase64: string | null;
   isAtBottom: boolean;
+  shouldFollowOutput: boolean;
   isScreenLoading: boolean;
   screenLines: string[];
   smartLineClassifications: SmartWrapLineClassification[];
@@ -33,8 +35,10 @@ type ScreenPanelViewportProps = {
 export const ScreenPanelViewport = ({
   mode,
   effectiveWrapMode,
+  scrollContextKey,
   imageBase64,
   isAtBottom,
+  shouldFollowOutput,
   isScreenLoading,
   screenLines,
   smartLineClassifications,
@@ -67,11 +71,13 @@ export const ScreenPanelViewport = ({
   if (effectiveWrapMode === "smart") {
     return (
       <SmartScreenViewport
+        scrollContextKey={scrollContextKey}
         lines={screenLines}
         classifications={smartLineClassifications}
         loading={isScreenLoading}
         loadingLabel="Loading screen..."
         isAtBottom={isAtBottom}
+        shouldFollowOutput={shouldFollowOutput}
         onAtBottomChange={onAtBottomChange}
         onRangeChanged={onRangeChanged}
         scrollerRef={scrollerRef}
@@ -91,6 +97,7 @@ export const ScreenPanelViewport = ({
       loading={isScreenLoading}
       loadingLabel="Loading screen..."
       isAtBottom={isAtBottom}
+      shouldFollowOutput={shouldFollowOutput}
       onAtBottomChange={onAtBottomChange}
       onRangeChanged={onRangeChanged}
       virtuosoRef={virtuosoRef}

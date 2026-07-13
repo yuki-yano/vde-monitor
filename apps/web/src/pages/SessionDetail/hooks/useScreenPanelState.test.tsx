@@ -38,7 +38,7 @@ const buildContextValue = (
         isAtBottom: true,
         handleAtBottomChange: vi.fn(),
         handleUserScrollStateChange: vi.fn(),
-        forceFollow: false,
+        shouldFollowOutput: true,
         scrollToBottom: vi.fn(),
         handleModeChange: vi.fn(),
         toggleWrapMode: vi.fn(),

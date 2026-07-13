@@ -92,7 +92,7 @@ describe("ScreenPanel", () => {
     virtuosoRef: { current: null },
     scrollerRef: { current: null },
     isAtBottom: true,
-    forceFollow: false,
+    shouldFollowOutput: true,
     rawMode: false,
     allowDangerKeys: false,
     fileResolveError: null,

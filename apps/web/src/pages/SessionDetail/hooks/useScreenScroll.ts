@@ -1,13 +1,14 @@
-import { useAtom } from "jotai";
-import { type MutableRefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 import type { ScreenMode } from "@/lib/screen-loading";
-import { useTimeout } from "@/lib/use-timeout";
-
-import { screenAtBottomAtom, screenForceFollowAtom } from "../atoms/screenAtoms";
-
-const FORCE_FOLLOW_FALLBACK_MS = 5000;
 
 type UseScreenScrollParams = {
   paneId: string;
@@ -18,6 +19,41 @@ type UseScreenScrollParams = {
   onClearPending: () => void;
 };
 
+type ScreenScrollState = {
+  isAtBottom: boolean;
+  shouldFollowOutput: boolean;
+};
+
+type ScreenScrollAction =
+  | { type: "measure-bottom"; value: boolean }
+  | { type: "pause-following" }
+  | { type: "resume-following" }
+  | { type: "reset-context" };
+
+const initialScreenScrollState: ScreenScrollState = {
+  isAtBottom: true,
+  shouldFollowOutput: true,
+};
+
+const reduceScreenScrollState = (
+  state: ScreenScrollState,
+  action: ScreenScrollAction,
+): ScreenScrollState => {
+  switch (action.type) {
+    case "measure-bottom":
+      return {
+        isAtBottom: action.value,
+        shouldFollowOutput: action.value ? true : state.shouldFollowOutput,
+      };
+    case "pause-following":
+      return { ...state, shouldFollowOutput: false };
+    case "resume-following":
+      return { ...state, shouldFollowOutput: true };
+    case "reset-context":
+      return { isAtBottom: true, shouldFollowOutput: false };
+  }
+};
+
 export const useScreenScroll = ({
   paneId,
   mode,
@@ -26,21 +62,27 @@ export const useScreenScroll = ({
   onFlushPending,
   onClearPending,
 }: UseScreenScrollParams) => {
-  const [isAtBottom, setIsAtBottom] = useAtom(screenAtBottomAtom);
-  const [forceFollow, setForceFollow] = useAtom(screenForceFollowAtom);
+  const [{ isAtBottom, shouldFollowOutput }, dispatchScrollState] = useReducer(
+    reduceScreenScrollState,
+    initialScreenScrollState,
+  );
 
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const forceFollowTimer = useTimeout();
+  const onClearPendingRef = useRef(onClearPending);
   // react-doctor-disable-next-line no-event-handler
   const prevModeRef = useRef<ScreenMode>(mode);
   const prevPaneIdRef = useRef<string>(paneId);
-  const snapToBottomRef = useRef(false);
+  const didInitializeContextRef = useRef(false);
+  const snapToBottomRef = useRef(mode === "text");
 
-  const stopForceFollow = useCallback(() => {
-    setForceFollow(false);
-    forceFollowTimer.cancel();
-  }, [forceFollowTimer, setForceFollow]);
+  useLayoutEffect(() => {
+    onClearPendingRef.current = onClearPending;
+  }, [onClearPending]);
+
+  const stopFollowingOutput = useCallback(() => {
+    dispatchScrollState({ type: "pause-following" });
+  }, []);
 
   const scrollToBottom = useCallback(
     (behavior: "auto" | "smooth" = "auto") => {
@@ -50,68 +92,62 @@ export const useScreenScroll = ({
       if (!hasVirtuoso && !hasScroller) {
         return false;
       }
+      dispatchScrollState({ type: "resume-following" });
       if (virtuosoRef.current) {
         const index = screenLinesLength - 1;
         virtuosoRef.current.scrollToIndex({ index, align: "end", behavior });
-      }
-      if (isAtBottom) {
-        stopForceFollow();
-      } else {
-        setForceFollow(true);
-        forceFollowTimer.set(() => {
-          stopForceFollow();
-        }, FORCE_FOLLOW_FALLBACK_MS);
       }
       if (!hasVirtuoso) {
         window.requestAnimationFrame(() => {
           const scroller = scrollerRef.current;
           if (scroller != null) {
-            scroller.scrollTo({ top: scroller.scrollHeight, left: 0, behavior });
+            scroller.scrollTo({ top: scroller.scrollHeight, behavior });
           }
         });
       }
       return true;
     },
-    [forceFollowTimer, isAtBottom, screenLinesLength, setForceFollow, stopForceFollow],
+    [screenLinesLength],
   );
 
   const handleAtBottomChange = useCallback(
     (value: boolean) => {
-      setIsAtBottom(value);
-      if (value) {
-        stopForceFollow();
-        onFlushPending();
-      }
-    },
-    [onFlushPending, setIsAtBottom, stopForceFollow],
-  );
-
-  const handleUserScrollStateChange = useCallback(
-    (value: boolean) => {
-      isUserScrollingRef.current = value;
-      if (!value) {
+      dispatchScrollState({ type: "measure-bottom", value });
+      if (value && !isUserScrollingRef.current) {
         onFlushPending();
       }
     },
     [isUserScrollingRef, onFlushPending],
   );
 
-  useEffect(() => {
-    const prevMode = prevModeRef.current;
-    if (prevMode === "image" && mode === "text") {
-      snapToBottomRef.current = true;
-      setIsAtBottom(true);
-    }
-    prevModeRef.current = mode;
-  }, [mode, setIsAtBottom]);
+  const handleUserScrollStateChange = useCallback(
+    (value: boolean) => {
+      isUserScrollingRef.current = value;
+      if (value) {
+        stopFollowingOutput();
+        return;
+      }
+      onFlushPending();
+    },
+    [isUserScrollingRef, onFlushPending, stopFollowingOutput],
+  );
 
-  useEffect(() => {
-    if (prevPaneIdRef.current !== paneId) {
-      snapToBottomRef.current = true;
-      setIsAtBottom(true);
-      prevPaneIdRef.current = paneId;
+  useLayoutEffect(() => {
+    const isInitialContext = !didInitializeContextRef.current;
+    const modeChanged = prevModeRef.current !== mode;
+    const paneChanged = prevPaneIdRef.current !== paneId;
+    if (!isInitialContext && !modeChanged && !paneChanged) {
+      return;
     }
-  }, [paneId, setIsAtBottom]);
+
+    isUserScrollingRef.current = false;
+    dispatchScrollState({ type: "reset-context" });
+    onClearPending();
+    snapToBottomRef.current = mode === "text";
+    prevModeRef.current = mode;
+    prevPaneIdRef.current = paneId;
+    didInitializeContextRef.current = true;
+  }, [isUserScrollingRef, mode, onClearPending, paneId]);
 
   useLayoutEffect(() => {
     if (!snapToBottomRef.current || mode !== "text" || screenLinesLength === 0) {
@@ -124,23 +160,15 @@ export const useScreenScroll = ({
   }, [mode, screenLinesLength, scrollToBottom]);
 
   useEffect(() => {
-    // react-doctor-disable-next-line no-event-handler
-    if (mode !== "text") {
-      setIsAtBottom(true);
-      stopForceFollow();
-      onClearPending();
-    }
-  }, [mode, onClearPending, setIsAtBottom, stopForceFollow]);
-
-  useEffect(() => {
     return () => {
-      stopForceFollow();
+      isUserScrollingRef.current = false;
+      onClearPendingRef.current();
     };
-  }, [stopForceFollow]);
+  }, [isUserScrollingRef]);
 
   return {
     isAtBottom,
-    forceFollow,
+    shouldFollowOutput,
     scrollToBottom,
     handleAtBottomChange,
     handleUserScrollStateChange,

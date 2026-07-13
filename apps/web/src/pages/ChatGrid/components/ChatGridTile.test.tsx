@@ -5,19 +5,25 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CommandResponse, SessionSummary } from "@vde-monitor/shared";
-import type { ReactNode } from "react";
+import { type ReactNode, type RefObject, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChatGridTile } from "./ChatGridTile";
 
 vi.mock("@/features/shared-session-ui/components/AnsiVirtualizedViewport", () => ({
-  AnsiVirtualizedViewport: ({ lines }: { lines: string[] }) => {
+  AnsiVirtualizedViewport: ({
+    lines,
+    scrollerRef,
+  }: {
+    lines: string[];
+    scrollerRef?: RefObject<HTMLDivElement | null>;
+  }) => {
     const lineCounts = new Map<string, number>();
 
     return (
-      <div data-testid="ansi-viewport">
+      <div ref={scrollerRef} data-testid="ansi-viewport">
         {lines.map((line) => {
           const count = lineCounts.get(line) ?? 0;
           lineCounts.set(line, count + 1);
@@ -116,7 +122,40 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
 
 describe("ChatGridTile", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("buffers incoming screen lines until an active scroll gesture ends", () => {
+    vi.useFakeTimers();
+    const props = {
+      session: buildSession(),
+      nowMs: Date.parse("2026-02-17T00:10:00.000Z"),
+      connected: true,
+      screenLoading: false,
+      screenError: null,
+      onTouchSession: vi.fn(async () => undefined),
+    };
+    let updateLines!: (lines: string[]) => void;
+    const Harness = () => {
+      const [lines, setLines] = useState(["line 1"]);
+      updateLines = setLines;
+      return <ChatGridTile {...props} screenLines={lines} />;
+    };
+    renderWithRouter(<Harness />);
+
+    fireEvent.wheel(screen.getByTestId("ansi-viewport"), { deltaY: -20 });
+    act(() => {
+      updateLines(["line 1", "line 2"]);
+    });
+
+    expect(screen.queryByText("line 2")).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(120);
+    });
+
+    expect(screen.getByText("line 2")).toBeTruthy();
   });
 
   it("renders header and current branch label", () => {

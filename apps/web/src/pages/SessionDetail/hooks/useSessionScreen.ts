@@ -126,7 +126,7 @@ export const useSessionScreen = ({
 
   const {
     isAtBottom,
-    forceFollow,
+    shouldFollowOutput,
     scrollToBottom,
     handleAtBottomChange,
     handleUserScrollStateChange,
@@ -217,7 +217,7 @@ export const useSessionScreen = ({
     isAtBottom,
     handleAtBottomChange,
     handleUserScrollStateChange,
-    forceFollow,
+    shouldFollowOutput,
     refreshScreen,
     scrollToBottom,
     handleModeChange,

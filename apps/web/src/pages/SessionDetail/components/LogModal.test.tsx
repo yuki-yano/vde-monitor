@@ -1,16 +1,17 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider as JotaiProvider, createStore } from "jotai";
-import type { ReactNode } from "react";
+import { type ReactNode, forwardRef, useImperativeHandle } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  logModalDisplayLinesAtom,
-  logModalIsAtBottomAtom,
-} from "@/features/shared-session-ui/atoms/logAtoms";
+import { logModalSnapRequestAtom } from "@/features/shared-session-ui/atoms/logAtoms";
 import { createSessionDetail } from "../test-helpers";
 import { LogModal } from "@/features/shared-session-ui/components/LogModal";
 
 let latestOnUserScrollStateChange: ((value: boolean) => void) | null = null;
+let latestAtBottomStateChange: ((value: boolean) => void) | null = null;
+const scrollToIndex = vi.fn();
+let latestFollowOutput: "auto" | "smooth" | boolean | undefined;
+const mockScrollerRef = { current: null as HTMLDivElement | null };
 const mockUseWorkspaceTabs = vi.hoisted(
   () =>
     ({
@@ -44,30 +45,44 @@ vi.mock("@/features/shared-session-ui/hooks/useStableVirtuosoScroll", () => ({
   }) => {
     latestOnUserScrollStateChange = onUserScrollStateChange ?? null;
     return {
-      scrollerRef: { current: null },
+      scrollerRef: mockScrollerRef,
       handleRangeChanged: vi.fn(),
     };
   },
 }));
 
 vi.mock("react-virtuoso", () => ({
-  Virtuoso: ({
-    data = [],
-    itemContent,
-  }: {
-    data?: string[];
-    itemContent: (index: number, item: string) => ReactNode;
-  }) => (
-    <div data-testid="virtuoso">
-      {(() => {
-        const itemCounts = new Map<string, number>();
-        return data.map((item, index) => {
-          const count = itemCounts.get(item) ?? 0;
-          itemCounts.set(item, count + 1);
-          return <div key={`${item}-${count}`}>{itemContent(index, item)}</div>;
-        });
-      })()}
-    </div>
+  Virtuoso: forwardRef(
+    (
+      {
+        data = [],
+        atBottomStateChange,
+        followOutput,
+        itemContent,
+      }: {
+        data?: string[];
+        atBottomStateChange?: (value: boolean) => void;
+        followOutput?: "auto" | "smooth" | boolean;
+        itemContent: (index: number, item: string) => ReactNode;
+      },
+      ref,
+    ) => {
+      latestAtBottomStateChange = atBottomStateChange ?? null;
+      latestFollowOutput = followOutput;
+      useImperativeHandle(ref, () => ({ scrollToIndex }));
+      return (
+        <div data-testid="virtuoso">
+          {(() => {
+            const itemCounts = new Map<string, number>();
+            return data.map((item, index) => {
+              const count = itemCounts.get(item) ?? 0;
+              itemCounts.set(item, count + 1);
+              return <div key={`${item}-${count}`}>{itemContent(index, item)}</div>;
+            });
+          })()}
+        </div>
+      );
+    },
   ),
 }));
 
@@ -79,10 +94,8 @@ describe("LogModal", () => {
   type LogModalState = Parameters<typeof LogModal>[0]["state"];
   type LogModalActions = Parameters<typeof LogModal>[0]["actions"];
 
-  const createWrapper = () => {
-    const store = createStore();
-    store.set(logModalIsAtBottomAtom, true);
-    store.set(logModalDisplayLinesAtom, []);
+  const createWrapper = (store = createStore()) => {
+    store.set(logModalSnapRequestAtom, { paneId: "pane-1", version: 1 });
     return ({ children }: { children: ReactNode }) => (
       <JotaiProvider store={store}>{children}</JotaiProvider>
     );
@@ -106,6 +119,10 @@ describe("LogModal", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    latestOnUserScrollStateChange = null;
+    latestAtBottomStateChange = null;
+    latestFollowOutput = undefined;
+    mockScrollerRef.current = null;
     mockUseWorkspaceTabs.enabled = false;
     mockUseWorkspaceTabs.activeTabId = "system:sessions";
     mockUseWorkspaceTabs.tabs = [];
@@ -210,6 +227,113 @@ describe("LogModal", () => {
     });
 
     expect(screen.getByText("line2")).toBeTruthy();
+  });
+
+  it("does not show or snap old pane lines before the target pane snapshot arrives", () => {
+    const sessionA = createSessionDetail({ paneId: "pane-a", customTitle: "Pane A" });
+    const sessionB = createSessionDetail({ paneId: "pane-b", customTitle: "Pane B" });
+    const actions = buildActions();
+    const store = createStore();
+    const wrapper = createWrapper(store);
+    store.set(logModalSnapRequestAtom, { paneId: "pane-a", version: 1 });
+    const { rerender } = render(
+      <LogModal
+        state={buildState({ session: sessionA, logLines: ["pane-a-line"] })}
+        actions={actions}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByText("pane-a-line")).toBeTruthy();
+    expect(scrollToIndex).toHaveBeenCalledTimes(1);
+    scrollToIndex.mockClear();
+
+    rerender(
+      <LogModal state={buildState({ session: sessionB, logLines: [] })} actions={actions} />,
+    );
+
+    expect(screen.queryByText("pane-a-line")).toBeNull();
+    expect(scrollToIndex).not.toHaveBeenCalled();
+
+    act(() => {
+      store.set(logModalSnapRequestAtom, { paneId: "pane-b", version: 2 });
+    });
+    rerender(
+      <LogModal
+        state={buildState({ session: sessionB, logLines: ["pane-b-line"] })}
+        actions={actions}
+      />,
+    );
+
+    expect(screen.getByText("pane-b-line")).toBeTruthy();
+    expect(scrollToIndex).toHaveBeenCalledTimes(1);
+    expect(scrollToIndex).toHaveBeenCalledWith({ index: 0, behavior: "auto", align: "end" });
+
+    rerender(
+      <LogModal
+        state={buildState({ session: sessionB, logLines: ["pane-b-line", "next-line"] })}
+        actions={actions}
+      />,
+    );
+    expect(scrollToIndex).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets paused and buffered state when the modal is reopened", () => {
+    const session = createSessionDetail();
+    const actions = buildActions();
+    const wrapper = createWrapper();
+    const initialState = buildState({ session, logLines: ["line1"] });
+    const { rerender } = render(<LogModal state={initialState} actions={actions} />, { wrapper });
+
+    act(() => {
+      latestOnUserScrollStateChange?.(true);
+    });
+    rerender(
+      <LogModal state={{ ...initialState, logLines: ["line1", "buffered"] }} actions={actions} />,
+    );
+    expect(screen.queryByText("buffered")).toBeNull();
+
+    rerender(<LogModal state={{ ...initialState, open: false }} actions={actions} />);
+    rerender(
+      <LogModal state={{ ...initialState, logLines: ["line1", "fresh"] }} actions={actions} />,
+    );
+
+    expect(screen.getByText("fresh")).toBeTruthy();
+    expect(screen.queryByText("buffered")).toBeNull();
+    expect(latestFollowOutput).toBe("auto");
+  });
+
+  it("uses Virtuoso as the sole scroll-to-bottom authority", () => {
+    const scrollTo = vi.fn();
+    mockScrollerRef.current = { scrollTo } as unknown as HTMLDivElement;
+    const state = buildState({ logLines: ["line1", "line2"] });
+    const wrapper = createWrapper();
+    const actions = buildActions();
+    const { rerender } = render(<LogModal state={state} actions={actions} />, { wrapper });
+    scrollToIndex.mockClear();
+
+    act(() => {
+      latestOnUserScrollStateChange?.(true);
+      latestAtBottomStateChange?.(false);
+    });
+    expect(latestFollowOutput).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Scroll to bottom" }));
+
+    expect(scrollToIndex).toHaveBeenCalledWith({ index: 1, behavior: "smooth", align: "end" });
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(latestFollowOutput).toBe("auto");
+
+    rerender(
+      <LogModal state={{ ...state, logLines: ["line1", "line2", "new-line"] }} actions={actions} />,
+    );
+    expect(latestFollowOutput).toBe("auto");
+    expect(screen.queryByText("new-line")).toBeNull();
+
+    act(() => {
+      latestOnUserScrollStateChange?.(false);
+    });
+    expect(screen.getByText("new-line")).toBeTruthy();
+    expect(latestFollowOutput).toBe("auto");
   });
 
   it("uses workspace tab label when pwa tabs are enabled", () => {
