@@ -60,7 +60,9 @@ describe("createFilePreviewRoutes", () => {
     expect(htmlResponse.headers.get("x-content-type-options")).toBe("nosniff");
     expect(htmlResponse.headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(htmlResponse.headers.get("content-security-policy")).toContain("connect-src 'none'");
-    expect(htmlResponse.headers.get("content-security-policy")).toContain("sandbox");
+    expect(htmlResponse.headers.get("content-security-policy")).toContain(
+      "sandbox allow-same-origin",
+    );
     const html = await htmlResponse.text();
     expect(html).toContain(`/${grant.ticket}/r/repo/images/large.png`);
     expect(html).toContain(`/${grant.ticket}/r/repo/images/alias-only.png`);
@@ -136,7 +138,7 @@ describe("createFilePreviewRoutes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/svg+xml");
     expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
-    expect(response.headers.get("content-security-policy")).toContain("sandbox");
+    expect(response.headers.get("content-security-policy")).toContain("sandbox allow-same-origin");
   });
 
   it("returns the same 404 response for unknown, expired, and traversal tickets", async () => {

@@ -89,7 +89,8 @@ describe("createApp /api/admin/token/rotate", () => {
       );
       expect(contentResponse.status).toBe(200);
       const content = await contentResponse.json();
-      const previewPath = new URL(content.file.preview.url).pathname;
+      const previewPath = content.file.preview.url;
+      expect(previewPath).toMatch(/^\/file-preview\//);
 
       const previewResponse = await app.request(previewPath);
       expect(previewResponse.status).toBe(200);
@@ -107,7 +108,8 @@ describe("createApp /api/admin/token/rotate", () => {
         { headers: authHeaders },
       );
       const rotatedContent = await rotatedContentResponse.json();
-      const rotatedPreviewPath = new URL(rotatedContent.file.preview.url).pathname;
+      const rotatedPreviewPath = rotatedContent.file.preview.url;
+      expect(rotatedPreviewPath).toMatch(/^\/file-preview\//);
       expect((await app.request(rotatedPreviewPath)).status).toBe(200);
 
       await app.request("/api/admin/token/rotate", {

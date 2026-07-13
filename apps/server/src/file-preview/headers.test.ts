@@ -15,7 +15,10 @@ describe("preview response headers", () => {
     expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("frame-src 'none'");
     expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("object-src 'none'");
     expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("form-action 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("sandbox");
+    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("sandbox allow-same-origin");
+    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-scripts");
+    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-forms");
+    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-top-navigation");
     expect(PREVIEW_HTML_HEADERS["Content-Security-Policy"]).toBe(PREVIEW_CONTENT_SECURITY_POLICY);
   });
 

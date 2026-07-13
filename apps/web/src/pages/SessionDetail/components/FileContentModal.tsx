@@ -257,7 +257,7 @@ const FileContentModalBody = ({
         <iframe
           title={`Preview of ${activePath || "HTML file"}`}
           src={htmlPreviewSrc}
-          sandbox=""
+          sandbox="allow-same-origin"
           referrerPolicy="no-referrer"
           className="h-full w-full border-0 bg-white"
         />

@@ -13,7 +13,7 @@ const PREVIEW_CONTENT_SECURITY_POLICY_DIRECTIVES = [
   "media-src 'self' data: blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  "sandbox",
+  "sandbox allow-same-origin",
 ];
 
 const normalizeFrameAncestor = (value: string) => {

@@ -239,7 +239,7 @@ export const createFileRoutes = ({ resolvePane, config, previewTicketService }: 
             ...file,
             preview: {
               token: grant.ticket,
-              url: new URL(previewPath, c.req.url).toString(),
+              url: previewPath,
               mimeType,
               expiresAt: new Date(grant.expiresAt).toISOString(),
             },

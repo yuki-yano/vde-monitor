@@ -16,6 +16,10 @@ export default defineConfig({
         target: apiProxyTarget,
         changeOrigin: true,
       },
+      "/file-preview": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

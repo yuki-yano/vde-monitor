@@ -126,7 +126,7 @@ describe("FileContentModal", () => {
     const iframe = screen.getByTitle("Preview of preview.html");
     expect(iframe.getAttribute("src")).toBe("about:blank#html-preview");
     expect(iframe.getAttribute("srcdoc")).toBeNull();
-    expect(iframe.getAttribute("sandbox")).toBe("");
+    expect(iframe.getAttribute("sandbox")).toBe("allow-same-origin");
     expect(iframe.getAttribute("referrerpolicy")).toBe("no-referrer");
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Code" }));

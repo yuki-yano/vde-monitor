@@ -228,7 +228,7 @@ describe("createApiRouter", () => {
       expect(data.file.isBinary).toBe(true);
       expect(data.file.content).toBeNull();
       expect(data.file.preview).toMatchObject({ mimeType: "image/png" });
-      expect(data.file.preview.url).toMatch(/\/file-preview\/[^/]+\/r\/repo\/assets\/pixel\.png$/);
+      expect(data.file.preview.url).toMatch(/^\/file-preview\/[^/]+\/r\/repo\/assets\/pixel\.png$/);
       expect(data.file.preview.token).not.toBe("");
     } finally {
       await rm(tmpRoot, { recursive: true, force: true });
@@ -355,7 +355,9 @@ describe("createApiRouter", () => {
       const content = await contentResponse.json();
       expect(content.file.path).toBe(externalFile);
       expect(content.file.content).toContain("External");
-      expect(content.file.preview.url).toContain("/r/external-1/preview.html");
+      expect(content.file.preview.url).toMatch(
+        /^\/file-preview\/[^/]+\/r\/external-1\/preview\.html$/,
+      );
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
       await rm(externalRoot, { recursive: true, force: true });
