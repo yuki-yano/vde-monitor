@@ -99,10 +99,10 @@ const buildCodexSnapshot = async ({
   const sessionCandidate = pickPrimaryWindowCandidate(sessionCandidates);
   const weeklyCandidate = pickPrimaryWindowCandidate(weeklyCandidates);
 
-  if (!sessionCandidate || !weeklyCandidate) {
+  if (!weeklyCandidate) {
     throw new UsageProviderError(
       "UNSUPPORTED_RESPONSE",
-      "Codex rate limits response did not include session/weekly windows",
+      "Codex rate limits response did not include a weekly window",
     );
   }
 
@@ -116,16 +116,21 @@ const buildCodexSnapshot = async ({
     }
   }
 
-  const windows: UsageMetricWindow[] = [
-    createUsageMetricWindow({
-      id: "session",
-      title: "Session",
-      utilizationPercent: sessionCandidate.window.usedPercent,
-      windowDurationMs: (sessionCandidate.window.windowDurationMins ?? 300) * 60 * 1000,
-      resetsAt: toIsoFromEpoch(sessionCandidate.window.resetsAt),
-      nowMs,
-      balancedThresholdPercent,
-    }),
+  const windows: UsageMetricWindow[] = [];
+  if (sessionCandidate) {
+    windows.push(
+      createUsageMetricWindow({
+        id: "session",
+        title: "Session",
+        utilizationPercent: sessionCandidate.window.usedPercent,
+        windowDurationMs: (sessionCandidate.window.windowDurationMins ?? 300) * 60 * 1000,
+        resetsAt: toIsoFromEpoch(sessionCandidate.window.resetsAt),
+        nowMs,
+        balancedThresholdPercent,
+      }),
+    );
+  }
+  windows.push(
     createUsageMetricWindow({
       id: "weekly",
       title: "Weekly",
@@ -135,16 +140,18 @@ const buildCodexSnapshot = async ({
       nowMs,
       balancedThresholdPercent,
     }),
-  ];
+  );
 
   const capabilities = baseCapabilities("codex");
+  capabilities.session = sessionCandidate != null;
   capabilities.credits = billing.creditsLeft != null;
 
   return {
     providerId: "codex",
     providerLabel: "Codex",
-    accountLabel: weeklyCandidate.snapshot.limitName ?? sessionCandidate.snapshot.limitName,
-    planLabel: weeklyCandidate.snapshot.planType ?? sessionCandidate.snapshot.planType,
+    accountLabel:
+      weeklyCandidate.snapshot.limitName ?? sessionCandidate?.snapshot.limitName ?? null,
+    planLabel: weeklyCandidate.snapshot.planType ?? sessionCandidate?.snapshot.planType ?? null,
     windows,
     billing,
     capabilities,

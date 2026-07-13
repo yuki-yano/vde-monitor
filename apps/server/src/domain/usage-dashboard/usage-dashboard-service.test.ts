@@ -40,6 +40,15 @@ const codexRateLimitsResponse = {
   rateLimitsByLimitId: null,
 };
 
+const codexWeeklyOnlyRateLimitsResponse = {
+  rateLimits: {
+    ...codexRateLimitsResponse.rateLimits,
+    primary: codexRateLimitsResponse.rateLimits.secondary,
+    secondary: null,
+  },
+  rateLimitsByLimitId: null,
+};
+
 const createCostResult = (updatedAt: string) => ({
   today: {
     usd: 1.2,
@@ -112,6 +121,66 @@ describe("createUsageDashboardService", () => {
 
     expect(provider.windows.some((window) => window.id === "session")).toBe(true);
     expect(provider.capabilities.session).toBe(true);
+  });
+
+  it("hides the session window when Codex only returns a weekly limit", async () => {
+    mocks.fetchCodexRateLimits.mockResolvedValue(codexWeeklyOnlyRateLimitsResponse);
+    const service = createUsageDashboardService({
+      usageConfig: configDefaults.usage,
+    });
+
+    const provider = await service.getProviderSnapshot("codex");
+
+    expect(provider.status).toBe("ok");
+    expect(provider.windows).toEqual([
+      expect.objectContaining({
+        id: "weekly",
+        utilizationPercent: 45,
+      }),
+    ]);
+    expect(provider.capabilities.session).toBe(false);
+    expect(provider.capabilities.weekly).toBe(true);
+  });
+
+  it("refreshes weekly usage when the Codex session limit disappears", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
+      const service = createUsageDashboardService({
+        cacheTtlMs: 1_000,
+        usageConfig: configDefaults.usage,
+      });
+
+      const initial = await service.getDashboard({ provider: "codex" });
+      expect(initial.providers[0]?.windows.some((window) => window.id === "session")).toBe(true);
+
+      mocks.fetchCodexRateLimits.mockResolvedValue({
+        ...codexWeeklyOnlyRateLimitsResponse,
+        rateLimits: {
+          ...codexWeeklyOnlyRateLimitsResponse.rateLimits,
+          primary: {
+            ...codexWeeklyOnlyRateLimitsResponse.rateLimits.primary,
+            usedPercent: 46,
+          },
+        },
+      });
+      vi.setSystemTime(new Date("2026-02-24T00:00:01.001Z"));
+
+      const refreshed = await service.getDashboard({ provider: "codex" });
+      const provider = refreshed.providers[0];
+      expect(provider?.status).toBe("ok");
+      expect(provider?.fetchedAt).toBe("2026-02-24T00:00:01.001Z");
+      expect(provider?.windows).toEqual([
+        expect.objectContaining({
+          id: "weekly",
+          utilizationPercent: 46,
+        }),
+      ]);
+      expect(provider?.capabilities.session).toBe(false);
+      expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps codex billing cache for 10 minutes by default", async () => {
