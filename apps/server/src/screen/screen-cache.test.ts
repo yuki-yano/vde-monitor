@@ -73,4 +73,33 @@ describe("createScreenCache", () => {
     expect(second.full).toBe(true);
     expect(second.screen).toBe("a\nb\nc");
   });
+
+  it("evicts old pane/line-count buckets when the outer cache reaches its limit", () => {
+    const cache = createScreenCache(10, 1);
+    const first = cache.buildTextResponse({
+      paneId: "%1",
+      lineCount: 2,
+      screen: "a\nb",
+      alternateOn: false,
+      truncated: null,
+    });
+    cache.buildTextResponse({
+      paneId: "%2",
+      lineCount: 2,
+      screen: "x\ny",
+      alternateOn: false,
+      truncated: null,
+    });
+
+    const afterEviction = cache.buildTextResponse({
+      paneId: "%1",
+      lineCount: 2,
+      screen: "a\nb!",
+      alternateOn: false,
+      truncated: null,
+      cursor: first.cursor,
+    });
+
+    expect(afterEviction.full).toBe(true);
+  });
 });

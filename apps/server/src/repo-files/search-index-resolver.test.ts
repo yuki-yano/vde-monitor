@@ -89,4 +89,33 @@ describe("search index resolver", () => {
       gitPaths.classifyPaths("/repo", [{ path: "file.txt", kind: "file" }]),
     ).rejects.toThrow("git failed");
   });
+
+  it("evicts old repository indexes when the cache reaches its limit", async () => {
+    const firstRepo = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-cache-a-"));
+    const secondRepo = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-cache-b-"));
+    try {
+      await writeFile(path.join(firstRepo, "first.txt"), "first\n");
+      await writeFile(path.join(secondRepo, "second.txt"), "second\n");
+      const firstRoot = await fs.realpath(firstRepo);
+      const readdirSpy = vi.spyOn(fs, "readdir");
+      const gitPaths = {
+        classifyPaths: async <T extends { path: string }>(_repoRoot: string, items: T[]) =>
+          items.map((item) => ({ ...item, isIgnored: false })),
+      };
+      const resolver = createSearchIndexResolver({ now: () => 0, gitPaths, maxCacheEntries: 1 });
+
+      await resolver.resolveSearchIndex(firstRepo);
+      await resolver.resolveSearchIndex(secondRepo);
+      await resolver.resolveSearchIndex(firstRepo);
+
+      expect(
+        readdirSpy.mock.calls.filter(([targetPath]) => String(targetPath) === firstRoot),
+      ).toHaveLength(2);
+    } finally {
+      await Promise.all([
+        rm(firstRepo, { recursive: true, force: true }),
+        rm(secondRepo, { recursive: true, force: true }),
+      ]);
+    }
+  });
 });

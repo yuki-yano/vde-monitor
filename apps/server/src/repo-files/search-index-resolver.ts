@@ -1,8 +1,10 @@
+import { setMapEntryWithLimit } from "../cache";
 import type { GitPathSnapshotResolver } from "./git-path-snapshot";
 import { resolveRepoClassificationPath, resolveSafeRepoPath } from "./repo-path-resolver";
 import { readTreeDirectoryEntries } from "./service-tree-list";
 
 const INDEX_CACHE_TTL_MS = 5_000;
+const INDEX_CACHE_MAX_ENTRIES = 100;
 
 export type SearchIndexItem = {
   path: string;
@@ -19,9 +21,14 @@ type SearchIndexCacheEntry = {
 type CreateSearchIndexResolverDeps = {
   now: () => number;
   gitPaths: GitPathSnapshotResolver;
+  maxCacheEntries?: number;
 };
 
-export const createSearchIndexResolver = ({ now, gitPaths }: CreateSearchIndexResolverDeps) => {
+export const createSearchIndexResolver = ({
+  now,
+  gitPaths,
+  maxCacheEntries = INDEX_CACHE_MAX_ENTRIES,
+}: CreateSearchIndexResolverDeps) => {
   const searchIndexCache = new Map<string, SearchIndexCacheEntry>();
 
   const withIgnoredFlags = async <T extends { path: string; kind: "file" | "directory" }>(
@@ -76,16 +83,22 @@ export const createSearchIndexResolver = ({ now, gitPaths }: CreateSearchIndexRe
     const nowMs = now();
     const cached = searchIndexCache.get(repoRoot);
     if (cached && cached.expiresAt > nowMs) {
+      setMapEntryWithLimit(searchIndexCache, repoRoot, cached, maxCacheEntries);
       return cached.items;
     }
 
     const rootPath = await resolveSafeRepoPath({ repoRoot, relativePath: "." });
     const items: SearchIndexItem[] = [];
     await buildSearchIndex(repoRoot, ".", new Set([rootPath.realPath]), items);
-    searchIndexCache.set(repoRoot, {
-      items,
-      expiresAt: nowMs + INDEX_CACHE_TTL_MS,
-    });
+    setMapEntryWithLimit(
+      searchIndexCache,
+      repoRoot,
+      {
+        items,
+        expiresAt: nowMs + INDEX_CACHE_TTL_MS,
+      },
+      maxCacheEntries,
+    );
     return items;
   };
 

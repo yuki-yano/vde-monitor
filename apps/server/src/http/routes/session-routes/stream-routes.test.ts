@@ -7,7 +7,12 @@ import type { ScreenStreamScheduler } from "../../../streams/screen-stream-sched
 import type { SessionsStreamSource } from "../../../streams/sessions-stream-source";
 import type { StreamConnections } from "../../../streams/stream-connections";
 import type { Monitor } from "../types";
-import { createStreamRoutes } from "./stream-routes";
+import {
+  createBoundedSseQueue,
+  createStreamRoutes,
+  runScreenSseSession,
+  runSessionsSseSession,
+} from "./stream-routes";
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -125,6 +130,140 @@ const createApp = (deps: TestDeps) => {
   return app;
 };
 
+describe("createBoundedSseQueue", () => {
+  it("coalesces heartbeats and replaces overflowing session events with a snapshot", () => {
+    const queue = createBoundedSseQueue({
+      maxDataItems: 2,
+      onDataOverflow: () => ({ event: "sessions", data: "snapshot" }),
+    });
+
+    expect(queue.enqueue({ event: "heartbeat", data: "{}" })).toBe(true);
+    expect(queue.enqueue({ event: "heartbeat", data: "{}" })).toBe(true);
+    expect(queue.enqueue({ event: "sessions", data: "upsert-1" })).toBe(true);
+    expect(queue.enqueue({ event: "sessions", data: "upsert-2" })).toBe(true);
+    expect(queue.enqueue({ event: "sessions", data: "upsert-3" })).toBe(true);
+
+    expect(queue.shift()).toEqual({ event: "heartbeat", data: "{}" });
+    expect(queue.shift()).toEqual({ event: "sessions", data: "snapshot" });
+    expect(queue.hasItems()).toBe(false);
+  });
+
+  it("rejects overflow when screen deltas cannot be safely coalesced", () => {
+    const queue = createBoundedSseQueue({ maxDataItems: 1 });
+
+    expect(queue.enqueue({ event: "screen", data: "full" })).toBe(true);
+    expect(queue.enqueue({ event: "screen", data: "delta" })).toBe(false);
+    expect(queue.shift()).toEqual({ event: "screen", data: "full" });
+  });
+});
+
+describe("runScreenSseSession", () => {
+  it("aborts a blocked writer when the screen queue overflows", async () => {
+    vi.useFakeTimers();
+    let listener: ((response: ScreenResponse) => void) | null = null;
+    const unsubscribe = vi.fn();
+    const screenScheduler = {
+      subscribe: vi.fn((_paneId: string, nextListener: (response: ScreenResponse) => void) => {
+        listener = nextListener;
+        return unsubscribe;
+      }),
+      dispose: vi.fn(),
+    } as unknown as ScreenStreamScheduler;
+    let resolveWrite = (): void => {};
+    const blockedWrite = new Promise<void>((resolve) => {
+      resolveWrite = resolve;
+    });
+    const writeSSE = vi.fn(() => blockedWrite);
+    let abortListener: (() => void) | null = null;
+    const onAbort = vi.fn((listener: () => void) => {
+      abortListener = listener;
+    });
+    const abort = vi.fn(() => {
+      abortListener?.();
+      resolveWrite();
+    });
+    const removeConnection = vi.fn();
+    const streamConnections = {
+      add: vi.fn(() => removeConnection),
+      closeAll: vi.fn(),
+    } as StreamConnections;
+    const running = runScreenSseSession({
+      paneId: "pane-1",
+      stream: { writeSSE, onAbort, abort },
+      screenScheduler,
+      streamConnections,
+    });
+    const emit = listener as ((response: ScreenResponse) => void) | null;
+    if (emit == null) throw new Error("screen listener was not registered");
+
+    emit(makeScreenResponse());
+    await Promise.resolve();
+    expect(writeSSE).toHaveBeenCalledOnce();
+    for (let index = 0; index < 9; index += 1) {
+      emit({ ...makeScreenResponse(), cursor: `cursor-${index + 2}` });
+    }
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(abort).toHaveBeenCalledOnce();
+    expect(removeConnection).not.toHaveBeenCalled();
+
+    await running;
+    expect(removeConnection).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+});
+
+describe("runSessionsSseSession", () => {
+  it("aborts a blocked writer when the connection registry closes the session stream", async () => {
+    vi.useFakeTimers();
+    const deps = createDeps();
+    const unsubscribe = vi.fn();
+    vi.mocked(deps.streamSource.subscribe).mockReturnValue(unsubscribe);
+    let resolveWrite = (): void => {};
+    const blockedWrite = new Promise<void>((resolve) => {
+      resolveWrite = resolve;
+    });
+    const writeSSE = vi.fn(() => blockedWrite);
+    let abortListener: (() => void) | null = null;
+    const onAbort = vi.fn((listener: () => void) => {
+      abortListener = listener;
+    });
+    const abort = vi.fn(() => {
+      abortListener?.();
+      resolveWrite();
+    });
+    let closeConnection = (): void => {};
+    const removeConnection = vi.fn();
+    const streamConnections = {
+      add: vi.fn((close: () => void) => {
+        closeConnection = close;
+        return removeConnection;
+      }),
+      closeAll: vi.fn(),
+    } as StreamConnections;
+    const running = runSessionsSseSession({
+      lastEventId: null,
+      stream: { writeSSE, onAbort, abort },
+      streamSource: deps.streamSource,
+      streamConnections,
+    });
+
+    await Promise.resolve();
+    expect(writeSSE).toHaveBeenCalledOnce();
+    closeConnection();
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(abort).toHaveBeenCalledOnce();
+    expect(removeConnection).not.toHaveBeenCalled();
+
+    await running;
+    expect(removeConnection).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+});
+
 // ---- tests -----------------------------------------------------------------
 
 describe("GET /streams/sessions", () => {
@@ -208,6 +347,29 @@ describe("GET /streams/sessions", () => {
 
     const response = await app.request("/streams/sessions", {
       headers: { "Last-Event-ID": "99" },
+    });
+    await response.body?.cancel();
+
+    expect(deps.streamSource.snapshot).toHaveBeenCalled();
+  });
+
+  it("uses a snapshot instead of queueing an oversized replay", async () => {
+    vi.useRealTimers();
+    const deps = createDeps();
+    (deps.streamSource.replaySince as ReturnType<typeof vi.fn>).mockReturnValue(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: index + 1,
+        event: {
+          type: "remove",
+          serverTime: "2026-01-01T00:00:00.000Z",
+          paneId: `pane-${index}`,
+        },
+      })),
+    );
+    const app = createApp(deps);
+
+    const response = await app.request("/streams/sessions", {
+      headers: { "Last-Event-ID": "0" },
     });
     await response.body?.cancel();
 
