@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -313,5 +313,66 @@ describe("useSessionDiffs", () => {
       expect(requestDiffSummary).toHaveBeenCalledTimes(2);
     });
     expect(requestDiffFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an open-file refresh that resolves after the scope changes", async () => {
+    const paneAInitial = createDiffSummary({ rev: "rev-a-1" });
+    const paneARefresh = createDiffSummary({ rev: "rev-a-2" });
+    const paneBSummary = createDiffSummary({ rev: "rev-b" });
+    const staleFileDeferred = createDeferred<ReturnType<typeof createDiffFile>>();
+    let paneACalls = 0;
+    const requestDiffSummary = vi.fn((paneId: string) => {
+      if (paneId === "pane-a") {
+        paneACalls += 1;
+        return Promise.resolve(paneACalls === 1 ? paneAInitial : paneARefresh);
+      }
+      return Promise.resolve(paneBSummary);
+    });
+    const requestDiffFile = vi
+      .fn()
+      .mockResolvedValueOnce(createDiffFile({ rev: "rev-a-1", patch: "initial" }))
+      .mockImplementationOnce(() => staleFileDeferred.promise);
+
+    const wrapper = createWrapper();
+    const { result, rerender } = renderHook(
+      ({ paneId }) =>
+        useSessionDiffs({
+          paneId,
+          connected: true,
+          requestDiffSummary,
+          requestDiffFile,
+        }),
+      { wrapper, initialProps: { paneId: "pane-a" } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.diffSummary?.rev).toBe("rev-a-1");
+    });
+    act(() => {
+      result.current.toggleDiff("src/index.ts");
+    });
+    await waitFor(() => {
+      expect(requestDiffFile).toHaveBeenCalledTimes(1);
+    });
+
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = result.current.refreshDiff();
+    });
+    await waitFor(() => {
+      expect(requestDiffFile).toHaveBeenCalledTimes(2);
+    });
+
+    rerender({ paneId: "pane-b" });
+    await waitFor(() => {
+      expect(result.current.diffSummary?.rev).toBe("rev-b");
+    });
+
+    await act(async () => {
+      staleFileDeferred.resolve(createDiffFile({ rev: "rev-a-2", patch: "stale" }));
+      await refreshPromise;
+    });
+
+    expect(result.current.diffFiles["src/index.ts"]).toBeUndefined();
   });
 });

@@ -191,6 +191,77 @@ describe("NotesSection", () => {
     expect(onSave).toHaveBeenCalledWith("note-1", { title: null, body: "updated body" });
   });
 
+  it("flushes the current draft before creating another note", async () => {
+    const createdNote = createNote({ id: "new-note", body: "" });
+    const onSave = vi.fn(async () => true);
+    const onCreate = vi.fn(async () => createdNote);
+    render(<NotesSection state={buildState()} actions={buildActions({ onCreate, onSave })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "draft before add" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith({ title: null, body: "" });
+    });
+    expect(onSave).toHaveBeenCalledWith("note-1", {
+      title: null,
+      body: "draft before add",
+    });
+    expect(onSave.mock.invocationCallOrder[0]).toBeLessThan(onCreate.mock.invocationCallOrder[0]!);
+  });
+
+  it("does not create another note when flushing the current draft fails", async () => {
+    const onSave = vi.fn(async () => false);
+    const onCreate = vi.fn(async () => createNote({ id: "new-note", body: "" }));
+    render(<NotesSection state={buildState()} actions={buildActions({ onCreate, onSave })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "unsaved draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalled();
+    });
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Edit note body note-1")).toBeTruthy();
+  });
+
+  it("does not create duplicate notes while the current draft is being flushed", async () => {
+    let resolveSave: (saved: boolean) => void = () => undefined;
+    const onSave = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const onCreate = vi.fn(async () => createNote({ id: "new-note", body: "" }));
+    render(<NotesSection state={buildState()} actions={buildActions({ onCreate, onSave })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
+    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
+      target: { value: "draft before add" },
+    });
+    const addButton = screen.getByRole("button", { name: "Add note" }) as HTMLButtonElement;
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+
+    expect(addButton.disabled).toBe(true);
+    expect(onCreate).not.toHaveBeenCalled();
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    await act(async () => {
+      resolveSave(true);
+    });
+    await waitFor(() => expect(onCreate).toHaveBeenCalledOnce());
+  });
+
   it("shows first-line preview and full text when expanded", async () => {
     render(<NotesSection state={buildState()} actions={buildActions()} />);
 

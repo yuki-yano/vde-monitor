@@ -154,4 +154,158 @@ describe("useSessionRepoNotes", () => {
       expect(result.current.notes[0]?.id).toBe("reconnect-note");
     });
   });
+
+  it("does not let an older list response overwrite a completed note update", async () => {
+    const initialNote = buildNote({ body: "initial" });
+    const staleListDeferred = createDeferred<RepoNote[]>();
+    const requestRepoNotes = vi
+      .fn()
+      .mockResolvedValueOnce([initialNote])
+      .mockImplementationOnce(() => staleListDeferred.promise);
+    const updateRepoNote = vi.fn(async () => buildNote({ body: "updated" }));
+    const { createRepoNote, deleteRepoNote } = createDefaultActions();
+
+    const { result } = renderHook(() =>
+      useSessionRepoNotes({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        connected: true,
+        requestRepoNotes,
+        createRepoNote,
+        updateRepoNote,
+        deleteRepoNote,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.notes[0]?.body).toBe("initial");
+    });
+    act(() => {
+      result.current.refreshNotes({ silent: true });
+    });
+    await waitFor(() => {
+      expect(requestRepoNotes).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      await result.current.saveNote("note-1", { title: null, body: "updated" });
+    });
+    expect(result.current.notes[0]?.body).toBe("updated");
+
+    act(() => {
+      staleListDeferred.resolve([initialNote]);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.notes[0]?.body).toBe("updated");
+  });
+
+  it("keeps a previous repo load and its finally block out of the current repo scope", async () => {
+    const oldRepoLoad = createDeferred<RepoNote[]>();
+    const newRepoLoad = createDeferred<RepoNote[]>();
+    const requestRepoNotes = vi
+      .fn()
+      .mockImplementationOnce(() => oldRepoLoad.promise)
+      .mockImplementationOnce(() => newRepoLoad.promise);
+    const { createRepoNote, updateRepoNote, deleteRepoNote } = createDefaultActions();
+    const { result, rerender } = renderHook(
+      ({ repoRoot }) =>
+        useSessionRepoNotes({
+          paneId: "pane-1",
+          repoRoot,
+          connected: true,
+          requestRepoNotes,
+          createRepoNote,
+          updateRepoNote,
+          deleteRepoNote,
+        }),
+      { initialProps: { repoRoot: "/old-repo" } },
+    );
+    await waitFor(() => {
+      expect(requestRepoNotes).toHaveBeenCalledTimes(1);
+      expect(result.current.notesLoading).toBe(true);
+    });
+
+    rerender({ repoRoot: "/new-repo" });
+    await waitFor(() => {
+      expect(requestRepoNotes).toHaveBeenCalledTimes(2);
+      expect(result.current.notesLoading).toBe(true);
+    });
+    act(() => {
+      oldRepoLoad.resolve([buildNote({ id: "old-note", repoRoot: "/old-repo" })]);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.notes).toEqual([]);
+    expect(result.current.notesLoading).toBe(true);
+
+    act(() => {
+      newRepoLoad.resolve([buildNote({ id: "new-note", repoRoot: "/new-repo" })]);
+    });
+    await waitFor(() => {
+      expect(result.current.notes.map((note) => note.id)).toEqual(["new-note"]);
+      expect(result.current.notesLoading).toBe(false);
+    });
+  });
+
+  it("ignores create, save, and delete completions from a previous repo generation", async () => {
+    const oldNote = buildNote({ id: "old-note", repoRoot: "/old-repo" });
+    const newNote = buildNote({ id: "new-note", repoRoot: "/new-repo" });
+    const requestRepoNotes = vi
+      .fn()
+      .mockResolvedValueOnce([oldNote])
+      .mockResolvedValueOnce([newNote]);
+    const createDeferredNote = createDeferred<RepoNote>();
+    const saveDeferredNote = createDeferred<RepoNote>();
+    const deleteDeferredNote = createDeferred<string>();
+    const createRepoNote = vi.fn(() => createDeferredNote.promise);
+    const updateRepoNote = vi.fn(() => saveDeferredNote.promise);
+    const deleteRepoNote = vi.fn(() => deleteDeferredNote.promise);
+    const { result, rerender } = renderHook(
+      ({ repoRoot }) =>
+        useSessionRepoNotes({
+          paneId: "pane-1",
+          repoRoot,
+          connected: true,
+          requestRepoNotes,
+          createRepoNote,
+          updateRepoNote,
+          deleteRepoNote,
+        }),
+      { initialProps: { repoRoot: "/old-repo" } },
+    );
+    await waitFor(() => expect(result.current.notes.map((note) => note.id)).toEqual(["old-note"]));
+
+    let createResult: Promise<RepoNote | null>;
+    let saveResult: Promise<boolean>;
+    let deleteResult: Promise<boolean>;
+    act(() => {
+      createResult = result.current.createNote({ body: "created" });
+      saveResult = result.current.saveNote("old-note", { body: "saved" });
+      deleteResult = result.current.removeNote("old-note");
+    });
+    rerender({ repoRoot: "/new-repo" });
+    await waitFor(() => expect(result.current.notes.map((note) => note.id)).toEqual(["new-note"]));
+
+    act(() => {
+      createDeferredNote.resolve(buildNote({ id: "created-old", repoRoot: "/old-repo" }));
+      saveDeferredNote.resolve(buildNote({ id: "saved-old", repoRoot: "/old-repo" }));
+      deleteDeferredNote.resolve("old-note");
+    });
+    await expect(Promise.all([createResult!, saveResult!, deleteResult!])).resolves.toEqual([
+      null,
+      false,
+      false,
+    ]);
+
+    expect(result.current.notes.map((note) => note.id)).toEqual(["new-note"]);
+    expect(result.current.creatingNote).toBe(false);
+    expect(result.current.savingNoteId).toBeNull();
+    expect(result.current.deletingNoteId).toBeNull();
+    expect(result.current.notesError).toBeNull();
+  });
 });

@@ -1,6 +1,6 @@
 import type { RepoNote } from "@vde-monitor/shared";
 import { BookText, Plus, RefreshCw } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 
 import {
   Callout,
@@ -58,6 +58,8 @@ export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
   const [openNoteIdSet, setOpenNoteIdSet] = useState<Set<string>>(() => new Set());
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
   const [deleteDialogNoteId, setDeleteDialogNoteId] = useState<string | null>(null);
+  const [addingNote, setAddingNote] = useState(false);
+  const addNoteInFlightRef = useRef(false);
 
   const copyResetTimer = useTimeout();
 
@@ -119,13 +121,25 @@ export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
   }, [autoSaveFinishEdit]);
 
   const handleAddNote = useCallback(() => {
+    if (addNoteInFlightRef.current) return;
+    addNoteInFlightRef.current = true;
+    setAddingNote(true);
     void (async () => {
-      const created = await onCreate({ title: null, body: "" });
-      if (created) {
-        handleNoteAutoEdit(created);
+      try {
+        const flushed = await autoSaveFinishEdit();
+        if (!flushed) {
+          return;
+        }
+        const created = await onCreate({ title: null, body: "" });
+        if (created) {
+          handleNoteAutoEdit(created);
+        }
+      } finally {
+        addNoteInFlightRef.current = false;
+        setAddingNote(false);
       }
     })();
-  }, [handleNoteAutoEdit, onCreate]);
+  }, [autoSaveFinishEdit, handleNoteAutoEdit, onCreate]);
 
   const handleCopyNote = useCallback(
     (note: RepoNote) => {
@@ -194,7 +208,7 @@ export const NotesSection = memo(({ state, actions }: NotesSectionProps) => {
             className="border-latte-lavender/70 bg-latte-lavender text-latte-base shadow-glow hover:border-latte-lavender/80 hover:bg-latte-lavender hover:-translate-y-px"
             aria-label="Add note"
             onClick={handleAddNote}
-            disabled={!repoRoot || creatingNote}
+            disabled={!repoRoot || creatingNote || addingNote}
           >
             <Plus className="h-4 w-4" />
           </IconButton>

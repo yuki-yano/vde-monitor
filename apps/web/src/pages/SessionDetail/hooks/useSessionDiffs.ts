@@ -163,7 +163,7 @@ export const useSessionDiffs = ({
   );
 
   const applyDiffSummary = useCallback(
-    async (summary: DiffSummary, refreshOpenFiles: boolean) => {
+    async (summary: DiffSummary, refreshOpenFiles: boolean, isCurrent: () => boolean) => {
       pruneDiffFileCacheToRev(paneId, worktreePath, branch, summary.rev);
       setDiffSummary(summary);
       const fileSet = new Set(summary.files.map((file) => file.path));
@@ -205,8 +205,14 @@ export const useSessionDiffs = ({
                 path,
                 () => requestDiffFile(paneId, path, summary.rev, requestOptions),
               );
+              if (!isCurrent()) {
+                return;
+              }
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
+              if (!isCurrent()) {
+                return;
+              }
               setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
             }
           }),
@@ -236,8 +242,8 @@ export const useSessionDiffs = ({
       activeScopeRef,
       scopeKey: targetScopeKey,
       run: () => requestDiffSummary(paneId, requestOptions),
-      onSuccess: async (summary) => {
-        await applyDiffSummary(summary, true);
+      onSuccess: async (summary, { isCurrent }) => {
+        await applyDiffSummary(summary, true, isCurrent);
       },
       onError: (err) => {
         setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffSummary));
@@ -267,13 +273,13 @@ export const useSessionDiffs = ({
       activeScopeRef,
       scopeKey: targetScopeKey,
       run: () => requestDiffSummary(paneId, requestOptions),
-      onSuccess: async (summary) => {
+      onSuccess: async (summary, { isCurrent }) => {
         const snapshot = buildDiffSummarySnapshot(summary);
         if (snapshot === diffSnapshotRef.current) {
           return;
         }
         setDiffError(null);
-        await applyDiffSummary(summary, true);
+        await applyDiffSummary(summary, true, isCurrent);
       },
     });
   }, [
