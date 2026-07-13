@@ -60,8 +60,12 @@ export const useSessionDetailVMState = (paneId: string) => {
     requestCommitDetail,
     requestCommitFile,
   } = useSessionBranchesApi();
-  const { requestRepoFileTree, requestRepoFileSearch, requestRepoFileContent } =
-    useSessionFilesApi();
+  const {
+    requestRepoFileTree,
+    requestRepoFileSearch,
+    requestRepoFileContent,
+    revokeRepoFilePreview,
+  } = useSessionFilesApi();
   const { requestRepoNotes, createRepoNote, updateRepoNote, deleteRepoNote } = useSessionNotesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
   const { resolvedTheme } = useTheme();
@@ -106,6 +110,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       requestRepoFileTree,
       requestRepoFileSearch,
       requestRepoFileContent,
+      revokeRepoFilePreview,
       requestScreen,
       focusPane,
       killPane,
@@ -155,6 +160,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       requestRepoFileTree,
       requestRepoFileSearch,
       requestRepoFileContent,
+      revokeRepoFilePreview,
       requestScreen,
       focusPane,
       killPane,

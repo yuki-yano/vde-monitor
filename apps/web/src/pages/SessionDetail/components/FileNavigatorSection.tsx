@@ -46,14 +46,24 @@ const FileTreeIcon = memo(({ node }: { node: FileTreeRenderNode }) => {
   const icon = resolveFileIcon(node.path, node.kind, node.expanded);
   if (icon.kind === "directory") {
     return icon.open ? (
-      <FolderOpen className="text-latte-peach h-4 w-4 shrink-0" />
+      <FolderOpen
+        className={cn(
+          "h-4 w-4 shrink-0",
+          node.isIgnored ? "text-latte-overlay1 opacity-60" : "text-latte-peach",
+        )}
+      />
     ) : (
-      <Folder className="text-latte-yellow h-4 w-4 shrink-0" />
+      <Folder
+        className={cn(
+          "h-4 w-4 shrink-0",
+          node.isIgnored ? "text-latte-overlay1 opacity-60" : "text-latte-yellow",
+        )}
+      />
     );
   }
   const iconStyle = icon.styleKey === "default" ? undefined : defaultStyles[icon.styleKey];
   return (
-    <span className="h-4 w-4 shrink-0">
+    <span className={cn("h-4 w-4 shrink-0", node.isIgnored ? "opacity-45 grayscale" : "")}>
       <FileIcon extension={icon.extension ?? undefined} {...(iconStyle ?? {})} />
     </span>
   );
@@ -173,6 +183,7 @@ export const FileNavigatorSection = memo(({ state, actions }: FileNavigatorSecti
                     "hover:bg-latte-surface0/60 border-latte-surface2/50 border-b last:border-b-0",
                     node.selected ? "bg-latte-lavender/15" : "",
                     node.activeMatch ? "ring-latte-lavender/40 ring-1" : "",
+                    node.isIgnored ? "opacity-75" : "",
                   )}
                   style={{ paddingLeft: `${node.depth * 14 + 8}px` }}
                 >

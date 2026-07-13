@@ -233,6 +233,18 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const revokeRepoFilePreview = async (paneId: string, token: string): Promise<void> => {
+    ensureToken();
+    const response = await apiClient.sessions[":paneId"].files.preview[":token"].$delete({
+      param: { paneId, token },
+    });
+    if (!response.ok) {
+      handleSessionMissing(paneId, response, null);
+      throw new Error("Failed to revoke file preview");
+    }
+    onConnectionIssue(null);
+  };
+
   const createRepoNote = async (
     paneId: string,
     input: { title?: string | null; body: string },
@@ -319,6 +331,7 @@ export const createSessionActionRequests = ({
     resetSessionTitle,
     touchSession,
     acknowledgeSessionView,
+    revokeRepoFilePreview,
     createRepoNote,
     updateRepoNote,
     deleteRepoNote,

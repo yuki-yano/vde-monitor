@@ -1,5 +1,5 @@
 import type { RepoFileContent } from "@vde-monitor/shared";
-import { type MutableRefObject, useCallback } from "react";
+import { type MutableRefObject, useCallback, useEffect } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { copyToClipboard } from "@/lib/copy-to-clipboard";
@@ -13,7 +13,6 @@ import { setUiState } from "./useSessionFiles-ui-state-machine";
 
 const markdownPathPattern = /\.(md|markdown)$/i;
 const htmlPathPattern = /\.html?$/i;
-const previewablePathPattern = /\.(html?|md|markdown)$/i;
 const FILE_MODAL_COPY_INDICATOR_MS = 1200;
 
 const isMarkdownFileContent = (file: RepoFileContent) => {
@@ -32,11 +31,8 @@ const isHtmlFileContent = (file: RepoFileContent) => {
 
 type UseSessionFilesFileModalActionsDeps = {
   paneId: string;
-  fetchFileContent: (
-    targetPaneId: string,
-    targetPath: string,
-    options?: { includeIgnoredPreviewExact?: boolean },
-  ) => Promise<RepoFileContent>;
+  fetchFileContent: (targetPaneId: string, targetPath: string) => Promise<RepoFileContent>;
+  revokeRepoFilePreview: (targetPaneId: string, token: string) => Promise<void>;
   revealFilePath: (targetPath: string) => void;
   resolveUnknownErrorMessage: (error: unknown, fallbackMessage: string) => string;
   contextVersionRef: MutableRefObject<number>;
@@ -44,11 +40,12 @@ type UseSessionFilesFileModalActionsDeps = {
 };
 
 export const useSessionFilesFileModalActions = (
-  state: Pick<SessionFilesUiState, "fileModalPath">,
+  state: Pick<SessionFilesUiState, "fileModalFile" | "fileModalOpen" | "fileModalPath">,
   dispatch: SessionFilesUiDispatch,
   {
     paneId,
     fetchFileContent,
+    revokeRepoFilePreview,
     revealFilePath,
     resolveUnknownErrorMessage,
     contextVersionRef,
@@ -61,6 +58,31 @@ export const useSessionFilesFileModalActions = (
   // -- see useSessionFiles.ts wiring of `cancelCopyTimeout` into the
   // context-reset effect.
   const copyIndicatorTimeout = useTimeout();
+
+  const revokePreview = useCallback(
+    (targetPaneId: string, file: RepoFileContent | null) => {
+      const token = file?.preview?.token;
+      if (token) {
+        void revokeRepoFilePreview(targetPaneId, token).catch(() => undefined);
+      }
+    },
+    [revokeRepoFilePreview],
+  );
+
+  useEffect(() => {
+    if (!state.fileModalOpen || !state.fileModalFile?.preview?.token) {
+      return;
+    }
+    const file = state.fileModalFile;
+    return () => revokePreview(paneId, file);
+  }, [paneId, revokePreview, state.fileModalFile, state.fileModalOpen]);
+
+  useEffect(
+    () => () => {
+      activeFileContentRequestIdRef.current += 1;
+    },
+    [activeFileContentRequestIdRef],
+  );
 
   const openFileModalByPath = useCallback(
     (
@@ -86,19 +108,13 @@ export const useSessionFilesFileModalActions = (
         highlightLine: options.highlightLine ?? null,
       });
 
-      const includeIgnoredPreviewExact =
-        options.origin === "log" && previewablePathPattern.test(targetPath);
-
-      void fetchFileContent(
-        options.paneId,
-        targetPath,
-        includeIgnoredPreviewExact ? { includeIgnoredPreviewExact } : undefined,
-      )
+      void fetchFileContent(options.paneId, targetPath)
         .then((file) => {
           if (
             contextVersion !== contextVersionRef.current ||
             activeFileContentRequestIdRef.current !== requestId
           ) {
+            revokePreview(options.paneId, file);
             return;
           }
           dispatch({
@@ -131,6 +147,7 @@ export const useSessionFilesFileModalActions = (
       dispatch,
       fetchFileContent,
       resolveUnknownErrorMessage,
+      revokePreview,
       revealFilePath,
     ],
   );

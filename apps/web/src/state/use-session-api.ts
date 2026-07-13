@@ -445,8 +445,9 @@ export const useSessionApi = ({
       requestRepoFileTree: queryRequests.requestRepoFileTree,
       requestRepoFileSearch: queryRequests.requestRepoFileSearch,
       requestRepoFileContent: queryRequests.requestRepoFileContent,
+      revokeRepoFilePreview: actionRequests.revokeRepoFilePreview,
     }),
-    [queryRequests],
+    [queryRequests, actionRequests],
   );
 
   const notes = useMemo(

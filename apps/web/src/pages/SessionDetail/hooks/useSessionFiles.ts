@@ -68,14 +68,15 @@ type UseSessionFilesParams = {
       cursor?: string;
       limit?: number;
       worktreePath?: string;
-      includeIgnoredPreviewExact?: boolean;
+      exactReference?: boolean;
     },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number; worktreePath?: string; includeIgnoredPreviewExact?: boolean },
+    options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
+  revokeRepoFilePreview: (paneId: string, token: string) => Promise<void>;
 };
 
 export const useSessionFiles = ({
@@ -86,6 +87,7 @@ export const useSessionFiles = ({
   requestRepoFileTree,
   requestRepoFileSearch,
   requestRepoFileContent,
+  revokeRepoFilePreview,
 }: UseSessionFilesParams) => {
   const requestScopeId = `${paneId}:${worktreePath ?? "__default__"}`;
   const [state, dispatch] = useReducer(
@@ -156,14 +158,23 @@ export const useSessionFiles = ({
     onToggleFileModalLineNumbers,
     onCopyFileModalPath,
     cancelCopyTimeout,
-  } = useSessionFilesFileModalActions({ fileModalPath: state.fileModalPath }, dispatch, {
-    paneId,
-    fetchFileContent,
-    revealFilePath,
-    resolveUnknownErrorMessage,
-    contextVersionRef,
-    activeFileContentRequestIdRef,
-  });
+  } = useSessionFilesFileModalActions(
+    {
+      fileModalOpen: state.fileModalOpen,
+      fileModalPath: state.fileModalPath,
+      fileModalFile: state.fileModalFile,
+    },
+    dispatch,
+    {
+      paneId,
+      fetchFileContent,
+      revokeRepoFilePreview,
+      revealFilePath,
+      resolveUnknownErrorMessage,
+      contextVersionRef,
+      activeFileContentRequestIdRef,
+    },
+  );
 
   useSessionFilesContextResetEffect(dispatch, {
     paneId,

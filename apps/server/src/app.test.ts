@@ -1,3 +1,7 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "./app";
@@ -69,5 +73,50 @@ describe("createApp /api/admin/token/rotate", () => {
       headers: { Authorization: "Bearer rotated-token" },
     });
     expect(newTokenRes.status).toBe(200);
+  });
+
+  it("serves file previews without auth and supports explicit and rotation revocation", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "vde-monitor-app-preview-"));
+    try {
+      const image = Buffer.alloc(300 * 1024, 0x7f);
+      await fs.writeFile(path.join(repoRoot, "large.png"), image);
+      const { app, monitor, detail } = createAppUnderTest();
+      monitor.registry.update({ ...detail, repoRoot, currentPath: repoRoot });
+
+      const contentResponse = await app.request(
+        "/api/sessions/pane-1/files/content?path=large.png",
+        { headers: authHeaders },
+      );
+      expect(contentResponse.status).toBe(200);
+      const content = await contentResponse.json();
+      const previewPath = new URL(content.file.preview.url).pathname;
+
+      const previewResponse = await app.request(previewPath);
+      expect(previewResponse.status).toBe(200);
+      expect(Buffer.from(await previewResponse.arrayBuffer())).toEqual(image);
+
+      const revokeResponse = await app.request(
+        `/api/sessions/pane-already-removed/files/preview/${content.file.preview.token}`,
+        { method: "DELETE", headers: authHeaders },
+      );
+      expect(revokeResponse.status).toBe(204);
+      expect((await app.request(previewPath)).status).toBe(404);
+
+      const rotatedContentResponse = await app.request(
+        "/api/sessions/pane-1/files/content?path=large.png",
+        { headers: authHeaders },
+      );
+      const rotatedContent = await rotatedContentResponse.json();
+      const rotatedPreviewPath = new URL(rotatedContent.file.preview.url).pathname;
+      expect((await app.request(rotatedPreviewPath)).status).toBe(200);
+
+      await app.request("/api/admin/token/rotate", {
+        method: "POST",
+        headers: authHeaders,
+      });
+      expect((await app.request(rotatedPreviewPath)).status).toBe(404);
+    } finally {
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
   });
 });

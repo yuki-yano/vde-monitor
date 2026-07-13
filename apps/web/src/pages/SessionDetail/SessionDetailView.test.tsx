@@ -173,6 +173,7 @@ const buildDefaultContextValue = () => {
       requestRepoFileTree: vi.fn(),
       requestRepoFileSearch: vi.fn(),
       requestRepoFileContent: vi.fn(),
+      revokeRepoFilePreview: vi.fn(async () => undefined),
       focusPane: vi.fn(),
       killPane: vi.fn(),
       killWindow: vi.fn(),

@@ -110,6 +110,12 @@ describe("FileContentModal", () => {
             truncated: false,
             languageHint: "html",
             content: "<!doctype html><main><h1>Hello HTML</h1></main>",
+            preview: {
+              token: "html-token",
+              url: "about:blank#html-preview",
+              mimeType: "text/html",
+              expiresAt: "2026-07-13T01:00:00.000Z",
+            },
           },
           markdownViewMode: "preview",
         })}
@@ -118,10 +124,8 @@ describe("FileContentModal", () => {
     );
 
     const iframe = screen.getByTitle("Preview of preview.html");
-    expect(iframe.getAttribute("srcdoc")).toContain("<h1>Hello HTML</h1>");
-    expect(iframe.getAttribute("srcdoc")).toContain("Content-Security-Policy");
-    expect(iframe.getAttribute("srcdoc")).toContain("default-src 'none'");
-    expect(iframe.getAttribute("srcdoc")).toContain("connect-src 'none'");
+    expect(iframe.getAttribute("src")).toBe("about:blank#html-preview");
+    expect(iframe.getAttribute("srcdoc")).toBeNull();
     expect(iframe.getAttribute("sandbox")).toBe("");
     expect(iframe.getAttribute("referrerpolicy")).toBe("no-referrer");
 
@@ -197,7 +201,7 @@ describe("FileContentModal", () => {
     expect(screen.getByText("Binary file preview is not available.")).toBeTruthy();
   });
 
-  it("renders image preview when binary image preview data is available", () => {
+  it("renders an image from its preview URL", () => {
     render(
       <FileContentModal
         state={createState({
@@ -209,9 +213,11 @@ describe("FileContentModal", () => {
             truncated: false,
             languageHint: null,
             content: null,
-            imagePreview: {
+            preview: {
+              token: "image-token",
+              url: "/file-preview/image-token/logo.png",
               mimeType: "image/png",
-              base64: "iVBORw0KGgo=",
+              expiresAt: "2026-07-13T01:00:00.000Z",
             },
           },
         })}
@@ -220,7 +226,7 @@ describe("FileContentModal", () => {
     );
 
     const image = screen.getByRole("img", { name: "Preview of assets/logo.png" });
-    expect(image.getAttribute("src")).toContain("data:image/png;base64,iVBORw0KGgo=");
+    expect(image.getAttribute("src")).toBe("/file-preview/image-token/logo.png");
     expect(screen.queryByText("Binary file preview is not available.")).toBeNull();
   });
 

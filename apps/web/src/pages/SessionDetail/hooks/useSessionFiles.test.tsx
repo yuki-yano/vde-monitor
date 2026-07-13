@@ -2,7 +2,14 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { RepoFileContent, RepoFileSearchPage, RepoFileTreePage } from "@vde-monitor/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useSessionFiles } from "./useSessionFiles";
+import { useSessionFiles as useSessionFilesHook } from "./useSessionFiles";
+
+const revokeRepoFilePreview = vi.fn(async () => undefined);
+type UseSessionFilesParams = Parameters<typeof useSessionFilesHook>[0];
+const useSessionFiles = (
+  params: Omit<UseSessionFilesParams, "revokeRepoFilePreview"> &
+    Partial<Pick<UseSessionFilesParams, "revokeRepoFilePreview">>,
+) => useSessionFilesHook({ revokeRepoFilePreview, ...params });
 
 const createTreePage = (overrides: Partial<RepoFileTreePage>): RepoFileTreePage => ({
   basePath: ".",
@@ -48,6 +55,7 @@ describe("useSessionFiles", () => {
   afterEach(() => {
     vi.useRealTimers();
     requestRepoFileContent.mockClear();
+    revokeRepoFilePreview.mockClear();
   });
 
   it("loads root tree and expands directories", async () => {
@@ -784,6 +792,47 @@ describe("useSessionFiles", () => {
     });
   });
 
+  it("revokes a loaded preview ticket when the modal closes", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+    const requestRepoFileContentLocal = vi.fn(
+      async (): Promise<RepoFileContent> => ({
+        path: "preview.html",
+        sizeBytes: 42,
+        isBinary: false,
+        truncated: false,
+        languageHint: "html",
+        content: "<main>preview</main>",
+        preview: {
+          token: "preview-token",
+          url: "/file-preview/preview-token/r/repo/preview.html",
+          mimeType: "text/html",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        },
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    act(() => result.current.onOpenFileModal("preview.html"));
+    await waitFor(() => expect(result.current.fileModalFile?.preview?.token).toBe("preview-token"));
+
+    act(() => result.current.onCloseFileModal());
+
+    await waitFor(() => {
+      expect(revokeRepoFilePreview).toHaveBeenCalledWith("pane-1", "preview-token");
+    });
+  });
+
   it("ignores stale file content response after modal close", async () => {
     const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
     const requestRepoFileSearch = vi.fn();
@@ -819,6 +868,12 @@ describe("useSessionFiles", () => {
         truncated: false,
         languageHint: "typescript",
         content: "const a = 1",
+        preview: {
+          token: "stale-preview-token",
+          url: "/file-preview/stale-preview-token/r/repo/src/stale.ts",
+          mimeType: "image/svg+xml",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        },
       });
       await Promise.resolve();
     });
@@ -826,6 +881,46 @@ describe("useSessionFiles", () => {
     expect(result.current.fileModalOpen).toBe(false);
     expect(result.current.fileModalFile).toBeNull();
     expect(result.current.fileModalLoading).toBe(false);
+    expect(revokeRepoFilePreview).toHaveBeenCalledWith("pane-1", "stale-preview-token");
+  });
+
+  it("revokes a preview returned after the file navigator unmounts", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn();
+    const deferred = createDeferred<RepoFileContent>();
+
+    const { result, unmount } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-1",
+        repoRoot: "/repo",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: vi.fn(async () => deferred.promise),
+      }),
+    );
+
+    act(() => result.current.onOpenFileModal("late.png"));
+    unmount();
+    await act(async () => {
+      deferred.resolve({
+        path: "late.png",
+        sizeBytes: 10,
+        isBinary: true,
+        truncated: false,
+        languageHint: null,
+        content: null,
+        preview: {
+          token: "unmounted-preview-token",
+          url: "/file-preview/unmounted-preview-token/r/repo/late.png",
+          mimeType: "image/png",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        },
+      });
+      await Promise.resolve();
+    });
+
+    expect(revokeRepoFilePreview).toHaveBeenCalledWith("pane-1", "unmounted-preview-token");
   });
 
   it("toggles line-number visibility in file modal", async () => {
@@ -945,6 +1040,7 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "apps/web/src/index.ts", {
       cursor: undefined,
       limit: 100,
+      exactReference: true,
     });
     expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "apps/web/src/index.ts", {
       maxBytes: 256 * 1024,
@@ -1009,11 +1105,10 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "apps/web/preview.html", {
       cursor: undefined,
       limit: 100,
-      includeIgnoredPreviewExact: true,
+      exactReference: true,
     });
     expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "apps/web/preview.html", {
       maxBytes: 256 * 1024,
-      includeIgnoredPreviewExact: true,
     });
   });
 
@@ -1075,23 +1170,18 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
       cursor: undefined,
       limit: 100,
-      includeIgnoredPreviewExact: true,
+      exactReference: true,
     });
     expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
       maxBytes: 256 * 1024,
-      includeIgnoredPreviewExact: true,
     });
   });
 
   it("opens root Markdown filename references through ignored exact lookup", async () => {
     const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
     const requestRepoFileSearch = vi.fn(
-      async (
-        _paneId: string,
-        query: string,
-        options?: { includeIgnoredPreviewExact?: boolean },
-      ) => {
-        if (query === "README.md" && options?.includeIgnoredPreviewExact) {
+      async (_paneId: string, query: string, options?: { exactReference?: boolean }) => {
+        if (query === "README.md" && options?.exactReference) {
           return createSearchPage({
             query,
             items: [
@@ -1147,11 +1237,10 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "README.md", {
       cursor: undefined,
       limit: 100,
-      includeIgnoredPreviewExact: true,
+      exactReference: true,
     });
     expect(requestRepoFileContentLocal).toHaveBeenCalledWith("pane-log", "README.md", {
       maxBytes: 256 * 1024,
-      includeIgnoredPreviewExact: true,
     });
   });
 
@@ -1210,11 +1299,49 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
       cursor: undefined,
       limit: 100,
+      exactReference: true,
     });
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "index.ts", {
       cursor: undefined,
       limit: 100,
     });
+  });
+
+  it("does not fall back to a repo basename search for a missing external absolute path", async () => {
+    const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) =>
+      createSearchPage({ query, items: [], totalMatchedCount: 0 }),
+    );
+    const requestRepoFileContentLocal = vi.fn(requestRepoFileContent);
+
+    const { result } = renderHook(() =>
+      useSessionFiles({
+        paneId: "pane-current",
+        repoRoot: "/repo-current",
+        autoExpandMatchLimit: 100,
+        requestRepoFileTree,
+        requestRepoFileSearch,
+        requestRepoFileContent: requestRepoFileContentLocal,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.onResolveLogFileReference({
+        rawToken: "/tmp/generated/image.png:4",
+        sourcePaneId: "pane-log",
+        sourceRepoRoot: "/repo",
+      });
+    });
+
+    expect(result.current.fileModalOpen).toBe(false);
+    expect(result.current.fileResolveError).toBe("File not found: /tmp/generated/image.png");
+    expect(requestRepoFileSearch).toHaveBeenCalledTimes(1);
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "/tmp/generated/image.png", {
+      cursor: undefined,
+      limit: 100,
+      exactReference: true,
+    });
+    expect(requestRepoFileContentLocal).not.toHaveBeenCalled();
   });
 
   it("falls back to filename search when path lookup cursor repeats", async () => {
@@ -1283,10 +1410,12 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
       cursor: undefined,
       limit: 100,
+      exactReference: true,
     });
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "src/index.ts", {
       cursor: "cursor-1",
       limit: 100,
+      exactReference: true,
     });
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(3, "pane-log", "index.ts", {
       cursor: undefined,
@@ -1366,6 +1495,7 @@ describe("useSessionFiles", () => {
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(1, "pane-log", "src/index.ts", {
       cursor: undefined,
       limit: 100,
+      exactReference: true,
     });
     expect(requestRepoFileSearch).toHaveBeenNthCalledWith(2, "pane-log", "index.ts", {
       cursor: undefined,
@@ -1595,15 +1725,8 @@ describe("useSessionFiles", () => {
   it("treats exact previewable path references as linkable through ignored preview lookup", async () => {
     const requestRepoFileTree = vi.fn(async () => createTreePage({ basePath: ".", entries: [] }));
     const requestRepoFileSearch = vi.fn(
-      async (
-        _paneId: string,
-        query: string,
-        options?: { includeIgnoredPreviewExact?: boolean },
-      ) => {
-        if (
-          query === "docs/sidebar-collapse-proposals.html" &&
-          options?.includeIgnoredPreviewExact
-        ) {
+      async (_paneId: string, query: string, options?: { exactReference?: boolean }) => {
+        if (query === "docs/sidebar-collapse-proposals.html" && options?.exactReference) {
           return createSearchPage({
             query,
             items: [
@@ -1619,7 +1742,7 @@ describe("useSessionFiles", () => {
             totalMatchedCount: 1,
           });
         }
-        if (query === "docs/notes.md" && options?.includeIgnoredPreviewExact) {
+        if (query === "docs/notes.md" && options?.exactReference) {
           return createSearchPage({
             query,
             items: [
@@ -1635,7 +1758,7 @@ describe("useSessionFiles", () => {
             totalMatchedCount: 1,
           });
         }
-        if (query === "index.html" && options?.includeIgnoredPreviewExact) {
+        if (query === "index.html" && options?.exactReference) {
           return createSearchPage({
             query,
             items: [
@@ -1687,18 +1810,18 @@ describe("useSessionFiles", () => {
       {
         cursor: undefined,
         limit: 100,
-        includeIgnoredPreviewExact: true,
+        exactReference: true,
       },
     );
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "docs/notes.md", {
       cursor: undefined,
       limit: 100,
-      includeIgnoredPreviewExact: true,
+      exactReference: true,
     });
     expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-log", "index.html", {
       cursor: undefined,
       limit: 100,
-      includeIgnoredPreviewExact: true,
+      exactReference: true,
     });
   });
 

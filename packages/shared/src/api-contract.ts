@@ -128,14 +128,17 @@ export type RepoFileSearchQuery = {
   cursor?: string;
   limit?: string;
   worktreePath?: string;
-  includeIgnoredPreviewExact?: string;
+  exactReference?: string;
 };
 
 export type RepoFileContentQuery = {
   path: string;
   maxBytes?: string;
   worktreePath?: string;
-  includeIgnoredPreviewExact?: string;
+};
+
+export type RepoFilePreviewRevokeParam = PaneParam & {
+  token: string;
 };
 
 type ApiRequest<TArgs, TRequestInit, TResponse> = (
@@ -217,6 +220,11 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
     };
     content: {
       $get: ApiRequest<{ param: PaneParam; query: RepoFileContentQuery }, TRequestInit, TResponse>;
+    };
+    preview: {
+      ":token": {
+        $delete: ApiRequest<{ param: RepoFilePreviewRevokeParam }, TRequestInit, TResponse>;
+      };
     };
   };
   branches: {

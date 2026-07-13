@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { resolveFileContent } from "./file-content-resolver";
+import { resolveFileContent, resolveFileContentFromAbsolutePath } from "./file-content-resolver";
 
 describe("file content resolver", () => {
   it("reads text files with truncation and language hint", async () => {
@@ -50,13 +50,12 @@ describe("file content resolver", () => {
         languageHint: null,
         content: null,
       });
-      expect(result.imagePreview).toBeNull();
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
 
-  it("returns inline preview payload for supported image formats", async () => {
+  it("returns metadata only for image files", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-"));
     const imageBase64 =
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
@@ -80,16 +79,13 @@ describe("file content resolver", () => {
         languageHint: null,
         content: null,
       });
-      expect(result.imagePreview).toEqual({
-        mimeType: "image/png",
-        base64: imageBase64,
-      });
+      expect(result.content).toBeNull();
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
 
-  it("does not include image preview when image exceeds maxBytes", async () => {
+  it("does not truncate binary metadata when an image exceeds maxBytes", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-limit-"));
     const imageBase64 =
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
@@ -105,7 +101,8 @@ describe("file content resolver", () => {
       });
 
       expect(result.isBinary).toBe(true);
-      expect(result.imagePreview).toBeNull();
+      expect(result.truncated).toBe(false);
+      expect(result.sizeBytes).toBe(imageBuffer.length);
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
@@ -228,11 +225,32 @@ describe("file content resolver", () => {
     }
   });
 
-  it("rejects symlink traversal", async () => {
+  it("allows symlinks that resolve inside the repository", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-link-"));
     try {
       await writeFile(path.join(repoRoot, "target.txt"), "target\n");
       await symlink(path.join(repoRoot, "target.txt"), path.join(repoRoot, "linked.txt"));
+
+      const result = await resolveFileContent({
+        repoRoot,
+        normalizedPath: "linked.txt",
+        maxBytes: 100,
+      });
+      expect(result.content).toBe("target\n");
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects symlinks that resolve outside the repository", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-link-root-"));
+    const outsideRoot = await mkdtemp(
+      path.join(os.tmpdir(), "vde-monitor-file-content-link-outside-"),
+    );
+    try {
+      const outsideFile = path.join(outsideRoot, "outside.txt");
+      await writeFile(outsideFile, "outside\n");
+      await symlink(outsideFile, path.join(repoRoot, "linked.txt"));
 
       await expect(
         resolveFileContent({
@@ -246,6 +264,62 @@ describe("file content resolver", () => {
       });
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
+      await rm(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rechecks the allowed root against the opened file handle", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-safe-open-"));
+    const outsideRoot = await mkdtemp(
+      path.join(os.tmpdir(), "vde-monitor-file-content-safe-open-outside-"),
+    );
+    try {
+      const outsideFile = path.join(outsideRoot, "outside.txt");
+      await writeFile(outsideFile, "outside\n");
+
+      await expect(
+        resolveFileContentFromAbsolutePath({
+          absolutePath: outsideFile,
+          allowedRootPath: repoRoot,
+          displayPath: "outside.txt",
+          maxBytes: 100,
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN_PATH",
+        status: 403,
+      });
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+      await rm(outsideRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an allowed root replaced with a symlink before opening", async () => {
+    const parentRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-root-swap-"));
+    const allowedRoot = path.join(parentRoot, "allowed");
+    const originalRoot = path.join(parentRoot, "allowed-original");
+    const outsideRoot = path.join(parentRoot, "outside");
+    await mkdir(allowedRoot);
+    await mkdir(outsideRoot);
+    await writeFile(path.join(allowedRoot, "file.txt"), "safe\n");
+    await writeFile(path.join(outsideRoot, "file.txt"), "secret\n");
+    try {
+      await rename(allowedRoot, originalRoot);
+      await symlink(outsideRoot, allowedRoot);
+
+      await expect(
+        resolveFileContentFromAbsolutePath({
+          absolutePath: path.join(allowedRoot, "file.txt"),
+          allowedRootPath: allowedRoot,
+          displayPath: "file.txt",
+          maxBytes: 100,
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN_PATH",
+        status: 403,
+      });
+    } finally {
+      await rm(parentRoot, { recursive: true, force: true });
     }
   });
 });

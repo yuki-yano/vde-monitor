@@ -4,30 +4,28 @@ type CreateRunLsFilesDeps = {
   maxBuffer: number;
 };
 
+export type RunGitPaths = (repoRoot: string, args: string[], input?: string) => Promise<string[]>;
+
 const splitNullSeparated = (value: string) => value.split("\0").filter((token) => token.length > 0);
 
-const extractStdoutFromExecError = (error: unknown) => {
-  if (typeof error !== "object" || error == null) {
-    return "";
-  }
-  const stdout = (error as { stdout?: unknown }).stdout;
-  return typeof stdout === "string" ? stdout : "";
-};
-
 export const createRunLsFiles = ({ timeoutMs, maxBuffer }: CreateRunLsFilesDeps) => {
-  return async (repoRoot: string, args: string[]) => {
+  return (async (repoRoot: string, args: string[], input?: string) => {
     const output = await execa("git", ["-C", repoRoot, ...args], {
       timeout: timeoutMs,
       maxBuffer,
+      input,
     })
       .then((result) => result.stdout)
       .catch((error: unknown) => {
-        const stdout = extractStdoutFromExecError(error);
-        if (stdout.length > 0) {
-          return stdout;
+        const exitCode =
+          typeof error === "object" && error != null
+            ? (error as { exitCode?: unknown }).exitCode
+            : null;
+        if (args[0] === "check-ignore" && exitCode === 1) {
+          return "";
         }
         throw error;
       });
     return splitNullSeparated(output);
-  };
+  }) satisfies RunGitPaths;
 };

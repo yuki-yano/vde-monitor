@@ -293,11 +293,11 @@ export type RepoFileLanguageHint =
   | "rust"
   | "text";
 
-export type RepoFileImagePreviewMimeType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
-
-export type RepoFileImagePreview = {
-  mimeType: RepoFileImagePreviewMimeType;
-  base64: string;
+export type RepoFilePreview = {
+  token: string;
+  url: string;
+  mimeType: string;
+  expiresAt: string;
 };
 
 export type RepoFileContent = {
@@ -307,7 +307,7 @@ export type RepoFileContent = {
   truncated: boolean;
   languageHint: RepoFileLanguageHint | null;
   content: string | null;
-  imagePreview?: RepoFileImagePreview | null;
+  preview?: RepoFilePreview | null;
 };
 
 export type WorktreePrStatus = "none" | "open" | "merged" | "closed_unmerged" | "unknown";
@@ -380,7 +380,7 @@ export type RepoNote = {
 };
 
 export type FileNavigatorConfig = {
-  includeIgnoredPaths: string[];
+  externalRoots: string[];
   autoExpandMatchLimit: number;
 };
 

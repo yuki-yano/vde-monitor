@@ -1,10 +1,10 @@
-import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
+import path from "node:path";
 
 import type { RepoFileTreeNode, RepoFileTreePage } from "@vde-monitor/shared";
 
-import type { FileVisibilityPolicy } from "./file-visibility-policy";
-import { resolveRepoAbsolutePath } from "./path-guard";
+import type { GitPathSnapshotResolver } from "./git-path-snapshot";
+import { resolveSafeRepoPath } from "./repo-path-resolver";
 import {
   createServiceError,
   isNotFoundError,
@@ -12,23 +12,29 @@ import {
   isRepoFileServiceError,
 } from "./service-context";
 import { paginateItems } from "./service-pagination";
-import { toDirectoryRelativePath } from "./service-visibility";
+
+const CHILDREN_CACHE_TTL_MS = 5_000;
+
+export type TreeDirectoryEntry = {
+  path: string;
+  name: string;
+  kind: "file" | "directory";
+  classificationPath: string;
+  realPath: string;
+  isSymbolicLink: boolean;
+};
 
 type ReadTreeDirectoryEntriesArgs = {
   repoRoot: string;
   basePath: string;
 };
 
-type BuildVisibleTreeNodesArgs = {
-  entries: Dirent[];
-  basePath: string;
+type BuildTreeNodesArgs = {
+  entries: TreeDirectoryEntry[];
   repoRoot: string;
-  policy: FileVisibilityPolicy;
-  resolveHasVisibleChildren: (input: {
-    repoRoot: string;
-    relativePath: string;
-    policy: FileVisibilityPolicy;
-  }) => Promise<boolean>;
+  inheritedIgnored: boolean;
+  gitPaths: GitPathSnapshotResolver;
+  resolveHasChildren: (input: { repoRoot: string; entry: TreeDirectoryEntry }) => Promise<boolean>;
 };
 
 type BuildListTreePageArgs = {
@@ -38,17 +44,69 @@ type BuildListTreePageArgs = {
   limit: number;
 };
 
+export const toDirectoryRelativePath = (basePath: string, name: string) => {
+  return basePath === "." ? name : `${basePath}/${name}`;
+};
+
+const isPathAncestorOf = (ancestorPath: string, targetPath: string) => {
+  const relativePath = path.relative(ancestorPath, targetPath);
+  return (
+    relativePath.length === 0 ||
+    (relativePath !== ".." &&
+      !relativePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativePath))
+  );
+};
+
 export const readTreeDirectoryEntries = async ({
   repoRoot,
   basePath,
-}: ReadTreeDirectoryEntriesArgs) => {
-  const absoluteBasePath = resolveRepoAbsolutePath(repoRoot, basePath);
+}: ReadTreeDirectoryEntriesArgs): Promise<TreeDirectoryEntry[]> => {
   try {
-    const stats = await fs.stat(absoluteBasePath);
-    if (!stats.isDirectory()) {
+    const resolvedBase = await resolveSafeRepoPath({ repoRoot, relativePath: basePath });
+    const baseStats = await fs.stat(resolvedBase.realPath);
+    if (!baseStats.isDirectory()) {
       throw createServiceError("INVALID_PAYLOAD", 400, "path must point to a directory");
     }
-    return await fs.readdir(absoluteBasePath, { withFileTypes: true });
+
+    const entries = await fs.readdir(resolvedBase.realPath, { withFileTypes: true });
+    const output: TreeDirectoryEntry[] = [];
+    for (const entry of entries) {
+      if (basePath === "." && entry.name.toLowerCase() === ".git") {
+        continue;
+      }
+      const relativePath = toDirectoryRelativePath(basePath, entry.name);
+      let resolvedEntry: Awaited<ReturnType<typeof resolveSafeRepoPath>>;
+      try {
+        resolvedEntry = await resolveSafeRepoPath({ repoRoot, relativePath });
+      } catch (error) {
+        if (isRepoFileServiceError(error) && error.code === "FORBIDDEN_PATH") {
+          continue;
+        }
+        if (isRepoFileServiceError(error) && error.code === "NOT_FOUND") {
+          continue;
+        }
+        throw error;
+      }
+
+      const stats = await fs.stat(resolvedEntry.realPath);
+      const kind = stats.isDirectory() ? "directory" : stats.isFile() ? "file" : null;
+      if (kind == null) {
+        continue;
+      }
+      if (kind === "directory" && isPathAncestorOf(resolvedEntry.realPath, resolvedBase.realPath)) {
+        continue;
+      }
+      output.push({
+        path: relativePath,
+        name: entry.name,
+        kind,
+        classificationPath: entry.isSymbolicLink() ? relativePath : resolvedEntry.realRelativePath,
+        realPath: resolvedEntry.realPath,
+        isSymbolicLink: entry.isSymbolicLink(),
+      });
+    }
+    return output;
   } catch (error) {
     if (isRepoFileServiceError(error)) {
       throw error;
@@ -63,49 +121,72 @@ export const readTreeDirectoryEntries = async ({
   }
 };
 
-export const buildVisibleTreeNodes = async ({
-  entries,
-  basePath,
-  repoRoot,
-  policy,
-  resolveHasVisibleChildren,
-}: BuildVisibleTreeNodesArgs): Promise<RepoFileTreeNode[]> => {
-  const visibleNodes: RepoFileTreeNode[] = [];
-  const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+export const createTreeChildrenResolver = ({ now }: { now: () => number }) => {
+  const cache = new Map<string, { hasChildren: boolean; expiresAt: number }>();
 
-  for (const entry of sortedEntries) {
-    if (entry.isSymbolicLink()) {
-      continue;
+  const resolveHasChildren = async ({
+    repoRoot,
+    entry,
+  }: {
+    repoRoot: string;
+    entry: TreeDirectoryEntry;
+  }) => {
+    const cacheKey = `${repoRoot}\0${entry.realPath}`;
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiresAt > now()) {
+      return cached.hasChildren;
     }
-    const relativePath = toDirectoryRelativePath(basePath, entry.name);
-    if (entry.isDirectory()) {
-      const include = policy.shouldIncludePath({ relativePath, isDirectory: true });
-      if (!include) {
-        continue;
+    const hasChildren =
+      (
+        await readTreeDirectoryEntries({
+          repoRoot,
+          basePath: entry.path,
+        })
+      ).length > 0;
+    cache.set(cacheKey, {
+      hasChildren,
+      expiresAt: now() + CHILDREN_CACHE_TTL_MS,
+    });
+    return hasChildren;
+  };
+
+  return { resolveHasChildren };
+};
+
+export const buildTreeNodes = async ({
+  entries,
+  repoRoot,
+  inheritedIgnored,
+  gitPaths,
+  resolveHasChildren,
+}: BuildTreeNodesArgs): Promise<RepoFileTreeNode[]> => {
+  const classifiedEntries = await gitPaths.classifyPaths(
+    repoRoot,
+    entries.map((entry) => ({
+      ...entry,
+      inheritedIgnored,
+    })),
+  );
+
+  return Promise.all(
+    classifiedEntries.map(async (entry) => {
+      if (entry.kind === "file") {
+        return {
+          path: entry.path,
+          name: entry.name,
+          kind: "file",
+          isIgnored: entry.isIgnored,
+        } satisfies RepoFileTreeNode;
       }
-      const hasChildren = await resolveHasVisibleChildren({ repoRoot, relativePath, policy });
-      visibleNodes.push({
-        path: relativePath,
+      return {
+        path: entry.path,
         name: entry.name,
         kind: "directory",
-        hasChildren,
-      });
-      continue;
-    }
-    if (!entry.isFile()) {
-      continue;
-    }
-    if (!policy.shouldIncludePath({ relativePath, isDirectory: false })) {
-      continue;
-    }
-    visibleNodes.push({
-      path: relativePath,
-      name: entry.name,
-      kind: "file",
-    });
-  }
-
-  return visibleNodes;
+        hasChildren: entry.isIgnored ? true : await resolveHasChildren({ repoRoot, entry }),
+        isIgnored: entry.isIgnored,
+      } satisfies RepoFileTreeNode;
+    }),
+  );
 };
 
 export const buildListTreePage = ({ basePath, nodes, cursor, limit }: BuildListTreePageArgs) => {

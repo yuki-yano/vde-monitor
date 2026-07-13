@@ -7,6 +7,7 @@ import { CodexSessionTokenSource } from "../domain/usage-cost/codex-session-toke
 import { createUsageCostProvider } from "../domain/usage-cost/cost-provider";
 import { LiteLLMPricingSource } from "../domain/usage-cost/litellm-pricing-source";
 import { createUsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
+import { PreviewTicketService } from "../file-preview";
 import { createRateLimiter } from "../limits/rate-limit";
 import type {
   MultiplexerInputActions,
@@ -41,6 +42,7 @@ type ApiContext = {
   streamSource: SessionsStreamSource;
   screenScheduler: ScreenStreamScheduler;
   streamConnections: StreamConnections;
+  previewTicketService?: PreviewTicketService;
 };
 
 const CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS";
@@ -99,8 +101,10 @@ export const createApiRouter = ({
   streamSource,
   screenScheduler,
   streamConnections,
+  previewTicketService,
 }: ApiContext) => {
   const api = new Hono();
+  const filePreviewTickets = previewTicketService ?? new PreviewTicketService();
   api.onError((error, c) => {
     logInternalError(error);
     const configValidationErrorCause = resolveConfigValidationErrorCause(error);
@@ -215,6 +219,7 @@ export const createApiRouter = ({
     createFileRoutes({
       resolvePane,
       config,
+      previewTicketService: filePreviewTickets,
     }),
   );
   const withNotificationRoutes = withFileRoutes.route(

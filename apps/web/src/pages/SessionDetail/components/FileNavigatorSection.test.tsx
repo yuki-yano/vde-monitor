@@ -110,4 +110,29 @@ describe("FileNavigatorSection", () => {
     fireEvent.click(clearButton);
     expect(nextProps.actions.onSearchQueryChange).toHaveBeenCalledWith("");
   });
+
+  it("renders ignored directories with muted row, text, and icon styling", () => {
+    const props = createProps();
+    props.state.treeNodes = [
+      {
+        path: "generated",
+        name: "generated",
+        kind: "directory",
+        depth: 0,
+        selected: false,
+        expanded: false,
+        hasChildren: true,
+        searchMatched: false,
+        activeMatch: false,
+        isIgnored: true,
+      },
+    ];
+    render(<FileNavigatorSection {...props} />);
+
+    const label = screen.getByText("generated");
+    expect(label.className).toContain("text-latte-overlay1");
+    const row = label.closest("button");
+    expect(row?.className).toContain("opacity-75");
+    expect(row?.querySelector("svg")?.getAttribute("class")).toContain("text-latte-overlay1");
+  });
 });

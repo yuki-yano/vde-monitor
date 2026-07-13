@@ -318,10 +318,10 @@ describe("configOverrideSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects invalid includeIgnoredPaths pattern", () => {
+  it("rejects a relative external root", () => {
     const result = configOverrideSchema.safeParse({
       fileNavigator: {
-        includeIgnoredPaths: ["!dist/**"],
+        externalRoots: ["relative/path"],
       },
     });
 

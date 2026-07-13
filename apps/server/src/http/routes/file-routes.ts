@@ -2,6 +2,13 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 
+import { resolveAllowedFile } from "../../file-access/allowed-file-resolver";
+import {
+  buildPreviewResourcePath,
+  isHtmlPreviewMimeType,
+  isImagePreviewMimeType,
+  resolvePreviewMimeType,
+} from "../../file-preview";
 import { type RepoFileServiceError, createRepoFileService } from "../../repo-files/service";
 import { buildError } from "../helpers";
 import { resolveRequestedPath } from "./route-helpers";
@@ -19,14 +26,13 @@ const searchQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.string().optional(),
   worktreePath: z.string().optional(),
-  includeIgnoredPreviewExact: z.string().optional(),
+  exactReference: z.string().optional(),
 });
 
 const contentQuerySchema = z.object({
   path: z.string(),
   maxBytes: z.string().optional(),
   worktreePath: z.string().optional(),
-  includeIgnoredPreviewExact: z.string().optional(),
 });
 
 const SEARCH_QUERY_MAX_LENGTH = 4096;
@@ -89,7 +95,7 @@ const mapServiceError = (error: RepoFileServiceError) => {
   };
 };
 
-export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
+export const createFileRoutes = ({ resolvePane, config, previewTicketService }: FileRouteDeps) => {
   const repoFileService = createRepoFileService({
     fileNavigatorConfig: config.fileNavigator,
   });
@@ -167,7 +173,7 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
           query: normalizedQuery,
           cursor: query.cursor,
           limit,
-          includeIgnoredPreviewExact: parseBooleanQueryFlag(query.includeIgnoredPreviewExact),
+          exactReference: parseBooleanQueryFlag(query.exactReference),
         });
         return c.json({ result });
       } catch (error) {
@@ -209,9 +215,36 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
           repoRoot,
           path: query.path,
           maxBytes: limit,
-          includeIgnoredPreviewExact: parseBooleanQueryFlag(query.includeIgnoredPreviewExact),
         });
-        return c.json({ file });
+        const resolvedFile = await resolveAllowedFile({
+          repoRoot,
+          externalRoots: config.fileNavigator.externalRoots,
+          requestedPath: query.path,
+        });
+        const mimeType = resolvePreviewMimeType(resolvedFile.absolutePath);
+        if (!isHtmlPreviewMimeType(mimeType) && !isImagePreviewMimeType(mimeType)) {
+          return c.json({ file });
+        }
+        const grant = previewTicketService.issue(resolvedFile.roots, {
+          rootId: resolvedFile.root.rootId,
+          relativePath: resolvedFile.relativePath,
+        });
+        const previewPath = buildPreviewResourcePath(
+          grant.ticket,
+          resolvedFile.root.rootId,
+          resolvedFile.relativePath,
+        );
+        return c.json({
+          file: {
+            ...file,
+            preview: {
+              token: grant.ticket,
+              url: new URL(previewPath, c.req.url).toString(),
+              mimeType,
+              expiresAt: new Date(grant.expiresAt).toISOString(),
+            },
+          },
+        });
       } catch (error) {
         if (isRepoFileServiceError(error)) {
           const mapped = mapServiceError(error);
@@ -219,5 +252,9 @@ export const createFileRoutes = ({ resolvePane, config }: FileRouteDeps) => {
         }
         return c.json({ error: buildError("INTERNAL", "failed to load file content") }, 500);
       }
+    })
+    .delete("/sessions/:paneId/files/preview/:token", (c) => {
+      previewTicketService.revoke(c.req.param("token"));
+      return c.body(null, 204);
     });
 };

@@ -3,6 +3,7 @@ import type { SessionDetail } from "@vde-monitor/shared";
 
 import type { createCommandResponse } from "../../command/command-response";
 import type { createRateLimiter } from "../../limits/rate-limit";
+import type { PreviewTicketService } from "../../file-preview";
 import type { createSessionMonitor } from "../../monitor";
 import type {
   MultiplexerInputActions,
@@ -72,4 +73,5 @@ export type GitRouteDeps = {
 export type FileRouteDeps = {
   resolvePane: ResolvePane;
   config: AgentMonitorConfig;
+  previewTicketService: PreviewTicketService;
 };

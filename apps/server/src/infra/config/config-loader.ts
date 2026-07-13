@@ -21,6 +21,7 @@ import {
   collectMissingAllowlistLeafPaths,
 } from "./allowlist-paths";
 import { deepMerge, ensureDir, writeFileAtomic } from "./config-io";
+import { resolveDefaultExternalRoots } from "./external-root-defaults";
 
 const DEFAULT_CONFIG_FILE_BASENAME = "config.yml";
 
@@ -315,8 +316,19 @@ export const mergeConfigLayers = ({
   globalConfig: UserConfigReadable | null;
   cliArgsOverride?: UserConfigReadable;
 }) => {
-  const withGlobal =
-    globalConfig == null ? configDefaults : deepMerge(configDefaults, globalConfig);
+  const hasConfiguredExternalRoots =
+    cliArgsOverride?.fileNavigator?.externalRoots !== undefined ||
+    globalConfig?.fileNavigator?.externalRoots !== undefined;
+  const defaults = hasConfiguredExternalRoots
+    ? configDefaults
+    : {
+        ...configDefaults,
+        fileNavigator: {
+          ...configDefaults.fileNavigator,
+          externalRoots: resolveDefaultExternalRoots(),
+        },
+      };
+  const withGlobal = globalConfig == null ? defaults : deepMerge(defaults, globalConfig);
   const withCliArgs = deepMerge(withGlobal, cliArgsOverride);
   return validateMergedConfig(withCliArgs);
 };

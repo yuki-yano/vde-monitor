@@ -4,17 +4,28 @@ import { type GeneratedConfigTemplate, configDefaults } from "@vde-monitor/share
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import YAML from "yaml";
 
-const mocks = vi.hoisted(() => ({
-  randomBytes: vi.fn((size: number) => Buffer.alloc(size, 0xab)),
-  readFileSync: vi.fn(),
-  writeFileSync: vi.fn(),
-  renameSync: vi.fn(),
-  unlinkSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  chmodSync: vi.fn(),
-  statSync: vi.fn(),
-  homedir: vi.fn(() => "/mock/home"),
-}));
+const mocks = vi.hoisted(() => {
+  const realpathSync = Object.assign(
+    vi.fn((targetPath: string) => targetPath),
+    {
+      native: vi.fn((targetPath: string) => targetPath),
+    },
+  );
+  return {
+    randomBytes: vi.fn((size: number) => Buffer.alloc(size, 0xab)),
+    readFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    renameSync: vi.fn(),
+    unlinkSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    chmodSync: vi.fn(),
+    statSync: vi.fn(),
+    realpathSync,
+    homedir: vi.fn(() => "/mock/home"),
+    platform: vi.fn(() => "darwin"),
+    tmpdir: vi.fn(() => "/mock/tmp"),
+  };
+});
 
 vi.mock("@vde-monitor/shared/node", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@vde-monitor/shared/node")>();
@@ -38,6 +49,7 @@ vi.mock("node:fs", () => ({
     mkdirSync: mocks.mkdirSync,
     chmodSync: mocks.chmodSync,
     statSync: mocks.statSync,
+    realpathSync: mocks.realpathSync,
   },
   readFileSync: mocks.readFileSync,
   writeFileSync: mocks.writeFileSync,
@@ -46,11 +58,14 @@ vi.mock("node:fs", () => ({
   mkdirSync: mocks.mkdirSync,
   chmodSync: mocks.chmodSync,
   statSync: mocks.statSync,
+  realpathSync: mocks.realpathSync,
 }));
 
 vi.mock("node:os", () => ({
-  default: { homedir: mocks.homedir },
+  default: { homedir: mocks.homedir, platform: mocks.platform, tmpdir: mocks.tmpdir },
   homedir: mocks.homedir,
+  platform: mocks.platform,
+  tmpdir: mocks.tmpdir,
 }));
 
 import {
@@ -233,6 +248,7 @@ describe("mergeConfigLayers", () => {
 
     expect(merged.allowedOrigins).toEqual(["https://cli.example"]);
     expect(merged.screen.maxLines).toBe(1200);
+    expect(merged.fileNavigator.externalRoots).toEqual(["/mock/tmp", "/tmp"]);
   });
 
   it("clones array overrides and preserves defaults when cli override is undefined", () => {
@@ -252,6 +268,16 @@ describe("mergeConfigLayers", () => {
     expect(merged.allowedOrigins).toEqual(["https://global.example"]);
     expect(merged.screen.maxLines).toBe(1800);
     expect(merged.port).toBe(configDefaults.port);
+  });
+
+  it("uses an explicitly configured externalRoots array instead of platform defaults", () => {
+    const merged = mergeConfigLayers({
+      globalConfig: {
+        fileNavigator: { externalRoots: [] },
+      },
+    });
+
+    expect(merged.fileNavigator.externalRoots).toEqual([]);
   });
 });
 
@@ -356,7 +382,7 @@ describe("ensureConfig", () => {
         maxLines: 1500,
         image: { backend: "terminal" },
       },
-      fileNavigator: { includeIgnoredPaths: ["global/**"] },
+      fileNavigator: { externalRoots: ["/external"] },
     });
     setTokenFile("existing-token");
 
@@ -364,7 +390,7 @@ describe("ensureConfig", () => {
 
     expect(result.port).toBe(10080);
     expect(result.screen.maxLines).toBe(1500);
-    expect(result.fileNavigator.includeIgnoredPaths).toEqual(["global/**"]);
+    expect(result.fileNavigator.externalRoots).toEqual(["/external"]);
     expect(result.token).toBe("existing-token");
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
@@ -386,16 +412,16 @@ describe("ensureConfig", () => {
     expect(result.token).toBe("existing-token");
   });
 
-  it("throws when global config contains invalid includeIgnoredPaths pattern", () => {
+  it("throws when global config contains a relative external root", () => {
     setTokenFile("existing-token");
     setConfigFile({
       ...expectedGeneratedTemplate,
       fileNavigator: {
-        includeIgnoredPaths: ["!dist/**"],
+        externalRoots: ["relative/path"],
       },
     });
 
-    expect(() => ensureConfig()).toThrow(/invalid config: .*includeIgnoredPaths/);
+    expect(() => ensureConfig()).toThrow(/invalid config: .*externalRoots/);
   });
 
   it("throws when notifications.enabledEventTypes is empty", () => {

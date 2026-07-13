@@ -54,21 +54,6 @@ type FileContentModalProps = {
 
 const markdownPathPattern = /\.(md|markdown)$/i;
 const htmlPathPattern = /\.html?$/i;
-const htmlPreviewContentSecurityPolicy = [
-  "default-src 'none'",
-  "script-src 'none'",
-  "connect-src 'none'",
-  "img-src data: blob:",
-  "media-src data: blob:",
-  "font-src data:",
-  "style-src 'unsafe-inline'",
-  "frame-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-].join("; ");
-
-const htmlPreviewCspMeta = `<meta http-equiv="Content-Security-Policy" content="${htmlPreviewContentSecurityPolicy}">`;
 
 const isMarkdownContent = (file: RepoFileContent | null, path: string | null) => {
   if (file?.languageHint === "markdown") {
@@ -94,25 +79,6 @@ const isHtmlContent = (file: RepoFileContent | null, path: string | null) => {
     return true;
   }
   return false;
-};
-
-const buildHtmlPreviewSrcDoc = (source: string) => {
-  if (/<head(?:\s[^>]*)?>/i.test(source)) {
-    return source.replace(/<head(?:\s[^>]*)?>/i, (match) => `${match}${htmlPreviewCspMeta}`);
-  }
-  if (/<html(?:\s[^>]*)?>/i.test(source)) {
-    return source.replace(
-      /<html(?:\s[^>]*)?>/i,
-      (match) => `${match}<head>${htmlPreviewCspMeta}</head>`,
-    );
-  }
-  if (/<body(?:\s[^>]*)?>/i.test(source)) {
-    return source.replace(
-      /<body(?:\s[^>]*)?>/i,
-      (match) => `<head>${htmlPreviewCspMeta}</head>${match}`,
-    );
-  }
-  return `<!doctype html><html><head>${htmlPreviewCspMeta}</head><body>${source}</body></html>`;
 };
 
 const FileContentModalHeader = ({
@@ -193,7 +159,8 @@ const FileContentModalBody = ({
   loading,
   error,
   file,
-  imagePreviewSrc,
+  previewImageSrc,
+  htmlPreviewSrc,
   activePath,
   markdownEnabled,
   htmlEnabled,
@@ -212,7 +179,8 @@ const FileContentModalBody = ({
   loading: boolean;
   error: string | null;
   file: RepoFileContent | null;
-  imagePreviewSrc: string | null;
+  previewImageSrc: string | null;
+  htmlPreviewSrc: string | null;
   activePath: string;
   markdownEnabled: boolean;
   htmlEnabled: boolean;
@@ -228,8 +196,7 @@ const FileContentModalBody = ({
   diffBinary: boolean;
   diffPatch: string | null;
 }) => {
-  const previewEnabled = markdownEnabled || htmlEnabled;
-  const htmlPreviewSrcDoc = htmlEnabled ? buildHtmlPreviewSrcDoc(effectiveCode) : "";
+  const previewEnabled = markdownEnabled || (htmlEnabled && htmlPreviewSrc != null);
 
   return (
     <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
@@ -248,10 +215,10 @@ const FileContentModalBody = ({
         </div>
       ) : null}
 
-      {!loading && !error && file?.isBinary && imagePreviewSrc && resolvedViewMode !== "diff" ? (
+      {!loading && !error && previewImageSrc && resolvedViewMode !== "diff" ? (
         <div className="flex h-full items-center justify-center p-2 sm:p-4">
           <img
-            src={imagePreviewSrc}
+            src={previewImageSrc}
             alt={`Preview of ${activePath || "image file"}`}
             className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
             loading="lazy"
@@ -259,7 +226,7 @@ const FileContentModalBody = ({
         </div>
       ) : null}
 
-      {!loading && !error && file?.isBinary && !imagePreviewSrc && resolvedViewMode !== "diff" ? (
+      {!loading && !error && file?.isBinary && !previewImageSrc && resolvedViewMode !== "diff" ? (
         <div className="p-3 sm:p-4">
           <Callout tone="warning" size="xs">
             Binary file preview is not available.
@@ -281,10 +248,15 @@ const FileContentModalBody = ({
         </div>
       ) : null}
 
-      {!loading && !error && !file?.isBinary && htmlEnabled && resolvedViewMode === "preview" ? (
+      {!loading &&
+      !error &&
+      !file?.isBinary &&
+      htmlEnabled &&
+      htmlPreviewSrc &&
+      resolvedViewMode === "preview" ? (
         <iframe
           title={`Preview of ${activePath || "HTML file"}`}
-          srcDoc={htmlPreviewSrcDoc}
+          src={htmlPreviewSrc}
           sandbox=""
           referrerPolicy="no-referrer"
           className="h-full w-full border-0 bg-white"
@@ -294,6 +266,7 @@ const FileContentModalBody = ({
       {!loading &&
       !error &&
       !file?.isBinary &&
+      !previewImageSrc &&
       resolvedViewMode !== "diff" &&
       (!previewEnabled || resolvedViewMode === "code") ? (
         <ShikiCodeBlock
@@ -372,7 +345,9 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
 
   const markdownEnabled = isMarkdownContent(file, path) && !file?.isBinary && !error && !loading;
   const htmlEnabled = isHtmlContent(file, path) && !file?.isBinary && !error && !loading;
-  const previewEnabled = markdownEnabled || htmlEnabled;
+  const previewUrl = file?.preview?.url ?? null;
+  const htmlPreviewSrc = htmlEnabled ? previewUrl : null;
+  const previewEnabled = markdownEnabled || htmlPreviewSrc != null;
   const activePath = path ?? file?.path ?? "";
   const title = activePath.length > 0 ? activePath : "File content";
   const effectiveCode = file?.content ?? "";
@@ -385,9 +360,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
       : markdownViewMode === "preview" && !previewEnabled
         ? "code"
         : markdownViewMode;
-  const imagePreview = file?.imagePreview ?? null;
-  const imagePreviewSrc =
-    imagePreview == null ? null : `data:${imagePreview.mimeType};base64,${imagePreview.base64}`;
+  const previewImageSrc = file?.preview?.mimeType.startsWith("image/") ? previewUrl : null;
   const showViewTabs = previewEnabled || diffAvailable;
 
   useEffect(() => {
@@ -621,7 +594,8 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
           loading={loading}
           error={error}
           file={file}
-          imagePreviewSrc={imagePreviewSrc}
+          previewImageSrc={previewImageSrc}
+          htmlPreviewSrc={htmlPreviewSrc}
           activePath={activePath}
           markdownEnabled={markdownEnabled}
           htmlEnabled={htmlEnabled}

@@ -7,7 +7,9 @@ import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import { Hono } from "hono";
 
 import { rotateToken } from "./config";
+import { PreviewTicketService } from "./file-preview";
 import { createApiRouter } from "./http/api-router";
+import { createFilePreviewRoutes } from "./http/routes/file-preview-routes";
 import type { createSessionMonitor } from "./monitor";
 import type {
   MultiplexerInputActions,
@@ -42,6 +44,7 @@ export const createApp = ({
   streamConnections,
 }: AppContext) => {
   const app = new Hono();
+  const previewTicketService = new PreviewTicketService();
 
   const api = createApiRouter({
     config,
@@ -52,8 +55,16 @@ export const createApp = ({
     streamSource,
     screenScheduler,
     streamConnections,
+    previewTicketService,
   });
   app.route("/api", api);
+  app.route(
+    "/file-preview",
+    createFilePreviewRoutes({
+      previewTicketService,
+      allowedFrameOrigins: config.allowedOrigins,
+    }),
+  );
 
   // 認証・Origin チェックは api ルーターの api.use("*") が /api/* 全体に適用される。
   app.post("/api/admin/token/rotate", (c) => {
@@ -62,6 +73,7 @@ export const createApp = ({
     notificationService.removeAllSubscriptions();
     // 旧トークンで確立済みの SSE 接続をすべて切断する。
     streamConnections.closeAll();
+    previewTicketService.revokeAll();
     return c.json({ token: next.token });
   });
 

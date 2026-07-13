@@ -16,7 +16,7 @@ const isOutsideRepoRoot = (repoRoot: string, targetPath: string) => {
   if (relative.length === 0) {
     return false;
   }
-  return relative.startsWith("..") || path.isAbsolute(relative);
+  return relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
 };
 
 type PathGuardError = {

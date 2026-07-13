@@ -84,8 +84,8 @@ const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
   ) => {
     const existing = nodeMap.get(nodePath);
     if (existing) {
-      if (kind === "file") {
-        existing.isIgnored = isIgnored;
+      if (isIgnored) {
+        existing.isIgnored = true;
       }
       return existing;
     }
@@ -110,7 +110,7 @@ const normalizeSearchTree = (items: RepoFileSearchPage["items"]) => {
         currentPath,
         segment,
         kind,
-        kind === "file" && item.isIgnored === true,
+        index === segments.length - 1 && item.isIgnored === true,
       );
       if (!parentPath) {
         rootChildren.add(current.path);
@@ -156,7 +156,7 @@ export const buildSearchRenderNodes = ({
       ignoredMemo.set(nodePath, false);
       return false;
     }
-    if (node.kind === "file") {
+    if (node.kind === "file" || node.isIgnored) {
       ignoredMemo.set(nodePath, node.isIgnored);
       return node.isIgnored;
     }

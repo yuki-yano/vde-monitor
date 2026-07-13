@@ -92,6 +92,8 @@ When terminal height allows, a QR code is also printed for quick access from ano
 
 - Desktop layout: Screen + Notes on the left, Diff / Files / Commits / Worktree panels on the right.
 - Mobile layout: the same sections are available via section tabs under the screen panel.
+- File Navigator keeps Git-ignored entries visible in muted colors. Ignored directories are read only when explicitly expanded and normal search does not recurse into them; `.git/**` stays hidden.
+- Image and HTML previews can resolve authorized local assets, including exact absolute paths from logs. Remote HTTP(S) assets are not loaded.
 - Typical use:
   1. Monitor the current terminal state in the screen panel.
   2. Capture decisions and TODOs in Notes while reviewing.
@@ -268,7 +270,7 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 | `usage.session.providers.claude.enabled` | `false`                                             |
 | `usage.pricing.providers.codex.enabled`  | `true`                                              |
 | `usage.pricing.providers.claude.enabled` | `false`                                             |
-| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
+| `fileNavigator.externalRoots`            | OS temp directories                                 |
 | `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
 | `tmux.socketName`                        | `null`                                              |
 | `tmux.socketPath`                        | `null`                                              |
@@ -276,6 +278,7 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 
 Notes:
 
+- `fileNavigator.externalRoots` controls which repo-external absolute paths may be opened from logs or local preview assets. It defaults to `os.tmpdir()` and, on macOS, `/tmp`. Paths are canonicalized, so `/tmp` and `/private/tmp` are not duplicated. Set an explicit array (including `[]`) to replace the defaults.
 - `config check` / `config prune` target global config only.
 - `config check` exits with code `1` when any issue is found (including unused keys).
 - `config prune` writes YAML to `config.yml`; when source is `config.json`, it is removed after successful write.
@@ -422,6 +425,7 @@ Current limitations:
 - Default bind host is loopback (`127.0.0.1`)
 - `--public` is opt-in
 - Optional origin restriction via `allowedOrigins`
+- Local file previews use short-lived scoped URLs; HTML previews block scripts, network connections, frames, objects, and forms with CSP
 
 ## Development
 

@@ -129,7 +129,7 @@ export const userConfigAllowlist = {
     displayMode: true,
   },
   fileNavigator: {
-    includeIgnoredPaths: true,
+    externalRoots: true,
     autoExpandMatchLimit: true,
   },
   tmux: {

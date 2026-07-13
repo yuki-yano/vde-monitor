@@ -3,8 +3,6 @@ import { type MutableRefObject, useCallback } from "react";
 
 import type { LogFileCandidateItem } from "./useSessionFiles-log-resolve-state";
 
-const previewablePathPattern = /\.(html?|md|markdown)$/i;
-
 type UseSessionFilesLogResolveSearchArgs = {
   resolveWorktreePathForPane: (targetPaneId: string) => string | undefined;
   requestRepoFileSearch: (
@@ -14,7 +12,7 @@ type UseSessionFilesLogResolveSearchArgs = {
       cursor?: string;
       limit?: number;
       worktreePath?: string;
-      includeIgnoredPreviewExact?: boolean;
+      exactReference?: boolean;
     },
   ) => Promise<RepoFileSearchPage>;
   activeLogResolveRequestIdRef: MutableRefObject<number>;
@@ -61,7 +59,7 @@ export const useSessionFilesLogResolveSearch = ({
         const page = await requestRepoFileSearch(targetPaneId, path, {
           cursor,
           limit: limitPerPage,
-          ...(previewablePathPattern.test(path) ? { includeIgnoredPreviewExact: true } : {}),
+          exactReference: true,
           ...(resolveWorktreePathForPane(targetPaneId)
             ? { worktreePath: resolveWorktreePathForPane(targetPaneId) }
             : {}),

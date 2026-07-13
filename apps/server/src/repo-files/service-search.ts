@@ -1,6 +1,5 @@
 import type { RepoFileSearchPage } from "@vde-monitor/shared";
 
-import type { FileVisibilityPolicy } from "./file-visibility-policy";
 import type { SearchIndexItem } from "./search-index-resolver";
 import { normalizeSearchQuery } from "./service-context";
 import { buildSortedSearchMatches } from "./service-search-matcher";
@@ -13,11 +12,7 @@ type ExecuteSearchFilesArgs = {
   cursor?: string;
   limit: number;
   timeoutMs: number;
-  resolveVisibilityPolicy: (repoRoot: string) => Promise<FileVisibilityPolicy>;
-  resolveSearchIndex: (
-    repoRoot: string,
-    policy: FileVisibilityPolicy,
-  ) => Promise<SearchIndexItem[]>;
+  resolveSearchIndex: (repoRoot: string) => Promise<SearchIndexItem[]>;
 };
 
 export const executeSearchFiles = async ({
@@ -26,13 +21,11 @@ export const executeSearchFiles = async ({
   cursor,
   limit,
   timeoutMs,
-  resolveVisibilityPolicy,
   resolveSearchIndex,
 }: ExecuteSearchFilesArgs): Promise<RepoFileSearchPage> => {
   const normalizedQuery = normalizeSearchQuery(query);
-  const policy = await resolveVisibilityPolicy(repoRoot);
   const index = await withServiceTimeout(
-    resolveSearchIndex(repoRoot, policy),
+    resolveSearchIndex(repoRoot),
     timeoutMs,
     "search timed out",
   );

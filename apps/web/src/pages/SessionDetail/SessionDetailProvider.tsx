@@ -162,6 +162,7 @@ const useSessionDetailContextValue = (paneId: string) => {
     requestRepoFileTree: base.requestRepoFileTree,
     requestRepoFileSearch: base.requestRepoFileSearch,
     requestRepoFileContent: base.requestRepoFileContent,
+    revokeRepoFilePreview: base.revokeRepoFilePreview,
   });
 
   const currentRepoRoot = base.session?.repoRoot ?? null;

@@ -613,75 +613,16 @@ export const highlightCorrectionSchema = strictObject({
   claude: z.boolean(),
 });
 
-const windowsDrivePrefixPattern = /^[a-zA-Z]:[\\/]/;
-
-const hasParentTraversalSegment = (value: string) =>
-  value.split("/").some((segment) => segment === "..");
-
-const hasUnbalancedCharacterClass = (value: string) => {
-  let inClass = false;
-  for (const char of value) {
-    if (char === "[") {
-      if (inClass) {
-        return true;
-      }
-      inClass = true;
-      continue;
-    }
-    if (char === "]") {
-      if (!inClass) {
-        return true;
-      }
-      inClass = false;
-    }
-  }
-  return inClass;
-};
-
-const includeIgnoredPatternSchema = z.string().superRefine((value, ctx) => {
-  const pattern = value.trim();
-  if (pattern.length === 0) {
-    ctx.addIssue({ code: "custom", message: "includeIgnoredPaths pattern must not be empty" });
-    return;
-  }
-  if (pattern !== value) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths pattern must not have leading/trailing spaces",
-    });
-    return;
-  }
-  if (pattern.startsWith("!")) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths does not support negation patterns",
-    });
-  }
-  if (pattern.startsWith("/") || windowsDrivePrefixPattern.test(pattern)) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths must be a repoRoot-relative path",
-    });
-  }
-  if (pattern.includes("\\")) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths must use POSIX separators ('/')",
-    });
-  }
-  if (hasParentTraversalSegment(pattern)) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths must not include parent traversal ('..')",
-    });
-  }
-  if (hasUnbalancedCharacterClass(pattern)) {
-    ctx.addIssue({
-      code: "custom",
-      message: "includeIgnoredPaths has invalid character class syntax",
-    });
-  }
-});
+const externalRootSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => !value.includes("\0"), {
+    message: "externalRoots must not include null bytes",
+  })
+  .refine((value) => value.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(value), {
+    message: "externalRoots must contain absolute paths",
+  });
 
 export const clientConfigSchema = z.object({
   capabilities: z.object({
@@ -835,7 +776,7 @@ const workspaceTabsConfigSchema = strictObject({
 });
 
 const fileNavigatorConfigSchema = strictObject({
-  includeIgnoredPaths: z.array(includeIgnoredPatternSchema),
+  externalRoots: z.array(externalRootSchema),
   autoExpandMatchLimit: z.number().int().min(1).max(500),
 });
 
@@ -946,7 +887,7 @@ export const configOverrideSchema = strictObject({
     displayMode: workspaceTabsDisplayModeSchema.optional(),
   }).optional(),
   fileNavigator: strictObject({
-    includeIgnoredPaths: z.array(includeIgnoredPatternSchema).optional(),
+    externalRoots: z.array(externalRootSchema).optional(),
     autoExpandMatchLimit: z.number().int().min(1).max(500).optional(),
   }).optional(),
   tmux: strictObject({

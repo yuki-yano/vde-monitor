@@ -69,7 +69,7 @@ export const configDefaults: ResolvedConfig = {
     displayMode: "all",
   },
   fileNavigator: {
-    includeIgnoredPaths: [],
+    externalRoots: [],
     autoExpandMatchLimit: 100,
   },
   tmux: {

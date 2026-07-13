@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 
+import { execa } from "execa";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -31,7 +32,7 @@ describe("createApiRouter", () => {
     expect(data.error.code).toBe("REPO_UNAVAILABLE");
   });
 
-  it("lists tree entries and applies includeIgnoredPaths override", async () => {
+  it("lists ignored tree entries as ignored and expands them explicitly", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-tree-"));
     try {
       await mkdir(path.join(tmpRoot, "src"), { recursive: true });
@@ -39,13 +40,9 @@ describe("createApiRouter", () => {
       await writeFile(path.join(tmpRoot, ".gitignore"), "build/\n");
       await writeFile(path.join(tmpRoot, "src", "index.ts"), "export {};\n");
       await writeFile(path.join(tmpRoot, "build", "output.txt"), "hidden\n");
+      await execa("git", ["init", "--quiet", tmpRoot]);
 
-      const { api, monitor, detail } = createTestContext({
-        fileNavigator: {
-          includeIgnoredPaths: ["build/**"],
-          autoExpandMatchLimit: 100,
-        },
-      });
+      const { api, monitor, detail } = createTestContext();
       monitor.registry.update({
         ...detail,
         repoRoot: tmpRoot,
@@ -60,6 +57,9 @@ describe("createApiRouter", () => {
       const rootPaths = rootData.tree.entries.map((entry: { path: string }) => entry.path);
       expect(rootPaths).toContain("src");
       expect(rootPaths).toContain("build");
+      expect(
+        rootData.tree.entries.find((entry: { path: string }) => entry.path === "build"),
+      ).toMatchObject({ isIgnored: true, hasChildren: true });
 
       const buildRes = await api.request("/sessions/pane-1/files/tree?path=build&limit=200", {
         headers: authHeaders,
@@ -68,6 +68,7 @@ describe("createApiRouter", () => {
       const buildData = await buildRes.json();
       const buildPaths = buildData.tree.entries.map((entry: { path: string }) => entry.path);
       expect(buildPaths).toContain("build/output.txt");
+      expect(buildData.tree.entries[0]).toMatchObject({ isIgnored: true });
     } finally {
       await rm(tmpRoot, { recursive: true, force: true });
     }
@@ -81,6 +82,7 @@ describe("createApiRouter", () => {
       await writeFile(path.join(tmpRoot, "src", "alpha.ts"), "export const alpha = 1;\n");
       await writeFile(path.join(tmpRoot, "src", "beta.ts"), "export const beta = 1;\n");
       await writeFile(path.join(tmpRoot, "src", "gamma.ts"), "export const gamma = 1;\n");
+      await execa("git", ["init", "--quiet", tmpRoot]);
 
       const { api, monitor, detail } = createTestContext();
       monitor.registry.update({
@@ -114,6 +116,7 @@ describe("createApiRouter", () => {
       await writeFile(path.join(tmpRoot, "src", "alpha-beta.ts"), "export const alphaBeta = 1;\n");
       await writeFile(path.join(tmpRoot, "src", "alpha.ts"), "export const alpha = 1;\n");
       await writeFile(path.join(tmpRoot, "src", "beta.ts"), "export const beta = 1;\n");
+      await execa("git", ["init", "--quiet", tmpRoot]);
 
       const { api, monitor, detail } = createTestContext();
       monitor.registry.update({
@@ -142,6 +145,7 @@ describe("createApiRouter", () => {
       await writeFile(path.join(tmpRoot, ".gitignore"), "");
       const longFilename = `${"a".repeat(210)}.ts`;
       await writeFile(path.join(tmpRoot, "src", longFilename), "export const long = 1;\n");
+      await execa("git", ["init", "--quiet", tmpRoot]);
 
       const { api, monitor, detail } = createTestContext();
       monitor.registry.update({
@@ -193,7 +197,7 @@ describe("createApiRouter", () => {
     }
   });
 
-  it("returns inline preview for supported binary image files", async () => {
+  it("returns a short-lived URL preview for supported binary image files", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-image-"));
     const imageBase64 =
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
@@ -223,16 +227,15 @@ describe("createApiRouter", () => {
       expect(data.file.path).toBe("assets/pixel.png");
       expect(data.file.isBinary).toBe(true);
       expect(data.file.content).toBeNull();
-      expect(data.file.imagePreview).toEqual({
-        mimeType: "image/png",
-        base64: imageBase64,
-      });
+      expect(data.file.preview).toMatchObject({ mimeType: "image/png" });
+      expect(data.file.preview.url).toMatch(/\/file-preview\/[^/]+\/r\/repo\/assets\/pixel\.png$/);
+      expect(data.file.preview.token).not.toBe("");
     } finally {
       await rm(tmpRoot, { recursive: true, force: true });
     }
   });
 
-  it("returns FORBIDDEN_PATH when content target is ignored and not overridden", async () => {
+  it("returns ignored content without an override flag", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-policy-"));
     try {
       await mkdir(path.join(tmpRoot, "build"), { recursive: true });
@@ -249,22 +252,23 @@ describe("createApiRouter", () => {
       const res = await api.request("/sessions/pane-1/files/content?path=build/output.txt", {
         headers: authHeaders,
       });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.error.code).toBe("FORBIDDEN_PATH");
+      expect(data.file.content).toBe("hidden\n");
     } finally {
       await rm(tmpRoot, { recursive: true, force: true });
     }
   });
 
-  it("returns exact ignored previewable content when explicitly requested", async () => {
+  it("returns exact ignored content for any extension while keeping .git hidden", async () => {
     const tmpRoot = await mkdtemp(
       path.join(os.tmpdir(), "vde-monitor-files-content-preview-policy-"),
     );
     try {
       await mkdir(path.join(tmpRoot, "docs"), { recursive: true });
       await writeFile(path.join(tmpRoot, ".gitignore"), "docs/\n");
-      await writeFile(path.join(tmpRoot, "docs", "notes.md"), "# Notes\n");
+      await writeFile(path.join(tmpRoot, "docs", "notes.txt"), "Notes\n");
+      await execa("git", ["init", "--quiet", tmpRoot]);
 
       const { api, monitor, detail } = createTestContext();
       monitor.registry.update({
@@ -274,7 +278,7 @@ describe("createApiRouter", () => {
       });
 
       const searchRes = await api.request(
-        "/sessions/pane-1/files/search?q=docs%2Fnotes.md&includeIgnoredPreviewExact=1",
+        "/sessions/pane-1/files/search?q=docs%2Fnotes.txt&exactReference=1",
         {
           headers: authHeaders,
         },
@@ -282,34 +286,79 @@ describe("createApiRouter", () => {
       expect(searchRes.status).toBe(200);
       const searchData = await searchRes.json();
       expect(searchData.result.items.map((item: { path: string }) => item.path)).toContain(
-        "docs/notes.md",
+        "docs/notes.txt",
       );
 
-      const res = await api.request(
-        "/sessions/pane-1/files/content?path=docs%2Fnotes.md&includeIgnoredPreviewExact=1",
-        {
-          headers: authHeaders,
-        },
-      );
+      const res = await api.request("/sessions/pane-1/files/content?path=docs%2Fnotes.txt", {
+        headers: authHeaders,
+      });
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.file.path).toBe("docs/notes.md");
-      expect(data.file.languageHint).toBe("markdown");
-      expect(data.file.content).toBe("# Notes\n");
+      expect(data.file.path).toBe("docs/notes.txt");
+      expect(data.file.languageHint).toBe("text");
+      expect(data.file.content).toBe("Notes\n");
 
       await mkdir(path.join(tmpRoot, ".git"), { recursive: true });
       await writeFile(path.join(tmpRoot, ".git", "secret.md"), "# secret\n");
-      const hiddenRes = await api.request(
-        "/sessions/pane-1/files/content?path=.git%2Fsecret.md&includeIgnoredPreviewExact=1",
-        {
-          headers: authHeaders,
-        },
-      );
+      const hiddenRes = await api.request("/sessions/pane-1/files/content?path=.git%2Fsecret.md", {
+        headers: authHeaders,
+      });
       expect(hiddenRes.status).toBe(403);
       const hiddenData = await hiddenRes.json();
       expect(hiddenData.error.code).toBe("FORBIDDEN_PATH");
     } finally {
       await rm(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves configured external absolute references only in exact mode", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-external-repo-"));
+    const externalRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-external-root-"));
+    try {
+      await execa("git", ["init", "--quiet", repoRoot]);
+      const externalFile = path.join(externalRoot, "preview.html");
+      await writeFile(externalFile, "<h1>External</h1>\n");
+      const { api, monitor, detail } = createTestContext({
+        fileNavigator: {
+          externalRoots: [externalRoot],
+          autoExpandMatchLimit: 100,
+        },
+      });
+      monitor.registry.update({
+        ...detail,
+        repoRoot,
+        currentPath: repoRoot,
+      });
+
+      const fuzzyResponse = await api.request(
+        `/sessions/pane-1/files/search?q=${encodeURIComponent(externalFile)}`,
+        { headers: authHeaders },
+      );
+      expect(fuzzyResponse.status).toBe(200);
+      expect((await fuzzyResponse.json()).result.items).toEqual([]);
+
+      const exactResponse = await api.request(
+        `/sessions/pane-1/files/search?q=${encodeURIComponent(externalFile)}&exactReference=1`,
+        { headers: authHeaders },
+      );
+      expect(exactResponse.status).toBe(200);
+      expect((await exactResponse.json()).result.items[0]).toMatchObject({
+        path: externalFile,
+        isIgnored: false,
+      });
+
+      const contentResponse = await api.request(
+        `/sessions/pane-1/files/content?path=${encodeURIComponent(externalFile)}`,
+        { headers: authHeaders },
+      );
+      expect(contentResponse.status).toBe(200);
+      const content = await contentResponse.json();
+      expect(content.file.path).toBe(externalFile);
+      expect(content.file.content).toContain("External");
+      expect(content.file.preview.url).toContain("/r/external-1/preview.html");
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+      await rm(externalRoot, { recursive: true, force: true });
     }
   });
 

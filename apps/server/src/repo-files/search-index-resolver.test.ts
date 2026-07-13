@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createGitPathSnapshotResolver } from "./git-path-snapshot";
 import { createSearchIndexResolver } from "./search-index-resolver";
 
 describe("search index resolver", () => {
@@ -12,210 +13,80 @@ describe("search index resolver", () => {
     vi.restoreAllMocks();
   });
 
-  it("adds ignored flags from known paths for file and directory nodes", async () => {
-    const runLsFiles = vi.fn(async (_repoRoot: string, args: string[]): Promise<string[]> => {
-      if (args[0] === "ls-files" && args[1] === "-z") {
-        return ["src/index.ts"];
-      }
-      if (args[0] === "ls-files" && args.includes("--directory")) {
-        return [];
-      }
-      return [];
-    });
-    const resolver = createSearchIndexResolver({
-      now: () => 0,
-      runLsFiles,
-    });
+  it("shares tracked and ignored classification through a cached git snapshot", async () => {
+    const runGitPaths = vi.fn(
+      async (_repoRoot: string, args: string[], input?: string): Promise<string[]> => {
+        if (args[0] === "ls-files") {
+          return ["src/tracked.log"];
+        }
+        return (input ?? "").split("\0").filter((entry) => entry.endsWith(".log"));
+      },
+    );
+    const gitPaths = createGitPathSnapshotResolver({ now: () => 0, runGitPaths });
 
-    const items = await resolver.withIgnoredFlags("/repo", [
-      { path: "src/index.ts", kind: "file" as const },
+    const first = await gitPaths.classifyPaths("/repo", [
       { path: "src", kind: "directory" as const },
-      { path: "build", kind: "directory" as const },
+      { path: "src/tracked.log", kind: "file" as const },
+      { path: "ignored.log", kind: "file" as const },
+    ]);
+    const second = await gitPaths.classifyPaths("/repo", [
+      { path: "ignored.log", kind: "file" as const },
     ]);
 
-    expect(items).toEqual([
-      { path: "src/index.ts", kind: "file", isIgnored: false },
-      { path: "src", kind: "directory", isIgnored: false },
-      { path: "build", kind: "directory", isIgnored: true },
+    expect(first.map(({ path: targetPath, isIgnored }) => [targetPath, isIgnored])).toEqual([
+      ["src", false],
+      ["src/tracked.log", false],
+      ["ignored.log", true],
     ]);
+    expect(second[0]?.isIgnored).toBe(true);
+    expect(runGitPaths.mock.calls.filter(([, args]) => args[0] === "ls-files")).toHaveLength(1);
+    expect(runGitPaths.mock.calls.filter(([, args]) => args[0] === "check-ignore")).toHaveLength(1);
   });
 
-  it("caches search index and known paths within ttl window", async () => {
+  it("caches the filesystem index and does not recurse into ignored directories", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-"));
     try {
       await mkdir(path.join(repoRoot, "src"), { recursive: true });
+      await mkdir(path.join(repoRoot, "ignored"), { recursive: true });
       await writeFile(path.join(repoRoot, "src", "index.ts"), "export {};\n");
-      const runLsFiles = vi.fn(
-        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
-          if (args[0] === "ls-files" && args[1] === "-z") {
-            return ["src/index.ts"];
-          }
-          return [];
-        },
-      );
-      const resolver = createSearchIndexResolver({
-        now: () => 1000,
-        runLsFiles,
-      });
-      const policy = {
-        shouldIncludePath: () => true,
-        shouldTraverseDirectory: () => true,
-        planDirectoryTraversal: () => new Set<string>(),
+      await writeFile(path.join(repoRoot, "ignored", "deep.txt"), "hidden\n");
+      const canonicalRepoRoot = await fs.realpath(repoRoot);
+      const gitPaths = {
+        classifyPaths: async <T extends { path: string }>(_targetRepoRoot: string, items: T[]) =>
+          items.map((item) => ({
+            ...item,
+            isIgnored: item.path === "ignored" || item.path.startsWith("ignored/"),
+          })),
       };
+      const readdirSpy = vi.spyOn(fs, "readdir");
+      const resolver = createSearchIndexResolver({ now: () => 0, gitPaths });
 
-      const first = await resolver.resolveSearchIndex(repoRoot, policy);
-      const second = await resolver.resolveSearchIndex(repoRoot, policy);
+      const first = await resolver.resolveSearchIndex(repoRoot);
+      const second = await resolver.resolveSearchIndex(repoRoot);
 
       expect(first).toEqual(second);
-      expect(first.map((item) => item.path)).toContain("src/index.ts");
-      expect(runLsFiles).toHaveBeenCalledTimes(3);
+      expect(first.map((item) => item.path)).toContain("ignored");
+      expect(first.map((item) => item.path)).not.toContain("ignored/deep.txt");
+      expect(
+        readdirSpy.mock.calls.some(
+          ([targetPath]) => String(targetPath) === path.join(canonicalRepoRoot, "ignored"),
+        ),
+      ).toBe(false);
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
 
-  it("skips full index rebuild when known paths are unchanged after ttl", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-stable-"));
-    try {
-      await mkdir(path.join(repoRoot, "src"), { recursive: true });
-      await writeFile(path.join(repoRoot, "src", "index.ts"), "export {};\n");
-      let nowMs = 0;
-      const runLsFiles = vi.fn(
-        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
-          if (args[0] === "ls-files" && args[1] === "-z") {
-            return ["src/index.ts"];
-          }
-          return [];
-        },
-      );
-      const readdirSpy = vi.spyOn(fs, "readdir");
-      const resolver = createSearchIndexResolver({
-        now: () => nowMs,
-        runLsFiles,
-      });
-      const policy = {
-        shouldIncludePath: () => true,
-        shouldTraverseDirectory: () => true,
-        planDirectoryTraversal: () => new Set<string>(),
-      };
-
-      const first = await resolver.resolveSearchIndex(repoRoot, policy);
-      const firstReaddirCount = readdirSpy.mock.calls.length;
-
-      nowMs = 6_000;
-      const second = await resolver.resolveSearchIndex(repoRoot, policy);
-
-      expect(second).toEqual(first);
-      expect(readdirSpy.mock.calls.length).toBe(firstReaddirCount);
-      expect(runLsFiles).toHaveBeenCalledTimes(6);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rebuilds index when known paths change after ttl", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-changed-"));
-    try {
-      await mkdir(path.join(repoRoot, "src"), { recursive: true });
-      await writeFile(path.join(repoRoot, "src", "index.ts"), "export {};\n");
-      let trackedPaths = ["src/index.ts"];
-      let nowMs = 0;
-      const runLsFiles = vi.fn(
-        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
-          if (args[0] === "ls-files" && args[1] === "-z") {
-            return trackedPaths;
-          }
-          return [];
-        },
-      );
-      const resolver = createSearchIndexResolver({
-        now: () => nowMs,
-        runLsFiles,
-      });
-      const policy = {
-        shouldIncludePath: () => true,
-        shouldTraverseDirectory: () => true,
-        planDirectoryTraversal: () => new Set<string>(),
-      };
-
-      const first = await resolver.resolveSearchIndex(repoRoot, policy);
-      expect(first.map((item) => item.path)).toContain("src/index.ts");
-      expect(first.map((item) => item.path)).not.toContain("src/new.ts");
-
-      await writeFile(path.join(repoRoot, "src", "new.ts"), "export const next = true;\n");
-      trackedPaths = ["src/index.ts", "src/new.ts"];
-      nowMs = 6_000;
-
-      const second = await resolver.resolveSearchIndex(repoRoot, policy);
-      expect(second.map((item) => item.path)).toContain("src/new.ts");
-      expect(runLsFiles).toHaveBeenCalledTimes(6);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("avoids re-scanning large trees when post-ttl known paths are unchanged", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-search-index-large-"));
-    try {
-      const trackedPaths: string[] = [];
-      for (let index = 0; index < 40; index += 1) {
-        const dirName = `pkg-${String(index).padStart(2, "0")}`;
-        await mkdir(path.join(repoRoot, dirName), { recursive: true });
-        const relativePath = `${dirName}/index.ts`;
-        trackedPaths.push(relativePath);
-        await writeFile(
-          path.join(repoRoot, relativePath),
-          `export const value${index} = ${index};\n`,
-        );
-      }
-
-      let nowMs = 0;
-      const runLsFiles = vi.fn(
-        async (_targetRepoRoot: string, args: string[]): Promise<string[]> => {
-          if (args[0] === "ls-files" && args[1] === "-z") {
-            return trackedPaths;
-          }
-          return [];
-        },
-      );
-      const readdirSpy = vi.spyOn(fs, "readdir");
-      const resolver = createSearchIndexResolver({
-        now: () => nowMs,
-        runLsFiles,
-      });
-      const policy = {
-        shouldIncludePath: () => true,
-        shouldTraverseDirectory: () => true,
-        planDirectoryTraversal: () => new Set<string>(),
-      };
-
-      const first = await resolver.resolveSearchIndex(repoRoot, policy);
-      const firstReaddirCount = readdirSpy.mock.calls.length;
-      expect(first.map((item) => item.path)).toContain("pkg-00/index.ts");
-      expect(firstReaddirCount).toBeGreaterThanOrEqual(41);
-
-      nowMs = 6_000;
-      const second = await resolver.resolveSearchIndex(repoRoot, policy);
-      expect(second).toEqual(first);
-      expect(readdirSpy.mock.calls.length).toBe(firstReaddirCount);
-      expect(runLsFiles).toHaveBeenCalledTimes(6);
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("falls back to non-ignored when known path lookup fails", async () => {
-    const resolver = createSearchIndexResolver({
+  it("propagates git failures instead of classifying files as visible", async () => {
+    const gitPaths = createGitPathSnapshotResolver({
       now: () => 0,
-      runLsFiles: vi.fn(async () => {
+      runGitPaths: vi.fn(async () => {
         throw new Error("git failed");
       }),
     });
 
-    const items = await resolver.withIgnoredFlags("/repo", [
-      { path: "src/index.ts", kind: "file" as const },
-    ]);
-
-    expect(items).toEqual([{ path: "src/index.ts", kind: "file", isIgnored: false }]);
+    await expect(
+      gitPaths.classifyPaths("/repo", [{ path: "file.txt", kind: "file" }]),
+    ).rejects.toThrow("git failed");
   });
 });

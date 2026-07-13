@@ -92,6 +92,8 @@ vde-monitor: http://localhost:11080/#token=...
 
 - デスクトップ: 左側に Screen + Notes、右側に Diff / Files / Commits / Worktree を配置。
 - モバイル: 画面下のセクションタブから同じ情報へ切り替え可能。
+- File Navigator は Git ignore 対象もグレー表示します。ignore 対象ディレクトリは明示的に展開したときだけ読み込み、通常検索では内部へ再帰しません。`.git/**` は表示しません。
+- 画像と HTML のプレビューは、ログに出た絶対パスを含む許可済みローカル資産を解決できます。外部 HTTP(S) 資産は読み込みません。
 - 典型的な使い方:
   1. Screen パネルで現在の実行状態を監視する。
   2. Notes に判断メモや TODO を残す。
@@ -264,7 +266,7 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 | `usage.session.providers.claude.enabled` | `true`                                              |
 | `usage.pricing.providers.codex.enabled`  | `true`                                              |
 | `usage.pricing.providers.claude.enabled` | `true`                                              |
-| `fileNavigator.includeIgnoredPaths`      | `[]`                                                |
+| `fileNavigator.externalRoots`            | OS の一時ディレクトリ                               |
 | `fileNavigator.autoExpandMatchLimit`     | `100`                                               |
 | `tmux.socketName`                        | `null`                                              |
 | `tmux.socketPath`                        | `null`                                              |
@@ -272,6 +274,7 @@ npx --package vde-monitor@latest vde-monitor-hook <HookEventName>
 
 補足:
 
+- `fileNavigator.externalRoots` は、ログやローカルプレビュー資産から開ける repo 外の絶対パスを制御します。既定値は `os.tmpdir()` と、macOS では `/tmp` です。realpath で正規化するため、`/tmp` と `/private/tmp` は重複しません。明示的な配列（`[]` を含む）を設定すると既定値を置き換えます。
 - `config check` / `config prune` はグローバル設定のみを対象にします。
 - `config check` は問題が1件でもあると終了コード `1` で終了します（未使用キーを含む）。
 - `config prune` は YAML を `config.yml` に書き込みます。入力が `config.json` の場合、成功後に削除されます。
@@ -384,6 +387,7 @@ fallback しません。
 - デフォルト bind host は loopback（`127.0.0.1`）
 - `--public` は明示指定が必要
 - `allowedOrigins` による Origin 制限を任意で利用可能
+- ローカルファイルのプレビューには対象を限定した短命 URL を使用し、HTML の script・network connection・frame・object・form は CSP で遮断
 
 ## 開発
 

@@ -38,8 +38,8 @@ export default defineConfig({
   deps: {
     onlyBundle: false,
     // ルート package.json の dependencies は外部化、それ以外はバンドルされる。
-    // citty / ignore は意図的にルート deps へ置かずバンドルする境界なので明示する。
-    alwaysBundle: ["citty", "ignore"],
+    // citty は意図的にルート deps へ置かずバンドルする境界なので明示する。
+    alwaysBundle: ["citty"],
   },
   onSuccess: async () => {
     const distDir = path.resolve("dist");

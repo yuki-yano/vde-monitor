@@ -37,6 +37,11 @@ describe("resolveRepoAbsolutePath", () => {
     expect(resolved).toBe(path.resolve(repoRoot, "src/index.ts"));
   });
 
+  it("allows names that begin with two dots", () => {
+    const repoRoot = path.resolve("/tmp/repo");
+    expect(resolveRepoAbsolutePath(repoRoot, "..cache")).toBe(path.join(repoRoot, "..cache"));
+  });
+
   it("rejects resolved path outside repo root", () => {
     const repoRoot = path.resolve("/tmp/repo");
     expect(() => resolveRepoAbsolutePath(repoRoot, "../../etc/passwd")).toThrow();

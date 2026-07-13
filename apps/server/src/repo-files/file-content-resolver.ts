@@ -1,76 +1,79 @@
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type {
-  RepoFileContent,
-  RepoFileImagePreview,
-  RepoFileImagePreviewMimeType,
-  RepoFileLanguageHint,
-} from "@vde-monitor/shared";
+import type { RepoFileContent, RepoFileLanguageHint } from "@vde-monitor/shared";
 
-import { resolveRepoAbsolutePath } from "./path-guard";
+import { resolveSafeRepoPath } from "./repo-path-resolver";
 import { createServiceError, isNotFoundError, isReadablePermissionError } from "./service-context";
 
 const BINARY_SAMPLE_BYTES = 8_192;
-const imagePreviewMimeTypeByExtension: Record<string, RepoFileImagePreviewMimeType> = {
-  ".gif": "image/gif",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
-
-const assertNoSymlinkInTargetPath = async ({
-  repoRoot,
-  relativePath,
-}: {
-  repoRoot: string;
-  relativePath: string;
-}) => {
-  const segments = relativePath.split("/").filter((segment) => segment.length > 0);
-  if (segments.length === 0) {
-    return;
-  }
-
-  let currentPath = path.resolve(repoRoot);
-  for (const segment of segments) {
-    currentPath = path.join(currentPath, segment);
-    let stats: Awaited<ReturnType<typeof fs.lstat>>;
-    try {
-      stats = await fs.lstat(currentPath);
-    } catch (error) {
-      if (isReadablePermissionError(error)) {
-        throw createServiceError("PERMISSION_DENIED", 403, "permission denied");
-      }
-      if (isNotFoundError(error)) {
-        throw createServiceError("NOT_FOUND", 404, "path not found");
-      }
-      throw error;
-    }
-    if (stats.isSymbolicLink()) {
-      throw createServiceError("FORBIDDEN_PATH", 403, "path must not traverse symbolic links");
-    }
-  }
-};
 
 const readFileSlice = async ({
-  absolutePath,
+  fileHandle,
   byteLength,
 }: {
-  absolutePath: string;
+  fileHandle: fs.FileHandle;
   byteLength: number;
 }) => {
   if (byteLength <= 0) {
     return Buffer.alloc(0);
   }
 
+  const buffer = Buffer.alloc(byteLength);
+  const { bytesRead } = await fileHandle.read(buffer, 0, byteLength, 0);
+  return buffer.subarray(0, bytesRead);
+};
+
+const isPathInside = (rootPath: string, targetPath: string) => {
+  const relative = path.relative(rootPath, targetPath);
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  );
+};
+
+const containsGitMetadataSegment = (rootPath: string, targetPath: string) =>
+  path
+    .relative(rootPath, targetPath)
+    .split(path.sep)
+    .some((segment) => segment.toLowerCase() === ".git");
+
+const isSameFile = (
+  left: { dev: number | bigint; ino: number | bigint },
+  right: { dev: number | bigint; ino: number | bigint },
+) => left.dev === right.dev && left.ino === right.ino;
+
+const openVerifiedFile = async ({
+  absolutePath,
+  allowedRootPath,
+}: {
+  absolutePath: string;
+  allowedRootPath: string;
+}) => {
   let fileHandle: fs.FileHandle | null = null;
   try {
-    fileHandle = await fs.open(absolutePath, "r");
-    const buffer = Buffer.alloc(byteLength);
-    const { bytesRead } = await fileHandle.read(buffer, 0, byteLength, 0);
-    return buffer.subarray(0, bytesRead);
+    fileHandle = await fs.open(absolutePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const handleStats = await fileHandle.stat();
+    if (!handleStats.isFile()) {
+      throw createServiceError("INVALID_PAYLOAD", 400, "path must point to a file");
+    }
+
+    const canonicalRoot = allowedRootPath;
+    const canonicalTarget = await fs.realpath(absolutePath);
+    if (
+      !isPathInside(canonicalRoot, canonicalTarget) ||
+      containsGitMetadataSegment(canonicalRoot, canonicalTarget)
+    ) {
+      throw createServiceError("FORBIDDEN_PATH", 403, "path is outside the allowed file root");
+    }
+    const pathStats = await fs.stat(canonicalTarget);
+    if (!isSameFile(handleStats, pathStats)) {
+      throw createServiceError("FORBIDDEN_PATH", 403, "file changed while it was being opened");
+    }
+    return { fileHandle, stats: handleStats };
   } catch (error) {
+    await fileHandle?.close();
     if (isReadablePermissionError(error)) {
       throw createServiceError("PERMISSION_DENIED", 403, "permission denied");
     }
@@ -78,8 +81,6 @@ const readFileSlice = async ({
       throw createServiceError("NOT_FOUND", 404, "path not found");
     }
     throw error;
-  } finally {
-    await fileHandle?.close();
   }
 };
 
@@ -160,11 +161,6 @@ const resolveLanguageHint = (targetPath: string): RepoFileLanguageHint => {
   return "text";
 };
 
-const resolveImagePreviewMimeType = (targetPath: string): RepoFileImagePreviewMimeType | null => {
-  const extension = path.posix.extname(targetPath.toLowerCase());
-  return imagePreviewMimeTypeByExtension[extension] ?? null;
-};
-
 type ResolveFileContentInput = {
   repoRoot: string;
   normalizedPath: string;
@@ -177,11 +173,11 @@ type ResolveFileStatsInput = {
 };
 
 const resolveFileStats = async ({ repoRoot, normalizedPath }: ResolveFileStatsInput) => {
-  const absolutePath = resolveRepoAbsolutePath(repoRoot, normalizedPath);
-  await assertNoSymlinkInTargetPath({
+  const resolvedPath = await resolveSafeRepoPath({
     repoRoot,
     relativePath: normalizedPath,
   });
+  const absolutePath = resolvedPath.realPath;
 
   let stats: Awaited<ReturnType<typeof fs.stat>>;
   try {
@@ -198,7 +194,7 @@ const resolveFileStats = async ({ repoRoot, normalizedPath }: ResolveFileStatsIn
   if (!stats.isFile()) {
     throw createServiceError("INVALID_PAYLOAD", 400, "path must point to a file");
   }
-  return { absolutePath, stats };
+  return { absolutePath, allowedRootPath: resolvedPath.repoRootRealPath, stats };
 };
 
 export const resolveFileMetadata = async ({ repoRoot, normalizedPath }: ResolveFileStatsInput) => {
@@ -215,53 +211,63 @@ export const resolveFileContent = async ({
   normalizedPath,
   maxBytes,
 }: ResolveFileContentInput): Promise<RepoFileContent> => {
-  const { absolutePath, stats } = await resolveFileStats({
+  const { absolutePath, allowedRootPath } = await resolveFileStats({
     repoRoot,
     normalizedPath,
   });
 
-  const sample = await readFileSlice({
+  return resolveFileContentFromAbsolutePath({
     absolutePath,
-    byteLength: Math.min(stats.size, BINARY_SAMPLE_BYTES),
+    allowedRootPath,
+    displayPath: normalizedPath,
+    maxBytes,
   });
-  const isBinary = isBinaryContent(sample);
-  if (isBinary) {
-    const imagePreviewMimeType = resolveImagePreviewMimeType(normalizedPath);
-    let imagePreview: RepoFileImagePreview | null = null;
-    if (imagePreviewMimeType && stats.size <= maxBytes) {
-      const imageBuffer = await readFileSlice({
-        absolutePath,
-        byteLength: stats.size,
-      });
-      imagePreview = {
-        mimeType: imagePreviewMimeType,
-        base64: imageBuffer.toString("base64"),
-      };
+};
+
+export const resolveFileContentFromAbsolutePath = async ({
+  absolutePath,
+  allowedRootPath,
+  displayPath,
+  maxBytes,
+}: {
+  absolutePath: string;
+  allowedRootPath: string;
+  displayPath: string;
+  maxBytes: number;
+}): Promise<RepoFileContent> => {
+  const { fileHandle, stats } = await openVerifiedFile({ absolutePath, allowedRootPath });
+  try {
+    const sample = await readFileSlice({
+      fileHandle,
+      byteLength: Math.min(stats.size, BINARY_SAMPLE_BYTES),
+    });
+    const isBinary = isBinaryContent(sample);
+    if (isBinary) {
+      return {
+        path: displayPath,
+        sizeBytes: stats.size,
+        isBinary: true,
+        truncated: false,
+        languageHint: null,
+        content: null,
+      } satisfies RepoFileContent;
     }
 
+    const readBytes = Math.min(stats.size, maxBytes);
+    const fileBuffer = await readFileSlice({
+      fileHandle,
+      byteLength: readBytes,
+    });
+
     return {
-      path: normalizedPath,
+      path: displayPath,
       sizeBytes: stats.size,
-      isBinary: true,
-      truncated: false,
-      languageHint: null,
-      content: null,
-      imagePreview,
+      isBinary: false,
+      truncated: stats.size > maxBytes,
+      languageHint: resolveLanguageHint(displayPath),
+      content: fileBuffer.toString("utf8"),
     } satisfies RepoFileContent;
+  } finally {
+    await fileHandle.close();
   }
-
-  const readBytes = Math.min(stats.size, maxBytes);
-  const fileBuffer = await readFileSlice({
-    absolutePath,
-    byteLength: readBytes,
-  });
-
-  return {
-    path: normalizedPath,
-    sizeBytes: stats.size,
-    isBinary: false,
-    truncated: stats.size > maxBytes,
-    languageHint: resolveLanguageHint(normalizedPath),
-    content: fileBuffer.toString("utf8"),
-  } satisfies RepoFileContent;
 };

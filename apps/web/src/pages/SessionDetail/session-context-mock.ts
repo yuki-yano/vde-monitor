@@ -101,6 +101,7 @@ export const createSessionFilesApiMock = (overrides: Partial<SessionFilesApiCont
     requestRepoFileTree: vi.fn(async () => ({ basePath: ".", entries: [] })),
     requestRepoFileSearch: vi.fn(),
     requestRepoFileContent: vi.fn(),
+    revokeRepoFilePreview: vi.fn(async () => undefined),
     ...overrides,
   }) satisfies SessionFilesApiContextValue;
 

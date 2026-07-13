@@ -204,14 +204,15 @@ export type SessionFilesApiContextValue = {
       cursor?: string;
       limit?: number;
       worktreePath?: string;
-      includeIgnoredPreviewExact?: boolean;
+      exactReference?: boolean;
     },
   ) => Promise<RepoFileSearchPage>;
   requestRepoFileContent: (
     paneId: string,
     path: string,
-    options?: { maxBytes?: number; worktreePath?: string; includeIgnoredPreviewExact?: boolean },
+    options?: { maxBytes?: number; worktreePath?: string },
   ) => Promise<RepoFileContent>;
+  revokeRepoFilePreview: (paneId: string, token: string) => Promise<void>;
 };
 
 /** Repo notes CRUD. */
