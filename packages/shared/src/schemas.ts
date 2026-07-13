@@ -758,7 +758,7 @@ const multiplexerConfigSchema = strictObject({
 });
 
 const screenConfigSchema = strictObject({
-  maxLines: z.number(),
+  maxLines: z.number().int().positive(),
   highlightCorrection: highlightCorrectionSchema,
   image: strictObject({
     backend: z.enum(["alacritty", "terminal", "iterm", "wezterm", "ghostty"]),
@@ -782,13 +782,13 @@ const fileNavigatorConfigSchema = strictObject({
 
 export const configSchema = strictObject({
   bind: z.enum(["127.0.0.1", "0.0.0.0"]),
-  port: z.number(),
+  port: z.number().int().min(1).max(65535),
   allowedOrigins: z.array(z.string()),
   dangerKeys: z.array(z.string()),
   dangerCommandPatterns: z.array(z.string()),
   activity: strictObject({
-    pollIntervalMs: z.number(),
-    runningThresholdMs: z.number(),
+    pollIntervalMs: z.number().int().positive(),
+    runningThresholdMs: z.number().int().nonnegative(),
   }),
   screen: screenConfigSchema,
   multiplexer: multiplexerConfigSchema,
@@ -817,16 +817,16 @@ export const generatedConfigTemplateSchema = strictObject({
 
 export const configOverrideSchema = strictObject({
   bind: z.enum(["127.0.0.1", "0.0.0.0"]).optional(),
-  port: z.number().optional(),
+  port: z.number().int().min(1).max(65535).optional(),
   allowedOrigins: z.array(z.string()).optional(),
   dangerKeys: z.array(z.string()).optional(),
   dangerCommandPatterns: z.array(z.string()).optional(),
   activity: strictObject({
-    pollIntervalMs: z.number().optional(),
-    runningThresholdMs: z.number().optional(),
+    pollIntervalMs: z.number().int().positive().optional(),
+    runningThresholdMs: z.number().int().nonnegative().optional(),
   }).optional(),
   screen: strictObject({
-    maxLines: z.number().optional(),
+    maxLines: z.number().int().positive().optional(),
     highlightCorrection: strictObject({
       codex: z.boolean().optional(),
       claude: z.boolean().optional(),

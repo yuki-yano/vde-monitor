@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  unlinkSync: vi.fn(),
+  openSync: vi.fn(() => 42),
+  fsyncSync: vi.fn(),
+  closeSync: vi.fn(),
   mkdirSync: vi.fn(),
   homedir: vi.fn(() => "/mock/home"),
 }));
@@ -12,10 +17,20 @@ vi.mock("node:fs", () => ({
   default: {
     readFileSync: mocks.readFileSync,
     writeFileSync: mocks.writeFileSync,
+    renameSync: mocks.renameSync,
+    unlinkSync: mocks.unlinkSync,
+    openSync: mocks.openSync,
+    fsyncSync: mocks.fsyncSync,
+    closeSync: mocks.closeSync,
     mkdirSync: mocks.mkdirSync,
   },
   readFileSync: mocks.readFileSync,
   writeFileSync: mocks.writeFileSync,
+  renameSync: mocks.renameSync,
+  unlinkSync: mocks.unlinkSync,
+  openSync: mocks.openSync,
+  fsyncSync: mocks.fsyncSync,
+  closeSync: mocks.closeSync,
   mkdirSync: mocks.mkdirSync,
 }));
 
@@ -88,7 +103,9 @@ beforeEach(() => {
     }
     const raw = fileContents.get(targetPath);
     if (raw == null) {
-      throw new Error(`ENOENT: ${targetPath}`);
+      const error = new Error(`ENOENT: ${targetPath}`) as NodeJS.ErrnoException;
+      error.code = "ENOENT";
+      throw error;
     }
     return raw;
   });
@@ -100,10 +117,36 @@ beforeEach(() => {
     fileContents.set(targetPath, data);
   });
 
+  mocks.renameSync.mockImplementation((sourcePath: unknown, targetPath: unknown) => {
+    if (typeof sourcePath !== "string" || typeof targetPath !== "string") {
+      throw new Error("unexpected rename args");
+    }
+    const raw = fileContents.get(sourcePath);
+    if (raw == null) {
+      throw new Error(`ENOENT: ${sourcePath}`);
+    }
+    fileContents.delete(sourcePath);
+    fileContents.set(targetPath, raw);
+  });
+
+  mocks.unlinkSync.mockImplementation((targetPath: unknown) => {
+    if (typeof targetPath === "string") {
+      fileContents.delete(targetPath);
+    }
+  });
+
   mocks.mkdirSync.mockImplementation(() => undefined);
 });
 
 describe("state-store timeline persistence", () => {
+  it("returns empty state only when state.json does not exist", () => {
+    const restored = restorePersistedState();
+
+    expect(restored.sessions.size).toBe(0);
+    expect(restored.timeline.size).toBe(0);
+    expect(restored.repoNotes.size).toBe(0);
+  });
+
   it("saves and restores timeline events", () => {
     saveState([createSessionDetail()], {
       runtimeStateByPaneId: createRuntimeStateMap(),
@@ -239,7 +282,7 @@ describe("state-store timeline persistence", () => {
     expect(restorePersistedState().repositoryActivity).toEqual(repositoryActivity);
   });
 
-  it("rejects version 2 without reading or converting it", () => {
+  it("reports an incompatible persisted schema instead of silently discarding it", () => {
     fileContents.set(
       statePath,
       `${JSON.stringify(
@@ -266,14 +309,62 @@ describe("state-store timeline persistence", () => {
       )}\n`,
     );
 
-    const {
-      sessions: restoredSessions,
-      timeline: restoredTimeline,
-      repoNotes: restoredRepoNotes,
-    } = restorePersistedState();
-    expect(restoredSessions.size).toBe(0);
-    expect(restoredTimeline.size).toBe(0);
-    expect(restoredRepoNotes.size).toBe(0);
+    expect(() => restorePersistedState()).toThrow("persisted state is corrupt: invalid schema");
+  });
+
+  it("reports invalid JSON instead of silently starting with empty state", () => {
+    fileContents.set(statePath, "{broken");
+
+    expect(() => restorePersistedState()).toThrow("persisted state is corrupt: invalid JSON");
+  });
+
+  it.each([
+    [
+      "session",
+      (state: Record<string, unknown>) => {
+        (state.sessions as Record<string, unknown>)["pane-1"] = { paneId: "pane-1" };
+      },
+    ],
+    [
+      "timeline",
+      (state: Record<string, unknown>) => {
+        (state.timeline as Record<string, unknown>)["pane-1"] = [{ paneId: "pane-1" }];
+      },
+    ],
+    [
+      "repo note",
+      (state: Record<string, unknown>) => {
+        (state.repoNotes as Record<string, unknown>)["/repo/a"] = [{ repoRoot: "/repo/a" }];
+      },
+    ],
+  ])("reports a corrupt nested %s instead of silently dropping it", (_label, corrupt) => {
+    saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      timeline: {},
+      repoNotes: {},
+    });
+    const state = JSON.parse(fileContents.get(statePath) ?? "{}") as Record<string, unknown>;
+    corrupt(state);
+    fileContents.set(statePath, JSON.stringify(state));
+
+    expect(() => restorePersistedState()).toThrow("persisted state is corrupt: invalid schema");
+  });
+
+  it("atomically replaces state.json through a temporary file", () => {
+    saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+    });
+
+    expect(mocks.writeFileSync).toHaveBeenCalledWith(
+      expect.stringMatching(/\/\.state\.json\.\d+\..+\.tmp$/),
+      expect.any(String),
+      expect.objectContaining({ mode: 0o600 }),
+    );
+    expect(mocks.renameSync).toHaveBeenCalledWith(expect.stringContaining(".tmp"), statePath);
+    expect(mocks.openSync).toHaveBeenCalledWith(expect.stringContaining(".tmp"), "r");
+    expect(mocks.fsyncSync).toHaveBeenCalledWith(42);
+    expect(mocks.closeSync).toHaveBeenCalledWith(42);
+    expect(fileContents.has(statePath)).toBe(true);
   });
 
   it("restores a version 3 timeline event without repoRoot", () => {
@@ -414,13 +505,13 @@ describe("state-store timeline persistence", () => {
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
 
-  it("skips an invalid version 3 session without discarding valid state entries", () => {
+  it("reports an invalid version 3 session instead of partially restoring the file", () => {
     const completionCursor: PersistedCompletionCursor = {
       epoch: "epoch-1",
       paneInstanceKey: "pane-instance-1",
       agent: "codex",
       agentSessionId: "session-1",
-      identityConfirmedAt: "invalid",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
       agentPresent: true,
       syntheticCompletionArmed: false,
       consecutiveAbsentObservations: 0,
@@ -433,6 +524,7 @@ describe("state-store timeline persistence", () => {
       runtimeStateByPaneId: createRuntimeStateMap({ completionCursor }),
     });
     const persisted = JSON.parse(fileContents.get(statePath) ?? "{}");
+    persisted.sessions["pane-1"].completionCursor.identityConfirmedAt = "invalid";
     persisted.sessions["pane-2"] = {
       ...persisted.sessions["pane-1"],
       paneId: "pane-2",
@@ -461,10 +553,6 @@ describe("state-store timeline persistence", () => {
     ];
     fileContents.set(statePath, `${JSON.stringify(persisted, null, 2)}\n`);
 
-    const restored = restorePersistedState();
-    expect(restored.sessions.has("pane-1")).toBe(false);
-    expect(restored.sessions.get("pane-2")?.paneId).toBe("pane-2");
-    expect(restored.timeline.get("pane-2")).toHaveLength(1);
-    expect(restored.repoNotes.get("/repo/a")).toHaveLength(1);
+    expect(() => restorePersistedState()).toThrow("persisted state is corrupt: invalid schema");
   });
 });
