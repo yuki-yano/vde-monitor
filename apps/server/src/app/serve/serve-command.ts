@@ -12,11 +12,13 @@ import qrcode from "qrcode-terminal";
 import { createApp } from "../../app";
 import { ensureConfig } from "../../config";
 import { createSessionMonitor } from "../../monitor";
+import { resolveProcessStartedAt } from "../../monitor/runtime-marker";
 import { createMultiplexerRuntime } from "../../multiplexer/runtime";
 import { getLocalIP, getTailscaleDnsName, getTailscaleIP } from "../../network";
 import { createNotificationService } from "../../notifications/service";
-import { findAvailablePort } from "../../ports";
+import { listenOnAvailablePort } from "../../ports";
 import { createScreenCache } from "../../screen/screen-cache";
+import { createServerRuntimeMarker } from "../../server-runtime-marker";
 import { createScreenStreamScheduler } from "../../streams/screen-stream-scheduler";
 import { createSessionsStreamSource } from "../../streams/sessions-stream-source";
 import { createStreamConnections } from "../../streams/stream-connections";
@@ -445,6 +447,9 @@ const applyCliOverrides = (
 };
 
 export const runServe = async (args: ParsedArgs) => {
+  const parsedPort = parsePort(args.port);
+  const parsedWebPort = parsePort(args.webPort);
+  const serverProcessStartedAt = resolveProcessStartedAt(process.pid);
   const config = ensureConfig();
   const multiplexerOverrides = resolveMultiplexerOverrides(args);
 
@@ -457,7 +462,7 @@ export const runServe = async (args: ParsedArgs) => {
 
   // Collect all CLI overrides and apply them through the single mutation point
   applyCliOverrides(config, {
-    port: parsePort(args.port) ?? undefined,
+    port: parsedPort ?? undefined,
     socketName: typeof args.socketName === "string" ? args.socketName : undefined,
     socketPath: typeof args.socketPath === "string" ? args.socketPath : undefined,
     multiplexerBackend: multiplexerOverrides.multiplexerBackend ?? undefined,
@@ -469,7 +474,6 @@ export const runServe = async (args: ParsedArgs) => {
   });
 
   const host = bindHost;
-  const port = await findAvailablePort(config.port, host, 10);
 
   await ensureBackendAvailable(config);
 
@@ -478,7 +482,15 @@ export const runServe = async (args: ParsedArgs) => {
   const monitor = createSessionMonitor(runtime, config, {
     onSessionTransition: (event) => notificationService.dispatchTransition(event),
   });
-  await monitor.start();
+  try {
+    await monitor.start();
+  } catch (error) {
+    await stopMonitorAndDisposeRuntime({
+      stopMonitor: () => monitor.stop(),
+      disposeRuntime: runtime.dispose,
+    });
+    throw error;
+  }
 
   // Instantiate the SSE infrastructure.
   const schedulerScreenCache = createScreenCache();
@@ -501,13 +513,58 @@ export const runServe = async (args: ParsedArgs) => {
     streamConnections,
   });
 
-  const server = serve({
-    fetch: app.fetch,
-    port,
-    hostname: host,
-  });
+  let boundServer: ReturnType<typeof serve>;
+  let port: number;
+  try {
+    const bound = await listenOnAvailablePort({
+      startPort: config.port,
+      host,
+      attempts: 10,
+      listen: (candidatePort, onListening) =>
+        serve(
+          {
+            fetch: app.fetch,
+            port: candidatePort,
+            hostname: host,
+          },
+          onListening,
+        ),
+    });
+    boundServer = bound.server;
+    port = bound.port;
+  } catch (error) {
+    streamSource.dispose();
+    screenScheduler.dispose();
+    await stopMonitorAndDisposeRuntime({
+      stopMonitor: () => monitor.stop(),
+      disposeRuntime: runtime.dispose,
+    });
+    throw error;
+  }
 
-  const parsedWebPort = parsePort(args.webPort);
+  const serverRuntimeMarker = createServerRuntimeMarker({
+    marker: {
+      host: host === "0.0.0.0" ? "127.0.0.1" : host,
+      port,
+      pid: process.pid,
+      processStartedAt: serverProcessStartedAt,
+    },
+  });
+  try {
+    await serverRuntimeMarker.write();
+  } catch (error) {
+    await new Promise<void>((resolve) => boundServer.close(() => resolve()));
+    streamSource.dispose();
+    screenScheduler.dispose();
+    await stopMonitorAndDisposeRuntime({
+      stopMonitor: () => monitor.stop(),
+      disposeRuntime: runtime.dispose,
+    });
+    throw error;
+  }
+  // The path is shared by successive server processes. Leave the last marker in place on
+  // shutdown: readers validate its process identity, while read-then-unlink cleanup could race
+  // with a newer server replacing the marker and delete its active endpoint.
   const displayPort = parsedWebPort ?? port;
   const apiBaseUrl =
     parsedWebPort != null && parsedWebPort !== port ? `http://${displayHost}:${port}/api` : null;
@@ -569,7 +626,7 @@ export const runServe = async (args: ParsedArgs) => {
         disposeRuntime: runtime.dispose,
       }),
     // 3. Stop accepting new HTTP connections and close existing keep-alive connections.
-    closeServer: (onClosed) => server.close(onClosed),
+    closeServer: (onClosed) => boundServer.close(onClosed),
   });
 
   process.on("SIGINT", shutdown);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseArgs, resolveHosts, resolveMultiplexerOverrides } from "./cli";
+import { parseArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "./cli";
 
 const baseOptions = {
   configBind: "127.0.0.1" as const,
@@ -33,12 +33,9 @@ describe("parseArgs", () => {
     expect(result.backend).toBe("wezterm");
   });
 
-  it("keeps unknown flags on raw parsed output", () => {
-    const result = parseArgs(["--foo", "bar", "--no-cache"]);
-
-    expect(result.command).toBe("bar");
-    expect(result.foo).toBe(true);
-    expect(result.cache).toBe(false);
+  it("rejects unknown flags", () => {
+    expect(() => parseArgs(["--foo"])).toThrow("Unknown option: --foo");
+    expect(() => parseArgs(["--no-cache"])).toThrow("Unknown option: --cache");
   });
 
   it("ignores separators passed through tsx/pnpm", () => {
@@ -65,9 +62,34 @@ describe("parseArgs", () => {
     expect(result.dryRun).toBe(true);
   });
 
+  it("parses --help as an explicit option", () => {
+    expect(parseArgs(["--help"]).help).toBe(true);
+  });
+
   it("rejects invalid enum values", () => {
     expect(() => parseArgs(["--multiplexer", "foo"])).toThrow(/Invalid value for argument/);
     expect(() => parseArgs(["--backend", "foo"])).toThrow(/Invalid value for argument/);
+  });
+});
+
+describe("parsePort", () => {
+  it.each([
+    ["1", 1],
+    ["11080", 11080],
+    ["65535", 65535],
+  ])("accepts a complete in-range integer: %s", (value, expected) => {
+    expect(parsePort(value)).toBe(expected);
+  });
+
+  it.each(["0", "65536", "1.5", "11080junk", "-1", " 3000"])(
+    "rejects an invalid port: %s",
+    (value) => {
+      expect(() => parsePort(value)).toThrow("port must be an integer between 1 and 65535");
+    },
+  );
+
+  it("returns null only when the option is omitted", () => {
+    expect(parsePort(undefined)).toBeNull();
   });
 });
 

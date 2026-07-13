@@ -1,25 +1,45 @@
-import { createServer as createNetServer } from "node:net";
+type BindableServer = {
+  once: (event: "error", listener: (error: NodeJS.ErrnoException) => void) => unknown;
+  off: (event: "error", listener: (error: NodeJS.ErrnoException) => void) => unknown;
+};
 
-const isPortAvailable = (port: number, host: string) =>
-  new Promise<boolean>((resolve) => {
-    const server = createNetServer();
-    server.once("error", () => {
-      server.close();
-      resolve(false);
-    });
-    server.once("listening", () => {
-      server.close(() => resolve(true));
-    });
-    server.listen(port, host);
-  });
+type ListenOnAvailablePortOptions<Server extends BindableServer> = {
+  startPort: number;
+  host: string;
+  attempts: number;
+  listen: (port: number, onListening: () => void) => Server;
+};
 
-export const findAvailablePort = async (startPort: number, host: string, attempts: number) => {
-  for (let i = 0; i < attempts; i += 1) {
-    const port = startPort + i;
-    const available = await isPortAvailable(port, host);
-    if (available) {
-      return port;
+export const listenOnAvailablePort = async <Server extends BindableServer>({
+  startPort,
+  host,
+  attempts,
+  listen,
+}: ListenOnAvailablePortOptions<Server>): Promise<{ port: number; server: Server }> => {
+  for (let offset = 0; offset < attempts; offset += 1) {
+    const port = startPort + offset;
+    const result = await new Promise<{ ok: true; server: Server } | { ok: false }>(
+      (resolve, reject) => {
+        let server: Server;
+        const onError = (error: NodeJS.ErrnoException) => {
+          if (error.code === "EADDRINUSE") {
+            resolve({ ok: false });
+            return;
+          }
+          reject(error);
+        };
+        server = listen(port, () => {
+          server.off("error", onError);
+          resolve({ ok: true, server });
+        });
+        server.once("error", onError);
+      },
+    );
+    if (result.ok) {
+      return { port, server: result.server };
     }
   }
-  throw new Error(`No available port found in range ${startPort}-${startPort + attempts - 1}`);
+  throw new Error(
+    `No available port found in range ${startPort}-${startPort + attempts - 1} on ${host}`,
+  );
 };

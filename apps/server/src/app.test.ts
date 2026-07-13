@@ -58,6 +58,24 @@ describe("createApp /api/admin/token/rotate", () => {
     expect(notificationService.removeAllSubscriptions).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the current token when pre-rotation cleanup fails", async () => {
+    const { app, config, notificationService, streamConnections } = createAppUnderTest();
+    const currentToken = config.token;
+    vi.mocked(notificationService.removeAllSubscriptions).mockImplementationOnce(() => {
+      throw new Error("subscription cleanup failed");
+    });
+
+    const res = await app.request("/api/admin/token/rotate", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(500);
+    expect(config.token).toBe(currentToken);
+    expect(rotateToken).not.toHaveBeenCalled();
+    expect(streamConnections.closeAll).not.toHaveBeenCalled();
+  });
+
   it("invalidates the previous token after rotation", async () => {
     const { app } = createAppUnderTest();
 

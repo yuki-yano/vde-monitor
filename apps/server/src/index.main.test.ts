@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   parseArgs: vi.fn(),
+  parsePort: vi.fn(),
   runServe: vi.fn(),
   runTokenRotateCommand: vi.fn(),
   runConfigInitCommand: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./app/cli/cli", () => ({
   parseArgs: mocks.parseArgs,
+  parsePort: mocks.parsePort,
 }));
 
 vi.mock("./app/commands/print-hooks-snippet", () => ({
@@ -56,6 +58,8 @@ import { main } from "./index";
 describe("main command routing", () => {
   beforeEach(() => {
     mocks.parseArgs.mockReset();
+    mocks.parsePort.mockReset();
+    mocks.parsePort.mockReturnValue(null);
     mocks.runServe.mockReset();
     mocks.runTokenRotateCommand.mockReset();
     mocks.runConfigInitCommand.mockReset();
@@ -78,6 +82,25 @@ describe("main command routing", () => {
 
     expect(mocks.printHooksSnippet).toHaveBeenCalledTimes(1);
     expect(mocks.printCodexHooksSnippet).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
+  });
+
+  it("passes explicit bind and port overrides to token rotation", async () => {
+    mocks.parseArgs.mockReturnValue({
+      command: "token",
+      subcommand: "rotate",
+      bind: "127.0.0.2",
+      port: "19000",
+    });
+    mocks.parsePort.mockReturnValue(19000);
+    mocks.runTokenRotateCommand.mockResolvedValue(undefined);
+
+    await main();
+
+    expect(mocks.runTokenRotateCommand).toHaveBeenCalledWith({
+      host: "127.0.0.2",
+      port: 19000,
+    });
     expect(mocks.runServe).not.toHaveBeenCalled();
   });
 
@@ -158,5 +181,23 @@ describe("main command routing", () => {
     expect(mocks.runServe).toHaveBeenCalledTimes(1);
     expect(mocks.runConfigInitCommand).not.toHaveBeenCalled();
     expect(mocks.runConfigRegenerateCommand).not.toHaveBeenCalled();
+  });
+
+  it("prints help without starting the server", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    mocks.parseArgs.mockReturnValue({ help: true });
+
+    await main();
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage: vde-monitor"));
+    expect(mocks.runServe).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("rejects an unknown command without starting the server", async () => {
+    mocks.parseArgs.mockReturnValue({ command: "config", subcommand: "chek" });
+
+    await expect(main()).rejects.toThrow("Unknown command: config chek");
+    expect(mocks.runServe).not.toHaveBeenCalled();
   });
 });

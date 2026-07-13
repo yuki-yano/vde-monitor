@@ -68,12 +68,13 @@ export const createApp = ({
 
   // The API router's api.use("*") applies authentication and Origin checks to all /api/* routes.
   app.post("/api/admin/token/rotate", (c) => {
-    const next = rotateToken();
-    config.token = next.token;
+    // Complete every operation that can fail before invalidating the caller's current token.
+    // Once rotateToken succeeds, the only remaining mutation is the in-memory token assignment.
     notificationService.removeAllSubscriptions();
-    // Disconnect every SSE connection established with the previous token.
     streamConnections.closeAll();
     previewTicketService.revokeAll();
+    const next = rotateToken();
+    config.token = next.token;
     return c.json({ token: next.token });
   });
 
