@@ -5,7 +5,6 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
-  CornerDownLeft,
   ImagePlus,
   Loader2,
   type LucideIcon,
@@ -24,7 +23,7 @@ import {
   useState,
 } from "react";
 
-import { Button, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
+import { Button, Checkbox, ModifierToggle, PillToggle, ZoomSafeTextarea } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { IOS_ZOOM_SAFE_FIELD_SCALE } from "@/lib/ios-zoom-safe-textarea";
 import {
@@ -323,7 +322,7 @@ const ComposerToolbar = ({
       >
         <ImagePlus className="h-4 w-4" />
       </Button>
-      <span className="text-latte-subtext0 hidden text-[10px] tracking-[0.12em] sm:inline">
+      <span className="text-latte-subtext0 hidden text-[10px] tracking-[0.12em] @lg:inline">
         PNG / JPEG / WEBP
       </span>
     </div>
@@ -368,18 +367,28 @@ const ComposerToolbar = ({
       >
         Raw
       </ComposerPill>
-      <ComposerPill
-        type="button"
-        onClick={onToggleAutoEnter}
-        active={autoEnter}
-        disabled={rawMode}
-        title="Auto-enter after send"
-        className="group gap-0.5"
+      <label
+        className={cn(
+          "text-latte-subtext0 inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg text-[10px] font-semibold transition sm:h-8",
+          rawMode
+            ? "cursor-not-allowed opacity-60"
+            : "hover:bg-latte-surface0/50 hover:text-latte-text cursor-pointer",
+        )}
       >
-        <span className="tracking-[0.08em]">Auto</span>
-        <CornerDownLeft className="-ml-0.5 h-3 w-3" />
-        <span className="sr-only">Auto-enter</span>
-      </ComposerPill>
+        <Checkbox
+          aria-label="Enter after send"
+          checked={autoEnter}
+          disabled={rawMode}
+          onChange={onToggleAutoEnter}
+          className="h-3.5 w-3.5 shrink-0 disabled:opacity-100"
+        />
+        <span aria-hidden="true" className="hidden @lg:inline">
+          Enter after send
+        </span>
+        <span aria-hidden="true" className="@lg:hidden">
+          Enter
+        </span>
+      </label>
       <Button
         onClick={onSendText}
         aria-label="Send"
@@ -618,7 +627,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   };
 
   return (
-    <div className="min-w-0">
+    <div className="@container min-w-0">
       <div
         className={cn("min-w-0 overflow-hidden rounded-2xl border transition", rawModeInputClass)}
       >

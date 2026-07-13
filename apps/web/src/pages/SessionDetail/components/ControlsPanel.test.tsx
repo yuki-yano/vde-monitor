@@ -118,7 +118,7 @@ describe("ControlsPanel", () => {
     fireEvent.click(screen.getByText("Ctrl"));
     expect(onToggleCtrl).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByText("Enter"));
+    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
     expect(onSendKey).toHaveBeenCalledWith("Enter");
 
     fireEvent.click(screen.getByText("Kill Pane"));
@@ -185,7 +185,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onSendKey });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const enterButton = screen.getByText("Enter").closest("button") as HTMLButtonElement;
+    const enterButton = screen.getByRole("button", { name: "Enter" }) as HTMLButtonElement;
     const leftButton = screen.getByLabelText("Left") as HTMLButtonElement;
     expect(enterButton.disabled).toBe(true);
     expect(leftButton.disabled).toBe(true);

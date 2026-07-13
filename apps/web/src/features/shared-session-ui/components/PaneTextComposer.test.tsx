@@ -116,6 +116,55 @@ describe("PaneTextComposer", () => {
     expect(sendButton.disabled).toBe(true);
   });
 
+  it("reflects auto-enter state in the checkbox", () => {
+    const actions = buildActions();
+    const view = render(
+      <PaneTextComposer state={buildState({ autoEnter: true })} actions={actions} />,
+    );
+
+    expect(
+      (screen.getByRole("checkbox", { name: "Enter after send" }) as HTMLInputElement).checked,
+    ).toBe(true);
+
+    view.rerender(<PaneTextComposer state={buildState({ autoEnter: false })} actions={actions} />);
+
+    expect(
+      (screen.getByRole("checkbox", { name: "Enter after send" }) as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("toggles auto-enter from the checkbox", () => {
+    const onToggleAutoEnter = vi.fn();
+    render(
+      <PaneTextComposer
+        state={buildState({ autoEnter: false })}
+        actions={buildActions({ onToggleAutoEnter })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enter after send" }));
+
+    expect(onToggleAutoEnter).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables auto-enter in raw mode", () => {
+    const onToggleAutoEnter = vi.fn();
+    render(
+      <PaneTextComposer
+        state={buildState({ autoEnter: false, rawMode: true })}
+        actions={buildActions({ onToggleAutoEnter })}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Enter after send",
+    }) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+
+    fireEvent.click(checkbox);
+    expect(onToggleAutoEnter).not.toHaveBeenCalled();
+  });
+
   it("expands key options when Keys button is pressed", () => {
     const onSendKey = vi.fn();
     render(
