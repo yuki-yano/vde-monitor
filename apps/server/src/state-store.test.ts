@@ -56,6 +56,8 @@ const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDet
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -139,6 +141,22 @@ describe("state-store timeline persistence", () => {
       state: "DONE",
       source: "view",
     });
+  });
+
+  it("roundtrips run and manual sort timestamps", () => {
+    saveState(
+      [
+        createSessionDetail({
+          lastRunStartedAt: "2026-07-14T00:00:00.000Z",
+          manualSortAt: "2026-07-14T00:01:00.000Z",
+        }),
+      ],
+      { runtimeStateByPaneId: createRuntimeStateMap() },
+    );
+
+    const restored = restorePersistedState().sessions.get("pane-1");
+    expect(restored?.lastRunStartedAt).toBe("2026-07-14T00:00:00.000Z");
+    expect(restored?.manualSortAt).toBe("2026-07-14T00:01:00.000Z");
   });
 
   it("restores sessions/timeline/repoNotes from a single read", () => {
@@ -317,9 +335,19 @@ describe("state-store timeline persistence", () => {
       )}\n`,
     );
 
-    const { timeline: restoredTimeline } = restorePersistedState();
+    const { sessions: restoredSessions, timeline: restoredTimeline } = restorePersistedState();
+    expect(restoredSessions.get("pane-1")?.lastRunStartedAt).toBeUndefined();
+    expect(restoredSessions.get("pane-1")?.manualSortAt).toBeUndefined();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBeUndefined();
+
+    saveState([], {
+      runtimeStateByPaneId: new Map(),
+      retainedSessions: restoredSessions,
+    });
+    const resaved = JSON.parse(fileContents.get(statePath) ?? "{}");
+    expect(resaved.sessions["pane-1"].lastRunStartedAt).toBeNull();
+    expect(resaved.sessions["pane-1"].manualSortAt).toBeNull();
   });
 
   it("roundtrips the completion cursor, identity timestamp, and last agent", () => {

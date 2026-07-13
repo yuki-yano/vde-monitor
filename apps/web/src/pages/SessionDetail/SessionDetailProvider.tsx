@@ -29,8 +29,9 @@ const useSessionDetailContextValue = (paneId: string) => {
     acknowledgeSessionView: base.acknowledgeSessionView,
   });
 
-  const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups } =
-    useSessionRepoPins({ sessions: base.sessions });
+  const { getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups } = useSessionRepoPins({
+    sessions: base.sessions,
+  });
 
   const terminal = useSessionDetailScreenControls({
     paneId,
@@ -175,13 +176,12 @@ const useSessionDetailContextValue = (paneId: string) => {
     sessions: base.sessions,
     resolvedTheme: base.resolvedTheme,
     highlightCorrections: base.highlightCorrections,
-    touchSession: base.touchSession,
+    moveSessionToTop: base.moveSessionToTop,
     focusPane: base.focusPane,
     refreshSessions: base.refreshSessions,
     launchAgentInSession: base.launchAgentInSession,
     setScreenError: terminal.screen.setScreenError,
     touchRepoSortAnchor,
-    paneRepoRootMap,
     currentRepoRoot,
   });
 
@@ -250,8 +250,8 @@ const useSessionDetailContextValue = (paneId: string) => {
   );
 
   const repoPins = useMemo(
-    () => ({ getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups }),
-    [getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups],
+    () => ({ getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups }),
+    [getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups],
   );
 
   return useMemo(

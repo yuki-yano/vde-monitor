@@ -84,6 +84,12 @@ export const createInputRoutes = ({
         return c.json(resolveLatestSessionResponse(pane));
       });
     })
+    .post("/sessions/:paneId/move-to-top", (c) => {
+      return withPane(c, (pane) => {
+        monitor.moveSessionToTop(pane.paneId);
+        return c.json(resolveLatestSessionResponse(pane));
+      });
+    })
     .post("/sessions/:paneId/send/text", zValidator("json", sendTextSchema), async (c) => {
       return withPane(c, async (pane) => {
         const body = c.req.valid("json");

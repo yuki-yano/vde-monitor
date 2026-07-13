@@ -184,6 +184,7 @@ const buildDefaultContextValue = () => {
       sendKeys: vi.fn(),
       sendRaw: vi.fn(),
       touchSession: vi.fn(),
+      moveSessionToTop: vi.fn(),
       acknowledgeSessionView: vi.fn(async () => undefined),
       updateSessionTitle: vi.fn(),
       resetSessionTitle: vi.fn(),
@@ -194,7 +195,6 @@ const buildDefaultContextValue = () => {
     repoPins: {
       sessionGroups: buildSessionGroups([]),
       getRepoSortAnchorAt: () => null,
-      paneRepoRootMap: new Map<string, string | null>(),
       touchRepoSortAnchor: vi.fn(),
     },
     scope: {
@@ -348,7 +348,7 @@ const buildDefaultContextValue = () => {
         handleTouchRepoPin: vi.fn(),
         handleLaunchAgentInSession: vi.fn(async () => defaultLaunchResponse),
         handleTouchCurrentSession: vi.fn(),
-        handleTouchPaneWithRepoAnchor: vi.fn(),
+        handleTouchPaneSortAnchor: vi.fn(),
       },
     },
     terminal: {

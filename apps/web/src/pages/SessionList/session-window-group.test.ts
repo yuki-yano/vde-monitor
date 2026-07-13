@@ -23,6 +23,8 @@ const buildSession = (overrides: Partial<SessionSummary>): SessionSummary => ({
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   repoRoot: null,
   paneDead: false,
   alternateOn: false,
@@ -112,6 +114,61 @@ describe("buildSessionWindowGroups", () => {
     ]);
 
     expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%a2", "%a1"]);
+  });
+
+  it("propagates run and manual timestamps through panes and windows", () => {
+    const groups = buildSessionWindowGroups([
+      buildSession({
+        paneId: "%a1",
+        sessionId: "$alpha",
+        sessionName: "alpha",
+        windowId: "@alpha-1",
+        windowIndex: 1,
+        paneIndex: 0,
+        lastRunStartedAt: "2026-02-07T13:00:00.000Z",
+      }),
+      buildSession({
+        paneId: "%a2",
+        sessionId: "$alpha",
+        sessionName: "alpha",
+        windowId: "@alpha-1",
+        windowIndex: 1,
+        paneIndex: 1,
+        lastInputAt: "2026-02-07T12:00:00.000Z",
+      }),
+      buildSession({
+        paneId: "%b1",
+        sessionId: "$beta",
+        sessionName: "beta",
+        windowId: "@beta-1",
+        windowIndex: 1,
+        manualSortAt: "2026-02-07T14:00:00.000Z",
+      }),
+    ]);
+
+    expect(groups[0]?.sessionName).toBe("beta");
+    expect(groups[1]?.sessions.map((session) => session.paneId)).toEqual(["%a1", "%a2"]);
+  });
+
+  it("does not use output, state, or active pane as a sort key", () => {
+    const groups = buildSessionWindowGroups([
+      buildSession({
+        paneId: "%a2",
+        paneIndex: 1,
+        paneActive: true,
+        state: "RUNNING",
+        lastOutputAt: "2026-02-07T15:00:00.000Z",
+      }),
+      buildSession({
+        paneId: "%a1",
+        paneIndex: 0,
+        paneActive: false,
+        state: "SHELL",
+        lastOutputAt: "2026-02-07T10:00:00.000Z",
+      }),
+    ]);
+
+    expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%a1", "%a2"]);
   });
 
   it("keeps same-name and same-index sessions separate by stable ids", () => {

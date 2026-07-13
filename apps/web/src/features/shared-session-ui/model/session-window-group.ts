@@ -1,6 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 
-import { compareTimeDesc, pickLatestInputAt } from "@/lib/session-time";
+import { compareSessionSortDesc, pickLatestSessionSortAt } from "@/lib/session-sort";
+import { pickLatestInputAt } from "@/lib/session-time";
 
 export type SessionWindowGroup = {
   sessionId: string;
@@ -9,6 +10,7 @@ export type SessionWindowGroup = {
   windowIndex: number;
   sessions: SessionSummary[];
   lastInputAt: string | null;
+  sortAt: number;
 };
 
 export const getSessionWindowGroupKey = (
@@ -16,13 +18,8 @@ export const getSessionWindowGroupKey = (
 ) => `${group.sessionId}:${group.windowId}`;
 
 const comparePanes = (a: SessionSummary, b: SessionSummary) => {
-  const inputCompare = compareTimeDesc(a.lastInputAt, b.lastInputAt);
-  if (inputCompare !== 0) {
-    return inputCompare;
-  }
-  if (a.paneActive !== b.paneActive) {
-    return a.paneActive ? -1 : 1;
-  }
+  const sortCompare = compareSessionSortDesc(a, b);
+  if (sortCompare !== 0) return sortCompare;
   if (a.paneIndex !== b.paneIndex) {
     return a.paneIndex - b.paneIndex;
   }
@@ -30,10 +27,7 @@ const comparePanes = (a: SessionSummary, b: SessionSummary) => {
 };
 
 const compareGroups = (a: SessionWindowGroup, b: SessionWindowGroup) => {
-  const inputCompare = compareTimeDesc(a.lastInputAt, b.lastInputAt);
-  if (inputCompare !== 0) {
-    return inputCompare;
-  }
+  if (a.sortAt !== b.sortAt) return b.sortAt - a.sortAt;
 
   const sessionCompare = a.sessionName.localeCompare(b.sessionName);
   if (sessionCompare !== 0) {
@@ -77,6 +71,7 @@ export const buildSessionWindowGroups = (sessions: SessionSummary[]): SessionWin
       windowIndex: first.windowIndex,
       sessions: sorted,
       lastInputAt: pickLatestInputAt(sorted),
+      sortAt: pickLatestSessionSortAt(sorted),
     });
   });
 

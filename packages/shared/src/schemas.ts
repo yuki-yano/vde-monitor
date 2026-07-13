@@ -373,6 +373,8 @@ export const sessionSummarySchema = z.object({
   lastOutputAt: z.string().nullable(),
   lastEventAt: z.string().nullable(),
   lastInputAt: z.string().nullable(),
+  lastRunStartedAt: z.string().nullable(),
+  manualSortAt: z.string().nullable(),
   agentSessionId: z.string().nullable().optional(),
   agentSessionSource: z.enum(["hook", "lsof", "history"]).nullable().optional(),
   agentSessionConfidence: z.enum(["high", "medium", "low"]).nullable().optional(),

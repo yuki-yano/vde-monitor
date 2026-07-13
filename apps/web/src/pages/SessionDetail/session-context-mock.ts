@@ -68,6 +68,7 @@ export const createSessionCoreApiMock = (overrides: Partial<SessionCoreApiContex
     sendKeys: vi.fn(),
     sendRaw: vi.fn(),
     touchSession: vi.fn(),
+    moveSessionToTop: vi.fn(),
     acknowledgeSessionView: vi.fn(),
     updateSessionTitle: vi.fn(),
     resetSessionTitle: vi.fn(),

@@ -45,6 +45,8 @@ const createSessionDetail = (overrides: Partial<SessionDetail> = {}): SessionDet
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -267,6 +269,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
       registry.update({ ...existing, customTitle: title });
     }),
     recordInput: vi.fn(),
+    moveSessionToTop: vi.fn(),
     markPaneObservationDirty: vi.fn(),
     acknowledgeView,
     markPaneViewed: vi.fn(),

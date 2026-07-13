@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createPaneStateStore, updateInputAt, updateOutputAt } from "./pane-state";
+import {
+  createPaneStateStore,
+  updateInputAt,
+  updateManualSortAt,
+  updateOutputAt,
+  updateRunStartedAt,
+} from "./pane-state";
 
 describe("pane-state", () => {
   it("initializes default state", () => {
@@ -20,6 +26,8 @@ describe("pane-state", () => {
     expect(state.lastEventAt).toBeNull();
     expect(state.lastMessage).toBeNull();
     expect(state.lastInputAt).toBeNull();
+    expect(state.lastRunStartedAt).toBeNull();
+    expect(state.manualSortAt).toBeNull();
     expect(state.agentSessionId).toBeNull();
     expect(state.agentSessionSource).toBeNull();
     expect(state.agentSessionConfidence).toBeNull();
@@ -55,6 +63,18 @@ describe("pane-state", () => {
 
     updateInputAt(state, "invalid");
     expect(state.lastInputAt).toBe("2024-01-02T00:00:00.000Z");
+  });
+
+  it("updates run and manual sort timestamps only when newer", () => {
+    const state = createPaneStateStore().get("pane-1");
+
+    updateRunStartedAt(state, "2024-01-02T00:00:00.000Z");
+    updateRunStartedAt(state, "2024-01-01T00:00:00.000Z");
+    updateManualSortAt(state, "2024-01-04T00:00:00.000Z");
+    updateManualSortAt(state, "invalid");
+
+    expect(state.lastRunStartedAt).toBe("2024-01-02T00:00:00.000Z");
+    expect(state.manualSortAt).toBe("2024-01-04T00:00:00.000Z");
   });
 
   it("updates output timestamp only when newer", () => {

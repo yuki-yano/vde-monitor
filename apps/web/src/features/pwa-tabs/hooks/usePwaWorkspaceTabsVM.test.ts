@@ -28,6 +28,8 @@ const buildSession = (
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   repoRoot: null,
   paneDead: false,
   alternateOn: false,

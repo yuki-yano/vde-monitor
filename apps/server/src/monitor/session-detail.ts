@@ -42,6 +42,8 @@ type BuildSessionDetailArgs = {
   lastOutputAt: string | null;
   lastEventAt: string | null;
   lastInputAt: string | null;
+  lastRunStartedAt: string | null;
+  manualSortAt: string | null;
   agentSessionId?: string | null;
   agentSessionSource?: "hook" | "lsof" | "history" | null;
   agentSessionConfidence?: "high" | "medium" | "low" | null;
@@ -68,6 +70,8 @@ export const buildSessionDetail = ({
   lastOutputAt,
   lastEventAt,
   lastInputAt,
+  lastRunStartedAt,
+  manualSortAt,
   agentSessionId,
   agentSessionSource,
   agentSessionConfidence,
@@ -112,6 +116,8 @@ export const buildSessionDetail = ({
   lastOutputAt,
   lastEventAt,
   lastInputAt,
+  lastRunStartedAt,
+  manualSortAt,
   agentSessionId: agentSessionId ?? null,
   agentSessionSource: agentSessionSource ?? null,
   agentSessionConfidence: agentSessionConfidence ?? null,

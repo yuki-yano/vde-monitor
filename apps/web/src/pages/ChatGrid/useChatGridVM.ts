@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { SessionSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createLaunchRequestId } from "@/lib/request-id";
 
 import { useMultiPaneScreenFeed } from "@/features/shared-session-ui/hooks/useMultiPaneScreenFeed";
@@ -35,7 +35,7 @@ export const useChatGridVM = () => {
   const { sessions, connected, connectionStatus, connectionIssue, transport } =
     useSessionStreamData();
   const { launchConfig, highlightCorrections, capabilities } = useSessionConfigData();
-  const { requestStateTimeline, requestScreen, touchSession, refreshSessions } =
+  const { requestStateTimeline, requestScreen, touchSession, moveSessionToTop, refreshSessions } =
     useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
@@ -45,22 +45,21 @@ export const useChatGridVM = () => {
   const navigate = useNavigate({ from: "/chat-grid" });
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const { getRepoSortAnchorAt, touchRepoPin, touchPanePin } = useSessionListPins({
-    sessions,
-    onTouchPane: touchSession,
+    onTouchPane: moveSessionToTop,
   });
 
   const [candidateModalOpen, setCandidateModalOpen] = useState(false);
   const [selectedCandidatePaneIds, setSelectedCandidatePaneIds] = useState<string[]>([]);
-  const hasResolvedGridSelectionRef = useRef(false);
   const paneIdsFromSearch = useMemo(() => normalizeChatGridPaneParam(search.panes), [search.panes]);
+  const [hasResolvedGridSelection, setHasResolvedGridSelection] = useState(
+    () => sessions.length > 0 || connected || connectionStatus === "disconnected",
+  );
 
-  if (
-    !hasResolvedGridSelectionRef.current &&
-    (sessions.length > 0 || connected || connectionStatus === "disconnected")
-  ) {
-    hasResolvedGridSelectionRef.current = true;
-  }
-  const hasResolvedGridSelection = hasResolvedGridSelectionRef.current;
+  useEffect(() => {
+    if (sessions.length > 0 || connected || connectionStatus === "disconnected") {
+      setHasResolvedGridSelection(true);
+    }
+  }, [connected, connectionStatus, sessions.length]);
 
   const candidateItems = useMemo(
     () =>
@@ -306,6 +305,7 @@ export const useChatGridVM = () => {
     onLaunchAgentInSession: handleLaunchAgentInSession,
     onTouchRepoPin: touchRepoPin,
     onTouchPanePin: touchPanePin,
+    onTouchSessionActivity: touchSession,
     onSidebarResizeStart: handlePointerDown,
     canSyncCandidateSelectionFromCurrentGrid: currentGridCandidatePaneIds.length > 0,
     onSyncCandidateSelectionFromCurrentGrid: handleSyncCandidateSelectionFromCurrentGrid,

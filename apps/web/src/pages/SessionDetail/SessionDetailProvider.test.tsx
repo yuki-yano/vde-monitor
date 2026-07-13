@@ -264,16 +264,16 @@ describe("SessionDetailProvider", () => {
   });
 
   it("touches target pane when sidebar pin action is triggered", () => {
-    const touchSession = vi.fn().mockResolvedValue(undefined);
+    const moveSessionToTop = vi.fn().mockResolvedValue(undefined);
     const { result } = renderContext([session], {
-      core: { touchSession, focusPane: vi.fn().mockResolvedValue({ ok: true }) },
+      core: { moveSessionToTop, focusPane: vi.fn().mockResolvedValue({ ok: true }) },
     });
 
     act(() => {
-      result.current.timelineLogsActions.actions.handleTouchPaneWithRepoAnchor("pane-2");
+      result.current.timelineLogsActions.actions.handleTouchPaneSortAnchor("pane-2");
     });
 
-    expect(touchSession).toHaveBeenCalledWith("pane-2");
+    expect(moveSessionToTop).toHaveBeenCalledWith("pane-2");
   });
 
   it("keeps virtual branch and virtual worktree selection mutually exclusive", async () => {

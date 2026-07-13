@@ -289,6 +289,10 @@ export const createSessionMonitor = (
     savePersistedState();
   };
 
+  const moveSessionToTop = (paneId: string, at = new Date().toISOString()) => {
+    paneUpdateService.moveSessionToTop(paneId, at);
+  };
+
   const startHookTailer = async () => {
     await ensureDir(eventsDir);
     await fs.open(eventLogPath, "a").then((handle) => handle.close());
@@ -470,6 +474,7 @@ export const createSessionMonitor = (
     setCustomTitle,
     acknowledgeView,
     recordInput,
+    moveSessionToTop,
     markPaneViewed,
     markPaneObservationDirty,
   };

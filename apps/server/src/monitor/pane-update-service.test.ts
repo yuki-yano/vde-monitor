@@ -81,6 +81,8 @@ const createDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => 
   lastOutputAt: null,
   lastEventAt: "2026-02-25T00:00:00.000Z",
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -210,6 +212,22 @@ describe("createPaneUpdateService", () => {
     );
     expect(registry.getDetail("%1")?.state).toBe("WAITING_INPUT");
     expect(savePersistedState).toHaveBeenCalledTimes(2);
+  });
+
+  it("moves a session to the top by updating only its manual sort timestamp", () => {
+    const { service, paneStates, registry, savePersistedState } = createService();
+    registry.update(createDetail({ lastInputAt: "2026-07-14T00:00:00.000Z" }));
+
+    const moved = service.moveSessionToTop("%1", "2026-07-14T00:01:00.000Z");
+
+    expect(moved).toMatchObject({
+      lastInputAt: "2026-07-14T00:00:00.000Z",
+      manualSortAt: "2026-07-14T00:01:00.000Z",
+    });
+    expect(paneStates.get("%1").lastInputAt).toBeNull();
+    expect(paneStates.get("%1").manualSortAt).toBe("2026-07-14T00:01:00.000Z");
+    expect(registry.getDetail("%1")?.manualSortAt).toBe("2026-07-14T00:01:00.000Z");
+    expect(savePersistedState).toHaveBeenCalledOnce();
   });
 
   it("records transition when repoRoot changes with same state/reason", async () => {

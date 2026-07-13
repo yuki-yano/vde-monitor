@@ -48,6 +48,8 @@ const detail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   agentSessionId: null,
   agentSessionSource: null,
   agentSessionConfidence: null,
@@ -72,6 +74,84 @@ const createCoordinator = (now = "2026-07-10T00:00:00.000Z") => {
 };
 
 describe("createPaneStateCoordinator", () => {
+  it("records only the event that opens a hook run", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    paneState.pendingAgentLifecycleEvents.push(
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "UserPromptSubmit",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:01.000Z",
+      },
+      {
+        source: "hook",
+        agent: "codex",
+        eventName: "PreToolUse",
+        sessionId: "session-1",
+        at: "2026-07-10T00:00:02.000Z",
+      },
+    );
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "hook:PreToolUse" }),
+      paneState,
+    });
+
+    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:01.000Z");
+    expect(commit.detail.lastRunStartedAt).toBe("2026-07-10T00:00:01.000Z");
+    expect(commit.activityTransitions).toEqual([
+      { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:01.000Z" },
+    ]);
+  });
+
+  it("records an injected detection time for a poll-opened run without an activity transition", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    const coordinator = createCoordinator("2026-07-10T00:00:05.000Z");
+
+    const first = coordinator.applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "poll" }),
+      paneState,
+    });
+    const second = coordinator.applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "poll" }),
+      paneState,
+    });
+
+    expect(first.activityTransitions).toEqual([]);
+    expect(second.activityTransitions).toEqual([]);
+    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
+    expect(first.detail.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
+    expect(second.detail.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
+  });
+
+  it("records the herdr working event that opens a run", () => {
+    const paneState = createPaneStateStore().get("%1");
+    paneState.agentPresence = "present";
+    paneState.pendingAgentLifecycleEvents.push({
+      source: "herdr",
+      agentStatus: "working",
+      at: "2026-07-10T00:00:06.000Z",
+    });
+
+    const commit = createCoordinator().applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "herdr:working" }),
+      paneState,
+    });
+
+    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:06.000Z");
+    expect(commit.detail.lastRunStartedAt).toBe("2026-07-10T00:00:06.000Z");
+    expect(commit.activityTransitions).toEqual([
+      { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:06.000Z" },
+    ]);
+  });
+
   it("preserves ordered hook begin and completion with the same timestamp", () => {
     const paneState = createPaneStateStore().get("%1");
     paneState.agentPresence = "present";
@@ -176,6 +256,7 @@ describe("createPaneStateCoordinator", () => {
       { type: "complete", epoch: "epoch-1", runSeq: 2, at: "2026-07-10T00:00:04.000Z" },
     ]);
     expect(commit.detail.completion).toMatchObject({ completedSeq: 2 });
+    expect(commit.detail.lastRunStartedAt).toBe("2026-07-10T00:00:03.000Z");
   });
 
   it("preserves the previous session run when a new session starts in the same tick", () => {

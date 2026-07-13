@@ -185,6 +185,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: new Date(0).toISOString(),
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -570,14 +572,22 @@ describe("SessionListView", () => {
     expect(screen.queryAllByText("1 / 2 panes").length).toBe(0);
   });
 
-  it("orders tmux sessions by latest pane activity within a repo", () => {
-    const alpha = buildSession({
-      paneId: "pane-alpha",
+  it("orders tmux sessions by the latest descendant window activity within a repo", () => {
+    const alphaOlderWindow = buildSession({
+      paneId: "pane-alpha-older",
       sessionId: "session-alpha",
       sessionName: "alpha",
       windowId: "window-alpha-1",
       windowIndex: 1,
       lastInputAt: "2026-02-07T10:00:00.000Z",
+    });
+    const alphaNewestWindow = buildSession({
+      paneId: "pane-alpha-newest",
+      sessionId: "session-alpha",
+      sessionName: "alpha",
+      windowId: "window-alpha-2",
+      windowIndex: 2,
+      lastRunStartedAt: "2026-02-07T13:00:00.000Z",
     });
     const beta = buildSession({
       paneId: "pane-beta",
@@ -587,7 +597,7 @@ describe("SessionListView", () => {
       windowIndex: 1,
       lastInputAt: "2026-02-07T12:00:00.000Z",
     });
-    const sessions = [alpha, beta];
+    const sessions = [alphaOlderWindow, beta, alphaNewestWindow];
     const props = createViewProps({
       sessions,
       groups: buildSessionGroups(sessions),
@@ -599,8 +609,8 @@ describe("SessionListView", () => {
       .getAllByText(/^Session (alpha|beta)$/)
       .map((element) => element.textContent);
     const orderedUniqueLabels = Array.from(new Set(sessionLabels));
-    expect(orderedUniqueLabels[0]).toContain("Session beta");
-    expect(orderedUniqueLabels[1]).toContain("Session alpha");
+    expect(orderedUniqueLabels[0]).toContain("Session alpha");
+    expect(orderedUniqueLabels[1]).toContain("Session beta");
   });
 
   it("passes sidebar groups independently from visible groups", () => {
@@ -676,8 +686,8 @@ describe("SessionListView", () => {
 
     renderWithRouter(<SessionListView {...props} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pin repo to top" }));
-    fireEvent.click(screen.getByRole("button", { name: "Pin pane to top" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move repo to top" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move pane to top" }));
 
     expect(onTouchRepoPin).toHaveBeenCalledWith("/Users/test/repo-pin-target");
     expect(onTouchPanePin).toHaveBeenCalledWith("pane-pin-target");
@@ -706,7 +716,7 @@ describe("SessionListView", () => {
 
     renderWithRouter(<SessionListView {...props} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pin pane to top" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move pane to top" }));
 
     expect(requestAnimationFrameSpy).toHaveBeenCalled();
     expect(scrollIntoViewSpy).toHaveBeenCalled();

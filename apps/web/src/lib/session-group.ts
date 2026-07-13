@@ -1,6 +1,7 @@
 import type { SessionSummary } from "@vde-monitor/shared";
 
-import { compareTimeDesc, parseTime, pickLatestInputAt } from "./session-time";
+import { compareSessionSortDesc, pickLatestSessionSortAt } from "./session-sort";
+import { pickLatestInputAt } from "./session-time";
 
 export type SessionGroup = {
   repoRoot: string | null;
@@ -15,38 +16,9 @@ type BuildSessionGroupOptions = {
 const resolveComparableSortAnchorTime = (value: number | null | undefined) =>
   typeof value === "number" && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
 
-const resolveComparableInputTime = (value: string | null) =>
-  parseTime(value) ?? Number.NEGATIVE_INFINITY;
-
-const resolveComparableGroupActivityTime = ({
-  lastInputAt,
-  sortAnchorAt,
-}: {
-  lastInputAt: string | null;
-  sortAnchorAt: number | null | undefined;
-}) => {
-  const inputTs = resolveComparableInputTime(lastInputAt);
-  const sortAnchorTs = resolveComparableSortAnchorTime(sortAnchorAt);
-  return Math.max(inputTs, sortAnchorTs);
-};
-
-const compareGroupActivityDesc = (
-  a: { lastInputAt: string | null; sortAnchorAt: number | null | undefined },
-  b: { lastInputAt: string | null; sortAnchorAt: number | null | undefined },
-) => {
-  const aTs = resolveComparableGroupActivityTime(a);
-  const bTs = resolveComparableGroupActivityTime(b);
-  if (aTs === bTs) {
-    return 0;
-  }
-  return bTs - aTs;
-};
-
 const compareSessions = (a: SessionSummary, b: SessionSummary) => {
-  const inputCompare = compareTimeDesc(a.lastInputAt, b.lastInputAt);
-  if (inputCompare !== 0) return inputCompare;
-  const outputCompare = compareTimeDesc(a.lastOutputAt, b.lastOutputAt);
-  if (outputCompare !== 0) return outputCompare;
+  const sortCompare = compareSessionSortDesc(a, b);
+  if (sortCompare !== 0) return sortCompare;
   const sessionCompare = a.sessionName.localeCompare(b.sessionName);
   if (sessionCompare !== 0) return sessionCompare;
   return a.paneId.localeCompare(b.paneId);
@@ -73,26 +45,15 @@ export const buildSessionGroups = (
       repoRoot,
       sessions: sorted,
       lastInputAt: pickLatestInputAt(sorted),
+      sortAt: Math.max(
+        pickLatestSessionSortAt(sorted),
+        resolveComparableSortAnchorTime(options?.getRepoSortAnchorAt?.(repoRoot)),
+      ),
     };
   });
 
   groups.sort((a, b) => {
-    const activityCompare = compareGroupActivityDesc(
-      {
-        lastInputAt: a.lastInputAt,
-        sortAnchorAt: options?.getRepoSortAnchorAt?.(a.repoRoot),
-      },
-      {
-        lastInputAt: b.lastInputAt,
-        sortAnchorAt: options?.getRepoSortAnchorAt?.(b.repoRoot),
-      },
-    );
-    if (activityCompare !== 0) {
-      return activityCompare;
-    }
-
-    const inputCompare = compareTimeDesc(a.lastInputAt, b.lastInputAt);
-    if (inputCompare !== 0) return inputCompare;
+    if (a.sortAt !== b.sortAt) return b.sortAt - a.sortAt;
     if (a.repoRoot == null && b.repoRoot == null) return 0;
     if (a.repoRoot == null) return 1;
     if (b.repoRoot == null) return -1;

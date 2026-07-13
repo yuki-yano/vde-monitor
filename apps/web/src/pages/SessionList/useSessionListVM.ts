@@ -48,7 +48,7 @@ export const useSessionListVM = () => {
     transport,
   } = useSessionStreamData();
   const { highlightCorrections, launchConfig, capabilities } = useSessionConfigData();
-  const { refreshSessions, requestStateTimeline, requestScreen, touchSession } =
+  const { refreshSessions, requestStateTimeline, requestScreen, moveSessionToTop } =
     useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
@@ -64,8 +64,7 @@ export const useSessionListVM = () => {
   const [screenError, setScreenError] = useState<string | null>(null);
   const launchPendingRef = useLazyRef(() => new Set<string>());
   const { getRepoSortAnchorAt, touchRepoPin, touchPanePin } = useSessionListPins({
-    sessions,
-    onTouchPane: touchSession,
+    onTouchPane: moveSessionToTop,
   });
 
   useEffect(() => {

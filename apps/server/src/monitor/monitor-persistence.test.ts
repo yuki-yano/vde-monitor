@@ -18,6 +18,8 @@ describe("restoreMonitorRuntimeState", () => {
           lastEventAt: "2024-01-01T00:00:01.000Z",
           lastMessage: "message",
           lastInputAt: "2024-01-01T00:00:02.000Z",
+          lastRunStartedAt: "2024-01-01T00:00:03.000Z",
+          manualSortAt: "2024-01-01T00:00:04.000Z",
           agentSessionId: "session-1",
           agentSessionSource: "hook",
           agentSessionConfidence: "high",
@@ -111,6 +113,8 @@ describe("restoreMonitorRuntimeState", () => {
         lastEventAt: "2024-01-01T00:00:01.000Z",
         lastMessage: "message",
         lastInputAt: "2024-01-01T00:00:02.000Z",
+        lastRunStartedAt: "2024-01-01T00:00:03.000Z",
+        manualSortAt: "2024-01-01T00:00:04.000Z",
         agentSessionId: null,
         agentSessionSource: null,
         agentSessionConfidence: null,
@@ -128,6 +132,8 @@ describe("restoreMonitorRuntimeState", () => {
       }),
     );
     expect(customTitles.get("%1")).toBe("Custom");
+    expect(paneStates.get("%2").lastRunStartedAt).toBeNull();
+    expect(paneStates.get("%2").manualSortAt).toBeNull();
     expect(customTitles.has("%2")).toBe(false);
   });
 

@@ -244,8 +244,8 @@ export const SessionSidebarItem = memo(
                 type="button"
                 size="md"
                 variant="base"
-                aria-label="Pin pane to top"
-                title="Pin pane to top"
+                aria-label="Move pane to top"
+                title="Move pane to top"
                 className="border-latte-lavender/35 bg-latte-base/90 text-latte-lavender hover:bg-latte-lavender/12 h-8 w-8"
                 onClick={handlePinButtonClick}
               >

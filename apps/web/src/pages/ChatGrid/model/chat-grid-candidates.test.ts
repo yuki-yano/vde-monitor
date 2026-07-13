@@ -31,6 +31,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: "2026-02-17T00:00:00.000Z",
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,

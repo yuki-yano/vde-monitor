@@ -39,6 +39,8 @@ const createDetail = (state: SessionDetail["state"], stateReason: string): Sessi
   lastOutputAt: null,
   lastEventAt: "2026-02-20T00:00:00.000Z",
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,

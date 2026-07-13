@@ -10,7 +10,13 @@ vi.mock("@/components/theme-toggle", () => ({
 }));
 
 vi.mock("@/features/shared-session-ui/components/SessionSidebar", () => ({
-  SessionSidebar: () => <div data-testid="session-sidebar" />,
+  SessionSidebar: ({ actions }: { actions: { onTouchSession: (paneId: string) => void } }) => (
+    <div data-testid="session-sidebar">
+      <button type="button" onClick={() => actions.onTouchSession("pane-sidebar")}>
+        sidebar-move-pane
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("./components/ChatGridToolbar", () => ({
@@ -24,8 +30,19 @@ vi.mock("./components/ChatGridToolbar", () => ({
 }));
 
 vi.mock("./components/ChatGridBoard", () => ({
-  ChatGridBoard: ({ sessions }: { sessions: SessionSummary[] }) => (
-    <div data-testid="chat-grid-board">{sessions.length}</div>
+  ChatGridBoard: ({
+    sessions,
+    onTouchSession,
+  }: {
+    sessions: SessionSummary[];
+    onTouchSession: (paneId: string) => void;
+  }) => (
+    <div data-testid="chat-grid-board">
+      <span data-testid="chat-grid-board-count">{sessions.length}</span>
+      <button type="button" onClick={() => onTouchSession("pane-board")}>
+        board-touch-pane
+      </button>
+    </div>
   ),
 }));
 
@@ -63,6 +80,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: "2026-02-17T00:00:00.000Z",
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -132,6 +151,7 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
   onLaunchAgentInSession: vi.fn(async () => undefined),
   onTouchRepoPin: vi.fn(),
   onTouchPanePin: vi.fn(async () => undefined),
+  onTouchSessionActivity: vi.fn(async () => undefined),
   onSidebarResizeStart: vi.fn(),
   ...overrides,
 });
@@ -139,7 +159,7 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
 describe("ChatGridView", () => {
   it("renders selected sessions in board", () => {
     render(<ChatGridView {...createProps()} />);
-    expect(screen.getByTestId("chat-grid-board").textContent).toBe("2");
+    expect(screen.getByTestId("chat-grid-board-count").textContent).toBe("2");
     expect(screen.getByTestId("session-sidebar")).toBeTruthy();
   });
 
@@ -161,5 +181,17 @@ describe("ChatGridView", () => {
     expect(onOpenCandidateModal).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
     expect(onBackToSessionList).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps pane move and input activity callbacks separate", () => {
+    const onTouchPanePin = vi.fn();
+    const onTouchSessionActivity = vi.fn();
+    render(<ChatGridView {...createProps({ onTouchPanePin, onTouchSessionActivity })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "sidebar-move-pane" }));
+    fireEvent.click(screen.getByRole("button", { name: "board-touch-pane" }));
+
+    expect(onTouchPanePin).toHaveBeenCalledWith("pane-sidebar");
+    expect(onTouchSessionActivity).toHaveBeenCalledWith("pane-board");
   });
 });

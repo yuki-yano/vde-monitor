@@ -94,8 +94,8 @@ export const SessionSidebarGroupList = ({
                   type="button"
                   size="xs"
                   variant="base"
-                  aria-label="Pin repo to top"
-                  title="Pin repo to top"
+                  aria-label="Move repo to top"
+                  title="Move repo to top"
                   className="border-latte-lavender/35 bg-latte-base/85 text-latte-lavender hover:bg-latte-lavender/12"
                   onClick={() => onTouchRepoPin(group.repoRoot)}
                 >

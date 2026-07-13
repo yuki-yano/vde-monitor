@@ -171,7 +171,7 @@ describe("SessionHeader", () => {
     renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Show header details" }));
-    fireEvent.click(screen.getByLabelText("Pin session to top"));
+    fireEvent.click(screen.getByLabelText("Move pane to top"));
     expect(onTouchSession).toHaveBeenCalled();
   });
 

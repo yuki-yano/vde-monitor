@@ -29,7 +29,7 @@ export const useUsageDashboardVM = () => {
   const { sessions, connected, connectionIssue } = useSessionStreamData();
   const { token, apiBaseUrl, launchConfig, highlightCorrections, capabilities } =
     useSessionConfigData();
-  const { requestStateTimeline, requestScreen, touchSession } = useSessionCoreApi();
+  const { requestStateTimeline, requestScreen, moveSessionToTop } = useSessionCoreApi();
   const { requestWorktrees } = useSessionBranchesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
   const navigate = useNavigate();
@@ -37,8 +37,7 @@ export const useUsageDashboardVM = () => {
   const { resolvedTheme } = useTheme();
   const { sidebarWidth, handlePointerDown } = useSidebarWidth();
   const { getRepoSortAnchorAt, touchRepoPin, touchPanePin } = useSessionListPins({
-    sessions,
-    onTouchPane: touchSession,
+    onTouchPane: moveSessionToTop,
   });
   const {
     requestUsageDashboard,

@@ -56,6 +56,8 @@ describe("ScreenPanel", () => {
     lastOutputAt: null,
     lastEventAt: null,
     lastInputAt: null,
+    lastRunStartedAt: null,
+    manualSortAt: null,
     paneDead: false,
     alternateOn: false,
     pipeAttached: true,

@@ -29,6 +29,8 @@ export const buildPaneDetail = ({
     lastOutputAt: outputAt,
     lastEventAt: paneState.lastEventAt,
     lastInputAt: paneState.lastInputAt,
+    lastRunStartedAt: paneState.lastRunStartedAt,
+    manualSortAt: paneState.manualSortAt,
     agentSessionId: paneState.agentSessionId,
     agentSessionSource: paneState.agentSessionSource,
     agentSessionConfidence: paneState.agentSessionConfidence,

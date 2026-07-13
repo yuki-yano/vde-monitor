@@ -175,6 +175,7 @@ type SessionApiClient<TRequestInit, TResponse, TFile> = {
     reset: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   };
   touch: { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
+  "move-to-top": { $post: ApiRequest<{ param: PaneParam }, TRequestInit, TResponse> };
   attachments: {
     image: {
       $post: ApiRequest<

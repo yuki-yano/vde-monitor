@@ -51,6 +51,8 @@ const observation: PaneObservation = {
     lastEventAt: "2024-01-01T00:00:00.000Z",
     lastMessage: "message",
     lastInputAt: "2024-01-01T00:01:00.000Z",
+    lastRunStartedAt: "2024-01-01T00:02:00.000Z",
+    manualSortAt: "2024-01-01T00:03:00.000Z",
     agentSessionId: null,
     agentSessionSource: null,
     agentSessionConfidence: null,
@@ -104,6 +106,8 @@ describe("buildPaneDetail", () => {
     expect(detail.lastMessage).toBe("message");
     expect(detail.lastOutputAt).toBe("2024-01-01T00:02:00.000Z");
     expect(detail.lastInputAt).toBe("2024-01-01T00:01:00.000Z");
+    expect(detail.lastRunStartedAt).toBe("2024-01-01T00:02:00.000Z");
+    expect(detail.manualSortAt).toBe("2024-01-01T00:03:00.000Z");
     expect(detail.customTitle).toBe("Custom");
     expect(detail.repoRoot).toBe("/tmp/project");
     expect(detail.branch).toBe("feature/worktree");

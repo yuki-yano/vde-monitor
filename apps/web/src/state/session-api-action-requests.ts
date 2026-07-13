@@ -224,6 +224,12 @@ export const createSessionActionRequests = ({
     );
   };
 
+  const moveSessionToTop = async (paneId: string) => {
+    await runPaneMutation(paneId, API_ERROR_MESSAGES.moveSessionToTop, (param) =>
+      apiClient.sessions[":paneId"]["move-to-top"].$post({ param }),
+    );
+  };
+
   const acknowledgeSessionView = async (paneId: string, epoch: string, throughSeq: number) => {
     await runPaneMutation(paneId, "Failed to acknowledge session completion", (param) =>
       apiClient.sessions[":paneId"].state.acknowledge.$post({
@@ -330,6 +336,7 @@ export const createSessionActionRequests = ({
     updateSessionTitle,
     resetSessionTitle,
     touchSession,
+    moveSessionToTop,
     acknowledgeSessionView,
     revokeRepoFilePreview,
     createRepoNote,

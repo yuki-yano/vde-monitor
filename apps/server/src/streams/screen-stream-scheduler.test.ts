@@ -31,6 +31,8 @@ const makeDetail = (paneId = "pane-1") => ({
   lastOutputAt: null as string | null,
   lastEventAt: null as string | null,
   lastInputAt: null as string | null,
+  lastRunStartedAt: null as string | null,
+  manualSortAt: null as string | null,
   paneDead: false,
   pipeAttached: false,
   pipeConflict: false,
