@@ -34,9 +34,21 @@ export const SortableTabItem = ({
 }: SortableTabItemProps) => {
   const sortableDisabled = dragKind === "group";
   const showCloseButton = active && dragKind == null;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: tabSortableId,
     disabled: sortableDisabled,
+    attributes: {
+      role: "tab",
+      tabIndex: active ? 0 : -1,
+    },
     animateLayoutChanges: animateTabLayoutChanges,
     transition: {
       duration: 180,
@@ -54,8 +66,6 @@ export const SortableTabItem = ({
       style={style}
       className="relative flex items-center gap-1"
       data-dragging={isDragging ? "true" : "false"}
-      {...attributes}
-      {...listeners}
     >
       {showGridIcon && (
         <span className="text-latte-overlay1 inline-flex h-4 w-4 items-center justify-center">
@@ -63,9 +73,15 @@ export const SortableTabItem = ({
         </span>
       )}
       <button
+        ref={setActivatorNodeRef}
         type="button"
-        role="tab"
+        role={attributes.role}
+        tabIndex={attributes.tabIndex}
+        aria-disabled={attributes["aria-disabled"]}
+        aria-describedby={attributes["aria-describedby"]}
+        {...listeners}
         aria-selected={active}
+        data-tab-id={tab.id}
         onClick={() => onActivate(tab.id)}
         onContextMenu={(event) => {
           event.preventDefault();

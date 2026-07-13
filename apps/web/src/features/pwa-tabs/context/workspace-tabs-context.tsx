@@ -9,6 +9,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 
@@ -27,7 +28,6 @@ import {
   closeWorkspaceTab,
   createInitialWorkspaceTabsState,
   deserializeWorkspaceTabsState,
-  dismissWorkspaceSessionTabByPaneId,
   dismissWorkspaceSessionTabsByPaneIds,
   reorderWorkspaceTabs,
   reorderWorkspaceTabsByClosableOrder,
@@ -69,6 +69,60 @@ const WORKSPACE_TABS_FALLBACK: WorkspaceTabsContextValue = {
 // Grace period before auto-closing a tab whose pane is missing from the live
 // session list: a freshly launched pane can take a moment to show up there.
 const MISSING_PANE_TAB_DISMISS_GRACE_MS = 5000;
+
+type WorkspaceTabsTransition = {
+  state: WorkspaceTabsState;
+  navigationTarget: WorkspaceTab | null;
+};
+
+const withoutNavigation = (state: WorkspaceTabsState): WorkspaceTabsTransition => ({
+  state,
+  navigationTarget: null,
+});
+
+const resolveActivateTabTransition = (
+  state: WorkspaceTabsState,
+  tabId: string,
+  now: number,
+): WorkspaceTabsTransition => {
+  const targetTab = state.tabs.find((tab) => tab.id === tabId) ?? null;
+  if (targetTab == null) return withoutNavigation(state);
+  return {
+    state: activateWorkspaceTab(state, tabId, now),
+    navigationTarget: targetTab,
+  };
+};
+
+const resolveCloseTabTransition = (
+  state: WorkspaceTabsState,
+  tabId: string,
+  pathname: string,
+  now: number,
+): WorkspaceTabsTransition => {
+  const closed = closeWorkspaceTab(state, tabId, now);
+  if (!closed.changed) return withoutNavigation(state);
+  const navigationTarget =
+    state.activeTabId === tabId
+      ? (closed.state.tabs.find((tab) => tab.id === closed.state.activeTabId) ??
+        closed.state.tabs.find((tab) => resolveWorkspaceTabPath(tab) === pathname) ??
+        null)
+      : null;
+  return { state: closed.state, navigationTarget };
+};
+
+const resolveDismissSessionTabsTransition = (
+  state: WorkspaceTabsState,
+  paneIds: readonly string[],
+  now: number,
+): WorkspaceTabsTransition => {
+  const dismissed = dismissWorkspaceSessionTabsByPaneIds(state, paneIds, now);
+  if (!dismissed.changed) return withoutNavigation(state);
+  const navigationTarget =
+    dismissed.state.activeTabId === state.activeTabId
+      ? null
+      : (dismissed.state.tabs.find((tab) => tab.id === dismissed.state.activeTabId) ?? null);
+  return { state: dismissed.state, navigationTarget };
+};
 
 const buildInitialState = (displayMode: WorkspaceTabsDisplayMode): WorkspaceTabsState => {
   const now = Date.now();
@@ -191,6 +245,7 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
   const [tabsState, setTabsState] = useState<WorkspaceTabsState>(() =>
     buildInitialState(workspaceTabsDisplayMode),
   );
+  const tabsStateRef = useRef(tabsState);
   const { sessions, connected } = useSessionStreamData();
   const livePaneIds = useMemo(() => new Set(sessions.map((session) => session.paneId)), [sessions]);
 
@@ -216,6 +271,21 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
     [navigate],
   );
 
+  const applyTabsTransition = useCallback(
+    (transition: (previous: WorkspaceTabsState) => WorkspaceTabsTransition) => {
+      const previous = tabsStateRef.current;
+      const result = transition(previous);
+      if (result.state !== previous) {
+        tabsStateRef.current = result.state;
+        setTabsState(result.state);
+      }
+      if (result.navigationTarget != null) {
+        navigateToWorkspaceTab(result.navigationTarget);
+      }
+    },
+    [navigateToWorkspaceTab],
+  );
+
   useEffect(() => {
     const update = () => bumpDisplayEnvironmentVersion();
     const mediaList = [...PWA_DISPLAY_MODE_QUERIES, WORKSPACE_TABS_MOBILE_MEDIA_QUERY]
@@ -239,8 +309,10 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
     if (!enabled) {
       return;
     }
-    setTabsState((previous) => syncWorkspaceTabsWithPathname(previous, pathname, Date.now()));
-  }, [enabled, pathname]);
+    applyTabsTransition((previous) =>
+      withoutNavigation(syncWorkspaceTabsWithPathname(previous, pathname, Date.now())),
+    );
+  }, [applyTabsTransition, enabled, pathname]);
 
   // False positive: this effect persists the tab state to localStorage, an
   // external system. Moving it into setState updaters would risk duplicate
@@ -255,23 +327,11 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
 
   const dismissSessionTabsByPaneIds = useCallback(
     (paneIds: string[]) => {
-      let shouldNavigate = false;
-      let nextActiveTab: WorkspaceTab | null = null;
-      setTabsState((previous) => {
-        const dismissed = dismissWorkspaceSessionTabsByPaneIds(previous, paneIds, Date.now());
-        if (!dismissed.changed) {
-          return previous;
-        }
-        shouldNavigate = dismissed.state.activeTabId !== previous.activeTabId;
-        nextActiveTab =
-          dismissed.state.tabs.find((tab) => tab.id === dismissed.state.activeTabId) ?? null;
-        return dismissed.state;
-      });
-      if (shouldNavigate && nextActiveTab) {
-        navigateToWorkspaceTab(nextActiveTab);
-      }
+      applyTabsTransition((previous) =>
+        resolveDismissSessionTabsTransition(previous, paneIds, Date.now()),
+      );
     },
-    [navigateToWorkspaceTab],
+    [applyTabsTransition],
   );
 
   useDismissMissingWorkspaceSessionTabs({
@@ -304,19 +364,9 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       if (!enabled) {
         return;
       }
-      let targetTab: WorkspaceTab | null = null;
-      setTabsState((previous) => {
-        targetTab = previous.tabs.find((tab) => tab.id === tabId) ?? null;
-        if (!targetTab) {
-          return previous;
-        }
-        return activateWorkspaceTab(previous, tabId, Date.now());
-      });
-      if (targetTab) {
-        navigateToWorkspaceTab(targetTab);
-      }
+      applyTabsTransition((previous) => resolveActivateTabTransition(previous, tabId, Date.now()));
     },
-    [enabled, navigateToWorkspaceTab],
+    [applyTabsTransition, enabled],
   );
 
   const closeTab = useCallback(
@@ -324,25 +374,11 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       if (!enabled) {
         return;
       }
-      let shouldNavigate = false;
-      let nextActiveTab: WorkspaceTab | null = null;
-      setTabsState((previous) => {
-        const closed = closeWorkspaceTab(previous, tabId, Date.now());
-        if (!closed.changed) {
-          return previous;
-        }
-        shouldNavigate = previous.activeTabId === tabId;
-        nextActiveTab =
-          closed.state.tabs.find((tab) => tab.id === closed.state.activeTabId) ??
-          closed.state.tabs.find((tab) => resolveWorkspaceTabPath(tab) === pathname) ??
-          null;
-        return closed.state;
-      });
-      if (shouldNavigate && nextActiveTab) {
-        navigateToWorkspaceTab(nextActiveTab);
-      }
+      applyTabsTransition((previous) =>
+        resolveCloseTabTransition(previous, tabId, pathname, Date.now()),
+      );
     },
-    [enabled, navigateToWorkspaceTab, pathname],
+    [applyTabsTransition, enabled, pathname],
   );
 
   const dismissSessionTab = useCallback(
@@ -354,19 +390,11 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       if (normalizedPaneId.length === 0) {
         return;
       }
-      setTabsState((previous) => {
-        const dismissed = dismissWorkspaceSessionTabByPaneId(
-          previous,
-          normalizedPaneId,
-          Date.now(),
-        );
-        if (!dismissed.changed) {
-          return previous;
-        }
-        return dismissed.state;
-      });
+      applyTabsTransition((previous) =>
+        resolveDismissSessionTabsTransition(previous, [normalizedPaneId], Date.now()),
+      );
     },
-    [enabled],
+    [applyTabsTransition, enabled],
   );
 
   const reorderTabs = useCallback(
@@ -374,9 +402,11 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       if (!enabled) {
         return;
       }
-      setTabsState((previous) => reorderWorkspaceTabs(previous, activeTabId, overTabId));
+      applyTabsTransition((previous) =>
+        withoutNavigation(reorderWorkspaceTabs(previous, activeTabId, overTabId)),
+      );
     },
-    [enabled],
+    [applyTabsTransition, enabled],
   );
 
   const reorderTabsByClosableOrder = useCallback(
@@ -384,11 +414,11 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
       if (!enabled) {
         return;
       }
-      setTabsState((previous) =>
-        reorderWorkspaceTabsByClosableOrder(previous, orderedClosableTabIds),
+      applyTabsTransition((previous) =>
+        withoutNavigation(reorderWorkspaceTabsByClosableOrder(previous, orderedClosableTabIds)),
       );
     },
-    [enabled],
+    [applyTabsTransition, enabled],
   );
 
   const value = useMemo<WorkspaceTabsContextValue>(

@@ -1,11 +1,12 @@
 import { DndContext, DragOverlay, MeasuringStrategy } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { LayoutPanelTop } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 
 import { useWorkspaceTabs } from "../context/workspace-tabs-context";
 import { usePwaWorkspaceTabsVM } from "../hooks/usePwaWorkspaceTabsVM";
 import { toGroupSortableId, usePwaTabsDnd } from "../hooks/usePwaTabsDnd";
+import { resolveWorkspaceTabNavigationIndex } from "../model/workspace-tab-keyboard-navigation";
 import { SortableSessionGroup } from "./SortableSessionGroup";
 import { StaticTabChip } from "./StaticTabChip";
 
@@ -42,6 +43,39 @@ export const PwaWorkspaceTabs = () => {
     reorderTabs,
     reorderTabsByClosableOrder,
   });
+
+  const handleTabListKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (dragKind != null || event.defaultPrevented) {
+        return;
+      }
+      if (
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowRight" &&
+        event.key !== "Home" &&
+        event.key !== "End"
+      ) {
+        return;
+      }
+      const target =
+        event.target instanceof Element ? event.target.closest<HTMLElement>("[role=tab]") : null;
+      if (target == null || !event.currentTarget.contains(target)) return;
+      const tabElements = [...event.currentTarget.querySelectorAll<HTMLElement>("[role=tab]")];
+      const nextIndex = resolveWorkspaceTabNavigationIndex({
+        key: event.key,
+        currentIndex: tabElements.indexOf(target),
+        tabCount: tabElements.length,
+      });
+      if (nextIndex == null) return;
+      const nextTab = tabElements[nextIndex];
+      const nextTabId = nextTab?.dataset.tabId;
+      if (nextTab == null || nextTabId == null) return;
+      event.preventDefault();
+      nextTab.focus();
+      activateTab(nextTabId);
+    },
+    [activateTab, dragKind],
+  );
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -88,6 +122,7 @@ export const PwaWorkspaceTabs = () => {
         <div
           role="tablist"
           aria-label="PWA workspace tabs"
+          onKeyDown={handleTabListKeyDown}
           className="no-scrollbar overflow-x-auto"
         >
           <div className="flex min-w-max items-center gap-1.5">
@@ -96,6 +131,8 @@ export const PwaWorkspaceTabs = () => {
                 type="button"
                 role="tab"
                 aria-selected={activeTabId === fixedSessionsTab.id}
+                tabIndex={activeTabId === fixedSessionsTab.id ? 0 : -1}
+                data-tab-id={fixedSessionsTab.id}
                 onClick={() => activateTab(fixedSessionsTab.id)}
                 className={[
                   "border-latte-surface2/70 bg-latte-base/88 text-latte-subtext0 hover:text-latte-text hover:border-latte-lavender/60 inline-flex min-w-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-[11px] font-semibold transition",
