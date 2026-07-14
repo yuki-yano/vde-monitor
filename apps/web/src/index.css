@@ -300,6 +300,7 @@ body::before {
   white-space: pre;
   overflow: hidden;
   text-overflow: clip;
+  vertical-align: top;
 }
 
 .vde-unicode-table td.vde-unicode-table-cell-left {
@@ -338,6 +339,7 @@ body::before {
   border: 1px solid rgb(var(--ctp-surface2));
   padding: 0.125rem 0.5rem;
   white-space: pre;
+  vertical-align: top;
 }
 
 .vde-markdown-pipe-table thead th {

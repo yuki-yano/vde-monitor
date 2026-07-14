@@ -153,6 +153,22 @@ describe("ansi-text-utils", () => {
     expect(html).toMatch(/left {10,}right/);
   });
 
+  it("keeps unicode table continuation lines in the same table row", () => {
+    const lines = [
+      "┌────────┬────────────┐",
+      "│ ID     │ Detail     │",
+      "├────────┼────────────┤",
+      "│ task-1 │ first line │",
+      "│        │ second line│",
+      "└────────┴────────────┘",
+    ];
+    const normalized = normalizeUnicodeTableLines(lines);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+
+    expect(html).toContain("first line<br />second line");
+    expect(html.match(/<tr/g) ?? []).toHaveLength(2);
+  });
+
   it("normalizes markdown pipe table rows into html table", () => {
     const lines = [
       "| Method | Path | Request | Response | 備考 |",
@@ -171,6 +187,20 @@ describe("ansi-text-utils", () => {
     expect(html).toContain("<tbody>");
     expect(html).toContain("/sessions/:paneId/notes");
     expect(html).toContain("{ title?: string | null, body: string }");
+  });
+
+  it("renders markdown table cell line breaks without allowing arbitrary html", () => {
+    const lines = [
+      "| ID | Detail |",
+      "|---|---|",
+      "| task-1 | first line<br>second line<br />third line <script>alert(1)</script> |",
+    ];
+    const normalized = normalizeMarkdownPipeTableLines(lines);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+
+    expect(html).toContain("first line<br />second line<br />third line");
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).not.toContain("<script>");
   });
 
   it("does not normalize markdown rows without a delimiter line", () => {

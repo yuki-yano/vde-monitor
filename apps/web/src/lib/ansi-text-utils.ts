@@ -471,13 +471,52 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const escapeTableCellWithLineBreaks = (value: string, splitPattern: RegExp) =>
+  stripAnsi(value).split(splitPattern).map(escapeHtml).join("<br />");
+
+const mergeUnicodeTableContinuationRows = (blockRows: string[]) => {
+  const rows: Array<{ indent: string; cells: UnicodeTableCell[] }> = [];
+  let previousLineWasRow = false;
+
+  blockRows.forEach((line) => {
+    const row = parseUnicodeTableRow(line);
+    if (!row) {
+      previousLineWasRow = false;
+      return;
+    }
+    const previous = rows.at(-1);
+    const isContinuation =
+      previousLineWasRow &&
+      previous?.cells.length === row.cells.length &&
+      row.cells.some((cell) => cell.text.length === 0);
+    if (!isContinuation || !previous) {
+      rows.push(row);
+      previousLineWasRow = true;
+      return;
+    }
+    previous.cells = previous.cells.map((cell, cellIndex) => {
+      const continuation = row.cells[cellIndex];
+      if (!continuation || continuation.text.length === 0) {
+        return cell;
+      }
+      return {
+        text: cell.text.length > 0 ? `${cell.text}\n${continuation.text}` : continuation.text,
+        align: cell.text.length > 0 ? cell.align : continuation.align,
+      };
+    });
+    previousLineWasRow = true;
+  });
+
+  return rows;
+};
+
 const buildUnicodeTableHtml = (rows: UnicodeTableCell[][], indent: string) => {
   const columnCount = Math.max(...rows.map((row) => row.length), 1);
   const normalizedRows = rows.map((row) => padCells(row, columnCount));
   const columnWidths = Array.from({ length: columnCount }, () => 0);
   normalizedRows.forEach((row) => {
     row.forEach((cell, columnIndex) => {
-      const width = getTextDisplayWidth(cell.text);
+      const width = Math.max(...cell.text.split("\n").map(getTextDisplayWidth), 0);
       columnWidths[columnIndex] = Math.max(columnWidths[columnIndex] ?? 0, width);
     });
   });
@@ -492,7 +531,7 @@ const buildUnicodeTableHtml = (rows: UnicodeTableCell[][], indent: string) => {
       const className = rowIndex === 0 ? ' class="vde-unicode-table-header"' : "";
       const cellsHtml = row
         .map((cell) => {
-          const escaped = escapeHtml(stripAnsi(cell.text));
+          const escaped = escapeTableCellWithLineBreaks(cell.text, /\r?\n/u);
           const content = escaped.length > 0 ? escaped : "&nbsp;";
           return `<td class="vde-unicode-table-cell-${cell.align}">${content}</td>`;
         })
@@ -512,7 +551,7 @@ const buildMarkdownPipeTableHtml = (
 ) => {
   const headerHtml = headerCells
     .map((cell, index) => {
-      const escaped = escapeHtml(stripAnsi(cell));
+      const escaped = escapeTableCellWithLineBreaks(cell, /(?:<br\s*\/?>|\r?\n)/iu);
       const content = escaped.length > 0 ? escaped : "&nbsp;";
       const alignClass = `vde-markdown-pipe-table-cell-${alignments[index] ?? "left"}`;
       return `<th class="vde-markdown-pipe-table-cell ${alignClass}">${content}</th>`;
@@ -522,7 +561,7 @@ const buildMarkdownPipeTableHtml = (
     .map((row) => {
       const cellsHtml = row
         .map((cell, index) => {
-          const escaped = escapeHtml(stripAnsi(cell));
+          const escaped = escapeTableCellWithLineBreaks(cell, /(?:<br\s*\/?>|\r?\n)/iu);
           const content = escaped.length > 0 ? escaped : "&nbsp;";
           const alignClass = `vde-markdown-pipe-table-cell-${alignments[index] ?? "left"}`;
           return `<td class="vde-markdown-pipe-table-cell ${alignClass}">${content}</td>`;
@@ -566,9 +605,7 @@ export const normalizeUnicodeTableLines = (lines: string[]): string[] => {
       cursor += 1;
     }
 
-    const parsedRows = blockRows
-      .map((line) => parseUnicodeTableRow(line))
-      .filter((row): row is { indent: string; cells: UnicodeTableCell[] } => row != null);
+    const parsedRows = mergeUnicodeTableContinuationRows(blockRows);
 
     if (parsedRows.length === 0) {
       normalized.push(...blockOriginal);
