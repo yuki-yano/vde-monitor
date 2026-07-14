@@ -49,6 +49,8 @@ export type PaneRuntimeState = {
   lastEventAt: string | null;
   lastMessage: string | null;
   lastInputAt: string | null;
+  lastRunStartedAt: string | null;
+  manualSortAt: string | null;
   agentSessionId: string | null;
   agentSessionSource: "hook" | "lsof" | "history" | null;
   agentSessionConfidence: "high" | "medium" | "low" | null;
@@ -85,6 +87,8 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastEventAt: null,
   lastMessage: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   agentSessionId: null,
   agentSessionSource: null,
   agentSessionConfidence: null,
@@ -156,3 +160,34 @@ export const updateInputAt = (state: PaneRuntimeState, next: string | null) => {
   }
   return state.lastInputAt;
 };
+
+const updateTimestamp = (
+  current: string | null,
+  next: string | null,
+  assign: (value: string) => void,
+) => {
+  if (!next) {
+    return current;
+  }
+  const nextTs = Date.parse(next);
+  if (Number.isNaN(nextTs)) {
+    return current;
+  }
+  const prevTs = current ? Date.parse(current) : null;
+  if (!prevTs || Number.isNaN(prevTs) || nextTs > prevTs) {
+    const normalized = new Date(nextTs).toISOString();
+    assign(normalized);
+    return normalized;
+  }
+  return current;
+};
+
+export const updateRunStartedAt = (state: PaneRuntimeState, next: string | null) =>
+  updateTimestamp(state.lastRunStartedAt, next, (value) => {
+    state.lastRunStartedAt = value;
+  });
+
+export const updateManualSortAt = (state: PaneRuntimeState, next: string | null) =>
+  updateTimestamp(state.manualSortAt, next, (value) => {
+    state.manualSortAt = value;
+  });

@@ -990,6 +990,17 @@ describe("createApiRouter", () => {
     expect(monitor.recordInput).toHaveBeenCalledWith("pane-1");
   });
 
+  it("moves a session to the top without recording input", async () => {
+    const { api, monitor } = createTestContext();
+    const res = await api.request("/sessions/pane-1/move-to-top", {
+      method: "POST",
+      headers: authHeaders,
+    });
+    expect(res.status).toBe(200);
+    expect(monitor.moveSessionToTop).toHaveBeenCalledWith("pane-1");
+    expect(monitor.recordInput).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when pane is missing on focus endpoint", async () => {
     const { api, actions } = createTestContext();
     const res = await api.request("/sessions/missing/focus", {

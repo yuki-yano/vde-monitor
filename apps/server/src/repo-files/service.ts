@@ -10,6 +10,11 @@ import type {
 import { resolveAllowedFile } from "../file-access/allowed-file-resolver";
 import { resolveFileContentFromAbsolutePath } from "./file-content-resolver";
 import { createGitPathSnapshotResolver } from "./git-path-snapshot";
+import {
+  findContainingNestedWorktreeRoot,
+  isNestedWorktreeAncestorPath,
+  resolveNestedWorktreeRoots,
+} from "./nested-worktree-roots";
 import { normalizeRepoRelativePath } from "./path-guard";
 import { resolveRepoClassificationPath } from "./repo-path-resolver";
 import { createSearchIndexResolver } from "./search-index-resolver";
@@ -87,6 +92,35 @@ export const createRepoFileService = ({
   });
   const { resolveHasChildren } = createTreeChildrenResolver({ now });
 
+  const resolveBaseIgnored = async (
+    repoRoot: string,
+    basePath: string,
+    nestedWorktreeRoots: Awaited<ReturnType<typeof resolveNestedWorktreeRoots>>,
+  ) => {
+    if (basePath === "." || isNestedWorktreeAncestorPath(nestedWorktreeRoots, basePath)) {
+      return false;
+    }
+    const containingWorktree = findContainingNestedWorktreeRoot(nestedWorktreeRoots, basePath);
+    if (containingWorktree && basePath === containingWorktree.relativePath) {
+      return false;
+    }
+    const classificationRoot = containingWorktree?.canonicalPath ?? repoRoot;
+    const classificationPath = containingWorktree
+      ? basePath.slice(containingWorktree.relativePath.length + 1)
+      : basePath;
+    const [classification] = await gitPaths.classifyPaths(classificationRoot, [
+      {
+        path: basePath,
+        classificationPath: await resolveRepoClassificationPath({
+          repoRoot: classificationRoot,
+          relativePath: classificationPath,
+        }),
+        kind: "directory" as const,
+      },
+    ]);
+    return classification?.isIgnored === true;
+  };
+
   const resolveExactSearchPage = async ({
     repoRoot,
     query,
@@ -109,9 +143,11 @@ export const createRepoFileService = ({
       totalMatchedCount: 0,
     });
     try {
+      const nestedWorktreeRoots = await resolveNestedWorktreeRoots(repoRoot, { fresh: true });
       const resolvedFile = await resolveAllowedFile({
         repoRoot,
         externalRoots: fileNavigatorConfig.externalRoots,
+        nestedWorktreeRoots,
         requestedPath: normalizedSearchQuery,
       });
       const exactMatch = {
@@ -119,13 +155,19 @@ export const createRepoFileService = ({
         name: path.basename(resolvedFile.requestedPath),
         kind: "file" as const,
       };
-      const classificationPath = path.isAbsolute(resolvedFile.requestedPath)
-        ? resolvedFile.repoRelativePath
-        : resolvedFile.requestedPath;
+      const isNestedWorktreeFile = resolvedFile.root.rootId.startsWith("worktree-");
+      const classificationPath = isNestedWorktreeFile
+        ? resolvedFile.relativePath
+        : path.isAbsolute(resolvedFile.requestedPath)
+          ? resolvedFile.repoRelativePath
+          : resolvedFile.requestedPath;
       const [classifiedMatch] =
         classificationPath == null
           ? [{ ...exactMatch, isIgnored: false }]
-          : await gitPaths.classifyPaths(repoRoot, [{ ...exactMatch, classificationPath }]);
+          : await gitPaths.classifyPaths(
+              isNestedWorktreeFile ? resolvedFile.root.canonicalPath : repoRoot,
+              [{ ...exactMatch, classificationPath }],
+            );
       const item = classifiedMatch
         ? {
             ...classifiedMatch,
@@ -151,25 +193,19 @@ export const createRepoFileService = ({
     await ensureRepoRootAvailable(repoRoot);
     try {
       const basePath = normalizeRepoRelativePath(rawPath);
-      const [baseClassification] =
-        basePath === "."
-          ? [{ isIgnored: false }]
-          : await gitPaths.classifyPaths(repoRoot, [
-              {
-                path: basePath,
-                classificationPath: await resolveRepoClassificationPath({
-                  repoRoot,
-                  relativePath: basePath,
-                }),
-                kind: "directory" as const,
-              },
-            ]);
-      const entries = await readTreeDirectoryEntries({ repoRoot, basePath });
+      const nestedWorktreeRoots = await resolveNestedWorktreeRoots(repoRoot);
+      const baseIgnored = await resolveBaseIgnored(repoRoot, basePath, nestedWorktreeRoots);
+      const entries = await readTreeDirectoryEntries({
+        repoRoot,
+        basePath,
+        nestedWorktreeRoots,
+      });
       const nodes = await buildTreeNodes({
         entries,
         repoRoot,
-        inheritedIgnored: baseClassification?.isIgnored === true,
+        inheritedIgnored: baseIgnored,
         gitPaths,
+        nestedWorktreeRoots,
         resolveHasChildren,
       });
 
@@ -225,9 +261,11 @@ export const createRepoFileService = ({
     await ensureRepoRootAvailable(repoRoot);
     try {
       validateMaxBytes(maxBytes);
+      const nestedWorktreeRoots = await resolveNestedWorktreeRoots(repoRoot, { fresh: true });
       const resolvedFile = await resolveAllowedFile({
         repoRoot,
         externalRoots: fileNavigatorConfig.externalRoots,
+        nestedWorktreeRoots,
         requestedPath: rawPath,
       });
 

@@ -23,6 +23,8 @@ const buildSession = (overrides: Partial<SessionSummary>): SessionSummary => ({
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: null,
+  lastRunStartedAt: null,
+  manualSortAt: null,
   repoRoot: null,
   paneDead: false,
   alternateOn: false,
@@ -62,32 +64,49 @@ describe("buildSessionGroups", () => {
     expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/b", "/repo/a", null]);
   });
 
-  it("sorts sessions within a group by lastInputAt then lastOutputAt desc", () => {
+  it("sorts sessions within a group by the latest run, input, or manual timestamp", () => {
     const sessions = [
       buildSession({
         paneId: "%1",
         repoRoot: "/repo/a",
         lastInputAt: "2026-02-01T00:00:00Z",
-        lastOutputAt: "2026-02-01T00:05:00Z",
+        lastRunStartedAt: "2026-02-01T00:30:00Z",
       }),
       buildSession({
         paneId: "%2",
         repoRoot: "/repo/a",
         lastInputAt: "2026-02-01T00:00:00Z",
-        lastOutputAt: "2026-02-01T00:10:00Z",
+        manualSortAt: "2026-02-01T00:20:00Z",
       }),
       buildSession({
         paneId: "%3",
         repoRoot: "/repo/a",
         lastInputAt: null,
-        lastOutputAt: "2026-02-01T00:20:00Z",
+        lastOutputAt: "2026-02-01T01:00:00Z",
       }),
     ];
 
     const groups = buildSessionGroups(sessions);
 
     expect(groups).toHaveLength(1);
-    expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%2", "%1", "%3"]);
+    expect(groups[0]?.sessions.map((session) => session.paneId)).toEqual(["%1", "%2", "%3"]);
+  });
+
+  it("uses the newest descendant run to sort repository groups", () => {
+    const groups = buildSessionGroups([
+      buildSession({
+        paneId: "%1",
+        repoRoot: "/repo/a",
+        lastInputAt: "2026-02-01T04:00:00Z",
+      }),
+      buildSession({
+        paneId: "%2",
+        repoRoot: "/repo/b",
+        lastRunStartedAt: "2026-02-01T05:00:00Z",
+      }),
+    ]);
+
+    expect(groups.map((group) => group.repoRoot)).toEqual(["/repo/b", "/repo/a"]);
   });
 
   it("uses the latest timestamp between sort anchor and input for group sorting", () => {

@@ -126,6 +126,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: new Date(0).toISOString(),
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -280,6 +282,7 @@ describe("useSessionListVM", () => {
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession: vi.fn(),
       touchSession: vi.fn(),
+      moveSessionToTop: vi.fn(),
       highlightCorrections: { codex: true, claude: true },
       launchConfig: defaultLaunchConfig,
       capabilities: {
@@ -382,8 +385,8 @@ describe("useSessionListVM", () => {
     expect(screen.getByTestId("visible-count").textContent).toBe("1");
   });
 
-  it("uses touchSession for pane pin action", async () => {
-    const touchSession = vi.fn().mockResolvedValue(undefined);
+  it("uses moveSessionToTop for pane move action without touching the repo anchor", async () => {
+    const moveSessionToTop = vi.fn().mockResolvedValue(undefined);
     const pinnedSession = buildSession({
       paneId: "pane-test",
       repoRoot: "/Users/test/repo-pin-target",
@@ -398,7 +401,7 @@ describe("useSessionListVM", () => {
       requestScreen: vi.fn(),
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       launchAgentInSession: vi.fn(),
-      touchSession,
+      moveSessionToTop,
       highlightCorrections: { codex: true, claude: true },
       launchConfig: defaultLaunchConfig,
     });
@@ -407,14 +410,12 @@ describe("useSessionListVM", () => {
     fireEvent.click(screen.getByRole("button", { name: "touch-pane" }));
 
     await waitFor(() => {
-      expect(touchSession).toHaveBeenCalledWith("pane-test");
+      expect(moveSessionToTop).toHaveBeenCalledWith("pane-test");
     });
 
     await waitFor(() => {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      expect(stored).not.toBeNull();
-      const parsed = JSON.parse(stored ?? "{}") as { repos?: Record<string, number> };
-      expect(parsed.repos?.["repo:/Users/test/repo-pin-target"]).toBeTypeOf("number");
+      expect(stored).toBe(JSON.stringify({ repos: {} }));
     });
   });
 

@@ -124,6 +124,7 @@ describe("usageRepositoryActivityResponseSchema", () => {
       gapDurationMs: 1000,
       unattributedRunningMs: 2000,
       unattributedCompletedRunCount: 1,
+      unverifiedCompletedRunCount: 1,
     },
     items: [
       {
@@ -146,6 +147,12 @@ describe("usageRepositoryActivityResponseSchema", () => {
   it("rejects a negative activity duration", () => {
     const payload = createPayload();
     payload.items[0]!.activeTimeMs = -1;
+    expect(usageRepositoryActivityResponseSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it("rejects a negative unverified completion count", () => {
+    const payload = createPayload();
+    payload.coverage.unverifiedCompletedRunCount = -1;
     expect(usageRepositoryActivityResponseSchema.safeParse(payload).success).toBe(false);
   });
 });
@@ -173,6 +180,8 @@ describe("session completion schemas", () => {
     lastOutputAt: null,
     lastEventAt: null,
     lastInputAt: null,
+    lastRunStartedAt: null,
+    manualSortAt: null,
     paneDead: false,
     alternateOn: false,
     pipeAttached: false,
@@ -189,6 +198,13 @@ describe("session completion schemas", () => {
     const { completion: _completion, ...missing } = summary;
     expect(sessionSummarySchema.safeParse(missing).success).toBe(false);
     expect(sessionSummarySchema.safeParse({ ...summary, completion: null }).success).toBe(true);
+  });
+
+  it("requires nullable run and manual sort timestamps on session summaries", () => {
+    const { lastRunStartedAt: _lastRunStartedAt, ...withoutRunStartedAt } = summary;
+    const { manualSortAt: _manualSortAt, ...withoutManualSortAt } = summary;
+    expect(sessionSummarySchema.safeParse(withoutRunStartedAt).success).toBe(false);
+    expect(sessionSummarySchema.safeParse(withoutManualSortAt).success).toBe(false);
   });
 
   it("rejects empty session and window identifiers", () => {

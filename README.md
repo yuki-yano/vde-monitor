@@ -116,7 +116,8 @@ When terminal height allows, a QR code is also printed for quick access from ano
   concurrent agents, and Completed runs counts distinct explicit completion events. Poll-only
   state fragments are excluded. These are activity metrics, not token or cost rankings.
 - Treat partial coverage and unattributed activity callouts as part of the result instead of
-  assuming missing observations are zero.
+  assuming missing observations are zero. Explicitly completed runs without a confirmed start
+  event are also reported as partial coverage because their activity time is excluded.
 - Use Global State Timeline (range + compact mode) to identify waiting-heavy periods.
 - Review issues/warnings surfaced by providers, then jump back to Session List for action.
 - Useful for deciding when to rebalance active sessions or reduce costly runs.

@@ -1,6 +1,9 @@
+// @vitest-environment node
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +18,8 @@ import {
 vi.mock("./config", () => ({
   rotateToken: vi.fn(() => ({ token: "rotated-token" })),
 }));
+
+const execFileAsync = promisify(execFile);
 
 const createAppUnderTest = () => {
   const context = createTestContext();
@@ -174,6 +179,63 @@ describe("createApp /api/admin/token/rotate", () => {
         headers: authHeaders,
       });
       expect((await app.request(rotatedPreviewPath)).status).toBe(404);
+    } finally {
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("serves previews from a registered worktree mounted under .git/wt", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "vde-monitor-app-worktree-"));
+    try {
+      await execFileAsync("git", ["init", "--quiet", repoRoot]);
+      await fs.writeFile(path.join(repoRoot, "README.md"), "# main\n");
+      await execFileAsync("git", ["-C", repoRoot, "add", "README.md"]);
+      await execFileAsync("git", [
+        "-C",
+        repoRoot,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "--quiet",
+        "-m",
+        "initial",
+      ]);
+      const worktreeRoot = path.join(repoRoot, ".git", "wt", "preview");
+      await execFileAsync("git", [
+        "-C",
+        repoRoot,
+        "worktree",
+        "add",
+        "-b",
+        "preview",
+        worktreeRoot,
+      ]);
+      const image = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=",
+        "base64",
+      );
+      await fs.writeFile(path.join(worktreeRoot, "pixel.png"), image);
+
+      const { app, monitor, detail } = createAppUnderTest();
+      monitor.registry.update({
+        ...detail,
+        repoRoot,
+        currentPath: repoRoot,
+        worktreePath: repoRoot,
+      });
+
+      const contentResponse = await app.request(
+        "/api/sessions/pane-1/files/content?path=.git%2Fwt%2Fpreview%2Fpixel.png",
+        { headers: authHeaders },
+      );
+      expect(contentResponse.status).toBe(200);
+      const content = await contentResponse.json();
+      const previewResponse = await app.request(content.file.preview.url);
+
+      expect(previewResponse.status).toBe(200);
+      expect(Buffer.from(await previewResponse.arrayBuffer())).toEqual(image);
     } finally {
       await fs.rm(repoRoot, { recursive: true, force: true });
     }

@@ -112,6 +112,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: "2026-02-17T00:00:00.000Z",
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -313,6 +315,34 @@ describe("ChatGridTile", () => {
         "pane-1",
         "hello from tile",
         true,
+        expect.any(String),
+      );
+    });
+  });
+
+  it("sends text without Enter when auto-enter is unchecked", async () => {
+    mockSessionApi.sendText.mockClear();
+    renderWithRouter(
+      <ChatGridTile
+        session={buildSession()}
+        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
+        connected
+        screenLines={["line 1"]}
+        screenLoading={false}
+        screenError={null}
+        onTouchSession={vi.fn(async () => undefined)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enter after send" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "draft from tile" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(mockSessionApi.sendText).toHaveBeenCalledWith(
+        "pane-1",
+        "draft from tile",
+        false,
         expect.any(String),
       );
     });

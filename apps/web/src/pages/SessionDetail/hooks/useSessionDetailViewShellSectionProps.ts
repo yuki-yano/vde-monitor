@@ -60,7 +60,7 @@ export const useSessionDetailViewShellSectionProps = () => {
     handleOpenHere,
     handleOpenInNewTab,
     handleTouchCurrentSession,
-    handleTouchPaneWithRepoAnchor,
+    handleTouchPaneSortAnchor,
   } = timelineLogsActions.actions;
   const {
     titleDraft,
@@ -197,7 +197,7 @@ export const useSessionDetailViewShellSectionProps = () => {
       actions: {
         onFocusPane: handleFocusPane,
         onLaunchAgentInSession: handleLaunchAgentInSession,
-        onTouchSession: handleTouchPaneWithRepoAnchor,
+        onTouchSession: handleTouchPaneSortAnchor,
         onTouchRepoPin: handleTouchRepoPin,
       },
     }),
@@ -217,7 +217,7 @@ export const useSessionDetailViewShellSectionProps = () => {
       paneId,
       handleFocusPane,
       handleLaunchAgentInSession,
-      handleTouchPaneWithRepoAnchor,
+      handleTouchPaneSortAnchor,
       handleTouchRepoPin,
     ],
   );

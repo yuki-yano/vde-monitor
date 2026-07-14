@@ -417,6 +417,7 @@ export const useSessionApi = ({
       sendKeys: actionRequests.sendKeys,
       sendRaw: actionRequests.sendRaw,
       touchSession: actionRequests.touchSession,
+      moveSessionToTop: actionRequests.moveSessionToTop,
       acknowledgeSessionView: actionRequests.acknowledgeSessionView,
       updateSessionTitle: actionRequests.updateSessionTitle,
       resetSessionTitle: actionRequests.resetSessionTitle,

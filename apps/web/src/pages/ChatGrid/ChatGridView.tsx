@@ -77,6 +77,7 @@ export type ChatGridViewProps = {
   ) => Promise<void> | void;
   onTouchRepoPin: (repoRoot: string | null) => void;
   onTouchPanePin: (paneId: string) => void;
+  onTouchSessionActivity: (paneId: string) => Promise<void> | void;
   onSidebarResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
 };
 
@@ -118,6 +119,7 @@ export const ChatGridView = ({
   onLaunchAgentInSession,
   onTouchRepoPin,
   onTouchPanePin,
+  onTouchSessionActivity,
   onSidebarResizeStart,
 }: ChatGridViewProps) => {
   return (
@@ -193,7 +195,7 @@ export const ChatGridView = ({
             screenByPane={screenByPane}
             screenLoadingByPane={screenLoadingByPane}
             screenErrorByPane={screenErrorByPane}
-            onTouchSession={onTouchPanePin}
+            onTouchSession={onTouchSessionActivity}
             onRemovePaneFromGrid={onRemovePaneFromGrid}
           />
         </div>

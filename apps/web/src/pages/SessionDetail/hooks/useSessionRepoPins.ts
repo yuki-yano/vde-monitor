@@ -9,7 +9,7 @@ type UseSessionRepoPinsArgs = {
 };
 
 export const useSessionRepoPins = ({ sessions }: UseSessionRepoPinsArgs) => {
-  const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoPin } = useSessionListPins({ sessions });
+  const { getRepoSortAnchorAt, touchRepoPin } = useSessionListPins({});
   const sessionGroups = useMemo(
     () => buildSessionGroups(sessions, { getRepoSortAnchorAt }),
     [sessions, getRepoSortAnchorAt],
@@ -17,7 +17,6 @@ export const useSessionRepoPins = ({ sessions }: UseSessionRepoPinsArgs) => {
 
   return {
     getRepoSortAnchorAt,
-    paneRepoRootMap,
     touchRepoSortAnchor: touchRepoPin,
     sessionGroups,
   };

@@ -2,6 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { PreviewRoot } from "../file-preview";
+import {
+  type NestedWorktreeRoot,
+  isRegisteredNestedWorktreeRoot,
+} from "../repo-files/nested-worktree-roots";
 import { normalizeRepoRelativePath } from "../repo-files/path-guard";
 import {
   createServiceError,
@@ -85,12 +89,22 @@ const resolveCanonicalDirectory = async (targetPath: string) => {
   return canonicalPath;
 };
 
+const isLinkedWorktreeDirectory = async (canonicalPath: string) => {
+  try {
+    return (await fs.lstat(path.join(canonicalPath, ".git"))).isFile();
+  } catch {
+    return false;
+  }
+};
+
 export const resolveAllowedFileRoots = async ({
   repoRoot,
   externalRoots,
+  nestedWorktreeRoots = [],
 }: {
   repoRoot: string;
   externalRoots: readonly string[];
+  nestedWorktreeRoots?: readonly NestedWorktreeRoot[];
 }): Promise<AllowedFileRoots> => {
   try {
     externalRoots.forEach((externalRoot) => {
@@ -100,14 +114,34 @@ export const resolveAllowedFileRoots = async ({
     const canonicalExternalRoots = await Promise.all(
       externalRoots.map((externalRoot) => resolveCanonicalDirectory(externalRoot)),
     );
+    const canonicalNestedWorktreeRoots = await Promise.all(
+      nestedWorktreeRoots.map((worktreeRoot) => {
+        if (!isRegisteredNestedWorktreeRoot(worktreeRoot)) {
+          throw createServiceError("FORBIDDEN_PATH", 403, "linked worktree root is not registered");
+        }
+        return resolveCanonicalDirectory(worktreeRoot.canonicalPath);
+      }),
+    );
     externalRoots.forEach((externalRoot, index) => {
       assertExternalRootIsVisible(externalRoot, canonicalExternalRoots[index] ?? "");
     });
     const uniquePaths = [...new Set([canonicalRepoRoot, ...canonicalExternalRoots])];
-    const roots = uniquePaths.map((canonicalPath, index) => ({
+    const repoRootIsLinkedWorktree = await isLinkedWorktreeDirectory(canonicalRepoRoot);
+    const roots: PreviewRoot[] = uniquePaths.map((canonicalPath, index) => ({
       rootId: canonicalPath === canonicalRepoRoot ? "repo" : `external-${index}`,
       canonicalPath,
+      kind:
+        canonicalPath === canonicalRepoRoot
+          ? repoRootIsLinkedWorktree
+            ? "linked-worktree"
+            : "repository"
+          : "external",
     }));
+    canonicalNestedWorktreeRoots.forEach((canonicalPath, index) => {
+      if (!roots.some((root) => root.canonicalPath === canonicalPath)) {
+        roots.push({ rootId: `worktree-${index}`, canonicalPath, kind: "linked-worktree" });
+      }
+    });
     const resolvedRepoRoot = roots.find((root) => root.canonicalPath === canonicalRepoRoot);
     if (!resolvedRepoRoot) {
       throw createServiceError("INTERNAL", 500, "failed to resolve repository root");
@@ -121,9 +155,25 @@ export const resolveAllowedFileRoots = async ({
       }
       return { lexicalPath: path.resolve(lexicalPath), root };
     });
+    const nestedWorktreeAliases = nestedWorktreeRoots.map((worktreeRoot, index) => {
+      const canonicalPath = canonicalNestedWorktreeRoots[index] ?? "";
+      const root = roots.find((candidate) => candidate.canonicalPath === canonicalPath);
+      if (!root) {
+        throw createServiceError("INTERNAL", 500, "failed to resolve linked worktree root");
+      }
+      return {
+        lexicalPath: path.resolve(repoRoot, ...worktreeRoot.relativePath.split("/")),
+        root,
+      };
+    });
     const canonicalAliases = roots.map((root) => ({ lexicalPath: root.canonicalPath, root }));
     const systemAliases = (await Promise.all(roots.map(resolveSystemAliases))).flat();
-    const aliases = [...configuredAliases, ...canonicalAliases, ...systemAliases].filter(
+    const aliases = [
+      ...configuredAliases,
+      ...nestedWorktreeAliases,
+      ...canonicalAliases,
+      ...systemAliases,
+    ].filter(
       (alias, index, allAliases) =>
         allAliases.findIndex(
           (candidate) =>
@@ -188,22 +238,25 @@ const assertSafeTraversal = async (
 export const resolveAllowedFile = async ({
   repoRoot,
   externalRoots,
+  nestedWorktreeRoots = [],
   requestedPath,
 }: {
   repoRoot: string;
   externalRoots: readonly string[];
+  nestedWorktreeRoots?: readonly NestedWorktreeRoot[];
   requestedPath: string;
 }): Promise<ResolvedAllowedFile> => {
   const rawPath = requestedPath.trim();
   if (!rawPath || rawPath.includes("\0")) {
     throw createServiceError("INVALID_PAYLOAD", 400, "invalid file path");
   }
-  const allowed = await resolveAllowedFileRoots({ repoRoot, externalRoots });
+  const allowed = await resolveAllowedFileRoots({
+    repoRoot,
+    externalRoots,
+    nestedWorktreeRoots,
+  });
   const isAbsoluteReference = path.isAbsolute(rawPath);
   const normalizedRepoPath = isAbsoluteReference ? null : normalizeRepoRelativePath(rawPath);
-  if (normalizedRepoPath != null && containsGitMetadataSegment(normalizedRepoPath)) {
-    throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
-  }
   const repoLexicalRoot = allowed.aliases.find(
     (alias) => alias.root.rootId === allowed.repoRoot.rootId,
   );
@@ -217,13 +270,15 @@ export const resolveAllowedFile = async ({
         normalizedRepoPath === "." ? "" : (normalizedRepoPath ?? ""),
       );
 
-  const lexicalRootAlias = isAbsoluteReference
-    ? allowed.aliases
-        .filter((alias) => isPathInside(alias.lexicalPath, lexicalTarget))
-        .sort((left, right) => right.lexicalPath.length - left.lexicalPath.length)[0]
-    : repoLexicalRoot;
+  const lexicalRootAlias = allowed.aliases
+    .filter((alias) => isPathInside(alias.lexicalPath, lexicalTarget))
+    .sort((left, right) => right.lexicalPath.length - left.lexicalPath.length)[0];
   if (!lexicalRootAlias) {
     throw createServiceError("FORBIDDEN_PATH", 403, "path is outside the allowed file roots");
+  }
+  const lexicalRootRelativePath = path.relative(lexicalRootAlias.lexicalPath, lexicalTarget);
+  if (containsGitMetadataSegment(lexicalRootRelativePath)) {
+    throw createServiceError("FORBIDDEN_PATH", 403, "path is not visible by policy");
   }
   await assertSafeTraversal(lexicalRootAlias.root, lexicalRootAlias.lexicalPath, lexicalTarget);
 

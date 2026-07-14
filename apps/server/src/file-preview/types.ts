@@ -3,6 +3,7 @@ import type { FileHandle } from "node:fs/promises";
 export type PreviewRoot = {
   readonly rootId: string;
   readonly canonicalPath: string;
+  readonly kind?: "repository" | "external" | "linked-worktree";
 };
 
 export type PreviewTicketGrant = {

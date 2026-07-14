@@ -382,8 +382,8 @@ export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
                   size="xs"
                   onClick={onTouchSession}
                   className={repoGitHubUrl ? undefined : "ml-auto"}
-                  aria-label="Pin session to top"
-                  title="Pin session to top"
+                  aria-label="Move pane to top"
+                  title="Move pane to top"
                 >
                   <Pin className="h-3.5 w-3.5" />
                 </IconButton>

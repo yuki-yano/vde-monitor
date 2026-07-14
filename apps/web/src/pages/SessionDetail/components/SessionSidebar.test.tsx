@@ -447,7 +447,7 @@ describe("SessionSidebar", () => {
 
     renderWithRouter(<SessionSidebar state={state} actions={{ onTouchRepoPin }} />);
 
-    const repoPinButtons = screen.getAllByRole("button", { name: "Pin repo to top" });
+    const repoPinButtons = screen.getAllByRole("button", { name: "Move repo to top" });
     fireEvent.click(repoPinButtons[1]!);
     expect(onTouchRepoPin).toHaveBeenCalledWith("/Users/test/repo-a");
   });
@@ -532,7 +532,7 @@ describe("SessionSidebar", () => {
       <SessionSidebar state={state} actions={{ onSelectSession, onTouchSession }} />,
     );
 
-    const pinButton = screen.getByRole("button", { name: "Pin pane to top" });
+    const pinButton = screen.getByRole("button", { name: "Move pane to top" });
     fireEvent.click(pinButton);
 
     expect(onTouchSession).toHaveBeenCalledWith("pane-1");

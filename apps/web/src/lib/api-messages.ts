@@ -41,4 +41,5 @@ export const API_ERROR_MESSAGES = {
   updateTitle: "Failed to update title",
   resetTitle: "Failed to reset title",
   updateActivity: "Failed to update session activity",
+  moveSessionToTop: "Failed to move session to top",
 } as const;

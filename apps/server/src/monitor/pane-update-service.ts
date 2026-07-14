@@ -7,7 +7,7 @@ import { createAgentProcessSnapshot } from "./agent-resolver-process";
 import { mapWithConcurrencyLimitSettled } from "./concurrency";
 import type { PaneLogManager } from "./pane-log-manager";
 import { processPane } from "./pane-processor";
-import type { PaneRuntimeState } from "./pane-state";
+import { type PaneRuntimeState, updateManualSortAt } from "./pane-state";
 import { createPaneStateCoordinator } from "./pane-state-coordinator";
 import { cleanupRegistry } from "./registry-cleanup";
 import { resolveRepoBranchCached } from "./repo-branch";
@@ -495,9 +495,26 @@ export const createPaneUpdateService = ({
     return commit.detail;
   };
 
+  const moveSessionToTop = (paneId: string, at = new Date().toISOString()) => {
+    const current = registry.getDetail(paneId);
+    if (current == null) {
+      return null;
+    }
+    const paneState = paneStates.get(paneId);
+    const manualSortAt = updateManualSortAt(paneState, at);
+    if (manualSortAt === current.manualSortAt) {
+      return current;
+    }
+    const next = { ...current, manualSortAt };
+    registry.update(next);
+    savePersistedState();
+    return next;
+  };
+
   return {
     acknowledgeView,
     markPaneViewed,
+    moveSessionToTop,
     updateFromPanes,
   };
 };

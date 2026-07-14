@@ -43,6 +43,8 @@ export type PersistedSession = {
   lastEventAt: string | null;
   lastMessage: string | null;
   lastInputAt: string | null;
+  lastRunStartedAt?: string | null;
+  manualSortAt?: string | null;
   agentSessionId?: string | null;
   agentSessionSource?: "hook" | "lsof" | "history" | null;
   agentSessionConfidence?: "high" | "medium" | "low" | null;
@@ -193,6 +195,8 @@ const isPersistedSession = (value: unknown): value is PersistedSession => {
     isNullableString(session.lastEventAt) &&
     isNullableString(session.lastMessage) &&
     isNullableString(session.lastInputAt) &&
+    isOptionalNullableString(session.lastRunStartedAt) &&
+    isOptionalNullableString(session.manualSortAt) &&
     isOptionalNullableString(session.agentSessionId) &&
     (session.agentSessionSource == null ||
       session.agentSessionSource === "hook" ||
@@ -276,6 +280,16 @@ const isPersistedState = (value: unknown): value is PersistedState => {
 };
 
 export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) => {
+  const retainedSessions = Object.fromEntries(
+    [...(options.retainedSessions ?? [])].map(([paneId, session]) => [
+      paneId,
+      {
+        ...session,
+        lastRunStartedAt: session.lastRunStartedAt ?? null,
+        manualSortAt: session.manualSortAt ?? null,
+      },
+    ]),
+  );
   const committedSessions = Object.fromEntries(
     sessions.map((session) => {
       const runtimeState = options.runtimeStateByPaneId.get(session.paneId);
@@ -290,6 +304,8 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
           lastEventAt: session.lastEventAt,
           lastMessage: session.lastMessage,
           lastInputAt: session.lastInputAt,
+          lastRunStartedAt: session.lastRunStartedAt,
+          manualSortAt: session.manualSortAt,
           agentSessionId: session.agentSessionId ?? null,
           agentSessionSource: session.agentSessionSource ?? null,
           agentSessionConfidence: session.agentSessionConfidence ?? null,
@@ -308,7 +324,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
     version: 3,
     savedAt: new Date().toISOString(),
     sessions: {
-      ...Object.fromEntries(options.retainedSessions ?? []),
+      ...retainedSessions,
       ...committedSessions,
     },
     timeline: options.timeline ?? {},

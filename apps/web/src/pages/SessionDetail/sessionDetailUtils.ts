@@ -138,6 +138,11 @@ export const buildCommitLogSnapshot = (log: CommitLog) =>
     commits: log.commits.map((commit) => commit.hash),
   });
 
+export const resolveSessionFileRoot = (
+  session: Pick<SessionSummary, "repoRoot" | "worktreePath"> | null,
+  virtualWorktreePath: string | null,
+) => virtualWorktreePath ?? session?.worktreePath ?? session?.repoRoot ?? null;
+
 export const buildDefaultSessionTitle = (
   session: Pick<SessionSummary, "currentPath" | "paneId" | "sessionName" | "windowIndex">,
 ) => {

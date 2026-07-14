@@ -49,6 +49,8 @@ const buildSession = (overrides: Partial<SessionSummary> = {}): SessionSummary =
   lastOutputAt: null,
   lastEventAt: null,
   lastInputAt: new Date(0).toISOString(),
+  lastRunStartedAt: null,
+  manualSortAt: null,
   paneDead: false,
   alternateOn: false,
   pipeAttached: false,
@@ -154,7 +156,7 @@ describe("SessionCard", () => {
     const onTouchPin = vi.fn();
     renderWithRouter(<SessionCard session={session} nowMs={Date.now()} onTouchPin={onTouchPin} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Pin pane to top" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move pane to top" }));
     expect(onTouchPin).toHaveBeenCalledWith("pane-1");
   });
 });

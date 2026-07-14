@@ -16,7 +16,11 @@ import {
   hasUnacknowledgedCompletion,
   resolvePublicPaneState,
 } from "./completion-state";
-import type { PaneRuntimeState, PendingAgentLifecycleEvent } from "./pane-state";
+import {
+  type PaneRuntimeState,
+  type PendingAgentLifecycleEvent,
+  updateRunStartedAt,
+} from "./pane-state";
 
 export type PaneCompletionCommit = {
   detail: SessionDetail;
@@ -152,7 +156,8 @@ export const createPaneStateCoordinator = ({
   createEpoch?: () => string;
   now?: () => string;
 }) => {
-  const reducer = createCompletionStateReducer({ createEpoch, now });
+  const resolveNow = now ?? (() => new Date().toISOString());
+  const reducer = createCompletionStateReducer({ createEpoch, now: resolveNow });
 
   const applyObservation = ({
     pane,
@@ -331,6 +336,27 @@ export const createPaneStateCoordinator = ({
         cursor.agentSessionId !== event.sessionId
       );
     };
+    const recordVerifiedRunStart = (at: string) => {
+      const cursor = state.cursor;
+      if (cursor?.openRunSeq == null) {
+        return;
+      }
+      const alreadyRecorded = aggregate.activityTransitions.some(
+        (transition) =>
+          transition.type === "start" &&
+          transition.epoch === cursor.epoch &&
+          transition.runSeq === cursor.openRunSeq,
+      );
+      if (alreadyRecorded) {
+        return;
+      }
+      aggregate.activityTransitions.push({
+        type: "start",
+        epoch: cursor.epoch,
+        runSeq: cursor.openRunSeq,
+        at,
+      });
+    };
     const applyEventIntent = (event: PendingAgentLifecycleEvent) => {
       const eventReason = event.source === "hook" ? resolveHookEventReason(event) : null;
       if (event.source === "hook") {
@@ -405,10 +431,7 @@ export const createPaneStateCoordinator = ({
       }
       if (event.source === "herdr") {
         if (event.agentStatus === "working") {
-          const previousRunId =
-            state.cursor?.openRunSeq == null
-              ? null
-              : `${state.cursor.epoch}:${state.cursor.openRunSeq}`;
+          const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
           const reduction = reducer.reduce(state, {
             type: "begin-run",
             source: "herdr:working",
@@ -418,17 +441,10 @@ export const createPaneStateCoordinator = ({
           state = reduction.state;
           aggregate = mergeReduction(aggregate, reduction);
           const cursor = state.cursor;
-          if (
-            cursor?.openRunSeq != null &&
-            `${cursor.epoch}:${cursor.openRunSeq}` !== previousRunId
-          ) {
-            aggregate.activityTransitions.push({
-              type: "start",
-              epoch: cursor.epoch,
-              runSeq: cursor.openRunSeq,
-              at: event.at,
-            });
+          if (previousOpenRunSeq == null && cursor?.openRunSeq != null) {
+            updateRunStartedAt(paneState, event.at);
           }
+          recordVerifiedRunStart(event.at);
         } else if (event.agentStatus === "done") {
           const reduction = reducer.reduce(state, {
             type: "complete-run",
@@ -455,10 +471,7 @@ export const createPaneStateCoordinator = ({
         event.eventName === "PreToolUse" ||
         event.eventName === "PostToolUse"
       ) {
-        const previousRunId =
-          state.cursor?.openRunSeq == null
-            ? null
-            : `${state.cursor.epoch}:${state.cursor.openRunSeq}`;
+        const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
         const begin = reducer.reduce(state, {
           type: "begin-run",
           source: `hook:${event.eventName}`,
@@ -468,17 +481,10 @@ export const createPaneStateCoordinator = ({
         state = begin.state;
         aggregate = mergeReduction(aggregate, begin);
         const cursor = state.cursor;
-        if (
-          cursor?.openRunSeq != null &&
-          `${cursor.epoch}:${cursor.openRunSeq}` !== previousRunId
-        ) {
-          aggregate.activityTransitions.push({
-            type: "start",
-            epoch: cursor.epoch,
-            runSeq: cursor.openRunSeq,
-            at: event.at,
-          });
+        if (previousOpenRunSeq == null && cursor?.openRunSeq != null) {
+          updateRunStartedAt(paneState, event.at);
         }
+        recordVerifiedRunStart(event.at);
       } else if (event.eventName === "Stop") {
         const complete = reducer.reduce(state, {
           type: "complete-run",
@@ -522,13 +528,19 @@ export const createPaneStateCoordinator = ({
       observedLifecycle === "RUNNING" &&
       state.cursor?.openRunSeq == null
     ) {
+      const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
+      const startedAt = resolveNow();
       const begin = reducer.reduce(state, {
         type: "begin-run",
         source: "poll:running",
+        at: startedAt,
         lifecycle: "RUNNING",
       });
       state = begin.state;
       aggregate = mergeReduction(aggregate, begin);
+      if (previousOpenRunSeq == null && state.cursor?.openRunSeq != null) {
+        updateRunStartedAt(paneState, startedAt);
+      }
     } else if (
       !deferHookLifecycleToEvents &&
       previousLifecycle === "RUNNING" &&
@@ -566,7 +578,14 @@ export const createPaneStateCoordinator = ({
     }
 
     return {
-      detail: projectPublicDetail(detail, state),
+      detail: projectPublicDetail(
+        {
+          ...detail,
+          lastRunStartedAt: paneState.lastRunStartedAt,
+          manualSortAt: paneState.manualSortAt,
+        },
+        state,
+      ),
       ...aggregate,
       source: resolveEventSource(acceptedEvents),
     };

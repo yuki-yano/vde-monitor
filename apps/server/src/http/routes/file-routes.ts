@@ -9,6 +9,7 @@ import {
   isImagePreviewMimeType,
   resolvePreviewMimeType,
 } from "../../file-preview";
+import { resolveNestedWorktreeRoots } from "../../repo-files/nested-worktree-roots";
 import { type RepoFileServiceError, createRepoFileService } from "../../repo-files/service";
 import { buildError } from "../helpers";
 import { resolveRequestedPath } from "./route-helpers";
@@ -83,10 +84,19 @@ const resolveRequestedRepoRoot = async (
   c: {
     json: (body: unknown, status?: number) => Response;
   },
-  detail: { repoRoot: string | null; currentPath: string | null },
+  detail: {
+    repoRoot: string | null;
+    currentPath: string | null;
+    worktreePath?: string | null;
+  },
   worktreePath: string | undefined,
 ): Promise<Response | string | null> =>
-  resolveRequestedPath(c, detail, worktreePath, resolveRepoRoot(detail.repoRoot));
+  resolveRequestedPath(
+    c,
+    detail,
+    worktreePath,
+    resolveRepoRoot(detail.worktreePath ?? detail.repoRoot),
+  );
 
 const mapServiceError = (error: RepoFileServiceError) => {
   return {
@@ -216,9 +226,11 @@ export const createFileRoutes = ({ resolvePane, config, previewTicketService }: 
           path: query.path,
           maxBytes: limit,
         });
+        const nestedWorktreeRoots = await resolveNestedWorktreeRoots(repoRoot, { fresh: true });
         const resolvedFile = await resolveAllowedFile({
           repoRoot,
           externalRoots: config.fileNavigator.externalRoots,
+          nestedWorktreeRoots,
           requestedPath: query.path,
         });
         const mimeType = resolvePreviewMimeType(resolvedFile.absolutePath);

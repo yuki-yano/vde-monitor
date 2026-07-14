@@ -21,10 +21,12 @@ describe("createTreeChildrenResolver", () => {
 
       await resolver.resolveHasChildren({
         repoRoot,
+        nestedWorktreeRoots: [],
         entry: {
           path: "first",
           name: "first",
           kind: "directory",
+          classificationRoot: repoRoot,
           classificationPath: "first",
           realPath: firstRealPath,
           isSymbolicLink: false,
@@ -32,10 +34,12 @@ describe("createTreeChildrenResolver", () => {
       });
       await resolver.resolveHasChildren({
         repoRoot,
+        nestedWorktreeRoots: [],
         entry: {
           path: "second",
           name: "second",
           kind: "directory",
+          classificationRoot: repoRoot,
           classificationPath: "second",
           realPath: secondRealPath,
           isSymbolicLink: false,
@@ -43,10 +47,12 @@ describe("createTreeChildrenResolver", () => {
       });
       await resolver.resolveHasChildren({
         repoRoot,
+        nestedWorktreeRoots: [],
         entry: {
           path: "first",
           name: "first",
           kind: "directory",
+          classificationRoot: repoRoot,
           classificationPath: "first",
           realPath: firstRealPath,
           isSymbolicLink: false,

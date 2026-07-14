@@ -13,6 +13,7 @@ import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
 import { useSessionVirtualBranch } from "./hooks/useSessionVirtualBranch";
 import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
+import { resolveSessionFileRoot } from "./sessionDetailUtils";
 
 // SessionDetailContext holds the state that genuinely needs to be shared across
 // multiple, non-nested SessionDetail sections (ScreenPanel, BranchSection,
@@ -29,8 +30,9 @@ const useSessionDetailContextValue = (paneId: string) => {
     acknowledgeSessionView: base.acknowledgeSessionView,
   });
 
-  const { getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups } =
-    useSessionRepoPins({ sessions: base.sessions });
+  const { getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups } = useSessionRepoPins({
+    sessions: base.sessions,
+  });
 
   const terminal = useSessionDetailScreenControls({
     paneId,
@@ -154,9 +156,10 @@ const useSessionDetailContextValue = (paneId: string) => {
     [branches, virtualWorktree],
   );
 
+  const fileRoot = resolveSessionFileRoot(base.session, virtualWorktree.effectiveWorktreePath);
   const files = useSessionFiles({
     paneId,
-    repoRoot: base.session?.repoRoot ?? null,
+    repoRoot: fileRoot,
     worktreePath: virtualWorktree.effectiveWorktreePath,
     autoExpandMatchLimit: base.fileNavigatorConfig.autoExpandMatchLimit,
     requestRepoFileTree: base.requestRepoFileTree,
@@ -175,13 +178,12 @@ const useSessionDetailContextValue = (paneId: string) => {
     sessions: base.sessions,
     resolvedTheme: base.resolvedTheme,
     highlightCorrections: base.highlightCorrections,
-    touchSession: base.touchSession,
+    moveSessionToTop: base.moveSessionToTop,
     focusPane: base.focusPane,
     refreshSessions: base.refreshSessions,
     launchAgentInSession: base.launchAgentInSession,
     setScreenError: terminal.screen.setScreenError,
     touchRepoSortAnchor,
-    paneRepoRootMap,
     currentRepoRoot,
   });
 
@@ -250,8 +252,8 @@ const useSessionDetailContextValue = (paneId: string) => {
   );
 
   const repoPins = useMemo(
-    () => ({ getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups }),
-    [getRepoSortAnchorAt, paneRepoRootMap, touchRepoSortAnchor, sessionGroups],
+    () => ({ getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups }),
+    [getRepoSortAnchorAt, touchRepoSortAnchor, sessionGroups],
   );
 
   return useMemo(

@@ -171,8 +171,8 @@ const SessionCardComponent = ({
               size="xs"
               variant="base"
               className="ml-auto"
-              aria-label="Pin pane to top"
-              title="Pin pane to top"
+              aria-label="Move pane to top"
+              title="Move pane to top"
               onClick={handlePinClick}
             >
               <Pin className="h-3.5 w-3.5" />

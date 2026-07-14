@@ -26,6 +26,7 @@ describe("useUsageApi", () => {
             gapDurationMs: 0,
             unattributedRunningMs: 0,
             unattributedCompletedRunCount: 0,
+            unverifiedCompletedRunCount: 0,
           },
           items: [
             {

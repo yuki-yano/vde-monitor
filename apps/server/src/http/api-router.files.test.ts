@@ -235,6 +235,160 @@ describe("createApiRouter", () => {
     }
   });
 
+  it("exposes only registered .git/wt worktrees in tree, search, content, and preview", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-git-worktree-"));
+    const imageBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
+    try {
+      await execa("git", ["init", "--quiet", repoRoot]);
+      await writeFile(path.join(repoRoot, "main-only.txt"), "main\n");
+      await execa("git", ["-C", repoRoot, "add", "main-only.txt"]);
+      await execa("git", [
+        "-C",
+        repoRoot,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "--quiet",
+        "-m",
+        "initial",
+      ]);
+
+      const worktreeRoot = path.join(repoRoot, ".git", "wt", "feature", "nested");
+      await execa("git", ["-C", repoRoot, "worktree", "add", "-b", "feature", worktreeRoot]);
+      await writeFile(path.join(worktreeRoot, "worktree-only.txt"), "worktree\n");
+      await mkdir(path.join(worktreeRoot, "assets"), { recursive: true });
+      await writeFile(
+        path.join(worktreeRoot, "assets", "pixel.png"),
+        Buffer.from(imageBase64, "base64"),
+      );
+      await mkdir(path.join(repoRoot, ".git", "wt", "fake"), { recursive: true });
+      await writeFile(path.join(repoRoot, ".git", "wt", "fake", "secret.txt"), "secret\n");
+
+      const { api, monitor, detail } = createTestContext();
+      monitor.registry.update({
+        ...detail,
+        repoRoot,
+        currentPath: repoRoot,
+        worktreePath: repoRoot,
+      });
+
+      const treeResponse = await api.request("/sessions/pane-1/files/tree?limit=200", {
+        headers: authHeaders,
+      });
+      expect(treeResponse.status).toBe(200);
+      const tree = await treeResponse.json();
+      expect(tree.tree.entries.map((entry: { path: string }) => entry.path)).toContain(".git");
+
+      const gitTreeResponse = await api.request("/sessions/pane-1/files/tree?path=.git&limit=200", {
+        headers: authHeaders,
+      });
+      expect(gitTreeResponse.status).toBe(200);
+      expect(
+        (await gitTreeResponse.json()).tree.entries.map((entry: { path: string }) => entry.path),
+      ).toEqual([".git/wt"]);
+
+      const wtTreeResponse = await api.request(
+        "/sessions/pane-1/files/tree?path=.git%2Fwt&limit=200",
+        { headers: authHeaders },
+      );
+      expect(wtTreeResponse.status).toBe(200);
+      expect(
+        (await wtTreeResponse.json()).tree.entries.map((entry: { path: string }) => entry.path),
+      ).toEqual([".git/wt/feature"]);
+
+      const worktreeParentResponse = await api.request(
+        "/sessions/pane-1/files/tree?path=.git%2Fwt%2Ffeature&limit=200",
+        { headers: authHeaders },
+      );
+      expect(worktreeParentResponse.status).toBe(200);
+      expect(
+        (await worktreeParentResponse.json()).tree.entries.map(
+          (entry: { path: string }) => entry.path,
+        ),
+      ).toEqual([".git/wt/feature/nested"]);
+
+      const worktreeTreeResponse = await api.request(
+        "/sessions/pane-1/files/tree?path=.git%2Fwt%2Ffeature%2Fnested&limit=200",
+        { headers: authHeaders },
+      );
+      expect(worktreeTreeResponse.status).toBe(200);
+      expect(
+        (await worktreeTreeResponse.json()).tree.entries.map(
+          (entry: { path: string }) => entry.path,
+        ),
+      ).toContain(".git/wt/feature/nested/worktree-only.txt");
+
+      const fuzzySearchResponse = await api.request(
+        "/sessions/pane-1/files/search?q=worktree-only&limit=20",
+        { headers: authHeaders },
+      );
+      expect(fuzzySearchResponse.status).toBe(200);
+      expect((await fuzzySearchResponse.json()).result.items).toContainEqual(
+        expect.objectContaining({
+          path: ".git/wt/feature/nested/worktree-only.txt",
+          kind: "file",
+        }),
+      );
+
+      const searchResponse = await api.request(
+        "/sessions/pane-1/files/search?q=.git%2Fwt%2Ffeature%2Fnested%2Fworktree-only.txt&exactReference=1",
+        { headers: authHeaders },
+      );
+      expect(searchResponse.status).toBe(200);
+      const search = await searchResponse.json();
+      expect(search.result.items).toContainEqual(
+        expect.objectContaining({
+          path: ".git/wt/feature/nested/worktree-only.txt",
+          kind: "file",
+        }),
+      );
+
+      const textResponse = await api.request(
+        "/sessions/pane-1/files/content?path=.git%2Fwt%2Ffeature%2Fnested%2Fworktree-only.txt",
+        { headers: authHeaders },
+      );
+      expect(textResponse.status).toBe(200);
+      expect((await textResponse.json()).file.content).toBe("worktree\n");
+
+      const imageResponse = await api.request(
+        "/sessions/pane-1/files/content?path=.git%2Fwt%2Ffeature%2Fnested%2Fassets%2Fpixel.png",
+        { headers: authHeaders },
+      );
+      expect(imageResponse.status).toBe(200);
+      const image = await imageResponse.json();
+      expect(image.file.preview).toMatchObject({ mimeType: "image/png" });
+
+      for (const forbiddenPath of [
+        ".git/config",
+        ".git/objects",
+        ".git/worktrees/feature/HEAD",
+        ".git/wt/fake/secret.txt",
+      ]) {
+        const forbiddenResponse = await api.request(
+          `/sessions/pane-1/files/content?path=${encodeURIComponent(forbiddenPath)}`,
+          { headers: authHeaders },
+        );
+        expect(forbiddenResponse.status).toBe(403);
+      }
+
+      await execa("git", ["-C", repoRoot, "worktree", "remove", "--force", worktreeRoot]);
+      await mkdir(worktreeRoot, { recursive: true });
+      await writeFile(path.join(worktreeRoot, ".git"), "gitdir: forged\n");
+      await writeFile(path.join(worktreeRoot, "stale.txt"), "stale\n");
+
+      const staleResponse = await api.request(
+        "/sessions/pane-1/files/content?path=.git%2Fwt%2Ffeature%2Fnested%2Fstale.txt",
+        { headers: authHeaders },
+      );
+      expect(staleResponse.status).toBe(403);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("returns ignored content without an override flag", async () => {
     const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-files-content-policy-"));
     try {

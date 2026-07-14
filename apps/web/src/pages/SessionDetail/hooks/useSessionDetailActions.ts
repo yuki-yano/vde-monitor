@@ -10,7 +10,7 @@ type UseSessionDetailActionsParams = {
   selectedPaneId: string | null;
   closeQuickPanel: () => void;
   closeLogModal: () => void;
-  touchSession: (paneId: string) => Promise<void>;
+  moveSessionToTop: (paneId: string) => Promise<void>;
   focusPane: (paneId: string) => Promise<CommandResponse>;
   setScreenError: (message: string | null) => void;
 };
@@ -20,7 +20,7 @@ export const useSessionDetailActions = ({
   selectedPaneId,
   closeQuickPanel,
   closeLogModal,
-  touchSession,
+  moveSessionToTop,
   focusPane,
   setScreenError,
 }: UseSessionDetailActionsParams) => {
@@ -47,14 +47,14 @@ export const useSessionDetailActions = ({
   }, [handleOpenPaneInNewWindow, selectedPaneId]);
 
   const handleTouchSession = useCallback(() => {
-    void touchSession(paneId).catch(() => null);
-  }, [paneId, touchSession]);
+    void moveSessionToTop(paneId).catch(() => null);
+  }, [moveSessionToTop, paneId]);
 
   const handleTouchPane = useCallback(
     (targetPaneId: string) => {
-      void touchSession(targetPaneId).catch(() => null);
+      void moveSessionToTop(targetPaneId).catch(() => null);
     },
-    [touchSession],
+    [moveSessionToTop],
   );
 
   const handleFocusPane = useCallback(

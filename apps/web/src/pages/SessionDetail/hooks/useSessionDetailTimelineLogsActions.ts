@@ -8,7 +8,7 @@ import type {
   SessionStateTimelineScope,
   SessionSummary,
 } from "@vde-monitor/shared";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createLaunchRequestId } from "@/lib/request-id";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
@@ -51,7 +51,7 @@ type UseSessionDetailTimelineLogsActionsArgs = {
   sessions: SessionSummary[];
   resolvedTheme: Theme;
   highlightCorrections: HighlightCorrectionConfig;
-  touchSession: (paneId: string) => Promise<void>;
+  moveSessionToTop: (paneId: string) => Promise<void>;
   focusPane: (paneId: string) => Promise<CommandResponse>;
   refreshSessions: () => Promise<void>;
   launchAgentInSession: (
@@ -62,7 +62,6 @@ type UseSessionDetailTimelineLogsActionsArgs = {
   ) => Promise<LaunchCommandResponse>;
   setScreenError: (error: string | null) => void;
   touchRepoSortAnchor: (repoRoot: string | null) => void;
-  paneRepoRootMap: Map<string, string | null>;
   currentRepoRoot: string | null;
 };
 
@@ -75,13 +74,12 @@ export const useSessionDetailTimelineLogsActions = ({
   sessions,
   resolvedTheme,
   highlightCorrections,
-  touchSession,
+  moveSessionToTop,
   focusPane,
   refreshSessions,
   launchAgentInSession,
   setScreenError,
   touchRepoSortAnchor,
-  paneRepoRootMap,
   currentRepoRoot,
 }: UseSessionDetailTimelineLogsActionsArgs) => {
   const timeline = useSessionTimeline({
@@ -115,12 +113,14 @@ export const useSessionDetailTimelineLogsActions = ({
     selectedPaneId: logs.selectedPaneId,
     closeQuickPanel: logs.closeQuickPanel,
     closeLogModal: logs.closeLogModal,
-    touchSession,
+    moveSessionToTop,
     focusPane,
     setScreenError,
   });
   const sessionsRef = useRef(sessions);
-  sessionsRef.current = sessions;
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   const handleTouchRepoPin = useCallback(
     (repoRoot: string | null) => {
@@ -130,16 +130,14 @@ export const useSessionDetailTimelineLogsActions = ({
   );
 
   const handleTouchCurrentSession = useCallback(() => {
-    touchRepoSortAnchor(currentRepoRoot);
     handleTouchSession();
-  }, [touchRepoSortAnchor, currentRepoRoot, handleTouchSession]);
+  }, [handleTouchSession]);
 
-  const handleTouchPaneWithRepoAnchor = useCallback(
+  const handleTouchPaneSortAnchor = useCallback(
     (targetPaneId: string) => {
-      touchRepoSortAnchor(paneRepoRootMap.get(targetPaneId) ?? null);
       handleTouchPane(targetPaneId);
     },
-    [touchRepoSortAnchor, paneRepoRootMap, handleTouchPane],
+    [handleTouchPane],
   );
 
   const handleLaunchAgentInSession = useCallback(
@@ -215,7 +213,7 @@ export const useSessionDetailTimelineLogsActions = ({
       handleTouchRepoPin,
       handleLaunchAgentInSession,
       handleTouchCurrentSession,
-      handleTouchPaneWithRepoAnchor,
+      handleTouchPaneSortAnchor,
     },
   };
 };
