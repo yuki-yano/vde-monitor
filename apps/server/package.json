@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@hono/node-server": "catalog:",
     "@hono/zod-validator": "catalog:",
     "@vde-monitor/cmux": "workspace:*",

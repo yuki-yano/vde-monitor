@@ -37,6 +37,9 @@ import type {
   notificationSubscriptionRevokeSchema,
   notificationSubscriptionScopeSchema,
   notificationSubscriptionUpsertSchema,
+  promptCompletionItemSchema,
+  promptCompletionResultSchema,
+  promptCompletionTriggerSchema,
   pushEventTypeSchema,
   pushSubscriptionJsonSchema,
   rawItemSchema,
@@ -82,6 +85,9 @@ import type {
 export type SessionStateValue = z.infer<typeof sessionStateSchema>;
 export type AllowedKey = z.infer<typeof allowedKeySchema>;
 export type RawItem = z.infer<typeof rawItemSchema>;
+export type PromptCompletionTrigger = z.infer<typeof promptCompletionTriggerSchema>;
+export type PromptCompletionItem = z.infer<typeof promptCompletionItemSchema>;
+export type PromptCompletionResult = z.infer<typeof promptCompletionResultSchema>;
 
 export type PushEventType = z.infer<typeof pushEventTypeSchema>;
 export type ConfigPushEventType = z.infer<typeof configPushEventTypeSchema>;

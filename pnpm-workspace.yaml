@@ -3,6 +3,7 @@ packages:
   - packages/*
 
 catalog:
+  "@anthropic-ai/claude-agent-sdk": ^0.3.209
   "@hono/node-server": ^2.0.8
   "@hono/zod-validator": ^0.8.0
   execa: ^9.6.0

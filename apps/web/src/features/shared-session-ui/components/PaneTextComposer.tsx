@@ -31,6 +31,17 @@ import {
   syncStoredPromptDraft,
 } from "@/features/shared-session-ui/lib/pane-text-draft-storage";
 
+import {
+  PROMPT_COMPLETION_LIST_ID,
+  PromptCompletionList,
+} from "./prompt-completion/PromptCompletionList";
+import { PromptCompletionTriggerRail } from "./prompt-completion/PromptCompletionTriggerRail";
+import {
+  type PromptCompletionConfig,
+  usePromptCompletion,
+} from "./prompt-completion/usePromptCompletion";
+import { resolvePromptCompletionScrollDelta } from "./prompt-completion/prompt-completion-scroll";
+
 const RAW_MODE_INPUT_CLASS_DANGER =
   "border-latte-red/70 bg-latte-red/10 focus-within:border-latte-red/80 focus-within:ring-2 focus-within:ring-latte-red/30";
 const RAW_MODE_INPUT_CLASS_SAFE =
@@ -91,6 +102,7 @@ type PaneTextComposerState = {
   allowDangerKeys: boolean;
   showPermissionShortcuts?: boolean;
   keyPanel?: PaneTextComposerKeyPanelState;
+  completion?: PromptCompletionConfig;
 };
 
 export type PermissionShortcutValue = (typeof PERMISSION_SHORTCUT_DIGITS)[number] | "Escape";
@@ -286,7 +298,11 @@ const ComposerToolbar = ({
   canUseKeyPanel,
   rawModeToggleClass,
   dangerToggleClass,
+  completionAgent,
+  completionActiveTrigger,
+  completionSlashDisabled,
   onPickImage,
+  onCompletionTrigger,
   onToggleKeysExpanded,
   onToggleAllowDangerKeys,
   onToggleRawMode,
@@ -302,7 +318,11 @@ const ComposerToolbar = ({
   canUseKeyPanel: boolean;
   rawModeToggleClass: string | undefined;
   dangerToggleClass: string;
+  completionAgent: "codex" | "claude" | null;
+  completionActiveTrigger: "dollar" | "at" | "slash" | null;
+  completionSlashDisabled: boolean;
   onPickImage: () => void;
+  onCompletionTrigger: (trigger: "dollar" | "at" | "slash") => void;
   onToggleKeysExpanded: () => void;
   onToggleAllowDangerKeys: () => void;
   onToggleRawMode: () => void;
@@ -322,6 +342,14 @@ const ComposerToolbar = ({
       >
         <ImagePlus className="h-4 w-4" />
       </Button>
+      {completionAgent && !rawMode ? (
+        <PromptCompletionTriggerRail
+          agent={completionAgent}
+          activeTrigger={completionActiveTrigger}
+          slashDisabled={completionSlashDisabled}
+          onTrigger={onCompletionTrigger}
+        />
+      ) : null}
       <span className="text-latte-subtext0 hidden text-[10px] tracking-[0.12em] @lg:inline">
         PNG / JPEG / WEBP
       </span>
@@ -482,6 +510,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     allowDangerKeys,
     showPermissionShortcuts,
     keyPanel,
+    completion: completionConfig,
   } = state;
   const {
     onSendText,
@@ -498,6 +527,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     onRawCompositionEnd,
   } = actions;
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const initialPromptDraft = readStoredPromptDraft(draftStorageKey);
   const placeholder = rawMode ? "Raw input (sent immediately)..." : "Type a prompt…";
@@ -531,6 +561,22 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     }
   }, [syncPromptDraftFromTextarea, textInputRef]);
 
+  const handleProgrammaticTextareaMutation = useCallback(
+    (textarea: HTMLTextAreaElement) => {
+      syncPromptHeight(textarea);
+      syncPromptDraftFromTextarea(textarea);
+    },
+    [syncPromptDraftFromTextarea, syncPromptHeight],
+  );
+
+  const promptCompletion = usePromptCompletion({
+    config: completionConfig ?? null,
+    textInputRef,
+    enabled:
+      interactive && !rawMode && completionConfig != null && completionConfig.agent !== "unknown",
+    onTextareaMutated: handleProgrammaticTextareaMutation,
+  });
+
   const handleTextareaBeforeInput = (event: FormEvent<HTMLTextAreaElement>) => {
     onRawBeforeInput(event);
     if (rawMode) {
@@ -541,6 +587,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   const handleTextareaInput = (event: FormEvent<HTMLTextAreaElement>) => {
     handlePromptInput({ event, rawMode, onRawInput, syncPromptHeight });
     syncPromptDraftFromTextarea(event.currentTarget);
+    promptCompletion.evaluate(event.currentTarget);
   };
 
   const handleSendText = () => {
@@ -554,6 +601,9 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
   };
 
   const handleTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (promptCompletion.handleKeyDown(event)) {
+      return;
+    }
     handlePromptKeyDown({
       event,
       rawMode,
@@ -626,8 +676,72 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
     void Promise.resolve(result);
   };
 
+  const handleCompositionStart = (event: CompositionEvent<HTMLTextAreaElement>) => {
+    promptCompletion.handleCompositionStart();
+    onRawCompositionStart(event);
+  };
+
+  const handleCompositionEnd = (event: CompositionEvent<HTMLTextAreaElement>) => {
+    onRawCompositionEnd(event);
+    promptCompletion.handleCompositionEnd(event.currentTarget);
+  };
+
+  const completionAgent =
+    completionConfig?.agent === "codex" || completionConfig?.agent === "claude"
+      ? completionConfig.agent
+      : null;
+
+  useEffect(() => {
+    if (!promptCompletion.visible || window.innerWidth >= 768) {
+      return;
+    }
+    let frame = 0;
+    const revealCompletion = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const textarea = textInputRef.current;
+        const listbox = composerRef.current?.querySelector<HTMLElement>(
+          `#${PROMPT_COMPLETION_LIST_ID}`,
+        );
+        if (!textarea || !listbox) {
+          return;
+        }
+        const visualViewport = window.visualViewport;
+        const viewportTop = visualViewport?.offsetTop ?? 0;
+        const viewportBottom = viewportTop + (visualViewport?.height ?? window.innerHeight);
+        const delta = resolvePromptCompletionScrollDelta({
+          inputRect: textarea.getBoundingClientRect(),
+          listRect: listbox.getBoundingClientRect(),
+          viewportTop,
+          viewportBottom,
+        });
+        if (Math.abs(delta) < 1) {
+          return;
+        }
+        window.scrollBy({
+          top: delta,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+        });
+      });
+    };
+
+    revealCompletion();
+    window.visualViewport?.addEventListener("resize", revealCompletion);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.visualViewport?.removeEventListener("resize", revealCompletion);
+    };
+  }, [
+    promptCompletion.loading,
+    promptCompletion.options.length,
+    promptCompletion.visible,
+    textInputRef,
+  ]);
+
   return (
-    <div className="@container min-w-0">
+    <div ref={composerRef} className="@container min-w-0 scroll-mb-3">
       <div
         className={cn("min-w-0 overflow-hidden rounded-2xl border transition", rawModeInputClass)}
       >
@@ -642,14 +756,32 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             defaultValue={initialPromptDraft}
             disabled={!interactive}
             onBeforeInput={handleTextareaBeforeInput}
-            onCompositionStart={onRawCompositionStart}
-            onCompositionEnd={onRawCompositionEnd}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             onInput={handleTextareaInput}
             onKeyDown={handleTextareaKeyDown}
+            onClick={(event) => promptCompletion.evaluate(event.currentTarget)}
+            onKeyUp={(event) => promptCompletion.evaluate(event.currentTarget)}
+            role="combobox"
+            aria-label={placeholder}
+            aria-autocomplete="list"
+            aria-expanded={promptCompletion.visible}
+            aria-controls={promptCompletion.visible ? PROMPT_COMPLETION_LIST_ID : undefined}
+            aria-activedescendant={promptCompletion.activeOptionId}
             onPaste={handleTextareaPaste}
             className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
           />
         </div>
+        {promptCompletion.visible ? (
+          <PromptCompletionList
+            options={promptCompletion.options}
+            activeIndex={promptCompletion.activeIndex}
+            loading={promptCompletion.loading}
+            error={promptCompletion.error}
+            emptyMessage={promptCompletion.emptyMessage}
+            onSelect={promptCompletion.select}
+          />
+        ) : null}
         <ComposerToolbar
           interactive={interactive}
           isSendingText={isSendingText}
@@ -660,7 +792,11 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
           canUseKeyPanel={canUseKeyPanel}
           rawModeToggleClass={rawModeToggleClass}
           dangerToggleClass={dangerToggleClass}
+          completionAgent={completionAgent}
+          completionActiveTrigger={promptCompletion.token?.trigger ?? null}
+          completionSlashDisabled={promptCompletion.slashDisabled}
           onPickImage={handlePickImage}
+          onCompletionTrigger={promptCompletion.insertTrigger}
           onToggleKeysExpanded={() => setKeysExpanded((prev) => !prev)}
           onToggleAllowDangerKeys={onToggleAllowDangerKeys}
           onToggleRawMode={onToggleRawMode}

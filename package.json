@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/yuki-yano/vde-monitor.git"
   },
-  "version": "0.11.7",
+  "version": "0.12.0",
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "engines": {
@@ -47,6 +47,7 @@
     "ci:fix": "pnpm run format && pnpm run typecheck && pnpm run lint:fix && pnpm run test:run"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@hono/node-server": "catalog:",
     "@hono/zod-validator": "catalog:",
     "execa": "catalog:",

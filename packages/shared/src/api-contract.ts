@@ -137,6 +137,11 @@ export type RepoFileContentQuery = {
   worktreePath?: string;
 };
 
+export type PromptCompletionQuery = {
+  trigger: "dollar" | "slash";
+  q?: string;
+};
+
 export type RepoFilePreviewRevokeParam = PaneParam & {
   token: string;
 };
@@ -151,6 +156,9 @@ type ApiRootGetRequest<TRequestInit, TResponse> = (
 ) => Promise<TResponse>;
 
 type SessionApiClient<TRequestInit, TResponse, TFile> = {
+  completions: {
+    $get: ApiRequest<{ param: PaneParam; query: PromptCompletionQuery }, TRequestInit, TResponse>;
+  };
   state: {
     acknowledge: {
       $post: ApiRequest<

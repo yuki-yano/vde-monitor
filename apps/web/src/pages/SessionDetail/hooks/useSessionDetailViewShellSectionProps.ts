@@ -233,6 +233,14 @@ export const useSessionDetailViewShellSectionProps = () => {
         allowDangerKeys,
         isSendingText,
         showPermissionShortcuts: session?.state === "WAITING_PERMISSION",
+        completion: session
+          ? {
+              agent: session.agent,
+              paneId,
+              requestPromptCompletions: base.requestPromptCompletions,
+              requestRepoFileSearch: base.requestRepoFileSearch,
+            }
+          : undefined,
         shiftHeld,
         ctrlHeld,
       },
@@ -263,7 +271,9 @@ export const useSessionDetailViewShellSectionProps = () => {
       rawMode,
       allowDangerKeys,
       isSendingText,
-      session?.state,
+      session,
+      base.requestPromptCompletions,
+      base.requestRepoFileSearch,
       shiftHeld,
       ctrlHeld,
       handleSendText,

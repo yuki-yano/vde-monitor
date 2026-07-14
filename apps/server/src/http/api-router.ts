@@ -9,6 +9,7 @@ import { LiteLLMPricingSource } from "../domain/usage-cost/litellm-pricing-sourc
 import { createUsageDashboardService } from "../domain/usage-dashboard/usage-dashboard-service";
 import { PreviewTicketService } from "../file-preview";
 import { createRateLimiter } from "../limits/rate-limit";
+import { createPromptCompletionService } from "../prompt-completions/service";
 import type {
   MultiplexerInputActions,
   MultiplexerLaunchCapability,
@@ -23,6 +24,7 @@ import { createBranchRoutes } from "./routes/branch-routes";
 import { createFileRoutes } from "./routes/file-routes";
 import { createGitRoutes } from "./routes/git-routes";
 import { createNotificationRoutes } from "./routes/notification-routes";
+import { createPromptCompletionRoutes } from "./routes/prompt-completion-routes";
 import { createSessionRoutes } from "./routes/session-routes";
 import type { CommandPayload, HeaderContext, Monitor, RouteContext } from "./routes/types";
 import { createUsageRoutes } from "./routes/usage-routes";
@@ -105,6 +107,7 @@ export const createApiRouter = ({
 }: ApiContext) => {
   const api = new Hono();
   const filePreviewTickets = previewTicketService ?? new PreviewTicketService();
+  const promptCompletionService = createPromptCompletionService();
   api.onError((error, c) => {
     logInternalError(error);
     const configValidationErrorCause = resolveConfigValidationErrorCause(error);
@@ -224,11 +227,18 @@ export const createApiRouter = ({
   );
   const withNotificationRoutes = withFileRoutes.route(
     "/",
+    createPromptCompletionRoutes({
+      resolvePane,
+      service: promptCompletionService,
+    }),
+  );
+  const withPushNotificationRoutes = withNotificationRoutes.route(
+    "/",
     createNotificationRoutes({
       notificationService,
     }),
   );
-  const withUsageRoutes = withNotificationRoutes.route(
+  const withUsageRoutes = withPushNotificationRoutes.route(
     "/",
     createUsageRoutes({
       monitor,

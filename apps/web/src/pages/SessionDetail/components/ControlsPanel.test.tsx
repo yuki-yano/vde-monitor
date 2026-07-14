@@ -201,7 +201,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onPickImage });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const textarea = screen.getByRole("textbox");
+    const textarea = screen.getByRole("combobox");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", { type: "image/png" });
     const event = firePaste(textarea, {
       items: [
@@ -223,7 +223,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onPickImage });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const textarea = screen.getByRole("textbox");
+    const textarea = screen.getByRole("combobox");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.jpeg", { type: "image/jpeg" });
     firePaste(textarea, {
       items: [] as unknown as DataTransferItemList,
@@ -239,7 +239,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onPickImage });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const textarea = screen.getByRole("textbox");
+    const textarea = screen.getByRole("combobox");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.gif", { type: "image/gif" });
     const event = firePaste(textarea, {
       items: [
@@ -261,7 +261,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onPickImage });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const textarea = screen.getByRole("textbox");
+    const textarea = screen.getByRole("combobox");
     const event = firePaste(textarea, {
       items: [
         {
@@ -282,7 +282,7 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onPickImage });
     render(<ControlsPanel state={state} actions={actions} />);
 
-    const textarea = screen.getByRole("textbox");
+    const textarea = screen.getByRole("combobox");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.webp", { type: "image/webp" });
     const event = firePaste(textarea, {
       items: [

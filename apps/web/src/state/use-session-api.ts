@@ -407,6 +407,7 @@ export const useSessionApi = ({
   const core = useMemo(
     () => ({
       refreshSessions,
+      requestPromptCompletions: queryRequests.requestPromptCompletions,
       requestStateTimeline: queryRequests.requestStateTimeline,
       requestScreen,
       focusPane: actionRequests.focusPane,

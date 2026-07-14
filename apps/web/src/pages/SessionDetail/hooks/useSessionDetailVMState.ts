@@ -31,6 +31,7 @@ export const useSessionDetailVMState = (paneId: string) => {
   } = useSessionConfigData();
   const {
     refreshSessions,
+    requestPromptCompletions,
     requestStateTimeline,
     requestScreen,
     focusPane,
@@ -91,6 +92,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       session,
       nowMs,
       refreshSessions,
+      requestPromptCompletions,
       requestWorktrees,
       requestBranches,
       requestBranchCheckout,
@@ -141,6 +143,7 @@ export const useSessionDetailVMState = (paneId: string) => {
       session,
       nowMs,
       refreshSessions,
+      requestPromptCompletions,
       requestWorktrees,
       requestBranches,
       requestBranchCheckout,

@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui";
 import { PaneTextComposer } from "@/features/shared-session-ui/components/PaneTextComposer";
+import type { PromptCompletionConfig } from "@/features/shared-session-ui/components/prompt-completion/usePromptCompletion";
 
 import { resolveModifierDotClass } from "./controls-panel-utils";
 import { KeysSection } from "./controls-panel-ui";
@@ -32,6 +33,7 @@ export type ControlsPanelState = {
   showPermissionShortcuts?: boolean;
   shiftHeld: boolean;
   ctrlHeld: boolean;
+  completion?: PromptCompletionConfig;
 };
 
 export type ControlsPanelActions = {
@@ -83,6 +85,7 @@ const ControlsPanelInner = ({
     showPermissionShortcuts,
     shiftHeld,
     ctrlHeld,
+    completion,
   } = state;
   const {
     onSendText,
@@ -160,6 +163,7 @@ const ControlsPanelInner = ({
               rawMode,
               allowDangerKeys,
               showPermissionShortcuts,
+              completion,
             }}
             actions={{
               onSendText,

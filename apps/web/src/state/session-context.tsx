@@ -13,6 +13,8 @@ import type {
   ImageAttachment,
   LaunchCommandResponse,
   LaunchConfig,
+  PromptCompletionResult,
+  PromptCompletionTrigger,
   RawItem,
   RepoFileContent,
   RepoFileSearchPage,
@@ -117,6 +119,11 @@ export type SessionCoreApiContextValue = {
   setToken: (token: string | null) => void;
   reconnect: () => void;
   refreshSessions: () => Promise<void>;
+  requestPromptCompletions: (
+    paneId: string,
+    trigger: PromptCompletionTrigger,
+    query?: string,
+  ) => Promise<PromptCompletionResult>;
   requestStateTimeline: (
     paneId: string,
     options?: {

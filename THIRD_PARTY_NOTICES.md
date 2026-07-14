@@ -4,6 +4,17 @@ This project includes or references components under the following license(s).
 
 ---
 
+## Claude Agent SDK
+
+Source: https://github.com/anthropics/claude-agent-sdk-typescript
+
+Copyright Anthropic PBC. All rights reserved.
+
+Use is subject to Anthropic's Legal and Compliance terms:
+https://code.claude.com/docs/en/legal-and-compliance.
+
+---
+
 ## claude-code-monitor
 
 MIT License

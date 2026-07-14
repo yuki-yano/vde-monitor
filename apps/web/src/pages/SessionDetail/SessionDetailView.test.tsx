@@ -158,6 +158,7 @@ const buildDefaultContextValue = () => {
       apiBaseUrl: null,
       requestWorktrees: vi.fn(async () => ({ repoRoot: null, currentPath: null, entries: [] })),
       requestStateTimeline: vi.fn(),
+      requestPromptCompletions: vi.fn(async () => ({ items: [] })),
       requestScreen: vi.fn(),
       requestBranches: vi.fn(),
       requestBranchCheckout: vi.fn(),

@@ -58,6 +58,7 @@ export const createSessionCoreApiMock = (overrides: Partial<SessionCoreApiContex
     setToken: vi.fn(),
     reconnect: vi.fn(),
     refreshSessions: vi.fn(),
+    requestPromptCompletions: vi.fn(async () => ({ items: [] })),
     requestStateTimeline: vi.fn(),
     requestScreen: vi.fn(),
     focusPane: vi.fn(),

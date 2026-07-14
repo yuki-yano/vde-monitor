@@ -55,7 +55,7 @@ import {
   getLastInputTone,
   isKnownAgent,
 } from "@/lib/session-format";
-import { useSessionCoreApi } from "@/state/session-context";
+import { useSessionCoreApi, useSessionFilesApi } from "@/state/session-context";
 
 type ChatGridTileProps = {
   session: SessionSummary;
@@ -230,7 +230,9 @@ export const ChatGridTile = ({
     updateSessionTitle,
     resetSessionTitle,
     uploadImageAttachment,
+    requestPromptCompletions,
   } = useSessionCoreApi();
+  const { requestRepoFileSearch } = useSessionFilesApi();
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -522,6 +524,12 @@ export const ChatGridTile = ({
             rawMode,
             allowDangerKeys,
             showPermissionShortcuts: session.state === "WAITING_PERMISSION",
+            completion: {
+              agent: session.agent,
+              paneId: session.paneId,
+              requestPromptCompletions,
+              requestRepoFileSearch,
+            },
             keyPanel: {
               shiftHeld,
               ctrlHeld,

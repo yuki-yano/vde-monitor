@@ -5,6 +5,8 @@ import type {
   CommitLog,
   DiffFile,
   DiffSummary,
+  PromptCompletionResult,
+  PromptCompletionTrigger,
   RepoFileContent,
   RepoFileSearchPage,
   RepoFileTreePage,
@@ -111,6 +113,20 @@ export const createSessionQueryRequests = ({
       field: "summary",
       fallbackMessage: API_ERROR_MESSAGES.diffSummary,
     });
+  };
+
+  const requestPromptCompletions = async (
+    paneId: string,
+    trigger: PromptCompletionTrigger,
+    queryValue = "",
+  ): Promise<PromptCompletionResult> => {
+    const query = { trigger, ...(queryValue ? { q: queryValue } : {}) };
+    return requestPaneQueryValue<PromptCompletionResult, "items">({
+      paneId,
+      request: (param) => apiClient.sessions[":paneId"].completions.$get({ param, query }),
+      field: "items",
+      fallbackMessage: API_ERROR_MESSAGES.promptCompletions,
+    }).then((items) => ({ items }));
   };
 
   const requestDiffFile = async (
@@ -274,6 +290,7 @@ export const createSessionQueryRequests = ({
   };
 
   return {
+    requestPromptCompletions,
     requestWorktrees,
     requestBranches,
     requestDiffSummary,

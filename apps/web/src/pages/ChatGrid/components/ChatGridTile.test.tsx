@@ -57,10 +57,18 @@ const mockSessionApi = {
   updateSessionTitle: vi.fn(async () => undefined),
   resetSessionTitle: vi.fn(async () => undefined),
   uploadImageAttachment: vi.fn(async () => ({ path: "/tmp/img.png" })),
+  requestPromptCompletions: vi.fn(async () => ({ items: [] })),
+  requestRepoFileSearch: vi.fn(async () => ({
+    query: "",
+    items: [],
+    truncated: false,
+    totalMatchedCount: 0,
+  })),
 };
 
 vi.mock("@/state/session-context", () => ({
   useSessionCoreApi: () => mockSessionApi,
+  useSessionFilesApi: () => mockSessionApi,
 }));
 
 const renderWithRouter = (ui: ReactNode) => {
@@ -307,7 +315,7 @@ describe("ChatGridTile", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hello from tile" } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "hello from tile" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
@@ -335,7 +343,7 @@ describe("ChatGridTile", () => {
     );
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Enter after send" }));
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "draft from tile" } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "draft from tile" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
@@ -503,7 +511,7 @@ describe("ChatGridTile", () => {
       expect(screen.getByText("boom")).toBeTruthy();
     });
 
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "hello from tile" } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "hello from tile" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {

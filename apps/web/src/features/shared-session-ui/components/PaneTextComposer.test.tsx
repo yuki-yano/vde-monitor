@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PaneTextComposer } from "./PaneTextComposer";
+import type { PromptCompletionConfig } from "./prompt-completion/usePromptCompletion";
 
 describe("PaneTextComposer", () => {
   type ComposerState = Parameters<typeof PaneTextComposer>[0]["state"];
@@ -35,6 +36,22 @@ describe("PaneTextComposer", () => {
     onRawKeyDown: vi.fn(),
     onRawCompositionStart: vi.fn(),
     onRawCompositionEnd: vi.fn(),
+    ...overrides,
+  });
+
+  const buildCompletion = (
+    agent: "codex" | "claude",
+    overrides: Partial<PromptCompletionConfig> = {},
+  ): PromptCompletionConfig => ({
+    agent,
+    paneId: "pane-1",
+    requestPromptCompletions: vi.fn(async () => ({ items: [] })),
+    requestRepoFileSearch: vi.fn(async (_paneId, query) => ({
+      query,
+      items: [],
+      truncated: false,
+      totalMatchedCount: 0,
+    })),
     ...overrides,
   });
 
@@ -203,5 +220,244 @@ describe("PaneTextComposer", () => {
     expect(onSendPermissionShortcut).toHaveBeenCalledTimes(2);
     expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(1, "1");
     expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(2, "Escape");
+  });
+
+  it("places compact Codex completion buttons after the image attachment button", () => {
+    render(
+      <PaneTextComposer
+        state={buildState({ completion: buildCompletion("codex") })}
+        actions={buildActions()}
+      />,
+    );
+
+    const attachButton = screen.getByRole("button", { name: "Attach image" });
+    const completionButtons = attachButton.nextElementSibling;
+    expect(
+      completionButtons?.contains(screen.getByRole("button", { name: "Open Skill completions" })),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Open File completions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Command completions" })).toBeTruthy();
+  });
+
+  it("only shows file and slash completion buttons for Claude", () => {
+    render(
+      <PaneTextComposer
+        state={buildState({ completion: buildCompletion("claude") })}
+        actions={buildActions()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Skill completions" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open File completions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Skill and Command completions" })).toBeTruthy();
+  });
+
+  it("loads and inserts a Codex Skill from the dollar completion button", async () => {
+    const requestPromptCompletions = vi.fn(async () => ({
+      items: [
+        {
+          id: "codex-skill:react-doctor",
+          label: "$react-doctor",
+          insertText: "$react-doctor",
+          description: "Run React diagnostics.",
+          argumentHint: "",
+          kind: "skill" as const,
+          scope: "user",
+        },
+      ],
+    }));
+    render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", { requestPromptCompletions }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Skill completions" }));
+    fireEvent.click(await screen.findByText("$react-doctor"));
+
+    expect(requestPromptCompletions).toHaveBeenCalledWith("pane-1", "dollar", "");
+    expect((screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement).value).toBe(
+      "$react-doctor ",
+    );
+  });
+
+  it("does not reload unchanged suggestions when the completion config object is recreated", async () => {
+    const requestPromptCompletions = vi.fn(async () => ({
+      items: [
+        {
+          id: "codex-skill:react-doctor",
+          label: "$react-doctor",
+          insertText: "$react-doctor",
+          description: "Run React diagnostics.",
+          argumentHint: "",
+          kind: "skill" as const,
+          scope: "user",
+        },
+      ],
+    }));
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => ({
+      query,
+      items: [],
+      truncated: false,
+      totalMatchedCount: 0,
+    }));
+    const view = render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", {
+            requestPromptCompletions,
+            requestRepoFileSearch,
+          }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Skill completions" }));
+    expect(await screen.findByText("$react-doctor")).toBeTruthy();
+
+    view.rerender(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", {
+            requestPromptCompletions,
+            requestRepoFileSearch,
+          }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    await waitFor(() => expect(requestPromptCompletions).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Loading…")).toBeNull();
+  });
+
+  it("does not let a stale completion response replace the current suggestions", async () => {
+    type Result = Awaited<ReturnType<PromptCompletionConfig["requestPromptCompletions"]>>;
+    const resolvers = new Map<string, (value: Result) => void>();
+    const requestPromptCompletions = vi.fn(
+      async (_paneId: string, _trigger: "dollar" | "slash", query = "") =>
+        new Promise<Result>((resolve) => {
+          resolvers.set(query, resolve);
+        }),
+    );
+    render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", { requestPromptCompletions }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement;
+
+    fireEvent.input(textarea, { target: { value: "$a", selectionStart: 2 } });
+    await waitFor(() =>
+      expect(requestPromptCompletions).toHaveBeenCalledWith("pane-1", "dollar", "a"),
+    );
+    fireEvent.input(textarea, { target: { value: "$b", selectionStart: 2 } });
+    await waitFor(() =>
+      expect(requestPromptCompletions).toHaveBeenCalledWith("pane-1", "dollar", "b"),
+    );
+
+    await act(async () => {
+      resolvers.get("b")?.({
+        items: [
+          {
+            id: "codex-skill:beta",
+            label: "$beta",
+            insertText: "$beta",
+            description: "Current result.",
+            argumentHint: "",
+            kind: "skill",
+            scope: "user",
+          },
+        ],
+      });
+    });
+    expect(await screen.findByText("$beta")).toBeTruthy();
+
+    await act(async () => {
+      resolvers.get("a")?.({
+        items: [
+          {
+            id: "codex-skill:alpha",
+            label: "$alpha",
+            insertText: "$alpha",
+            description: "Stale result.",
+            argumentHint: "",
+            kind: "skill",
+            scope: "user",
+          },
+        ],
+      });
+    });
+    expect(screen.queryByText("$alpha")).toBeNull();
+    expect(screen.getByText("$beta")).toBeTruthy();
+  });
+
+  it("renders suggestions after the input so they cannot cover the typed text", async () => {
+    const requestPromptCompletions = vi.fn(async () => ({ items: [] }));
+    render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", { requestPromptCompletions }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Skill completions" }));
+    const textarea = screen.getByPlaceholderText("Type a prompt…");
+    const listbox = await screen.findByRole("listbox", { name: "Prompt completions" });
+
+    expect(textarea.compareDocumentPosition(listbox) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
+  });
+
+  it("searches and inserts a quoted repository file path", async () => {
+    const requestRepoFileSearch = vi.fn(async (_paneId: string, query: string) => ({
+      query,
+      items: [
+        {
+          path: "docs/My Guide.md",
+          name: "My Guide.md",
+          kind: "file" as const,
+          score: 1,
+          highlights: [],
+        },
+      ],
+      truncated: false,
+      totalMatchedCount: 1,
+    }));
+    render(
+      <PaneTextComposer
+        state={buildState({ completion: buildCompletion("claude", { requestRepoFileSearch }) })}
+        actions={buildActions()}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement;
+    fireEvent.input(textarea, { target: { value: "@guide", selectionStart: 6 } });
+    fireEvent.click(await screen.findByText("docs/My Guide.md"));
+
+    expect(requestRepoFileSearch).toHaveBeenCalledWith("pane-1", "guide", { limit: 5 });
+    expect(textarea.value).toBe('"docs/My Guide.md" ');
+  });
+
+  it("hides completion buttons in raw mode", () => {
+    render(
+      <PaneTextComposer
+        state={buildState({ rawMode: true, completion: buildCompletion("codex") })}
+        actions={buildActions()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Skill completions" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open File completions" })).toBeNull();
   });
 });
