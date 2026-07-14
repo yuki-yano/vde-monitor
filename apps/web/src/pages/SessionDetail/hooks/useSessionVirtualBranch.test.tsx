@@ -1,7 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { BranchList, BranchListEntry } from "@vde-monitor/shared";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { useSessionBranches } from "./useSessionBranches";
 import { useSessionVirtualBranch } from "./useSessionVirtualBranch";
 
 const STORAGE_KEY_PREFIX = "vde-monitor:virtual-branch:v1";
@@ -142,5 +143,60 @@ describe("useSessionVirtualBranch", () => {
       expect(window.localStorage.getItem(buildStorageKey(paneId))).toBeNull();
     });
     expect(result.current.virtualBranch).toBeNull();
+  });
+
+  it("keeps another pane selection while its branch list is loading", async () => {
+    const paneBBranchList = createBranchList({
+      repoRoot: "/tmp/repo-b",
+      entries: [
+        createBranchEntry({ name: "main", current: true, isDefault: true }),
+        createBranchEntry({ name: "feature/b" }),
+      ],
+    });
+    window.localStorage.setItem(
+      buildStorageKey("pane-b"),
+      JSON.stringify({
+        repoRoot: paneBBranchList.repoRoot,
+        branch: "feature/b",
+        updatedAt: new Date(0).toISOString(),
+      }),
+    );
+    let resolvePaneB!: (value: BranchList) => void;
+    const paneBRequest = new Promise<BranchList>((resolve) => {
+      resolvePaneB = resolve;
+    });
+    const requestBranches = vi.fn((paneId: string) =>
+      paneId === "pane-a" ? Promise.resolve(createBranchList()) : paneBRequest,
+    );
+    const requestBranchMutation = vi.fn(async () => undefined);
+    const { result, rerender } = renderHook(
+      ({ paneId }: { paneId: string }) => {
+        const branches = useSessionBranches({
+          paneId,
+          connected: false,
+          session: null,
+          requestBranches,
+          requestBranchCheckout: requestBranchMutation,
+          requestBranchCreate: requestBranchMutation,
+          requestBranchDelete: requestBranchMutation,
+        });
+        return useSessionVirtualBranch({ paneId, branchList: branches.branchList });
+      },
+      { initialProps: { paneId: "pane-a" } },
+    );
+
+    await waitFor(() => {
+      expect(requestBranches).toHaveBeenCalledWith("pane-a", undefined);
+    });
+    rerender({ paneId: "pane-b" });
+
+    expect(window.localStorage.getItem(buildStorageKey("pane-b"))).toContain("feature/b");
+    await act(async () => {
+      resolvePaneB(paneBBranchList);
+      await paneBRequest;
+    });
+    await waitFor(() => {
+      expect(result.current.virtualBranch).toBe("feature/b");
+    });
   });
 });

@@ -123,6 +123,45 @@ describe("useSessionVirtualWorktree", () => {
     expect(result.current.virtualWorktreePath).toBeNull();
   });
 
+  it("does not copy the current virtual selection into a pane switched to the same repo", async () => {
+    const repoRoot = "/tmp/repo-shared";
+    const requestWorktrees = vi.fn(async () => createWorktreeList(repoRoot));
+    const { result, rerender } = renderHook(
+      ({ paneId }: { paneId: string }) =>
+        useSessionVirtualWorktree({
+          paneId,
+          session: createSessionDetail({
+            paneId,
+            repoRoot,
+            worktreePath: `${repoRoot}/main`,
+            branch: "main",
+          }),
+          requestWorktrees,
+        }),
+      { initialProps: { paneId: "pane-1" } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.entries).toHaveLength(2);
+    });
+    act(() => {
+      result.current.selectVirtualWorktree(`${repoRoot}/feature-a`);
+    });
+    await waitFor(() => {
+      expect(window.localStorage.getItem(buildStorageKey("pane-1"))).toContain(
+        `${repoRoot}/feature-a`,
+      );
+    });
+
+    rerender({ paneId: "pane-2" });
+
+    await waitFor(() => {
+      expect(requestWorktrees).toHaveBeenCalledWith("pane-2");
+    });
+    expect(result.current.virtualWorktreePath).toBeNull();
+    expect(window.localStorage.getItem(buildStorageKey("pane-2"))).toBeNull();
+  });
+
   it("clears pane-scoped storage when clearing virtual worktree", async () => {
     const repoRoot = "/tmp/repo-b";
     const paneId = "pane-1";

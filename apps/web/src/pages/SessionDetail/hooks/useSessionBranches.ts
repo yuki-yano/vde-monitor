@@ -15,6 +15,7 @@ type ActivePaneContext = {
 };
 
 type BranchesState = {
+  paneId: string;
   branchList: BranchList | null;
   loading: boolean;
   error: string | null;
@@ -23,7 +24,7 @@ type BranchesState = {
 };
 
 type BranchesAction =
-  | { type: "resetPane" }
+  | { type: "resetPane"; paneId: string }
   | { type: "fetchStart"; resetEntries: boolean; showLoading: boolean }
   | { type: "fetchSuccess"; branchList: BranchList; showLoading: boolean }
   | { type: "fetchFailure"; error: string; resetEntries: boolean; showLoading: boolean }
@@ -32,18 +33,19 @@ type BranchesAction =
   | { type: "mutationFinish" }
   | { type: "clearMutationError" };
 
-const initialBranchesState: BranchesState = {
+const createInitialBranchesState = (paneId: string): BranchesState => ({
+  paneId,
   branchList: null,
   loading: false,
   error: null,
   mutating: null,
   mutationError: null,
-};
+});
 
 const branchesReducer = (state: BranchesState, action: BranchesAction): BranchesState => {
   switch (action.type) {
     case "resetPane":
-      return initialBranchesState;
+      return createInitialBranchesState(action.paneId);
     case "fetchStart":
       return {
         ...state,
@@ -99,11 +101,12 @@ export const useSessionBranches = ({
   requestBranchCreate,
   requestBranchDelete,
 }: UseSessionBranchesArgs) => {
-  const [state, dispatch] = useReducer(branchesReducer, initialBranchesState);
+  const [state, dispatch] = useReducer(branchesReducer, paneId, createInitialBranchesState);
   const latestRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
   const activePaneRef = useRef<ActivePaneContext>({ paneId, generation: 0 });
-  const { branchList, loading, error, mutating, mutationError } = state;
+  const currentState = state.paneId === paneId ? state : createInitialBranchesState(paneId);
+  const { branchList, loading, error, mutating, mutationError } = currentState;
 
   useLayoutEffect(() => {
     if (activePaneRef.current.paneId === paneId) {
@@ -118,7 +121,7 @@ export const useSessionBranches = ({
   useEffect(() => {
     latestRequestIdRef.current += 1;
     hasLoadedRef.current = false;
-    dispatch({ type: "resetPane" });
+    dispatch({ type: "resetPane", paneId });
   }, [paneId]);
 
   const fetchBranches = useCallback(

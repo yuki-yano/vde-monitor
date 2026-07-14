@@ -15,6 +15,7 @@ type StoredVirtualWorktreeSelection = {
 };
 
 type VirtualWorktreeState = {
+  paneId: string;
   worktreeList: WorktreeList | null;
   loading: boolean;
   error: string | null;
@@ -22,18 +23,19 @@ type VirtualWorktreeState = {
 };
 
 type VirtualWorktreeAction =
-  | { type: "resetPane" }
+  | { type: "resetPane"; paneId: string }
   | { type: "fetchStart"; resetEntries: boolean; showLoading: boolean }
   | { type: "fetchSuccess"; worktreeList: WorktreeList; showLoading: boolean }
   | { type: "fetchFailure"; error: string; resetEntries: boolean; showLoading: boolean }
   | { type: "setVirtualWorktreePath"; path: string | null };
 
-const initialVirtualWorktreeState: VirtualWorktreeState = {
+const createInitialVirtualWorktreeState = (paneId: string): VirtualWorktreeState => ({
+  paneId,
   worktreeList: null,
   loading: false,
   error: null,
   virtualWorktreePath: null,
-};
+});
 
 const virtualWorktreeReducer = (
   state: VirtualWorktreeState,
@@ -41,7 +43,7 @@ const virtualWorktreeReducer = (
 ): VirtualWorktreeState => {
   switch (action.type) {
     case "resetPane":
-      return initialVirtualWorktreeState;
+      return createInitialVirtualWorktreeState(action.paneId);
     case "fetchStart":
       return {
         ...state,
@@ -151,10 +153,15 @@ export const useSessionVirtualWorktree = ({
   session,
   requestWorktrees,
 }: UseSessionVirtualWorktreeArgs) => {
-  const [state, dispatch] = useReducer(virtualWorktreeReducer, initialVirtualWorktreeState);
+  const [state, dispatch] = useReducer(
+    virtualWorktreeReducer,
+    paneId,
+    createInitialVirtualWorktreeState,
+  );
   const latestRequestIdRef = useRef(0);
   const hasLoadedWorktreeListRef = useRef(false);
-  const { worktreeList, loading, error, virtualWorktreePath } = state;
+  const currentState = state.paneId === paneId ? state : createInitialVirtualWorktreeState(paneId);
+  const { worktreeList, loading, error, virtualWorktreePath } = currentState;
 
   const actualWorktreePath = useMemo(
     // react-doctor-disable-next-line no-event-handler
@@ -166,7 +173,7 @@ export const useSessionVirtualWorktree = ({
   useEffect(() => {
     latestRequestIdRef.current += 1;
     hasLoadedWorktreeListRef.current = false;
-    dispatch({ type: "resetPane" });
+    dispatch({ type: "resetPane", paneId });
   }, [paneId]);
 
   const fetchWorktrees = useCallback(
