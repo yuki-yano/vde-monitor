@@ -1,9 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { navigateMock, routerLocation } = vi.hoisted(() => ({
+const { navigateMock, routerLocation, sessionStreamState } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   routerLocation: { pathname: "/sessions/pane-a" },
+  sessionStreamState: {
+    sessions: [] as Array<{ paneId: string }>,
+    connected: false,
+  },
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -22,7 +26,7 @@ vi.mock("@/lib/pwa-display-mode", () => ({
 }));
 
 vi.mock("@/state/session-context", () => ({
-  useSessionStreamData: () => ({ sessions: [], connected: false }),
+  useSessionStreamData: () => sessionStreamState,
 }));
 
 vi.mock("@/state/session-state-atoms", () => ({
@@ -121,6 +125,8 @@ describe("WorkspaceTabsProvider", () => {
 
   beforeEach(() => {
     navigateMock.mockClear();
+    sessionStreamState.sessions = [];
+    sessionStreamState.connected = false;
     localStorage.clear();
     originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
     Object.defineProperty(window, "matchMedia", {
@@ -134,6 +140,7 @@ describe("WorkspaceTabsProvider", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (originalMatchMedia) {
       Object.defineProperty(window, "matchMedia", originalMatchMedia);
     } else {
@@ -188,11 +195,13 @@ describe("WorkspaceTabsProvider", () => {
     await waitFor(() =>
       expect(screen.getByTestId("active-tab").textContent).toBe("session:pane-a"),
     );
+    navigateMock.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss two tabs" }));
 
     expect(screen.getByTestId("tab-order").textContent).toBe("system:sessions,session:pane-c");
     expect(screen.getByTestId("active-tab").textContent).toBe("session:pane-c");
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it("composes consecutive reorder transitions from the latest state", async () => {
@@ -211,5 +220,101 @@ describe("WorkspaceTabsProvider", () => {
     expect(screen.getByTestId("tab-order").textContent).toBe(
       "system:sessions,session:pane-c,session:pane-a,session:pane-b",
     );
+  });
+
+  it("dismisses a missing active pane after the grace period and navigates once", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00Z"));
+    seedSessionTabs();
+    sessionStreamState.connected = true;
+    sessionStreamState.sessions = [{ paneId: "pane-b" }, { paneId: "pane-c" }];
+
+    render(
+      <WorkspaceTabsProvider>
+        <Probe />
+      </WorkspaceTabsProvider>,
+    );
+    navigateMock.mockClear();
+
+    act(() => {
+      vi.advanceTimersByTime(5050);
+    });
+
+    expect(screen.getByTestId("tab-order").textContent).toBe(
+      "system:sessions,session:pane-b,session:pane-c",
+    );
+    expect(screen.getByTestId("active-tab").textContent).toBe("session:pane-b");
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/sessions/$paneId",
+      params: { paneId: "pane-b" },
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses a missing non-active pane without navigating", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00Z"));
+    seedSessionTabs();
+    sessionStreamState.connected = true;
+    sessionStreamState.sessions = [{ paneId: "pane-a" }, { paneId: "pane-c" }];
+
+    render(
+      <WorkspaceTabsProvider>
+        <Probe />
+      </WorkspaceTabsProvider>,
+    );
+    navigateMock.mockClear();
+
+    act(() => {
+      vi.advanceTimersByTime(5050);
+    });
+
+    expect(screen.getByTestId("tab-order").textContent).toBe(
+      "system:sessions,session:pane-a,session:pane-c",
+    );
+    expect(screen.getByTestId("active-tab").textContent).toBe("session:pane-a");
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a pane tab that returns during the missing-pane grace period", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00Z"));
+    seedSessionTabs();
+    sessionStreamState.connected = true;
+    sessionStreamState.sessions = [{ paneId: "pane-a" }, { paneId: "pane-c" }];
+    const view = render(
+      <WorkspaceTabsProvider>
+        <Probe />
+      </WorkspaceTabsProvider>,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2500);
+    });
+    sessionStreamState.sessions = [
+      { paneId: "pane-a" },
+      { paneId: "pane-b" },
+      { paneId: "pane-c" },
+    ];
+    view.rerender(
+      <WorkspaceTabsProvider>
+        <Probe />
+      </WorkspaceTabsProvider>,
+    );
+    navigateMock.mockClear();
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    expect(screen.getByTestId("tab-order").textContent).toBe(
+      "system:sessions,session:pane-a,session:pane-b,session:pane-c",
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

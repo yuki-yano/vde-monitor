@@ -124,6 +124,17 @@ const resolveDismissSessionTabsTransition = (
   return { state: dismissed.state, navigationTarget };
 };
 
+// The explicit resume flow has already selected and navigated to its target.
+// Dismiss only the source tabs so that transition cannot replace that target.
+const resolvePostNavigationDismissSessionTabsTransition = (
+  state: WorkspaceTabsState,
+  paneIds: readonly string[],
+  now: number,
+): WorkspaceTabsTransition => {
+  const dismissed = dismissWorkspaceSessionTabsByPaneIds(state, paneIds, now);
+  return withoutNavigation(dismissed.changed ? dismissed.state : state);
+};
+
 const buildInitialState = (displayMode: WorkspaceTabsDisplayMode): WorkspaceTabsState => {
   const now = Date.now();
   if (typeof window === "undefined") {
@@ -391,7 +402,7 @@ export const WorkspaceTabsProvider = ({ children }: PropsWithChildren) => {
         return;
       }
       applyTabsTransition((previous) =>
-        resolveDismissSessionTabsTransition(previous, [normalizedPaneId], Date.now()),
+        resolvePostNavigationDismissSessionTabsTransition(previous, [normalizedPaneId], Date.now()),
       );
     },
     [applyTabsTransition, enabled],
