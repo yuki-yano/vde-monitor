@@ -187,6 +187,7 @@ describe("createApiRouter", () => {
         gapDurationMs: 60_000,
         unattributedRunningMs: 30_000,
         unattributedCompletedRunCount: 2,
+        unverifiedCompletedRunCount: 1,
       },
       items: [
         {

@@ -603,6 +603,7 @@ export const usageRepositoryActivityResponseSchema = z.object({
     gapDurationMs: z.number().nonnegative(),
     unattributedRunningMs: z.number().nonnegative(),
     unattributedCompletedRunCount: z.number().int().nonnegative(),
+    unverifiedCompletedRunCount: z.number().int().nonnegative(),
   }),
   items: z.array(usageRepositoryActivityItemSchema),
   fetchedAt: z.string(),

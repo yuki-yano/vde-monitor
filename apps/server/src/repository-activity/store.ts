@@ -204,7 +204,20 @@ export const createRepositoryActivityStore = (options: StoreOptions = {}) => {
       return;
     }
     if (current?.repoRoot === repoRoot && current.runId === runId) return;
-    const startedAtMs = closeOpenInterval(paneId, atMs);
+    const latestClosedAtMs =
+      current == null && runId != null
+        ? intervals.reduce<number | null>((latest, interval) => {
+            if (interval.paneId !== paneId || interval.runId !== runId) return latest;
+            const endedAtMs = parseIsoToMs(interval.endedAt);
+            if (endedAtMs == null) return latest;
+            return latest == null ? endedAtMs : Math.max(latest, endedAtMs);
+          }, null)
+        : null;
+    const safeAtMs =
+      latestClosedAtMs != null && atMs < latestClosedAtMs
+        ? Math.max(nowMs, latestClosedAtMs)
+        : atMs;
+    const startedAtMs = closeOpenInterval(paneId, safeAtMs);
     sequence += 1;
     const interval: ActivityInterval = {
       id: `${paneId}:${startedAtMs}:${sequence}`,
@@ -341,6 +354,7 @@ export const createRepositoryActivityStore = (options: StoreOptions = {}) => {
     const metricsByRepo = new Map<string, MutableRepoMetrics>();
     let unattributedRunningMs = 0;
     let unattributedCompletedRunCount = 0;
+    let unverifiedCompletedRunCount = 0;
 
     const getMetrics = (repoRoot: string) => {
       let metrics = metricsByRepo.get(repoRoot);
@@ -380,6 +394,9 @@ export const createRepositoryActivityStore = (options: StoreOptions = {}) => {
       if (completedAtMs == null || completedAtMs < rangeStartMs || completedAtMs > rangeEndMs) {
         return;
       }
+      if (!verifiedRunIds.has(`${run.epoch}:${run.runSeq}`)) {
+        unverifiedCompletedRunCount += 1;
+      }
       if (run.repoRoot == null) {
         unattributedCompletedRunCount += 1;
         return;
@@ -409,11 +426,12 @@ export const createRepositoryActivityStore = (options: StoreOptions = {}) => {
       rangeStart: toIso(rangeStartMs),
       rangeEnd,
       coverage: {
-        status: gapDurationMs > 0 ? "partial" : "complete",
+        status: gapDurationMs > 0 || unverifiedCompletedRunCount > 0 ? "partial" : "complete",
         trackingStartedAt,
         gapDurationMs,
         unattributedRunningMs,
         unattributedCompletedRunCount,
+        unverifiedCompletedRunCount,
       },
       items: [...metricsByRepo.values()]
         .map((metrics) => ({

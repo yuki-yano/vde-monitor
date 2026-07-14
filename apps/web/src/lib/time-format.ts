@@ -17,7 +17,7 @@ export const formatDurationMs = (durationMs: number) => {
   }
   const days = Math.floor(hours / 24);
   const restHours = hours % 24;
-  return restHours > 0 ? `${days}d ${restHours}h` : `${days}d`;
+  return `${days}d${restHours > 0 ? ` ${restHours}h` : ""}${restMinutes > 0 ? ` ${restMinutes}m` : ""}`;
 };
 
 export const formatTime = (iso: string | null) => {

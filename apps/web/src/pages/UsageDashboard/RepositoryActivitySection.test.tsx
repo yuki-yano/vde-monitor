@@ -16,6 +16,7 @@ const createActivity = (
     gapDurationMs: 0,
     unattributedRunningMs: 0,
     unattributedCompletedRunCount: 0,
+    unverifiedCompletedRunCount: 0,
   },
   items: [
     {
@@ -126,6 +127,7 @@ describe("RepositoryActivitySection", () => {
           gapDurationMs: 30 * 60_000,
           unattributedRunningMs: 15 * 60_000,
           unattributedCompletedRunCount: 3,
+          unverifiedCompletedRunCount: 2,
         },
       }),
     });
@@ -134,6 +136,7 @@ describe("RepositoryActivitySection", () => {
     expect(screen.getByText(/30m not observed/)).toBeTruthy();
     expect(screen.getByText(/15m of agent activity could not be attributed/)).toBeTruthy();
     expect(screen.getByText(/3 explicit completions could not be attributed/)).toBeTruthy();
+    expect(screen.getByText(/2 completed runs had no confirmed start event/)).toBeTruthy();
   });
 
   it("renders loading, empty, and error states", () => {

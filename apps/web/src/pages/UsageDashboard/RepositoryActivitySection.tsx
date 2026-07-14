@@ -320,6 +320,13 @@ export const RepositoryActivitySection = ({
             repository and {coverage.unattributedCompletedRunCount === 1 ? "is" : "are"} excluded.
           </Callout>
         ) : null}
+        {coverage && coverage.unverifiedCompletedRunCount > 0 ? (
+          <Callout tone="warning" size="xs" className="mt-2" role="status">
+            {numberFormatter.format(coverage.unverifiedCompletedRunCount)} completed run
+            {coverage.unverifiedCompletedRunCount === 1 ? "" : "s"} had no confirmed start event, so
+            their activity time is excluded.
+          </Callout>
+        ) : null}
 
         {error ? (
           <Callout tone="error" size="sm" className="mt-3" role="alert">
