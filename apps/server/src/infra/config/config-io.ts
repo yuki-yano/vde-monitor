@@ -42,13 +42,13 @@ const resolveAtomicTempPath = (filePath: string) => {
 
 export const writeFileAtomic = (filePath: string, data: string) => {
   const tempPath = resolveAtomicTempPath(filePath);
-  fs.writeFileSync(tempPath, data, { encoding: "utf8", mode: 0o600 });
   try {
-    fs.chmodSync(tempPath, 0o600);
-  } catch {
-    // ignore
-  }
-  try {
+    fs.writeFileSync(tempPath, data, { encoding: "utf8", mode: 0o600 });
+    try {
+      fs.chmodSync(tempPath, 0o600);
+    } catch {
+      // ignore
+    }
     fs.renameSync(tempPath, filePath);
   } catch (error) {
     try {

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createMonitorRuntimeMarker, resolveProcessStartedAt } from "./runtime-marker";
 
@@ -30,13 +30,70 @@ afterEach(async () => {
 });
 
 describe("createMonitorRuntimeMarker", () => {
-  it("resolves a stable process start identity through ps", () => {
+  it("resolves Linux process start ticks from procfs without invoking ps", () => {
+    const run = vi.fn();
+    const fieldsAfterCommand = [
+      "S",
+      ...Array.from({ length: 18 }, (_, index) => String(index + 1)),
+      "987654321",
+    ];
+
     expect(
-      resolveProcessStartedAt(1234, () => ({
-        stdout: " Mon Jul 13 12:00:00 2026 \n",
-        status: 0,
-      })),
+      resolveProcessStartedAt(1234, {
+        platform: "linux",
+        run,
+        readLinuxProcessStat: () =>
+          `1234 (command with ) parenthesis) ${fieldsAfterCommand.join(" ")}`,
+        readLinuxBootId: () => "01234567-89ab-cdef-0123-456789abcdef\n",
+      }),
+    ).toBe("linux:01234567-89ab-cdef-0123-456789abcdef:987654321");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("resolves a stable process start identity through ps on non-Linux Unix", () => {
+    const run = vi.fn(() => ({
+      stdout: " Mon Jul 13 12:00:00 2026 \n",
+      status: 0,
+    }));
+
+    expect(
+      resolveProcessStartedAt(1234, {
+        platform: "darwin",
+        run,
+      }),
     ).toBe("Mon Jul 13 12:00:00 2026");
+    expect(run).toHaveBeenCalledWith("ps", ["-p", "1234", "-o", "lstart="]);
+  });
+
+  it("resolves a stable process start identity through PowerShell on Windows", () => {
+    const run = vi.fn(() => ({ stdout: "638881416000000000\r\n", status: 0 }));
+
+    expect(
+      resolveProcessStartedAt(5678, {
+        platform: "win32",
+        run,
+      }),
+    ).toBe("638881416000000000");
+    expect(run).toHaveBeenCalledWith(
+      "powershell.exe",
+      expect.arrayContaining([
+        "-NoProfile",
+        expect.stringContaining("Get-Process -Id 5678 -ErrorAction Stop"),
+      ]),
+    );
+  });
+
+  it("fails closed when the platform process identity command fails", () => {
+    expect(() =>
+      resolveProcessStartedAt(1234, {
+        platform: "win32",
+        run: () => ({
+          error: new Error("PowerShell unavailable"),
+          stdout: "",
+          status: null,
+        }),
+      }),
+    ).toThrow("failed to resolve process start identity");
   });
 
   it("atomically writes the runtime marker with no temporary file left behind", async () => {

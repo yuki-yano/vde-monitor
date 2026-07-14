@@ -328,7 +328,9 @@ describe("ensureConfig", () => {
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
     const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
-    expect(writtenPaths).toEqual([tokenPath]);
+    expect(writtenPaths).toHaveLength(1);
+    expect(writtenPaths[0]).toContain(`${tokenPath}.tmp-`);
+    expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(tokenPath);
   });
 
   it("accepts herdr as a global multiplexer backend", () => {
@@ -543,8 +545,67 @@ describe("rotateToken", () => {
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.parse(writtenContents.get(tokenPath) ?? "{}")).toEqual({ token: result.token });
     const writtenPaths = mocks.writeFileSync.mock.calls.map((args) => path.resolve(args[0]));
-    expect(writtenPaths).toEqual([tokenPath]);
+    expect(writtenPaths).toHaveLength(1);
+    expect(writtenPaths[0]).toContain(`${tokenPath}.tmp-`);
+    expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(tokenPath);
     expect(mocks.randomBytes).toHaveBeenCalled();
+  });
+
+  it("keeps the previous token and removes the temporary file when atomic replace fails", () => {
+    setConfigFile(expectedGeneratedTemplate);
+    setTokenFile("old-token");
+    mocks.renameSync.mockImplementationOnce((fromPath: unknown) => {
+      throw createFsError("EACCES", String(fromPath));
+    });
+
+    expect(() => rotateToken()).toThrow("EACCES");
+
+    expect(JSON.parse(fileContents.get(tokenPath) ?? "{}")).toEqual({ token: "old-token" });
+    const temporaryPath = path.resolve(String(mocks.writeFileSync.mock.calls[0]?.[0]));
+    expect(temporaryPath).toContain(`${tokenPath}.tmp-`);
+    expect(fileContents.has(temporaryPath)).toBe(false);
+    expect(mocks.unlinkSync).toHaveBeenCalledWith(String(mocks.writeFileSync.mock.calls[0]?.[0]));
+  });
+
+  it("does not persist an intermediate token when rotation fails with no token file", () => {
+    mocks.renameSync.mockImplementationOnce((fromPath: unknown) => {
+      throw createFsError("EACCES", String(fromPath));
+    });
+
+    expect(() => rotateToken()).toThrow("EACCES");
+
+    expect(fileContents.has(tokenPath)).toBe(false);
+    expect(mocks.writeFileSync).toHaveBeenCalledOnce();
+    expect(mocks.renameSync).toHaveBeenCalledOnce();
+  });
+
+  it("does not replace a malformed token with an intermediate token when rotation fails", () => {
+    setFile(tokenPath, "not-json\n");
+    mocks.renameSync.mockImplementationOnce((fromPath: unknown) => {
+      throw createFsError("EACCES", String(fromPath));
+    });
+
+    expect(() => rotateToken()).toThrow("EACCES");
+
+    expect(fileContents.get(tokenPath)).toBe("not-json\n");
+    expect(mocks.writeFileSync).toHaveBeenCalledOnce();
+    expect(mocks.renameSync).toHaveBeenCalledOnce();
+  });
+
+  it("removes a partial temporary file when the token write itself fails", () => {
+    setTokenFile("old-token");
+    mocks.writeFileSync.mockImplementationOnce((targetPath: unknown) => {
+      if (typeof targetPath !== "string") throw new Error("unexpected path type");
+      setFile(targetPath, "partial");
+      throw createFsError("ENOSPC", targetPath);
+    });
+
+    expect(() => rotateToken()).toThrow("ENOSPC");
+
+    expect(JSON.parse(fileContents.get(tokenPath) ?? "{}")).toEqual({ token: "old-token" });
+    const temporaryPath = path.resolve(String(mocks.writeFileSync.mock.calls[0]?.[0]));
+    expect(fileContents.has(temporaryPath)).toBe(false);
+    expect(mocks.unlinkSync).toHaveBeenCalledWith(String(mocks.writeFileSync.mock.calls[0]?.[0]));
   });
 });
 

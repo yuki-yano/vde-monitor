@@ -16,8 +16,8 @@ export const listenOnAvailablePort = async <Server extends BindableServer>({
   attempts,
   listen,
 }: ListenOnAvailablePortOptions<Server>): Promise<{ port: number; server: Server }> => {
-  for (let offset = 0; offset < attempts; offset += 1) {
-    const port = startPort + offset;
+  const endPort = Math.min(65535, startPort + attempts - 1);
+  for (let port = startPort; port <= endPort; port += 1) {
     const result = await new Promise<{ ok: true; server: Server } | { ok: false }>(
       (resolve, reject) => {
         let server: Server;
@@ -39,7 +39,5 @@ export const listenOnAvailablePort = async <Server extends BindableServer>({
       return { port, server: result.server };
     }
   }
-  throw new Error(
-    `No available port found in range ${startPort}-${startPort + attempts - 1} on ${host}`,
-  );
+  throw new Error(`No available port found in range ${startPort}-${endPort} on ${host}`);
 };

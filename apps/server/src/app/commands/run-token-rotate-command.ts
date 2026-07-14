@@ -65,9 +65,9 @@ export const runTokenRotateCommand = async ({
     throw new Error(`running vde-monitor failed token rotation (${response.status})`);
   }
 
-  let payload: { token?: unknown };
+  let payload: { token?: unknown; cleanupFailures?: unknown };
   try {
-    payload = (await response.json()) as { token?: unknown };
+    payload = (await response.json()) as { token?: unknown; cleanupFailures?: unknown };
   } catch (error) {
     if (reconcilePersistedRotation()) return;
     throw new Error("running vde-monitor returned an invalid token rotation response", {
@@ -79,4 +79,9 @@ export const runTokenRotateCommand = async ({
     throw new Error("running vde-monitor returned an invalid token rotation response");
   }
   console.log(payload.token);
+  if (Array.isArray(payload.cleanupFailures) && payload.cleanupFailures.length > 0) {
+    console.warn(
+      `Token rotation committed with incomplete cleanup: ${payload.cleanupFailures.join(", ")}`,
+    );
+  }
 };

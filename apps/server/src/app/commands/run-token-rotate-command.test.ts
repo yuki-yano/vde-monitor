@@ -42,6 +42,24 @@ describe("runTokenRotateCommand", () => {
     expect(log).toHaveBeenCalledWith("new-token");
   });
 
+  it("prints the committed token and warns when runtime cleanup is incomplete", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json(
+        { token: "new-token", cleanupFailures: ["push-subscriptions"] },
+        { status: 207 },
+      ),
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await runTokenRotateCommand({ fetchImpl: fetchImpl as typeof fetch });
+
+    expect(log).toHaveBeenCalledWith("new-token");
+    expect(warn).toHaveBeenCalledWith(
+      "Token rotation committed with incomplete cleanup: push-subscriptions",
+    );
+  });
+
   it("does not modify on-disk state when no running server is reachable", async () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error("ECONNREFUSED");
