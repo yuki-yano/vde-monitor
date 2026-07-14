@@ -10,20 +10,14 @@ vi.mock("../SessionDetailProvider", () => ({
   useSessionDetailContext: () => mockContextValue,
 }));
 
-const buildContextValue = (
-  overrides: {
-    sessionAgent?: "codex" | "claude" | "unknown";
-    screenText?: string;
-  } = {},
-) => {
+const buildContextValue = () => {
   const session = createSessionDetail({
     paneId: "pane-1",
-    agent: overrides.sessionAgent ?? "codex",
+    agent: "codex",
   });
   return {
     base: {
       session,
-      screenText: overrides.screenText ?? "",
     },
     terminal: {
       screen: {
@@ -80,28 +74,6 @@ const buildContextValue = (
 };
 
 describe("useScreenPanelState", () => {
-  it("derives latest codex context-left label from screen text", () => {
-    mockContextValue = buildContextValue({
-      sessionAgent: "codex",
-      screenText: "Context 91% left\n[32mContext 74% left[0m",
-    });
-
-    const { result } = renderHook(() => useScreenPanelState());
-
-    expect(result.current.contextLeftLabel).toBe("Context 74% left");
-  });
-
-  it("ignores context-left label for non-codex sessions", () => {
-    mockContextValue = buildContextValue({
-      sessionAgent: "claude",
-      screenText: "63% context left",
-    });
-
-    const { result } = renderHook(() => useScreenPanelState());
-
-    expect(result.current.contextLeftLabel).toBeNull();
-  });
-
   it("maps the send-scoped error separately from the screen error", () => {
     mockContextValue = buildContextValue();
     (mockContextValue.terminal as { screen: Record<string, unknown> }).screen.error =

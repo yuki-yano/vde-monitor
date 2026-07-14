@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 
 import { useSessionDetailContext } from "../SessionDetailProvider";
-import { extractCodexContextLeft } from "../sessionDetailUtils";
 
 // Dedicated ScreenPanel state hook. This is the single place that reshapes the
 // screen/worktree-selector/notification subhook outputs into the flat,
@@ -12,14 +11,9 @@ import { extractCodexContextLeft } from "../sessionDetailUtils";
 // useSessionDetailViewExplorerSectionProps (ScreenPanel's props builder) so the
 // underlying screen/controls subhooks are read from a single call site.
 export const useScreenPanelState = () => {
-  const { base, terminal, scope, pushNotifications } = useSessionDetailContext();
+  const { terminal, scope, pushNotifications } = useSessionDetailContext();
   const { screen, controls, handleRefreshScreen } = terminal;
   const { virtualWorktree } = scope;
-
-  const contextLeftLabel = useMemo(
-    () => (base.session?.agent === "codex" ? extractCodexContextLeft(base.screenText) : null),
-    [base.screenText, base.session?.agent],
-  );
 
   return useMemo(
     () => ({
@@ -31,7 +25,6 @@ export const useScreenPanelState = () => {
       error: screen.error,
       sendError: controls.sendError,
       pollingPauseReason: screen.pollingPauseReason,
-      contextLeftLabel,
       isScreenLoading: screen.isScreenLoading,
       isAtBottom: screen.isAtBottom,
       handleAtBottomChange: screen.handleAtBottomChange,
@@ -64,14 +57,6 @@ export const useScreenPanelState = () => {
       requestNotificationPermission: pushNotifications.requestPermissionAndSubscribe,
       togglePaneNotification: pushNotifications.togglePaneEnabled,
     }),
-    [
-      screen,
-      controls,
-      handleRefreshScreen,
-      virtualWorktree,
-      scope,
-      pushNotifications,
-      contextLeftLabel,
-    ],
+    [screen, controls, handleRefreshScreen, virtualWorktree, scope, pushNotifications],
   );
 };

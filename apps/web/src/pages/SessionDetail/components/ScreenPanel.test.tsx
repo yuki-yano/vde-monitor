@@ -87,7 +87,6 @@ describe("ScreenPanel", () => {
       additions: 18,
       deletions: 6,
     },
-    contextLeftLabel: null,
     isScreenLoading: false,
     imageBase64: null,
     screenLines: ["line"],
@@ -450,27 +449,14 @@ describe("ScreenPanel", () => {
     expect(screen.queryByText("D 0")).toBeNull();
   });
 
-  it("shows context-left label when available", () => {
-    const state = buildState({ contextLeftLabel: "73% context left" });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    const gitRow = screen.getByTestId("prompt-git-context-row");
-    expect(gitRow.textContent).toContain("73% context left");
-  });
-
   it("does not render git metrics when prompt context is missing", () => {
     const state = buildState({
       promptGitContext: null,
-      contextLeftLabel: "73% context left",
     });
     const actions = buildActions();
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
-    const gitRow = screen.getByTestId("prompt-git-context-row");
-    expect(gitRow.textContent).toContain("73% context left");
-    expect(gitRow.textContent).not.toContain("+—");
-    expect(gitRow.textContent).not.toContain("-—");
+    expect(screen.queryByTestId("prompt-git-context-row")).toBeNull();
   });
 
   it("shows worktree path as relative path with decorated status labels", () => {
@@ -1061,19 +1047,15 @@ describe("ScreenPanel", () => {
     expect(onClearVirtualWorktree).toHaveBeenCalled();
   });
 
-  it("shows polling pause indicator on second row and keeps context on first row", () => {
+  it("shows polling pause indicator on the status row", () => {
     const state = buildState({
       pollingPauseReason: "offline",
-      contextLeftLabel: "73% context left",
     });
     const actions = buildActions();
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
-    const gitRow = screen.getByTestId("prompt-git-context-row");
     const statusRow = screen.getByTestId("prompt-status-row");
-    expect(gitRow.textContent).toContain("73% context left");
     expect(statusRow.textContent).toContain("PAUSED (offline)");
-    expect(statusRow.textContent).not.toContain("73% context left");
     expect(screen.getByText("PAUSED (offline)")).toBeTruthy();
   });
 

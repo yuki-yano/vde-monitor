@@ -1,4 +1,3 @@
-import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 
 import { useNowMs } from "@/lib/use-now-ms";
@@ -12,8 +11,6 @@ import {
   useSessionStreamData,
 } from "@/state/session-context";
 import { useTheme } from "@/state/theme-context";
-
-import { screenContentContextKeyAtom, screenTextAtom } from "../atoms/screenAtoms";
 
 export const useSessionDetailVMState = (paneId: string) => {
   const {
@@ -70,9 +67,6 @@ export const useSessionDetailVMState = (paneId: string) => {
   const { requestRepoNotes, createRepoNote, updateRepoNote, deleteRepoNote } = useSessionNotesApi();
   const { launchAgentInSession } = useSessionLaunchApi();
   const { resolvedTheme } = useTheme();
-  const rawScreenText = useAtomValue(screenTextAtom);
-  const screenContentContextKey = useAtomValue(screenContentContextKeyAtom);
-  const screenText = screenContentContextKey === `${paneId}\0text` ? rawScreenText : "";
   const nowMs = useNowMs();
   const session = getSessionDetail(paneId);
 
@@ -95,7 +89,6 @@ export const useSessionDetailVMState = (paneId: string) => {
       capabilities,
       resolvedTheme,
       session,
-      screenText,
       nowMs,
       refreshSessions,
       requestWorktrees,
@@ -146,7 +139,6 @@ export const useSessionDetailVMState = (paneId: string) => {
       capabilities,
       resolvedTheme,
       session,
-      screenText,
       nowMs,
       refreshSessions,
       requestWorktrees,

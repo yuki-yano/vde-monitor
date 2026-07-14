@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const CONTEXT_ROW_GUARD_PX = 12;
 const BRANCH_LABEL_WIDTH_GUARD_PX = 2;
 const WORKTREE_SELECTOR_BRANCH_CHROME_PX = 48;
 const BRANCH_PILL_CHROME_PX = 34;
@@ -11,21 +10,6 @@ const parseGapPx = (value: string) => {
     return 0;
   }
   return parsed;
-};
-
-const measureFlexChildrenTotalWidth = (node: HTMLElement) => {
-  const children = Array.from(node.children).filter(
-    (child): child is HTMLElement => child instanceof HTMLElement,
-  );
-  if (children.length === 0) {
-    return 0;
-  }
-  const styles = window.getComputedStyle(node);
-  const gap = parseGapPx(styles.columnGap || styles.gap || "0");
-  const childrenWidth = children.reduce((total, child) => {
-    return total + child.getBoundingClientRect().width;
-  }, 0);
-  return childrenWidth + gap * Math.max(children.length - 1, 0);
 };
 
 const truncateTextFromStartByWidth = (
@@ -60,7 +44,6 @@ const truncateTextFromStartByWidth = (
 
 type UsePromptContextLayoutArgs = {
   gitBranchLabel: string;
-  contextLeftLabel: string | null;
   worktreeSelectorEnabled: boolean;
   gitAdditionsLabel: string | null;
   gitDeletionsLabel: string | null;
@@ -70,14 +53,12 @@ type UsePromptContextLayoutArgs = {
 
 export const usePromptContextLayout = ({
   gitBranchLabel,
-  contextLeftLabel,
   worktreeSelectorEnabled,
   gitAdditionsLabel,
   gitDeletionsLabel,
   isVirtualActive,
   visibleFileChangeCategoriesKey,
 }: UsePromptContextLayoutArgs) => {
-  const [isContextInStatusRow, setIsContextInStatusRow] = useState(false);
   const [branchLabelLayout, setBranchLabelLayout] = useState(() => ({
     sourceLabel: gitBranchLabel,
     displayLabel: gitBranchLabel,
@@ -85,7 +66,6 @@ export const usePromptContextLayout = ({
   }));
   const promptGitContextRowRef = useRef<HTMLDivElement | null>(null);
   const promptGitContextLeftRef = useRef<HTMLDivElement | null>(null);
-  const contextLabelMeasureRef = useRef<HTMLSpanElement | null>(null);
   const branchPillContainerRef = useRef<HTMLDivElement | null>(null);
   const branchLabelMeasureRef = useRef<HTMLSpanElement | null>(null);
 
@@ -200,74 +180,10 @@ export const usePromptContextLayout = ({
     visibleFileChangeCategoriesKey,
   ]);
 
-  const evaluateContextLabelPlacement = useCallback(() => {
-    if (!contextLeftLabel) {
-      setIsContextInStatusRow(false);
-      return;
-    }
-    const rowWidth = promptGitContextRowRef.current?.clientWidth ?? 0;
-    const leftNode = promptGitContextLeftRef.current;
-    const leftWidth = leftNode ? measureFlexChildrenTotalWidth(leftNode) : 0;
-    const contextWidth = contextLabelMeasureRef.current?.offsetWidth ?? 0;
-    if (rowWidth <= 0 || contextWidth <= 0) {
-      return;
-    }
-    const requiredWidth = leftWidth + contextWidth + 12;
-    const needsStatusRow = isContextInStatusRow
-      ? requiredWidth > rowWidth - CONTEXT_ROW_GUARD_PX
-      : requiredWidth > rowWidth;
-    setIsContextInStatusRow((previous) =>
-      previous === needsStatusRow ? previous : needsStatusRow,
-    );
-  }, [contextLeftLabel, isContextInStatusRow]);
-
-  useEffect(() => {
-    evaluateContextLabelPlacement();
-    if (typeof window === "undefined") {
-      return;
-    }
-    const rowNode = promptGitContextRowRef.current;
-    const leftNode = promptGitContextLeftRef.current;
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(() => {
-            evaluateContextLabelPlacement();
-          });
-    if (rowNode) {
-      resizeObserver?.observe(rowNode);
-    }
-    if (leftNode) {
-      resizeObserver?.observe(leftNode);
-    }
-    const rafId = window.requestAnimationFrame(() => {
-      evaluateContextLabelPlacement();
-    });
-    const onResize = () => {
-      evaluateContextLabelPlacement();
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", onResize);
-      resizeObserver?.disconnect();
-    };
-  }, [
-    contextLeftLabel,
-    displayGitBranchLabel,
-    evaluateContextLabelPlacement,
-    gitAdditionsLabel,
-    gitDeletionsLabel,
-    isVirtualActive,
-    visibleFileChangeCategoriesKey,
-  ]);
-
   return {
-    isContextInStatusRow,
     displayGitBranchLabel,
     promptGitContextRowRef,
     promptGitContextLeftRef,
-    contextLabelMeasureRef,
     branchPillContainerRef,
     branchLabelMeasureRef,
     branchLabelSlotClassName: isBranchLabelConstrained ? "min-w-0 flex-1 basis-0" : "min-w-0",

@@ -30,8 +30,6 @@ type ScreenPanelPromptContextProps = {
     additions: number | null;
     deletions: number | null;
   } | null;
-  contextLeftLabel: string | null;
-  isContextInStatusRow: boolean;
   displayGitBranchLabel: string;
   gitBranchLabel: string | null;
   isVirtualActive: boolean;
@@ -52,7 +50,6 @@ type ScreenPanelPromptContextProps = {
   branchContainerClassName: string;
   promptGitContextRowRef: RefObject<HTMLDivElement | null>;
   promptGitContextLeftRef: RefObject<HTMLDivElement | null>;
-  contextLabelMeasureRef: RefObject<HTMLSpanElement | null>;
   branchPillContainerRef: RefObject<HTMLDivElement | null>;
   branchLabelMeasureRef: RefObject<HTMLSpanElement | null>;
   pollingPauseMeta: PollingPauseMeta | null;
@@ -69,8 +66,6 @@ const LEADING_TRUNCATE_CLASS_NAME =
 
 export const ScreenPanelPromptContext = ({
   promptGitContext,
-  contextLeftLabel,
-  isContextInStatusRow,
   displayGitBranchLabel,
   gitBranchLabel,
   isVirtualActive,
@@ -91,7 +86,6 @@ export const ScreenPanelPromptContext = ({
   branchContainerClassName,
   promptGitContextRowRef,
   promptGitContextLeftRef,
-  contextLabelMeasureRef,
   branchPillContainerRef,
   branchLabelMeasureRef,
   pollingPauseMeta,
@@ -103,21 +97,12 @@ export const ScreenPanelPromptContext = ({
   onCloseWorktreeSelector,
 }: ScreenPanelPromptContextProps) => (
   <>
-    {contextLeftLabel ? (
-      <span
-        ref={contextLabelMeasureRef}
-        aria-hidden="true"
-        className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap px-1 text-[12px] font-medium tracking-[0.14em]"
-      >
-        {contextLeftLabel}
-      </span>
-    ) : null}
     <span
       ref={branchLabelMeasureRef}
       aria-hidden="true"
       className="pointer-events-none fixed left-[-9999px] top-[-9999px] whitespace-nowrap font-mono text-[10px] font-semibold tracking-wider"
     />
-    {promptGitContext || contextLeftLabel ? (
+    {promptGitContext ? (
       <div
         ref={promptGitContextRowRef}
         data-testid="prompt-git-context-row"
@@ -224,14 +209,9 @@ export const ScreenPanelPromptContext = ({
             </>
           ) : null}
         </div>
-        {contextLeftLabel && !isContextInStatusRow ? (
-          <span className="text-latte-subtext0 shrink-0 px-1 text-[12px] font-medium tracking-[0.14em]">
-            {contextLeftLabel}
-          </span>
-        ) : null}
       </div>
     ) : null}
-    {pollingPauseMeta || (contextLeftLabel && isContextInStatusRow) ? (
+    {pollingPauseMeta ? (
       <div data-testid="prompt-status-row" className="-mt-0.5 flex items-center gap-2">
         {pollingPauseMeta ? (
           <span
@@ -241,11 +221,6 @@ export const ScreenPanelPromptContext = ({
             )}
           >
             {pollingPauseMeta.label}
-          </span>
-        ) : null}
-        {contextLeftLabel && isContextInStatusRow ? (
-          <span className="text-latte-subtext0 ml-auto shrink-0 px-1 text-right text-[12px] font-medium tracking-[0.14em]">
-            {contextLeftLabel}
           </span>
         ) : null}
       </div>

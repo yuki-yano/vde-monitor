@@ -153,7 +153,6 @@ const buildDefaultContextValue = () => {
         resumeAgent: true,
       },
       resolvedTheme: "latte" as const,
-      screenText: "",
       sessions: [] as SessionDetail[],
       token: null,
       apiBaseUrl: null,

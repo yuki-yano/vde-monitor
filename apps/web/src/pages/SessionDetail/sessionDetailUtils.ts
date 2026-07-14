@@ -1,34 +1,9 @@
 import { type CommitLog, type DiffSummary, type SessionSummary } from "@vde-monitor/shared";
 
-import { stripAnsi } from "@/lib/ansi-text-utils";
-
-const normalizeScreenTextForSearch = (screenText: string) =>
-  stripAnsi(screenText).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-
 export const AUTO_REFRESH_INTERVAL_MS = 10_000;
 export const MAX_DIFF_LINES = 1200;
 export const PREVIEW_DIFF_LINES = 240;
 export const DISCONNECTED_MESSAGE = "Disconnected. Reconnecting...";
-export const extractCodexContextLeft = (screenText: string): string | null => {
-  if (!screenText) {
-    return null;
-  }
-  const normalized = normalizeScreenTextForSearch(screenText);
-  const pattern = /\bcontext\s+(\d{1,3}(?:\.\d+)?)%\s+left\b/gi;
-  let match: RegExpExecArray | null = null;
-  let lastLabel: string | null = null;
-  while (true) {
-    match = pattern.exec(normalized);
-    if (!match) {
-      break;
-    }
-    const value = match[1];
-    if (value) {
-      lastLabel = `Context ${value}% left`;
-    }
-  }
-  return lastLabel;
-};
 
 export const diffLineClass = (line: string) => {
   if (line.startsWith("+++ ") || line.startsWith("--- ")) {

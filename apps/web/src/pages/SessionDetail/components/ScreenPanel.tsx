@@ -65,7 +65,6 @@ type ScreenPanelState = {
     additions: number | null;
     deletions: number | null;
   } | null;
-  contextLeftLabel: string | null;
   isScreenLoading: boolean;
   imageBase64: string | null;
   screenLines: string[];
@@ -250,7 +249,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     sendError,
     pollingPauseReason,
     promptGitContext,
-    contextLeftLabel,
     isScreenLoading,
     imageBase64,
     screenLines,
@@ -313,11 +311,9 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     .map((item) => `${item.key}:${item.value}`)
     .join("|");
   const {
-    isContextInStatusRow,
     displayGitBranchLabel,
     promptGitContextRowRef,
     promptGitContextLeftRef,
-    contextLabelMeasureRef,
     branchPillContainerRef,
     branchLabelMeasureRef,
     branchLabelSlotClassName,
@@ -325,7 +321,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
     branchContainerClassName,
   } = usePromptContextLayout({
     gitBranchLabel,
-    contextLeftLabel,
     worktreeSelectorEnabled,
     gitAdditionsLabel,
     gitDeletionsLabel,
@@ -532,8 +527,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
       />
       <ScreenPanelPromptContext
         promptGitContext={promptGitContext}
-        contextLeftLabel={contextLeftLabel}
-        isContextInStatusRow={isContextInStatusRow}
         displayGitBranchLabel={displayGitBranchLabel}
         gitBranchLabel={gitBranchLabel}
         isVirtualActive={isVirtualActive}
@@ -554,7 +547,6 @@ export const ScreenPanel = memo(({ state, actions, controls }: ScreenPanelProps)
         branchContainerClassName={branchContainerClassName}
         promptGitContextRowRef={promptGitContextRowRef}
         promptGitContextLeftRef={promptGitContextLeftRef}
-        contextLabelMeasureRef={contextLabelMeasureRef}
         branchPillContainerRef={branchPillContainerRef}
         branchLabelMeasureRef={branchLabelMeasureRef}
         pollingPauseMeta={pollingPauseMeta}

@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotesSection } from "./components/NotesSection";
-import { screenContentContextKeyAtom, screenTextAtom } from "./atoms/screenAtoms";
 import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
 import {
@@ -444,29 +443,6 @@ describe("SessionDetailProvider", () => {
     rerender();
 
     expect(result.current).toBe(first);
-  });
-
-  it("does not expose screen text owned by the previous pane", () => {
-    mockSessionsContext = buildSessionContext({
-      sessions: [session],
-      sessionApi: buildSessionApi(),
-    });
-    const store = createStore();
-    store.set(screenTextAtom, "previous pane output");
-    store.set(screenContentContextKeyAtom, "pane-1\0text");
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <JotaiProvider store={store}>{children}</JotaiProvider>
-    );
-    const { result, rerender } = renderHook(({ paneId }) => useSessionDetailVMState(paneId), {
-      wrapper,
-      initialProps: { paneId: "pane-1" },
-    });
-
-    expect(result.current.screenText).toBe("previous pane output");
-
-    rerender({ paneId: "pane-2" });
-
-    expect(result.current.screenText).toBe("");
   });
 
   it("does not re-render the memoized NotesSection when an unrelated sessions tick updates base state (T15a)", async () => {
