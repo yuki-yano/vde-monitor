@@ -181,13 +181,20 @@ export const createJsonlTailer = (pollIntervalMs: number) => {
   const emitCompleteLines = (state: ReadState, chunk: Buffer) => {
     state.buffer = state.buffer.length === 0 ? chunk : Buffer.concat([state.buffer, chunk]);
     let newlineIndex = state.buffer.indexOf(0x0a);
+    let consumedLine = false;
     while (newlineIndex >= 0) {
       const line = state.buffer.subarray(0, newlineIndex).toString("utf8");
       state.buffer = state.buffer.subarray(newlineIndex + 1);
+      consumedLine = true;
       if (line.trim().length > 0) {
         listeners.forEach((listener) => listener(line));
       }
       newlineIndex = state.buffer.indexOf(0x0a);
+    }
+    if (consumedLine) {
+      // Buffer.subarray keeps its parent allocation alive. Copy the incomplete tail so a
+      // short partial line does not retain the entire read buffer between polls.
+      state.buffer = Buffer.from(state.buffer);
     }
   };
 

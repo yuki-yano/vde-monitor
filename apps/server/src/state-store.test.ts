@@ -361,7 +361,7 @@ describe("state-store timeline persistence", () => {
       expect.objectContaining({ mode: 0o600 }),
     );
     expect(mocks.renameSync).toHaveBeenCalledWith(expect.stringContaining(".tmp"), statePath);
-    expect(mocks.openSync).toHaveBeenCalledWith(expect.stringContaining(".tmp"), "r");
+    expect(mocks.openSync).toHaveBeenCalledWith(expect.stringContaining(".tmp"), "r+");
     expect(mocks.fsyncSync).toHaveBeenCalledWith(42);
     expect(mocks.closeSync).toHaveBeenCalledWith(42);
     expect(fileContents.has(statePath)).toBe(true);

@@ -327,7 +327,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
       encoding: "utf8",
       mode: 0o600,
     });
-    const temporaryFd = fs.openSync(temporaryPath, "r");
+    const temporaryFd = fs.openSync(temporaryPath, "r+");
     try {
       fs.fsyncSync(temporaryFd);
     } finally {

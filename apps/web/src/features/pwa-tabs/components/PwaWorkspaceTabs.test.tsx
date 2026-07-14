@@ -98,6 +98,8 @@ describe("PwaWorkspaceTabs keyboard accessibility", () => {
     expect(paneA.parentElement?.getAttribute("tabindex")).toBeNull();
     expect(paneA.hasAttribute("aria-pressed")).toBe(false);
     expect(paneA.hasAttribute("aria-roledescription")).toBe(false);
+    expect(paneA.getAttribute("aria-disabled")).toBe("false");
+    expect(paneA.hasAttribute("aria-describedby")).toBe(true);
 
     paneA.focus();
     fireEvent.keyDown(paneA, { key: "ArrowRight" });

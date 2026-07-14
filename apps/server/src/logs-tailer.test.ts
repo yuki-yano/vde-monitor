@@ -51,6 +51,23 @@ describe("createJsonlTailer", () => {
     await tailer.stop();
   });
 
+  it("retains a copied partial tail after emitting a preceding line", async () => {
+    const filePath = await createLogPath();
+    const onLine = vi.fn();
+    const tailer = createTailer();
+    tailer.onLine(onLine);
+    await tailer.start(filePath);
+
+    await fs.appendFile(filePath, "first\nsec");
+    await vi.waitFor(() => expect(onLine).toHaveBeenCalledWith("first"));
+
+    await fs.appendFile(filePath, "ond\n");
+    await vi.waitFor(() => {
+      expect(onLine.mock.calls.map(([line]) => line)).toEqual(["first", "second"]);
+    });
+    await tailer.stop();
+  });
+
   it("waits for a stable old-inode EOF before emitting replacement-inode lines", async () => {
     const filePath = await createLogPath();
     const oldWriter = await fs.open(filePath, "a");

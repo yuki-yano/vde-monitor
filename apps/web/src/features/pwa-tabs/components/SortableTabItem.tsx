@@ -72,13 +72,15 @@ export const SortableTabItem = ({
           <Grid2x2 className="h-3 w-3" />
         </span>
       )}
+      {/* dnd-kit labels sortables as "sortable". Keep native tab semantics while forwarding
+          its current and future interaction attributes. */}
       <button
         ref={setActivatorNodeRef}
         type="button"
-        role={attributes.role}
-        tabIndex={attributes.tabIndex}
-        aria-disabled={attributes["aria-disabled"]}
-        aria-describedby={attributes["aria-describedby"]}
+        {...attributes}
+        role="tab"
+        aria-pressed={undefined}
+        aria-roledescription={undefined}
         {...listeners}
         aria-selected={active}
         data-tab-id={tab.id}
