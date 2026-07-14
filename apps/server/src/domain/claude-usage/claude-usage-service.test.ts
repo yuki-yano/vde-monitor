@@ -139,6 +139,70 @@ describe("fetchClaudeOauthUsageWithFallback", () => {
     expect(mocks.writeFile).not.toHaveBeenCalled();
   });
 
+  it("parses weekly scoped model limits from the usage response", async () => {
+    mocks.readFile.mockResolvedValue(
+      JSON.stringify({
+        claudeAiOauth: {
+          accessToken: "file-token",
+        },
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            five_hour: {
+              utilization: 10,
+              resets_at: "2026-02-25T10:00:00.000Z",
+            },
+            seven_day: {
+              utilization: 20,
+              resets_at: "2026-03-01T10:00:00.000Z",
+            },
+            limits: [
+              {
+                kind: "weekly_all",
+                percent: 20,
+                resets_at: "2026-03-01T10:00:00.000Z",
+                scope: null,
+              },
+              {
+                kind: "weekly_scoped",
+                percent: 42,
+                resets_at: "2026-03-01T10:00:00.000Z",
+                scope: {
+                  model: {
+                    id: null,
+                    display_name: "Fable",
+                  },
+                  surface: null,
+                },
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      ),
+    );
+
+    const usage = await fetchClaudeOauthUsageWithFallback({ timeoutMs: 1_000 });
+
+    expect(usage.modelWindows).toEqual([
+      {
+        modelLabel: "Fable",
+        utilizationPercent: 42,
+        resetsAt: "2026-03-01T10:00:00.000Z",
+        windowDurationMins: 10_080,
+      },
+    ]);
+  });
+
   it("falls back to Keychain when .credentials.json token fails and saves retrieved credentials", async () => {
     setProcessPlatform("darwin");
     setupStaleCredentials();

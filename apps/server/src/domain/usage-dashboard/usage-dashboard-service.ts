@@ -192,14 +192,14 @@ const buildClaudeSnapshot = async ({
     }),
   ];
 
-  if (response.sevenDaySonnet) {
+  for (const modelWindow of response.modelWindows) {
     windows.push(
       createUsageMetricWindow({
         id: "model",
-        title: "Sonnet Weekly",
-        utilizationPercent: response.sevenDaySonnet.utilizationPercent,
-        windowDurationMs: response.sevenDaySonnet.windowDurationMins * 60 * 1000,
-        resetsAt: response.sevenDaySonnet.resetsAt,
+        title: `${modelWindow.modelLabel} Weekly`,
+        utilizationPercent: modelWindow.utilizationPercent,
+        windowDurationMs: modelWindow.windowDurationMins * 60 * 1000,
+        resetsAt: modelWindow.resetsAt,
         nowMs,
         balancedThresholdPercent,
       }),
@@ -207,7 +207,7 @@ const buildClaudeSnapshot = async ({
   }
 
   const capabilities = baseCapabilities("claude");
-  capabilities.modelWindows = response.sevenDaySonnet != null;
+  capabilities.modelWindows = response.modelWindows.length > 0;
 
   return {
     providerId: "claude",

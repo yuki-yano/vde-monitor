@@ -83,7 +83,7 @@ describe("createUsageDashboardService", () => {
         resetsAt: "2026-02-28T12:00:00.000Z",
         windowDurationMins: 10_080,
       },
-      sevenDaySonnet: null,
+      modelWindows: [],
     });
   });
 
@@ -121,6 +121,44 @@ describe("createUsageDashboardService", () => {
 
     expect(provider.windows.some((window) => window.id === "session")).toBe(true);
     expect(provider.capabilities.session).toBe(true);
+  });
+
+  it("shows scoped Claude model limits as weekly windows", async () => {
+    mocks.fetchClaudeOauthUsageWithFallback.mockResolvedValue({
+      fiveHour: {
+        utilizationPercent: 10,
+        resetsAt: "2026-02-24T12:00:00.000Z",
+        windowDurationMins: 300,
+      },
+      sevenDay: {
+        utilizationPercent: 30,
+        resetsAt: "2026-02-28T12:00:00.000Z",
+        windowDurationMins: 10_080,
+      },
+      modelWindows: [
+        {
+          modelLabel: "Fable",
+          utilizationPercent: 42,
+          resetsAt: "2026-02-28T12:00:00.000Z",
+          windowDurationMins: 10_080,
+        },
+      ],
+    });
+    const service = createUsageDashboardService({
+      usageConfig: configDefaults.usage,
+    });
+
+    const provider = await service.getProviderSnapshot("claude");
+
+    expect(provider.windows).toContainEqual(
+      expect.objectContaining({
+        id: "model",
+        title: "Fable Weekly",
+        utilizationPercent: 42,
+        resetsAt: "2026-02-28T12:00:00.000Z",
+      }),
+    );
+    expect(provider.capabilities.modelWindows).toBe(true);
   });
 
   it("hides the session window when Codex only returns a weekly limit", async () => {

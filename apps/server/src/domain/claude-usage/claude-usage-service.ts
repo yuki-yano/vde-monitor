@@ -15,10 +15,14 @@ type ClaudeUsageWindow = {
   windowDurationMins: number;
 };
 
+type ClaudeModelUsageWindow = ClaudeUsageWindow & {
+  modelLabel: string;
+};
+
 export type ClaudeOauthUsageResponse = {
   fiveHour: ClaudeUsageWindow;
   sevenDay: ClaudeUsageWindow;
-  sevenDaySonnet: ClaudeUsageWindow | null;
+  modelWindows: ClaudeModelUsageWindow[];
 };
 
 type FetchClaudeOauthUsageOptions = {
@@ -65,6 +69,35 @@ const parseWindow = (value: unknown, windowDurationMins: number): ClaudeUsageWin
   };
 };
 
+const parseModelWindows = (value: unknown): ClaudeModelUsageWindow[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((limit) => {
+    if (!isRecord(limit) || limit.kind !== "weekly_scoped" || !isRecord(limit.scope)) {
+      return [];
+    }
+    const model = limit.scope.model;
+    if (!isRecord(model)) {
+      return [];
+    }
+    const modelLabel = asNonEmptyString(model.display_name);
+    const utilizationPercent = asNumber(limit.percent);
+    if (!modelLabel || utilizationPercent == null) {
+      return [];
+    }
+    return [
+      {
+        modelLabel,
+        utilizationPercent,
+        resetsAt: asIsoString(limit.resets_at),
+        windowDurationMins: CLAUDE_SEVEN_DAY_MINS,
+      },
+    ];
+  });
+};
+
 const parseClaudeOauthUsage = (value: unknown): ClaudeOauthUsageResponse | null => {
   if (!isRecord(value)) {
     return null;
@@ -75,11 +108,11 @@ const parseClaudeOauthUsage = (value: unknown): ClaudeOauthUsageResponse | null 
   if (!fiveHour || !sevenDay) {
     return null;
   }
-  const sevenDaySonnet = parseWindow(
-    value.seven_day_sonnet ?? value.sevenDaySonnet,
-    CLAUDE_SEVEN_DAY_MINS,
-  );
-  return { fiveHour, sevenDay, sevenDaySonnet };
+  return {
+    fiveHour,
+    sevenDay,
+    modelWindows: parseModelWindows(value.limits),
+  };
 };
 
 const parseRefreshResponse = (
