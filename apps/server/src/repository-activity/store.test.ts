@@ -233,6 +233,7 @@ describe("createRepositoryActivityStore", () => {
     expect(activity.items).toEqual([]);
     expect(activity.coverage.unattributedRunningMs).toBe(4_000);
     expect(activity.coverage.unattributedCompletedRunCount).toBe(1);
+    expect(activity.coverage.unverifiedCompletedRunCount).toBe(0);
   });
 
   it("ignores poll-only running fragments while retaining explicit completions", () => {
@@ -261,7 +262,17 @@ describe("createRepositoryActivityStore", () => {
       source: "hook:stop",
     });
 
-    expect(store.getActivity("15m").items).toEqual([
+    nowMs += 15 * 60_000 - 10_000;
+
+    const activity = store.getActivity("15m");
+
+    expect(activity.coverage).toMatchObject({
+      status: "partial",
+      gapDurationMs: 0,
+      unattributedCompletedRunCount: 0,
+      unverifiedCompletedRunCount: 1,
+    });
+    expect(activity.items).toEqual([
       expect.objectContaining({
         activeTimeMs: 0,
         agentTimeMs: 0,
@@ -315,6 +326,49 @@ describe("createRepositoryActivityStore", () => {
         activeTimeMs: 10_000,
         agentTimeMs: 10_000,
         completedRunCount: 1,
+      }),
+    ]);
+  });
+
+  it("does not overlap a closed interval when delayed verification reopens the same run", () => {
+    let nowMs = Date.parse("2026-07-11T00:00:00.000Z");
+    const store = createRepositoryActivityStore({ now: () => new Date(nowMs) });
+
+    store.observePane({
+      paneId: "%1",
+      running: true,
+      repoRoot: "/work/a",
+      runId: "epoch-a:1",
+      verified: true,
+    });
+    nowMs += 5_000;
+    store.closePane("%1");
+    nowMs += 5_000;
+    store.observePane({
+      paneId: "%1",
+      running: true,
+      repoRoot: "/work/a",
+      runId: "epoch-a:1",
+      verified: true,
+      at: at(nowMs - 6_000),
+    });
+    nowMs += 5_000;
+    store.closePane("%1");
+
+    expect(store.getActivity("15m").items).toEqual([
+      expect.objectContaining({
+        activeTimeMs: 10_000,
+        agentTimeMs: 10_000,
+      }),
+    ]);
+    expect(store.serialize().intervals).toEqual([
+      expect.objectContaining({
+        startedAt: "2026-07-11T00:00:00.000Z",
+        endedAt: "2026-07-11T00:00:05.000Z",
+      }),
+      expect.objectContaining({
+        startedAt: "2026-07-11T00:00:10.000Z",
+        endedAt: "2026-07-11T00:00:15.000Z",
       }),
     ]);
   });

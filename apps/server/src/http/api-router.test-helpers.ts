@@ -219,6 +219,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
         gapDurationMs: 0,
         unattributedRunningMs: 0,
         unattributedCompletedRunCount: 0,
+        unverifiedCompletedRunCount: 0,
       },
       items: [],
       fetchedAt: "2026-02-25T10:00:00.000Z",

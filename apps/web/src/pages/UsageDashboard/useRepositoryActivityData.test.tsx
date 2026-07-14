@@ -19,6 +19,7 @@ const createResponse = (range: RepositoryActivityRange): UsageRepositoryActivity
     gapDurationMs: 0,
     unattributedRunningMs: 0,
     unattributedCompletedRunCount: 0,
+    unverifiedCompletedRunCount: 0,
   },
   items: [],
   fetchedAt: "2026-07-11T00:00:00.000Z",

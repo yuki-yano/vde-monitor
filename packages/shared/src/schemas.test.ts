@@ -124,6 +124,7 @@ describe("usageRepositoryActivityResponseSchema", () => {
       gapDurationMs: 1000,
       unattributedRunningMs: 2000,
       unattributedCompletedRunCount: 1,
+      unverifiedCompletedRunCount: 1,
     },
     items: [
       {
@@ -146,6 +147,12 @@ describe("usageRepositoryActivityResponseSchema", () => {
   it("rejects a negative activity duration", () => {
     const payload = createPayload();
     payload.items[0]!.activeTimeMs = -1;
+    expect(usageRepositoryActivityResponseSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it("rejects a negative unverified completion count", () => {
+    const payload = createPayload();
+    payload.coverage.unverifiedCompletedRunCount = -1;
     expect(usageRepositoryActivityResponseSchema.safeParse(payload).success).toBe(false);
   });
 });
