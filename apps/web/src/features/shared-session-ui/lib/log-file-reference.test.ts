@@ -74,6 +74,19 @@ describe("normalizeLogReference", () => {
     });
   });
 
+  it("keeps a .git/wt worktree path linkable relative to the main repository", () => {
+    expect(
+      normalizeLogReference("/Users/test/repo/.git/wt/feature/src/index.ts:12", {
+        sourceRepoRoot: "/Users/test/repo",
+      }),
+    ).toEqual({
+      display: ".git/wt/feature/src/index.ts",
+      normalizedPath: ".git/wt/feature/src/index.ts",
+      filename: "index.ts",
+      kind: "path",
+    });
+  });
+
   it("removes quote/bracket wrappers and trailing punctuation", () => {
     expect(
       normalizeLogReference('"(./src/main.ts:12),"', {

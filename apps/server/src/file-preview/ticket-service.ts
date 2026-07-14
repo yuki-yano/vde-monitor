@@ -3,6 +3,7 @@ import {
   closeSync,
   constants as fsConstants,
   fstatSync,
+  lstatSync,
   openSync,
   realpathSync,
   statSync,
@@ -64,6 +65,17 @@ const normalizeRequestedRelativePath = (value: string) => {
 const containsGitMetadataSegment = (relativePath: string) =>
   relativePath.split(path.sep).some((segment) => segment.toLowerCase() === ".git");
 
+const isLinkedWorktreeRoot = (root: PreviewRoot) => {
+  if (root.kind !== "linked-worktree") {
+    return false;
+  }
+  try {
+    return lstatSync(path.join(root.canonicalPath, ".git")).isFile();
+  } catch {
+    return false;
+  }
+};
+
 const toPosixPath = (value: string) => value.split(path.sep).join("/");
 
 const buildAllowedFileKey = (rootId: string, relativePath: string) =>
@@ -106,9 +118,12 @@ export class PreviewTicketService {
       if (
         !path.isAbsolute(root.canonicalPath) ||
         path.normalize(root.canonicalPath) !== root.canonicalPath ||
-        root.canonicalPath.split(path.sep).some((segment) => segment.toLowerCase() === ".git")
+        (root.canonicalPath.split(path.sep).some((segment) => segment.toLowerCase() === ".git") &&
+          !isLinkedWorktreeRoot(root))
       ) {
-        throw new Error("preview roots must be normalized absolute paths outside git metadata");
+        throw new Error(
+          "preview roots must be normalized absolute paths outside git metadata or linked worktree roots",
+        );
       }
       if (rootMap.has(root.rootId)) {
         throw new Error(`duplicate preview rootId: ${root.rootId}`);

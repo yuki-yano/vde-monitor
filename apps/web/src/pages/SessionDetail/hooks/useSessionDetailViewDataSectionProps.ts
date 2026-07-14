@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { useSessionDetailContext } from "../SessionDetailProvider";
+import { resolveSessionFileRoot } from "../sessionDetailUtils";
 import { useSessionRepoNotes } from "./useSessionRepoNotes";
 
 type UseSessionDetailViewDataSectionPropsArgs = {
@@ -17,7 +18,10 @@ export const useSessionDetailViewDataSectionProps = ({
   // virtual-branch/virtual-worktree exclusivity scope used to parameterize the
   // diffs/commits requests themselves.
   const screenEffectiveBranch = scope.virtualWorktree.effectiveBranch;
-  const sourceRepoRoot = scope.virtualWorktree.effectiveWorktreePath ?? session?.repoRoot ?? null;
+  const sourceRepoRoot = resolveSessionFileRoot(
+    session,
+    scope.virtualWorktree.effectiveWorktreePath,
+  );
   const {
     timeline: stateTimeline,
     timelineScope,

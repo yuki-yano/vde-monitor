@@ -1,6 +1,8 @@
 import type { GitPathSnapshotResolver } from "./git-path-snapshot";
+import type { NestedWorktreeRoot } from "./nested-worktree-roots";
+import { resolveNestedWorktreeRoots } from "./nested-worktree-roots";
 import { resolveRepoClassificationPath, resolveSafeRepoPath } from "./repo-path-resolver";
-import { readTreeDirectoryEntries } from "./service-tree-list";
+import { classifyTreeEntries, readTreeDirectoryEntries } from "./service-tree-list";
 
 const INDEX_CACHE_TTL_MS = 5_000;
 
@@ -47,12 +49,19 @@ export const createSearchIndexResolver = ({ now, gitPaths }: CreateSearchIndexRe
     currentRelativePath: string,
     visitedDirectories: Set<string>,
     output: SearchIndexItem[],
+    nestedWorktreeRoots: readonly NestedWorktreeRoot[],
   ) => {
     const entries = await readTreeDirectoryEntries({
       repoRoot,
       basePath: currentRelativePath,
+      nestedWorktreeRoots,
     });
-    const classifiedEntries = await gitPaths.classifyPaths(repoRoot, entries);
+    const classifiedEntries = await classifyTreeEntries({
+      repoRoot,
+      entries,
+      inheritedIgnored: false,
+      gitPaths,
+    });
 
     for (const entry of classifiedEntries) {
       output.push({
@@ -68,7 +77,7 @@ export const createSearchIndexResolver = ({ now, gitPaths }: CreateSearchIndexRe
         continue;
       }
       visitedDirectories.add(entry.realPath);
-      await buildSearchIndex(repoRoot, entry.path, visitedDirectories, output);
+      await buildSearchIndex(repoRoot, entry.path, visitedDirectories, output, nestedWorktreeRoots);
     }
   };
 
@@ -80,8 +89,9 @@ export const createSearchIndexResolver = ({ now, gitPaths }: CreateSearchIndexRe
     }
 
     const rootPath = await resolveSafeRepoPath({ repoRoot, relativePath: "." });
+    const nestedWorktreeRoots = await resolveNestedWorktreeRoots(repoRoot);
     const items: SearchIndexItem[] = [];
-    await buildSearchIndex(repoRoot, ".", new Set([rootPath.realPath]), items);
+    await buildSearchIndex(repoRoot, ".", new Set([rootPath.realPath]), items, nestedWorktreeRoots);
     searchIndexCache.set(repoRoot, {
       items,
       expiresAt: nowMs + INDEX_CACHE_TTL_MS,

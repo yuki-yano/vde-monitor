@@ -13,6 +13,7 @@ import { useSessionFiles } from "./hooks/useSessionFiles";
 import { useSessionRepoPins } from "./hooks/useSessionRepoPins";
 import { useSessionVirtualBranch } from "./hooks/useSessionVirtualBranch";
 import { useSessionVirtualWorktree } from "./hooks/useSessionVirtualWorktree";
+import { resolveSessionFileRoot } from "./sessionDetailUtils";
 
 // SessionDetailContext holds the state that genuinely needs to be shared across
 // multiple, non-nested SessionDetail sections (ScreenPanel, BranchSection,
@@ -155,9 +156,10 @@ const useSessionDetailContextValue = (paneId: string) => {
     [branches, virtualWorktree],
   );
 
+  const fileRoot = resolveSessionFileRoot(base.session, virtualWorktree.effectiveWorktreePath);
   const files = useSessionFiles({
     paneId,
-    repoRoot: base.session?.repoRoot ?? null,
+    repoRoot: fileRoot,
     worktreePath: virtualWorktree.effectiveWorktreePath,
     autoExpandMatchLimit: base.fileNavigatorConfig.autoExpandMatchLimit,
     requestRepoFileTree: base.requestRepoFileTree,

@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { useSessionDetailContext } from "../SessionDetailProvider";
-import { sumFileStats } from "../sessionDetailUtils";
+import { resolveSessionFileRoot, sumFileStats } from "../sessionDetailUtils";
 import { useScreenPanelState } from "./useScreenPanelState";
 
 export const useSessionDetailViewExplorerSectionProps = () => {
@@ -50,7 +50,7 @@ export const useSessionDetailViewExplorerSectionProps = () => {
     requestNotificationPermission,
     togglePaneNotification,
   } = screen;
-  const sourceRepoRoot = effectiveWorktreePath ?? session?.repoRoot ?? null;
+  const sourceRepoRoot = resolveSessionFileRoot(session, effectiveWorktreePath);
   const screenAgent = session?.agent ?? "unknown";
   const { diffSummary, diffError, diffFiles, diffLoadingFiles, ensureDiffFile } = diffs;
   const { rawMode, allowDangerKeys } = terminal.controls;
