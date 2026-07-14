@@ -94,6 +94,7 @@ const expectInternalError = (
 describe("session-api-request-executors", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it("requestSessionField returns requested field on success", async () => {
@@ -382,7 +383,7 @@ describe("session-api-request-executors", () => {
     const response = await requestScreenResponse({
       paneId: "pane-1",
       mode: "text",
-      request: postRequest("/tests/screen-success"),
+      request: () => postRequest("/tests/screen-success"),
       fallbackMessage: "screen failed",
       onConnectionIssue,
       handleSessionMissing,
@@ -413,7 +414,7 @@ describe("session-api-request-executors", () => {
     const response = await requestScreenResponse({
       paneId: "pane-1",
       mode: "image",
-      request: postRequest("/tests/screen-http-error"),
+      request: () => postRequest("/tests/screen-http-error"),
       fallbackMessage: "screen failed",
       onConnectionIssue,
       handleSessionMissing,
@@ -438,7 +439,7 @@ describe("session-api-request-executors", () => {
     const response = await requestScreenResponse({
       paneId: "pane-1",
       mode: "text",
-      request: postRequest("/tests/screen-network-error"),
+      request: () => postRequest("/tests/screen-network-error"),
       fallbackMessage: "screen failed",
       onConnectionIssue,
       handleSessionMissing,
@@ -448,6 +449,43 @@ describe("session-api-request-executors", () => {
     });
 
     expectInternalError(response, { onConnectionIssue, handleSessionMissing, onSessionRemoved });
+  });
+
+  it("requestScreenResponse stops waiting after the screen request timeout", async () => {
+    vi.useFakeTimers();
+    const onConnectionIssue = vi.fn();
+    const handleSessionMissing = vi.fn();
+    const onSessionRemoved = vi.fn();
+    const pendingRequest = new Promise<Response>(() => {});
+    let requestSignal: AbortSignal | undefined;
+
+    const responsePromise = requestScreenResponse({
+      paneId: "pane-1",
+      mode: "text",
+      request: (signal) => {
+        requestSignal = signal;
+        return pendingRequest;
+      },
+      requestTimeoutMs: 1_000,
+      fallbackMessage: "screen failed",
+      onConnectionIssue,
+      handleSessionMissing,
+      isPaneMissingError: vi.fn(() => false),
+      onSessionRemoved,
+      buildApiError: (code, message) => ({ code, message }),
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const response = await responsePromise;
+
+    expect(response).toMatchObject({
+      ok: false,
+      error: { code: "INTERNAL", message: API_ERROR_MESSAGES.requestTimeout },
+    });
+    expect(onConnectionIssue).toHaveBeenCalledWith(API_ERROR_MESSAGES.requestTimeout);
+    expect(requestSignal?.aborted).toBe(true);
+    expect(handleSessionMissing).not.toHaveBeenCalled();
+    expect(onSessionRemoved).not.toHaveBeenCalled();
   });
 
   it("requestImageAttachment returns parsed attachment payload", async () => {

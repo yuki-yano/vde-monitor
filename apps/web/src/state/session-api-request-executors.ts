@@ -256,7 +256,8 @@ export const requestLaunchCommand = async ({
 type RequestScreenResponseParams = {
   paneId: string;
   mode: "text" | "image";
-  request: Promise<Response>;
+  request: (signal?: AbortSignal) => Promise<Response>;
+  requestTimeoutMs?: number;
   fallbackMessage: string;
   onConnectionIssue: OnConnectionIssue;
   handleSessionMissing: HandleSessionMissing;
@@ -269,6 +270,7 @@ export const requestScreenResponse = async ({
   paneId,
   mode,
   request,
+  requestTimeoutMs,
   fallbackMessage,
   onConnectionIssue,
   handleSessionMissing,
@@ -277,7 +279,10 @@ export const requestScreenResponse = async ({
   buildApiError,
 }: RequestScreenResponseParams): Promise<ScreenResponse> => {
   try {
-    const { res, data } = await requestJson<ApiEnvelope<{ screen?: ScreenResponse }>>(request);
+    const { res, data } = await requestJson<ApiEnvelope<{ screen?: ScreenResponse }>>(request, {
+      timeoutMs: requestTimeoutMs,
+      timeoutMessage: API_ERROR_MESSAGES.requestTimeout,
+    });
     if (!res.ok) {
       const message = extractErrorMessage(res, data, fallbackMessage, { includeStatus: true });
       onConnectionIssue(message);

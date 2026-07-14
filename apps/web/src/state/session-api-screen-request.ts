@@ -12,6 +12,8 @@ import {
   resolveScreenMode,
 } from "./session-api-utils";
 
+const SCREEN_REQUEST_TIMEOUT_MS = 10_000;
+
 type CreateSessionScreenRequestParams = {
   apiClient: ApiClientContract;
   screenInFlightMap: Map<string, Promise<ScreenResponse>>;
@@ -55,7 +57,9 @@ export const createSessionScreenRequest = ({
         return executeRequestScreenResponse({
           paneId,
           mode: normalizedMode,
-          request: apiClient.sessions[":paneId"].screen.$post({ param, json }),
+          request: (signal) =>
+            apiClient.sessions[":paneId"].screen.$post({ param, json }, { init: { signal } }),
+          requestTimeoutMs: SCREEN_REQUEST_TIMEOUT_MS,
           fallbackMessage: API_ERROR_MESSAGES.screenRequestFailed,
           onConnectionIssue,
           handleSessionMissing,

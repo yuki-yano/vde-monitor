@@ -11,6 +11,7 @@ import {
 import type { Theme } from "@/lib/theme";
 
 import {
+  screenContentContextKeyAtom,
   screenErrorAtom,
   screenFallbackReasonAtom,
   screenImageAtom,
@@ -54,6 +55,9 @@ export const useSessionScreen = ({
 }: UseSessionScreenParams) => {
   const [screenText, setScreen] = useAtom(screenTextAtom);
   const [imageBase64, setImageBase64] = useAtom(screenImageAtom);
+  const [screenContentContextKey, setScreenContentContextKey] = useAtom(
+    screenContentContextKeyAtom,
+  );
   const [screenLoadingState, setScreenLoadingState] = useAtom(screenLoadingAtom);
   const setScreenFallbackReason = useSetAtom(screenFallbackReasonAtom);
   const setScreenError = useSetAtom(screenErrorAtom);
@@ -67,6 +71,8 @@ export const useSessionScreen = ({
   const modeSwitchRef = useRef<ScreenMode | null>(null);
   const cursorRef = useRef<string | null>(null);
   const screenLinesRef = useRef<string[]>([]);
+  const currentScreenContextKey = `${paneId}\0${mode}`;
+  const hasCurrentScreenContent = screenContentContextKey === currentScreenContextKey;
 
   const dispatchScreenLoading = useCallback(
     (event: Parameters<typeof screenLoadingReducer>[1]) => {
@@ -91,17 +97,18 @@ export const useSessionScreen = ({
     startTransition(() => {
       setScreen(pending);
       setImageBase64(null);
+      setScreenContentContextKey(currentScreenContextKey);
     });
     screenRef.current = pending;
     imageRef.current = null;
-  }, [setImageBase64, setScreen]);
+  }, [currentScreenContextKey, setImageBase64, setScreen, setScreenContentContextKey]);
 
   const clearPendingScreen = useCallback(() => {
     pendingScreenRef.current = null;
   }, []);
 
   const screenLines = useMemo(() => {
-    if (mode !== "text") {
+    if (mode !== "text" || !hasCurrentScreenContent) {
       return [];
     }
     const isTextLoading = screenLoadingState.loading && screenLoadingState.mode === "text";
@@ -115,6 +122,7 @@ export const useSessionScreen = ({
     });
   }, [
     highlightCorrections,
+    hasCurrentScreenContent,
     mode,
     modeLoaded.text,
     resolvedTheme,
@@ -163,6 +171,7 @@ export const useSessionScreen = ({
       pendingScreenRef,
       setScreen,
       setImageBase64,
+      setScreenContentContextKey,
       dispatchScreenLoading,
       onModeLoaded: markModeLoaded,
       apiBasePath,
@@ -170,7 +179,11 @@ export const useSessionScreen = ({
     });
 
   const hasBlockingScreenError = error != null && error !== DISCONNECTED_MESSAGE;
-  const isInitialModeLoading = !connectionIssue && !hasBlockingScreenError && !modeLoaded[mode];
+  const isInitialModeLoading =
+    connected &&
+    !connectionIssue &&
+    !hasBlockingScreenError &&
+    (!modeLoaded[mode] || !hasCurrentScreenContent);
   const isScreenLoading =
     (screenLoadingState.loading && screenLoadingState.mode === mode) || isInitialModeLoading;
 
@@ -184,12 +197,14 @@ export const useSessionScreen = ({
     pendingScreenRef.current = null;
     setScreen("");
     setImageBase64(null);
+    setScreenContentContextKey(null);
     setScreenFallbackReason(null);
     setScreenError(null);
   }, [
     paneId,
     setImageBase64,
     setScreen,
+    setScreenContentContextKey,
     setScreenError,
     setScreenFallbackReason,
     setScreenLoadingState,
@@ -207,7 +222,7 @@ export const useSessionScreen = ({
     mode,
     wrapMode,
     screenLines,
-    imageBase64,
+    imageBase64: hasCurrentScreenContent ? imageBase64 : null,
     fallbackReason,
     error,
     pollingPauseReason,

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { initialScreenLoadingState } from "@/lib/screen-loading";
 
 import {
+  screenContentContextKeyAtom,
   screenErrorAtom,
   screenFallbackReasonAtom,
   screenImageAtom,
@@ -23,6 +24,7 @@ describe("screen atoms", () => {
     expect(store.get(screenModeLoadedAtom)).toEqual({ text: false, image: false });
     expect(store.get(screenTextAtom)).toBe("");
     expect(store.get(screenImageAtom)).toBeNull();
+    expect(store.get(screenContentContextKeyAtom)).toBeNull();
     expect(store.get(screenFallbackReasonAtom)).toBeNull();
     expect(store.get(screenErrorAtom)).toBeNull();
     expect(store.get(screenLoadingAtom)).toEqual(initialScreenLoadingState);
@@ -38,6 +40,7 @@ describe("screen atoms", () => {
     store.set(screenModeLoadedAtom, nextLoaded);
     store.set(screenTextAtom, "hello");
     store.set(screenImageAtom, "abc123");
+    store.set(screenContentContextKeyAtom, "pane-1\0image");
     store.set(screenFallbackReasonAtom, "fallback");
     store.set(screenErrorAtom, "error");
     store.set(screenLoadingAtom, nextLoading);
@@ -47,6 +50,7 @@ describe("screen atoms", () => {
     expect(store.get(screenModeLoadedAtom)).toEqual(nextLoaded);
     expect(store.get(screenTextAtom)).toBe("hello");
     expect(store.get(screenImageAtom)).toBe("abc123");
+    expect(store.get(screenContentContextKeyAtom)).toBe("pane-1\0image");
     expect(store.get(screenFallbackReasonAtom)).toBe("fallback");
     expect(store.get(screenErrorAtom)).toBe("error");
     expect(store.get(screenLoadingAtom)).toEqual(nextLoading);

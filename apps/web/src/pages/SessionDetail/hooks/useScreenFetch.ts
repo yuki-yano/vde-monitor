@@ -79,6 +79,7 @@ type UseScreenFetchParams = {
   pendingScreenRef: MutableRefObject<string | null>;
   setScreen: Dispatch<SetStateAction<string>>;
   setImageBase64: Dispatch<SetStateAction<string | null>>;
+  setScreenContentContextKey: Dispatch<SetStateAction<string | null>>;
   dispatchScreenLoading: Dispatch<ScreenLoadingEvent>;
   onModeLoaded: (mode: ScreenMode) => void;
   /** Base path for API calls (e.g. "/api" or "https://host/api"). Defaults to "/api". */
@@ -135,6 +136,7 @@ export const useScreenFetch = ({
   pendingScreenRef,
   setScreen,
   setImageBase64,
+  setScreenContentContextKey,
   dispatchScreenLoading,
   onModeLoaded,
   apiBasePath = "/api",
@@ -201,22 +203,34 @@ export const useScreenFetch = ({
 
   const updateImageScreen = useCallback(
     (nextImage: string | null, immediateCommit: boolean) => {
-      if (imageRef.current !== nextImage || screenRef.current !== "") {
-        if (immediateCommit) {
+      const shouldCommitImage = imageRef.current !== nextImage || screenRef.current !== "";
+      const commitImageState = () => {
+        if (shouldCommitImage) {
           setImageBase64(nextImage);
           setScreen("");
-        } else {
-          startTransition(() => {
-            setImageBase64(nextImage);
-            setScreen("");
-          });
         }
+        setScreenContentContextKey(screenContextKey);
+      };
+      if (immediateCommit) {
+        commitImageState();
+      } else {
+        startTransition(commitImageState);
+      }
+      if (shouldCommitImage) {
         imageRef.current = nextImage;
         screenRef.current = "";
         pendingScreenRef.current = null;
       }
     },
-    [imageRef, pendingScreenRef, screenRef, setImageBase64, setScreen],
+    [
+      imageRef,
+      pendingScreenRef,
+      screenContextKey,
+      screenRef,
+      setImageBase64,
+      setScreen,
+      setScreenContentContextKey,
+    ],
   );
 
   const updateTextScreen = useCallback(
@@ -258,21 +272,32 @@ export const useScreenFetch = ({
         imageRef,
         pendingScreenRef,
       });
-      if (shouldCommitScreen) {
-        const commitScreenState = () => {
+      const commitScreenState = () => {
+        if (shouldCommitScreen) {
           // react-doctor-disable-next-line no-event-handler
           setScreen(nextScreen);
           // react-doctor-disable-next-line no-event-handler
           setImageBase64(null);
-        };
-        if (immediateCommit) {
-          commitScreenState();
-        } else {
-          startTransition(commitScreenState);
         }
+        setScreenContentContextKey(screenContextKey);
+      };
+      if (immediateCommit) {
+        commitScreenState();
+      } else {
+        startTransition(commitScreenState);
       }
     },
-    [cursorRef, imageRef, pendingScreenRef, screenLinesRef, screenRef, setImageBase64, setScreen],
+    [
+      cursorRef,
+      imageRef,
+      pendingScreenRef,
+      screenContextKey,
+      screenLinesRef,
+      screenRef,
+      setImageBase64,
+      setScreen,
+      setScreenContentContextKey,
+    ],
   );
 
   const applyTextResponse = useCallback(

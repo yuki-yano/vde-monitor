@@ -13,6 +13,7 @@ export const screenWrapModeAtom = atom<ScreenWrapMode>("off");
 export const screenModeLoadedAtom = atom({ text: false, image: false });
 export const screenTextAtom = atom("");
 export const screenImageAtom = atom<string | null>(null);
+export const screenContentContextKeyAtom = atom<string | null>(null);
 export const screenFallbackReasonAtom = atom<string | null>(null);
 export const screenErrorAtom = atom<string | null>(null);
 export const screenLoadingAtom = atom<ScreenLoadingState>(initialScreenLoadingState);
