@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createHerdrRuntime } from "./runtime-herdr";
 
 describe("createHerdrRuntime", () => {
-  it("exposes launch capability but no pipe capability", () => {
+  it("exposes launch and shutdown capabilities but no pipe capability", async () => {
     const runtime = createHerdrRuntime({
       ...configDefaults,
       token: "test-token",
@@ -18,5 +18,6 @@ describe("createHerdrRuntime", () => {
     expect(runtime.capabilities.pipe).toBeUndefined();
     expect(runtime.capabilities.launch).toBeDefined();
     expect("launchAgentInSession" in runtime.actions).toBe(false);
+    await expect(runtime.dispose?.()).resolves.toBeUndefined();
   });
 });

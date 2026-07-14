@@ -31,5 +31,6 @@ export const createHerdrRuntime = (config: AgentMonitorConfig): MultiplexerRunti
     screenCapture,
     actions,
     capabilities: { launch },
+    dispose: () => client.close(),
   };
 };
