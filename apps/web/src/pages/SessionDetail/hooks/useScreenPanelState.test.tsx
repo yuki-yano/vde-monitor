@@ -72,6 +72,7 @@ const buildContextValue = (
       pushEnabled: true,
       isSubscribed: false,
       isPaneEnabled: false,
+      errorMessage: null,
       requestPermissionAndSubscribe: vi.fn(),
       togglePaneEnabled: vi.fn(),
     },
@@ -112,6 +113,16 @@ describe("useScreenPanelState", () => {
 
     expect(result.current.error).toBe("Disconnected. Reconnecting...");
     expect(result.current.sendError).toBe("Failed to send keys.");
+  });
+
+  it("maps push notification errors for ScreenPanel", () => {
+    mockContextValue = buildContextValue();
+    (mockContextValue.pushNotifications as Record<string, unknown>).errorMessage =
+      "Failed to update notification scope";
+
+    const { result } = renderHook(() => useScreenPanelState());
+
+    expect(result.current.notificationErrorMessage).toBe("Failed to update notification scope");
   });
 
   it("maps worktree subhook fields into the disambiguated ScreenPanel shape", () => {

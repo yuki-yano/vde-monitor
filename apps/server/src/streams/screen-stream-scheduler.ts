@@ -18,8 +18,10 @@ type Subscriber = {
 
 type PaneState = {
   subscribers: Map<symbol, Subscriber>;
-  /** Raw screen text from the last successful capture tick (for dedup). */
+  /** Screen payload from the last successful capture tick (for dedup). */
   lastScreen: string | null;
+  lastAlternateOn: boolean | null;
+  lastTruncated: boolean | null;
   /** Error message from the last failed capture tick (for dedup and recovery detection). */
   lastError: string | null;
 };
@@ -176,12 +178,18 @@ export const createScreenStreamScheduler = ({
         return;
       }
       const result = outcome.result;
-      const screenChanged = state.lastError != null || state.lastScreen !== result.screen;
+      const captureChanged =
+        state.lastError != null ||
+        state.lastScreen !== result.screen ||
+        state.lastAlternateOn !== result.alternateOn ||
+        state.lastTruncated !== result.truncated;
       state.lastError = null;
       state.lastScreen = result.screen;
+      state.lastAlternateOn = result.alternateOn;
+      state.lastTruncated = result.truncated;
       // Fan-out: one buildTextResponse per subscriber (each has its own cursor).
       state.subscribers.forEach((subscriber) => {
-        if (!screenChanged && !subscriber.initialPending) return;
+        if (!captureChanged && !subscriber.initialPending) return;
         deliverToSubscriber(paneId, subscriber, result);
         subscriber.initialPending = false;
       });
@@ -224,7 +232,13 @@ export const createScreenStreamScheduler = ({
   ): (() => void) => {
     let state = panes.get(paneId);
     if (!state) {
-      state = { subscribers: new Map(), lastScreen: null, lastError: null };
+      state = {
+        subscribers: new Map(),
+        lastScreen: null,
+        lastAlternateOn: null,
+        lastTruncated: null,
+        lastError: null,
+      };
       panes.set(paneId, state);
     }
 

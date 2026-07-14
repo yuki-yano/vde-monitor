@@ -138,7 +138,7 @@ export type MultiplexerInputActions = {
   clearPaneTitle: (paneId: string) => Promise<MultiplexerActionResult>;
   focusPane: (paneId: string) => Promise<MultiplexerActionResult>;
   killPane: (paneId: string) => Promise<MultiplexerActionResult>;
-  killWindow: (paneId: string) => Promise<MultiplexerActionResult>;
+  killWindow: (paneId: string, windowId: string) => Promise<MultiplexerActionResult>;
 };
 
 export type MultiplexerPipeState = {

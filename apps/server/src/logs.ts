@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+
+import type { FileHandle } from "node:fs/promises";
 
 export const ensureDir = async (dir: string) => {
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
@@ -9,27 +12,49 @@ export const rotateLogIfNeeded = async (
   filePath: string,
   maxBytes: number,
   retainRotations: number,
-) => {
+  hooks: {
+    beforeRotate?: () => Promise<boolean | void>;
+    afterRotate?: () => Promise<void>;
+  } = {},
+): Promise<boolean> => {
   const stat = await fs.stat(filePath).catch(() => null);
   if (!stat || stat.size <= maxBytes) {
-    return;
+    return false;
   }
 
   const dir = path.dirname(filePath);
   const base = path.basename(filePath);
-  const rotatedPath = path.join(dir, `${base}.${Date.now()}`);
-  const data = await fs.readFile(filePath);
-  await fs.writeFile(rotatedPath, data);
-  await fs.truncate(filePath, 0);
+  const rotatedPath = path.join(dir, `${base}.${Date.now()}.${randomUUID()}`);
+  let runAfterRotate = false;
+  try {
+    if ((await hooks.beforeRotate?.()) === false) {
+      return false;
+    }
+    runAfterRotate = true;
+    try {
+      await fs.rename(filePath, rotatedPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+    await fs.open(filePath, "a", 0o600).then((handle) => handle.close());
 
-  const files = await fs.readdir(dir);
-  const rotations = files
-    .filter((name) => name.startsWith(`${base}.`))
-    .map((name) => ({ name, fullPath: path.join(dir, name) }));
-  if (rotations.length > retainRotations) {
-    const sorted = rotations.sort((a, b) => a.name.localeCompare(b.name));
-    const toDelete = sorted.slice(0, rotations.length - retainRotations);
-    await Promise.all(toDelete.map((entry) => fs.unlink(entry.fullPath).catch(() => null)));
+    const files = await fs.readdir(dir);
+    const rotations = files
+      .filter((name) => name.startsWith(`${base}.`))
+      .map((name) => ({ name, fullPath: path.join(dir, name) }));
+    if (rotations.length > retainRotations) {
+      const sorted = rotations.sort((a, b) => a.name.localeCompare(b.name));
+      const toDelete = sorted.slice(0, rotations.length - retainRotations);
+      await Promise.all(toDelete.map((entry) => fs.unlink(entry.fullPath).catch(() => null)));
+    }
+    return true;
+  } finally {
+    if (runAfterRotate) {
+      await hooks.afterRotate?.();
+    }
   }
 };
 
@@ -118,10 +143,25 @@ export const createLogActivityPoller = (pollIntervalMs: number) => {
 };
 
 export const createJsonlTailer = (pollIntervalMs: number) => {
-  let offset = 0;
-  let buffer = "";
+  const READ_BUFFER_SIZE = 64 * 1024;
+  // A hook process can open the old inode before rename and finish its synchronous append later.
+  // Keep replaced inodes long enough to observe a stable EOF, but cap the lifetime so a wedged
+  // writer cannot retain descriptors forever.
+  const RETIRED_MIN_GRACE_MS = Math.max(250, pollIntervalMs * 2);
+  const RETIRED_MAX_GRACE_MS = Math.max(2_000, pollIntervalMs * 10);
+  const RETIRED_STABLE_EOF_POLLS = 2;
+  type ReadState = {
+    handle: FileHandle;
+    identity: string | null;
+    offset: number;
+    buffer: Buffer;
+    retiredAt: number | null;
+    stableEofPolls: number;
+  };
+  let readStates: ReadState[] = [];
   let timer: NodeJS.Timeout | null = null;
-  let pollRunning = false;
+  let pollPromise: Promise<void> | null = null;
+  let stopping = false;
   const listeners = new Set<(line: string) => void>();
 
   const onLine = (listener: (line: string) => void) => {
@@ -129,47 +169,157 @@ export const createJsonlTailer = (pollIntervalMs: number) => {
     return () => listeners.delete(listener);
   };
 
-  const start = async (filePath: string): Promise<void> => {
-    if (timer) {
+  const resolveFileIdentity = (stat: { dev?: unknown; ino?: unknown }) =>
+    typeof stat.dev === "number" && typeof stat.ino === "number" ? `${stat.dev}:${stat.ino}` : null;
+
+  const resetReadState = (state: ReadState, identity: string | null) => {
+    state.offset = 0;
+    state.buffer = Buffer.alloc(0);
+    state.identity = identity;
+  };
+
+  const emitCompleteLines = (state: ReadState, chunk: Buffer) => {
+    state.buffer = state.buffer.length === 0 ? chunk : Buffer.concat([state.buffer, chunk]);
+    let newlineIndex = state.buffer.indexOf(0x0a);
+    let consumedLine = false;
+    while (newlineIndex >= 0) {
+      const line = state.buffer.subarray(0, newlineIndex).toString("utf8");
+      state.buffer = state.buffer.subarray(newlineIndex + 1);
+      consumedLine = true;
+      if (line.trim().length > 0) {
+        listeners.forEach((listener) => listener(line));
+      }
+      newlineIndex = state.buffer.indexOf(0x0a);
+    }
+    if (consumedLine) {
+      // Buffer.subarray keeps its parent allocation alive. Copy the incomplete tail so a
+      // short partial line does not retain the entire read buffer between polls.
+      state.buffer = Buffer.from(state.buffer);
+    }
+  };
+
+  const drainState = async (state: ReadState): Promise<number> => {
+    const openedStat = await state.handle.stat();
+    if (openedStat.size < state.offset) {
+      resetReadState(state, resolveFileIdentity(openedStat));
+    } else if (state.identity == null) {
+      state.identity = resolveFileIdentity(openedStat);
+    }
+
+    const allocated = Buffer.alloc(READ_BUFFER_SIZE);
+    let totalBytesRead = 0;
+    while (true) {
+      const { bytesRead } = await state.handle.read(allocated, 0, allocated.length, state.offset);
+      if (bytesRead === 0) {
+        return totalBytesRead;
+      }
+      state.offset += bytesRead;
+      totalBytesRead += bytesRead;
+      emitCompleteLines(state, Buffer.from(allocated.subarray(0, bytesRead)));
+    }
+  };
+
+  const closeHandle = async (handle: FileHandle | null) => {
+    if (handle == null) return;
+    await handle.close();
+  };
+
+  const queueCurrentPath = async (filePath: string, previousState: ReadState) => {
+    const nextHandle = await fs.open(filePath, "r");
+    let nextStat: Awaited<ReturnType<FileHandle["stat"]>>;
+    try {
+      nextStat = await nextHandle.stat();
+    } catch (error) {
+      await nextHandle.close();
+      throw error;
+    }
+    const nextIdentity = resolveFileIdentity(nextStat);
+    if (nextIdentity != null && nextIdentity === previousState.identity) {
+      await nextHandle.close();
       return;
     }
-    const initialStat = await fs.stat(filePath);
-    offset = initialStat.size;
-    buffer = "";
-    const poll = async () => {
-      if (pollRunning) {
+    previousState.retiredAt = Date.now();
+    readStates.push({
+      handle: nextHandle,
+      identity: nextIdentity,
+      offset: 0,
+      buffer: Buffer.alloc(0),
+      retiredAt: null,
+      stableEofPolls: 0,
+    });
+  };
+
+  const drainQueuedStates = async () => {
+    while (readStates.length > 0) {
+      const state = readStates[0]!;
+      const bytesRead = await drainState(state);
+      if (state.retiredAt == null) {
         return;
       }
-      pollRunning = true;
-      try {
+
+      state.stableEofPolls = bytesRead === 0 ? state.stableEofPolls + 1 : 0;
+      const retiredForMs = Date.now() - state.retiredAt;
+      const hasStableEof =
+        retiredForMs >= RETIRED_MIN_GRACE_MS && state.stableEofPolls >= RETIRED_STABLE_EOF_POLLS;
+      const retentionExpired = retiredForMs >= RETIRED_MAX_GRACE_MS;
+      if (!hasStableEof && !retentionExpired) {
+        return;
+      }
+
+      await state.handle.close();
+      readStates.shift();
+    }
+  };
+
+  const start = async (filePath: string): Promise<void> => {
+    if (timer || readStates.length > 0) {
+      return;
+    }
+    const initialHandle = await fs.open(filePath, "r");
+    let initialStat: Awaited<ReturnType<FileHandle["stat"]>>;
+    try {
+      initialStat = await initialHandle.stat();
+    } catch (error) {
+      await initialHandle.close();
+      throw error;
+    }
+    stopping = false;
+    readStates = [
+      {
+        handle: initialHandle,
+        identity: resolveFileIdentity(initialStat),
+        offset: initialStat.size,
+        buffer: Buffer.alloc(0),
+        retiredAt: null,
+        stableEofPolls: 0,
+      },
+    ];
+
+    const poll = async (): Promise<void> => {
+      if (pollPromise != null || stopping) {
+        return;
+      }
+      const pending = (async () => {
+        const currentState = readStates[readStates.length - 1];
+        if (currentState == null) return;
         const stat = await fs.stat(filePath).catch(() => null);
-        if (!stat) {
-          return;
-        }
-        if (stat.size < offset) {
-          offset = 0;
-          buffer = "";
-        }
-        if (stat.size === offset) {
-          return;
-        }
-        const fd = await fs.open(filePath, "r");
-        const length = stat.size - offset;
-        const chunk = Buffer.alloc(length);
-        await fd.read(chunk, 0, length, offset);
-        await fd.close();
-        offset = stat.size;
-        buffer += chunk.toString("utf8");
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        lines.forEach((line) => {
-          if (line.trim().length === 0) {
-            return;
+        if (stat) {
+          const statIdentity = resolveFileIdentity(stat);
+          if (
+            statIdentity != null &&
+            currentState.identity != null &&
+            statIdentity !== currentState.identity
+          ) {
+            await queueCurrentPath(filePath, currentState);
           }
-          listeners.forEach((listener) => listener(line));
-        });
+        }
+        await drainQueuedStates();
+      })();
+      pollPromise = pending;
+      try {
+        await pending;
       } finally {
-        pollRunning = false;
+        if (pollPromise === pending) pollPromise = null;
       }
     };
     timer = setInterval(() => {
@@ -177,10 +327,18 @@ export const createJsonlTailer = (pollIntervalMs: number) => {
     }, pollIntervalMs);
   };
 
-  const stop = () => {
+  const stop = async (): Promise<void> => {
+    stopping = true;
     if (timer) {
       clearInterval(timer);
       timer = null;
+    }
+    await pollPromise?.catch(() => undefined);
+    const states = readStates;
+    readStates = [];
+    for (const state of states) {
+      await drainState(state).catch(() => undefined);
+      await closeHandle(state.handle);
     }
   };
 

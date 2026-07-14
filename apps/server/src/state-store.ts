@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -86,13 +87,27 @@ const getStatePath = () => {
 };
 
 const loadState = (): PersistedState | null => {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(getStatePath(), "utf8");
-    const parsed = JSON.parse(raw) as unknown;
-    return isPersistedState(parsed) ? parsed : null;
-  } catch {
-    return null;
+    raw = fs.readFileSync(getStatePath(), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw new Error(`failed to read persisted state: ${getStatePath()}`, { cause: error });
   }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch (error) {
+    throw new Error(`persisted state is corrupt: invalid JSON in ${getStatePath()}`, {
+      cause: error,
+    });
+  }
+  if (!isPersistedState(parsed)) {
+    throw new Error(`persisted state is corrupt: invalid schema in ${getStatePath()}`);
+  }
+  return parsed;
 };
 
 export type SaveStateOptions = {
@@ -238,13 +253,30 @@ const isPersistedState = (value: unknown): value is PersistedState => {
     return false;
   }
   const state = value as Partial<PersistedState>;
-  return (
-    state.version === 3 &&
-    typeof state.savedAt === "string" &&
-    isRecord(state.sessions) &&
-    isRecord(state.timeline) &&
-    (state.repoNotes == null || isRecord(state.repoNotes))
+  if (
+    state.version !== 3 ||
+    !isNullableTimestamp(state.savedAt) ||
+    state.savedAt == null ||
+    !isRecord(state.sessions) ||
+    !isRecord(state.timeline) ||
+    (state.repoNotes != null && !isRecord(state.repoNotes))
+  ) {
+    return false;
+  }
+  const sessionsValid = Object.entries(state.sessions).every(
+    ([paneId, session]) => isPersistedSession(session) && session.paneId === paneId,
   );
+  const timelineValid = Object.entries(state.timeline).every(
+    ([paneId, events]) =>
+      Array.isArray(events) &&
+      events.every((event) => isPersistedTimelineEvent(event) && event.paneId === paneId),
+  );
+  const repoNotesValid = Object.entries(state.repoNotes ?? {}).every(
+    ([repoRoot, notes]) =>
+      Array.isArray(notes) &&
+      notes.every((note) => isPersistedRepoNote(note) && note.repoRoot === repoRoot),
+  );
+  return sessionsValid && timelineValid && repoNotesValid;
 };
 
 export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) => {
@@ -299,12 +331,33 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
     repoNotes: options.repoNotes ?? {},
     repositoryActivity: options.repositoryActivity,
   };
+  if (!isPersistedState(data)) {
+    throw new Error("refusing to persist invalid state");
+  }
   const dir = path.dirname(getStatePath());
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(getStatePath(), `${JSON.stringify(data, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: 0o600,
-  });
+  const statePath = getStatePath();
+  const temporaryPath = path.join(dir, `.state.json.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(data, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    const temporaryFd = fs.openSync(temporaryPath, "r+");
+    try {
+      fs.fsyncSync(temporaryFd);
+    } finally {
+      fs.closeSync(temporaryFd);
+    }
+    fs.renameSync(temporaryPath, statePath);
+  } catch (error) {
+    try {
+      fs.unlinkSync(temporaryPath);
+    } catch {
+      // The temporary file may not have been created or may already have been renamed.
+    }
+    throw error;
+  }
 };
 
 export type PersistedSessionMap = Map<string, PersistedSession>;

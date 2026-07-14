@@ -68,10 +68,9 @@ export const initConfig = (): ConfigInitResult => {
 };
 
 export const rotateToken = () => {
-  const config = ensureConfig();
   const token = generateToken();
   saveToken(token);
-  return { ...config, token };
+  return { token };
 };
 
 export const runConfigCheck = () => checkGlobalConfig();

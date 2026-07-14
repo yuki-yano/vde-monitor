@@ -1,5 +1,5 @@
 import type { CommandResponse } from "@vde-monitor/shared";
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useLayoutEffect, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveResultErrorMessage } from "@/lib/api-utils";
@@ -89,13 +89,18 @@ export const usePaneSendText = ({
 }: UsePaneSendTextArgs) => {
   const sendTextInFlightRef = useRef(false);
   const lastFailedSendTextRef = useRef<FailedSendTextAttempt | null>(null);
-  const activePaneIdRef = useRef(paneId);
+  const activePaneRef = useRef({ paneId, generation: 0 });
   const [state, dispatch] = useReducer(paneSendTextReducer, paneId, buildPaneSendTextState);
-  if (activePaneIdRef.current !== paneId) {
-    activePaneIdRef.current = paneId;
-    sendTextInFlightRef.current = false;
-    lastFailedSendTextRef.current = null;
-  }
+  useLayoutEffect(() => {
+    if (activePaneRef.current.paneId !== paneId) {
+      activePaneRef.current = {
+        paneId,
+        generation: activePaneRef.current.generation + 1,
+      };
+      sendTextInFlightRef.current = false;
+      lastFailedSendTextRef.current = null;
+    }
+  }, [paneId]);
   const visibleState = state.paneId === paneId ? state : buildPaneSendTextState(paneId);
 
   const send = useCallback(
@@ -117,9 +122,14 @@ export const usePaneSendText = ({
           : buildSendTextRequestId();
 
       sendTextInFlightRef.current = true;
+      const sendContext = activePaneRef.current;
+      const isCurrentPaneGeneration = () => activePaneRef.current === sendContext;
       dispatch({ type: "start", paneId, requestId });
       try {
         const result = await sendText(paneId, text, enter, requestId);
+        if (!isCurrentPaneGeneration()) {
+          return false;
+        }
         if (!result.ok) {
           const message = resolveResultErrorMessage(result, API_ERROR_MESSAGES.sendText);
           dispatch({ type: "fail", paneId, error: message });
@@ -140,8 +150,10 @@ export const usePaneSendText = ({
         }
         return true;
       } finally {
-        sendTextInFlightRef.current = false;
-        dispatch({ type: "finish", paneId });
+        if (isCurrentPaneGeneration()) {
+          sendTextInFlightRef.current = false;
+          dispatch({ type: "finish", paneId });
+        }
       }
     },
     [mode, paneId, scrollToBottom, sendText, setScreenError],

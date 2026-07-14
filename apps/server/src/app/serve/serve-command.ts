@@ -12,11 +12,13 @@ import qrcode from "qrcode-terminal";
 import { createApp } from "../../app";
 import { ensureConfig } from "../../config";
 import { createSessionMonitor } from "../../monitor";
+import { resolveProcessStartedAt } from "../../monitor/runtime-marker";
 import { createMultiplexerRuntime } from "../../multiplexer/runtime";
 import { getLocalIP, getTailscaleDnsName, getTailscaleIP } from "../../network";
 import { createNotificationService } from "../../notifications/service";
-import { findAvailablePort } from "../../ports";
+import { listenOnAvailablePort } from "../../ports";
 import { createScreenCache } from "../../screen/screen-cache";
+import { createServerRuntimeMarker } from "../../server-runtime-marker";
 import { createScreenStreamScheduler } from "../../streams/screen-stream-scheduler";
 import { createSessionsStreamSource } from "../../streams/sessions-stream-source";
 import { createStreamConnections } from "../../streams/stream-connections";
@@ -322,6 +324,34 @@ type CliOverrides = {
 const MONITOR_STOP_TIMEOUT_MS = 5000;
 const SERVER_CLOSE_TIMEOUT_MS = 3000;
 
+export const closeServerWithTimeout = async ({
+  closeServer,
+  timeoutMs = SERVER_CLOSE_TIMEOUT_MS,
+}: {
+  closeServer: (onClosed: () => void) => void;
+  timeoutMs?: number;
+}): Promise<void> => {
+  await new Promise<void>((resolve) => {
+    let completed = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      if (timeout !== null) clearTimeout(timeout);
+      resolve();
+    };
+
+    try {
+      closeServer(finish);
+    } catch {
+      finish();
+    }
+    if (completed) return;
+    timeout = setTimeout(finish, timeoutMs);
+    timeout.unref();
+  });
+};
+
 export const stopMonitorAndDisposeRuntime = async ({
   stopMonitor,
   disposeRuntime,
@@ -336,15 +366,42 @@ export const stopMonitorAndDisposeRuntime = async ({
   }
 };
 
+export const cleanupFailedServeSetup = async ({
+  streamCleanups = [],
+  closeServer,
+  stopMonitor,
+  disposeRuntime,
+  releaseServerRuntime,
+}: {
+  streamCleanups?: Array<() => unknown | Promise<unknown>>;
+  closeServer?: (onClosed: () => void) => void;
+  stopMonitor?: () => void | Promise<void>;
+  disposeRuntime?: () => void | Promise<void>;
+  releaseServerRuntime: () => unknown | Promise<unknown>;
+}): Promise<void> => {
+  await Promise.allSettled(streamCleanups.map((cleanup) => Promise.resolve().then(cleanup)));
+  await Promise.allSettled([
+    closeServer == null ? Promise.resolve() : closeServerWithTimeout({ closeServer }),
+    stopMonitor == null
+      ? Promise.resolve().then(() => disposeRuntime?.())
+      : stopMonitorAndDisposeRuntime({ stopMonitor, disposeRuntime }),
+  ]);
+  await Promise.resolve()
+    .then(releaseServerRuntime)
+    .catch(() => undefined);
+};
+
 export const createGracefulShutdown = ({
   closeStreams,
   stopMonitor,
   closeServer,
+  releaseServerRuntime,
   exitProcess = (code) => process.exit(code),
 }: {
   closeStreams: () => void;
   stopMonitor: () => void | Promise<void>;
   closeServer: (onClosed: () => void) => void;
+  releaseServerRuntime?: () => void | Promise<void>;
   exitProcess?: (code: number) => void;
 }): (() => Promise<void>) => {
   let shutdownPromise: Promise<void> | null = null;
@@ -369,36 +426,20 @@ export const createGracefulShutdown = ({
     }
   };
 
-  const waitForServerClose = async (): Promise<void> => {
-    await new Promise<void>((resolve) => {
-      let completed = false;
-      let timeout: ReturnType<typeof setTimeout> | null = null;
-      const finish = () => {
-        if (completed) return;
-        completed = true;
-        if (timeout !== null) {
-          clearTimeout(timeout);
-        }
-        resolve();
-        exitProcess(0);
-      };
-
-      closeServer(finish);
-      if (completed) return;
-
-      // This existing 3-second guard begins only after the monitor has stopped
-      // or its separate 5-second owned-pipe detach timeout has elapsed.
-      timeout = setTimeout(finish, SERVER_CLOSE_TIMEOUT_MS);
-      timeout.unref();
-    });
-  };
-
   return () => {
     if (shutdownPromise !== null) return shutdownPromise;
     shutdownPromise = (async () => {
-      closeStreams();
+      await Promise.resolve()
+        .then(closeStreams)
+        .catch(() => undefined);
       await waitForMonitorStop();
-      await waitForServerClose();
+      // The close guard begins only after the monitor has stopped or its separate owned-pipe
+      // detach timeout has elapsed.
+      await closeServerWithTimeout({ closeServer });
+      await Promise.resolve()
+        .then(() => releaseServerRuntime?.())
+        .catch(() => undefined);
+      exitProcess(0);
     })();
     return shutdownPromise;
   };
@@ -445,133 +486,190 @@ const applyCliOverrides = (
 };
 
 export const runServe = async (args: ParsedArgs) => {
-  const config = ensureConfig();
-  const multiplexerOverrides = resolveMultiplexerOverrides(args);
-
-  const { bindHost, displayHost } = resolveHosts({
-    args,
-    configBind: config.bind,
-    getLocalIP,
-    getTailscaleIP,
-  });
-
-  // Collect all CLI overrides and apply them through the single mutation point
-  applyCliOverrides(config, {
-    port: parsePort(args.port) ?? undefined,
-    socketName: typeof args.socketName === "string" ? args.socketName : undefined,
-    socketPath: typeof args.socketPath === "string" ? args.socketPath : undefined,
-    multiplexerBackend: multiplexerOverrides.multiplexerBackend ?? undefined,
-    screenImageBackend: multiplexerOverrides.screenImageBackend ?? undefined,
-    weztermCliPath: multiplexerOverrides.weztermCliPath ?? undefined,
-    weztermTarget: multiplexerOverrides.weztermTarget ?? undefined,
-    cmuxCliPath: multiplexerOverrides.cmuxCliPath ?? undefined,
-    cmuxSocketPath: multiplexerOverrides.cmuxSocketPath ?? undefined,
-  });
-
-  const host = bindHost;
-  const port = await findAvailablePort(config.port, host, 10);
-
-  await ensureBackendAvailable(config);
-
-  const runtime = createMultiplexerRuntime(config);
-  const notificationService = createNotificationService({ config });
-  const monitor = createSessionMonitor(runtime, config, {
-    onSessionTransition: (event) => notificationService.dispatchTransition(event),
-  });
-  await monitor.start();
-
-  // Instantiate the SSE infrastructure.
-  const schedulerScreenCache = createScreenCache();
-  const streamConnections = createStreamConnections();
-  const streamSource = createSessionsStreamSource({ registry: monitor.registry });
-  const screenScheduler = createScreenStreamScheduler({
-    monitor,
-    config,
-    buildTextResponse: schedulerScreenCache.buildTextResponse,
-  });
-
-  const { app } = createApp({
-    config,
-    monitor,
-    actions: runtime.actions,
-    launchCapability: runtime.capabilities.launch,
-    notificationService,
-    streamSource,
-    screenScheduler,
-    streamConnections,
-  });
-
-  const server = serve({
-    fetch: app.fetch,
-    port,
-    hostname: host,
-  });
-
+  const parsedPort = parsePort(args.port);
   const parsedWebPort = parsePort(args.webPort);
-  const displayPort = parsedWebPort ?? port;
-  const apiBaseUrl =
-    parsedWebPort != null && parsedWebPort !== port ? `http://${displayHost}:${port}/api` : null;
-  const url = buildAccessUrl({
-    displayHost,
-    displayPort,
-    token: config.token,
-    apiBaseUrl,
+  const serverProcessStartedAt = resolveProcessStartedAt(process.pid);
+  const serverRuntimeMarker = createServerRuntimeMarker({
+    pid: process.pid,
+    processStartedAt: serverProcessStartedAt,
   });
-  console.log(`vde-monitor: ${url}`);
-  let qrUrl = url;
-  const useTailscaleHttps = args.tailscale === true && args.https === true;
+  await serverRuntimeMarker.claim();
+  let runtime: ReturnType<typeof createMultiplexerRuntime> | undefined;
+  let monitor: ReturnType<typeof createSessionMonitor> | undefined;
+  let monitorStartAttempted = false;
+  let streamConnections: ReturnType<typeof createStreamConnections> | undefined;
+  let streamSource: ReturnType<typeof createSessionsStreamSource> | undefined;
+  let screenScheduler: ReturnType<typeof createScreenStreamScheduler> | undefined;
+  let boundServer: ReturnType<typeof serve> | undefined;
+  let setupCompleted = false;
+  try {
+    const config = ensureConfig();
+    const multiplexerOverrides = resolveMultiplexerOverrides(args);
 
-  if (useTailscaleHttps) {
-    const expectedProxyTarget = buildTailscaleServeProxyTarget({
-      proxyHost: host,
-      displayPort,
+    const { bindHost, displayHost } = resolveHosts({
+      args,
+      configBind: config.bind,
+      getLocalIP,
+      getTailscaleIP,
     });
-    const manualCommand = buildTailscaleServeCommand(expectedProxyTarget);
-    console.log(
-      `[vde-monitor] Push notification testing requires HTTPS. Expected tailscale upstream: ${expectedProxyTarget}`,
-    );
-    console.log(`[vde-monitor] Run (or update) serve: ${manualCommand}`);
-    console.log("[vde-monitor] Confirm serve endpoint: tailscale serve status");
-    const preflight = await runTailscaleHttpsPreflight(expectedProxyTarget);
-    const tailscaleDnsName = preflight.dnsName ?? getTailscaleDnsName();
-    if (tailscaleDnsName) {
-      const secureUrl = buildTailscaleHttpsAccessUrl({
-        dnsName: tailscaleDnsName,
-        token: config.token,
+
+    // Collect all CLI overrides and apply them through the single mutation point
+    applyCliOverrides(config, {
+      port: parsedPort ?? undefined,
+      socketName: typeof args.socketName === "string" ? args.socketName : undefined,
+      socketPath: typeof args.socketPath === "string" ? args.socketPath : undefined,
+      multiplexerBackend: multiplexerOverrides.multiplexerBackend ?? undefined,
+      screenImageBackend: multiplexerOverrides.screenImageBackend ?? undefined,
+      weztermCliPath: multiplexerOverrides.weztermCliPath ?? undefined,
+      weztermTarget: multiplexerOverrides.weztermTarget ?? undefined,
+      cmuxCliPath: multiplexerOverrides.cmuxCliPath ?? undefined,
+      cmuxSocketPath: multiplexerOverrides.cmuxSocketPath ?? undefined,
+    });
+
+    const host = bindHost;
+
+    await ensureBackendAvailable(config);
+
+    const activeRuntime = createMultiplexerRuntime(config);
+    runtime = activeRuntime;
+    const notificationService = createNotificationService({ config });
+    const activeMonitor = createSessionMonitor(activeRuntime, config, {
+      onSessionTransition: (event) => notificationService.dispatchTransition(event),
+    });
+    monitor = activeMonitor;
+    monitorStartAttempted = true;
+    await activeMonitor.start();
+
+    // Instantiate the SSE infrastructure.
+    const schedulerScreenCache = createScreenCache();
+    const activeStreamConnections = createStreamConnections();
+    streamConnections = activeStreamConnections;
+    const activeStreamSource = createSessionsStreamSource({ registry: activeMonitor.registry });
+    streamSource = activeStreamSource;
+    const activeScreenScheduler = createScreenStreamScheduler({
+      monitor: activeMonitor,
+      config,
+      buildTextResponse: schedulerScreenCache.buildTextResponse,
+    });
+    screenScheduler = activeScreenScheduler;
+
+    const { app } = createApp({
+      config,
+      monitor: activeMonitor,
+      actions: activeRuntime.actions,
+      launchCapability: activeRuntime.capabilities.launch,
+      notificationService,
+      streamSource: activeStreamSource,
+      screenScheduler: activeScreenScheduler,
+      streamConnections: activeStreamConnections,
+    });
+
+    const bound = await listenOnAvailablePort({
+      startPort: config.port,
+      host,
+      attempts: 10,
+      listen: (candidatePort, onListening) =>
+        serve(
+          {
+            fetch: app.fetch,
+            port: candidatePort,
+            hostname: host,
+          },
+          onListening,
+        ),
+    });
+    const activeServer = bound.server;
+    boundServer = activeServer;
+    const port = bound.port;
+
+    await serverRuntimeMarker.publish({
+      host: host === "0.0.0.0" ? "127.0.0.1" : host,
+      port,
+    });
+    const displayPort = parsedWebPort ?? port;
+    const apiBaseUrl =
+      parsedWebPort != null && parsedWebPort !== port ? `http://${displayHost}:${port}/api` : null;
+    const url = buildAccessUrl({
+      displayHost,
+      displayPort,
+      token: config.token,
+      apiBaseUrl,
+    });
+    console.log(`vde-monitor: ${url}`);
+    let qrUrl = url;
+    const useTailscaleHttps = args.tailscale === true && args.https === true;
+
+    if (useTailscaleHttps) {
+      const expectedProxyTarget = buildTailscaleServeProxyTarget({
+        proxyHost: host,
+        displayPort,
       });
-      qrUrl = secureUrl;
-      console.log(`vde-monitor (tailscale-https): ${secureUrl}`);
-      if (apiBaseUrl) {
+      const manualCommand = buildTailscaleServeCommand(expectedProxyTarget);
+      console.log(
+        `[vde-monitor] Push notification testing requires HTTPS. Expected tailscale upstream: ${expectedProxyTarget}`,
+      );
+      console.log(`[vde-monitor] Run (or update) serve: ${manualCommand}`);
+      console.log("[vde-monitor] Confirm serve endpoint: tailscale serve status");
+      const preflight = await runTailscaleHttpsPreflight(expectedProxyTarget);
+      const tailscaleDnsName = preflight.dnsName ?? getTailscaleDnsName();
+      if (tailscaleDnsName) {
+        const secureUrl = buildTailscaleHttpsAccessUrl({
+          dnsName: tailscaleDnsName,
+          token: config.token,
+        });
+        qrUrl = secureUrl;
+        console.log(`vde-monitor (tailscale-https): ${secureUrl}`);
+        if (apiBaseUrl) {
+          console.log(
+            "[vde-monitor] Use the tailscale-https URL above for push tests (it intentionally omits #api).",
+          );
+        }
+      } else {
         console.log(
-          "[vde-monitor] Use the tailscale-https URL above for push tests (it intentionally omits #api).",
+          "[vde-monitor] Could not resolve Tailscale DNSName automatically. Use your <device>.<tailnet>.ts.net host.",
         );
       }
-    } else {
-      console.log(
-        "[vde-monitor] Could not resolve Tailscale DNSName automatically. Use your <device>.<tailnet>.ts.net host.",
-      );
+    }
+
+    qrcode.generate(qrUrl, { small: true });
+
+    const shutdown = createGracefulShutdown({
+      // 1. Disconnect all SSE connections so clients reconnect.
+      closeStreams: () => {
+        activeStreamConnections.closeAll();
+        activeStreamSource.dispose();
+        activeScreenScheduler.dispose();
+      },
+      // 2. Wait up to five seconds for the monitor to stop, including owned pipe detachment.
+      stopMonitor: () =>
+        stopMonitorAndDisposeRuntime({
+          stopMonitor: () => activeMonitor.stop(),
+          disposeRuntime: activeRuntime.dispose,
+        }),
+      // 3. Stop accepting new HTTP connections and close existing keep-alive connections.
+      closeServer: (onClosed) => activeServer.close(onClosed),
+      // 4. Release the process-owned single-server claim only after HTTP has stopped.
+      releaseServerRuntime: async () => {
+        await serverRuntimeMarker.removeIfOwned();
+      },
+    });
+
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    setupCompleted = true;
+  } finally {
+    if (!setupCompleted) {
+      await cleanupFailedServeSetup({
+        streamCleanups: [
+          () => streamConnections?.closeAll(),
+          () => streamSource?.dispose(),
+          () => screenScheduler?.dispose(),
+        ],
+        closeServer: boundServer == null ? undefined : (onClosed) => boundServer?.close(onClosed),
+        stopMonitor: monitorStartAttempted && monitor != null ? () => monitor?.stop() : undefined,
+        disposeRuntime: runtime?.dispose,
+        releaseServerRuntime: serverRuntimeMarker.removeIfOwned,
+      });
     }
   }
-
-  qrcode.generate(qrUrl, { small: true });
-
-  const shutdown = createGracefulShutdown({
-    // 1. Disconnect all SSE connections so clients reconnect.
-    closeStreams: () => {
-      streamConnections.closeAll();
-      streamSource.dispose();
-      screenScheduler.dispose();
-    },
-    // 2. Wait up to five seconds for the monitor to stop, including owned pipe detachment.
-    stopMonitor: () =>
-      stopMonitorAndDisposeRuntime({
-        stopMonitor: () => monitor.stop(),
-        disposeRuntime: runtime.dispose,
-      }),
-    // 3. Stop accepting new HTTP connections and close existing keep-alive connections.
-    closeServer: (onClosed) => server.close(onClosed),
-  });
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
 };

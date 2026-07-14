@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createNotificationSubscriptionStore } from "./subscription-store";
 
@@ -35,6 +35,7 @@ const createUpsertInput = (deviceId: string, endpoint: string) => ({
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   tempDirs.splice(0).forEach((dir) => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
@@ -111,5 +112,61 @@ describe("createNotificationSubscriptionStore", () => {
 
     expect(parsed.subscriptions).toHaveLength(1);
     expect(parsed.subscriptions[0]?.deviceId).toBe("device-1");
+  });
+
+  it("rolls back every in-memory mutation when persistence fails", () => {
+    const store = createNotificationSubscriptionStore({
+      filePath: createTempPath(),
+      createId: (() => {
+        let seq = 0;
+        return () => `sub-${++seq}`;
+      })(),
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    const first = store.upsert(createUpsertInput("device-1", "https://push.example/sub/1"));
+    store.upsert(createUpsertInput("device-2", "https://push.example/sub/2"));
+    const rename = vi.spyOn(fs, "renameSync");
+    const persistError = Object.assign(new Error("persist failed"), { code: "EIO" });
+    const expectRollback = (mutate: () => unknown) => {
+      const before = store.list();
+      rename.mockImplementationOnce(() => {
+        throw persistError;
+      });
+      expect(mutate).toThrow("persist failed");
+      expect(store.list()).toEqual(before);
+    };
+
+    expectRollback(() => store.upsert(createUpsertInput("device-3", "https://push.example/sub/3")));
+    expectRollback(() => store.removeById(first.subscription.id));
+    expectRollback(() => store.revoke({ deviceId: "device-2" }));
+    expectRollback(() => store.markDelivered(first.subscription.id));
+    expectRollback(() => store.markDeliveryError(first.subscription.id, "delivery failed"));
+    expectRollback(() => store.removeAll());
+  });
+
+  it("restores memory after removeAll persistence failure so a retry clears disk", () => {
+    const filePath = createTempPath();
+    const store = createNotificationSubscriptionStore({
+      filePath,
+      createId: (() => {
+        let seq = 0;
+        return () => `sub-${++seq}`;
+      })(),
+      now: () => "2026-02-20T00:00:00.000Z",
+    });
+    store.upsert(createUpsertInput("device-1", "https://push.example/sub/1"));
+    store.upsert(createUpsertInput("device-2", "https://push.example/sub/2"));
+    const rename = vi.spyOn(fs, "renameSync");
+    rename.mockImplementationOnce(() => {
+      throw Object.assign(new Error("persist failed"), { code: "EIO" });
+    });
+
+    expect(() => store.removeAll()).toThrow("persist failed");
+    expect(store.list()).toHaveLength(2);
+
+    expect(store.removeAll()).toBe(2);
+    expect(store.list()).toHaveLength(0);
+    const restored = createNotificationSubscriptionStore({ filePath });
+    expect(restored.list()).toHaveLength(0);
   });
 });

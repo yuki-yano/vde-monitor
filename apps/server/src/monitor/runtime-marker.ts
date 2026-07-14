@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -18,21 +19,73 @@ type ReadProcessStartedAt = (pid: number) => {
   stdout: string;
 };
 
-const readProcessStartedAt: ReadProcessStartedAt = (pid) => {
-  const result = spawnSync("ps", ["-p", String(pid), "-o", "lstart="], {
+const runProcessIdentityCommand = (
+  command: string,
+  args: string[],
+): ReturnType<ReadProcessStartedAt> => {
+  const result = spawnSync(command, args, {
     encoding: "utf8",
     env: { ...process.env, LC_ALL: "C" },
     stdio: ["ignore", "pipe", "ignore"],
-    timeout: 1000,
+    timeout: 5000,
   });
   return { error: result.error, status: result.status, stdout: result.stdout };
 };
 
 export const resolveProcessStartedAt = (
   pid: number,
-  read: ReadProcessStartedAt = readProcessStartedAt,
+  {
+    platform = process.platform,
+    run = runProcessIdentityCommand,
+    readLinuxProcessStat = (targetPid: number) => readFileSync(`/proc/${targetPid}/stat`, "utf8"),
+    readLinuxBootId = () => readFileSync("/proc/sys/kernel/random/boot_id", "utf8"),
+  }: {
+    platform?: NodeJS.Platform;
+    run?: (command: string, args: string[]) => ReturnType<ReadProcessStartedAt>;
+    readLinuxProcessStat?: (pid: number) => string;
+    readLinuxBootId?: () => string;
+  } = {},
 ): string => {
-  const result = read(pid);
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    throw new Error(`invalid process id: ${pid}`);
+  }
+  if (platform === "linux") {
+    let stat: string;
+    let bootId: string;
+    try {
+      stat = readLinuxProcessStat(pid);
+      bootId = readLinuxBootId().trim();
+    } catch {
+      throw new Error(`failed to resolve process start identity for pid ${pid}`);
+    }
+    // The command name in field 2 may contain spaces or parentheses, so split after its final `)`.
+    // Tokens after that boundary start at field 3; process start ticks are field 22 (index 19).
+    const commandEnd = stat.lastIndexOf(")");
+    const startedAtTicks =
+      commandEnd < 0
+        ? undefined
+        : stat
+            .slice(commandEnd + 1)
+            .trim()
+            .split(/\s+/)[19];
+    if (startedAtTicks == null || !/^\d+$/.test(startedAtTicks) || !/^[0-9a-f-]+$/i.test(bootId)) {
+      throw new Error(`failed to resolve process start identity for pid ${pid}`);
+    }
+    return `linux:${bootId}:${startedAtTicks}`;
+  }
+
+  const command = platform === "win32" ? "powershell.exe" : "ps";
+  const args =
+    platform === "win32"
+      ? [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          `$target = Get-Process -Id ${pid} -ErrorAction Stop; ($target.StartTime.ToUniversalTime()).Ticks`,
+        ]
+      : ["-p", String(pid), "-o", "lstart="];
+  const result = run(command, args);
   const startedAt = result.status === 0 ? result.stdout.trim() : "";
   if (result.error || startedAt.length === 0) {
     throw new Error(`failed to resolve process start identity for pid ${pid}`);

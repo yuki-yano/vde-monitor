@@ -195,4 +195,38 @@ describe("LiteLLMPricingSource", () => {
       expect(tooOld.reasonCode).toBe("PRICING_CACHE_TOO_OLD");
     }
   });
+
+  it("aborts a pricing request after the configured timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        async (_url: string | URL | Request, init?: RequestInit): Promise<Response> =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+              once: true,
+            });
+          }),
+      );
+      const source = new LiteLLMPricingSource({
+        fetchImpl: fetchImpl as typeof fetch,
+        timeoutMs: 50,
+      });
+
+      const lookup = source.lookupModelPrice({
+        providerId: "codex",
+        modelId: "gpt-5.3-codex",
+        now: new Date("2026-02-23T00:00:00.000Z"),
+      });
+      await vi.advanceTimersByTimeAsync(50);
+
+      const result = await lookup;
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.reasonCode).toBe("PRICING_FETCH_FAILED");
+        expect(result.reasonMessage).toContain("timed out after 50ms");
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

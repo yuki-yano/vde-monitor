@@ -25,7 +25,7 @@ describe("createHerdrInspector", () => {
     const client = {
       request: vi.fn().mockResolvedValue(paneListResult),
     };
-    const inspector = createHerdrInspector(client);
+    const inspector = createHerdrInspector(client, { now: () => 1_783_170_000_000 });
 
     await expect(inspector.listPanes()).resolves.toEqual([
       {
@@ -36,7 +36,7 @@ describe("createHerdrInspector", () => {
         windowIndex: 1,
         paneIndex: 1,
         windowActivity: null,
-        paneActivity: 0,
+        paneActivity: null,
         paneActive: true,
         currentCommand: "claude",
         currentPath: "/Users/yuki-yano/project",
@@ -51,6 +51,27 @@ describe("createHerdrInspector", () => {
       },
     ]);
     expect(client.request).toHaveBeenCalledWith(HERDR_METHODS.paneList, {});
+  });
+
+  it("maps revision changes to observation time instead of treating the counter as epoch seconds", async () => {
+    let now = 1_783_170_000_000;
+    const first = structuredClone(paneListResult);
+    const second = structuredClone(paneListResult);
+    second.panes[0]!.revision = 1;
+    const client = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second)
+        .mockResolvedValueOnce(second),
+    };
+    const inspector = createHerdrInspector(client, { now: () => now });
+
+    expect((await inspector.listPanes())[0]?.paneActivity).toBeNull();
+    now += 5_000;
+    expect((await inspector.listPanes())[0]?.paneActivity).toBe(1_783_170_005);
+    now += 5_000;
+    expect((await inspector.listPanes())[0]?.paneActivity).toBe(1_783_170_005);
   });
 
   it("returns null from the readUserOption stub", async () => {

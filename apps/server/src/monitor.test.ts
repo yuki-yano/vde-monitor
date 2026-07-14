@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { mapWithConcurrencyLimit, mapWithConcurrencyLimitSettled } from "./monitor/concurrency";
+import { createInitialHookEventDispatcher, runMonitorStartupWithRollback } from "./monitor";
 
 type Deferred = {
   promise: Promise<void>;
@@ -72,5 +73,39 @@ describe("mapWithConcurrencyLimitSettled", () => {
 
   it("returns empty result for empty input", async () => {
     await expect(mapWithConcurrencyLimitSettled([], 3, async () => 1)).resolves.toEqual([]);
+  });
+});
+
+describe("createInitialHookEventDispatcher", () => {
+  it("replays hook events received before the initial registry is ready", () => {
+    const dispatch = vi.fn();
+    const dispatcher = createInitialHookEventDispatcher(dispatch);
+
+    dispatcher.push("first");
+    dispatcher.push("second");
+    expect(dispatch).not.toHaveBeenCalled();
+
+    dispatcher.activate();
+    dispatcher.push("third");
+
+    expect(dispatch.mock.calls.map(([event]) => event)).toEqual(["first", "second", "third"]);
+  });
+});
+
+describe("runMonitorStartupWithRollback", () => {
+  it("rolls back resources and preserves the startup error", async () => {
+    const startupError = new Error("initial pane refresh failed");
+    const rollback = vi.fn(async () => undefined);
+
+    await expect(
+      runMonitorStartupWithRollback({
+        start: async () => {
+          throw startupError;
+        },
+        rollback,
+      }),
+    ).rejects.toBe(startupError);
+
+    expect(rollback).toHaveBeenCalledOnce();
   });
 });

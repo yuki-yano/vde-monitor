@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { resolveSocketPath, subscribeHerdrEvents } from "@vde-monitor/herdr";
+import { type HerdrStateSignal, resolveSocketPath, subscribeHerdrEvents } from "@vde-monitor/herdr";
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { SessionStateTimelineRange } from "@vde-monitor/shared";
 import { resolveMonitorRuntimeMarkerPath } from "@vde-monitor/shared/node";
@@ -19,7 +19,11 @@ import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
 import { createMonitorRuntimeMarker, resolveProcessStartedAt } from "./monitor/runtime-marker";
-import { markHerdrLifecycleDirty, normalizeFingerprint } from "./monitor/monitor-utils";
+import {
+  applyHerdrAgentStatusSignal,
+  markHerdrLifecycleDirty,
+  normalizeFingerprint,
+} from "./monitor/monitor-utils";
 import { configureVwGhRefreshIntervalMs } from "./monitor/vw-worktree";
 import type { MultiplexerRuntime } from "@vde-monitor/multiplexer";
 import type { SessionTransitionEvent } from "./notifications/types";
@@ -74,6 +78,136 @@ export const createTrackedPaneUpdater = (update: () => Promise<void>) => {
   };
 
   return { run, stop };
+};
+
+export const createInitialHookEventDispatcher = <T>(dispatch: (event: T) => void) => {
+  let ready = false;
+  const pending: T[] = [];
+
+  const push = (event: T) => {
+    if (!ready) {
+      pending.push(event);
+      return;
+    }
+    dispatch(event);
+  };
+
+  const activate = () => {
+    if (ready) return;
+    ready = true;
+    pending.splice(0).forEach(dispatch);
+  };
+
+  return { push, activate };
+};
+
+export const runMonitorStartupWithRollback = async ({
+  start,
+  rollback,
+}: {
+  start: () => Promise<void>;
+  rollback: () => Promise<void>;
+}): Promise<void> => {
+  try {
+    await start();
+  } catch (error) {
+    await rollback();
+    throw error;
+  }
+};
+
+export const createRefreshableSubscription = <Subscription extends { stop: () => Promise<void> }>({
+  create,
+}: {
+  create: () => Promise<Subscription>;
+}) => {
+  let subscription: Subscription | null = null;
+  let refreshPromise: Promise<void> | null = null;
+  let refreshRequested = false;
+  let generation = 0;
+  let retryAttempt = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopping = false;
+
+  const refresh = async (): Promise<void> => {
+    if (stopping) return;
+    if (refreshPromise != null) return refreshPromise;
+    const refreshGeneration = ++generation;
+    const pending = Promise.resolve().then(async () => {
+      const previous = subscription;
+      subscription = null;
+      await previous?.stop();
+      if (stopping || refreshGeneration !== generation) return;
+
+      const next = await create();
+      if (stopping || refreshGeneration !== generation) {
+        await next.stop();
+        return;
+      }
+      subscription = next;
+      retryAttempt = 0;
+      if (retryTimer != null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    });
+    refreshPromise = pending;
+    const clearPending = () => {
+      if (refreshPromise === pending) refreshPromise = null;
+    };
+    void pending.then(clearPending, clearPending);
+    return pending;
+  };
+
+  const scheduleRetry = () => {
+    if (stopping || retryTimer != null) return;
+    const delayMs = Math.min(1_000 * 2 ** retryAttempt, 30_000);
+    retryAttempt += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      requestRefresh();
+    }, delayMs);
+  };
+
+  const requestRefresh = () => {
+    if (stopping) return;
+    if (refreshPromise != null) {
+      refreshRequested = true;
+      return;
+    }
+    void refresh()
+      .catch(() => {
+        scheduleRetry();
+      })
+      .finally(() => {
+        if (!refreshRequested || stopping) return;
+        refreshRequested = false;
+        requestRefresh();
+      });
+  };
+
+  const stop = async (): Promise<void> => {
+    if (stopping) return;
+    stopping = true;
+    refreshRequested = false;
+    generation += 1;
+    if (retryTimer != null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    const current = subscription;
+    subscription = null;
+    await Promise.allSettled([current?.stop() ?? Promise.resolve(), refreshPromise]);
+  };
+
+  const start = async (): Promise<void> => {
+    await refresh();
+    if (!refreshRequested || stopping) return;
+    refreshRequested = false;
+    requestRefresh();
+  };
+
+  return { start, requestRefresh, stop };
 };
 
 export const createSessionMonitor = (
@@ -153,8 +287,6 @@ export const createSessionMonitor = (
   });
   const jsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
   const codexJsonlTailer = createJsonlTailer(config.activity.pollIntervalMs);
-  let herdrEventSubscription: Awaited<ReturnType<typeof subscribeHerdrEvents>> | null = null;
-  let herdrEventSubscriptionRefresh: Promise<void> | null = null;
   let stopPromise: Promise<void> | null = null;
   restoreMonitorRuntimeState({
     restoredSessions: restored,
@@ -253,25 +385,23 @@ export const createSessionMonitor = (
     state.lastEventAt = context.hookState.at;
   };
 
-  const handleHerdrStateSignal = (signal: {
-    paneId: string;
-    agentStatus: "working" | "blocked" | "done" | "idle";
-    at: string;
-  }) => {
+  const handleHerdrStateSignal = (signal: HerdrStateSignal) => {
     observationCoordinator.markDirty(signal.paneId, "herdr");
     const state = paneStates.get(signal.paneId);
-    state.herdrAgentStatus = {
-      agentStatus: signal.agentStatus,
-      at: signal.at,
-    };
-    state.pendingAgentLifecycleEvents.push({
-      source: "herdr",
-      agentStatus: signal.agentStatus,
-      at: signal.at,
-    });
-    state.lastEventAt = signal.at;
+    applyHerdrAgentStatusSignal(state, signal);
     void updateFromPanes().catch(() => undefined);
   };
+
+  const hookEventDispatcher = createInitialHookEventDispatcher<{
+    agent: "claude" | "codex";
+    line: string;
+  }>(({ agent, line }) => {
+    if (agent === "claude") {
+      handleHookLine(line, registry.values(), handleHookEvent);
+      return;
+    }
+    handleCodexHookLine(line, registry.values(), handleHookEvent);
+  });
 
   const recordInput = (paneId: string, at = new Date().toISOString()) => {
     observationCoordinator.markDirty(paneId, "send");
@@ -298,45 +428,39 @@ export const createSessionMonitor = (
     await fs.open(eventLogPath, "a").then((handle) => handle.close());
     await fs.open(codexEventLogPath, "a").then((handle) => handle.close());
     jsonlTailer.onLine((line) => {
-      handleHookLine(line, registry.values(), handleHookEvent);
+      hookEventDispatcher.push({ agent: "claude", line });
     });
     codexJsonlTailer.onLine((line) => {
-      handleCodexHookLine(line, registry.values(), handleHookEvent);
+      hookEventDispatcher.push({ agent: "codex", line });
     });
     await Promise.all([jsonlTailer.start(eventLogPath), codexJsonlTailer.start(codexEventLogPath)]);
   };
 
-  const refreshHerdrEventSubscription = async () => {
-    if (runtime.backend !== "herdr") {
-      return;
-    }
-    if (herdrEventSubscriptionRefresh != null) {
-      return herdrEventSubscriptionRefresh;
-    }
-    herdrEventSubscriptionRefresh = (async () => {
-      const previous = herdrEventSubscription;
-      herdrEventSubscription = null;
-      await previous?.stop();
-
+  let requestHerdrEventSubscriptionRefresh = () => undefined;
+  const herdrEventSubscriptions = createRefreshableSubscription({
+    create: async () => {
       const panes = await inspector.listPanes();
-      herdrEventSubscription = await subscribeHerdrEvents({
+      return subscribeHerdrEvents({
         socketPath: resolveSocketPath(process.env, os.homedir()),
         paneIds: panes.map((pane) => pane.paneId),
         onSignal: handleHerdrStateSignal,
         onLifecycleEvent: (event) => {
           markHerdrLifecycleDirty(event, observationCoordinator.markDirty);
           void updateFromPanes().catch(() => undefined);
-          void refreshHerdrEventSubscription();
+          requestHerdrEventSubscriptionRefresh();
+        },
+        onDisconnect: () => {
+          requestHerdrEventSubscriptionRefresh();
         },
       });
-    })().finally(() => {
-      herdrEventSubscriptionRefresh = null;
-    });
-    return herdrEventSubscriptionRefresh;
+    },
+  });
+  requestHerdrEventSubscriptionRefresh = () => {
+    if (runtime.backend === "herdr") herdrEventSubscriptions.requestRefresh();
   };
 
   const startHerdrEventSubscription = async () => {
-    await refreshHerdrEventSubscription();
+    if (runtime.backend === "herdr") await herdrEventSubscriptions.start();
   };
 
   const monitorLoop = createMonitorLoop({
@@ -348,39 +472,42 @@ export const createSessionMonitor = (
   });
 
   const start = async () => {
-    try {
-      logActivity.onActivity((paneId, at) => {
-        observationCoordinator.markDirty(paneId, "pipe");
-        const state = paneStates.get(paneId);
-        state.lastOutputAt = at;
-      });
-      logActivity.start();
-      await startHookTailer();
-      // Publish only after tailers are ready so the first redirected hook event is not skipped.
-      await runtimeMarker?.write();
-      await startHerdrEventSubscription();
-
-      monitorLoop.start();
-
-      await updateFromPanes();
-    } catch (error) {
-      await runtimeMarker?.removeIfOwned().catch(() => undefined);
-      throw error;
-    }
+    await runMonitorStartupWithRollback({
+      start: async () => {
+        logActivity.onActivity((paneId, at) => {
+          observationCoordinator.markDirty(paneId, "pipe");
+          const state = paneStates.get(paneId);
+          state.lastOutputAt = at;
+        });
+        logActivity.start();
+        await startHookTailer();
+        // Publish only after tailers are ready so the first redirected hook event is not skipped.
+        await runtimeMarker?.write();
+        await startHerdrEventSubscription();
+        await updateFromPanes();
+        hookEventDispatcher.activate();
+        monitorLoop.start();
+      },
+      // A failed start can occur after timers, tailers, or a Herdr subscription
+      // have already been created. Reuse the full shutdown path so a rejected
+      // startup never leaves background resources attached to the process.
+      rollback: stop,
+    });
   };
 
   const stop = (): Promise<void> => {
     if (stopPromise != null) return stopPromise;
     monitorLoop.stop();
     logActivity.stop();
-    const subscription = herdrEventSubscription;
-    herdrEventSubscription = null;
     observationCoordinator.dispose();
     stopPromise = (async () => {
       await Promise.allSettled([runtimeMarker?.removeIfOwned() ?? Promise.resolve()]);
-      jsonlTailer.stop();
-      codexJsonlTailer.stop();
-      await Promise.allSettled([subscription?.stop() ?? Promise.resolve(), paneUpdater.stop()]);
+      await Promise.allSettled([
+        jsonlTailer.stop(),
+        codexJsonlTailer.stop(),
+        herdrEventSubscriptions.stop(),
+        paneUpdater.stop(),
+      ]);
       await detachOwnedPipesForShutdown({
         paneIds: resolveShutdownPaneIds(
           registry.values().map((session) => session.paneId),

@@ -59,6 +59,32 @@ describe("createInspector", () => {
     ]);
   });
 
+  it.each([
+    ["linux", "file:///home/wez/repo", "/home/wez/repo"],
+    ["linux", "file://foo/home/wez", "/home/wez"],
+    ["darwin", "file:///C:/Users/u/repo", "/C:/Users/u/repo"],
+    ["win32", "file:///C:/Users/u/repo", "C:\\Users\\u\\repo"],
+    ["win32", "file://server/share/repo", "\\\\server\\share\\repo"],
+  ] satisfies [NodeJS.Platform, string, string][])(
+    "normalizes a file URL for %s: %s",
+    async (platform, cwd, expected) => {
+      const adapter = {
+        run: vi
+          .fn()
+          .mockResolvedValueOnce({
+            stdout: JSON.stringify([{ pane_id: 1, workspace: "main", tab_id: 10, cwd }]),
+            stderr: "",
+            exitCode: 0,
+          })
+          .mockResolvedValueOnce({ stdout: "[]", stderr: "", exitCode: 0 }),
+      };
+
+      const panes = await createInspector(adapter, { platform }).listPanes();
+
+      expect(panes[0]?.currentPath).toBe(expected);
+    },
+  );
+
   it("falls back paneIndex when missing and ignores malformed panes", async () => {
     const adapter = {
       run: vi

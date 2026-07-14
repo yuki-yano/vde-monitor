@@ -223,6 +223,18 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
     return Array.from(subscriptionsById.values()).map(cloneSubscriptionRecord);
   };
 
+  const mutateAndPersist = <T>(mutate: () => T): T => {
+    const snapshot = list();
+    try {
+      const result = mutate();
+      persist();
+      return result;
+    } catch (error) {
+      restoreFromRecords(snapshot);
+      throw error;
+    }
+  };
+
   const upsert = (input: UpsertNotificationSubscriptionInput) => {
     const existingId = subscriptionIdByDeviceId.get(input.deviceId);
     const existingRecord = existingId ? (subscriptionsById.get(existingId) ?? null) : null;
@@ -248,14 +260,15 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
       lastDeliveryError: existingRecord?.lastDeliveryError ?? null,
     };
 
-    subscriptionsById.set(nextRecord.id, nextRecord);
-    subscriptionIdByDeviceId.set(nextRecord.deviceId, nextRecord.id);
-    persist();
-    return {
-      subscription: cloneSubscriptionRecord(nextRecord),
-      created: existingRecord == null,
-      savedAt: timestamp,
-    };
+    return mutateAndPersist(() => {
+      subscriptionsById.set(nextRecord.id, nextRecord);
+      subscriptionIdByDeviceId.set(nextRecord.deviceId, nextRecord.id);
+      return {
+        subscription: cloneSubscriptionRecord(nextRecord),
+        created: existingRecord == null,
+        savedAt: timestamp,
+      };
+    });
   };
 
   const removeById = (subscriptionId: string) => {
@@ -263,12 +276,13 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
     if (!existing) {
       return false;
     }
-    subscriptionsById.delete(subscriptionId);
-    if (subscriptionIdByDeviceId.get(existing.deviceId) === subscriptionId) {
-      subscriptionIdByDeviceId.delete(existing.deviceId);
-    }
-    persist();
-    return true;
+    return mutateAndPersist(() => {
+      subscriptionsById.delete(subscriptionId);
+      if (subscriptionIdByDeviceId.get(existing.deviceId) === subscriptionId) {
+        subscriptionIdByDeviceId.delete(existing.deviceId);
+      }
+      return true;
+    });
   };
 
   const removeByPredicate = (predicate: (record: NotificationSubscriptionRecord) => boolean) => {
@@ -278,18 +292,19 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
     if (removable.length === 0) {
       return 0;
     }
-    removable.forEach((subscriptionId) => {
-      const existing = subscriptionsById.get(subscriptionId);
-      if (!existing) {
-        return;
-      }
-      subscriptionsById.delete(subscriptionId);
-      if (subscriptionIdByDeviceId.get(existing.deviceId) === subscriptionId) {
-        subscriptionIdByDeviceId.delete(existing.deviceId);
-      }
+    return mutateAndPersist(() => {
+      removable.forEach((subscriptionId) => {
+        const existing = subscriptionsById.get(subscriptionId);
+        if (!existing) {
+          return;
+        }
+        subscriptionsById.delete(subscriptionId);
+        if (subscriptionIdByDeviceId.get(existing.deviceId) === subscriptionId) {
+          subscriptionIdByDeviceId.delete(existing.deviceId);
+        }
+      });
+      return removable.length;
     });
-    persist();
-    return removable.length;
   };
 
   const revoke = ({
@@ -314,10 +329,11 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
       return 0;
     }
     const removedCount = subscriptionsById.size;
-    subscriptionsById.clear();
-    subscriptionIdByDeviceId.clear();
-    persist();
-    return removedCount;
+    return mutateAndPersist(() => {
+      subscriptionsById.clear();
+      subscriptionIdByDeviceId.clear();
+      return removedCount;
+    });
   };
 
   const markDelivered = (subscriptionId: string, deliveredAt = now()) => {
@@ -325,14 +341,15 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
     if (!existing) {
       return false;
     }
-    subscriptionsById.set(subscriptionId, {
-      ...existing,
-      updatedAt: deliveredAt,
-      lastDeliveredAt: deliveredAt,
-      lastDeliveryError: null,
+    return mutateAndPersist(() => {
+      subscriptionsById.set(subscriptionId, {
+        ...existing,
+        updatedAt: deliveredAt,
+        lastDeliveredAt: deliveredAt,
+        lastDeliveryError: null,
+      });
+      return true;
     });
-    persist();
-    return true;
   };
 
   const markDeliveryError = (subscriptionId: string, message: string, at = now()) => {
@@ -340,13 +357,14 @@ export const createNotificationSubscriptionStore = (options: StoreOptions = {}) 
     if (!existing) {
       return false;
     }
-    subscriptionsById.set(subscriptionId, {
-      ...existing,
-      updatedAt: at,
-      lastDeliveryError: message,
+    return mutateAndPersist(() => {
+      subscriptionsById.set(subscriptionId, {
+        ...existing,
+        updatedAt: at,
+        lastDeliveryError: message,
+      });
+      return true;
     });
-    persist();
-    return true;
   };
 
   return {

@@ -320,6 +320,16 @@ describe("configSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it.each([
+    { port: 0 },
+    { port: 65536 },
+    { activity: { ...configDefaults.activity, pollIntervalMs: 0 } },
+    { activity: { ...configDefaults.activity, runningThresholdMs: -1 } },
+    { screen: { ...configDefaults.screen, maxLines: -1 } },
+  ])("rejects out-of-range numeric config: %j", (override) => {
+    expect(configSchema.safeParse({ ...configDefaults, ...override }).success).toBe(false);
+  });
 });
 
 describe("configOverrideSchema", () => {
@@ -332,6 +342,16 @@ describe("configOverrideSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it.each([
+    { port: 1.5 },
+    { port: 65536 },
+    { activity: { pollIntervalMs: -1 } },
+    { activity: { runningThresholdMs: -1 } },
+    { screen: { maxLines: 0 } },
+  ])("rejects out-of-range numeric override: %j", (override) => {
+    expect(configOverrideSchema.safeParse(override).success).toBe(false);
   });
 
   it("rejects a relative external root", () => {

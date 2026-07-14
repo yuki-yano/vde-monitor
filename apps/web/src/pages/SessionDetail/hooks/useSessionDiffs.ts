@@ -1,6 +1,6 @@
 import type { DiffFile, DiffSummary } from "@vde-monitor/shared";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -14,7 +14,7 @@ import {
   diffSummaryAtom,
 } from "../atoms/diffAtoms";
 import { AUTO_REFRESH_INTERVAL_MS, buildDiffSummarySnapshot } from "../sessionDetailUtils";
-import { isCurrentScopedRequest, runScopedRequest } from "./session-request-guard";
+import { runScopedRequest } from "./session-request-guard";
 import { useScopeGuard } from "./useScopeGuard";
 
 type UseSessionDiffsParams = {
@@ -55,6 +55,13 @@ const buildDiffFileCacheKeyPrefix = (
   worktreePath: string | null,
   branch: string | null,
 ) => `${paneId}\x00${worktreePath ?? "__default__"}:${branch ?? "__no_branch__"}\x00`;
+
+const buildInFlightDiffFileKey = (
+  scopeKey: string,
+  generation: number,
+  rev: string | null,
+  path: string,
+) => `${scopeKey}\x00${generation}\x00${rev ?? "unknown"}\x00${path}`;
 
 const getDiffFileFromCache = (
   paneId: string,
@@ -104,22 +111,40 @@ const pruneDiffFileCacheToRev = (
   }
 };
 
-// Fetch from cache or call the query function and store the result
-const fetchDiffFileWithCache = async (
+// Cache writes happen only after the caller confirms that the scope/revision
+// generation that started the request is still current.
+const fetchCurrentDiffFileWithCache = async (
   paneId: string,
   worktreePath: string | null,
   branch: string | null,
   rev: string | null,
   path: string,
+  inFlightRequests: Map<string, Promise<DiffFile>>,
+  inFlightKey: string,
+  isCurrent: () => boolean,
   queryFn: () => Promise<DiffFile>,
-): Promise<DiffFile> => {
+): Promise<DiffFile | null> => {
   const cached = getDiffFileFromCache(paneId, worktreePath, branch, rev, path);
   if (cached) {
-    return cached;
+    return isCurrent() ? cached : null;
   }
-  const file = await queryFn();
-  setDiffFileInCache(paneId, worktreePath, branch, rev, path, file);
-  return file;
+  let request = inFlightRequests.get(inFlightKey);
+  if (!request) {
+    request = queryFn();
+    inFlightRequests.set(inFlightKey, request);
+  }
+  try {
+    const file = await request;
+    if (!isCurrent()) {
+      return null;
+    }
+    setDiffFileInCache(paneId, worktreePath, branch, rev, path, file);
+    return file;
+  } finally {
+    if (inFlightRequests.get(inFlightKey) === request) {
+      inFlightRequests.delete(inFlightKey);
+    }
+  }
 };
 
 export const useSessionDiffs = ({
@@ -139,6 +164,9 @@ export const useSessionDiffs = ({
 
   const diffOpenRef = useRef<Record<string, boolean>>({});
   const diffSnapshotRef = useRef<string | null>(null);
+  const diffSummaryRevRef = useRef<string | null>(null);
+  const diffScopeGenerationRef = useRef(0);
+  const inFlightDiffFilesRef = useRef(new Map<string, Promise<DiffFile>>());
   const onReconnectRef = useRef<() => void>(() => {});
   const pollTickRef = useRef<() => void>(() => {});
   const { scopeKey: requestScopeKey, activeScopeRef } = useScopeGuard({
@@ -152,6 +180,12 @@ export const useSessionDiffs = ({
   });
   const summaryRequestIdRef = useRef(0);
 
+  useLayoutEffect(() => {
+    diffScopeGenerationRef.current += 1;
+    diffSnapshotRef.current = null;
+    diffSummaryRevRef.current = null;
+  }, [requestScopeKey]);
+
   const requestOptions = useMemo(
     () =>
       branch
@@ -163,7 +197,22 @@ export const useSessionDiffs = ({
   );
 
   const applyDiffSummary = useCallback(
-    async (summary: DiffSummary, refreshOpenFiles: boolean) => {
+    (summary: DiffSummary, refreshOpenFiles: boolean, targetScopeKey: string) => {
+      const targetSnapshot = buildDiffSummarySnapshot(summary);
+      const snapshotChanged = diffSnapshotRef.current !== targetSnapshot;
+      if (snapshotChanged) {
+        diffScopeGenerationRef.current += 1;
+        setDiffLoadingFiles({});
+        clearDiffFileCacheForPane(paneId, worktreePath, branch);
+      }
+      diffSummaryRevRef.current = summary.rev;
+      diffSnapshotRef.current = targetSnapshot;
+      const targetGeneration = diffScopeGenerationRef.current;
+      const isCurrentRevision = () =>
+        activeScopeRef.current === targetScopeKey &&
+        diffScopeGenerationRef.current === targetGeneration &&
+        diffSummaryRevRef.current === summary.rev &&
+        diffSnapshotRef.current === targetSnapshot;
       pruneDiffFileCacheToRev(paneId, worktreePath, branch, summary.rev);
       setDiffSummary(summary);
       const fileSet = new Set(summary.files.map((file) => file.path));
@@ -191,35 +240,51 @@ export const useSessionDiffs = ({
       }, {});
       setDiffFiles(cachedFiles);
       if (openTargets.length > 0 && refreshOpenFiles) {
-        await Promise.all(
+        void Promise.all(
           openTargets.map(async ([path]) => {
-            if (getDiffFileFromCache(paneId, worktreePath, branch, summary.rev, path)) {
-              return;
+            const cacheMiss = cachedFiles[path] == null;
+            if (cacheMiss) {
+              setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
             }
             try {
-              const file = await fetchDiffFileWithCache(
+              const file = await fetchCurrentDiffFileWithCache(
                 paneId,
                 worktreePath,
                 branch,
                 summary.rev,
                 path,
+                inFlightDiffFilesRef.current,
+                buildInFlightDiffFileKey(targetScopeKey, targetGeneration, summary.rev, path),
+                isCurrentRevision,
                 () => requestDiffFile(paneId, path, summary.rev, requestOptions),
               );
+              if (file == null) {
+                return;
+              }
               setDiffFiles((prev) => ({ ...prev, [path]: file }));
             } catch (err) {
+              if (!isCurrentRevision()) {
+                return;
+              }
               setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
+            } finally {
+              if (cacheMiss && isCurrentRevision()) {
+                setDiffLoadingFiles((prev) => ({ ...prev, [path]: false }));
+              }
             }
           }),
         );
       }
     },
     [
+      activeScopeRef,
       branch,
       paneId,
       requestDiffFile,
       requestOptions,
       setDiffError,
       setDiffFiles,
+      setDiffLoadingFiles,
       setDiffOpen,
       setDiffSummary,
       worktreePath,
@@ -236,11 +301,13 @@ export const useSessionDiffs = ({
       activeScopeRef,
       scopeKey: targetScopeKey,
       run: () => requestDiffSummary(paneId, requestOptions),
-      onSuccess: async (summary) => {
-        await applyDiffSummary(summary, true);
+      onSuccess: (summary) => {
+        applyDiffSummary(summary, true, targetScopeKey);
+        setDiffLoading(false);
       },
       onError: (err) => {
         setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffSummary));
+        setDiffLoading(false);
       },
       onSettled: ({ isCurrent }) => {
         if (isCurrent()) {
@@ -267,13 +334,19 @@ export const useSessionDiffs = ({
       activeScopeRef,
       scopeKey: targetScopeKey,
       run: () => requestDiffSummary(paneId, requestOptions),
-      onSuccess: async (summary) => {
+      onSuccess: (summary) => {
+        setDiffLoading(false);
         const snapshot = buildDiffSummarySnapshot(summary);
         if (snapshot === diffSnapshotRef.current) {
           return;
         }
         setDiffError(null);
-        await applyDiffSummary(summary, true);
+        applyDiffSummary(summary, true, targetScopeKey);
+      },
+      onSettled: ({ isCurrent }) => {
+        if (isCurrent()) {
+          setDiffLoading(false);
+        }
       },
     });
   }, [
@@ -284,6 +357,7 @@ export const useSessionDiffs = ({
     requestOptions,
     requestScopeKey,
     setDiffError,
+    setDiffLoading,
   ]);
   const pollDiffSummaryTick = useCallback(() => {
     void pollDiffSummary();
@@ -297,7 +371,7 @@ export const useSessionDiffs = ({
 
   const loadDiffFile = useCallback(
     async (path: string) => {
-      if (!paneId || !diffSummary?.rev) return;
+      if (!paneId || !diffSummary?.rev || diffSnapshotRef.current == null) return;
       if (diffLoadingFiles[path]) return;
       const cached = getDiffFileFromCache(paneId, worktreePath, branch, diffSummary.rev, path);
       if (cached) {
@@ -305,51 +379,40 @@ export const useSessionDiffs = ({
         return;
       }
       const targetScopeKey = requestScopeKey;
-      const requestId = summaryRequestIdRef.current;
+      const targetRev = diffSummary.rev;
+      const targetGeneration = diffScopeGenerationRef.current;
+      const targetSnapshot = diffSnapshotRef.current;
+      const isCurrentRevision = () =>
+        activeScopeRef.current === targetScopeKey &&
+        diffScopeGenerationRef.current === targetGeneration &&
+        diffSummaryRevRef.current === targetRev &&
+        diffSnapshotRef.current === targetSnapshot;
       setDiffLoadingFiles((prev) => ({ ...prev, [path]: true }));
       try {
         // False positive: the scope/request guard depends on the resolved file.
         // react-doctor-disable-next-line async-defer-await
-        const file = await fetchDiffFileWithCache(
+        const file = await fetchCurrentDiffFileWithCache(
           paneId,
           worktreePath,
           branch,
-          diffSummary.rev,
+          targetRev,
           path,
-          () => requestDiffFile(paneId, path, diffSummary.rev, requestOptions),
+          inFlightDiffFilesRef.current,
+          buildInFlightDiffFileKey(targetScopeKey, targetGeneration, targetRev, path),
+          isCurrentRevision,
+          () => requestDiffFile(paneId, path, targetRev, requestOptions),
         );
-        if (
-          !isCurrentScopedRequest({
-            requestIdRef: summaryRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
+        if (file == null) {
           return;
         }
         setDiffFiles((prev) => ({ ...prev, [path]: file }));
       } catch (err) {
-        if (
-          !isCurrentScopedRequest({
-            requestIdRef: summaryRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
+        if (!isCurrentRevision()) {
           return;
         }
         setDiffError(resolveUnknownErrorMessage(err, API_ERROR_MESSAGES.diffFile));
       } finally {
-        if (
-          isCurrentScopedRequest({
-            requestIdRef: summaryRequestIdRef,
-            requestId,
-            activeScopeRef,
-            scopeKey: targetScopeKey,
-          })
-        ) {
+        if (isCurrentRevision()) {
           setDiffLoadingFiles((prev) => ({ ...prev, [path]: false }));
         }
       }
@@ -394,20 +457,25 @@ export const useSessionDiffs = ({
     setDiffSummary(null);
     setDiffFiles({});
     setDiffOpen({});
+    setDiffLoadingFiles({});
     setDiffError(null);
-    diffSnapshotRef.current = null;
     return () => {
       clearDiffFileCacheForPane(paneId, worktreePath, branch);
     };
-  }, [branch, paneId, setDiffError, setDiffFiles, setDiffOpen, setDiffSummary, worktreePath]);
+  }, [
+    branch,
+    paneId,
+    setDiffError,
+    setDiffFiles,
+    setDiffLoadingFiles,
+    setDiffOpen,
+    setDiffSummary,
+    worktreePath,
+  ]);
 
   useEffect(() => {
     diffOpenRef.current = diffOpen;
   }, [diffOpen]);
-
-  useEffect(() => {
-    diffSnapshotRef.current = diffSummary ? buildDiffSummarySnapshot(diffSummary) : null;
-  }, [diffSummary]);
 
   return {
     diffSummary,

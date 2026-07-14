@@ -68,12 +68,29 @@ export const createApp = ({
 
   // The API router's api.use("*") applies authentication and Origin checks to all /api/* routes.
   app.post("/api/admin/token/rotate", (c) => {
+    // Persist the new token atomically before revoking any runtime state. If persistence fails,
+    // subscriptions, streams, preview tickets, and the active token all remain untouched.
     const next = rotateToken();
     config.token = next.token;
-    notificationService.removeAllSubscriptions();
-    // Disconnect every SSE connection established with the previous token.
-    streamConnections.closeAll();
-    previewTicketService.revokeAll();
+    const cleanupOperations = [
+      { id: "push-subscriptions", run: () => notificationService.removeAllSubscriptions() },
+      { id: "streams", run: () => streamConnections.closeAll() },
+      { id: "preview-tickets", run: () => previewTicketService.revokeAll() },
+    ];
+    const cleanupFailures: string[] = [];
+    for (const cleanup of cleanupOperations) {
+      try {
+        cleanup.run();
+      } catch (error) {
+        // Persistence has committed the new credential, so the caller must still receive it.
+        // Continue revoking every independent runtime credential and report best-effort failures.
+        cleanupFailures.push(cleanup.id);
+        console.error(`[vde-monitor] Token rotated, but ${cleanup.id} cleanup failed`, error);
+      }
+    }
+    if (cleanupFailures.length > 0) {
+      return c.json({ token: next.token, cleanupFailures }, 207);
+    }
     return c.json({ token: next.token });
   });
 
@@ -87,5 +104,5 @@ export const createApp = ({
     app.get("/*", serveStatic({ root: distDir, path: "index.html" }));
   }
 
-  return { app };
+  return { app, previewTicketService };
 };

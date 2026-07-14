@@ -836,7 +836,7 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.command.ok).toBe(true);
-    expect(actions.killWindow).toHaveBeenCalledWith("pane-1");
+    expect(actions.killWindow).toHaveBeenCalledWith("pane-1", "window-0");
   });
 
   it("focuses pane for wezterm backend as well", async () => {

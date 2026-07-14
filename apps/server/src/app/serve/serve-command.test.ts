@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  cleanupFailedServeSetup,
   createGracefulShutdown,
   ensureCmuxAvailable,
   ensureCmuxPlatformSupported,
@@ -321,6 +322,51 @@ describe("stopMonitorAndDisposeRuntime", () => {
   });
 });
 
+describe("cleanupFailedServeSetup", () => {
+  it("attempts every acquired cleanup and releases ownership last", async () => {
+    const calls: string[] = [];
+
+    await cleanupFailedServeSetup({
+      streamCleanups: [
+        () => {
+          calls.push("stream-1");
+          throw new Error("stream cleanup failed");
+        },
+        () => calls.push("stream-2"),
+      ],
+      closeServer: (onClosed) => {
+        calls.push("server");
+        onClosed();
+      },
+      stopMonitor: () => {
+        calls.push("monitor");
+        throw new Error("monitor cleanup failed");
+      },
+      disposeRuntime: () => {
+        calls.push("runtime");
+        throw new Error("runtime cleanup failed");
+      },
+      releaseServerRuntime: () => calls.push("release"),
+    });
+
+    expect(calls).toEqual(["stream-1", "stream-2", "server", "monitor", "runtime", "release"]);
+  });
+
+  it("disposes an initialized runtime without stopping an unstarted monitor", async () => {
+    const stopMonitor = vi.fn();
+    const disposeRuntime = vi.fn();
+
+    await cleanupFailedServeSetup({
+      stopMonitor: undefined,
+      disposeRuntime,
+      releaseServerRuntime: vi.fn(),
+    });
+
+    expect(stopMonitor).not.toHaveBeenCalled();
+    expect(disposeRuntime).toHaveBeenCalledOnce();
+  });
+});
+
 describe("createGracefulShutdown", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -341,11 +387,13 @@ describe("createGracefulShutdown", () => {
     const closeServer = vi.fn((onClosed: () => void) => {
       onServerClosed = onClosed;
     });
+    const releaseServerRuntime = vi.fn();
     const exitProcess = vi.fn();
     const shutdown = createGracefulShutdown({
       closeStreams,
       stopMonitor,
       closeServer,
+      releaseServerRuntime,
       exitProcess,
     });
 
@@ -367,9 +415,37 @@ describe("createGracefulShutdown", () => {
     onServerClosed();
     await sigintShutdown;
 
+    expect(releaseServerRuntime).toHaveBeenCalledOnce();
     expect(exitProcess).toHaveBeenCalledOnce();
     expect(exitProcess).toHaveBeenCalledWith(0);
     expect(shutdown()).toBe(sigintShutdown);
+  });
+
+  it("releases the server claim after HTTP closes and before process exit", async () => {
+    const calls: string[] = [];
+    let onServerClosed = () => {};
+    const shutdown = createGracefulShutdown({
+      closeStreams: vi.fn(),
+      stopMonitor: vi.fn(),
+      closeServer: vi.fn((onClosed: () => void) => {
+        onServerClosed = onClosed;
+      }),
+      releaseServerRuntime: () => {
+        calls.push("release");
+      },
+      exitProcess: () => {
+        calls.push("exit");
+      },
+    });
+
+    const shutdownPromise = shutdown();
+    await flushMicrotasks();
+    expect(calls).toEqual([]);
+
+    onServerClosed();
+    await shutdownPromise;
+
+    expect(calls).toEqual(["release", "exit"]);
   });
 
   it("starts HTTP server close after the five-second monitor stop timeout", async () => {
@@ -443,6 +519,29 @@ describe("createGracefulShutdown", () => {
     onServerClosed();
     await shutdownPromise;
     expect(exitProcess).toHaveBeenCalledOnce();
+  });
+
+  it("releases the claim when stream cleanup and server close throw", async () => {
+    const stopMonitor = vi.fn();
+    const releaseServerRuntime = vi.fn();
+    const exitProcess = vi.fn();
+    const shutdown = createGracefulShutdown({
+      closeStreams: () => {
+        throw new Error("stream cleanup failed");
+      },
+      stopMonitor,
+      closeServer: () => {
+        throw new Error("server close failed");
+      },
+      releaseServerRuntime,
+      exitProcess,
+    });
+
+    await shutdown();
+
+    expect(stopMonitor).toHaveBeenCalledOnce();
+    expect(releaseServerRuntime).toHaveBeenCalledOnce();
+    expect(exitProcess).toHaveBeenCalledWith(0);
   });
 });
 

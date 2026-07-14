@@ -616,7 +616,8 @@ EVENT_COUNT 5
 判定:
 
 - `pane.report_agent` は pane 単位で `working` / `blocked` / `idle` / `unknown` 相当を外部 author できる。
-- `events.subscribe` で `pane.agent_status_changed` が push される。
+- `events.subscribe` で `pane.agent_status_changed` が push される。`pane_id` は必須なので、監視対象 pane が 0 件の間は status 購読を送らず lifecycle event のみ購読する。
+- `agent_status: "unknown"` は Herdr の既知状態が解除されたことを示すため、直前の Herdr 状態を消去して polling など他の観測結果へ戻す。
 - Phase 3 の実機 smoke では `pane.agent_status_changed` を `pane_id` なしで購読しても status push を受け取れず、Phase 0 の生ログと同じく `{ type: "pane.agent_status_changed", pane_id }` で購読すると push を受け取れた。
 
 ### U6: copy-mode 相当

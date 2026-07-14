@@ -1,5 +1,5 @@
 import type { BranchList, SessionSummary } from "@vde-monitor/shared";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
 import { useVisibilityPolling } from "@/lib/use-visibility-polling";
@@ -8,6 +8,11 @@ import { AUTO_REFRESH_INTERVAL_MS } from "../sessionDetailUtils";
 import { createNextRequestId, isCurrentRequest } from "./session-request-guard";
 
 type BranchMutationKind = "checkout" | "create" | "delete";
+
+type ActivePaneContext = {
+  paneId: string;
+  generation: number;
+};
 
 type BranchesState = {
   branchList: BranchList | null;
@@ -97,7 +102,18 @@ export const useSessionBranches = ({
   const [state, dispatch] = useReducer(branchesReducer, initialBranchesState);
   const latestRequestIdRef = useRef(0);
   const hasLoadedRef = useRef(false);
+  const activePaneRef = useRef<ActivePaneContext>({ paneId, generation: 0 });
   const { branchList, loading, error, mutating, mutationError } = state;
+
+  useLayoutEffect(() => {
+    if (activePaneRef.current.paneId === paneId) {
+      return;
+    }
+    activePaneRef.current = {
+      paneId,
+      generation: activePaneRef.current.generation + 1,
+    };
+  }, [paneId]);
 
   useEffect(() => {
     latestRequestIdRef.current += 1;
@@ -107,6 +123,8 @@ export const useSessionBranches = ({
 
   const fetchBranches = useCallback(
     async (options?: { resetEntries?: boolean; force?: boolean }) => {
+      const targetPaneId = paneId;
+      const targetPaneContext = activePaneRef.current;
       const requestId = createNextRequestId(latestRequestIdRef);
       const shouldReset = options?.resetEntries === true;
       const shouldShowLoading = shouldReset || !hasLoadedRef.current;
@@ -122,16 +140,24 @@ export const useSessionBranches = ({
         // False positive: request freshness is checked immediately after the fetch resolves.
         // react-doctor-disable-next-line async-defer-await
         const next = await requestBranches(
-          paneId,
+          targetPaneId,
           options?.force === true ? { force: true } : undefined,
         );
-        if (!isCurrentRequest(latestRequestIdRef, requestId)) {
+        if (
+          activePaneRef.current !== targetPaneContext ||
+          targetPaneContext.paneId !== targetPaneId ||
+          !isCurrentRequest(latestRequestIdRef, requestId)
+        ) {
           return;
         }
         hasLoadedRef.current = true;
         dispatch({ type: "fetchSuccess", branchList: next, showLoading: shouldShowLoading });
       } catch (nextError) {
-        if (!isCurrentRequest(latestRequestIdRef, requestId)) {
+        if (
+          activePaneRef.current !== targetPaneContext ||
+          targetPaneContext.paneId !== targetPaneId ||
+          !isCurrentRequest(latestRequestIdRef, requestId)
+        ) {
           return;
         }
         dispatch({
@@ -158,37 +184,57 @@ export const useSessionBranches = ({
   });
 
   const runMutation = useCallback(
-    async (kind: BranchMutationKind, name: string, mutate: () => Promise<void>) => {
+    async (
+      kind: BranchMutationKind,
+      name: string,
+      targetPaneId: string,
+      mutate: () => Promise<void>,
+    ) => {
+      const targetPaneContext = activePaneRef.current;
+      const isCurrentPaneGeneration = () =>
+        activePaneRef.current === targetPaneContext && targetPaneContext.paneId === targetPaneId;
+      if (!isCurrentPaneGeneration()) {
+        return false;
+      }
       dispatch({ type: "mutationStart", kind, name });
       try {
         await mutate();
+        if (!isCurrentPaneGeneration()) {
+          return false;
+        }
         await fetchBranches({ force: true });
-        return true;
+        return isCurrentPaneGeneration();
       } catch (err) {
+        if (!isCurrentPaneGeneration()) {
+          return false;
+        }
         dispatch({
           type: "mutationFailure",
           error: resolveUnknownErrorMessage(err, `Failed to ${kind} branch`),
         });
         return false;
       } finally {
-        dispatch({ type: "mutationFinish" });
+        if (isCurrentPaneGeneration()) {
+          dispatch({ type: "mutationFinish" });
+        }
       }
     },
     [fetchBranches],
   );
 
   const checkoutBranch = useCallback(
-    (name: string) => runMutation("checkout", name, () => requestBranchCheckout(paneId, name)),
+    (name: string) =>
+      runMutation("checkout", name, paneId, () => requestBranchCheckout(paneId, name)),
     [paneId, requestBranchCheckout, runMutation],
   );
   const createBranch = useCallback(
     (name: string, base?: string) =>
-      runMutation("create", name, () => requestBranchCreate(paneId, name, base)),
+      runMutation("create", name, paneId, () => requestBranchCreate(paneId, name, base)),
     [paneId, requestBranchCreate, runMutation],
   );
   const deleteBranch = useCallback(
     (name: string, options?: { force?: boolean }) =>
-      runMutation("delete", name, () => requestBranchDelete(paneId, name, options)),
+      runMutation("delete", name, paneId, () => requestBranchDelete(paneId, name, options)),
     [paneId, requestBranchDelete, runMutation],
   );
 

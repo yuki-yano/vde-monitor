@@ -197,6 +197,36 @@ describe("createScreenStreamScheduler", () => {
     scheduler.dispose();
   });
 
+  it("delivers metadata changes even when screen content is unchanged", async () => {
+    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
+    const listener = vi.fn();
+
+    scheduler.subscribe("pane-1", listener);
+    await flushMicrotasks();
+    listener.mockClear();
+
+    captureText.mockResolvedValueOnce({ screen: "hello", alternateOn: true, truncated: null });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(buildTextResponse).toHaveBeenLastCalledWith(
+      expect.objectContaining({ screen: "hello", alternateOn: true, truncated: null }),
+    );
+
+    listener.mockClear();
+    captureText.mockResolvedValueOnce({ screen: "hello", alternateOn: true, truncated: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(buildTextResponse).toHaveBeenLastCalledWith(
+      expect.objectContaining({ screen: "hello", alternateOn: true, truncated: true }),
+    );
+
+    scheduler.dispose();
+  });
+
   it("does not overlap the immediate capture with an interval tick", async () => {
     let releaseFirstCapture: (() => void) | undefined;
     let activeCaptures = 0;

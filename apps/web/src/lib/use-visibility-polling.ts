@@ -81,7 +81,7 @@ export const useVisibilityPolling = ({
       start();
     }
 
-    window.addEventListener("visibilitychange", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
     window.addEventListener("online", handleResume);
     window.addEventListener("focus", handleResume);
     window.addEventListener("pageshow", handlePageShow);
@@ -89,7 +89,7 @@ export const useVisibilityPolling = ({
 
     return () => {
       stop();
-      window.removeEventListener("visibilitychange", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
       window.removeEventListener("online", handleResume);
       window.removeEventListener("focus", handleResume);
       window.removeEventListener("pageshow", handlePageShow);

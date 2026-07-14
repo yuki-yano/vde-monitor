@@ -187,6 +187,10 @@ Advanced options:
 
 Notes:
 
+- Only one vde-monitor server may run per OS user. A second start exits before monitoring or
+  listening, even when another port is available.
+- Automatic port selection is only used when the configured port is occupied by another
+  application; it does not allow multiple vde-monitor servers for the same user.
 - `--bind` cannot be combined with `--tailscale`
 - `--bind` takes priority over `--public`
 - `--tailscale` requires a resolvable Tailscale IP
@@ -218,6 +222,7 @@ npx --package vde-monitor@latest vde-monitor-hook codex <HookEventName>
 - `config check`: validate global config (parse/schema/required generated keys/unused keys)
 - `config prune`: remove unused keys from global config and rewrite as `config.yml` (YAML)
 - `config prune --dry-run`: show removable keys without updating files
+- `token rotate`: rotate through the owned running-server endpoint recorded in the local runtime marker, so the persisted and active tokens change together without probing other ports; if post-commit runtime cleanup is incomplete, the committed token is printed together with a warning
 - `claude hooks print`: print the hooks snippet to paste into Claude Code `.claude/settings.json`
 - `codex hooks print`: print the hooks snippet to paste into Codex CLI `~/.codex/hooks.json` (Codex requires trusting the hook via `/hooks` after registration)
 
@@ -414,6 +419,7 @@ Current limitations:
 ## Runtime data paths
 
 - Token: `~/.vde-monitor/token.json`
+- Running-server ownership: `~/.vde-monitor/server-runtimes/server-runtime.<pid>.<instance>.json`
 - Session/timeline persistence: `~/.vde-monitor/state.json`
 - Push VAPID keys: `~/.vde-monitor/push-vapid.json`
 - Push subscriptions: `~/.vde-monitor/notifications.json`

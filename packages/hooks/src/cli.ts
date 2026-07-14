@@ -673,10 +673,11 @@ export const deriveHerdrAgentStatus = (
 type HerdrReportSocket = {
   destroyed?: boolean;
   setEncoding: (encoding: BufferEncoding) => void;
-  on: (event: string, listener: (...args: unknown[]) => void) => unknown;
   once: (event: string, listener: (...args: unknown[]) => void) => unknown;
+  off: (event: string, listener: (...args: unknown[]) => void) => unknown;
   write: (line: string, callback?: (error?: Error | null) => void) => unknown;
   end: () => unknown;
+  destroy: () => unknown;
 };
 
 type HerdrReporterOptions = {
@@ -684,6 +685,7 @@ type HerdrReporterOptions = {
   paneId: string;
   createConnection?: (socketPath: string) => HerdrReportSocket;
   now?: () => number;
+  connectTimeoutMs?: number;
 };
 
 export const createHerdrReporter = ({
@@ -691,6 +693,7 @@ export const createHerdrReporter = ({
   paneId,
   createConnection = (pathValue) => createNetConnection(pathValue),
   now = () => Date.now(),
+  connectTimeoutMs = 500,
 }: HerdrReporterOptions) => {
   let seq = 0;
 
@@ -705,7 +708,7 @@ export const createHerdrReporter = ({
   }): Promise<void> => {
     const socket = createConnection(socketPath);
     socket.setEncoding("utf8");
-    await connectHerdrReportSocket(socket);
+    await connectHerdrReportSocket(socket, connectTimeoutMs);
     const request = {
       id: `hook_report_${++seq}`,
       method: "pane.report_agent",
@@ -735,17 +738,31 @@ export const createHerdrReporter = ({
   return { report };
 };
 
-const connectHerdrReportSocket = async (socket: HerdrReportSocket): Promise<void> => {
+const connectHerdrReportSocket = async (
+  socket: HerdrReportSocket,
+  timeoutMs: number,
+): Promise<void> => {
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("herdr report timeout")), 500);
-    socket.once("connect", () => {
+    const cleanup = () => {
       clearTimeout(timeout);
+      socket.off("connect", onConnect);
+      socket.off("error", onError);
+    };
+    const onConnect = () => {
+      cleanup();
       resolve();
-    });
-    socket.once("error", (error) => {
-      clearTimeout(timeout);
+    };
+    const onError = (error: unknown) => {
+      cleanup();
       reject(error instanceof Error ? error : new Error(String(error)));
-    });
+    };
+    const timeout = setTimeout(() => {
+      cleanup();
+      socket.destroy();
+      reject(new Error("herdr report timeout"));
+    }, timeoutMs);
+    socket.once("connect", onConnect);
+    socket.once("error", onError);
   });
 };
 

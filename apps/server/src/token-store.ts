@@ -3,25 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { ensureDir, writeFileAtomic } from "./infra/config/config-io";
+
 const getTokenDir = () => {
   return path.join(os.homedir(), ".vde-monitor");
 };
 
 const getTokenPath = () => {
   return path.join(getTokenDir(), "token.json");
-};
-
-const ensureDir = (dir: string) => {
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-};
-
-const writeFileSafe = (filePath: string, data: string) => {
-  fs.writeFileSync(filePath, data, { encoding: "utf8", mode: 0o600 });
-  try {
-    fs.chmodSync(filePath, 0o600);
-  } catch {
-    // ignore
-  }
 };
 
 export const generateToken = () => {
@@ -45,7 +34,7 @@ const loadToken = (): string | null => {
 export const saveToken = (token: string) => {
   const dir = getTokenDir();
   ensureDir(dir);
-  writeFileSafe(getTokenPath(), `${JSON.stringify({ token }, null, 2)}\n`);
+  writeFileAtomic(getTokenPath(), `${JSON.stringify({ token }, null, 2)}\n`);
 };
 
 export const ensureToken = () => {

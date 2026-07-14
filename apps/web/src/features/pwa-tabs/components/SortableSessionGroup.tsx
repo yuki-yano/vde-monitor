@@ -1,5 +1,6 @@
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { createPortal } from "react-dom";
 
 import { type DragKind, animateGroupLayoutChanges, toTabSortableId } from "../hooks/usePwaTabsDnd";
 import { SYSTEM_CHAT_GRID_TAB_ID, type WorkspaceTab } from "../model/workspace-tabs";
@@ -11,6 +12,8 @@ export type SortableSessionGroupProps = {
   groupSortableId: string;
   activeTabId: string;
   dragKind: DragKind;
+  groupColumnStart: number;
+  controlsGroupElement: HTMLDivElement | null;
   resolveTabLabel: (tab: WorkspaceTab) => string;
   resolveTabStateClass: (tab: WorkspaceTab) => string;
   onActivateTab: (tabId: string) => void;
@@ -22,6 +25,8 @@ export const SortableSessionGroup = ({
   groupSortableId,
   activeTabId,
   dragKind,
+  groupColumnStart,
+  controlsGroupElement,
   resolveTabLabel,
   resolveTabStateClass,
   onActivateTab,
@@ -46,6 +51,10 @@ export const SortableSessionGroup = ({
     },
   });
   const style = {
+    display: "grid",
+    gridColumn: `${groupColumnStart} / span ${group.tabs.length + 1}`,
+    gridRow: 1,
+    gridTemplateColumns: "subgrid",
     transform: CSS.Transform.toString(transform) ?? undefined,
     transition: transition ?? undefined,
     zIndex: isDragging ? 40 : undefined,
@@ -64,70 +73,94 @@ export const SortableSessionGroup = ({
   }, null);
   const isActiveGroup = group.tabs.some((tab) => tab.id === activeTabId);
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
+  const groupControl = (
+    <button
+      ref={setActivatorNodeRef}
+      type="button"
+      style={{
+        gridColumn: groupColumnStart,
+        gridRow: 1,
+        transform: CSS.Transform.toString(transform) ?? undefined,
+        transition: transition ?? undefined,
+        zIndex: isDragging ? 40 : 10,
+      }}
+      data-group-control-key={group.key}
+      aria-label={`Reorder session group ${group.label}`}
+      onClick={(event) => {
+        if (event.defaultPrevented || isDragging) {
+          return;
+        }
+        if (latestTabInGroup == null) {
+          return;
+        }
+        onActivateTab(latestTabInGroup.id);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
       className={[
-        "border-latte-surface2/65 relative flex items-center gap-1.5 border-l pl-1.5",
-        isDragging ? "opacity-45" : "",
+        "text-latte-overlay1 bg-latte-base/70 hover:bg-latte-base/85 pointer-events-auto rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
+        isActiveGroup
+          ? "text-latte-text border-latte-lavender/45 bg-latte-lavender/20 shadow-accent-sm"
+          : "",
+        "cursor-grab touch-pan-x select-none [-webkit-touch-callout:none] [-webkit-user-select:none] [user-select:none] active:cursor-grabbing",
+        isDragging ? "bg-latte-base/90 text-latte-text" : "",
       ].join(" ")}
-      data-group-key={group.key}
-      data-dragging={isDragging ? "true" : "false"}
+      {...attributes}
+      {...listeners}
     >
-      <button
-        ref={setActivatorNodeRef}
-        type="button"
-        aria-label={`Reorder session group ${group.label}`}
-        onClick={(event) => {
-          if (event.defaultPrevented || isDragging) {
-            return;
-          }
-          if (latestTabInGroup == null) {
-            return;
-          }
-          onActivateTab(latestTabInGroup.id);
-        }}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
+      {group.label}
+    </button>
+  );
+
+  return (
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
         className={[
-          "text-latte-overlay1 bg-latte-base/70 hover:bg-latte-base/85 rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
-          isActiveGroup
-            ? "text-latte-text border-latte-lavender/45 bg-latte-lavender/20 shadow-accent-sm"
-            : "",
-          "cursor-grab touch-pan-x select-none [-webkit-touch-callout:none] [-webkit-user-select:none] [user-select:none] active:cursor-grabbing",
-          isDragging ? "bg-latte-base/90 text-latte-text" : "",
+          "border-latte-surface2/65 relative items-center border-l pl-1.5",
+          isDragging ? "opacity-45" : "",
         ].join(" ")}
-        {...attributes}
-        {...listeners}
+        data-group-key={group.key}
+        data-dragging={isDragging ? "true" : "false"}
       >
-        {group.label}
-      </button>
-      <SortableContext
-        items={group.tabs.map((tab) => toTabSortableId(tab.id))}
-        strategy={rectSortingStrategy}
-      >
-        {group.tabs.map((tab) => {
-          const label = resolveTabLabel(tab);
-          const isActive = activeTabId === tab.id;
-          const stateClass = resolveTabStateClass(tab);
-          return (
-            <SortableTabItem
-              key={tab.id}
-              tab={tab}
-              tabSortableId={toTabSortableId(tab.id)}
-              label={label}
-              active={isActive}
-              showGridIcon={tab.id === SYSTEM_CHAT_GRID_TAB_ID}
-              dragKind={dragKind}
-              statusClassName={stateClass}
-              onActivate={onActivateTab}
-              onClose={onCloseTab}
-            />
-          );
-        })}
-      </SortableContext>
-    </div>
+        <span
+          aria-hidden="true"
+          style={{ gridColumn: 1, gridRow: 1 }}
+          className="invisible rounded-md border px-1.5 py-1 text-[10px] font-semibold tracking-wide"
+        >
+          {group.label}
+        </span>
+        <SortableContext
+          items={group.tabs.map((tab) => toTabSortableId(tab.id))}
+          strategy={rectSortingStrategy}
+        >
+          {group.tabs.map((tab, index) => {
+            const label = resolveTabLabel(tab);
+            const isActive = activeTabId === tab.id;
+            const stateClass = resolveTabStateClass(tab);
+            return (
+              <SortableTabItem
+                key={tab.id}
+                tab={tab}
+                tabSortableId={toTabSortableId(tab.id)}
+                label={label}
+                active={isActive}
+                showGridIcon={tab.id === SYSTEM_CHAT_GRID_TAB_ID}
+                dragKind={dragKind}
+                statusClassName={stateClass}
+                gridColumn={index + 2}
+                controlsColumn={groupColumnStart + index + 1}
+                controlsGroupElement={controlsGroupElement}
+                onActivate={onActivateTab}
+                onClose={onCloseTab}
+              />
+            );
+          })}
+        </SortableContext>
+      </div>
+      {controlsGroupElement != null && createPortal(groupControl, controlsGroupElement)}
+    </>
   );
 };

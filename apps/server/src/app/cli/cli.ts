@@ -24,6 +24,7 @@ const cliArgDefinitions = {
   weztermTarget: { type: "string" },
   cmuxCli: { type: "string" },
   cmuxSocket: { type: "string" },
+  help: { type: "boolean" },
 } satisfies ArgsDef;
 
 export type ParsedArgs = CittyParsedArgs<typeof cliArgDefinitions>;
@@ -51,16 +52,34 @@ type ResolveHostsOptions = {
 
 const normalizeRawArgv = (argv: string[]) => argv.filter((token) => token !== "--");
 
-export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs =>
-  parseCittyArgs<typeof cliArgDefinitions>(normalizeRawArgv(argv), cliArgDefinitions);
+export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs => {
+  const parsed = parseCittyArgs<typeof cliArgDefinitions>(
+    normalizeRawArgv(argv),
+    cliArgDefinitions,
+  );
+  const definitionKeys = Object.keys(cliArgDefinitions);
+  const knownKeys = new Set([
+    "_",
+    ...definitionKeys,
+    ...definitionKeys.map((key) => key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)),
+  ]);
+  const unknownKey = Object.keys(parsed).find((key) => !knownKeys.has(key));
+  if (unknownKey != null) {
+    throw new Error(`Unknown option: --${unknownKey}`);
+  }
+  return parsed;
+};
 
 export const parsePort = (value: unknown) => {
-  if (typeof value !== "string") {
+  if (value == null) {
     return null;
   }
-  const parsed = Number.parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) {
-    return null;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) {
+    throw new Error(`port must be an integer between 1 and 65535. (received: ${String(value)})`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new Error(`port must be an integer between 1 and 65535. (received: ${value})`);
   }
   return parsed;
 };

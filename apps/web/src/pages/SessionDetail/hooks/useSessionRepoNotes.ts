@@ -1,5 +1,5 @@
 import { type RepoNote, sortNotesDesc } from "@vde-monitor/shared";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from "react";
 
 import { API_ERROR_MESSAGES } from "@/lib/api-messages";
 import { resolveUnknownErrorMessage } from "@/lib/api-utils";
@@ -24,6 +24,17 @@ type UseSessionRepoNotesParams = {
 type RefreshNotesOptions = {
   silent?: boolean;
 };
+
+type RepoNotesScope = {
+  paneId: string;
+  repoRoot: string | null;
+  generation: number;
+};
+
+const isSameRepoNotesScope = (left: RepoNotesScope, right: RepoNotesScope) =>
+  left.paneId === right.paneId &&
+  left.repoRoot === right.repoRoot &&
+  left.generation === right.generation;
 
 type RepoNotesState = {
   notes: RepoNote[];
@@ -131,32 +142,50 @@ export const useSessionRepoNotes = ({
   const [state, dispatch] = useReducer(repoNotesReducer, initialRepoNotesState);
   const { notes, notesLoading, notesError, creatingNote, savingNoteId, deletingNoteId } = state;
 
-  const activePaneIdRef = useRef(paneId);
   const noteRequestIdRef = useRef(0);
   const previousConnectedRef = useRef<boolean | null>(null);
-  const pendingInteractiveLoadsRef = useRef(0);
-  activePaneIdRef.current = paneId;
+  const activeScopeRef = useRef<RepoNotesScope>({ paneId, repoRoot, generation: 0 });
+  const pendingInteractiveLoadsRef = useRef({ generation: 0, count: 0 });
+
+  useLayoutEffect(() => {
+    if (activeScopeRef.current.paneId === paneId && activeScopeRef.current.repoRoot === repoRoot) {
+      return;
+    }
+    const generation = activeScopeRef.current.generation + 1;
+    activeScopeRef.current = { paneId, repoRoot, generation };
+    pendingInteractiveLoadsRef.current = { generation, count: 0 };
+  }, [paneId, repoRoot]);
+
+  const isActiveScope = useCallback(
+    (scope: RepoNotesScope) => isSameRepoNotesScope(activeScopeRef.current, scope),
+    [],
+  );
 
   const loadNotes = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
-      if (!paneId || !repoRoot) {
+      const scope = activeScopeRef.current;
+      if (!scope.paneId || !scope.repoRoot) {
         return;
       }
-      const targetPaneId = paneId;
+      const targetPaneId = scope.paneId;
       const requestId = noteRequestIdRef.current + 1;
       noteRequestIdRef.current = requestId;
       if (!silent) {
-        pendingInteractiveLoadsRef.current += 1;
+        const pending = pendingInteractiveLoadsRef.current;
+        pendingInteractiveLoadsRef.current = {
+          generation: scope.generation,
+          count: pending.generation === scope.generation ? pending.count + 1 : 1,
+        };
       }
       dispatch({ type: "loadStart", silent });
       try {
         const loaded = await requestRepoNotes(targetPaneId);
-        if (activePaneIdRef.current !== targetPaneId || noteRequestIdRef.current !== requestId) {
+        if (!isActiveScope(scope) || noteRequestIdRef.current !== requestId) {
           return;
         }
         dispatch({ type: "loadSuccess", notes: loaded });
       } catch (error) {
-        if (activePaneIdRef.current !== targetPaneId || noteRequestIdRef.current !== requestId) {
+        if (!isActiveScope(scope) || noteRequestIdRef.current !== requestId) {
           return;
         }
         dispatch({
@@ -164,23 +193,26 @@ export const useSessionRepoNotes = ({
           error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.repoNotes),
         });
       } finally {
-        if (!silent) {
-          pendingInteractiveLoadsRef.current = Math.max(0, pendingInteractiveLoadsRef.current - 1);
-          if (activePaneIdRef.current === targetPaneId) {
-            dispatch({
-              type: "loadFinish",
-              silent,
-              loading: pendingInteractiveLoadsRef.current > 0,
-            });
-          }
+        const pending = pendingInteractiveLoadsRef.current;
+        if (!silent && isActiveScope(scope) && pending.generation === scope.generation) {
+          const count = Math.max(0, pending.count - 1);
+          pendingInteractiveLoadsRef.current = { generation: scope.generation, count };
+          dispatch({
+            type: "loadFinish",
+            silent,
+            loading: count > 0,
+          });
         }
       }
     },
-    [paneId, repoRoot, requestRepoNotes],
+    [isActiveScope, requestRepoNotes],
   );
 
   useEffect(() => {
-    pendingInteractiveLoadsRef.current = 0;
+    pendingInteractiveLoadsRef.current = {
+      generation: activeScopeRef.current.generation,
+      count: 0,
+    };
     dispatch({ type: "reset" });
     // react-doctor-disable-next-line no-event-handler
     if (repoRoot) {
@@ -206,23 +238,29 @@ export const useSessionRepoNotes = ({
     dispatch({ type: "appendOrReplace", note: incoming });
   }, []);
 
+  const invalidatePendingNoteLoads = useCallback(() => {
+    noteRequestIdRef.current += 1;
+  }, []);
+
   const createNote = useCallback(
     async (input: { title?: string | null; body: string }) => {
-      if (!repoRoot) {
+      const scope = activeScopeRef.current;
+      if (!scope.repoRoot) {
         dispatch({ type: "setError", error: API_ERROR_MESSAGES.repoUnavailable });
         return null;
       }
-      const targetPaneId = paneId;
+      const targetPaneId = scope.paneId;
       dispatch({ type: "createStart" });
       try {
         const created = await createRepoNote(targetPaneId, input);
-        if (activePaneIdRef.current !== targetPaneId) {
+        if (!isActiveScope(scope)) {
           return null;
         }
+        invalidatePendingNoteLoads();
         appendOrReplaceNote(created);
         return created;
       } catch (error) {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({
             type: "setError",
             error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.createRepoNote),
@@ -230,31 +268,33 @@ export const useSessionRepoNotes = ({
         }
         return null;
       } finally {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({ type: "createFinish" });
         }
       }
     },
-    [appendOrReplaceNote, createRepoNote, paneId, repoRoot],
+    [appendOrReplaceNote, createRepoNote, invalidatePendingNoteLoads, isActiveScope],
   );
 
   const saveNote = useCallback(
     async (noteId: string, input: { title?: string | null; body: string }) => {
-      if (!repoRoot) {
+      const scope = activeScopeRef.current;
+      if (!scope.repoRoot) {
         dispatch({ type: "setError", error: API_ERROR_MESSAGES.repoUnavailable });
         return false;
       }
-      const targetPaneId = paneId;
+      const targetPaneId = scope.paneId;
       dispatch({ type: "saveStart", noteId });
       try {
         const updated = await updateRepoNote(targetPaneId, noteId, input);
-        if (activePaneIdRef.current !== targetPaneId) {
+        if (!isActiveScope(scope)) {
           return false;
         }
+        invalidatePendingNoteLoads();
         appendOrReplaceNote(updated);
         return true;
       } catch (error) {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({
             type: "setError",
             error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.updateRepoNote),
@@ -262,31 +302,33 @@ export const useSessionRepoNotes = ({
         }
         return false;
       } finally {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({ type: "saveFinish", noteId });
         }
       }
     },
-    [appendOrReplaceNote, paneId, repoRoot, updateRepoNote],
+    [appendOrReplaceNote, invalidatePendingNoteLoads, isActiveScope, updateRepoNote],
   );
 
   const removeNote = useCallback(
     async (noteId: string) => {
-      if (!repoRoot) {
+      const scope = activeScopeRef.current;
+      if (!scope.repoRoot) {
         dispatch({ type: "setError", error: API_ERROR_MESSAGES.repoUnavailable });
         return false;
       }
-      const targetPaneId = paneId;
+      const targetPaneId = scope.paneId;
       dispatch({ type: "deleteStart", noteId });
       try {
         const removedNoteId = await deleteRepoNote(targetPaneId, noteId);
-        if (activePaneIdRef.current !== targetPaneId) {
+        if (!isActiveScope(scope)) {
           return false;
         }
+        invalidatePendingNoteLoads();
         dispatch({ type: "remove", noteId: removedNoteId });
         return true;
       } catch (error) {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({
             type: "setError",
             error: resolveUnknownErrorMessage(error, API_ERROR_MESSAGES.deleteRepoNote),
@@ -294,12 +336,12 @@ export const useSessionRepoNotes = ({
         }
         return false;
       } finally {
-        if (activePaneIdRef.current === targetPaneId) {
+        if (isActiveScope(scope)) {
           dispatch({ type: "deleteFinish", noteId });
         }
       }
     },
-    [deleteRepoNote, paneId, repoRoot],
+    [deleteRepoNote, invalidatePendingNoteLoads, isActiveScope],
   );
 
   return {

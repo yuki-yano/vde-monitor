@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { ScreenCaptureMeta, ScreenResponse } from "@vde-monitor/shared";
 
+import { setMapEntryWithLimit } from "../cache";
 import { nowIso } from "../http/helpers";
 import { buildScreenDeltas, shouldSendFull } from "../screen-diff";
 
@@ -27,7 +28,7 @@ export type ScreenCache = {
   buildTextResponse: (params: BuildTextResponseParams) => ScreenResponse;
 };
 
-export const createScreenCache = (limit = 10): ScreenCache => {
+export const createScreenCache = (limit = 10, cacheKeyLimit = 100): ScreenCache => {
   const screenCache = new Map<string, Map<string, ScreenSnapshot>>();
 
   const splitScreenLines = (value: string) => value.replace(/\r\n/g, "\n").split("\n");
@@ -42,7 +43,7 @@ export const createScreenCache = (limit = 10): ScreenCache => {
       if (!oldestKey) break;
       bucket.delete(oldestKey);
     }
-    screenCache.set(cacheKey, bucket);
+    setMapEntryWithLimit(screenCache, cacheKey, bucket, cacheKeyLimit);
   };
 
   const setFullScreenResponse = (response: ScreenResponse, screen: string) => {

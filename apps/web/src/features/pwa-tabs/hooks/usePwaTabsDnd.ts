@@ -3,6 +3,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
@@ -38,6 +39,53 @@ export const fromGroupSortableId = (sortableId: string): string | null =>
   sortableId.startsWith(GROUP_SORTABLE_ID_PREFIX)
     ? sortableId.slice(GROUP_SORTABLE_ID_PREFIX.length)
     : null;
+
+const resolveHorizontalSortableKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+  if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") {
+    return sortableKeyboardCoordinates(event, args);
+  }
+  const activeId = args.context.active?.id;
+  if (typeof activeId !== "string") {
+    return sortableKeyboardCoordinates(event, args);
+  }
+  const sortablePrefix = activeId.startsWith(GROUP_SORTABLE_ID_PREFIX)
+    ? GROUP_SORTABLE_ID_PREFIX
+    : activeId.startsWith(TAB_SORTABLE_ID_PREFIX)
+      ? TAB_SORTABLE_ID_PREFIX
+      : null;
+  if (sortablePrefix == null) {
+    return sortableKeyboardCoordinates(event, args);
+  }
+  const candidates = args.context.droppableContainers
+    .getEnabled()
+    .filter((container) => {
+      if (typeof container.id !== "string" || !container.id.startsWith(sortablePrefix)) {
+        return false;
+      }
+      return container.node.current != null || args.context.droppableRects.has(container.id);
+    })
+    .sort((left, right) => {
+      const leftRect =
+        left.node.current?.getBoundingClientRect() ?? args.context.droppableRects.get(left.id);
+      const rightRect =
+        right.node.current?.getBoundingClientRect() ?? args.context.droppableRects.get(right.id);
+      return (leftRect?.left ?? 0) - (rightRect?.left ?? 0);
+    });
+  const overId = args.context.over?.id;
+  const currentId =
+    typeof overId === "string" && overId.startsWith(sortablePrefix) ? overId : activeId;
+  const currentIndex = candidates.findIndex((container) => container.id === currentId);
+  const targetIndex = currentIndex + (event.code === "ArrowRight" ? 1 : -1);
+  const target = candidates[targetIndex];
+  const targetRect = target
+    ? (target.node.current?.getBoundingClientRect() ?? args.context.droppableRects.get(target.id))
+    : null;
+  if (targetRect == null) {
+    return undefined;
+  }
+  event.preventDefault();
+  return { x: targetRect.left, y: targetRect.top };
+};
 
 export const animateGroupLayoutChanges: AnimateLayoutChanges = (args) => {
   if (args.isSorting || args.wasDragging) {
@@ -78,7 +126,7 @@ export const usePwaTabsDnd = ({
       activationConstraint: { delay: 500, tolerance: 10 },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: resolveHorizontalSortableKeyboardCoordinates,
     }),
   );
 

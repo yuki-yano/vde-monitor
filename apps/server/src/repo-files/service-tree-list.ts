@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { RepoFileTreeNode, RepoFileTreePage } from "@vde-monitor/shared";
 
+import { setMapEntryWithLimit } from "../cache";
 import type { GitPathSnapshotResolver } from "./git-path-snapshot";
 import {
   type NestedWorktreeRoot,
@@ -19,6 +20,7 @@ import {
 import { paginateItems } from "./service-pagination";
 
 const CHILDREN_CACHE_TTL_MS = 5_000;
+const CHILDREN_CACHE_MAX_ENTRIES = 1_000;
 
 export type TreeDirectoryEntry = {
   path: string;
@@ -262,7 +264,13 @@ export const classifyTreeEntries = async ({
   );
 };
 
-export const createTreeChildrenResolver = ({ now }: { now: () => number }) => {
+export const createTreeChildrenResolver = ({
+  now,
+  maxCacheEntries = CHILDREN_CACHE_MAX_ENTRIES,
+}: {
+  now: () => number;
+  maxCacheEntries?: number;
+}) => {
   const cache = new Map<string, { hasChildren: boolean; expiresAt: number }>();
 
   const resolveHasChildren = async ({
@@ -277,6 +285,7 @@ export const createTreeChildrenResolver = ({ now }: { now: () => number }) => {
     const cacheKey = `${repoRoot}\0${entry.realPath}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > now()) {
+      setMapEntryWithLimit(cache, cacheKey, cached, maxCacheEntries);
       return cached.hasChildren;
     }
     const hasChildren =
@@ -287,10 +296,15 @@ export const createTreeChildrenResolver = ({ now }: { now: () => number }) => {
           nestedWorktreeRoots,
         })
       ).length > 0;
-    cache.set(cacheKey, {
-      hasChildren,
-      expiresAt: now() + CHILDREN_CACHE_TTL_MS,
-    });
+    setMapEntryWithLimit(
+      cache,
+      cacheKey,
+      {
+        hasChildren,
+        expiresAt: now() + CHILDREN_CACHE_TTL_MS,
+      },
+      maxCacheEntries,
+    );
     return hasChildren;
   };
 

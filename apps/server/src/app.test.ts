@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "./app";
 import { rotateToken } from "./config";
@@ -24,7 +24,7 @@ const execFileAsync = promisify(execFile);
 const createAppUnderTest = () => {
   const context = createTestContext();
   const streamDeps = createTestStreamDeps();
-  const { app } = createApp({
+  const { app, previewTicketService } = createApp({
     config: context.config,
     monitor: context.monitor,
     actions: context.actions,
@@ -32,12 +32,16 @@ const createAppUnderTest = () => {
     notificationService: context.notificationService,
     ...streamDeps,
   });
-  return { app, ...context, ...streamDeps };
+  return { app, previewTicketService, ...context, ...streamDeps };
 };
 
 describe("createApp /api/admin/token/rotate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("rejects token rotation without auth", async () => {
@@ -61,6 +65,59 @@ describe("createApp /api/admin/token/rotate", () => {
     expect(await res.json()).toEqual({ token: "rotated-token" });
     expect(config.token).toBe("rotated-token");
     expect(notificationService.removeAllSubscriptions).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps revocable runtime state when token persistence fails", async () => {
+    const { app, config, notificationService, previewTicketService, streamConnections } =
+      createAppUnderTest();
+    const revokeTickets = vi.spyOn(previewTicketService, "revokeAll");
+    vi.mocked(rotateToken).mockImplementationOnce(() => {
+      throw new Error("token persistence failed");
+    });
+
+    const res = await app.request("/api/admin/token/rotate", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(500);
+    expect(config.token).toBe("token");
+    expect(notificationService.removeAllSubscriptions).not.toHaveBeenCalled();
+    expect(streamConnections.closeAll).not.toHaveBeenCalled();
+    expect(revokeTickets).not.toHaveBeenCalled();
+  });
+
+  it("returns the committed token and attempts every cleanup when cleanup operations fail", async () => {
+    const { app, config, notificationService, previewTicketService, streamConnections } =
+      createAppUnderTest();
+    const revokeTickets = vi.spyOn(previewTicketService, "revokeAll");
+    const logError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(notificationService.removeAllSubscriptions).mockImplementationOnce(() => {
+      throw new Error("subscription cleanup failed");
+    });
+    vi.mocked(streamConnections.closeAll).mockImplementationOnce(() => {
+      throw new Error("stream cleanup failed");
+    });
+    revokeTickets.mockImplementationOnce(() => {
+      throw new Error("ticket cleanup failed");
+    });
+
+    const res = await app.request("/api/admin/token/rotate", {
+      method: "POST",
+      headers: authHeaders,
+    });
+
+    expect(res.status).toBe(207);
+    expect(await res.json()).toEqual({
+      token: "rotated-token",
+      cleanupFailures: ["push-subscriptions", "streams", "preview-tickets"],
+    });
+    expect(config.token).toBe("rotated-token");
+    expect(rotateToken).toHaveBeenCalledOnce();
+    expect(notificationService.removeAllSubscriptions).toHaveBeenCalledOnce();
+    expect(streamConnections.closeAll).toHaveBeenCalledOnce();
+    expect(revokeTickets).toHaveBeenCalledOnce();
+    expect(logError).toHaveBeenCalledTimes(3);
   });
 
   it("invalidates the previous token after rotation", async () => {

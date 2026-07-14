@@ -11,7 +11,7 @@
  *   in ~1.5 s of real time.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, http, server } from "@/test/msw/server";
 
@@ -25,6 +25,14 @@ import type { SseState, SseSubscription } from "./sse-subscription";
 const TEST_URL = "http://test.local/api/streams/sessions";
 
 const enc = new TextEncoder();
+
+const createDeferred = <T>() => {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
 
 /** Build an SSE response that immediately enqueues chunks then closes. */
 const sseResponse = (chunks: string[]) => {
@@ -70,6 +78,7 @@ describe("createSseSubscription", () => {
       sub.close();
     }
     openSubs.length = 0;
+    vi.unstubAllGlobals();
   });
 
   // -------------------------------------------------------------------------
@@ -266,6 +275,107 @@ describe("createSseSubscription", () => {
     // At most one request can have been made (the initial connect attempt).
     // No further reconnects should occur after close().
     expect(requestCount).toBeLessThanOrEqual(1);
+  });
+
+  it("does not publish open or auth callbacks when close wins the fetch race", async () => {
+    const response = createDeferred<Response>();
+    const fetchMock = vi.fn().mockReturnValue(response.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    const states: SseState[] = [];
+    const onAuthError = vi.fn();
+    const onEvent = vi.fn();
+    const sub = createSseSubscription({
+      url: TEST_URL,
+      getHeaders: () => ({}),
+      onEvent,
+      onStateChange: (state) => states.push(state),
+      onAuthError,
+    });
+    openSubs.push(sub);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    sub.close();
+    response.resolve(new Response(null, { status: 401 }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(states).toEqual(["connecting", "closed"]);
+    expect(onAuthError).not.toHaveBeenCalled();
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not deliver a chunk whose read resolves after close", async () => {
+    const readResult = createDeferred<ReadableStreamReadResult<Uint8Array>>();
+    const reader = {
+      read: vi.fn().mockReturnValue(readResult.promise),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: { getReader: () => reader },
+      } as unknown as Response),
+    );
+    const onEvent = vi.fn();
+    const states: SseState[] = [];
+    const sub = createSseSubscription({
+      url: TEST_URL,
+      getHeaders: () => ({}),
+      onEvent,
+      onStateChange: (state) => states.push(state),
+    });
+    openSubs.push(sub);
+    await vi.waitFor(() => expect(states).toContain("open"));
+
+    sub.close();
+    readResult.resolve({
+      done: false,
+      value: enc.encode("event: sessions\ndata: stale\n\n"),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(states.at(-1)).toBe("closed");
+  });
+
+  it("stops parser callbacks immediately when an event handler closes the subscription", async () => {
+    const reader = {
+      read: vi
+        .fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: enc.encode(
+            "event: sessions\ndata: first\n\nevent: sessions\ndata: stale-second\n\n",
+          ),
+        })
+        .mockResolvedValue({ done: true, value: undefined }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: { getReader: () => reader },
+      } as unknown as Response),
+    );
+    const received: string[] = [];
+    let sub!: SseSubscription;
+    sub = createSseSubscription({
+      url: TEST_URL,
+      getHeaders: () => ({}),
+      onEvent: (event) => {
+        received.push(event.data);
+        sub.close();
+      },
+    });
+    openSubs.push(sub);
+
+    await vi.waitFor(() => expect(received).toEqual(["first"]));
+    expect(received).toEqual(["first"]);
   });
 
   // -------------------------------------------------------------------------

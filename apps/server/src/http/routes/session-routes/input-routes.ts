@@ -156,7 +156,7 @@ export const createInputRoutes = ({
             },
           });
         }
-        const command = await actions.killWindow(pane.paneId);
+        const command = await actions.killWindow(pane.paneId, pane.detail.windowId);
         return c.json({ command });
       });
     })

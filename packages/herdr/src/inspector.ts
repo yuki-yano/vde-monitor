@@ -32,7 +32,7 @@ const extractOrdinal = (value: string | null, marker: string): number | null => 
   return toNumber(value.slice(index + marker.length));
 };
 
-const toPaneMeta = (pane: HerdrPane): PaneMeta | null => {
+const toPaneMeta = (pane: HerdrPane, paneActivity: number | null): PaneMeta | null => {
   const paneId = toNullable(pane.pane_id);
   if (paneId == null) return null;
 
@@ -51,7 +51,7 @@ const toPaneMeta = (pane: HerdrPane): PaneMeta | null => {
     windowIndex,
     paneIndex,
     windowActivity: null,
-    paneActivity: toNumber(pane.revision),
+    paneActivity,
     paneActive: pane.focused === true,
     currentCommand: toNullable(pane.agent),
     currentPath,
@@ -66,13 +66,34 @@ const toPaneMeta = (pane: HerdrPane): PaneMeta | null => {
   };
 };
 
-export const createHerdrInspector = (client: HerdrRequester): MultiplexerInspector => {
+export const createHerdrInspector = (
+  client: HerdrRequester,
+  { now = () => Date.now() }: { now?: () => number } = {},
+): MultiplexerInspector => {
+  const revisions = new Map<string, { revision: number | null; activityAt: number | null }>();
+
   const listPanes = async (): Promise<PaneMeta[]> => {
     const result = await client.request<HerdrPaneListResult>(HERDR_METHODS.paneList, {});
-    return (result.panes ?? []).flatMap((pane) => {
-      const meta = toPaneMeta(pane);
+    const activePaneIds = new Set<string>();
+    const observedAt = Math.floor(now() / 1000);
+    const panes = (result.panes ?? []).flatMap((pane) => {
+      const paneId = toNullable(pane.pane_id);
+      if (paneId == null) return [];
+      activePaneIds.add(paneId);
+      const revision = toNumber(pane.revision);
+      const previous = revisions.get(paneId);
+      const activityAt =
+        previous == null || previous.revision === revision
+          ? (previous?.activityAt ?? null)
+          : observedAt;
+      revisions.set(paneId, { revision, activityAt });
+      const meta = toPaneMeta(pane, activityAt);
       return meta == null ? [] : [meta];
     });
+    for (const paneId of revisions.keys()) {
+      if (!activePaneIds.has(paneId)) revisions.delete(paneId);
+    }
+    return panes;
   };
 
   const readUserOption = async (): Promise<string | null> => null;

@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import {
   type MultiplexerInspector,
   type PaneMeta,
@@ -42,6 +44,7 @@ type WeztermDurationRaw = {
 
 type InspectorDeps = {
   now?: () => Date;
+  platform?: NodeJS.Platform;
 };
 
 const toPaneId = (value: unknown): string | null => {
@@ -54,7 +57,7 @@ const toPaneId = (value: unknown): string | null => {
   return null;
 };
 
-const normalizeCwd = (cwd: unknown): string | null => {
+const normalizeCwd = (cwd: unknown, platform: NodeJS.Platform): string | null => {
   const value = toNullable(cwd);
   if (!value) {
     return null;
@@ -63,7 +66,14 @@ const normalizeCwd = (cwd: unknown): string | null => {
     return value;
   }
   try {
-    return decodeURIComponent(new URL(value).pathname);
+    const url = new URL(value);
+    if (platform === "win32") {
+      return fileURLToPath(url, { windows: true });
+    }
+    if (url.hostname.length === 0 || url.hostname === "localhost") {
+      return fileURLToPath(url, { windows: false });
+    }
+    return decodeURIComponent(url.pathname);
   } catch {
     return value;
   }
@@ -169,6 +179,7 @@ const toPaneMetaList = (
   focusedPaneIds: Set<string>,
   paneActivityByPaneId: Map<string, number>,
   windowActivityByWindowIndex: Map<number, number>,
+  platform: NodeJS.Platform,
 ): PaneMeta[] => {
   const nextPaneIndexByWindow = new Map<number, number>();
   const results: PaneMeta[] = [];
@@ -195,7 +206,7 @@ const toPaneMetaList = (
       paneActivity: paneActivityByPaneId.get(paneId) ?? null,
       paneActive: focusedPaneIds.has(paneId),
       currentCommand: toNullable(pane.foreground_process_name ?? pane.process_name),
-      currentPath: normalizeCwd(pane.cwd),
+      currentPath: normalizeCwd(pane.cwd, platform),
       paneTty: toNullable(pane.tty_name ?? pane.tty),
       paneDead: false,
       panePipe: false,
@@ -214,6 +225,7 @@ export const createInspector = (
   deps: InspectorDeps = {},
 ): MultiplexerInspector => {
   const now = deps.now ?? (() => new Date());
+  const platform = deps.platform ?? process.platform;
 
   const listPanes = async (): Promise<PaneMeta[]> => {
     const panesResult = await adapter.run(["list", "--format", "json"]);
@@ -233,7 +245,13 @@ export const createInspector = (
       now,
     });
 
-    return toPaneMetaList(panes, focusedPaneIds, paneActivityByPaneId, windowActivityByWindowIndex);
+    return toPaneMetaList(
+      panes,
+      focusedPaneIds,
+      paneActivityByPaneId,
+      windowActivityByWindowIndex,
+      platform,
+    );
   };
 
   const readUserOption: (paneId: string, key: string) => Promise<string | null> = async () => null;

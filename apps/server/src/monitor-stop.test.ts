@@ -1,10 +1,83 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createRefreshableSubscription,
   createTrackedPaneUpdater,
   detachOwnedPipesForShutdown,
   resolveShutdownPaneIds,
 } from "./monitor";
+
+describe("createRefreshableSubscription", () => {
+  it("runs a refresh requested while the initial subscription is being created", async () => {
+    const first = { stop: vi.fn(async () => undefined) };
+    const second = { stop: vi.fn(async () => undefined) };
+    let requestRefresh: () => void = () => undefined;
+    const create = vi
+      .fn<() => Promise<typeof first>>()
+      .mockImplementationOnce(async () => {
+        requestRefresh();
+        return first;
+      })
+      .mockResolvedValueOnce(second);
+    const controller = createRefreshableSubscription({ create });
+    requestRefresh = controller.requestRefresh;
+
+    await controller.start();
+    await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    await controller.stop();
+    expect(second.stop).toHaveBeenCalledOnce();
+  });
+
+  it("stops a subscription created after shutdown began during refresh", async () => {
+    const first = { stop: vi.fn(async () => undefined) };
+    const second = { stop: vi.fn(async () => undefined) };
+    let resolveSecond: (subscription: typeof second) => void = () => undefined;
+    const create = vi
+      .fn<() => Promise<typeof first>>()
+      .mockResolvedValueOnce(first)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveSecond = resolve;
+        }),
+      );
+    const controller = createRefreshableSubscription({ create });
+    await controller.start();
+
+    controller.requestRefresh();
+    await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    const stopping = controller.stop();
+    resolveSecond(second);
+    await stopping;
+
+    expect(first.stop).toHaveBeenCalledOnce();
+    expect(second.stop).toHaveBeenCalledOnce();
+  });
+
+  it("retries a failed background refresh with backoff", async () => {
+    vi.useFakeTimers();
+    try {
+      const subscription = { stop: vi.fn(async () => undefined) };
+      const create = vi
+        .fn<() => Promise<typeof subscription>>()
+        .mockRejectedValueOnce(new Error("disconnected"))
+        .mockResolvedValueOnce(subscription);
+      const controller = createRefreshableSubscription({ create });
+
+      controller.requestRefresh();
+      await vi.advanceTimersByTimeAsync(999);
+      expect(create).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+
+      await controller.stop();
+      expect(subscription.stop).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("createTrackedPaneUpdater", () => {
   it("coalesces concurrent updates and blocks re-entry after stop", async () => {

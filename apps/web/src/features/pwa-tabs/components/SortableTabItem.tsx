@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Grid2x2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 import type { WorkspaceTab } from "../model/workspace-tabs";
 import {
@@ -17,6 +18,9 @@ export type SortableTabItemProps = {
   showGridIcon: boolean;
   dragKind: DragKind;
   statusClassName: string;
+  gridColumn: number;
+  controlsColumn: number;
+  controlsGroupElement: HTMLDivElement | null;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
 };
@@ -29,14 +33,29 @@ export const SortableTabItem = ({
   showGridIcon,
   dragKind,
   statusClassName,
+  gridColumn,
+  controlsColumn,
+  controlsGroupElement,
   onActivate,
   onClose,
 }: SortableTabItemProps) => {
   const sortableDisabled = dragKind === "group";
   const showCloseButton = active && dragKind == null;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: tabSortableId,
     disabled: sortableDisabled,
+    attributes: {
+      role: "tab",
+      tabIndex: active ? 0 : -1,
+    },
     animateLayoutChanges: animateTabLayoutChanges,
     transition: {
       duration: 180,
@@ -44,6 +63,8 @@ export const SortableTabItem = ({
     },
   });
   const style = {
+    gridColumn,
+    gridRow: 1,
     transform: CSS.Transform.toString(transform) ?? undefined,
     transition: dragKind === "group" ? undefined : (transition ?? TAB_LAYOUT_TRANSITION),
   };
@@ -54,19 +75,35 @@ export const SortableTabItem = ({
       style={style}
       className="relative flex items-center gap-1"
       data-dragging={isDragging ? "true" : "false"}
-      {...attributes}
-      {...listeners}
     >
       {showGridIcon && (
         <span className="text-latte-overlay1 inline-flex h-4 w-4 items-center justify-center">
           <Grid2x2 className="h-3 w-3" />
         </span>
       )}
+      {/* dnd-kit labels sortables as "sortable". Keep native tab semantics while forwarding
+          its current and future interaction attributes. */}
       <button
+        ref={setActivatorNodeRef}
         type="button"
+        {...attributes}
         role="tab"
+        aria-pressed={undefined}
+        aria-roledescription={undefined}
+        {...listeners}
         aria-selected={active}
+        aria-keyshortcuts={active ? "Delete" : undefined}
+        data-tab-id={tab.id}
         onClick={() => onActivate(tab.id)}
+        onKeyDown={(event) => {
+          if (active && event.key === "Delete") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose(tab.id);
+            return;
+          }
+          listeners?.onKeyDown?.(event);
+        }}
         onContextMenu={(event) => {
           event.preventDefault();
         }}
@@ -85,22 +122,27 @@ export const SortableTabItem = ({
         />
         <span className="max-w-[5.2rem] truncate">{label}</span>
       </button>
-      {showCloseButton && (
-        <button
-          type="button"
-          className="text-latte-overlay1 hover:text-latte-text hover:bg-latte-surface1/55 absolute right-[3px] top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-xs transition"
-          aria-label={`Close ${label}`}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClose(tab.id);
-          }}
-        >
-          <X className="h-3 w-3 translate-y-[0.5px]" />
-        </button>
-      )}
+      {showCloseButton &&
+        controlsGroupElement != null &&
+        createPortal(
+          <button
+            type="button"
+            tabIndex={-1}
+            style={{ gridColumn: controlsColumn, gridRow: 1 }}
+            className="text-latte-overlay1 hover:text-latte-text hover:bg-latte-surface1/55 pointer-events-auto z-20 mr-[3px] inline-flex h-4 w-4 items-center justify-center self-center justify-self-end rounded-xs transition"
+            aria-label={`Close ${label}`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose(tab.id);
+            }}
+          >
+            <X className="h-3 w-3 translate-y-[0.5px]" />
+          </button>,
+          controlsGroupElement,
+        )}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { resolveCmuxServerKey } from "@vde-monitor/shared/node";
 
@@ -411,17 +411,18 @@ describe("hooks cli helpers", () => {
       paneId: "wB:p1",
       createConnection: () => ({
         setEncoding: () => undefined,
-        on: () => undefined,
         once: (event: string, listener: (...args: unknown[]) => void) => {
           if (event === "connect") {
             queueMicrotask(() => listener());
           }
         },
+        off: () => undefined,
         write: (line: string, callback?: (error?: Error) => void) => {
           writes.push(line);
           callback?.();
         },
         end: () => undefined,
+        destroy: () => undefined,
         destroyed: false,
       }),
       now: () => 1783170444243,
@@ -447,6 +448,37 @@ describe("hooks cli helpers", () => {
         },
       })}\n`,
     ]);
+  });
+
+  it("destroys a herdr report socket when connection times out", async () => {
+    const destroy = vi.fn();
+    const off = vi.fn();
+    const reporter = createHerdrReporter({
+      socketPath: "/tmp/herdr.sock",
+      paneId: "wB:p1",
+      createConnection: () => ({
+        setEncoding: () => undefined,
+        once: () => undefined,
+        off,
+        write: () => undefined,
+        end: () => undefined,
+        destroy,
+        destroyed: false,
+      }),
+      connectTimeoutMs: 1,
+    });
+
+    await expect(
+      reporter.report({
+        agent: "claude",
+        status: "working",
+        message: "hook:PreToolUse",
+      }),
+    ).rejects.toThrow("herdr report timeout");
+
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(off).toHaveBeenCalledWith("connect", expect.any(Function));
+    expect(off).toHaveBeenCalledWith("error", expect.any(Function));
   });
 
   it("treats symlink entrypoint as main module", () => {

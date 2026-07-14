@@ -16,6 +16,42 @@ import { type WeztermOptions, focusWeztermPane, getWeztermPaneGeometry } from ".
 import { sleep } from "../async-utils";
 
 const debugWeztermCropEnabled = process.env.VDE_MONITOR_DEBUG_WEZTERM_CROP === "1";
+const MAX_QUEUED_CAPTURE_FOCUS_OPERATIONS = 2;
+let captureFocusActive = false;
+const captureFocusQueue: Array<() => void> = [];
+
+const acquireCaptureFocus = async (): Promise<boolean> => {
+  if (!captureFocusActive) {
+    captureFocusActive = true;
+    return true;
+  }
+  if (captureFocusQueue.length >= MAX_QUEUED_CAPTURE_FOCUS_OPERATIONS) {
+    return false;
+  }
+  return await new Promise<boolean>((resolve) => {
+    captureFocusQueue.push(() => resolve(true));
+  });
+};
+
+const releaseCaptureFocus = (): void => {
+  const next = captureFocusQueue.shift();
+  if (next) {
+    next();
+    return;
+  }
+  captureFocusActive = false;
+};
+
+const runWithSerializedFocus = async <T>(operation: () => Promise<T>): Promise<T | null> => {
+  if (!(await acquireCaptureFocus())) {
+    return null;
+  }
+  try {
+    return await operation();
+  } finally {
+    releaseCaptureFocus();
+  }
+};
 const debugWeztermCrop = (payload: Record<string, unknown>) => {
   if (!debugWeztermCropEnabled) {
     return;
@@ -244,25 +280,27 @@ export const captureTerminalScreenMacos = async (
   tty: string | null | undefined,
   options: CaptureOptions = {},
 ) => {
-  const app = await resolveCaptureApp(tty, options);
-  if (!app) {
-    return null;
-  }
-  await focusCaptureTarget(app.appName, options);
+  return runWithSerializedFocus(async () => {
+    const app = await resolveCaptureApp(tty, options);
+    if (!app) {
+      return null;
+    }
+    await focusCaptureTarget(app.appName, options);
 
-  const maxAttempts = 3;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (attempt > 0) {
-      await focusCaptureTarget(app.appName, options);
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (attempt > 0) {
+        await focusCaptureTarget(app.appName, options);
+      }
+      const allowWindowFallbackForCrop = attempt === maxAttempts - 1;
+      const captureResult = await captureAttempt(app.appName, options, allowWindowFallbackForCrop);
+      if (captureResult) {
+        return captureResult;
+      }
+      if (attempt < maxAttempts - 1) {
+        await sleep(200);
+      }
     }
-    const allowWindowFallbackForCrop = attempt === maxAttempts - 1;
-    const captureResult = await captureAttempt(app.appName, options, allowWindowFallbackForCrop);
-    if (captureResult) {
-      return captureResult;
-    }
-    if (attempt < maxAttempts - 1) {
-      await sleep(200);
-    }
-  }
-  return null;
+    return null;
+  });
 };

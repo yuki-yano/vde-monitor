@@ -1,6 +1,7 @@
 import type { MultiplexerPipeCapability } from "@vde-monitor/multiplexer";
 import { describe, expect, it, vi } from "vitest";
 
+import { rotateLogIfNeeded as rotateLog } from "../logs";
 import { createPaneLogManager } from "./pane-log-manager";
 
 const OWNER_TAG = `v2:${"a".repeat(64)}`;
@@ -25,8 +26,10 @@ const createPipeCapability = (
 
 const createManager = ({
   pipeCapability = createPipeCapability(),
+  rotateLogIfNeeded = vi.fn(async () => false),
 }: {
   pipeCapability?: MultiplexerPipeCapability | null;
+  rotateLogIfNeeded?: typeof rotateLog;
 } = {}) => {
   const logActivity = { register: vi.fn(), unregister: vi.fn() };
   const manager = createPaneLogManager({
@@ -37,11 +40,11 @@ const createManager = ({
     deps: {
       resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
       ensureDir: vi.fn(async () => {}),
-      rotateLogIfNeeded: vi.fn(async () => {}),
+      rotateLogIfNeeded,
       openLogFile: vi.fn(async () => {}),
     },
   });
-  return { manager, logActivity, pipeCapability };
+  return { manager, logActivity, pipeCapability, rotateLogIfNeeded };
 };
 
 describe("pane-log-manager", () => {
@@ -79,6 +82,7 @@ describe("pane-log-manager", () => {
     });
 
     expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
+    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
     expect(result.pipeAttached).toBe(true);
     expect(result.pipeConflict).toBe(false);
   });
@@ -116,7 +120,7 @@ describe("pane-log-manager", () => {
 
   it("does not attach or register logging for foreign and legacy conflicts", async () => {
     const pipeCapability = createPipeCapability({ hasConflict: vi.fn(() => true) });
-    const { manager, logActivity } = createManager({ pipeCapability });
+    const { manager, logActivity, rotateLogIfNeeded } = createManager({ pipeCapability });
 
     const result = await manager.preparePaneLogging({
       paneId: "%2",
@@ -125,9 +129,59 @@ describe("pane-log-manager", () => {
     });
 
     expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
+    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
+    expect(rotateLogIfNeeded).not.toHaveBeenCalled();
     expect(logActivity.register).not.toHaveBeenCalled();
     expect(logActivity.unregister).toHaveBeenCalledWith("%2");
     expect(result.pipeConflict).toBe(true);
+  });
+
+  it("detaches, rotates, and reattaches an owned pipe in order", async () => {
+    const calls: string[] = [];
+    const pipeCapability = createPipeCapability({
+      detachOwnedPipe: vi.fn(async () => {
+        calls.push("detach");
+        return { ok: true, owned: true, detached: true };
+      }),
+      attachPipe: vi.fn(async (_paneId, _logPath, state) => {
+        calls.push("reattach");
+        expect(state).toEqual({ panePipe: false, pipeTagValue: null });
+        return { attached: true, conflict: false };
+      }),
+    });
+    const rotateLogIfNeeded: typeof rotateLog = vi.fn(async (_path, _max, _retain, hooks) => {
+      if ((await hooks.beforeRotate?.()) === false) return false;
+      calls.push("rotate");
+      await hooks.afterRotate?.();
+      return true;
+    });
+    const { manager, logActivity } = createManager({ pipeCapability, rotateLogIfNeeded });
+
+    const result = await manager.preparePaneLogging({
+      paneId: "%1",
+      panePipe: true,
+      pipeTagValue: OWNER_TAG,
+    });
+
+    expect(calls).toEqual(["detach", "rotate", "reattach"]);
+    expect(result).toMatchObject({ pipeAttached: true, pipeConflict: false });
+    expect(logActivity.register).toHaveBeenCalledWith("%1", "/logs/%1.log");
+  });
+
+  it("does not detach an owned pipe when the log does not need rotation", async () => {
+    const pipeCapability = createPipeCapability();
+    const rotateLogIfNeeded = vi.fn(async () => false);
+    const { manager } = createManager({ pipeCapability, rotateLogIfNeeded });
+
+    await manager.preparePaneLogging({
+      paneId: "%1",
+      panePipe: true,
+      pipeTagValue: OWNER_TAG,
+    });
+
+    expect(rotateLogIfNeeded).toHaveBeenCalledOnce();
+    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
+    expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
   });
 
   it("checks a confirmed absence once and retries only after a failed ownership check", async () => {
