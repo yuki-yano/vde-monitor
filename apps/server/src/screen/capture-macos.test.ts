@@ -270,4 +270,49 @@ describe("captureTerminalScreenMacos", () => {
     expect(captureRegion).toHaveBeenNthCalledWith(1, croppedBounds);
     expect(captureRegion).toHaveBeenNthCalledWith(2, croppedBounds);
   });
+
+  it("drops capture requests when the serialized focus queue is full", async () => {
+    let resolveFirstCapture: (value: string | null) => void = () => undefined;
+    vi.mocked(captureRegion)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveFirstCapture = resolve;
+        }),
+      )
+      .mockResolvedValueOnce("pane-2-image")
+      .mockResolvedValueOnce("pane-3-image");
+
+    const first = captureTerminalScreenMacos("/dev/ttys001", { paneId: "%1" });
+    const second = captureTerminalScreenMacos("/dev/ttys002", { paneId: "%2" });
+    const third = captureTerminalScreenMacos("/dev/ttys003", { paneId: "%3" });
+    const overflow = captureTerminalScreenMacos("/dev/ttys004", { paneId: "%4" });
+    await vi.advanceTimersByTimeAsync(400);
+
+    await expect(overflow).resolves.toBeNull();
+    expect(focusTmuxPane).toHaveBeenCalledTimes(1);
+    expect(isAppRunning).toHaveBeenCalledTimes(1);
+
+    resolveFirstCapture("pane-1-image");
+    await vi.advanceTimersByTimeAsync(800);
+
+    await expect(first).resolves.toEqual({ imageBase64: "pane-1-image", cropped: true });
+    await expect(second).resolves.toEqual({ imageBase64: "pane-2-image", cropped: true });
+    await expect(third).resolves.toEqual({ imageBase64: "pane-3-image", cropped: true });
+    expect(focusTmuxPane).toHaveBeenCalledTimes(3);
+    expect(isAppRunning).toHaveBeenCalledTimes(3);
+  });
+
+  it("releases the serialized focus slot when an active capture throws", async () => {
+    vi.mocked(focusTmuxPane).mockRejectedValueOnce(new Error("focus failed"));
+    vi.mocked(captureRegion).mockResolvedValueOnce("pane-2-image");
+
+    const first = captureTerminalScreenMacos("/dev/ttys001", { paneId: "%1" });
+    const firstFailure = expect(first).rejects.toThrow("focus failed");
+    const second = captureTerminalScreenMacos("/dev/ttys002", { paneId: "%2" });
+    await vi.runAllTimersAsync();
+
+    await firstFailure;
+    await expect(second).resolves.toEqual({ imageBase64: "pane-2-image", cropped: true });
+    expect(focusTmuxPane).toHaveBeenCalledTimes(2);
+  });
 });

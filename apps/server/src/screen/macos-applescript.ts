@@ -1,7 +1,9 @@
 import { execa } from "execa";
 
-const runCommand = (command: string, args: string[], timeout?: number) =>
-  execa(command, args, timeout ? { timeout } : undefined);
+const APPLE_SCRIPT_TIMEOUT_MS = 5000;
+
+const runCommand = (command: string, args: string[]) =>
+  execa(command, args, { timeout: APPLE_SCRIPT_TIMEOUT_MS });
 
 export const runAppleScript = async (script: string) => {
   try {

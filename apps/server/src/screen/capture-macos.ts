@@ -16,23 +16,40 @@ import { type WeztermOptions, focusWeztermPane, getWeztermPaneGeometry } from ".
 import { sleep } from "../async-utils";
 
 const debugWeztermCropEnabled = process.env.VDE_MONITOR_DEBUG_WEZTERM_CROP === "1";
-let captureFocusTail = Promise.resolve();
+const MAX_QUEUED_CAPTURE_FOCUS_OPERATIONS = 2;
+let captureFocusActive = false;
+const captureFocusQueue: Array<() => void> = [];
 
-const runWithSerializedFocus = async <T>(operation: () => Promise<T>): Promise<T> => {
-  const previous = captureFocusTail;
-  let release: () => void = () => undefined;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
+const acquireCaptureFocus = async (): Promise<boolean> => {
+  if (!captureFocusActive) {
+    captureFocusActive = true;
+    return true;
+  }
+  if (captureFocusQueue.length >= MAX_QUEUED_CAPTURE_FOCUS_OPERATIONS) {
+    return false;
+  }
+  return await new Promise<boolean>((resolve) => {
+    captureFocusQueue.push(() => resolve(true));
   });
-  captureFocusTail = current;
-  await previous;
+};
+
+const releaseCaptureFocus = (): void => {
+  const next = captureFocusQueue.shift();
+  if (next) {
+    next();
+    return;
+  }
+  captureFocusActive = false;
+};
+
+const runWithSerializedFocus = async <T>(operation: () => Promise<T>): Promise<T | null> => {
+  if (!(await acquireCaptureFocus())) {
+    return null;
+  }
   try {
     return await operation();
   } finally {
-    release();
-    if (captureFocusTail === current) {
-      captureFocusTail = Promise.resolve();
-    }
+    releaseCaptureFocus();
   }
 };
 const debugWeztermCrop = (payload: Record<string, unknown>) => {
@@ -263,11 +280,11 @@ export const captureTerminalScreenMacos = async (
   tty: string | null | undefined,
   options: CaptureOptions = {},
 ) => {
-  const app = await resolveCaptureApp(tty, options);
-  if (!app) {
-    return null;
-  }
   return runWithSerializedFocus(async () => {
+    const app = await resolveCaptureApp(tty, options);
+    if (!app) {
+      return null;
+    }
     await focusCaptureTarget(app.appName, options);
 
     const maxAttempts = 3;

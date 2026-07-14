@@ -24,7 +24,7 @@ describe("macos-applescript", () => {
     expect(execa).toHaveBeenCalledWith(
       "osascript",
       ["-e", 'tell application "Terminal" to activate'],
-      undefined,
+      { timeout: 5000 },
     );
   });
 });
