@@ -769,7 +769,7 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
             aria-controls={promptCompletion.visible ? PROMPT_COMPLETION_LIST_ID : undefined}
             aria-activedescendant={promptCompletion.activeOptionId}
             onPaste={handleTextareaPaste}
-            className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
+            className="text-latte-text min-h-[52px] w-full resize-none rounded-2xl bg-transparent px-2.5 py-1 font-mono text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[60px] sm:px-3 sm:py-1.5"
           />
         </div>
         {promptCompletion.visible ? (
