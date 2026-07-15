@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AnsiVirtualizedViewport } from "./AnsiVirtualizedViewport";
@@ -13,6 +14,32 @@ vi.mock("react-virtuoso", () => ({
     return <div data-testid="virtuoso" />;
   },
 }));
+
+type ScrollMetrics = {
+  scrollHeight: number;
+  clientHeight: number;
+  scrollTop: number;
+};
+
+const installScrollMetrics = (node: HTMLDivElement, metrics: ScrollMetrics) => {
+  const scrollTopSetter = vi.fn((value: number) => {
+    metrics.scrollTop = value;
+  });
+  Object.defineProperty(node, "scrollHeight", {
+    configurable: true,
+    get: () => metrics.scrollHeight,
+  });
+  Object.defineProperty(node, "clientHeight", {
+    configurable: true,
+    get: () => metrics.clientHeight,
+  });
+  Object.defineProperty(node, "scrollTop", {
+    configurable: true,
+    get: () => metrics.scrollTop,
+    set: scrollTopSetter,
+  });
+  return scrollTopSetter;
+};
 
 describe("AnsiVirtualizedViewport", () => {
   it("shows scroll-to-bottom button and delegates click handler", () => {
@@ -98,5 +125,74 @@ describe("AnsiVirtualizedViewport", () => {
     );
 
     expect(virtuosoState.followOutput).toBe("smooth");
+  });
+
+  it("pins the scroller to the bottom before paint when followed output grows", () => {
+    const scrollerRef = createRef<HTMLDivElement>();
+    const node = document.createElement("div");
+    scrollerRef.current = node;
+    const metrics = { scrollHeight: 100, clientHeight: 100, scrollTop: 0 };
+    const scrollTopSetter = installScrollMetrics(node, metrics);
+    const props = {
+      loading: false,
+      loadingLabel: "Loading",
+      isAtBottom: true,
+      shouldFollowOutput: true,
+      onAtBottomChange: vi.fn(),
+      scrollerRef,
+    };
+    const view = render(<AnsiVirtualizedViewport {...props} lines={["line-1"]} />);
+
+    metrics.scrollHeight = 200;
+    metrics.scrollTop = 50;
+    view.rerender(<AnsiVirtualizedViewport {...props} lines={["line-1", "line-2"]} />);
+
+    expect(scrollTopSetter).toHaveBeenCalledWith(200);
+  });
+
+  it("does not pin growing output after following is paused", () => {
+    const scrollerRef = createRef<HTMLDivElement>();
+    const node = document.createElement("div");
+    scrollerRef.current = node;
+    const metrics = { scrollHeight: 100, clientHeight: 100, scrollTop: 0 };
+    const scrollTopSetter = installScrollMetrics(node, metrics);
+    const props = {
+      loading: false,
+      loadingLabel: "Loading",
+      isAtBottom: true,
+      shouldFollowOutput: false,
+      onAtBottomChange: vi.fn(),
+      scrollerRef,
+    };
+    const view = render(<AnsiVirtualizedViewport {...props} lines={["line-1"]} />);
+
+    metrics.scrollHeight = 200;
+    metrics.scrollTop = 50;
+    view.rerender(<AnsiVirtualizedViewport {...props} lines={["line-1", "line-2"]} />);
+
+    expect(scrollTopSetter).not.toHaveBeenCalled();
+  });
+
+  it("does not rewrite scrollTop when followed output remains at the bottom", () => {
+    const scrollerRef = createRef<HTMLDivElement>();
+    const node = document.createElement("div");
+    scrollerRef.current = node;
+    const metrics = { scrollHeight: 100, clientHeight: 100, scrollTop: 0 };
+    const scrollTopSetter = installScrollMetrics(node, metrics);
+    const props = {
+      loading: false,
+      loadingLabel: "Loading",
+      isAtBottom: true,
+      shouldFollowOutput: true,
+      onAtBottomChange: vi.fn(),
+      scrollerRef,
+    };
+    const view = render(<AnsiVirtualizedViewport {...props} lines={["line-1"]} />);
+
+    metrics.scrollHeight = 200;
+    metrics.scrollTop = 100;
+    view.rerender(<AnsiVirtualizedViewport {...props} lines={["line-1", "line-2"]} />);
+
+    expect(scrollTopSetter).not.toHaveBeenCalled();
   });
 });

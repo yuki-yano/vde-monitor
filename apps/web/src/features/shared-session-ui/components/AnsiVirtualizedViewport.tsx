@@ -8,7 +8,9 @@ import {
   type RefObject,
   memo,
   useCallback,
+  useLayoutEffect,
   useMemo,
+  useRef,
 } from "react";
 import { type Components, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
@@ -53,6 +55,9 @@ type AnsiVirtualizedViewportProps = {
   onLineClick?: (event: MouseEvent<HTMLDivElement>) => void;
   onLineKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
+
+const resolveIsAtBottom = (node: HTMLDivElement) =>
+  node.scrollHeight - (node.scrollTop + node.clientHeight) <= 2;
 
 const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   if (typeof ref === "function") {
@@ -129,6 +134,8 @@ export const AnsiVirtualizedViewport = ({
   onLineClick,
   onLineKeyDown,
 }: AnsiVirtualizedViewportProps) => {
+  const internalScrollerRef = useRef<HTMLDivElement | null>(null);
+  const resolvedScrollerRef = scrollerRef ?? internalScrollerRef;
   const virtuosoComponents = useMemo<Components<string, AnsiVirtuosoContext>>(() => {
     if (!scroller) {
       return DEFAULT_VIRTUOSO_COMPONENTS;
@@ -139,9 +146,20 @@ export const AnsiVirtualizedViewport = ({
     };
   }, [scroller]);
   const virtuosoContext = useMemo(
-    () => ({ listClassName, scrollerClassName, scrollerRef }),
-    [listClassName, scrollerClassName, scrollerRef],
+    () => ({ listClassName, scrollerClassName, scrollerRef: resolvedScrollerRef }),
+    [listClassName, resolvedScrollerRef, scrollerClassName],
   );
+
+  useLayoutEffect(() => {
+    if (!shouldFollowOutput) {
+      return;
+    }
+    const node = resolvedScrollerRef.current;
+    if (!node || resolveIsAtBottom(node)) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [lines, resolvedScrollerRef, shouldFollowOutput]);
 
   const handleCopy = useCallback(
     (event: ClipboardEvent<HTMLDivElement>) => {
