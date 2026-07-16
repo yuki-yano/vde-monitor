@@ -1,12 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildPipeCommand, createPipeManager, createPipeOwnerTag, escapePipeLogPath } from "./pipe";
+import {
+  type PaneLogTransport,
+  buildPipeCommand,
+  createPipeManager as createPipeManagerImpl,
+  createPipeOwnerTag,
+} from "./pipe";
 
 const SERVER_KEY = "server-key";
 const LOG_PATH = "/tmp/test.log";
 const OWNER_TAG = "v2:fbce5c7c6cf59b61928ffb509f445dc733682f4b87ea6b60755963fcec80ca5d";
-
 const success = { stdout: "", stderr: "", exitCode: 0 };
+const quoteShellArgument = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+const pipeAttachCommand = (paneId: string, logPath: string) =>
+  `pipe-pane -o -t ${quoteShellArgument(paneId)} ${quoteShellArgument(buildPipeCommand(`${logPath}.fifo`, `${logPath}.ready`))}`;
+const createTransport = (): PaneLogTransport => ({
+  prepare: vi.fn(async (_paneId, logPath) => ({
+    fifoPath: `${logPath}.fifo`,
+    readyPath: `${logPath}.ready`,
+  })),
+  activate: vi.fn(async () => {}),
+  abort: vi.fn(async () => {}),
+  release: vi.fn(async () => {}),
+  isHealthy: vi.fn(async () => true),
+  dispose: vi.fn(async () => {}),
+});
+const createPipeManager = (
+  adapter: Parameters<typeof createPipeManagerImpl>[0],
+  serverKey: string,
+) => createPipeManagerImpl(adapter, serverKey, createTransport());
 
 describe("pipe ownership helpers", () => {
   it("builds the v2 owner from server key, NUL, and absolute log path", () => {
@@ -16,14 +38,21 @@ describe("pipe ownership helpers", () => {
     );
   });
 
-  it("escapes shell-active characters and uses one exec cat process", () => {
-    const logPath = '/tmp/back\\slash"quote$dollar`tick.log';
+  it("quotes shell-active FIFO and ready paths", () => {
+    const logPath = "/tmp/back\\slash\"quote'single$dollar`tick;semi.log";
 
-    expect(escapePipeLogPath(logPath)).toBe('/tmp/back\\\\slash\\"quote\\$dollar\\`tick.log');
-    expect(buildPipeCommand(logPath)).toBe(
-      'exec cat >> "/tmp/back\\\\slash\\"quote\\$dollar\\`tick.log"',
+    const command = buildPipeCommand(`${logPath}.fifo`, `${logPath}.ready`);
+
+    expect(command).not.toContain("cat >>");
+    expect(command).toContain("umask 077");
+    expect(command).toContain("exec cat >&3");
+    expect(command).toContain("quote'\\''single$dollar`tick;semi.log");
+    expect(() => buildPipeCommand("relative.fifo", "/tmp/ready")).toThrow(
+      "FIFO path must be absolute",
     );
-    expect(() => buildPipeCommand("relative.log")).toThrow("pipe log path must be absolute");
+    expect(() => buildPipeCommand("/tmp/data", "relative.ready")).toThrow(
+      "ready path must be absolute",
+    );
   });
 });
 
@@ -46,7 +75,7 @@ describe("createPipeManager", () => {
     expect(manager.hasConflict({ panePipe: true, pipeTagValue: "1" }, LOG_PATH)).toBe(true);
   });
 
-  it("attaches with exec cat and writes a pane-local owner tag", async () => {
+  it("attaches the pane log writer and writes a pane-local owner tag", async () => {
     const adapter = {
       run: vi
         .fn()
@@ -70,7 +99,7 @@ describe("createPipeManager", () => {
       "-t",
       "%1",
       "#{==:#{pane_pipe},0}",
-      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; ${pipeAttachCommand("%1", LOG_PATH)}`,
       "",
     ]);
     expect(adapter.run).toHaveBeenCalledTimes(5);
@@ -101,9 +130,9 @@ describe("createPipeManager", () => {
       "%1",
       "#{==:#{pane_pipe},0}",
     ]);
-    expect(guardedAttachArgs?.[5]).toContain(`set-option -p -o`);
-    expect(guardedAttachArgs?.[5]).toContain(`; pipe-pane -o`);
-    expect(guardedAttachArgs?.[5]).toContain("quote'\\''single");
+    expect(guardedAttachArgs?.[5]).toBe(
+      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${ownerTag}' ; ${pipeAttachCommand("%1", logPath)}`,
+    );
     expect(guardedAttachArgs?.[6]).toBe("");
   });
 
@@ -144,7 +173,7 @@ describe("createPipeManager", () => {
       "-t",
       "%1",
       `#{&&:#{==:#{pane_pipe},0},#{==:#{@vde-monitor_pipe},${OWNER_TAG}}}`,
-      `pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      pipeAttachCommand("%1", LOG_PATH),
       "",
     ]);
   });
@@ -222,7 +251,7 @@ describe("createPipeManager", () => {
       "-t",
       "%1",
       "#{==:#{pane_pipe},0}",
-      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; pipe-pane -o -t '%1' 'exec cat >> "/tmp/test.log"'`,
+      `set-option -p -o -t '%1' '@vde-monitor_pipe' '${OWNER_TAG}' ; ${pipeAttachCommand("%1", LOG_PATH)}`,
       "",
     ]);
   });

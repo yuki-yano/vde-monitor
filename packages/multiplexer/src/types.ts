@@ -149,6 +149,7 @@ export type MultiplexerPipeState = {
 export type MultiplexerPipeCapability = {
   getOwnerTag: (logPath: string) => string;
   hasConflict: (state: MultiplexerPipeState, logPath: string) => boolean;
+  isPipeHealthy: (paneId: string, logPath: string) => Promise<boolean>;
   attachPipe: (
     paneId: string,
     logPath: string,

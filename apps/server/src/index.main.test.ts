@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   parsePort: vi.fn(),
   runServe: vi.fn(),
   runTokenRotateCommand: vi.fn(),
+  runPaneLogDaemon: vi.fn(),
+  resolvePaneLogDaemonCommandArgs: vi.fn(),
   runConfigInitCommand: vi.fn(),
   runConfigCheckCommand: vi.fn(),
   runConfigPruneCommand: vi.fn(),
@@ -16,6 +18,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./app/cli/cli", () => ({
   parseArgs: mocks.parseArgs,
   parsePort: mocks.parsePort,
+  resolvePaneLogDaemonCommandArgs: mocks.resolvePaneLogDaemonCommandArgs,
+}));
+
+vi.mock("./monitor/pane-log-daemon", () => ({
+  runPaneLogDaemon: mocks.runPaneLogDaemon,
 }));
 
 vi.mock("./app/commands/print-hooks-snippet", () => ({
@@ -62,6 +69,8 @@ describe("main command routing", () => {
     mocks.parsePort.mockReturnValue(null);
     mocks.runServe.mockReset();
     mocks.runTokenRotateCommand.mockReset();
+    mocks.runPaneLogDaemon.mockReset();
+    mocks.resolvePaneLogDaemonCommandArgs.mockReset();
     mocks.runConfigInitCommand.mockReset();
     mocks.runConfigCheckCommand.mockReset();
     mocks.runConfigPruneCommand.mockReset();
@@ -69,6 +78,7 @@ describe("main command routing", () => {
     mocks.printHooksSnippet.mockReset();
     mocks.printCodexHooksSnippet.mockReset();
     mocks.runServe.mockResolvedValue(undefined);
+    mocks.runPaneLogDaemon.mockResolvedValue(undefined);
   });
 
   it("runs claude hooks print subcommand", async () => {
@@ -82,6 +92,24 @@ describe("main command routing", () => {
 
     expect(mocks.printHooksSnippet).toHaveBeenCalledTimes(1);
     expect(mocks.printCodexHooksSnippet).not.toHaveBeenCalled();
+    expect(mocks.runServe).not.toHaveBeenCalled();
+  });
+
+  it("runs the hidden pane log daemon command", async () => {
+    const parsed = {
+      command: "internal",
+      subcommand: "pane-log-daemon",
+      runtimeDir: "/tmp/pane-log-daemon",
+      serverIdentity: "a".repeat(64),
+    };
+    const resolved = { runtimeDir: "/tmp/pane-log-daemon", serverIdentity: "a".repeat(64) };
+    mocks.parseArgs.mockReturnValue(parsed);
+    mocks.resolvePaneLogDaemonCommandArgs.mockReturnValue(resolved);
+
+    await main();
+
+    expect(mocks.resolvePaneLogDaemonCommandArgs).toHaveBeenCalledWith(parsed);
+    expect(mocks.runPaneLogDaemon).toHaveBeenCalledWith(resolved);
     expect(mocks.runServe).not.toHaveBeenCalled();
   });
 
@@ -190,6 +218,7 @@ describe("main command routing", () => {
     await main();
 
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage: vde-monitor"));
+    expect(log).not.toHaveBeenCalledWith(expect.stringContaining("pane-log-daemon"));
     expect(mocks.runServe).not.toHaveBeenCalled();
     log.mockRestore();
   });

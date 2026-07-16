@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 
 import type { MultiplexerPipeCapability, MultiplexerPipeState } from "@vde-monitor/multiplexer";
 
-import { ensureDir, rotateLogIfNeeded } from "../logs";
+import { ensureDir } from "../logs";
 import { resolveLogPaths } from "./log-paths";
 
 export type PaneLogManager = ReturnType<typeof createPaneLogManager>;
@@ -10,7 +10,6 @@ export type PaneLogManager = ReturnType<typeof createPaneLogManager>;
 type PaneLogManagerDeps = {
   resolveLogPaths?: typeof resolveLogPaths;
   ensureDir?: typeof ensureDir;
-  rotateLogIfNeeded?: typeof rotateLogIfNeeded;
   openLogFile?: (filePath: string) => Promise<void>;
 };
 
@@ -40,7 +39,6 @@ const resolvePaneLogDeps = (deps?: PaneLogManagerDeps) => {
   const resolved = {
     resolvePaths: resolveLogPaths,
     ensureDirFn: ensureDir,
-    rotateFn: rotateLogIfNeeded,
     openLogFile: defaultOpenLogFile,
   };
   if (!deps) {
@@ -51,9 +49,6 @@ const resolvePaneLogDeps = (deps?: PaneLogManagerDeps) => {
   }
   if (deps.ensureDir) {
     resolved.ensureDirFn = deps.ensureDir;
-  }
-  if (deps.rotateLogIfNeeded) {
-    resolved.rotateFn = deps.rotateLogIfNeeded;
   }
   if (deps.openLogFile) {
     resolved.openLogFile = deps.openLogFile;
@@ -68,7 +63,7 @@ export const createPaneLogManager = ({
   logActivity,
   deps,
 }: PaneLogManagerArgs) => {
-  const { resolvePaths, ensureDirFn, rotateFn, openLogFile } = resolvePaneLogDeps(deps);
+  const { resolvePaths, ensureDirFn, openLogFile } = resolvePaneLogDeps(deps);
 
   const getPaneLogPath = (paneId: string) => {
     return resolvePaths(baseDir, serverKey, paneId).paneLogPath;
@@ -100,7 +95,10 @@ export const createPaneLogManager = ({
       return { pipeAttached, pipeConflict };
     }
     await ensureLogFiles(paneId);
-    const attachResult = await pipeCapability.attachPipe(paneId, logPath, pipeState);
+    const attachResult = await pipeCapability.attachPipe(paneId, logPath, pipeState).catch(() => ({
+      attached: false,
+      conflict: false,
+    }));
     return {
       pipeAttached: pipeAttached || attachResult.attached,
       pipeConflict: attachResult.conflict,
@@ -121,10 +119,21 @@ export const createPaneLogManager = ({
     }
 
     const logPath = getPaneLogPath(paneId);
-    const pipeState = { panePipe, pipeTagValue };
+    let pipeState = { panePipe, pipeTagValue };
     const ownerTag = pipeCapability.getOwnerTag(logPath);
-    const isOwnedPipe = panePipe && pipeTagValue === ownerTag;
+    let isOwnedPipe = panePipe && pipeTagValue === ownerTag;
     absenceHandledPaneIds.delete(paneId);
+
+    if (isOwnedPipe && !(await pipeCapability.isPipeHealthy(paneId, logPath))) {
+      const detached = await pipeCapability.detachOwnedPipe(paneId, logPath);
+      if (!detached.detached) {
+        ownedPaneIds.delete(paneId);
+        logActivity.unregister(paneId);
+        return { pipeAttached: false, pipeConflict: false, logPath, ownerTag };
+      }
+      pipeState = { panePipe: false, pipeTagValue: null };
+      isOwnedPipe = false;
+    }
 
     let pipeAttached = isOwnedPipe;
     let pipeConflict = pipeCapability.hasConflict(pipeState, logPath);
@@ -136,37 +145,6 @@ export const createPaneLogManager = ({
     }
 
     await ensureLogFiles(paneId);
-
-    if (isOwnedPipe && allowAttach) {
-      let detachedState: MultiplexerPipeState | null = null;
-      await rotateFn(logPath, 2_000_000, 5, {
-        beforeRotate: async () => {
-          const detachResult = await pipeCapability.detachOwnedPipe(paneId, logPath);
-          if (!detachResult.owned || !detachResult.detached) {
-            pipeAttached = false;
-            return false;
-          }
-          detachedState = {
-            panePipe: false,
-            pipeTagValue: detachResult.ok ? null : ownerTag,
-          };
-          return true;
-        },
-        afterRotate: async () => {
-          if (detachedState == null) return;
-          const attachResult = await pipeCapability.attachPipe(paneId, logPath, detachedState);
-          if (!attachResult.attached || attachResult.conflict) {
-            ownedPaneIds.delete(paneId);
-            logActivity.unregister(paneId);
-            throw new Error(`failed to reattach owned pane pipe after log rotation: ${paneId}`);
-          }
-          pipeAttached = attachResult.attached;
-          pipeConflict = attachResult.conflict;
-        },
-      });
-    } else if (!panePipe) {
-      await rotateFn(logPath, 2_000_000, 5);
-    }
 
     if (allowAttach && !pipeAttached) {
       const attachResult = await attachPipeIfNeeded({

@@ -20,31 +20,40 @@ export const createPipeOwnerTag = (serverKey: string, absoluteLogPath: string): 
   return `v2:${ownerHash}`;
 };
 
-export const escapePipeLogPath = (absoluteLogPath: string): string =>
-  absoluteLogPath.replace(/[\\"$`]/g, "\\$&");
+const quoteShellArgument = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
 
-export const buildPipeCommand = (absoluteLogPath: string): string => {
-  if (!path.isAbsolute(absoluteLogPath)) {
-    throw new Error("pipe log path must be absolute");
-  }
-  return `exec cat >> "${escapePipeLogPath(absoluteLogPath)}"`;
+export type PaneLogTransport = {
+  prepare: (paneId: string, logPath: string) => Promise<{ fifoPath: string; readyPath: string }>;
+  activate: (paneId: string, logPath: string) => Promise<void>;
+  abort: (paneId: string, logPath: string) => Promise<void>;
+  release: (paneId: string, logPath: string) => Promise<void>;
+  isHealthy: (paneId: string, logPath: string) => Promise<boolean>;
+  dispose: () => Promise<void>;
 };
 
-const quoteTmuxCommandArgument = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
+export const buildPipeCommand = (fifoPath: string, readyPath: string): string => {
+  if (!path.isAbsolute(fifoPath)) throw new Error("pipe FIFO path must be absolute");
+  if (!path.isAbsolute(readyPath)) throw new Error("pipe ready path must be absolute");
+  return `umask 077; exec 3> ${quoteShellArgument(fifoPath)}; : > ${quoteShellArgument(readyPath)}; exec cat >&3`;
+};
+
+const quoteTmuxCommandArgument = quoteShellArgument;
 
 const buildGuardedPipeAttachCommand = ({
   paneId,
-  logPath,
   ownerTag,
   writeOwnerTag,
+  fifoPath,
+  readyPath,
 }: {
   paneId: string;
-  logPath: string;
   ownerTag: string;
   writeOwnerTag: boolean;
+  fifoPath: string;
+  readyPath: string;
 }): string => {
   const target = quoteTmuxCommandArgument(paneId);
-  const pipeCommand = `pipe-pane -o -t ${target} ${quoteTmuxCommandArgument(buildPipeCommand(logPath))}`;
+  const pipeCommand = `pipe-pane -o -t ${target} ${quoteTmuxCommandArgument(buildPipeCommand(fifoPath, readyPath))}`;
   if (!writeOwnerTag) {
     return pipeCommand;
   }
@@ -67,6 +76,7 @@ type FreshPipeStateRead =
 export const createPipeManager = (
   adapter: TmuxAdapter,
   serverKey: string,
+  transport: PaneLogTransport,
 ): MultiplexerPipeCapability => {
   const getOwnerTag = (logPath: string) => createPipeOwnerTag(serverKey, logPath);
 
@@ -122,33 +132,53 @@ export const createPipeManager = (
       return { attached: true, conflict: false };
     }
 
+    const endpoint = await transport.prepare(paneId, logPath);
+
     const ownerTag = getOwnerTag(logPath);
     const attachCondition =
       freshState.pipeTagValue == null
         ? "#{==:#{pane_pipe},0}"
         : `#{&&:#{==:#{pane_pipe},0},#{==:#{${PIPE_OWNER_OPTION}},${ownerTag}}}`;
-    await adapter.run([
-      "if-shell",
-      "-F",
-      "-t",
-      paneId,
-      attachCondition,
-      buildGuardedPipeAttachCommand({
+    try {
+      await adapter.run([
+        "if-shell",
+        "-F",
+        "-t",
         paneId,
-        logPath,
-        ownerTag,
-        writeOwnerTag: freshState.pipeTagValue == null,
-      }),
-      "",
-    ]);
+        attachCondition,
+        buildGuardedPipeAttachCommand({
+          paneId,
+          ownerTag,
+          writeOwnerTag: freshState.pipeTagValue == null,
+          fifoPath: endpoint.fifoPath,
+          readyPath: endpoint.readyPath,
+        }),
+        "",
+      ]);
+    } catch (error) {
+      await transport.abort(paneId, logPath).catch(() => undefined);
+      throw error;
+    }
     const attachedRead = await readFreshPipeState(paneId);
     if (attachedRead.status !== "present") {
+      await transport.abort(paneId, logPath).catch(() => undefined);
       return { attached: false, conflict: false };
     }
     const attachedState = attachedRead.state;
     if (attachedState.panePipe && attachedState.pipeTagValue === ownerTag) {
+      try {
+        await transport.activate(paneId, logPath);
+      } catch (error) {
+        await adapter.run(["pipe-pane", "-t", paneId]).catch(() => undefined);
+        await adapter
+          .run(["set-option", "-p", "-t", paneId, "-u", PIPE_OWNER_OPTION])
+          .catch(() => undefined);
+        await transport.abort(paneId, logPath).catch(() => undefined);
+        throw error;
+      }
       return { attached: true, conflict: false };
     }
+    await transport.abort(paneId, logPath).catch(() => undefined);
     return { attached: false, conflict: hasConflict(attachedState, logPath) };
   };
 
@@ -182,8 +212,16 @@ export const createPipeManager = (
     if (unsetResult.exitCode !== 0) {
       return { ok: false, owned: true, detached: true };
     }
+    try {
+      await transport.release(paneId, logPath);
+    } catch {
+      return { ok: false, owned: true, detached: true };
+    }
     return { ok: true, owned: true, detached: true };
   };
 
-  return { getOwnerTag, hasConflict, attachPipe, detachOwnedPipe };
+  const isPipeHealthy: MultiplexerPipeCapability["isPipeHealthy"] = (paneId, logPath) =>
+    transport.isHealthy(paneId, logPath);
+
+  return { getOwnerTag, hasConflict, attachPipe, detachOwnedPipe, isPipeHealthy };
 };

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { parseArgs, parsePort, resolveHosts, resolveMultiplexerOverrides } from "./cli";
+import {
+  parseArgs,
+  parsePort,
+  resolveHosts,
+  resolveMultiplexerOverrides,
+  resolvePaneLogDaemonCommandArgs,
+} from "./cli";
 
 const baseOptions = {
   configBind: "127.0.0.1" as const,
@@ -69,6 +75,89 @@ describe("parseArgs", () => {
   it("rejects invalid enum values", () => {
     expect(() => parseArgs(["--multiplexer", "foo"])).toThrow(/Invalid value for argument/);
     expect(() => parseArgs(["--backend", "foo"])).toThrow(/Invalid value for argument/);
+  });
+
+  it("parses the hidden pane log daemon command", () => {
+    const args = parseArgs([
+      "internal",
+      "pane-log-daemon",
+      "--runtime-dir",
+      "/tmp/pane-log-daemon",
+      "--server-identity",
+      "a".repeat(64),
+    ]);
+
+    expect(resolvePaneLogDaemonCommandArgs(args)).toEqual({
+      runtimeDir: "/tmp/pane-log-daemon",
+      serverIdentity: "a".repeat(64),
+    });
+  });
+
+  it("rejects daemon options outside the hidden command", () => {
+    expect(() => parseArgs(["--runtime-dir", "/tmp/daemon"])).toThrow(
+      "only valid for the internal daemon",
+    );
+    expect(() => parseArgs(["config", "check", "--server-identity", "a".repeat(64)])).toThrow(
+      "only valid for the internal daemon",
+    );
+  });
+
+  it("rejects duplicate daemon options", () => {
+    expect(() =>
+      parseArgs([
+        "internal",
+        "pane-log-daemon",
+        "--runtime-dir",
+        "/tmp/a",
+        "--runtime-dir",
+        "/tmp/b",
+      ]),
+    ).toThrow("--runtime-dir may only be specified once");
+  });
+});
+
+describe("resolvePaneLogDaemonCommandArgs", () => {
+  const parseDaemonArgs = (options: string[]) =>
+    parseArgs(["internal", "pane-log-daemon", ...options]);
+
+  it.each([
+    [[], "--runtime-dir requires a value"],
+    [["--runtime-dir", "/tmp/daemon"], "--server-identity requires a value"],
+  ])("rejects missing required daemon options", (options, message) => {
+    expect(() => resolvePaneLogDaemonCommandArgs(parseDaemonArgs(options))).toThrow(message);
+  });
+
+  it("rejects relative runtime paths", () => {
+    expect(() =>
+      resolvePaneLogDaemonCommandArgs(
+        parseDaemonArgs(["--runtime-dir", "daemon", "--server-identity", "a".repeat(64)]),
+      ),
+    ).toThrow("--runtime-dir must be absolute");
+  });
+
+  it.each(["a", "A".repeat(64), "0".repeat(63), "g".repeat(64)])(
+    "rejects invalid server identity: %s",
+    (value) => {
+      expect(() =>
+        resolvePaneLogDaemonCommandArgs(
+          parseDaemonArgs(["--runtime-dir", "/tmp/daemon", "--server-identity", value]),
+        ),
+      ).toThrow("--server-identity must be a lowercase SHA-256 hex digest");
+    },
+  );
+
+  it("rejects an extra positional command part", () => {
+    expect(() =>
+      parseArgs([
+        "internal",
+        "pane-log-daemon",
+        "extra",
+        "--runtime-dir",
+        "/tmp/daemon",
+        "--server-identity",
+        "a".repeat(64),
+      ]),
+    ).toThrow("only valid for the internal daemon");
   });
 });
 

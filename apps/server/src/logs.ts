@@ -12,10 +12,6 @@ export const rotateLogIfNeeded = async (
   filePath: string,
   maxBytes: number,
   retainRotations: number,
-  hooks: {
-    beforeRotate?: () => Promise<boolean | void>;
-    afterRotate?: () => Promise<void>;
-  } = {},
 ): Promise<boolean> => {
   const stat = await fs.stat(filePath).catch(() => null);
   if (!stat || stat.size <= maxBytes) {
@@ -25,37 +21,26 @@ export const rotateLogIfNeeded = async (
   const dir = path.dirname(filePath);
   const base = path.basename(filePath);
   const rotatedPath = path.join(dir, `${base}.${Date.now()}.${randomUUID()}`);
-  let runAfterRotate = false;
   try {
-    if ((await hooks.beforeRotate?.()) === false) {
+    await fs.rename(filePath, rotatedPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return false;
     }
-    runAfterRotate = true;
-    try {
-      await fs.rename(filePath, rotatedPath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return false;
-      }
-      throw error;
-    }
-    await fs.open(filePath, "a", 0o600).then((handle) => handle.close());
-
-    const files = await fs.readdir(dir);
-    const rotations = files
-      .filter((name) => name.startsWith(`${base}.`))
-      .map((name) => ({ name, fullPath: path.join(dir, name) }));
-    if (rotations.length > retainRotations) {
-      const sorted = rotations.sort((a, b) => a.name.localeCompare(b.name));
-      const toDelete = sorted.slice(0, rotations.length - retainRotations);
-      await Promise.all(toDelete.map((entry) => fs.unlink(entry.fullPath).catch(() => null)));
-    }
-    return true;
-  } finally {
-    if (runAfterRotate) {
-      await hooks.afterRotate?.();
-    }
+    throw error;
   }
+  await fs.open(filePath, "a", 0o600).then((handle) => handle.close());
+
+  const files = await fs.readdir(dir);
+  const rotations = files
+    .filter((name) => name.startsWith(`${base}.`))
+    .map((name) => ({ name, fullPath: path.join(dir, name) }));
+  if (rotations.length > retainRotations) {
+    const sorted = rotations.sort((a, b) => a.name.localeCompare(b.name));
+    const toDelete = sorted.slice(0, rotations.length - retainRotations);
+    await Promise.all(toDelete.map((entry) => fs.unlink(entry.fullPath).catch(() => null)));
+  }
+  return true;
 };
 
 export const createLogActivityPoller = (pollIntervalMs: number) => {

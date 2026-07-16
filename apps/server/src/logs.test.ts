@@ -52,32 +52,19 @@ describe("rotateLogIfNeeded", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
-  it("does not invoke rotation hooks when the size is within the limit", async () => {
+  it("does not rotate when the size is within the limit", async () => {
     mocks.stat.mockResolvedValue({ size: 100 });
-    const beforeRotate = vi.fn();
-    const afterRotate = vi.fn();
 
-    await expect(
-      rotateLogIfNeeded("/tmp/events.jsonl", 100, 5, { beforeRotate, afterRotate }),
-    ).resolves.toBe(false);
+    await expect(rotateLogIfNeeded("/tmp/events.jsonl", 100, 5)).resolves.toBe(false);
 
-    expect(beforeRotate).not.toHaveBeenCalled();
-    expect(afterRotate).not.toHaveBeenCalled();
     expect(mocks.rename).not.toHaveBeenCalled();
   });
 
-  it("runs afterRotate even when rotation fails after beforeRotate", async () => {
+  it("propagates rename failures", async () => {
     mocks.stat.mockResolvedValue({ size: 101 });
     mocks.rename.mockRejectedValue(new Error("rename failed"));
-    const beforeRotate = vi.fn(async () => true);
-    const afterRotate = vi.fn(async () => undefined);
 
-    await expect(
-      rotateLogIfNeeded("/tmp/events.jsonl", 100, 5, { beforeRotate, afterRotate }),
-    ).rejects.toThrow("rename failed");
-
-    expect(beforeRotate).toHaveBeenCalledOnce();
-    expect(afterRotate).toHaveBeenCalledOnce();
+    await expect(rotateLogIfNeeded("/tmp/events.jsonl", 100, 5)).rejects.toThrow("rename failed");
   });
 });
 
@@ -118,6 +105,27 @@ describe("createLogActivityPoller", () => {
 
     expect(onActivity).toHaveBeenCalledTimes(1);
     expect(onActivity).toHaveBeenCalledWith("%1", expect.any(String));
+
+    poller.stop();
+  });
+
+  it("resets its baseline after rotation and detects later current-log growth", async () => {
+    const onActivity = vi.fn();
+    mocks.stat
+      .mockResolvedValueOnce({ size: 2_000_000 })
+      .mockResolvedValueOnce({ size: 0 })
+      .mockResolvedValueOnce({ size: 100 });
+
+    const poller = createLogActivityPoller(1000);
+    poller.register("%1", "/tmp/pane-1.log");
+    poller.onActivity(onActivity);
+    poller.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onActivity).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onActivity).toHaveBeenCalledOnce();
 
     poller.stop();
   });

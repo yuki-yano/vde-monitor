@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import type { ArgsDef, ParsedArgs as CittyParsedArgs } from "citty";
 import { parseArgs as parseCittyArgs } from "citty";
@@ -24,6 +26,8 @@ const cliArgDefinitions = {
   weztermTarget: { type: "string" },
   cmuxCli: { type: "string" },
   cmuxSocket: { type: "string" },
+  runtimeDir: { type: "string" },
+  serverIdentity: { type: "string" },
   help: { type: "boolean" },
 } satisfies ArgsDef;
 
@@ -43,6 +47,11 @@ export type MultiplexerOverrides = {
   cmuxSocketPath?: string;
 };
 
+export type PaneLogDaemonCommandArgs = {
+  runtimeDir: string;
+  serverIdentity: string;
+};
+
 type ResolveHostsOptions = {
   args: ParsedArgs;
   configBind: AgentMonitorConfig["bind"];
@@ -52,11 +61,24 @@ type ResolveHostsOptions = {
 
 const normalizeRawArgv = (argv: string[]) => argv.filter((token) => token !== "--");
 
+const paneLogDaemonFlags = ["--runtime-dir", "--server-identity"] as const;
+
+const assertNoDuplicatePaneLogDaemonFlags = (argv: string[]) => {
+  for (const flag of paneLogDaemonFlags) {
+    const count = argv.filter((token) => token === flag || token.startsWith(`${flag}=`)).length;
+    if (count > 1) {
+      throw new Error(`${flag} may only be specified once.`);
+    }
+  }
+};
+
+const isPaneLogDaemonCommand = (args: ParsedArgs) =>
+  args.command === "internal" && args.subcommand === "pane-log-daemon" && args.subcommand2 == null;
+
 export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs => {
-  const parsed = parseCittyArgs<typeof cliArgDefinitions>(
-    normalizeRawArgv(argv),
-    cliArgDefinitions,
-  );
+  const normalizedArgv = normalizeRawArgv(argv);
+  assertNoDuplicatePaneLogDaemonFlags(normalizedArgv);
+  const parsed = parseCittyArgs<typeof cliArgDefinitions>(normalizedArgv, cliArgDefinitions);
   const definitionKeys = Object.keys(cliArgDefinitions);
   const knownKeys = new Set([
     "_",
@@ -67,7 +89,36 @@ export const parseArgs = (argv = process.argv.slice(2)): ParsedArgs => {
   if (unknownKey != null) {
     throw new Error(`Unknown option: --${unknownKey}`);
   }
+  const hasPaneLogDaemonOptions = parsed.runtimeDir != null || parsed.serverIdentity != null;
+  if (hasPaneLogDaemonOptions && !isPaneLogDaemonCommand(parsed)) {
+    throw new Error("--runtime-dir and --server-identity are only valid for the internal daemon.");
+  }
   return parsed;
+};
+
+const requireStringOption = (value: unknown, flag: string): string => {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${flag} requires a value.`);
+  }
+  return value;
+};
+
+export const resolvePaneLogDaemonCommandArgs = (args: ParsedArgs): PaneLogDaemonCommandArgs => {
+  if (!isPaneLogDaemonCommand(args)) {
+    throw new Error("internal pane-log-daemon requires exactly two positional command parts.");
+  }
+  const runtimeDir = requireStringOption(args.runtimeDir, "--runtime-dir");
+  if (!path.isAbsolute(runtimeDir)) {
+    throw new Error(`--runtime-dir must be absolute. (received: ${runtimeDir})`);
+  }
+  const serverIdentity = requireStringOption(args.serverIdentity, "--server-identity");
+  if (!/^[a-f0-9]{64}$/.test(serverIdentity)) {
+    throw new Error("--server-identity must be a lowercase SHA-256 hex digest.");
+  }
+  return {
+    runtimeDir,
+    serverIdentity,
+  };
 };
 
 export const parsePort = (value: unknown) => {

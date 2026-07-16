@@ -1,14 +1,7 @@
 #!/usr/bin/env node
-import { parseArgs, parsePort } from "./app/cli/cli";
-import { printCodexHooksSnippet } from "./app/commands/print-codex-hooks-snippet";
-import { printHooksSnippet } from "./app/commands/print-hooks-snippet";
-import { runConfigCheckCommand } from "./app/commands/run-config-check-command";
-import { runConfigInitCommand } from "./app/commands/run-config-init-command";
-import { runConfigPruneCommand } from "./app/commands/run-config-prune-command";
-import { runConfigRegenerateCommand } from "./app/commands/run-config-regenerate-command";
-import { runTokenRotateCommand } from "./app/commands/run-token-rotate-command";
-import { runServe } from "./app/serve/serve-command";
+import { parseArgs, parsePort, resolvePaneLogDaemonCommandArgs } from "./app/cli/cli";
 import { toErrorMessage } from "./errors";
+import { runPaneLogDaemon } from "./monitor/pane-log-daemon";
 
 export const CLI_HELP_TEXT = `Usage: vde-monitor [options]
        vde-monitor config <init|regenerate|check|prune> [--dry-run]
@@ -31,7 +24,16 @@ export const main = async () => {
     console.log(CLI_HELP_TEXT);
     return;
   }
+  if (
+    args.command === "internal" &&
+    args.subcommand === "pane-log-daemon" &&
+    args.subcommand2 == null
+  ) {
+    await runPaneLogDaemon(resolvePaneLogDaemonCommandArgs(args));
+    return;
+  }
   if (args.command === "token" && args.subcommand === "rotate" && args.subcommand2 == null) {
+    const { runTokenRotateCommand } = await import("./app/commands/run-token-rotate-command");
     await runTokenRotateCommand({
       host: typeof args.bind === "string" ? args.bind : undefined,
       port: parsePort(args.port) ?? undefined,
@@ -39,31 +41,39 @@ export const main = async () => {
     return;
   }
   if (args.command === "claude" && args.subcommand === "hooks" && args.subcommand2 === "print") {
+    const { printHooksSnippet } = await import("./app/commands/print-hooks-snippet");
     printHooksSnippet();
     return;
   }
   if (args.command === "codex" && args.subcommand === "hooks" && args.subcommand2 === "print") {
+    const { printCodexHooksSnippet } = await import("./app/commands/print-codex-hooks-snippet");
     printCodexHooksSnippet();
     return;
   }
   if (args.command === "config" && args.subcommand === "regenerate" && args.subcommand2 == null) {
+    const { runConfigRegenerateCommand } =
+      await import("./app/commands/run-config-regenerate-command");
     runConfigRegenerateCommand();
     return;
   }
   if (args.command === "config" && args.subcommand === "init" && args.subcommand2 == null) {
+    const { runConfigInitCommand } = await import("./app/commands/run-config-init-command");
     runConfigInitCommand();
     return;
   }
   if (args.command === "config" && args.subcommand === "check" && args.subcommand2 == null) {
+    const { runConfigCheckCommand } = await import("./app/commands/run-config-check-command");
     runConfigCheckCommand();
     return;
   }
   if (args.command === "config" && args.subcommand === "prune" && args.subcommand2 == null) {
+    const { runConfigPruneCommand } = await import("./app/commands/run-config-prune-command");
     runConfigPruneCommand({ dryRun: args.dryRun === true });
     return;
   }
 
   if (args.command == null) {
+    const { runServe } = await import("./app/serve/serve-command");
     await runServe(args);
     return;
   }

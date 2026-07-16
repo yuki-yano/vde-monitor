@@ -1,7 +1,6 @@
 import type { MultiplexerPipeCapability } from "@vde-monitor/multiplexer";
 import { describe, expect, it, vi } from "vitest";
 
-import { rotateLogIfNeeded as rotateLog } from "../logs";
 import { createPaneLogManager } from "./pane-log-manager";
 
 const OWNER_TAG = `v2:${"a".repeat(64)}`;
@@ -19,6 +18,7 @@ const createPipeCapability = (
 ): MultiplexerPipeCapability => ({
   getOwnerTag: vi.fn(() => OWNER_TAG),
   hasConflict: vi.fn(() => false),
+  isPipeHealthy: vi.fn(async () => true),
   attachPipe: vi.fn(async () => ({ attached: true, conflict: false })),
   detachOwnedPipe: vi.fn(async () => ({ ok: true, owned: true, detached: true })),
   ...overrides,
@@ -26,10 +26,8 @@ const createPipeCapability = (
 
 const createManager = ({
   pipeCapability = createPipeCapability(),
-  rotateLogIfNeeded = vi.fn(async () => false),
 }: {
   pipeCapability?: MultiplexerPipeCapability | null;
-  rotateLogIfNeeded?: typeof rotateLog;
 } = {}) => {
   const logActivity = { register: vi.fn(), unregister: vi.fn() };
   const manager = createPaneLogManager({
@@ -40,11 +38,10 @@ const createManager = ({
     deps: {
       resolveLogPaths: (_base, _key, paneId) => resolveMockLogPaths(paneId),
       ensureDir: vi.fn(async () => {}),
-      rotateLogIfNeeded,
       openLogFile: vi.fn(async () => {}),
     },
   });
-  return { manager, logActivity, pipeCapability, rotateLogIfNeeded };
+  return { manager, logActivity, pipeCapability };
 };
 
 describe("pane-log-manager", () => {
@@ -71,6 +68,20 @@ describe("pane-log-manager", () => {
     expect(manager.getOwnedPaneIds()).toEqual(["%1"]);
   });
 
+  it("keeps pane observation available when logging transport attach fails", async () => {
+    const pipeCapability = createPipeCapability({
+      attachPipe: vi.fn(async () => {
+        throw new Error("daemon unavailable");
+      }),
+    });
+    const { manager, logActivity } = createManager({ pipeCapability });
+
+    await expect(
+      manager.preparePaneLogging({ paneId: "%1", panePipe: false, pipeTagValue: null }),
+    ).resolves.toMatchObject({ pipeAttached: false, pipeConflict: false });
+    expect(logActivity.register).not.toHaveBeenCalled();
+  });
+
   it("keeps an already owned pipe without reattaching", async () => {
     const pipeCapability = createPipeCapability();
     const { manager } = createManager({ pipeCapability });
@@ -87,7 +98,28 @@ describe("pane-log-manager", () => {
     expect(result.pipeConflict).toBe(false);
   });
 
-  it("repairs a detached pipe only when its v2 owner tag matches", async () => {
+  it("detaches and repairs an owned pipe whose daemon session is unhealthy", async () => {
+    const pipeCapability = createPipeCapability({
+      isPipeHealthy: vi.fn(async () => false),
+      detachOwnedPipe: vi.fn(async () => ({ ok: false, owned: true, detached: true })),
+    });
+    const { manager } = createManager({ pipeCapability });
+
+    const result = await manager.preparePaneLogging({
+      paneId: "%1",
+      panePipe: true,
+      pipeTagValue: OWNER_TAG,
+    });
+
+    expect(pipeCapability.detachOwnedPipe).toHaveBeenCalledWith("%1", "/logs/%1.log");
+    expect(pipeCapability.attachPipe).toHaveBeenCalledWith("%1", "/logs/%1.log", {
+      panePipe: false,
+      pipeTagValue: null,
+    });
+    expect(result.pipeAttached).toBe(true);
+  });
+
+  it("repairs a detached pipe without rotating outside the daemon", async () => {
     const pipeCapability = createPipeCapability();
     const { manager } = createManager({ pipeCapability });
 
@@ -120,7 +152,7 @@ describe("pane-log-manager", () => {
 
   it("does not attach or register logging for foreign and legacy conflicts", async () => {
     const pipeCapability = createPipeCapability({ hasConflict: vi.fn(() => true) });
-    const { manager, logActivity, rotateLogIfNeeded } = createManager({ pipeCapability });
+    const { manager, logActivity } = createManager({ pipeCapability });
 
     const result = await manager.preparePaneLogging({
       paneId: "%2",
@@ -130,32 +162,14 @@ describe("pane-log-manager", () => {
 
     expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
     expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
-    expect(rotateLogIfNeeded).not.toHaveBeenCalled();
     expect(logActivity.register).not.toHaveBeenCalled();
     expect(logActivity.unregister).toHaveBeenCalledWith("%2");
     expect(result.pipeConflict).toBe(true);
   });
 
-  it("detaches, rotates, and reattaches an owned pipe in order", async () => {
-    const calls: string[] = [];
-    const pipeCapability = createPipeCapability({
-      detachOwnedPipe: vi.fn(async () => {
-        calls.push("detach");
-        return { ok: true, owned: true, detached: true };
-      }),
-      attachPipe: vi.fn(async (_paneId, _logPath, state) => {
-        calls.push("reattach");
-        expect(state).toEqual({ panePipe: false, pipeTagValue: null });
-        return { attached: true, conflict: false };
-      }),
-    });
-    const rotateLogIfNeeded: typeof rotateLog = vi.fn(async (_path, _max, _retain, hooks) => {
-      if ((await hooks.beforeRotate?.()) === false) return false;
-      calls.push("rotate");
-      await hooks.afterRotate?.();
-      return true;
-    });
-    const { manager, logActivity } = createManager({ pipeCapability, rotateLogIfNeeded });
+  it("does not detach or reattach an already owned pipe", async () => {
+    const pipeCapability = createPipeCapability();
+    const { manager, logActivity } = createManager({ pipeCapability });
 
     const result = await manager.preparePaneLogging({
       paneId: "%1",
@@ -163,15 +177,15 @@ describe("pane-log-manager", () => {
       pipeTagValue: OWNER_TAG,
     });
 
-    expect(calls).toEqual(["detach", "rotate", "reattach"]);
+    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
+    expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
     expect(result).toMatchObject({ pipeAttached: true, pipeConflict: false });
     expect(logActivity.register).toHaveBeenCalledWith("%1", "/logs/%1.log");
   });
 
-  it("does not detach an owned pipe when the log does not need rotation", async () => {
+  it("keeps an owned pipe during normal polling", async () => {
     const pipeCapability = createPipeCapability();
-    const rotateLogIfNeeded = vi.fn(async () => false);
-    const { manager } = createManager({ pipeCapability, rotateLogIfNeeded });
+    const { manager } = createManager({ pipeCapability });
 
     await manager.preparePaneLogging({
       paneId: "%1",
@@ -179,7 +193,6 @@ describe("pane-log-manager", () => {
       pipeTagValue: OWNER_TAG,
     });
 
-    expect(rotateLogIfNeeded).toHaveBeenCalledOnce();
     expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
     expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
   });
