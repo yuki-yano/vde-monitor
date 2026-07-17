@@ -1,8 +1,9 @@
-import type { SessionStateTimeline, SessionStateValue } from "@vde-monitor/shared";
+import type { SessionStateTimeline } from "@vde-monitor/shared";
 import { memo, useMemo } from "react";
 
 import { TagPill } from "@/components/ui";
 import { formatStateLabel } from "@/lib/session-format";
+import { SEGMENT_COLOR_CLASS } from "@/lib/state-segment-colors";
 
 import type { PreviewFrame } from "../atoms/sidebarPreviewAtoms";
 import { buildTimelineDisplay } from "./state-timeline-display";
@@ -19,15 +20,6 @@ type SessionSidebarPreviewPopoverProps = {
   timeline: SessionStateTimeline | null;
   timelineLoading: boolean;
   timelineError: string | null;
-};
-
-const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
-  RUNNING: "bg-latte-green/80",
-  WAITING_INPUT: "bg-latte-peach/80",
-  WAITING_PERMISSION: "bg-latte-red/80",
-  DONE: "bg-latte-blue/80",
-  SHELL: "bg-latte-blue/80",
-  UNKNOWN: "bg-latte-overlay0/80",
 };
 
 const resolveSegmentWidthPercent = (durationMs: number, totalDurationMs: number) => {

@@ -23,6 +23,7 @@ import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/se
 import { cn } from "@/lib/cn";
 
 import { formatStateLabel, stateTone } from "@/lib/session-format";
+import { SEGMENT_COLOR_CLASS } from "@/lib/state-segment-colors";
 import { formatDurationMs, formatTime } from "@/lib/time-format";
 import { buildTimelineDisplay } from "@/features/shared-session-ui/components/state-timeline-display";
 
@@ -47,15 +48,6 @@ type StateTimelineSectionActions = {
 type StateTimelineSectionProps = {
   state: StateTimelineSectionState;
   actions: StateTimelineSectionActions;
-};
-
-const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
-  RUNNING: "bg-latte-green/80",
-  WAITING_INPUT: "bg-latte-peach/80",
-  WAITING_PERMISSION: "bg-latte-red/80",
-  DONE: "bg-latte-blue/80",
-  SHELL: "bg-latte-blue/80",
-  UNKNOWN: "bg-latte-overlay0/80",
 };
 
 const resolveSegmentItems = (

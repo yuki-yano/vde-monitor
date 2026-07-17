@@ -1,9 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type {
-  SessionStateTimelineItem,
-  SessionStateTimelineRange,
-  SessionStateValue,
-} from "@vde-monitor/shared";
+import type { SessionStateTimelineItem, SessionStateTimelineRange } from "@vde-monitor/shared";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { type CSSProperties, useMemo } from "react";
 
@@ -28,6 +24,7 @@ import { readStoredSessionListFilter } from "@/features/shared-session-ui/model/
 import { SESSION_TIMELINE_RANGE_MS } from "@/features/shared-session-ui/model/session-timeline-range";
 import { cn } from "@/lib/cn";
 import { formatStateLabel, stateTone } from "@/lib/session-format";
+import { SEGMENT_COLOR_CLASS } from "@/lib/state-segment-colors";
 import { formatDurationMs, formatTime } from "@/lib/time-format";
 
 import { ProviderQuotaSection } from "./ProviderQuotaSection";
@@ -36,15 +33,6 @@ import { formatDateTime } from "./usage-format";
 import type { UsageDashboardVM } from "./useUsageDashboardVM";
 
 const resolveBackToListSearch = () => ({ filter: readStoredSessionListFilter() });
-
-const SEGMENT_COLOR_CLASS: Record<SessionStateValue, string> = {
-  RUNNING: "bg-latte-green/80",
-  WAITING_INPUT: "bg-latte-peach/80",
-  WAITING_PERMISSION: "bg-latte-red/80",
-  DONE: "bg-latte-blue/80",
-  SHELL: "bg-latte-blue/80",
-  UNKNOWN: "bg-latte-overlay0/80",
-};
 
 const resolveTimelineSegments = (
   items: SessionStateTimelineItem[],
