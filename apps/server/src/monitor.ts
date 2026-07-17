@@ -18,6 +18,7 @@ import { createPaneObservationCoordinator } from "./monitor/pane-observation-coo
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
+import { createStateSaveHeartbeat } from "./monitor/state-save-heartbeat";
 import { createStateSaveScheduler } from "./monitor/state-save-scheduler";
 import { createMonitorRuntimeMarker, resolveProcessStartedAt } from "./monitor/runtime-marker";
 import {
@@ -300,7 +301,7 @@ export const createSessionMonitor = (
   });
 
   let lastSavedContentKey: string | null = null;
-  let lastWrittenAtMs = 0;
+  const saveHeartbeat = createStateSaveHeartbeat({ intervalMs: STATE_SAVE_HEARTBEAT_MS });
   const persistStateNow = () => {
     const runtimeStateByPaneId = new Map(
       registry.values().map((session) => {
@@ -311,18 +312,17 @@ export const createSessionMonitor = (
     // Write periodically even when content is unchanged so the persisted
     // repositoryActivity checkpoint stays fresh and restart coverage gaps
     // stay bounded by the heartbeat interval.
-    const heartbeatDue = Date.now() - lastWrittenAtMs >= STATE_SAVE_HEARTBEAT_MS;
     const result = saveState(registry.values(), {
       runtimeStateByPaneId,
       retainedSessions: retainedRestoredSessions,
       timeline: stateTimeline.serialize(),
       repoNotes: repoNotes.serialize(),
       repositoryActivity: repositoryActivity.serialize(),
-      skipIfContentKey: heartbeatDue ? null : lastSavedContentKey,
+      skipIfContentKey: saveHeartbeat.isDue() ? null : lastSavedContentKey,
     });
     lastSavedContentKey = result.contentKey;
     if (result.written) {
-      lastWrittenAtMs = Date.now();
+      saveHeartbeat.markWritten();
     }
   };
   const stateSaveScheduler = createStateSaveScheduler({
