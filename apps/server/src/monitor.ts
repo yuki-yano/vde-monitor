@@ -514,6 +514,11 @@ export const createSessionMonitor = (
     monitorLoop.stop();
     logActivity.stop();
     observationCoordinator.dispose();
+    // Flush pending state before any await: graceful shutdown caps stop() at
+    // five seconds, so a slow teardown below must not stand between us and the
+    // final write. Writers that still run during teardown persist immediately
+    // because the scheduler is disposed.
+    stateSaveScheduler.dispose();
     stopPromise = (async () => {
       await Promise.allSettled([runtimeMarker?.removeIfOwned() ?? Promise.resolve()]);
       await Promise.allSettled([
@@ -529,7 +534,6 @@ export const createSessionMonitor = (
         ),
         detachOwnedPipe: paneLogManager.detachOwnedPipe,
       });
-      stateSaveScheduler.dispose();
     })();
     return stopPromise;
   };

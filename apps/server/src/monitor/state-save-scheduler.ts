@@ -8,8 +8,10 @@ type CreateStateSaveSchedulerOptions = {
 
 export type StateSaveScheduler = {
   schedule: () => void;
-  flush: () => void;
-  dispose: () => void;
+  /** Returns false when a pending save was attempted and failed. */
+  flush: () => boolean;
+  /** Returns false when the final flush failed. */
+  dispose: () => boolean;
 };
 
 export const createStateSaveScheduler = ({
@@ -32,19 +34,21 @@ export const createStateSaveScheduler = ({
     dirty = false;
     try {
       save();
+      return true;
     } catch (error) {
       // Keep the dirty flag so the next schedule() or flush() retries the write.
       dirty = true;
       onError?.(error);
+      return false;
     }
   };
 
   const flush = () => {
     clearTimer();
     if (!dirty) {
-      return;
+      return true;
     }
-    runSave();
+    return runSave();
   };
 
   const schedule = () => {
@@ -72,7 +76,7 @@ export const createStateSaveScheduler = ({
 
   const dispose = () => {
     disposed = true;
-    flush();
+    return flush();
   };
 
   return { schedule, flush, dispose };

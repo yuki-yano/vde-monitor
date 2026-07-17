@@ -77,6 +77,27 @@ describe("createStateSaveScheduler", () => {
     expect(save).toHaveBeenCalledTimes(2);
   });
 
+  it("reports the final flush result from flush and dispose", () => {
+    const failing = vi.fn(() => {
+      throw new Error("disk full");
+    });
+    const failingScheduler = createStateSaveScheduler({
+      save: failing,
+      intervalMs: 1000,
+      onError: () => undefined,
+    });
+    expect(failingScheduler.flush()).toBe(true);
+    failingScheduler.schedule();
+    expect(failingScheduler.flush()).toBe(false);
+    failingScheduler.schedule();
+    expect(failingScheduler.dispose()).toBe(false);
+
+    const save = vi.fn();
+    const scheduler = createStateSaveScheduler({ save, intervalMs: 1000 });
+    scheduler.schedule();
+    expect(scheduler.dispose()).toBe(true);
+  });
+
   it("dispose flushes pending changes and later schedules persist immediately", () => {
     const save = vi.fn();
     const scheduler = createStateSaveScheduler({ save, intervalMs: 1000 });
