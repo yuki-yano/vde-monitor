@@ -329,8 +329,9 @@ export const saveState = (
       ];
     }),
   );
-  // savedAt is excluded from the content key so unchanged state can be detected
-  // and skipped by callers that persist on a fixed cadence.
+  // Timestamps that change on every serialization are excluded from the
+  // content key so unchanged state can be detected and skipped by callers
+  // that persist on a fixed cadence. The written file still carries them.
   const content = {
     version: 3 as const,
     sessions: {
@@ -341,7 +342,16 @@ export const saveState = (
     repoNotes: options.repoNotes ?? {},
     repositoryActivity: options.repositoryActivity,
   };
-  const contentKey = JSON.stringify(content);
+  // repositoryActivity.serialize() stamps a fresh savedAt on every call, so
+  // the key must ignore it or unchanged state would never match.
+  const stableRepositoryActivity =
+    isRecord(content.repositoryActivity) && "savedAt" in content.repositoryActivity
+      ? { ...content.repositoryActivity, savedAt: null }
+      : content.repositoryActivity;
+  const contentKey = JSON.stringify({
+    ...content,
+    repositoryActivity: stableRepositoryActivity,
+  });
   if (options.skipIfContentKey != null && options.skipIfContentKey === contentKey) {
     return { written: false, contentKey };
   }

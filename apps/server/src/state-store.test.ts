@@ -601,6 +601,41 @@ describe("saveState content dedup", () => {
     expect(mocks.writeFileSync.mock.calls.length).toBe(writesAfterFirst);
   });
 
+  it("ignores the repositoryActivity savedAt timestamp in the content key", () => {
+    const session = createSessionDetail();
+    const activity = (savedAt: string) => ({
+      trackingStartedAt: "2026-07-01T00:00:00.000Z",
+      savedAt,
+      intervals: [],
+      completedRuns: [],
+      gaps: [],
+    });
+
+    const first = saveState([session], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      repositoryActivity: activity("2026-07-18T00:00:00.000Z"),
+    });
+    // repositoryActivity.serialize() stamps a new savedAt on every call; that
+    // alone must not defeat the unchanged-content skip.
+    const second = saveState([session], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      repositoryActivity: activity("2026-07-18T00:00:03.000Z"),
+      skipIfContentKey: first.contentKey,
+    });
+    expect(second.written).toBe(false);
+    expect(second.contentKey).toBe(first.contentKey);
+
+    const changed = saveState([session], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      repositoryActivity: {
+        ...activity("2026-07-18T00:00:06.000Z"),
+        intervals: [{ startedAt: "2026-07-18T00:00:00.000Z", endedAt: null }],
+      },
+      skipIfContentKey: second.contentKey,
+    });
+    expect(changed.written).toBe(true);
+  });
+
   it("writes when content changed even if a previous content key is provided", () => {
     const first = saveState([createSessionDetail()], {
       runtimeStateByPaneId: createRuntimeStateMap(),

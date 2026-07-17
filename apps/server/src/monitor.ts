@@ -37,6 +37,8 @@ import { createSessionTimelineStore } from "./state-timeline/store";
 
 const baseDir = path.join(os.homedir(), ".vde-monitor");
 
+const STATE_SAVE_HEARTBEAT_MS = 60_000;
+
 type CreateSessionMonitorOptions = {
   onSessionTransition?: (event: SessionTransitionEvent) => void | Promise<void>;
 };
@@ -298,6 +300,7 @@ export const createSessionMonitor = (
   });
 
   let lastSavedContentKey: string | null = null;
+  let lastWrittenAtMs = 0;
   const persistStateNow = () => {
     const runtimeStateByPaneId = new Map(
       registry.values().map((session) => {
@@ -305,15 +308,22 @@ export const createSessionMonitor = (
         return [session.paneId, resolvePersistedSessionRuntimeState(state)] as const;
       }),
     );
+    // Write periodically even when content is unchanged so the persisted
+    // repositoryActivity checkpoint stays fresh and restart coverage gaps
+    // stay bounded by the heartbeat interval.
+    const heartbeatDue = Date.now() - lastWrittenAtMs >= STATE_SAVE_HEARTBEAT_MS;
     const result = saveState(registry.values(), {
       runtimeStateByPaneId,
       retainedSessions: retainedRestoredSessions,
       timeline: stateTimeline.serialize(),
       repoNotes: repoNotes.serialize(),
       repositoryActivity: repositoryActivity.serialize(),
-      skipIfContentKey: lastSavedContentKey,
+      skipIfContentKey: heartbeatDue ? null : lastSavedContentKey,
     });
     lastSavedContentKey = result.contentKey;
+    if (result.written) {
+      lastWrittenAtMs = Date.now();
+    }
   };
   const stateSaveScheduler = createStateSaveScheduler({
     save: persistStateNow,
