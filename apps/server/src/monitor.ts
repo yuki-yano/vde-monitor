@@ -18,6 +18,7 @@ import { createPaneObservationCoordinator } from "./monitor/pane-observation-coo
 import { createPaneLogManager } from "./monitor/pane-log-manager";
 import { createPaneStateStore } from "./monitor/pane-state";
 import { createPaneUpdateService } from "./monitor/pane-update-service";
+import { createStateSaveScheduler } from "./monitor/state-save-scheduler";
 import { createMonitorRuntimeMarker, resolveProcessStartedAt } from "./monitor/runtime-marker";
 import {
   applyHerdrAgentStatusSignal,
@@ -296,20 +297,33 @@ export const createSessionMonitor = (
     stateTimeline,
   });
 
-  const savePersistedState = () => {
+  let lastSavedContentKey: string | null = null;
+  const persistStateNow = () => {
     const runtimeStateByPaneId = new Map(
       registry.values().map((session) => {
         const state = paneStates.get(session.paneId);
         return [session.paneId, resolvePersistedSessionRuntimeState(state)] as const;
       }),
     );
-    saveState(registry.values(), {
+    const result = saveState(registry.values(), {
       runtimeStateByPaneId,
       retainedSessions: retainedRestoredSessions,
       timeline: stateTimeline.serialize(),
       repoNotes: repoNotes.serialize(),
       repositoryActivity: repositoryActivity.serialize(),
+      skipIfContentKey: lastSavedContentKey,
     });
+    lastSavedContentKey = result.contentKey;
+  };
+  const stateSaveScheduler = createStateSaveScheduler({
+    save: persistStateNow,
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[vde-monitor] failed to persist state: ${message}`);
+    },
+  });
+  const savePersistedState = () => {
+    stateSaveScheduler.schedule();
   };
   const repoNotesService = createRepoNotesService({
     registry,
@@ -515,6 +529,7 @@ export const createSessionMonitor = (
         ),
         detachOwnedPipe: paneLogManager.detachOwnedPipe,
       });
+      stateSaveScheduler.dispose();
     })();
     return stopPromise;
   };

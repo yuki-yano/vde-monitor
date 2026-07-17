@@ -116,6 +116,12 @@ export type SaveStateOptions = {
   timeline?: PersistedTimelineRecord;
   repoNotes?: PersistedRepoNotesRecord;
   repositoryActivity?: unknown;
+  skipIfContentKey?: string | null;
+};
+
+export type SaveStateResult = {
+  written: boolean;
+  contentKey: string;
 };
 
 const isLifecycle = (value: unknown): value is PersistedLifecycle =>
@@ -279,7 +285,10 @@ const isPersistedState = (value: unknown): value is PersistedState => {
   return sessionsValid && timelineValid && repoNotesValid;
 };
 
-export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) => {
+export const saveState = (
+  sessions: SessionDetail[],
+  options: SaveStateOptions,
+): SaveStateResult => {
   const retainedSessions = Object.fromEntries(
     [...(options.retainedSessions ?? [])].map(([paneId, session]) => [
       paneId,
@@ -320,9 +329,10 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
       ];
     }),
   );
-  const data: PersistedState = {
-    version: 3,
-    savedAt: new Date().toISOString(),
+  // savedAt is excluded from the content key so unchanged state can be detected
+  // and skipped by callers that persist on a fixed cadence.
+  const content = {
+    version: 3 as const,
     sessions: {
       ...retainedSessions,
       ...committedSessions,
@@ -330,6 +340,18 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
     timeline: options.timeline ?? {},
     repoNotes: options.repoNotes ?? {},
     repositoryActivity: options.repositoryActivity,
+  };
+  const contentKey = JSON.stringify(content);
+  if (options.skipIfContentKey != null && options.skipIfContentKey === contentKey) {
+    return { written: false, contentKey };
+  }
+  const data: PersistedState = {
+    version: content.version,
+    savedAt: new Date().toISOString(),
+    sessions: content.sessions,
+    timeline: content.timeline,
+    repoNotes: content.repoNotes,
+    repositoryActivity: content.repositoryActivity,
   };
   if (!isPersistedState(data)) {
     throw new Error("refusing to persist invalid state");
@@ -358,6 +380,7 @@ export const saveState = (sessions: SessionDetail[], options: SaveStateOptions) 
     }
     throw error;
   }
+  return { written: true, contentKey };
 };
 
 export type PersistedSessionMap = Map<string, PersistedSession>;

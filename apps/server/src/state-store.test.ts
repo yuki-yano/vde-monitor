@@ -584,3 +584,32 @@ describe("state-store timeline persistence", () => {
     expect(() => restorePersistedState()).toThrow("persisted state is corrupt: invalid schema");
   });
 });
+
+describe("saveState content dedup", () => {
+  it("skips the write when skipIfContentKey matches the current content", () => {
+    const session = createSessionDetail();
+    const first = saveState([session], { runtimeStateByPaneId: createRuntimeStateMap() });
+    expect(first.written).toBe(true);
+    const writesAfterFirst = mocks.writeFileSync.mock.calls.length;
+
+    const second = saveState([session], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      skipIfContentKey: first.contentKey,
+    });
+    expect(second.written).toBe(false);
+    expect(second.contentKey).toBe(first.contentKey);
+    expect(mocks.writeFileSync.mock.calls.length).toBe(writesAfterFirst);
+  });
+
+  it("writes when content changed even if a previous content key is provided", () => {
+    const first = saveState([createSessionDetail()], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+    });
+    const changed = saveState([createSessionDetail({ lastInputAt: "2026-07-18T00:00:00.000Z" })], {
+      runtimeStateByPaneId: createRuntimeStateMap(),
+      skipIfContentKey: first.contentKey,
+    });
+    expect(changed.written).toBe(true);
+    expect(changed.contentKey).not.toBe(first.contentKey);
+  });
+});
