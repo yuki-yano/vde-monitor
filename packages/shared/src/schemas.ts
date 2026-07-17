@@ -183,9 +183,21 @@ export const launchAgentRequestSchema = z
     cwd: z.string().trim().min(1).max(512).optional(),
     agentOptions: z.array(launchOptionSchema).max(32).optional(),
     worktreePath: z.string().trim().min(1).max(1024).optional(),
-    worktreeBranch: z.string().trim().min(1).max(256).optional(),
+    worktreeBranch: z
+      .string()
+      .trim()
+      .min(1)
+      .max(256)
+      .refine((value) => !value.startsWith("-"), { message: "invalid branch name" })
+      .optional(),
     worktreeCreateIfMissing: z.boolean().optional(),
-    resumeSessionId: z.string().trim().min(1).max(256).optional(),
+    resumeSessionId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(256)
+      .refine((value) => !value.startsWith("-"), { message: "invalid session id" })
+      .optional(),
     resumeFromPaneId: z.string().trim().min(1).max(64).optional(),
     resumePolicy: launchResumePolicySchema.optional(),
     resumeTarget: launchResumeTargetSchema.optional(),

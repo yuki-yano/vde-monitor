@@ -39,6 +39,28 @@ describe("launchAgentRequestSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("rejects a worktree branch with a leading hyphen", () => {
+    const result = launchAgentRequestSchema.safeParse({
+      sessionName: "dev",
+      agent: "codex",
+      requestId: "req-1",
+      worktreeBranch: "--force",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a resume session id with a leading hyphen", () => {
+    const result = launchAgentRequestSchema.safeParse({
+      sessionName: "dev",
+      agent: "codex",
+      requestId: "req-1",
+      resumeSessionId: "-abc123",
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("notificationSubscriptionRevokeSchema", () => {
