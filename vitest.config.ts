@@ -10,13 +10,24 @@ export default defineConfig({
   },
   test: {
     watch: false,
-    setupFiles: ["./vitest.setup.ts"],
-    include: [
-      "packages/**/*.test.ts",
-      "packages/**/*.test.tsx",
-      "apps/**/*.test.ts",
-      "apps/**/*.test.tsx",
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["packages/**/*.test.ts", "apps/server/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "web",
+          environment: "happy-dom",
+          setupFiles: ["./vitest.setup.ts"],
+          include: ["apps/web/**/*.test.ts", "apps/web/**/*.test.tsx"],
+        },
+      },
     ],
-    environment: "happy-dom",
   },
 });
