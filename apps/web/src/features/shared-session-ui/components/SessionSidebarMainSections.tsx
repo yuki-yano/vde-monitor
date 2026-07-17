@@ -60,7 +60,7 @@ const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarH
       <Link
         to="/"
         search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
-        className="hover:text-latte-lavender focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-hidden transition focus-visible:ring-2"
+        className="hover:text-latte-lavender-text focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-hidden transition focus-visible:ring-2"
         aria-label="Go to top"
       >
         <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
@@ -70,13 +70,13 @@ const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarH
     <div className="flex flex-col items-end gap-2">
       <TagPill
         tone="neutral"
-        className="border-latte-green/35 bg-latte-green/10 text-latte-green text-[10px] uppercase tracking-[0.22em]"
+        className="border-latte-green/35 bg-latte-green/10 text-latte-green-text text-[10px] uppercase tracking-[0.22em]"
       >
         {totalSessions} Active
       </TagPill>
       <TagPill
         tone="meta"
-        className="border-latte-blue/35 bg-latte-blue/10 text-latte-blue text-[10px] uppercase tracking-[0.22em]"
+        className="border-latte-blue/35 bg-latte-blue/10 text-latte-blue-text text-[10px] uppercase tracking-[0.22em]"
       >
         {repoCount} repos
       </TagPill>

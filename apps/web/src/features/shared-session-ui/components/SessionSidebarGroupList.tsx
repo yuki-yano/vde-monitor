@@ -85,7 +85,7 @@ export const SessionSidebarGroupList = ({
             <div className="border-latte-surface2/70 bg-latte-base/80 flex items-center justify-between gap-2 rounded-2xl border px-3 py-2">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="bg-latte-lavender/70 h-2 w-2 shrink-0 rounded-full shadow-[0_0_8px_rgb(var(--ctp-lavender)/0.5)]" />
-                <span className="text-latte-lavender/80 truncate text-[11px] font-semibold uppercase tracking-wider">
+                <span className="text-latte-lavender-text truncate text-[11px] font-semibold uppercase tracking-wider">
                   {formatRepoDirLabel(group.repoRoot)}
                 </span>
               </div>
@@ -96,7 +96,7 @@ export const SessionSidebarGroupList = ({
                   variant="base"
                   aria-label="Move repo to top"
                   title="Move repo to top"
-                  className="border-latte-lavender/35 bg-latte-base/85 text-latte-lavender hover:bg-latte-lavender/12"
+                  className="border-latte-lavender/35 bg-latte-base/85 text-latte-lavender-text hover:bg-latte-lavender/12"
                   onClick={() => onTouchRepoPin(group.repoRoot)}
                 >
                   <Pin className="h-3.5 w-3.5" />

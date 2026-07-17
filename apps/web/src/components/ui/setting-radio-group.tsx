@@ -62,7 +62,9 @@ const SettingRadioGroup = <T extends string>({
               className={cn(
                 "border-latte-surface2 text-latte-subtext0 inline-flex h-4 w-4 items-center justify-center rounded-full border outline-hidden transition",
                 "focus-visible:ring-latte-lavender/45 focus-visible:ring-2",
-                checked ? "border-latte-lavender text-latte-lavender bg-latte-lavender/15" : null,
+                checked
+                  ? "border-latte-lavender text-latte-lavender-text bg-latte-lavender/15"
+                  : null,
               )}
             >
               <RadioGroupPrimitive.Indicator className="flex items-center justify-center">

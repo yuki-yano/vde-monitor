@@ -24,7 +24,7 @@ export const ChatGridToolbar = ({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-latte-subtext0 text-xs tracking-[0.24em]">VDE Monitor</p>
-          <h1 className="font-display text-latte-text text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="font-display text-latte-text text-3xl font-semibold sm:text-4xl">
             Chat Grid
           </h1>
         </div>

@@ -66,9 +66,9 @@ const buildVisibleFileChangeCategories = (files: DiffSummary["files"] | null | u
     { add: 0, m: 0, d: 0 },
   );
   return [
-    { key: "add", label: "A", value: counts.add, className: "text-latte-green" },
-    { key: "m", label: "M", value: counts.m, className: "text-latte-yellow" },
-    { key: "d", label: "D", value: counts.d, className: "text-latte-red" },
+    { key: "add", label: "A", value: counts.add, className: "text-latte-green-text" },
+    { key: "m", label: "M", value: counts.m, className: "text-latte-yellow-text" },
+    { key: "d", label: "D", value: counts.d, className: "text-latte-red-text" },
   ].filter((item) => item.value > 0);
 };
 
@@ -114,7 +114,7 @@ DiffLoadingOverlay.displayName = "DiffLoadingOverlay";
 const DiffCleanState = memo(({ visible }: { visible: boolean }) =>
   visible ? (
     <EmptyState
-      icon={<FileCheck className="text-latte-green h-6 w-6" />}
+      icon={<FileCheck className="text-latte-green-text h-6 w-6" />}
       message="Working directory is clean"
       iconWrapperClassName="bg-latte-green/10"
     />
@@ -133,7 +133,10 @@ const DiffVirtualBranchNotice = memo(
         className="-mt-1 flex items-center justify-between gap-2"
         data-testid="diff-virtual-branch-notice"
       >
-        <span className="text-latte-subtext0/80 min-w-0 truncate font-mono text-xs">
+        <span
+          className="text-latte-subtext0 min-w-0 truncate font-mono text-xs"
+          title={virtualBranch}
+        >
           Virtual active · {virtualBranch}
         </span>
         <IconButton
@@ -235,12 +238,12 @@ const DiffSummaryDescription = memo(
               {item.label} {item.value}
             </TagPill>
           ))}
-          <span className="text-latte-green">+{totals?.additions ?? "—"}</span>
-          <span className="text-latte-red">-{totals?.deletions ?? "—"}</span>
+          <span className="text-latte-green-text tabular-nums">+{totals?.additions ?? "—"}</span>
+          <span className="text-latte-red-text tabular-nums">-{totals?.deletions ?? "—"}</span>
         </span>
       ) : null}
       {diffBranch ? (
-        <span className="text-latte-subtext0/80 flex min-w-0 flex-1 items-center gap-1 font-mono text-[11px]">
+        <span className="text-latte-subtext0 flex min-w-0 flex-1 items-center gap-1 font-mono text-[11px]">
           <span aria-hidden="true" className="shrink-0">
             ·
           </span>
@@ -320,7 +323,7 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
       <Button
         variant="ghost"
         size="sm"
-        className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+        className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] shrink-0 self-start p-0 after:absolute after:-inset-[7px] after:content-['']"
         onClick={onRefresh}
         disabled={diffLoading}
         aria-label="Refresh changes"

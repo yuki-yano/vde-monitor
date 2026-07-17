@@ -4,11 +4,12 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { Button, ModifierToggle } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
-const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
+const MODIFIER_TOGGLE_CLASS =
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:px-2.5";
 const KEY_BUTTON_CLASS =
-  "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 min-w-[44px] px-1.5 text-[10px] tracking-[0.12em] sm:px-2";
 const KEY_ACTION_BUTTON_CLASS =
-  "border-latte-red/40 bg-latte-red/10 text-latte-red/85 h-7 px-2 text-[10px] tracking-[0.12em] shadow-none hover:border-latte-red/65 hover:bg-latte-red/20 hover:text-latte-red sm:h-8 sm:px-2.5";
+  "border-latte-red/40 bg-latte-red/10 text-latte-red-text h-8 px-2 text-[10px] tracking-[0.12em] shadow-none hover:border-latte-red/65 hover:bg-latte-red/20 sm:h-8 sm:px-2.5";
 
 type KeyButtonProps = {
   label: ReactNode;

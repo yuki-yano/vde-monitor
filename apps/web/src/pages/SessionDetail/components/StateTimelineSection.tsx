@@ -178,7 +178,7 @@ export const StateTimelineSection = memo(({ state, actions }: StateTimelineSecti
     <Card className="flex min-w-0 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
+          <h2 className="font-display text-latte-text text-base font-semibold tracking-wide">
             State Timeline
           </h2>
         </div>
@@ -186,7 +186,7 @@ export const StateTimelineSection = memo(({ state, actions }: StateTimelineSecti
           type="button"
           variant="ghost"
           size="sm"
-          className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+          className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] shrink-0 self-start p-0 after:absolute after:-inset-[7px] after:content-['']"
           onClick={onTimelineRefresh}
           aria-label="Refresh timeline"
         >
@@ -209,9 +209,9 @@ export const StateTimelineSection = memo(({ state, actions }: StateTimelineSecti
             }}
             aria-label="Toggle compact timeline"
             className={cn(
-              "bg-latte-base/75 transition-all duration-200",
+              "bg-latte-base/75 transition duration-200",
               compactView
-                ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
+                ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender-text ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
                 : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
             )}
           >
@@ -265,13 +265,15 @@ export const StateTimelineSection = memo(({ state, actions }: StateTimelineSecti
       <div className="flex flex-col gap-1.5 sm:gap-2">
         {displayedTimelineItems.length ? (
           displayedTimelineItems.map((item) => (
-            <PanelSection key={item.id} className="border-latte-surface2/60 rounded-2xl border">
+            <PanelSection key={item.id} className="border-latte-surface2/60 rounded-xl border">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <Badge tone={stateTone(item.state)} size="sm" animateIcon={false}>
                     {formatStateLabel(item.state)}
                   </Badge>
-                  <span className="text-latte-subtext0 truncate text-xs">{item.reason}</span>
+                  <span className="text-latte-subtext0 truncate text-xs" title={item.reason}>
+                    {item.reason}
+                  </span>
                 </div>
                 <TagPill tone="meta">{formatDurationMs(item.durationMs)}</TagPill>
               </div>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TOKEN_KEY = "vde-monitor-token";
 const API_BASE_URL_KEY = "vde-monitor-api-base-url";
@@ -66,15 +66,27 @@ const readSessionAccessFromUrl = () => {
       localStorage.removeItem(API_BASE_URL_KEY);
     }
   }
-  if (hasAccessDirective) {
-    hashParams.delete("token");
-    hashParams.delete("api");
-    const nextSearch = window.location.search;
-    const nextHash = hashParams.toString();
-    const next = `${window.location.pathname}${nextSearch}${nextHash ? `#${nextHash}` : ""}`;
-    window.history.replaceState({}, "", next);
-  }
   return { token, apiBaseUrl, hasAccessDirective };
+};
+
+/*
+  Kept out of readSessionAccessFromUrl on purpose: that runs during render, and
+  replaceState would synchronously re-enter the router while a component tree
+  is still rendering. Callers strip the URL from an effect instead.
+*/
+const stripAccessDirectiveFromUrl = () => {
+  const rawHash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const hashParams = new URLSearchParams(rawHash);
+  if (!hashParams.has("token") && !hashParams.has("api")) {
+    return;
+  }
+  hashParams.delete("token");
+  hashParams.delete("api");
+  const nextHash = hashParams.toString();
+  const next = `${window.location.pathname}${window.location.search}${nextHash ? `#${nextHash}` : ""}`;
+  window.history.replaceState({}, "", next);
 };
 
 const readStoredApiBaseUrl = () => {
@@ -103,6 +115,12 @@ export const useSessionToken = () => {
     }
     return readStoredApiBaseUrl();
   });
+
+  useEffect(() => {
+    if (initialAccessRef.current?.hasAccessDirective) {
+      stripAccessDirectiveFromUrl();
+    }
+  }, []);
 
   const setToken = (nextToken: string | null) => {
     const trimmed = nextToken?.trim() ?? "";

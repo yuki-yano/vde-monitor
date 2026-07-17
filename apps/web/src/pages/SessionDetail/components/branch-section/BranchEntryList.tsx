@@ -83,10 +83,10 @@ export const BranchEntryList = ({
                     {item.label} {item.value}
                   </TagPill>
                 ))}
-                <span className="text-latte-green text-xs font-semibold">
+                <span className="text-latte-green-text text-xs font-semibold">
                   +{formatGitMetric(entry.additions)}
                 </span>
-                <span className="text-latte-red text-xs font-semibold">
+                <span className="text-latte-red-text text-xs font-semibold">
                   -{formatGitMetric(entry.deletions)}
                 </span>
               </span>
@@ -103,12 +103,12 @@ export const BranchEntryList = ({
           {hasAhead || hasBehind ? (
             <span className="mt-1 flex flex-wrap items-center gap-1">
               {hasAhead ? (
-                <span className="border-latte-green/45 bg-latte-green/10 text-latte-green inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
+                <span className="border-latte-green/45 bg-latte-green/10 text-latte-green-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
                   Ahead {entry.ahead}
                 </span>
               ) : null}
               {hasBehind ? (
-                <span className="border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
+                <span className="border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
                   Behind {entry.behind}
                 </span>
               ) : null}
@@ -116,17 +116,17 @@ export const BranchEntryList = ({
           ) : null}
           <span className="mt-1 flex flex-wrap items-center gap-1">
             {entry.isDefault ? (
-              <span className="border-latte-blue/45 bg-latte-blue/10 text-latte-blue inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
+              <span className="border-latte-blue/45 bg-latte-blue/10 text-latte-blue-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
                 Default
               </span>
             ) : null}
             {entry.current ? (
-              <span className="border-latte-lavender/45 bg-latte-lavender/10 text-latte-lavender inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
+              <span className="border-latte-lavender/45 bg-latte-lavender/10 text-latte-lavender-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
                 Current
               </span>
             ) : null}
             {entry.worktreePath != null && !entry.current ? (
-              <span className="border-latte-peach/45 bg-latte-peach/12 text-latte-peach inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
+              <span className="border-latte-peach/45 bg-latte-peach/12 text-latte-peach-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px]">
                 Worktree
               </span>
             ) : null}
@@ -169,14 +169,14 @@ export const BranchEntryList = ({
             </span>
           </a>
         ) : null}
-        <span className="flex shrink-0 items-center gap-1 self-start">
+        <span className="flex shrink-0 items-center gap-2 self-start">
           {isVirtualSelected ? (
-            <Check className="text-latte-lavender mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <Check className="text-latte-lavender-text mt-0.5 h-3.5 w-3.5 shrink-0" />
           ) : null}
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-1.5 text-[10px]"
+            className="h-7 px-2 text-[10px]"
             disabled={isBranchCheckoutDisabled(entry) || isMutating}
             onClick={() => onRequestCheckoutBranch(entry)}
           >

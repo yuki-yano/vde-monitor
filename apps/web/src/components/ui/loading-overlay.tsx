@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { Spinner } from "./spinner";
 
 const overlayVariants = cva(
-  "bg-latte-base/70 absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl backdrop-blur-xs",
+  "bg-latte-base/70 animate-fade-in absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl backdrop-blur-xs",
   {
     variants: {
       size: {

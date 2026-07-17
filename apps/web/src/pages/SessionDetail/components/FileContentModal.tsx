@@ -199,7 +199,7 @@ const FileContentModalBody = ({
   const previewEnabled = markdownEnabled || (htmlEnabled && htmlPreviewSrc != null);
 
   return (
-    <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-2xl border p-0">
+    <div className="border-latte-surface2/55 bg-latte-crust/65 relative min-h-0 flex-1 overflow-hidden rounded-xl border p-0">
       {loading ? (
         <div className="flex h-full items-center justify-center gap-2 px-3 sm:px-4">
           <Spinner size="sm" />
@@ -220,7 +220,7 @@ const FileContentModalBody = ({
           <img
             src={previewImageSrc}
             alt={`Preview of ${activePath || "image file"}`}
-            className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-xl border object-contain"
+            className="border-latte-surface2/50 bg-latte-crust/80 max-h-full max-w-full rounded-lg border object-contain"
             loading="lazy"
           />
         </div>
@@ -421,7 +421,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-latte-blue decoration-latte-lavender/60 hover:text-latte-lavender underline underline-offset-4 transition-colors"
+          className="text-latte-blue-text decoration-latte-lavender/60 hover:text-latte-lavender-text underline underline-offset-4 transition-colors"
         >
           {children}
         </a>
@@ -452,7 +452,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
       ul: ({ children, ...props }) => (
         <ul
           {...props}
-          className="marker:text-latte-lavender my-3 list-disc space-y-2 pl-5 text-[0.92rem] leading-7"
+          className="marker:text-latte-lavender-text my-3 list-disc space-y-2 pl-5 text-[0.92rem] leading-7"
         >
           {children}
         </ul>
@@ -460,7 +460,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
       ol: ({ children, ...props }) => (
         <ol
           {...props}
-          className="marker:text-latte-blue my-3 list-decimal space-y-2 pl-5 text-[0.92rem] leading-7"
+          className="marker:text-latte-blue-text my-3 list-decimal space-y-2 pl-5 text-[0.92rem] leading-7"
         >
           {children}
         </ol>
@@ -489,7 +489,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
         </div>
       ),
       thead: ({ children, ...props }) => (
-        <thead {...props} className="bg-latte-lavender/15 text-latte-lavender">
+        <thead {...props} className="bg-latte-lavender/15 text-latte-lavender-text">
           {children}
         </thead>
       ),
@@ -518,7 +518,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
             <code
               {...props}
               className={cn(
-                "bg-latte-surface0/75 text-latte-blue border-latte-lavender/30 rounded-md border px-1.5 py-0.5 font-mono text-[0.8rem]",
+                "bg-latte-surface0/75 text-latte-blue-text border-latte-lavender/30 rounded-md border px-1.5 py-0.5 font-mono text-[0.8rem]",
                 className,
               )}
             >
@@ -553,7 +553,7 @@ export const FileContentModal = ({ state, actions }: FileContentModalProps) => {
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <Card className="border-latte-lavender/25 bg-latte-mantle/95 shadow-modal relative z-10 flex h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5rem),860px)] min-h-0 w-[min(1160px,calc(100vw-0.75rem))] flex-col gap-2 overflow-hidden rounded-3xl border-2 p-2.5 ring-1 ring-inset ring-white/10 sm:h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5.5rem),860px)] sm:w-[min(1160px,calc(100vw-1.5rem))] sm:p-4 md:h-[min(92dvh,920px)] md:p-5">
+      <Card className="border-latte-lavender/25 bg-latte-mantle/95 shadow-modal ring-latte-overlay2/25 relative z-10 flex h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5rem),860px)] min-h-0 w-[min(1160px,calc(100vw-0.75rem))] flex-col gap-2 overflow-hidden rounded-3xl border-2 p-2.5 ring-1 ring-inset sm:h-[min(calc(100dvh-var(--vde-pwa-tabs-offset,0px)-5.5rem),860px)] sm:w-[min(1160px,calc(100vw-1.5rem))] sm:p-4 md:h-[min(92dvh,920px)] md:p-5">
         <FileContentModalHeader
           activePath={activePath}
           title={title}

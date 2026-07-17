@@ -6,8 +6,8 @@ import { cn } from "@/lib/cn";
 const calloutVariants = cva("rounded-2xl border px-3 py-1.5 sm:px-4 sm:py-2", {
   variants: {
     tone: {
-      warning: "border-latte-peach/40 bg-latte-peach/10 text-latte-peach",
-      error: "border-latte-red/40 bg-latte-red/10 text-latte-red",
+      warning: "border-latte-peach/40 bg-latte-peach/10 text-latte-peach-text",
+      error: "border-latte-red/40 bg-latte-red/10 text-latte-red-text",
     },
     size: {
       sm: "text-sm",

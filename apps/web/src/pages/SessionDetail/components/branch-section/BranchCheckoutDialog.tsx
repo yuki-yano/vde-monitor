@@ -38,7 +38,9 @@ export const BranchCheckoutDialog = ({
             ) : null}
           </DialogDescription>
         </DialogHeader>
-        {error ? <p className="text-latte-red mt-2 whitespace-pre-wrap text-xs">{error}</p> : null}
+        {error ? (
+          <p className="text-latte-red-text mt-2 whitespace-pre-wrap text-xs">{error}</p>
+        ) : null}
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel

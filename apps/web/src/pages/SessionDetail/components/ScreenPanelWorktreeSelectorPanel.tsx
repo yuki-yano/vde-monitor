@@ -38,7 +38,7 @@ export const ScreenPanelWorktreeSelectorPanel = ({
       data-testid="worktree-selector-panel"
       className="border-latte-surface2/80 bg-latte-base/95 shadow-popover absolute left-0 top-[calc(100%+0.35rem)] z-80 w-[min(88vw,420px)] rounded-xl border p-2 pt-9"
     >
-      <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-2">
         <IconButton
           type="button"
           size="xs"

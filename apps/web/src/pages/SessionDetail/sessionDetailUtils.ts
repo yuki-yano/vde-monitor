@@ -10,13 +10,13 @@ export const diffLineClass = (line: string) => {
     return "text-latte-subtext0";
   }
   if (line.startsWith("@@")) {
-    return "text-latte-lavender font-semibold";
+    return "text-latte-lavender-text font-semibold";
   }
   if (line.startsWith("+")) {
-    return "text-latte-green";
+    return "text-latte-green-text";
   }
   if (line.startsWith("-")) {
-    return "text-latte-red";
+    return "text-latte-red-text";
   }
   return "text-latte-text";
 };
@@ -24,16 +24,16 @@ export const diffLineClass = (line: string) => {
 export const diffStatusClass = (status: string) => {
   switch (status) {
     case "A":
-      return "text-latte-green";
+      return "text-latte-green-text";
     case "M":
-      return "text-latte-yellow";
+      return "text-latte-yellow-text";
     case "D":
-      return "text-latte-red";
+      return "text-latte-red-text";
     case "R":
     case "C":
-      return "text-latte-lavender";
+      return "text-latte-lavender-text";
     case "U":
-      return "text-latte-peach";
+      return "text-latte-peach-text";
     default:
       return "text-latte-subtext0";
   }

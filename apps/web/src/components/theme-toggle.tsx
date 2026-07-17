@@ -22,7 +22,7 @@ const ThemeToggle = ({ className }: ThemeToggleProps) => {
       <TabsList aria-label="Theme selection">
         <TabsTrigger
           value="system"
-          className="flex h-7 w-7 items-center justify-center p-0"
+          className="relative flex h-7 w-7 items-center justify-center p-0 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
           aria-label="System theme"
           title="System"
         >
@@ -30,7 +30,7 @@ const ThemeToggle = ({ className }: ThemeToggleProps) => {
         </TabsTrigger>
         <TabsTrigger
           value="latte"
-          className="flex h-7 w-7 items-center justify-center p-0"
+          className="relative flex h-7 w-7 items-center justify-center p-0 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
           aria-label="Latte theme"
           title="Latte"
         >
@@ -38,7 +38,7 @@ const ThemeToggle = ({ className }: ThemeToggleProps) => {
         </TabsTrigger>
         <TabsTrigger
           value="mocha"
-          className="flex h-7 w-7 items-center justify-center p-0"
+          className="relative flex h-7 w-7 items-center justify-center p-0 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
           aria-label="Mocha theme"
           title="Mocha"
         >

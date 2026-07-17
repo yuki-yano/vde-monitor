@@ -31,7 +31,7 @@ export const TokenInputBanner = ({ authError, onSubmit }: TokenInputBannerProps)
         <h2 className="text-latte-text text-base font-semibold sm:text-lg">
           Authentication required
         </h2>
-        <p className={cn("text-sm", authError ? "text-latte-red" : "text-latte-subtext0")}>
+        <p className={cn("text-sm", authError ? "text-latte-red-text" : "text-latte-subtext0")}>
           {helperText}
         </p>
       </div>

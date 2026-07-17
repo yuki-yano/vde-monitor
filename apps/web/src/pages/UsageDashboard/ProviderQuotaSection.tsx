@@ -36,9 +36,11 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
   const bufferPercent = resolveRemainingBufferPercent(metric);
   const resetAt = formatResetAt(metric.resetsAt);
   return (
-    <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-1.5 rounded-2xl border px-3 py-2">
+    <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-1.5 rounded-xl border px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-display text-latte-text text-base font-semibold">{metric.title}</p>
+        <p className="font-display text-latte-text text-base font-semibold tracking-wide">
+          {metric.title}
+        </p>
       </div>
       <div className="flex items-center gap-2">
         <div className="border-latte-surface2 bg-latte-base/70 relative h-2 flex-1 overflow-hidden rounded-full border">
@@ -63,7 +65,7 @@ const UsageMetricRow = ({ metric, nowMs }: { metric: UsageMetricWindow; nowMs: n
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span className="border-latte-surface2 bg-latte-base/65 text-latte-subtext0 inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium">
+        <span className="border-latte-surface2 bg-latte-base/65 text-latte-subtext0 inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium tabular-nums">
           {formatResetIn(metric.resetsAt, nowMs)}
         </span>
         {resetAt ? (
@@ -162,7 +164,7 @@ const BillingDailyBreakdown = ({ provider }: { provider: UsageProviderSnapshot }
                   className={cn(
                     "rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition-colors",
                     active
-                      ? "border-latte-lavender/65 bg-latte-lavender/18 text-latte-lavender"
+                      ? "border-latte-lavender/65 bg-latte-lavender/18 text-latte-lavender-text"
                       : "border-latte-surface2/70 bg-latte-base/70 text-latte-subtext0 hover:border-latte-overlay1 hover:text-latte-text",
                   )}
                   onClick={() => {
@@ -316,8 +318,10 @@ const BillingModelMapping = ({ provider }: { provider: UsageProviderSnapshot }) 
               className="border-latte-surface2/60 bg-latte-base/55 flex flex-wrap items-center justify-between gap-1.5 rounded-lg border px-2 py-1.5"
             >
               <div className="min-w-0">
-                <p className="text-latte-text truncate text-[11px]">{mappedLabel}</p>
-                <p className="text-latte-subtext0 text-[10px]">
+                <p className="text-latte-text truncate text-[11px]" title={mappedLabel}>
+                  {mappedLabel}
+                </p>
+                <p className="text-latte-subtext0 text-[10px] tabular-nums">
                   {formatTokenCount(row.tokens ?? 0)} tokens / {formatUsd(row.usd)}
                 </p>
               </div>
@@ -379,9 +383,11 @@ export const ProviderQuotaSection = ({
             />
           ))}
           {provider ? (
-            <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-2 rounded-2xl border px-3 py-2">
+            <div className="border-latte-surface2/70 bg-latte-crust/55 space-y-2 rounded-xl border px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-display text-latte-text text-base font-semibold">Billing</p>
+                <p className="font-display text-latte-text text-base font-semibold tracking-wide">
+                  Billing
+                </p>
                 {billingLoading ? (
                   <TagPill tone="meta">
                     <span className="bg-latte-subtext0 mr-1.5 inline-block h-1.5 w-1.5 rounded-full" />
@@ -394,7 +400,7 @@ export const ProviderQuotaSection = ({
                 )}
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
+                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-lg border px-2.5 py-2">
                   <p className="text-latte-subtext0 text-[11px]">Today</p>
                   {billingLoading ? (
                     <div className="space-y-1.5 pt-0.5">
@@ -403,16 +409,16 @@ export const ProviderQuotaSection = ({
                     </div>
                   ) : (
                     <>
-                      <p className="text-latte-text text-sm font-semibold">
+                      <p className="text-latte-text text-sm font-semibold tabular-nums">
                         {formatUsd(provider.billing.costTodayUsd)}
                       </p>
-                      <p className="text-latte-subtext0 text-xs">
+                      <p className="text-latte-subtext0 text-xs tabular-nums">
                         {formatTokens(provider.billing.costTodayTokens)}
                       </p>
                     </>
                   )}
                 </div>
-                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-xl border px-2.5 py-2">
+                <div className="border-latte-surface2/70 bg-latte-base/55 rounded-lg border px-2.5 py-2">
                   <p className="text-latte-subtext0 text-[11px]">Last 30 days</p>
                   {billingLoading ? (
                     <div className="space-y-1.5 pt-0.5">
@@ -421,10 +427,10 @@ export const ProviderQuotaSection = ({
                     </div>
                   ) : (
                     <>
-                      <p className="text-latte-text text-sm font-semibold">
+                      <p className="text-latte-text text-sm font-semibold tabular-nums">
                         {formatUsd(provider.billing.costLast30DaysUsd)}
                       </p>
-                      <p className="text-latte-subtext0 text-xs">
+                      <p className="text-latte-subtext0 text-xs tabular-nums">
                         {formatTokens(provider.billing.costLast30DaysTokens)}
                       </p>
                     </>
@@ -458,7 +464,7 @@ export const ProviderQuotaSection = ({
           {!provider && providerLoading ? (
             <div
               aria-hidden="true"
-              className="border-latte-surface2/70 bg-latte-base/35 min-h-[128px] space-y-3 rounded-2xl border px-3 py-3"
+              className="border-latte-surface2/70 bg-latte-base/35 min-h-[128px] space-y-3 rounded-xl border px-3 py-3"
             >
               <div className="flex items-center justify-between gap-3">
                 <Skeleton className="h-5 w-28" />

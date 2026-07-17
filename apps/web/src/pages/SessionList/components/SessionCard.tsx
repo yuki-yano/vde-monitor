@@ -98,7 +98,7 @@ const SessionCardComponent = ({
       <Card
         interactive
         className={cn(
-          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 transition-all sm:p-4",
+          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 sm:p-4",
           stateStyle.card,
         )}
       >
@@ -143,6 +143,7 @@ const SessionCardComponent = ({
               "font-display text-latte-text block w-full max-w-full truncate font-semibold leading-snug",
               titleTextClassName,
             )}
+            title={sessionTitle}
           >
             {sessionTitle}
           </h3>
@@ -153,14 +154,21 @@ const SessionCardComponent = ({
             {formatPath(session.currentPath)}
           </p>
           {session.lastMessage && (
-            <p className="text-latte-overlay1 mt-2.5 line-clamp-2 text-[11px] leading-relaxed">
+            <p
+              className="text-latte-subtext0 mt-2.5 line-clamp-2 text-[11px] leading-relaxed"
+              title={session.lastMessage}
+            >
               {session.lastMessage}
             </p>
           )}
         </div>
 
         <div className="relative mt-2.5 flex flex-wrap items-center gap-1.5 pt-2 sm:mt-3 sm:pt-2.5">
-          <TagPill tone="meta" className="inline-flex max-w-[160px] items-center gap-1">
+          <TagPill
+            tone="meta"
+            className="inline-flex max-w-[160px] items-center gap-1"
+            title={formatBranchLabel(session.branch)}
+          >
             <GitBranch className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate font-mono">{formatBranchLabel(session.branch)}</span>
           </TagPill>

@@ -144,8 +144,8 @@ const DiffFileItem = memo(
             <FilePathLabel path={file.path} size="sm" tailSegments={3} className="font-mono" />
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <span className="text-latte-green">+{additionsLabel}</span>
-            <span className="text-latte-red">-{deletionsLabel}</span>
+            <span className="text-latte-green-text tabular-nums">+{additionsLabel}</span>
+            <span className="text-latte-red-text tabular-nums">-{deletionsLabel}</span>
             {isOpen ? (
               <ChevronUp className="text-latte-subtext0 h-4 w-4" />
             ) : (

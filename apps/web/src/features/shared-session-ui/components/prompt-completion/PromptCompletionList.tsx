@@ -37,7 +37,7 @@ export const PromptCompletionList = ({
         Loading…
       </div>
     ) : error ? (
-      <div className="text-latte-red min-h-12 px-3 py-3 text-xs">{error}</div>
+      <div className="text-latte-red-text min-h-12 px-3 py-3 text-xs">{error}</div>
     ) : options.length === 0 ? (
       <div className="text-latte-subtext0 min-h-12 px-3 py-3 text-xs">
         {emptyMessage ?? "No suggestions found."}
@@ -70,10 +70,10 @@ export const PromptCompletionList = ({
                 className={cn(
                   "grid h-8 w-8 place-items-center rounded-lg font-mono text-sm font-bold",
                   option.trigger === "dollar"
-                    ? "bg-latte-mauve/15 text-latte-mauve"
+                    ? "bg-latte-mauve/15 text-latte-mauve-text"
                     : option.trigger === "at"
-                      ? "bg-latte-blue/15 text-latte-blue"
-                      : "bg-latte-peach/15 text-latte-peach",
+                      ? "bg-latte-blue/15 text-latte-blue-text"
+                      : "bg-latte-peach/15 text-latte-peach-text",
                 )}
               >
                 {option.trigger === "dollar" ? "$" : option.trigger === "at" ? "@" : "/"}

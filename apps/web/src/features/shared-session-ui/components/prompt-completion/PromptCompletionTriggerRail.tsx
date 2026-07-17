@@ -8,19 +8,17 @@ const TRIGGER_BUTTON_CLASS = "h-7 w-7 p-0 font-mono text-sm sm:h-8 sm:w-8";
 export const PromptCompletionTriggerRail = ({
   agent,
   activeTrigger,
-  slashDisabled,
   onTrigger,
 }: {
   agent: "codex" | "claude";
   activeTrigger: PromptCompletionTokenTrigger | null;
-  slashDisabled: boolean;
   onTrigger: (trigger: PromptCompletionTokenTrigger) => void;
 }) => {
   const triggerButtonClass = (trigger: PromptCompletionTokenTrigger) =>
     cn(
       TRIGGER_BUTTON_CLASS,
       activeTrigger === trigger
-        ? "border-latte-lavender/70 bg-latte-lavender/15 text-latte-lavender"
+        ? "border-latte-lavender/70 bg-latte-lavender/15 text-latte-lavender-text"
         : "text-latte-subtext0",
     );
 
@@ -56,14 +54,7 @@ export const PromptCompletionTriggerRail = ({
         aria-label={
           agent === "claude" ? "Open Skill and Command completions" : "Open Command completions"
         }
-        title={
-          slashDisabled
-            ? "Slash completions are only available at the start of the prompt."
-            : agent === "claude"
-              ? "Skills and commands"
-              : "Commands"
-        }
-        disabled={slashDisabled}
+        title={agent === "claude" ? "Skills and commands" : "Commands"}
       >
         <strong>/</strong>
       </Button>

@@ -31,19 +31,19 @@ export const buildVisibleFileChangeCategories = (
       key: "add",
       label: "A",
       value: fileChanges?.add ?? 0,
-      className: "text-latte-green",
+      className: "text-latte-green-text",
     },
     {
       key: "m",
       label: "M",
       value: fileChanges?.m ?? 0,
-      className: "text-latte-yellow",
+      className: "text-latte-yellow-text",
     },
     {
       key: "d",
       label: "D",
       value: fileChanges?.d ?? 0,
-      className: "text-latte-red",
+      className: "text-latte-red-text",
     },
   ].filter((item) => item.value > 0);
 
@@ -89,17 +89,17 @@ export const resolveWorktreeFlagClassName = (
   }
   if (kind === "dirty") {
     return value
-      ? "border-latte-red/45 bg-latte-red/10 text-latte-red"
-      : "border-latte-green/45 bg-latte-green/10 text-latte-green";
+      ? "border-latte-red/45 bg-latte-red/10 text-latte-red-text"
+      : "border-latte-green/45 bg-latte-green/10 text-latte-green-text";
   }
   if (kind === "locked") {
     return value
-      ? "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow"
-      : "border-latte-green/45 bg-latte-green/10 text-latte-green";
+      ? "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow-text"
+      : "border-latte-green/45 bg-latte-green/10 text-latte-green-text";
   }
   return value
-    ? "border-latte-green/45 bg-latte-green/10 text-latte-green"
-    : "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow";
+    ? "border-latte-green/45 bg-latte-green/10 text-latte-green-text"
+    : "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow-text";
 };
 
 export const resolveWorktreePrStatus = (
@@ -109,22 +109,22 @@ export const resolveWorktreePrStatus = (
     case "none":
       return {
         label: "PR None",
-        className: "border-latte-peach/45 bg-latte-peach/12 text-latte-peach",
+        className: "border-latte-peach/45 bg-latte-peach/12 text-latte-peach-text",
       };
     case "open":
       return {
         label: "PR Open",
-        className: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue",
+        className: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue-text",
       };
     case "merged":
       return {
         label: "PR Merged",
-        className: "border-latte-green/45 bg-latte-green/10 text-latte-green",
+        className: "border-latte-green/45 bg-latte-green/10 text-latte-green-text",
       };
     case "closed_unmerged":
       return {
         label: "PR Closed",
-        className: "border-latte-red/45 bg-latte-red/10 text-latte-red",
+        className: "border-latte-red/45 bg-latte-red/10 text-latte-red-text",
       };
     case "unknown":
     default:

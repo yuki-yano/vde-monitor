@@ -20,18 +20,18 @@ type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 
 const toneClass: Record<NonNullable<BadgeProps["tone"]>, string> = {
   running:
-    "bg-latte-green/20 text-latte-green border-latte-green/40 shadow-[0_0_12px_rgb(var(--ctp-green)/0.3)]",
+    "bg-latte-green/20 text-latte-green-text border-latte-green/40 shadow-[0_0_12px_rgb(var(--ctp-green)/0.3)]",
   waiting:
-    "bg-latte-peach/20 text-latte-peach border-latte-peach/40 shadow-[0_0_8px_rgb(var(--ctp-peach)/0.25)]",
+    "bg-latte-peach/20 text-latte-peach-text border-latte-peach/40 shadow-[0_0_8px_rgb(var(--ctp-peach)/0.25)]",
   permission:
-    "bg-latte-red/25 text-latte-red border-latte-red/60 shadow-[0_0_20px_rgb(var(--ctp-red)/0.5)] animate-pulse-attention",
-  shell: "bg-latte-blue/15 text-latte-blue border-latte-blue/40",
+    "bg-latte-red/25 text-latte-red-text border-latte-red/60 shadow-[0_0_20px_rgb(var(--ctp-red)/0.5)] animate-pulse-attention",
+  shell: "bg-latte-blue/15 text-latte-blue-text border-latte-blue/40",
   editor:
-    "bg-latte-maroon/18 text-latte-maroon border-latte-maroon/45 shadow-[0_0_10px_rgb(var(--ctp-maroon)/0.28)]",
-  done: "bg-latte-blue/15 text-latte-blue border-latte-blue/40",
-  unknown: "bg-latte-surface1 text-latte-overlay1 border-latte-overlay0/60",
-  codex: "bg-latte-mauve/15 text-latte-mauve border-latte-mauve/40",
-  claude: "bg-latte-lavender/15 text-latte-lavender border-latte-lavender/40",
+    "bg-latte-maroon/18 text-latte-maroon-text border-latte-maroon/45 shadow-[0_0_10px_rgb(var(--ctp-maroon)/0.28)]",
+  done: "bg-latte-blue/15 text-latte-blue-text border-latte-blue/40",
+  unknown: "bg-latte-surface1 text-latte-text border-latte-overlay0/60",
+  codex: "bg-latte-mauve/15 text-latte-mauve-text border-latte-mauve/40",
+  claude: "bg-latte-lavender/15 text-latte-lavender-text border-latte-lavender/40",
 };
 
 const toneIcon: Record<

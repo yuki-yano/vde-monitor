@@ -113,7 +113,7 @@ const SessionPreviewTimeline = ({
         {currentLabel ? <TagPill tone="meta">Current {currentLabel}</TagPill> : null}
       </div>
       {timelineError ? (
-        <p className="text-latte-red text-xs">{timelineError}</p>
+        <p className="text-latte-red-text text-xs">{timelineError}</p>
       ) : timelineLoading && !timeline ? (
         <p className="text-latte-subtext0 text-xs">Loading timeline...</p>
       ) : timelineSegments.length > 0 ? (
@@ -172,7 +172,7 @@ const SessionPreviewBody = ({
         {loading ? (
           <p className="text-latte-subtext0 text-xs">Loading preview...</p>
         ) : error ? (
-          <p className="text-latte-red text-xs">{error}</p>
+          <p className="text-latte-red-text text-xs">{error}</p>
         ) : lines.length === 0 ? (
           <p className="text-latte-subtext0 text-xs">Preview unavailable.</p>
         ) : (

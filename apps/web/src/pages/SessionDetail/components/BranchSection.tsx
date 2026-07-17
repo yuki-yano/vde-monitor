@@ -63,7 +63,7 @@ export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
     <Card className="flex flex-col gap-2" data-testid="branch-section">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
+          <h2 className="font-display text-latte-text text-base font-semibold tracking-wide">
             Branches
           </h2>
           <p className="text-latte-subtext0 min-w-0 overflow-hidden text-sm">
@@ -75,7 +75,7 @@ export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] p-0"
+            className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] p-0 after:absolute after:-inset-y-[7px] after:-inset-x-0.5 after:content-['']"
             onClick={() => {
               actions.onClearMutationError();
               setCreateOpen(true);
@@ -88,7 +88,7 @@ export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] p-0"
+            className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] p-0 after:absolute after:-inset-y-[7px] after:-inset-x-0.5 after:content-['']"
             onClick={actions.onRefreshBranches}
             disabled={branchesLoading}
             aria-label="Refresh branches"
@@ -114,7 +114,7 @@ export const BranchSection = memo(({ state, actions }: BranchSectionProps) => {
         </div>
       ) : null}
       {mutationError && !createOpen && checkoutTarget == null && deleteTarget == null ? (
-        <p className="text-latte-red whitespace-pre-wrap text-xs">{mutationError}</p>
+        <p className="text-latte-red-text whitespace-pre-wrap text-xs">{mutationError}</p>
       ) : null}
       <WorktreeStatusStack
         loading={branchesLoading}

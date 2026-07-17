@@ -148,7 +148,7 @@ const RepositoryActivitySkeleton = () => (
       <div
         key={index}
         data-testid="repository-activity-skeleton-row"
-        className="border-latte-surface2/60 bg-latte-base/25 min-h-[132px] rounded-2xl border px-3 py-3 sm:px-4"
+        className="border-latte-surface2/60 bg-latte-base/25 min-h-[132px] rounded-xl border px-3 py-3 sm:px-4"
       >
         <div className="flex items-start gap-3">
           <Skeleton className="h-7 w-7 shrink-0" />
@@ -191,7 +191,7 @@ const RepositoryActivityRow = ({
   const barWidth = leaderValue > 0 ? Math.max(0, Math.min(100, (value / leaderValue) * 100)) : 0;
 
   return (
-    <li className="border-latte-surface2/65 bg-latte-base/35 rounded-2xl border px-3 py-3 sm:px-4">
+    <li className="border-latte-surface2/65 bg-latte-base/35 rounded-xl border px-3 py-3 sm:px-4">
       <div className="flex items-start gap-3">
         <span className="border-latte-surface2/75 bg-latte-crust/70 text-latte-subtext0 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold tabular-nums">
           {rank}
@@ -199,7 +199,9 @@ const RepositoryActivityRow = ({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
             <div className="min-w-0">
-              <p className="text-latte-text truncate font-semibold">{item.repoName}</p>
+              <p className="text-latte-text truncate font-semibold" title={item.repoName}>
+                {item.repoName}
+              </p>
               <p
                 className="text-latte-subtext0 mt-0.5 truncate font-mono text-[11px]"
                 title={item.repoRoot}

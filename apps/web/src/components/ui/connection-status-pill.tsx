@@ -15,15 +15,15 @@ const connectionStatusClasses: Record<
   { wrapper: string; dot: string }
 > = {
   healthy: {
-    wrapper: "border-latte-green/40 bg-latte-green/10 text-latte-green",
+    wrapper: "border-latte-green/40 bg-latte-green/10 text-latte-green-text",
     dot: "bg-latte-green shadow-[0_0_8px_rgb(var(--ctp-green)/0.6)]",
   },
   degraded: {
-    wrapper: "border-latte-yellow/40 bg-latte-yellow/10 text-latte-yellow",
+    wrapper: "border-latte-yellow/40 bg-latte-yellow/10 text-latte-yellow-text",
     dot: "bg-latte-yellow shadow-[0_0_8px_rgb(var(--ctp-yellow)/0.6)]",
   },
   disconnected: {
-    wrapper: "border-latte-red/40 bg-latte-red/10 text-latte-red animate-pulse",
+    wrapper: "border-latte-red/40 bg-latte-red/10 text-latte-red-text animate-pulse",
     dot: "bg-latte-red shadow-[0_0_8px_rgb(var(--ctp-red)/0.6)]",
   },
 };
@@ -49,7 +49,7 @@ const ConnectionStatusPill = ({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
         styles.wrapper,
         className,
       )}

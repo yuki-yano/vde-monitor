@@ -56,7 +56,7 @@ export const CommitItem = memo(
           >
             <span className="font-mono">{commit.shortHash}</span>
             {copiedHash === commit.hash ? (
-              <Check className="text-latte-green h-3.5 w-3.5" />
+              <Check className="text-latte-green-text h-3.5 w-3.5" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}

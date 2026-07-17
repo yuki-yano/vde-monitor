@@ -3,8 +3,8 @@
   "short_name": "VDE Monitor",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#f2f0ea",
-  "theme_color": "#7f849c",
+  "background_color": "#eff1f5",
+  "theme_color": "#eff1f5",
   "icons": [
     {
       "src": "/icons/icon-192.png",

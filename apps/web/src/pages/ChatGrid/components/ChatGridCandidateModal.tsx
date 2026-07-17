@@ -190,7 +190,10 @@ const ChatGridCandidateModalContent = ({
                           {formatRelativeTime(session.lastInputAt, nowMs)}
                         </span>
                       </div>
-                      <p className="text-latte-text mt-1 truncate text-sm font-medium">
+                      <p
+                        className="text-latte-text mt-1 truncate text-sm font-medium"
+                        title={resolveSessionDisplayTitle(session)}
+                      >
                         {resolveSessionDisplayTitle(session)}
                       </p>
                       <div className="text-latte-subtext0 mt-1 flex flex-wrap items-center gap-2 text-[11px]">

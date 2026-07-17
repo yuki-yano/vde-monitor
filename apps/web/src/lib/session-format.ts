@@ -74,10 +74,10 @@ export const formatBranchLabel = (value: string | null | undefined) => {
 type WorktreeFlagKind = "dirty" | "locked" | "pr" | "merged";
 
 const WORKTREE_FLAG_CLASS_MAP: Record<WorktreeFlagKind, string> = {
-  dirty: "border-latte-red/45 bg-latte-red/10 text-latte-red font-mono",
-  locked: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow font-mono",
-  pr: "border-latte-green/45 bg-latte-green/10 text-latte-green font-mono",
-  merged: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue font-mono",
+  dirty: "border-latte-red/45 bg-latte-red/10 text-latte-red-text font-mono",
+  locked: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow-text font-mono",
+  pr: "border-latte-green/45 bg-latte-green/10 text-latte-green-text font-mono",
+  merged: "border-latte-blue/45 bg-latte-blue/10 text-latte-blue-text font-mono",
 };
 
 export const worktreeFlagClass = (kind: WorktreeFlagKind, value: boolean | null | undefined) => {
@@ -132,24 +132,24 @@ export const getLastInputTone = (value: string | null, nowMs: number): LastInput
   const diffSec = Math.max(0, Math.floor((nowMs - ts) / 1000));
   if (diffSec < 300) {
     return {
-      pill: "border-latte-green/40 bg-latte-green/10 text-latte-green",
+      pill: "border-latte-green/40 bg-latte-green/10 text-latte-green-text",
       dot: "bg-latte-green shadow-[0_0_8px_rgb(var(--ctp-green)/0.6)]",
     };
   }
   if (diffSec < 1800) {
     return {
-      pill: "border-latte-yellow/40 bg-latte-yellow/10 text-latte-yellow",
+      pill: "border-latte-yellow/40 bg-latte-yellow/10 text-latte-yellow-text",
       dot: "bg-latte-yellow shadow-[0_0_8px_rgb(var(--ctp-yellow)/0.6)]",
     };
   }
   if (diffSec < 7200) {
     return {
-      pill: "border-latte-peach/40 bg-latte-peach/10 text-latte-peach",
+      pill: "border-latte-peach/40 bg-latte-peach/10 text-latte-peach-text",
       dot: "bg-latte-peach shadow-[0_0_8px_rgb(var(--ctp-peach)/0.6)]",
     };
   }
   return {
-    pill: "border-latte-red/40 bg-latte-red/10 text-latte-red",
+    pill: "border-latte-red/40 bg-latte-red/10 text-latte-red-text",
     dot: "bg-latte-red shadow-[0_0_8px_rgb(var(--ctp-red)/0.6)]",
   };
 };

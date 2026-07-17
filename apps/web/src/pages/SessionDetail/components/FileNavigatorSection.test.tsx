@@ -130,9 +130,9 @@ describe("FileNavigatorSection", () => {
     render(<FileNavigatorSection {...props} />);
 
     const label = screen.getByText("generated");
-    expect(label.className).toContain("text-latte-overlay1");
+    expect(label.className).toContain("text-latte-subtext0");
     const row = label.closest("button");
     expect(row?.className).toContain("opacity-75");
-    expect(row?.querySelector("svg")?.getAttribute("class")).toContain("text-latte-overlay1");
+    expect(row?.querySelector("svg")?.getAttribute("class")).toContain("text-latte-subtext0");
   });
 });

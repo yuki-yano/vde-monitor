@@ -143,19 +143,19 @@ const pollingPauseLabelMap: Record<
 > = {
   disconnected: {
     label: "RECONNECTING...",
-    className: "border-latte-red/50 bg-latte-red/12 text-latte-red animate-pulse",
+    className: "border-latte-red/50 bg-latte-red/12 text-latte-red-text animate-pulse",
   },
   unauthorized: {
     label: "PAUSED (auth required)",
-    className: "border-latte-red/45 bg-latte-red/10 text-latte-red",
+    className: "border-latte-red/45 bg-latte-red/10 text-latte-red-text",
   },
   offline: {
     label: "PAUSED (offline)",
-    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow",
+    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow-text",
   },
   hidden: {
     label: "PAUSED (tab hidden)",
-    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow",
+    className: "border-latte-yellow/45 bg-latte-yellow/10 text-latte-yellow-text",
   },
 };
 
@@ -224,10 +224,10 @@ const RawModeIndicator = ({
     return null;
   }
   return (
-    <div className="border-latte-lavender/60 bg-latte-lavender/10 text-latte-lavender shadow-accent-inset inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.3em] sm:px-3 sm:py-1">
+    <div className="border-latte-lavender/60 bg-latte-lavender/10 text-latte-lavender-text shadow-accent-inset inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.3em] sm:px-3 sm:py-1">
       Raw
       {allowDangerKeys && (
-        <span className="bg-latte-red/20 text-latte-red rounded-full px-1.5 py-0.5 text-[9px] tracking-[0.24em] sm:px-2">
+        <span className="bg-latte-red/20 text-latte-red-text rounded-full px-1.5 py-0.5 text-[9px] tracking-[0.24em] sm:px-2">
           Unsafe
         </span>
       )}

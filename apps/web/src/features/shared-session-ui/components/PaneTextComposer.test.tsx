@@ -284,6 +284,42 @@ describe("PaneTextComposer", () => {
     );
   });
 
+  it("opens and inserts slash completions at the current caret after existing text", async () => {
+    const requestPromptCompletions = vi.fn(async () => ({
+      items: [
+        {
+          id: "command:compact",
+          label: "/compact",
+          insertText: "/compact",
+          description: "Compact conversation history.",
+          argumentHint: "",
+          kind: "command" as const,
+          scope: "built-in",
+        },
+      ],
+    }));
+    render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", { requestPromptCompletions }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type a prompt…") as HTMLTextAreaElement;
+    fireEvent.input(textarea, { target: { value: "Please run", selectionStart: 10 } });
+    fireEvent.click(screen.getByRole("button", { name: "Open Command completions" }));
+
+    expect(textarea.value).toBe("Please run /");
+    await waitFor(() =>
+      expect(requestPromptCompletions).toHaveBeenCalledWith("pane-1", "slash", ""),
+    );
+
+    fireEvent.click(await screen.findByText("/compact"));
+    expect(textarea.value).toBe("Please run /compact ");
+  });
+
   it("does not reload unchanged suggestions when the completion config object is recreated", async () => {
     const requestPromptCompletions = vi.fn(async () => ({
       items: [

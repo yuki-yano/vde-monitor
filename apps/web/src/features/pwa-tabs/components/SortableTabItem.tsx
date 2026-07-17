@@ -117,10 +117,12 @@ export const SortableTabItem = ({
         data-active={active ? "true" : "false"}
       >
         <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full border border-white/45 ${statusClassName}`}
+          className={`border-latte-overlay2/60 h-2.5 w-2.5 shrink-0 rounded-full border ${statusClassName}`}
           aria-hidden="true"
         />
-        <span className="max-w-[5.2rem] truncate">{label}</span>
+        <span className="max-w-[5.2rem] truncate" title={label}>
+          {label}
+        </span>
       </button>
       {showCloseButton &&
         controlsGroupElement != null &&

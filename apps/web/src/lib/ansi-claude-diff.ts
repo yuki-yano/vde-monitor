@@ -125,9 +125,9 @@ export const renderClaudeDiffLine = (plainLine: string) => {
   }
   const restTrimmed = parsed.rest.trimStart();
   const restClass = restTrimmed.startsWith("+")
-    ? "text-latte-green"
+    ? "text-latte-green-text"
     : restTrimmed.startsWith("-")
-      ? "text-latte-red"
+      ? "text-latte-red-text"
       : "text-latte-text";
   return `<span class="text-latte-text">${escapeHtml(parsed.prefix)}</span><span class="${restClass}">${escapeHtml(parsed.rest)}</span>`;
 };
@@ -138,9 +138,9 @@ const renderClaudeContinuationLine = (
 ) => {
   const className =
     marker === "add"
-      ? "text-latte-green"
+      ? "text-latte-green-text"
       : marker === "remove"
-        ? "text-latte-red"
+        ? "text-latte-red-text"
         : "text-latte-text";
   return `<span class="${className}">${escapeHtml(plainLine)}</span>`;
 };

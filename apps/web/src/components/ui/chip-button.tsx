@@ -10,7 +10,7 @@ const ChipButton = ({ className, ref, ...props }: ChipButtonProps) => (
   <button
     ref={ref}
     className={cn(
-      "border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60",
+      "border-latte-surface2/70 text-latte-subtext0 hover:text-latte-text focus-visible:ring-latte-lavender inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60",
       className,
     )}
     {...props}

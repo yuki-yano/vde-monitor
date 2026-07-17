@@ -8,7 +8,7 @@ const textButtonVariants = cva(
   {
     variants: {
       variant: {
-        title: "font-display text-latte-text text-left text-xl",
+        title: "font-display text-latte-text text-left text-xl font-semibold",
         subtle: "text-latte-subtext0 hover:text-latte-text",
       },
     },

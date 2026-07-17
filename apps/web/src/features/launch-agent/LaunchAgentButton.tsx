@@ -273,7 +273,7 @@ const LaunchAgentDialogForm = ({
             </p>
           ) : (
             <div className="space-y-2">
-              <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
+              <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender-text rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
                 Override format: each line is evaluated by shell as-is (quote/escape manually as
                 needed)
               </p>
@@ -357,7 +357,7 @@ const LaunchAgentDialogForm = ({
                     ) : null}
                     {worktreeError ? (
                       <div className="flex h-full items-center">
-                        <p className="text-latte-red text-xs">{worktreeError}</p>
+                        <p className="text-latte-red-text text-xs">{worktreeError}</p>
                       </div>
                     ) : null}
                     {!worktreeError && existingWorktrees.length === 0 && !worktreeLoading ? (
@@ -411,7 +411,7 @@ const LaunchAgentDialogForm = ({
         </div>
       </div>
 
-      {submitError ? <p className="text-latte-red text-xs">{submitError}</p> : null}
+      {submitError ? <p className="text-latte-red-text text-xs">{submitError}</p> : null}
 
       <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
         <button
@@ -424,7 +424,7 @@ const LaunchAgentDialogForm = ({
         </button>
         <button
           type="submit"
-          className="border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          className="border-latte-blue/45 bg-latte-blue/15 text-latte-blue-text hover:bg-latte-blue/20 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           disabled={submitting || isPending}
         >
           {submitting ? "Launching..." : "Launch"}
@@ -632,7 +632,7 @@ export const LaunchAgentButton = ({
       <button
         type="button"
         className={cn(
-          "border-latte-blue/45 bg-latte-base/85 text-latte-blue hover:bg-latte-blue/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50",
+          "border-latte-blue/45 bg-latte-base/85 text-latte-blue-text hover:bg-latte-blue/12 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         onClick={openModal}

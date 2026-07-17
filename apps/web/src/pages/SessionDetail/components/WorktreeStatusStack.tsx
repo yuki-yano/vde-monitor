@@ -20,7 +20,7 @@ export const WorktreeStatusStack = ({
       {showBlockingLoading ? (
         <p className="text-latte-subtext0 px-1 py-2 text-xs">{loadingMessage}</p>
       ) : null}
-      {error ? <p className="text-latte-red px-1 py-2 text-xs">{error}</p> : null}
+      {error ? <p className="text-latte-red-text px-1 py-2 text-xs">{error}</p> : null}
       {!showBlockingLoading && !error && entriesCount === 0 ? (
         <p className="text-latte-subtext0 px-1 py-2 text-xs">{emptyMessage}</p>
       ) : null}

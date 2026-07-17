@@ -99,7 +99,7 @@ export const SortableSessionGroup = ({
         event.preventDefault();
       }}
       className={[
-        "text-latte-overlay1 bg-latte-base/70 hover:bg-latte-base/85 pointer-events-auto rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
+        "text-latte-subtext0 bg-latte-base/70 hover:bg-latte-base/85 pointer-events-auto rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
         isActiveGroup
           ? "text-latte-text border-latte-lavender/45 bg-latte-lavender/20 shadow-accent-sm"
           : "",

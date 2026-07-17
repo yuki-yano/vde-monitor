@@ -81,8 +81,8 @@ export const CommitFileRow = memo(
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs">
-            <span className="text-latte-green">+{additions}</span>
-            <span className="text-latte-red">-{deletions}</span>
+            <span className="text-latte-green-text">+{additions}</span>
+            <span className="text-latte-red-text">-{deletions}</span>
             <span className="text-latte-overlay1" aria-hidden="true">
               {fileOpen ? (
                 <ChevronUp className="h-3.5 w-3.5" />

@@ -257,9 +257,9 @@ const buildLinkifiedTextFragment = (
       element.setAttribute("aria-label", `Open file ${rawToken}`);
       element.className = [
         "cursor-pointer",
-        "hover:text-latte-lavender",
-        "focus-visible:text-latte-lavender",
-        isActive ? "text-latte-lavender" : "",
+        "hover:text-latte-lavender-text",
+        "focus-visible:text-latte-lavender-text",
+        isActive ? "text-latte-lavender-text" : "",
       ]
         .filter((item) => item.length > 0)
         .join(" ");
@@ -374,7 +374,7 @@ const buildUrlLinkifiedTextFragment = (sourceText: string, document: Document) =
       element.target = "_blank";
       element.rel = "noreferrer noopener";
       element.dataset.vdeLogUrl = resolvedUrl.urlText;
-      element.className = "text-latte-lavender underline-offset-2 hover:underline";
+      element.className = "text-latte-lavender-text underline-offset-2 hover:underline";
       fragment.append(element);
       if (resolvedUrl.suffix.length > 0) {
         fragment.append(resolvedUrl.suffix);

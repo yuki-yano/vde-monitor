@@ -49,14 +49,14 @@ const FileTreeIcon = memo(({ node }: { node: FileTreeRenderNode }) => {
       <FolderOpen
         className={cn(
           "h-4 w-4 shrink-0",
-          node.isIgnored ? "text-latte-overlay1 opacity-60" : "text-latte-peach",
+          node.isIgnored ? "text-latte-subtext0 opacity-60" : "text-latte-peach-text",
         )}
       />
     ) : (
       <Folder
         className={cn(
           "h-4 w-4 shrink-0",
-          node.isIgnored ? "text-latte-overlay1 opacity-60" : "text-latte-yellow",
+          node.isIgnored ? "text-latte-subtext0 opacity-60" : "text-latte-yellow-text",
         )}
       />
     );
@@ -192,14 +192,15 @@ export const FileNavigatorSection = memo(({ state, actions }: FileNavigatorSecti
                     <span
                       className={cn(
                         "truncate font-mono text-xs font-semibold",
-                        node.isIgnored ? "text-latte-overlay1" : "text-latte-text",
+                        node.isIgnored ? "text-latte-subtext0" : "text-latte-text",
                       )}
+                      title={node.name}
                     >
                       {node.name}
                     </span>
                   </div>
                   {node.searchMatched ? (
-                    <span className="text-latte-lavender shrink-0 text-[10px] font-semibold uppercase">
+                    <span className="text-latte-lavender-text shrink-0 text-[10px] font-semibold uppercase tracking-wide">
                       match
                     </span>
                   ) : null}

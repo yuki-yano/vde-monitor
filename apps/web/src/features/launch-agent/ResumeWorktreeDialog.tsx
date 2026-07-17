@@ -271,7 +271,7 @@ const ResumeWorktreeDialogBody = ({
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
+                    <p className="border-latte-lavender/30 bg-latte-lavender/10 text-latte-lavender-text rounded-lg border px-2.5 py-1.5 font-mono text-[11px]">
                       Override format: each line is evaluated by shell as-is.
                     </p>
                     <div className="border-latte-surface2 bg-latte-base/80 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/25 overflow-hidden rounded-2xl border transition focus-within:ring-2">
@@ -448,7 +448,7 @@ const ResumeWorktreeDialogBody = ({
             </div>
           </div>
 
-          {submitError ? <p className="text-latte-red text-xs">{submitError}</p> : null}
+          {submitError ? <p className="text-latte-red-text text-xs">{submitError}</p> : null}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
@@ -463,7 +463,7 @@ const ResumeWorktreeDialogBody = ({
           <button
             type="submit"
             className={cn(
-              "border-latte-blue/45 bg-latte-blue/15 text-latte-blue hover:bg-latte-blue/20 disabled:hover:bg-latte-blue/15 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
+              "border-latte-blue/45 bg-latte-blue/15 text-latte-blue-text hover:bg-latte-blue/20 disabled:hover:bg-latte-blue/15 rounded-md border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50",
               className,
             )}
             disabled={submitting || !hasTargetWorktrees}

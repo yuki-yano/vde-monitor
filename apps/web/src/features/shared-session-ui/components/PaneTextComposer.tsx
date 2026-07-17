@@ -49,23 +49,25 @@ const RAW_MODE_INPUT_CLASS_SAFE =
 const RAW_MODE_INPUT_CLASS_DEFAULT =
   "border-latte-surface2/80 bg-latte-base/70 focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 focus-within:ring-2";
 const RAW_MODE_TOGGLE_CLASS_DANGER =
-  "border-latte-red/70 bg-latte-red/20 text-latte-red shadow-none hover:border-latte-red/80 hover:bg-latte-red/25 focus-visible:ring-latte-red/30";
+  "border-latte-red/70 bg-latte-red/20 text-latte-red-text shadow-none hover:border-latte-red/80 hover:bg-latte-red/25 focus-visible:ring-latte-red/30";
 const RAW_MODE_TOGGLE_CLASS_SAFE =
-  "border-latte-peach/70 bg-latte-peach/10 text-latte-peach shadow-none hover:border-latte-peach/80 hover:bg-latte-peach/20 focus-visible:ring-latte-peach/30";
+  "border-latte-peach/70 bg-latte-peach/10 text-latte-peach-text shadow-none hover:border-latte-peach/80 hover:bg-latte-peach/20 focus-visible:ring-latte-peach/30";
 const DANGER_TOGGLE_CLASS_ACTIVE =
-  "border-latte-red/85 bg-latte-red/30 text-latte-red shadow-none ring-1 ring-latte-red/40 hover:border-latte-red hover:bg-latte-red/40 focus-visible:ring-latte-red/45";
+  "border-latte-red/85 bg-latte-red/30 text-latte-red-text shadow-none ring-1 ring-latte-red/40 hover:border-latte-red hover:bg-latte-red/40 focus-visible:ring-latte-red/45";
 const DANGER_TOGGLE_CLASS_DEFAULT =
   "border-latte-surface2/70 bg-transparent text-latte-subtext0 shadow-none hover:border-latte-overlay1 hover:bg-latte-surface0/50 hover:text-latte-text";
-const COMPOSER_PILL_CLASS = "h-7 px-1.5 text-[10px] tracking-[0.12em] sm:h-8";
-const MODIFIER_TOGGLE_CLASS = "h-7 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
+const COMPOSER_PILL_CLASS =
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 px-1.5 text-[10px] tracking-[0.12em] sm:h-8";
+const MODIFIER_TOGGLE_CLASS =
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 px-2 py-0.5 text-[10px] tracking-[0.16em] sm:h-8 sm:px-2.5";
 const MODIFIER_DOT_CLASS_ACTIVE = "bg-latte-lavender";
 const MODIFIER_DOT_CLASS_DEFAULT = "bg-latte-surface2";
 const KEY_BUTTON_CLASS =
-  "h-7 min-w-[40px] px-1.5 text-[10px] tracking-[0.12em] sm:h-8 sm:min-w-[44px] sm:px-2";
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 min-w-[44px] px-1.5 text-[10px] tracking-[0.12em] sm:px-2";
 const PERMISSION_SHORTCUT_BUTTON_CLASS =
-  "h-7 min-w-[32px] px-0 text-[10px] font-semibold tracking-[0.12em] sm:h-8 sm:min-w-[36px]";
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 min-w-[40px] px-0 text-[10px] font-semibold tracking-[0.12em] sm:min-w-[36px]";
 const PERMISSION_SHORTCUT_ESCAPE_BUTTON_CLASS =
-  "h-7 min-w-[56px] px-1.5 text-[10px] font-semibold tracking-[0.12em] sm:h-8 sm:min-w-[60px] sm:px-2";
+  "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-8 min-w-[60px] px-1.5 text-[10px] font-semibold tracking-[0.12em] sm:px-2";
 const PERMISSION_SHORTCUT_DIGITS = ["1", "2", "3", "4", "5", "6"] as const;
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const FUNCTION_KEY_BUTTONS = [
@@ -300,7 +302,6 @@ const ComposerToolbar = ({
   dangerToggleClass,
   completionAgent,
   completionActiveTrigger,
-  completionSlashDisabled,
   onPickImage,
   onCompletionTrigger,
   onToggleKeysExpanded,
@@ -320,7 +321,6 @@ const ComposerToolbar = ({
   dangerToggleClass: string;
   completionAgent: "codex" | "claude" | null;
   completionActiveTrigger: "dollar" | "at" | "slash" | null;
-  completionSlashDisabled: boolean;
   onPickImage: () => void;
   onCompletionTrigger: (trigger: "dollar" | "at" | "slash") => void;
   onToggleKeysExpanded: () => void;
@@ -335,7 +335,7 @@ const ComposerToolbar = ({
         type="button"
         onClick={onPickImage}
         aria-label="Attach image"
-        className="text-latte-subtext1 hover:text-latte-text h-7 w-7 p-0 sm:h-8 sm:w-8"
+        className="text-latte-subtext1 hover:text-latte-text h-8 w-8 p-0"
         disabled={!interactive}
         variant="ghost"
         size="sm"
@@ -346,7 +346,6 @@ const ComposerToolbar = ({
         <PromptCompletionTriggerRail
           agent={completionAgent}
           activeTrigger={completionActiveTrigger}
-          slashDisabled={completionSlashDisabled}
           onTrigger={onCompletionTrigger}
         />
       ) : null}
@@ -364,7 +363,7 @@ const ComposerToolbar = ({
           disabled={!interactive}
           aria-expanded={keysExpanded}
           aria-label={keysExpanded ? "Hide key options" : "Show key options"}
-          className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
+          className="h-8 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
         >
           <span>Keys</span>
           {keysExpanded ? (
@@ -397,7 +396,7 @@ const ComposerToolbar = ({
       </ComposerPill>
       <label
         className={cn(
-          "text-latte-subtext0 inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-lg text-[10px] font-semibold transition sm:h-8",
+          "text-latte-subtext0 inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg text-[10px] font-semibold transition sm:h-8",
           rawMode
             ? "cursor-not-allowed opacity-60"
             : "hover:bg-latte-surface0/50 hover:text-latte-text cursor-pointer",
@@ -420,7 +419,7 @@ const ComposerToolbar = ({
       <Button
         onClick={onSendText}
         aria-label="Send"
-        className="h-7 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
+        className="h-8 min-w-[72px] justify-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:h-8 sm:px-2.5"
         disabled={rawMode || !interactive || isSendingText}
       >
         {isSendingText ? (
@@ -794,7 +793,6 @@ export const PaneTextComposer = ({ state, actions }: PaneTextComposerProps) => {
           dangerToggleClass={dangerToggleClass}
           completionAgent={completionAgent}
           completionActiveTrigger={promptCompletion.token?.trigger ?? null}
-          completionSlashDisabled={promptCompletion.slashDisabled}
           onPickImage={handlePickImage}
           onCompletionTrigger={promptCompletion.insertTrigger}
           onToggleKeysExpanded={() => setKeysExpanded((prev) => !prev)}

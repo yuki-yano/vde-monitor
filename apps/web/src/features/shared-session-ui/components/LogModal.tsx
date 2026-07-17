@@ -191,7 +191,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
     dispatchScrollState({ type: "measure-bottom", value });
   }, []);
 
-  if (!open || !session) return null;
+  if (!session) return null;
 
   return (
     <Dialog
@@ -221,7 +221,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
         data-testid="log-modal-panel"
         className="top-[50%] z-111 flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] w-[min(760px,calc(100vw-1rem))] max-w-none translate-y-[-50%] overflow-hidden border-0 bg-transparent p-0 shadow-none ring-0 sm:w-[min(760px,calc(100vw-1.5rem))]"
       >
-        <Card className="font-body animate-panel-enter border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel relative flex h-[min(720px,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-4">
+        <Card className="font-body border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel ring-latte-overlay2/25 relative flex h-[min(720px,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem))] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-3rem)] min-h-0 w-full flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset backdrop-blur-xl sm:p-4">
           <DialogTitle className="sr-only">Session Log</DialogTitle>
           <DialogDescription className="sr-only">
             Scroll and inspect the selected session log output.
@@ -238,7 +238,10 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
           </IconButton>
           <Toolbar className="gap-3 pr-10 sm:pr-12">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <p className="text-latte-text truncate text-base font-semibold">
+              <p
+                className="text-latte-text truncate text-base font-semibold"
+                title={resolveSessionDisplayTitle(session)}
+              >
                 {resolveSessionDisplayTitle(session)}
               </p>
             </div>
@@ -248,7 +251,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
                 size="sm"
                 onClick={onOpenHere}
                 aria-label="Open here"
-                className="border-latte-lavender/40 text-latte-lavender hover:border-latte-lavender/60 hover:bg-latte-lavender/10 h-7 w-7 p-0"
+                className="border-latte-lavender/40 text-latte-lavender-text hover:border-latte-lavender/60 hover:bg-latte-lavender/10 h-7 w-7 p-0"
               >
                 <ArrowRight className="h-4 w-4" />
               </Button>
@@ -257,7 +260,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
                 size="sm"
                 onClick={onOpenNewTab}
                 aria-label={pwaTabsEnabled ? "Open in workspace tab" : "Open in new tab"}
-                className="border-latte-lavender/40 text-latte-lavender hover:border-latte-lavender/60 hover:bg-latte-lavender/10 h-7 w-7 p-0"
+                className="border-latte-lavender/40 text-latte-lavender-text hover:border-latte-lavender/60 hover:bg-latte-lavender/10 h-7 w-7 p-0"
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
@@ -280,7 +283,7 @@ export const LogModal = ({ state, actions }: LogModalProps) => {
             scrollerRef={scrollerRef}
             scrollerClassName="overscroll-contain"
             onScrollToBottom={scrollToBottom}
-            className="border-latte-surface2/50 bg-latte-crust/60 shadow-inner-soft relative mt-2.5 flex min-h-0 w-full flex-1 rounded-2xl border sm:mt-3"
+            className="border-latte-surface2/50 bg-latte-crust/60 shadow-inner-soft relative mt-2.5 flex min-h-0 w-full flex-1 rounded-xl border sm:mt-3"
             viewportClassName="h-full w-full min-w-0 max-w-full"
             listClassName="text-latte-text w-max min-w-max px-2 py-1.5 font-mono text-[12px] leading-[16px] sm:px-3 sm:py-2"
             lineClassName="min-h-4 whitespace-pre leading-5"

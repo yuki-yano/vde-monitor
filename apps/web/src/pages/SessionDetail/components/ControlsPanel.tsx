@@ -65,7 +65,7 @@ export type ControlsPanelProps = {
 };
 
 const KILL_DIALOG_CONFIRM_BUTTON_CLASS =
-  "border-latte-red/55 bg-latte-red/15 text-latte-red shadow-none hover:border-latte-red/75 hover:bg-latte-red/25";
+  "border-latte-red/55 bg-latte-red/15 text-latte-red-text shadow-none hover:border-latte-red/75 hover:bg-latte-red/25";
 
 const ControlsPanelInner = ({
   state,

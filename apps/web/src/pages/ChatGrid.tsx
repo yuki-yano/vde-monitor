@@ -33,7 +33,7 @@ export const ChatGridPage = () => {
             <Link
               to="/"
               search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
-              className="text-latte-lavender hover:text-latte-blue inline-flex text-sm font-semibold transition"
+              className="text-latte-lavender-text hover:text-latte-blue-text inline-flex text-sm font-semibold transition"
             >
               Back to Live Sessions
             </Link>

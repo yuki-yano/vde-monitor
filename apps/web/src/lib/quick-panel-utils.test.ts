@@ -34,7 +34,7 @@ describe("statusIconMeta", () => {
     expect(statusIconMeta("DONE")).toEqual(
       expect.objectContaining({
         icon: CheckCircle,
-        className: "text-latte-blue",
+        className: "text-latte-blue-text",
         wrap: "border-latte-blue/40 bg-latte-blue/15",
         label: "DONE",
       }),

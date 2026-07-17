@@ -331,22 +331,22 @@ export const resolvePaceTone = (
 ) => {
   const tone = resolveRelativeTone(paceMarginPercent);
   if (tone === "ahead") {
-    return "bg-latte-green/15 text-latte-green border-latte-green/40";
+    return "bg-latte-green/15 text-latte-green-text border-latte-green/40";
   }
   if (tone === "behind") {
-    return "bg-latte-red/15 text-latte-red border-latte-red/40";
+    return "bg-latte-red/15 text-latte-red-text border-latte-red/40";
   }
   if (tone === "balanced") {
-    return "bg-latte-yellow/15 text-latte-yellow border-latte-yellow/40";
+    return "bg-latte-yellow/15 text-latte-yellow-text border-latte-yellow/40";
   }
   if (paceStatus === "margin") {
-    return "bg-latte-green/15 text-latte-green border-latte-green/40";
+    return "bg-latte-green/15 text-latte-green-text border-latte-green/40";
   }
   if (paceStatus === "over") {
-    return "bg-latte-red/15 text-latte-red border-latte-red/40";
+    return "bg-latte-red/15 text-latte-red-text border-latte-red/40";
   }
   if (paceStatus === "balanced") {
-    return "bg-latte-yellow/15 text-latte-yellow border-latte-yellow/40";
+    return "bg-latte-yellow/15 text-latte-yellow-text border-latte-yellow/40";
   }
   return "bg-latte-surface1/70 text-latte-subtext0 border-latte-surface2";
 };
@@ -357,12 +357,12 @@ export const resolveBufferTone = (bufferPercent: number | null) => {
     return "bg-latte-surface1/70 text-latte-subtext0 border-latte-surface2";
   }
   if (tone === "ahead") {
-    return "bg-latte-green/15 text-latte-green border-latte-green/40";
+    return "bg-latte-green/15 text-latte-green-text border-latte-green/40";
   }
   if (tone === "behind") {
-    return "bg-latte-red/15 text-latte-red border-latte-red/40";
+    return "bg-latte-red/15 text-latte-red-text border-latte-red/40";
   }
-  return "bg-latte-yellow/15 text-latte-yellow border-latte-yellow/40";
+  return "bg-latte-yellow/15 text-latte-yellow-text border-latte-yellow/40";
 };
 
 export const resolveRemainingBufferPercent = (metric: UsageMetricWindow): number | null => {

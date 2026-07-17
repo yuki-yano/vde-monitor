@@ -80,7 +80,7 @@ export const SessionSidebarItem = memo(
     const statusMeta = showEditorState
       ? {
           ...statusIconMeta("UNKNOWN"),
-          className: "text-latte-maroon",
+          className: "text-latte-maroon-text",
           wrap: "border-latte-maroon/45 bg-latte-maroon/14",
           label: "EDITOR",
         }
@@ -185,6 +185,7 @@ export const SessionSidebarItem = memo(
                 "text-latte-text min-w-0 truncate font-semibold",
                 sessionTitleTextClassName,
               )}
+              title={displayTitle}
             >
               {displayTitle}
             </span>
@@ -242,11 +243,11 @@ export const SessionSidebarItem = memo(
             {onTouchSession ? (
               <IconButton
                 type="button"
-                size="md"
+                size="sm"
                 variant="base"
                 aria-label="Move pane to top"
                 title="Move pane to top"
-                className="border-latte-lavender/35 bg-latte-base/90 text-latte-lavender hover:bg-latte-lavender/12 h-8 w-8"
+                className="border-latte-lavender/35 bg-latte-base/90 text-latte-lavender-text hover:bg-latte-lavender/12"
                 onClick={handlePinButtonClick}
               >
                 <Pin className="h-4 w-4" />
@@ -255,11 +256,10 @@ export const SessionSidebarItem = memo(
             {canFocusPane ? (
               <IconButton
                 type="button"
-                size="md"
+                size="sm"
                 variant="lavender"
                 aria-label="Focus terminal pane"
                 title="Focus terminal pane"
-                className="h-8 w-8"
                 onClick={handleFocusButtonClick}
                 disabled={isFocusPending}
               >

@@ -47,7 +47,7 @@ const LastInputPill = ({
         {label}
       </span>
       {srLabel && <span className="sr-only">{srLabel}</span>}
-      <span>{value}</span>
+      <span className="tabular-nums">{value}</span>
     </span>
   );
 };

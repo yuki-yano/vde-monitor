@@ -99,11 +99,14 @@ export const LogFileCandidateModal = ({ state, actions }: LogFileCandidateModalP
                     }}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="min-w-0 truncate font-mono text-xs leading-5">
+                      <span
+                        className="min-w-0 truncate font-mono text-xs leading-5"
+                        title={item.path}
+                      >
                         {item.path}
                       </span>
                       {item.isIgnored ? (
-                        <span className="border-latte-peach/40 bg-latte-peach/15 text-latte-peach shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase">
+                        <span className="border-latte-peach/40 bg-latte-peach/15 text-latte-peach-text shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">
                           ignored
                         </span>
                       ) : null}

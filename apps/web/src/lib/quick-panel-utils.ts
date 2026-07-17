@@ -16,31 +16,31 @@ export const formatRepoDirLabel = (value: string | null) => formatRepoDisplayNam
 const STATUS_ICON_META_BY_STATE: Record<SessionStateValue, IconMeta> = {
   RUNNING: {
     icon: Loader2,
-    className: "text-latte-green animate-spin",
+    className: "text-latte-green-text animate-spin",
     wrap: "border-latte-green/40 bg-latte-green/10",
     label: "RUNNING",
   },
   WAITING_INPUT: {
     icon: Clock,
-    className: "text-latte-peach",
+    className: "text-latte-peach-text",
     wrap: "border-latte-peach/40 bg-latte-peach/15",
     label: "WAITING_INPUT",
   },
   WAITING_PERMISSION: {
     icon: AlertTriangle,
-    className: "text-latte-red",
+    className: "text-latte-red-text",
     wrap: "border-latte-red/40 bg-latte-red/15",
     label: "WAITING_PERMISSION",
   },
   DONE: {
     icon: CheckCircle,
-    className: "text-latte-blue",
+    className: "text-latte-blue-text",
     wrap: "border-latte-blue/40 bg-latte-blue/15",
     label: "DONE",
   },
   SHELL: {
     icon: Circle,
-    className: "text-latte-blue",
+    className: "text-latte-blue-text",
     wrap: "border-latte-blue/40 bg-latte-blue/10",
     label: "SHELL",
   },
@@ -60,14 +60,14 @@ export const agentIconMeta = (agent: string | null | undefined): IconMeta => {
     case "codex":
       return {
         icon: Sparkles,
-        className: "text-latte-mauve",
+        className: "text-latte-mauve-text",
         wrap: "border-latte-mauve/40 bg-latte-mauve/10",
         label: "CODEX",
       };
     case "claude":
       return {
         icon: Zap,
-        className: "text-latte-lavender",
+        className: "text-latte-lavender-text",
         wrap: "border-latte-lavender/40 bg-latte-lavender/10",
         label: "CLAUDE",
       };

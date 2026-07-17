@@ -6,8 +6,8 @@ describe("renderAnsiLines", () => {
   it("keeps default ANSI rendering for non-Claude agents", () => {
     const lines = renderAnsiLines("  10 +foo", "latte", { agent: "codex" });
     expect(lines).toHaveLength(1);
-    expect(lines[0]).not.toContain("text-latte-green");
-    expect(lines[0]).not.toContain("text-latte-red");
+    expect(lines[0]).not.toContain("text-latte-green-text");
+    expect(lines[0]).not.toContain("text-latte-red-text");
   });
 
   it("renders separately emitted truecolor as a foreground color", () => {
@@ -24,9 +24,9 @@ describe("renderAnsiLines", () => {
     const text = ["Update(file)", "  10 +foo", "  11 -bar", "  12 baz"].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
     expect(lines[1]).toContain('class="text-latte-text"');
-    expect(lines[1]).toContain('class="text-latte-green"');
+    expect(lines[1]).toContain('class="text-latte-green-text"');
     expect(lines[1]).toContain(">+foo<");
-    expect(lines[2]).toContain('class="text-latte-red"');
+    expect(lines[2]).toContain('class="text-latte-red-text"');
     expect(lines[3]).toContain('class="text-latte-text"');
   });
 
@@ -97,8 +97,8 @@ describe("renderAnsiLines", () => {
       "       next",
     ].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
-    expect(lines[1]).toContain('class="text-latte-red"');
-    expect(lines[3]).toContain('class="text-latte-green"');
+    expect(lines[1]).toContain('class="text-latte-red-text"');
+    expect(lines[3]).toContain('class="text-latte-green-text"');
   });
 
   it("keeps wrapped Claude context lines in diff segments neutral", () => {
@@ -229,10 +229,10 @@ describe("renderAnsiLines", () => {
   it("does not format line-number blocks without diff markers", () => {
     const text = ["  1 foo", "  2 bar"].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
-    expect(lines[0]).not.toContain("text-latte-green");
-    expect(lines[0]).not.toContain("text-latte-red");
-    expect(lines[1]).not.toContain("text-latte-green");
-    expect(lines[1]).not.toContain("text-latte-red");
+    expect(lines[0]).not.toContain("text-latte-green-text");
+    expect(lines[0]).not.toContain("text-latte-red-text");
+    expect(lines[1]).not.toContain("text-latte-green-text");
+    expect(lines[1]).not.toContain("text-latte-red-text");
   });
 
   it("formats Claude Write output code lines as added diff lines", () => {
@@ -251,13 +251,13 @@ describe("renderAnsiLines", () => {
       "... +3 lines (ctrl+o to expand)",
     ].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "claude" });
-    expect(lines[2]).toContain('class="text-latte-green"');
+    expect(lines[2]).toContain('class="text-latte-green-text"');
     expect(lines[2]).toContain(">+type User = {<");
     expect(lines[3]).toContain(">+  id: number<");
     expect(lines[7]).toContain(">+<");
     expect(lines[8]).toContain(">+const greet = (user: User): string =&gt; {<");
     expect(lines[9]).toContain(">+  return `Hello, ${user.name}! Your email is ${user.email}.`<");
-    expect(lines[11]).not.toContain('class="text-latte-green"');
+    expect(lines[11]).not.toContain('class="text-latte-green-text"');
   });
 
   it("strips ANSI codes and escapes HTML in Claude diff rendering", () => {
@@ -472,8 +472,8 @@ describe("renderAnsiLines", () => {
       agent: "claude",
       highlightCorrections: { codex: true, claude: false },
     });
-    expect(lines[1]).not.toContain("text-latte-green");
-    expect(lines[2]).not.toContain("text-latte-red");
+    expect(lines[1]).not.toContain("text-latte-green-text");
+    expect(lines[2]).not.toContain("text-latte-red-text");
   });
 
   it("skips codex highlight padding when disabled", () => {

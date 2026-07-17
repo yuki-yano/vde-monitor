@@ -152,7 +152,7 @@ const SessionTitleInput = ({
       maxLength={80}
       enterKeyHint="done"
       disabled={titleSaving}
-      className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 min-w-[180px] flex-1 rounded-2xl border px-2.5 py-1 text-xl outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
+      className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 min-w-[180px] flex-1 rounded-xl border px-2.5 py-1 text-xl outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
       aria-label="Custom session title"
     />
   );
@@ -168,10 +168,11 @@ const SessionTitleButton = ({
     onClick={onOpenTitleEditor}
     variant="title"
     className={cn(
-      "hover:text-latte-lavender min-w-0 flex-1 cursor-default truncate text-left transition hover:cursor-pointer",
+      "hover:text-latte-lavender-text min-w-0 flex-1 cursor-default truncate text-left transition hover:cursor-pointer",
       titleClassName,
     )}
     aria-label="Edit session title"
+    title={sessionDisplayTitle}
   >
     {sessionDisplayTitle}
   </TextButton>
@@ -223,23 +224,25 @@ const SessionTitleArea = ({
   const sessionTitleClassName = resolveSessionDetailTitleTextClass(sessionDisplayTitle);
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1">
-        {titleEditing ? (
-          <SessionTitleInput
-            titleDraft={titleDraft}
-            titleSaving={titleSaving}
-            sessionAutoTitle={sessionAutoTitle}
-            onTitleDraftChange={onTitleDraftChange}
-            onTitleSave={onTitleSave}
-            onCloseTitleEditor={onCloseTitleEditor}
-          />
-        ) : (
-          <SessionTitleButton
-            sessionDisplayTitle={sessionDisplayTitle}
-            titleClassName={sessionTitleClassName}
-            onOpenTitleEditor={onOpenTitleEditor}
-          />
-        )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <h1 className="contents">
+          {titleEditing ? (
+            <SessionTitleInput
+              titleDraft={titleDraft}
+              titleSaving={titleSaving}
+              sessionAutoTitle={sessionAutoTitle}
+              onTitleDraftChange={onTitleDraftChange}
+              onTitleSave={onTitleSave}
+              onCloseTitleEditor={onCloseTitleEditor}
+            />
+          ) : (
+            <SessionTitleButton
+              sessionDisplayTitle={sessionDisplayTitle}
+              titleClassName={sessionTitleClassName}
+              onOpenTitleEditor={onOpenTitleEditor}
+            />
+          )}
+        </h1>
         {showResetTitle ? (
           <IconButton
             type="button"
@@ -261,7 +264,7 @@ const SessionTitleArea = ({
           className="text-latte-subtext0 min-w-0 basis-full text-xs sm:max-w-[360px] sm:flex-1 sm:basis-auto sm:text-sm"
         />
       </div>
-      {titleError ? <p className="text-latte-red text-xs">{titleError}</p> : null}
+      {titleError ? <p className="text-latte-red-text text-xs">{titleError}</p> : null}
     </>
   );
 };

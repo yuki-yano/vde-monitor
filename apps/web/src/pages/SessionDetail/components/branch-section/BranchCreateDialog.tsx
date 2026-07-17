@@ -103,7 +103,7 @@ const BranchCreateDialogContent = ({
             ))}
           </select>
         </label>
-        {error ? <p className="text-latte-red whitespace-pre-wrap text-xs">{error}</p> : null}
+        {error ? <p className="text-latte-red-text whitespace-pre-wrap text-xs">{error}</p> : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel

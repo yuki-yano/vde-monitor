@@ -70,14 +70,12 @@ export const usePromptCompletion = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inputHasValue, setInputHasValue] = useState(false);
   const isComposingRef = useRef(false);
   const dismissedTokenRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
 
   const evaluate = useCallback(
     (textarea: HTMLTextAreaElement) => {
-      setInputHasValue(textarea.value.length > 0);
       if (!enabled || !config || isComposingRef.current) {
         setToken(null);
         return;
@@ -200,16 +198,9 @@ export const usePromptCompletion = ({
         return;
       }
       const sigil = trigger === "dollar" ? "$" : trigger === "at" ? "@" : "/";
-      if (trigger === "slash") {
-        if (textarea.value.length > 0) {
-          return;
-        }
-        textarea.setRangeText("/", 0, 0, "end");
-      } else {
-        const start = textarea.selectionStart;
-        const prefix = start > 0 && !/\s/.test(textarea.value[start - 1] ?? "") ? " " : "";
-        textarea.setRangeText(`${prefix}${sigil}`, start, textarea.selectionEnd, "end");
-      }
+      const start = textarea.selectionStart;
+      const prefix = start > 0 && !/\s/.test(textarea.value[start - 1] ?? "") ? " " : "";
+      textarea.setRangeText(`${prefix}${sigil}`, start, textarea.selectionEnd, "end");
       onTextareaMutated(textarea);
       textarea.focus();
       dismissedTokenRef.current = null;
@@ -276,7 +267,6 @@ export const usePromptCompletion = ({
     error,
     emptyMessage:
       token?.trigger === "at" && token.query.length === 0 ? "Type a file name to search." : null,
-    slashDisabled: inputHasValue,
     evaluate,
     select,
     insertTrigger,

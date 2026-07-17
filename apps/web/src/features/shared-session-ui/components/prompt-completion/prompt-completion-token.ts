@@ -26,7 +26,7 @@ export const findPromptCompletionToken = ({
     start -= 1;
   }
   const token = value.slice(start, caret);
-  if (start === 0 && token.startsWith("/")) {
+  if (token.startsWith("/")) {
     return { trigger: "slash", query: token.slice(1), start, end: caret };
   }
   if (token.startsWith("@")) {

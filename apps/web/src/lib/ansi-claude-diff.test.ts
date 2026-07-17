@@ -34,8 +34,8 @@ describe("applyClaudeDiffMask", () => {
 
     const rendered = applyClaudeDiffMask(plainLines, mask);
 
-    expect(rendered[0]).toContain('class="text-latte-green"');
-    expect(rendered[1]).toContain('class="text-latte-green"');
+    expect(rendered[0]).toContain('class="text-latte-green-text"');
+    expect(rendered[1]).toContain('class="text-latte-green-text"');
     expect(rendered[2]).toBeNull();
     expect(rendered[3]).toContain('class="text-latte-text"');
   });
@@ -47,6 +47,6 @@ describe("renderClaudeDiffLine", () => {
 
     expect(rendered).toContain("&lt;tag&gt;");
     expect(rendered).toContain('class="text-latte-text"');
-    expect(rendered).toContain('class="text-latte-green"');
+    expect(rendered).toContain('class="text-latte-green-text"');
   });
 });

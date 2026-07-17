@@ -181,7 +181,7 @@ export const ScreenPanelPromptContext = ({
               tone="meta"
               aria-label="Virtual worktree active"
               title="Virtual worktree active"
-              className="border-latte-lavender/50 bg-latte-lavender/10 text-latte-lavender inline-flex shrink-0 items-center justify-center px-2 py-[3px] text-[10px] font-semibold tracking-[0.08em]"
+              className="border-latte-lavender/50 bg-latte-lavender/10 text-latte-lavender-text inline-flex shrink-0 items-center justify-center px-2 py-[3px] text-[10px] font-semibold tracking-[0.08em]"
             >
               Virt
             </TagPill>
@@ -200,10 +200,10 @@ export const ScreenPanelPromptContext = ({
                   {item.label} {item.value}
                 </TagPill>
               ))}
-              <span className="text-latte-green shrink-0 text-[11px] font-semibold">
+              <span className="text-latte-green-text shrink-0 text-[11px] font-semibold tabular-nums">
                 +{gitAdditionsLabel}
               </span>
-              <span className="text-latte-red shrink-0 text-[11px] font-semibold">
+              <span className="text-latte-red-text shrink-0 text-[11px] font-semibold tabular-nums">
                 -{gitDeletionsLabel}
               </span>
             </>

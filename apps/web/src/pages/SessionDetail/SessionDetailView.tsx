@@ -268,23 +268,6 @@ export const SessionDetailView = () => {
     <>
       <title>{documentTitle}</title>
       <div
-        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
-        style={{ width: `${sidebarWidth}px` }}
-      >
-        <SessionSidebar
-          {...sessionSidebarProps}
-          state={{ ...sessionSidebarProps.state, sidebarWidth }}
-        />
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize sidebar"
-          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
-          onPointerDown={handleSidebarPointerDown}
-        />
-      </div>
-
-      <div
         className="animate-fade-in-up w-full px-2 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-3 sm:px-4 sm:pb-[calc(env(safe-area-inset-bottom)+5rem)] sm:pt-6 md:pb-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
         style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
       >
@@ -397,6 +380,22 @@ export const SessionDetailView = () => {
       <LogModal {...logModalProps} />
       <LogFileCandidateModal {...logFileCandidateModalProps} />
       <FileContentModal {...fileContentModalProps} />
+      <div
+        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        <SessionSidebar
+          {...sessionSidebarProps}
+          state={{ ...sessionSidebarProps.state, sidebarWidth }}
+        />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
+          onPointerDown={handleSidebarPointerDown}
+        />
+      </div>
     </>
   );
 };

@@ -71,7 +71,7 @@ export const WorktreeSection = memo(({ state, actions }: WorktreeSectionProps) =
     <Card className="flex flex-col gap-2" data-testid="worktree-section">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
+          <h2 className="font-display text-latte-text text-base font-semibold tracking-wide">
             Worktrees
           </h2>
           <p className="text-latte-subtext0 min-w-0 overflow-hidden text-sm">
@@ -82,7 +82,7 @@ export const WorktreeSection = memo(({ state, actions }: WorktreeSectionProps) =
         <Button
           variant="ghost"
           size="sm"
-          className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+          className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] shrink-0 self-start p-0 after:absolute after:-inset-[7px] after:content-['']"
           onClick={onRefreshWorktrees}
           disabled={worktreeSelectorLoading}
           aria-label="Refresh worktrees"

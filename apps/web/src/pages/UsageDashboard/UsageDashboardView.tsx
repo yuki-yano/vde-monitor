@@ -170,44 +170,6 @@ export const UsageDashboardView = ({
 
   return (
     <>
-      <div
-        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
-        style={{ width: `${sidebarWidth}px` }}
-      >
-        <SessionSidebar
-          state={{
-            sessionGroups: sidebarSessionGroups,
-            sidebarWidth,
-            nowMs,
-            connected,
-            connectionIssue,
-            launchConfig,
-            launchAgentAvailable: capabilities.launchAgent,
-            requestWorktrees,
-            requestStateTimeline,
-            requestScreen,
-            highlightCorrections,
-            resolvedTheme,
-            currentPaneId: null,
-            className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
-          }}
-          actions={{
-            onSelectSession: onOpenPaneHere,
-            onFocusPane: onOpenPaneHere,
-            onLaunchAgentInSession,
-            onTouchSession: onTouchPanePin,
-            onTouchRepoPin,
-          }}
-        />
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize sidebar"
-          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
-          onPointerDown={onSidebarResizeStart}
-        />
-      </div>
-
       <main
         className="animate-fade-in-up w-full px-2.5 pb-7 pt-3.5 sm:px-4 sm:pb-10 sm:pt-6 md:pl-[calc(var(--sidebar-width)+32px)] md:pr-6"
         style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
@@ -223,7 +185,7 @@ export const UsageDashboardView = ({
           <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur-sm sm:p-6">
             <div>
               <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
-              <h1 className="font-display text-latte-text text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h1 className="font-display text-latte-text text-3xl font-semibold sm:text-4xl">
                 Usage Dashboard
               </h1>
               <p className="text-latte-subtext1 mt-1 text-sm">
@@ -235,7 +197,7 @@ export const UsageDashboardView = ({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="relative h-8 w-8 p-0 after:absolute after:-inset-y-1.5 after:-inset-x-0.5 after:content-['']"
                 onClick={onRefreshAll}
                 aria-label="Refresh usage dashboard"
                 title="Refresh usage dashboard"
@@ -288,7 +250,7 @@ export const UsageDashboardView = ({
                 <h2 className="font-display text-latte-text text-xl font-semibold">
                   Global State Timeline
                 </h2>
-                <p className="text-latte-subtext0 text-xs">
+                <p className="text-latte-subtext0 text-xs tabular-nums">
                   Aggregated across all sessions ({timeline?.paneCount ?? 0} total /{" "}
                   {timeline?.activePaneCount ?? 0} active)
                 </p>
@@ -301,9 +263,9 @@ export const UsageDashboardView = ({
                   size="sm"
                   onClick={onToggleCompactTimeline}
                   className={cn(
-                    "transition-all duration-200",
+                    "transition duration-200",
                     compactTimeline
-                      ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
+                      ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender-text ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
                       : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
                   )}
                 >
@@ -343,14 +305,17 @@ export const UsageDashboardView = ({
                   timelineItems.map((item) => (
                     <PanelSection
                       key={item.id}
-                      className="border-latte-surface2/60 rounded-2xl border"
+                      className="border-latte-surface2/60 rounded-xl border"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2">
                           <Badge tone={stateTone(item.state)} size="sm" animateIcon={false}>
                             {formatStateLabel(item.state)}
                           </Badge>
-                          <span className="text-latte-subtext0 truncate text-xs">
+                          <span
+                            className="text-latte-subtext0 truncate text-xs"
+                            title={item.reason}
+                          >
                             {item.reason}
                           </span>
                         </div>
@@ -369,6 +334,44 @@ export const UsageDashboardView = ({
           </GlowCard>
         </div>
       </main>
+
+      <div
+        className="fixed left-0 top-0 z-40 hidden h-screen md:flex"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        <SessionSidebar
+          state={{
+            sessionGroups: sidebarSessionGroups,
+            sidebarWidth,
+            nowMs,
+            connected,
+            connectionIssue,
+            launchConfig,
+            launchAgentAvailable: capabilities.launchAgent,
+            requestWorktrees,
+            requestStateTimeline,
+            requestScreen,
+            highlightCorrections,
+            resolvedTheme,
+            currentPaneId: null,
+            className: "border-latte-surface1/80 h-full w-full rounded-none rounded-r-3xl border-r",
+          }}
+          actions={{
+            onSelectSession: onOpenPaneHere,
+            onFocusPane: onOpenPaneHere,
+            onLaunchAgentInSession,
+            onTouchSession: onTouchPanePin,
+            onTouchRepoPin,
+          }}
+        />
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none"
+          onPointerDown={onSidebarResizeStart}
+        />
+      </div>
 
       <div className="md:hidden">
         <QuickPanel

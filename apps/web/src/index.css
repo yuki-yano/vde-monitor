@@ -21,12 +21,28 @@
   --color-latte-yellow: rgb(var(--ctp-yellow));
   --color-latte-mauve: rgb(var(--ctp-mauve));
   --color-latte-maroon: rgb(var(--ctp-maroon));
+  --color-latte-blue-text: rgb(var(--ctp-blue-text));
+  --color-latte-lavender-text: rgb(var(--ctp-lavender-text));
+  --color-latte-peach-text: rgb(var(--ctp-peach-text));
+  --color-latte-red-text: rgb(var(--ctp-red-text));
+  --color-latte-green-text: rgb(var(--ctp-green-text));
+  --color-latte-yellow-text: rgb(var(--ctp-yellow-text));
+  --color-latte-mauve-text: rgb(var(--ctp-mauve-text));
+  --color-latte-maroon-text: rgb(var(--ctp-maroon-text));
 
-  --font-display: Fraunces, serif;
-  --font-body: IBM Plex Sans, sans-serif;
+  --font-display: "Geist", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  --font-body:
+    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  /*
+    Every family name is quoted on purpose: these lists reach elements through
+    var() in generated utilities, and an unquoted name that is not a valid
+    ident sequence (e.g. one starting a number token) makes the whole
+    substituted declaration invalid at computed-value time, silently falling
+    back to the inherited font.
+  */
   --font-mono:
-    IBM Plex Mono, M PLUS 1 Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    Liberation Mono, monospace;
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
 
   /*
     These are aliases that re-expose the raw shadow values defined in :root /
@@ -105,7 +121,7 @@ html.pull-to-refresh-enabled body {
   --ctp-crust: 220 224 232;
   --ctp-text: 76 79 105;
   --ctp-subtext1: 92 95 119;
-  --ctp-subtext0: 108 111 133;
+  --ctp-subtext0: 101 103 125;
   --ctp-surface0: 204 208 218;
   --ctp-surface1: 188 192 204;
   --ctp-surface2: 172 176 190;
@@ -120,6 +136,20 @@ html.pull-to-refresh-enabled body {
   --ctp-yellow: 223 142 29;
   --ctp-mauve: 136 57 239;
   --ctp-maroon: 230 69 83;
+  /*
+    Accent *text* variants: same OKLCH hue/chroma as the accents above with
+    lightness lowered until they clear WCAG AA on the Latte base and mantle
+    (>= 4.9:1 on base). Latte subtext0 is darkened the same way.
+    Mocha maps these back to the plain accents, which already pass there.
+  */
+  --ctp-blue-text: 20 92 235;
+  --ctp-lavender-text: 77 93 207;
+  --ctp-peach-text: 181 67 0;
+  --ctp-red-text: 208 11 56;
+  --ctp-green-text: 30 120 0;
+  --ctp-yellow-text: 149 91 0;
+  --ctp-mauve-text: 134 55 237;
+  --ctp-maroon-text: 200 36 60;
   --ctp-shadow: 31 30 58;
   --shadow-elev-1:
     0 1px 2px 0 rgb(var(--ctp-shadow) / 0.16), 0 1px 1px -1px rgb(var(--ctp-shadow) / 0.1);
@@ -151,6 +181,7 @@ html.pull-to-refresh-enabled body {
   --shadow-popover: 0 18px 50px -25px rgb(var(--ctp-shadow) / 0.6);
   --shadow-danger-outline: 0 0 0 1px rgb(var(--ctp-red) / 0.3);
   --shadow-inner-highlight: inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --image-outline: oklch(0 0 0 / 0.1);
   --grid-dot-alpha: 0.15;
   --grid-opacity: 0.08;
   --bg-gradient-1: radial-gradient(
@@ -192,6 +223,14 @@ html.pull-to-refresh-enabled body {
   --ctp-yellow: 249 226 175;
   --ctp-mauve: 203 166 247;
   --ctp-maroon: 235 160 172;
+  --ctp-blue-text: 137 180 250;
+  --ctp-lavender-text: 180 190 254;
+  --ctp-peach-text: 250 179 135;
+  --ctp-red-text: 243 139 168;
+  --ctp-green-text: 166 227 161;
+  --ctp-yellow-text: 249 226 175;
+  --ctp-mauve-text: 203 166 247;
+  --ctp-maroon-text: 235 160 172;
   --ctp-shadow: 8 10 22;
   --shadow-elev-1:
     0 1px 2px 0 rgb(var(--ctp-shadow) / 0.6), 0 0 0 1px rgb(var(--ctp-overlay2) / 0.2);
@@ -225,6 +264,7 @@ html.pull-to-refresh-enabled body {
     0 18px 50px -25px rgb(var(--ctp-shadow) / 0.82), 0 0 0 1px rgb(var(--ctp-overlay2) / 0.24);
   --shadow-danger-outline: 0 0 0 1px rgb(var(--ctp-red) / 0.44);
   --shadow-inner-highlight: inset 0 1px 0 rgb(var(--ctp-overlay2) / 0.24);
+  --image-outline: oklch(1 0 0 / 0.1);
   --grid-dot-alpha: 0.12;
   --grid-opacity: 0.12;
   --bg-gradient-1: radial-gradient(
@@ -245,7 +285,11 @@ html.pull-to-refresh-enabled body {
 }
 
 body {
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family:
+    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
   background:
     var(--bg-gradient-1), var(--bg-gradient-2), var(--bg-gradient-3), rgb(var(--ctp-base));
   color: rgb(var(--ctp-text));
@@ -270,12 +314,6 @@ body::before {
   box-sizing: border-box;
 }
 
-.font-mono {
-  font-family:
-    ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-    monospace;
-}
-
 .vde-unicode-table-wrap {
   display: inline-block;
   vertical-align: top;
@@ -287,8 +325,8 @@ body::before {
   width: max-content;
   min-width: max-content;
   font-family:
-    ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-    monospace;
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
   border: 1px solid rgb(var(--ctp-surface2));
   font-kerning: none;
   font-variant-ligatures: none;
@@ -330,8 +368,8 @@ body::before {
   min-width: max-content;
   border: 1px solid rgb(var(--ctp-surface2));
   font-family:
-    ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-    monospace;
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
 }
 
 .vde-markdown-pipe-table th,
@@ -524,8 +562,8 @@ body::before {
 .vde-file-content-modal-code.vde-shiki-with-line-numbers .line::before,
 .vde-file-content-modal-code .vde-shiki-with-line-numbers .line::before {
   font-family:
-    "IBM Plex Mono", "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
 }
 
 .vde-file-content-modal-code .shiki,
@@ -550,25 +588,27 @@ body::before {
 .vde-markdown h2,
 .vde-markdown h3,
 .vde-markdown h4 {
-  font-family: "Fraunces", "IBM Plex Sans", serif;
-  font-variation-settings:
-    "SOFT" 45,
-    "WONK" 0;
-  letter-spacing: 0.01em;
-}
-
-.vde-markdown h1 {
-  color: rgb(var(--ctp-lavender));
-  text-shadow: 0 6px 20px rgb(var(--ctp-lavender) / 0.22);
-}
-
-.vde-markdown h2 {
-  color: rgb(var(--ctp-blue));
+  font-family: "Geist", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  letter-spacing: 0;
 }
 
 .vde-markdown h3,
 .vde-markdown h4 {
-  color: rgb(var(--ctp-mauve));
+  letter-spacing: 0.025em;
+}
+
+.vde-markdown h1 {
+  color: rgb(var(--ctp-lavender-text));
+  text-shadow: 0 6px 20px rgb(var(--ctp-lavender) / 0.22);
+}
+
+.vde-markdown h2 {
+  color: rgb(var(--ctp-blue-text));
+}
+
+.vde-markdown h3,
+.vde-markdown h4 {
+  color: rgb(var(--ctp-mauve-text));
 }
 
 .vde-markdown p,
@@ -581,20 +621,20 @@ body::before {
 }
 
 .vde-markdown strong {
-  color: rgb(var(--ctp-lavender));
+  color: rgb(var(--ctp-lavender-text));
   font-weight: 700;
 }
 
 .vde-markdown em {
-  color: rgb(var(--ctp-peach));
+  color: rgb(var(--ctp-peach-text));
 }
 
 .vde-markdown a {
-  color: rgb(var(--ctp-blue));
+  color: rgb(var(--ctp-blue-text));
 }
 
 .vde-markdown a:hover {
-  color: rgb(var(--ctp-lavender));
+  color: rgb(var(--ctp-lavender-text));
 }
 
 .vde-markdown p > code,
@@ -607,8 +647,8 @@ body::before {
   color: rgb(var(--ctp-text));
   padding: 0.1rem 0.35rem;
   font-family:
-    "IBM Plex Mono", "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
   font-size: 0.8rem;
 }
 
@@ -622,7 +662,8 @@ body::before {
 }
 
 .vde-markdown img {
-  border: 1px solid rgb(var(--ctp-surface2) / 0.5);
+  outline: 1px solid var(--image-outline);
+  outline-offset: -1px;
   border-radius: 0.9rem;
   max-width: 100%;
 }
@@ -683,6 +724,24 @@ body::before {
 
   .vde-skeleton::after {
     display: none;
+  }
+
+  /*
+    Near-zero duration instead of `animation: none` so `animationend` still
+    fires — QuickPanel unmounts and Radix dialogs close on that event.
+  */
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-fade-out,
+  .animate-panel-enter,
+  .animate-panel-exit {
+    animation-duration: 0.01ms;
+  }
+
+  .animate-pulse-soft,
+  .animate-pulse-attention,
+  .animate-bounce-subtle {
+    animation: none;
   }
 }
 
@@ -745,6 +804,34 @@ body::before {
 
 .animate-panel-enter {
   animation: panel-enter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.animate-panel-exit {
+  animation: panel-exit 0.18s ease-in forwards;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-fade-out {
+  animation: fade-out 0.15s ease-in forwards;
 }
 
 body[data-vde-worktree-selector-open="true"] [data-quick-panel-root][data-open="false"] {

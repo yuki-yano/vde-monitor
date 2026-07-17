@@ -88,7 +88,10 @@ const CommitVirtualBranchNotice = memo(
         className="-mt-1 flex items-center justify-between gap-2"
         data-testid="commit-virtual-branch-notice"
       >
-        <span className="text-latte-subtext0/80 min-w-0 truncate font-mono text-xs">
+        <span
+          className="text-latte-subtext0 min-w-0 truncate font-mono text-xs"
+          title={virtualBranch}
+        >
           Virtual active · {virtualBranch}
         </span>
         <IconButton
@@ -191,7 +194,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
     <span className="inline-flex items-center gap-1.5">
       <span>{commitCountDescription}</span>
       {commitBranch ? (
-        <span className="text-latte-subtext0/80 inline-flex items-center gap-1 font-mono text-[11px]">
+        <span className="text-latte-subtext0 inline-flex items-center gap-1 font-mono text-[11px]">
           <span aria-hidden="true">·</span>
           <span>{formatBranchLabel(commitBranch)}</span>
         </span>
@@ -206,7 +209,7 @@ export const CommitSection = memo(({ state, actions }: CommitSectionProps) => {
       <Button
         variant="ghost"
         size="sm"
-        className="text-latte-subtext0 hover:text-latte-text h-[30px] w-[30px] shrink-0 self-start p-0"
+        className="text-latte-subtext0 hover:text-latte-text relative h-[30px] w-[30px] shrink-0 self-start p-0 after:absolute after:-inset-[7px] after:content-['']"
         onClick={onRefresh}
         disabled={commitLoading}
         aria-label="Refresh commit log"

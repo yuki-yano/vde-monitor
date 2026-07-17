@@ -23,7 +23,7 @@ export const WorkspaceOverviewTab = ({ tab, active, onActivate }: WorkspaceOverv
     ].join(" ")}
     data-active={active ? "true" : "false"}
   >
-    <span className="bg-latte-blue/85 h-2.5 w-2.5 rounded-full border border-white/45" />
+    <span className="bg-latte-blue/85 border-latte-overlay2/60 h-2.5 w-2.5 rounded-full border" />
     <LayoutPanelTop className="h-3.5 w-3.5" />
     <span>S</span>
   </button>

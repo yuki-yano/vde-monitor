@@ -12,7 +12,7 @@ const SectionHeader = ({ title, description, action }: SectionHeaderProps) => {
   return (
     <Toolbar>
       <div>
-        <h2 className="font-display text-latte-text text-base font-semibold tracking-tight">
+        <h2 className="font-display text-latte-text text-base font-semibold tracking-wide">
           {title}
         </h2>
         {description && <p className="text-latte-subtext0 text-sm">{description}</p>}

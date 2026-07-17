@@ -23,7 +23,7 @@ type DiffPatchProps = {
 
 const TOKEN_PATTERN = /[^\s]+/g;
 const FILE_REFERENCE_CLASS_NAME =
-  "cursor-pointer border-0 bg-transparent p-0 font-inherit text-inherit hover:text-latte-lavender focus-visible:text-latte-lavender focus-visible:outline-hidden";
+  "cursor-pointer border-0 bg-transparent p-0 font-inherit text-inherit hover:text-latte-lavender-text focus-visible:text-latte-lavender-text focus-visible:outline-hidden";
 const EMPTY_LINKABLE_TOKENS = new Set<string>();
 
 const resolveRawTokenFromEventTarget = (target: EventTarget | null) => {

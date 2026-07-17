@@ -61,7 +61,7 @@ export const NotesSectionList = ({
       return (
         <PanelSection
           key={note.id}
-          className="border-latte-surface2/70 bg-latte-base/60 rounded-2xl border"
+          className="border-latte-surface2/70 bg-latte-base/60 rounded-xl border"
         >
           <div className="flex items-center justify-between gap-2">
             <button
@@ -94,7 +94,7 @@ export const NotesSectionList = ({
                 {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </IconButton>
               {isCopied ? (
-                <span className="text-latte-green text-[10px] font-semibold tracking-[0.12em]">
+                <span className="text-latte-green-text text-[10px] font-semibold tracking-[0.12em]">
                   Copied
                 </span>
               ) : null}
@@ -102,7 +102,7 @@ export const NotesSectionList = ({
                 type="button"
                 variant="base"
                 size="sm"
-                className="border-latte-red/40 bg-latte-red/10 text-latte-red/85 hover:border-latte-red/65 hover:bg-latte-red/20 hover:text-latte-red"
+                className="border-latte-red/40 bg-latte-red/10 text-latte-red-text hover:border-latte-red/65 hover:bg-latte-red/20"
                 aria-label={`Delete note ${note.id}`}
                 onClick={() => {
                   onOpenDeleteDialog(note.id);
@@ -118,7 +118,7 @@ export const NotesSectionList = ({
             <div className="mt-2">
               {isEditing ? (
                 <div className="flex flex-col gap-2">
-                  <div className="border-latte-surface2 focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 overflow-hidden rounded-2xl border transition focus-within:ring-2">
+                  <div className="border-latte-surface2 focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 overflow-hidden rounded-lg border transition focus-within:ring-2">
                     <ZoomSafeTextarea
                       ref={editingTextareaRef}
                       aria-label={`Edit note body ${note.id}`}
@@ -227,7 +227,7 @@ export const NotesDeleteDialog = ({
                 </p>
               ))}
               {deleteTargetPreview.isTruncated ? (
-                <p className="text-latte-overlay1 leading-4">...</p>
+                <p className="text-latte-subtext0 leading-4">...</p>
               ) : null}
             </div>
           </div>

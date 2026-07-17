@@ -130,7 +130,7 @@ const ChatGridTileHeader = ({
               maxLength={80}
               enterKeyHint="done"
               disabled={titleSaving}
-              className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-2xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Custom session title"
             />
           ) : (
@@ -138,8 +138,9 @@ const ChatGridTileHeader = ({
               type="button"
               onClick={onOpenTitleEditor}
               variant="title"
-              className="hover:text-latte-lavender mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
+              className="hover:text-latte-lavender-text mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
               aria-label="Edit session title"
+              title={sessionDisplayTitle}
             >
               {sessionDisplayTitle}
             </TextButton>
@@ -158,14 +159,14 @@ const ChatGridTileHeader = ({
             </IconButton>
           ) : null}
         </div>
-        {titleError ? <p className="text-latte-red text-xs">{titleError}</p> : null}
+        {titleError ? <p className="text-latte-red-text text-xs">{titleError}</p> : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Link
           to="/sessions/$paneId"
           params={{ paneId: session.paneId }}
           aria-label="Open detail"
-          className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
+          className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender-text shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
         >
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>

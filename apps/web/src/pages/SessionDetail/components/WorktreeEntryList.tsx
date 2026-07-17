@@ -129,10 +129,20 @@ export const WorktreeEntryList = ({
                   {item.label} {item.value}
                 </TagPill>
               ))}
-              <span className={cn("text-latte-green font-semibold", metricTextClassName)}>
+              <span
+                className={cn(
+                  "text-latte-green-text font-semibold tabular-nums",
+                  metricTextClassName,
+                )}
+              >
                 +{entryAdditionsLabel}
               </span>
-              <span className={cn("text-latte-red font-semibold", metricTextClassName)}>
+              <span
+                className={cn(
+                  "text-latte-red-text font-semibold tabular-nums",
+                  metricTextClassName,
+                )}
+              >
                 -{entryDeletionsLabel}
               </span>
             </span>
@@ -142,7 +152,7 @@ export const WorktreeEntryList = ({
               <TagPill
                 tone="meta"
                 className={cn(
-                  "border-latte-blue/45 bg-latte-blue/10 text-latte-blue shrink-0 whitespace-nowrap px-1.5 py-[2px] font-semibold uppercase tracking-[0.08em]",
+                  "border-latte-blue/45 bg-latte-blue/10 text-latte-blue-text shrink-0 whitespace-nowrap px-1.5 py-[2px] font-semibold uppercase tracking-[0.08em]",
                   pillTextClassName,
                 )}
               >
@@ -160,7 +170,7 @@ export const WorktreeEntryList = ({
               {hasAhead ? (
                 <span
                   className={cn(
-                    "border-latte-green/45 bg-latte-green/10 text-latte-green inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
+                    "border-latte-green/45 bg-latte-green/10 text-latte-green-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
                     pillTextClassName,
                   )}
                 >
@@ -170,7 +180,7 @@ export const WorktreeEntryList = ({
               {hasBehind ? (
                 <span
                   className={cn(
-                    "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
+                    "border-latte-yellow/45 bg-latte-yellow/12 text-latte-yellow-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
                     pillTextClassName,
                   )}
                 >
@@ -225,7 +235,7 @@ export const WorktreeEntryList = ({
             {isActualPath ? (
               <span
                 className={cn(
-                  "border-latte-lavender/45 bg-latte-lavender/10 text-latte-lavender inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
+                  "border-latte-lavender/45 bg-latte-lavender/10 text-latte-lavender-text inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono",
                   pillTextClassName,
                 )}
               >
@@ -235,7 +245,7 @@ export const WorktreeEntryList = ({
           </span>
         </span>
         {isVirtualSelected ? (
-          <Check className="text-latte-lavender mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <Check className="text-latte-lavender-text mt-0.5 h-3.5 w-3.5 shrink-0" />
         ) : null}
       </button>
     );

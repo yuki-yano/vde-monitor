@@ -16,16 +16,21 @@ describe("findPromptCompletionToken", () => {
     expect(findPromptCompletionToken({ value: "$react", caret: 6, agent: "claude" })).toBeNull();
   });
 
-  it("only finds slash completions at the start of the prompt", () => {
+  it("finds slash completions at any token boundary", () => {
     expect(findPromptCompletionToken({ value: "/compact", caret: 8, agent: "codex" })).toEqual({
       trigger: "slash",
       query: "compact",
       start: 0,
       end: 8,
     });
-    expect(
-      findPromptCompletionToken({ value: "Try /compact", caret: 12, agent: "codex" }),
-    ).toBeNull();
+    expect(findPromptCompletionToken({ value: "Try /compact", caret: 12, agent: "codex" })).toEqual(
+      {
+        trigger: "slash",
+        query: "compact",
+        start: 4,
+        end: 12,
+      },
+    );
   });
 
   it("finds file tokens for both supported agents", () => {

@@ -102,8 +102,8 @@ export const CommitExpandedSection = memo(
         {totals && (
           <div className="mb-2 flex items-center gap-2 text-xs">
             <span className="text-latte-subtext0">Total changes</span>
-            <span className="text-latte-green">+{totals.additions}</span>
-            <span className="text-latte-red">-{totals.deletions}</span>
+            <span className="text-latte-green-text">+{totals.additions}</span>
+            <span className="text-latte-red-text">-{totals.deletions}</span>
           </div>
         )}
         {commitFilesSection}

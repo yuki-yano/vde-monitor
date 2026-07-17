@@ -336,7 +336,7 @@ const SessionListMainContent = ({
       {screenError ? (
         <div
           role="alert"
-          className="border-latte-red/30 bg-latte-red/10 text-latte-red rounded-xl border px-3 py-2 text-sm"
+          className="border-latte-red/30 bg-latte-red/10 text-latte-red-text rounded-xl border px-3 py-2 text-sm"
         >
           {screenError}
         </div>
@@ -648,26 +648,6 @@ export const SessionListView = ({
 
   return (
     <>
-      <SessionListSidebarPanel
-        sidebarSessionGroups={sidebarSessionGroups}
-        sidebarWidth={sidebarWidth}
-        nowMs={nowMs}
-        connected={connected}
-        connectionIssue={connectionIssue}
-        launchConfig={launchConfig}
-        capabilities={capabilities}
-        requestWorktrees={requestWorktrees}
-        requestStateTimeline={requestStateTimeline}
-        requestScreen={requestScreen}
-        highlightCorrections={highlightCorrections}
-        resolvedTheme={resolvedTheme}
-        onSidebarResizeStart={onSidebarResizeStart}
-        onOpenPaneHere={onOpenPaneHere}
-        onLaunchAgentInSession={onLaunchAgentInSession}
-        onTouchRepoPin={handleTouchRepoPinWithScroll}
-        onTouchPanePin={handleTouchPanePinWithScroll}
-      />
-
       <SessionListMainContent
         sessions={sessions}
         groups={groups}
@@ -696,6 +676,26 @@ export const SessionListView = ({
         onTouchPanePin={handleTouchPanePinWithScroll}
         onRegisterRepoScrollTarget={registerRepoScrollTarget}
         onRegisterPaneScrollTarget={registerPaneScrollTarget}
+      />
+
+      <SessionListSidebarPanel
+        sidebarSessionGroups={sidebarSessionGroups}
+        sidebarWidth={sidebarWidth}
+        nowMs={nowMs}
+        connected={connected}
+        connectionIssue={connectionIssue}
+        launchConfig={launchConfig}
+        capabilities={capabilities}
+        requestWorktrees={requestWorktrees}
+        requestStateTimeline={requestStateTimeline}
+        requestScreen={requestScreen}
+        highlightCorrections={highlightCorrections}
+        resolvedTheme={resolvedTheme}
+        onSidebarResizeStart={onSidebarResizeStart}
+        onOpenPaneHere={onOpenPaneHere}
+        onLaunchAgentInSession={onLaunchAgentInSession}
+        onTouchRepoPin={handleTouchRepoPinWithScroll}
+        onTouchPanePin={handleTouchPanePinWithScroll}
       />
 
       <SessionListOverlay

@@ -194,8 +194,8 @@ describe("linkifyLogLineFileReferences", () => {
     const second = doc.querySelector<HTMLElement>("[data-vde-file-ref='src/b.ts']");
     const firstClassList = new Set((first?.className ?? "").split(/\s+/).filter(Boolean));
     const secondClassList = new Set((second?.className ?? "").split(/\s+/).filter(Boolean));
-    expect(firstClassList.has("text-latte-lavender")).toBe(false);
-    expect(secondClassList.has("text-latte-lavender")).toBe(true);
+    expect(firstClassList.has("text-latte-lavender-text")).toBe(false);
+    expect(secondClassList.has("text-latte-lavender-text")).toBe(true);
   });
 });
 
