@@ -8,6 +8,6 @@
   },
   "dependencies": {
     "@vde-monitor/shared": "workspace:*",
-    "yaml": "^2.8.1"
+    "yaml": "catalog:"
   }
 }

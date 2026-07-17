@@ -9,6 +9,6 @@
   "dependencies": {
     "@vde-monitor/multiplexer": "workspace:*",
     "@vde-monitor/shared": "workspace:*",
-    "execa": "^9.6.0"
+    "execa": "catalog:"
   }
 }

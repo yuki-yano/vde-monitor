@@ -285,7 +285,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
       yaml:
-        specifier: ^2.8.1
+        specifier: 'catalog:'
         version: 2.9.0
 
   packages/multiplexer:
@@ -309,7 +309,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
       execa:
-        specifier: ^9.6.0
+        specifier: 'catalog:'
         version: 9.6.1
 
   packages/wezterm:
@@ -321,7 +321,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
       execa:
-        specifier: ^9.6.0
+        specifier: 'catalog:'
         version: 9.6.1
 
 packages:
