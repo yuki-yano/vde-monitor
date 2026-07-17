@@ -673,6 +673,7 @@ export const deriveHerdrAgentStatus = (
 type HerdrReportSocket = {
   destroyed?: boolean;
   setEncoding: (encoding: BufferEncoding) => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => unknown;
   once: (event: string, listener: (...args: unknown[]) => void) => unknown;
   off: (event: string, listener: (...args: unknown[]) => void) => unknown;
   write: (line: string, callback?: (error?: Error | null) => void) => unknown;
@@ -708,6 +709,17 @@ export const createHerdrReporter = ({
   }): Promise<void> => {
     const socket = createConnection(socketPath);
     socket.setEncoding("utf8");
+    let socketError: Error | null = null;
+    let handleSocketError = (error: Error) => {
+      socketError = error;
+    };
+    // An "error" listener must stay attached for the socket's whole lifetime.
+    // Node emits async socket failures (e.g. ECONNRESET after connect) as
+    // "error" events, and an unlistened one crashes the hook process.
+    socket.on("error", (...args: unknown[]) => {
+      const error = args[0] instanceof Error ? args[0] : new Error(String(args[0]));
+      handleSocketError(error);
+    });
     await connectHerdrReportSocket(socket, connectTimeoutMs);
     const request = {
       id: `hook_report_${++seq}`,
@@ -721,15 +733,27 @@ export const createHerdrReporter = ({
         seq: now(),
       },
     };
-    await new Promise<void>((resolve, reject) => {
-      socket.write(`${JSON.stringify(request)}\n`, (error) => {
-        if (error == null) {
-          resolve();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        if (socketError != null) {
+          reject(socketError);
           return;
         }
-        reject(error);
+        handleSocketError = reject;
+        socket.write(`${JSON.stringify(request)}\n`, (error) => {
+          if (error == null) {
+            resolve();
+            return;
+          }
+          reject(error);
+        });
       });
-    });
+    } finally {
+      // Errors after the write settled (e.g. while closing) are best effort.
+      handleSocketError = (error) => {
+        socketError = error;
+      };
+    }
     if (!socket.destroyed) {
       socket.end();
     }

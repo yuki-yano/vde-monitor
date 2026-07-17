@@ -411,6 +411,7 @@ describe("hooks cli helpers", () => {
       paneId: "wB:p1",
       createConnection: () => ({
         setEncoding: () => undefined,
+        on: () => undefined,
         once: (event: string, listener: (...args: unknown[]) => void) => {
           if (event === "connect") {
             queueMicrotask(() => listener());
@@ -450,6 +451,74 @@ describe("hooks cli helpers", () => {
     ]);
   });
 
+  it("rejects instead of crashing when the socket errors during write", async () => {
+    let errorListener: ((...args: unknown[]) => void) | null = null;
+    const reporter = createHerdrReporter({
+      socketPath: "/tmp/herdr.sock",
+      paneId: "wB:p1",
+      createConnection: () => ({
+        setEncoding: () => undefined,
+        on: (event: string, listener: (...args: unknown[]) => void) => {
+          if (event === "error") {
+            errorListener = listener;
+          }
+        },
+        once: (event: string, listener: (...args: unknown[]) => void) => {
+          if (event === "connect") {
+            queueMicrotask(() => listener());
+          }
+        },
+        off: () => undefined,
+        write: () => {
+          // Simulate an async ECONNRESET surfacing as an "error" event
+          // instead of the write callback.
+          errorListener?.(new Error("read ECONNRESET"));
+        },
+        end: () => undefined,
+        destroy: () => undefined,
+        destroyed: false,
+      }),
+    });
+
+    await expect(
+      reporter.report({ agent: "claude", status: "idle", message: "hook:Stop" }),
+    ).rejects.toThrow("read ECONNRESET");
+  });
+
+  it("keeps absorbing socket errors after the report completed", async () => {
+    let errorListener: ((...args: unknown[]) => void) | null = null;
+    const reporter = createHerdrReporter({
+      socketPath: "/tmp/herdr.sock",
+      paneId: "wB:p1",
+      createConnection: () => ({
+        setEncoding: () => undefined,
+        on: (event: string, listener: (...args: unknown[]) => void) => {
+          if (event === "error") {
+            errorListener = listener;
+          }
+        },
+        once: (event: string, listener: (...args: unknown[]) => void) => {
+          if (event === "connect") {
+            queueMicrotask(() => listener());
+          }
+        },
+        off: () => undefined,
+        write: (_line: string, callback?: (error?: Error) => void) => {
+          callback?.();
+        },
+        end: () => undefined,
+        destroy: () => undefined,
+        destroyed: false,
+      }),
+    });
+
+    await reporter.report({ agent: "claude", status: "idle", message: "hook:Stop" });
+
+    // A late error (e.g. while the socket closes) must stay handled.
+    expect(errorListener).not.toBeNull();
+    expect(() => errorListener?.(new Error("late ECONNRESET"))).not.toThrow();
+  });
+
   it("destroys a herdr report socket when connection times out", async () => {
     const destroy = vi.fn();
     const off = vi.fn();
@@ -458,6 +527,7 @@ describe("hooks cli helpers", () => {
       paneId: "wB:p1",
       createConnection: () => ({
         setEncoding: () => undefined,
+        on: () => undefined,
         once: () => undefined,
         off,
         write: () => undefined,
