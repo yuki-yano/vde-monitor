@@ -1,5 +1,6 @@
 import type { LaunchConfig, SessionSummary, WorktreeList } from "@vde-monitor/shared";
 import { Clock, FolderGit2, Pin } from "lucide-react";
+import { memo, useMemo } from "react";
 
 import { GitHubIcon } from "@/components/icons/GitHubIcon";
 import { LaunchAgentButton } from "@/features/launch-agent/LaunchAgentButton";
@@ -22,7 +23,7 @@ import { SessionWindowSection } from "./SessionWindowSection";
 type SessionGroupSectionProps = {
   group: SessionGroup;
   nowMs: number;
-  allSessions: SessionSummary[];
+  repoSessions: SessionSummary[];
   launchPendingSessions: Set<string>;
   launchConfig: LaunchConfig;
   launchAgentAvailable: boolean;
@@ -37,10 +38,10 @@ type SessionGroupSectionProps = {
   onRegisterPaneScrollTarget?: (paneId: string, element: HTMLAnchorElement | null) => void;
 };
 
-export const SessionGroupSection = ({
+const SessionGroupSectionComponent = ({
   group,
   nowMs,
-  allSessions,
+  repoSessions,
   launchPendingSessions,
   launchConfig,
   launchAgentAvailable,
@@ -54,34 +55,37 @@ export const SessionGroupSection = ({
   const repoName = formatRepoName(group.repoRoot);
   const repoPath = formatRepoPath(group.repoRoot);
   const repoGitHubUrl = buildGitHubRepoUrl(group.repoRoot);
-  const repoSessions = allSessions.filter(
-    (session) => (session.repoRoot ?? null) === group.repoRoot,
+  const totalPaneMap = useMemo(
+    () =>
+      new Map(
+        buildSessionWindowGroups(repoSessions).map((windowGroup) => [
+          getSessionWindowGroupKey(windowGroup),
+          windowGroup.sessions.length,
+        ]),
+      ),
+    [repoSessions],
   );
-  const totalWindowGroups = buildSessionWindowGroups(repoSessions);
-  const totalPaneMap = new Map(
-    totalWindowGroups.map((windowGroup) => [
-      getSessionWindowGroupKey(windowGroup),
-      windowGroup.sessions.length,
-    ]),
-  );
-  const windowGroups = buildSessionWindowGroups(group.sessions);
-  const sessionSections: {
-    sessionId: string;
-    sessionName: string;
-    windowGroups: SessionWindowGroup[];
-  }[] = [];
-  const bySession = new Map<string, SessionWindowGroup[]>();
-  windowGroups.forEach((windowGroup) => {
-    const bucket = bySession.get(windowGroup.sessionId) ?? [];
-    bucket.push(windowGroup);
-    bySession.set(windowGroup.sessionId, bucket);
-  });
-  bySession.forEach((sessionWindowGroups, sessionId) => {
-    const sessionName = sessionWindowGroups[0]?.sessionName;
-    if (sessionName) {
-      sessionSections.push({ sessionId, sessionName, windowGroups: sessionWindowGroups });
-    }
-  });
+  const { windowGroups, sessionSections } = useMemo(() => {
+    const nextWindowGroups = buildSessionWindowGroups(group.sessions);
+    const nextSessionSections: {
+      sessionId: string;
+      sessionName: string;
+      windowGroups: SessionWindowGroup[];
+    }[] = [];
+    const bySession = new Map<string, SessionWindowGroup[]>();
+    nextWindowGroups.forEach((windowGroup) => {
+      const bucket = bySession.get(windowGroup.sessionId) ?? [];
+      bucket.push(windowGroup);
+      bySession.set(windowGroup.sessionId, bucket);
+    });
+    bySession.forEach((sessionWindowGroups, sessionId) => {
+      const sessionName = sessionWindowGroups[0]?.sessionName;
+      if (sessionName) {
+        nextSessionSections.push({ sessionId, sessionName, windowGroups: sessionWindowGroups });
+      }
+    });
+    return { windowGroups: nextWindowGroups, sessionSections: nextSessionSections };
+  }, [group.sessions]);
 
   return (
     <GlowCard contentClassName="gap-1.5 sm:gap-3">
@@ -203,3 +207,5 @@ export const SessionGroupSection = ({
     </GlowCard>
   );
 };
+
+export const SessionGroupSection = memo(SessionGroupSectionComponent);

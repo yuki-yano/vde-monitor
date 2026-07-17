@@ -1,5 +1,6 @@
+import type { SessionSummary } from "@vde-monitor/shared";
 import { MonitorX, RefreshCw, Search } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useRef } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -221,34 +222,51 @@ const SessionListGroups = ({
   onTouchPanePin,
   onRegisterRepoScrollTarget,
   onRegisterPaneScrollTarget,
-}: SessionListGroupsProps) => (
-  <>
-    {groups.map((group) => {
-      const repoScrollKey = createRepoPinKey(group.repoRoot);
-      return (
-        <div
-          key={group.repoRoot ?? "no-repo"}
-          data-repo-scroll-key={repoScrollKey}
-          ref={(element) => onRegisterRepoScrollTarget(repoScrollKey, element)}
-        >
-          <SessionGroupSection
-            group={group}
-            allSessions={sessions}
-            nowMs={nowMs}
-            launchPendingSessions={launchPendingSessions}
-            launchConfig={launchConfig}
-            launchAgentAvailable={capabilities.launchAgent}
-            requestWorktrees={requestWorktrees}
-            onLaunchAgentInSession={onLaunchAgentInSession}
-            onTouchRepoPin={onTouchRepoPin}
-            onTouchPanePin={onTouchPanePin}
-            onRegisterPaneScrollTarget={onRegisterPaneScrollTarget}
-          />
-        </div>
-      );
-    })}
-  </>
-);
+}: SessionListGroupsProps) => {
+  // Group the full session list once so each section does not rescan it.
+  const sessionsByRepo = useMemo(() => {
+    const byRepo = new Map<string | null, SessionSummary[]>();
+    sessions.forEach((session) => {
+      const key = session.repoRoot ?? null;
+      const bucket = byRepo.get(key);
+      if (bucket) {
+        bucket.push(session);
+      } else {
+        byRepo.set(key, [session]);
+      }
+    });
+    return byRepo;
+  }, [sessions]);
+
+  return (
+    <>
+      {groups.map((group) => {
+        const repoScrollKey = createRepoPinKey(group.repoRoot);
+        return (
+          <div
+            key={group.repoRoot ?? "no-repo"}
+            data-repo-scroll-key={repoScrollKey}
+            ref={(element) => onRegisterRepoScrollTarget(repoScrollKey, element)}
+          >
+            <SessionGroupSection
+              group={group}
+              repoSessions={sessionsByRepo.get(group.repoRoot ?? null) ?? []}
+              nowMs={nowMs}
+              launchPendingSessions={launchPendingSessions}
+              launchConfig={launchConfig}
+              launchAgentAvailable={capabilities.launchAgent}
+              requestWorktrees={requestWorktrees}
+              onLaunchAgentInSession={onLaunchAgentInSession}
+              onTouchRepoPin={onTouchRepoPin}
+              onTouchPanePin={onTouchPanePin}
+              onRegisterPaneScrollTarget={onRegisterPaneScrollTarget}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+};
 
 type SessionListMainContentProps = Pick<
   SessionListViewProps,
