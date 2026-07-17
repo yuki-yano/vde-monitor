@@ -1,3 +1,4 @@
+import { getConnInfo } from "@hono/node-server/conninfo";
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 import { Hono } from "hono";
 
@@ -126,6 +127,7 @@ export const createApiRouter = ({
   const screenLimiter = createRateLimiter(1000, 10);
   const rawLimiter = createRateLimiter(1000, 200);
   const usageRefreshLimiter = createRateLimiter(5_000, 3);
+  const authFailureLimiter = createRateLimiter(60_000, 20);
   const screenCache = createScreenCache();
   const pricingConfig = config.usage.pricing;
   const dashboardService =
@@ -180,6 +182,17 @@ export const createApiRouter = ({
       return c.body(null, 204);
     }
     if (!requireAuth(config, c)) {
+      const clientKey = (() => {
+        try {
+          return getConnInfo(c).remote.address ?? "unknown";
+        } catch {
+          // Test harnesses and non-socket transports expose no connection info.
+          return "unknown";
+        }
+      })();
+      if (!authFailureLimiter(clientKey)) {
+        return c.json({ error: buildError("RATE_LIMIT", "too many authentication failures") }, 429);
+      }
       return c.json({ error: buildError("INVALID_PAYLOAD", "unauthorized") }, 401);
     }
     await next();

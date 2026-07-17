@@ -13,6 +13,39 @@ describe("createApiRouter", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rejects a wrong token with the same length as the real one", async () => {
+    const { api } = createTestContext();
+    const wrongToken = authHeaders.Authorization.replace("Bearer ", "")
+      .split("")
+      .reverse()
+      .join("");
+    const res = await api.request("/sessions", {
+      headers: { Authorization: `Bearer ${wrongToken}` },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("throttles repeated auth failures with 429", async () => {
+    const { api } = createTestContext();
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const res = await api.request("/sessions", {
+        headers: { Authorization: "Bearer wrong-token" },
+      });
+      expect(res.status).toBe(401);
+    }
+
+    const throttled = await api.request("/sessions", {
+      headers: { Authorization: "Bearer wrong-token" },
+    });
+    expect(throttled.status).toBe(429);
+    const data = await throttled.json();
+    expect(data.error.code).toBe("RATE_LIMIT");
+
+    // A valid token is never locked out by failed attempts from others.
+    const valid = await api.request("/sessions", { headers: authHeaders });
+    expect(valid.status).toBe(200);
+  });
+
   it("rejects requests with disallowed origin", async () => {
     const { api } = createTestContext({ allowedOrigins: ["https://allowed.example"] });
     const req = new Request("http://localhost/sessions", {

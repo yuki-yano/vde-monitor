@@ -1,7 +1,20 @@
+import { timingSafeEqual } from "node:crypto";
+
 import type { AgentMonitorConfig } from "@vde-monitor/multiplexer";
 
 export { buildError } from "../errors";
 export { nowIso } from "../utils/time";
+
+// Compare in constant time so the token cannot be probed byte by byte
+// through response timing. Only the token length is observable.
+const tokensMatch = (provided: string, expected: string) => {
+  const providedBuffer = Buffer.from(provided, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  return (
+    providedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(providedBuffer, expectedBuffer)
+  );
+};
 
 export const requireAuth = (
   config: AgentMonitorConfig,
@@ -12,7 +25,7 @@ export const requireAuth = (
     return false;
   }
   const token = auth.replace("Bearer ", "").trim();
-  return token === config.token;
+  return tokensMatch(token, config.token);
 };
 
 export const isOriginAllowed = (
