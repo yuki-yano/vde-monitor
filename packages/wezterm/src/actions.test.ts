@@ -76,7 +76,7 @@ describe("createWeztermActions", () => {
     );
 
     const promise = actions.sendText("1", "echo hi", true);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
     expect(run).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(100);
@@ -125,6 +125,27 @@ describe("createWeztermActions", () => {
 
     const first = await actions.sendText("1", "rm ", false);
     const second = await actions.sendText("1", "-rf /tmp", true);
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(false);
+    expect(second.error?.code).toBe("DANGEROUS_COMMAND");
+  });
+
+  it("blocks a split dangerous command sent concurrently to the same pane", async () => {
+    const adapter = {
+      run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
+    };
+    const actions = createWeztermActions(adapter, {
+      ...configDefaults,
+      token: "token",
+    });
+
+    // Without per-pane serialization both calls read an empty pending buffer
+    // and the combined danger check never sees "rm -rf /tmp".
+    const [first, second] = await Promise.all([
+      actions.sendText("1", "rm ", false),
+      actions.sendText("1", "-rf /tmp", false),
+    ]);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(false);

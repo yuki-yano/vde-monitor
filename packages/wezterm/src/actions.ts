@@ -44,6 +44,7 @@ const sendTextToPane = async (
 
 export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonitorConfig) => {
   const pendingCommands = new Map<string, string>();
+  const paneQueues = new Map<string, Promise<void>>();
   const maxPendingEntries = 500;
   const dangerPatterns = compileDangerPatterns(config.dangerCommandPatterns);
   const dangerKeys = new Set(config.dangerKeys);
@@ -89,6 +90,25 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     return okResult();
   };
 
+  // Serialize input per pane so concurrent sends cannot read a stale pending
+  // buffer and slip a split dangerous command past the combined check.
+  const runSerialized = async <T>(paneId: string, operation: () => Promise<T>): Promise<T> => {
+    const previous = paneQueues.get(paneId) ?? Promise.resolve();
+    const result = previous.catch(() => undefined).then(operation);
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    paneQueues.set(paneId, tail);
+    try {
+      return await result;
+    } finally {
+      if (paneQueues.get(paneId) === tail) {
+        paneQueues.delete(paneId);
+      }
+    }
+  };
+
   const setPending = (paneId: string, value: string) => {
     if (pendingCommands.size >= maxPendingEntries && !pendingCommands.has(paneId)) {
       const oldest = pendingCommands.keys().next().value;
@@ -122,41 +142,43 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
       return lengthError;
     }
 
-    const normalized = normalizeText(text);
-    const pending = pendingCommands.get(paneId) ?? "";
-    const combined = `${pending}${normalized}`;
+    return await runSerialized(paneId, async () => {
+      const normalized = normalizeText(text);
+      const pending = pendingCommands.get(paneId) ?? "";
+      const combined = `${pending}${normalized}`;
 
-    if (combined.length > maxTextLength) {
-      pendingCommands.delete(paneId);
-      return invalidPayload("text too long");
-    }
-    if (isDangerousCommand(combined, dangerPatterns)) {
-      pendingCommands.delete(paneId);
-      return dangerousCommand();
-    }
-
-    const sendResult = await sendTextToPane(adapter, paneId, normalized);
-    if (!sendResult.ok) {
-      return sendResult;
-    }
-
-    if (enter) {
-      // Track the delivered text before sending Enter so a failed Enter still
-      // leaves the danger-command check aware of what reached the pane.
-      setPending(paneId, combined);
-      await waitForEnterDelay();
-      const sendEnterResult = await sendTextToPane(adapter, paneId, "\r", true);
-      if (!sendEnterResult.ok) {
-        return sendEnterResult;
+      if (combined.length > maxTextLength) {
+        pendingCommands.delete(paneId);
+        return invalidPayload("text too long");
       }
-    }
+      if (isDangerousCommand(combined, dangerPatterns)) {
+        pendingCommands.delete(paneId);
+        return dangerousCommand();
+      }
 
-    if (enter || normalized.includes("\n")) {
-      pendingCommands.delete(paneId);
-    } else {
-      setPending(paneId, combined);
-    }
-    return okResult();
+      const sendResult = await sendTextToPane(adapter, paneId, normalized);
+      if (!sendResult.ok) {
+        return sendResult;
+      }
+
+      if (enter) {
+        // Track the delivered text before sending Enter so a failed Enter still
+        // leaves the danger-command check aware of what reached the pane.
+        setPending(paneId, combined);
+        await waitForEnterDelay();
+        const sendEnterResult = await sendTextToPane(adapter, paneId, "\r", true);
+        if (!sendEnterResult.ok) {
+          return sendEnterResult;
+        }
+      }
+
+      if (enter || normalized.includes("\n")) {
+        pendingCommands.delete(paneId);
+      } else {
+        setPending(paneId, combined);
+      }
+      return okResult();
+    });
   };
 
   const sendKeys = async (paneId: string, keys: AllowedKey[]): Promise<ActionResult> => {
@@ -170,13 +192,15 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
       return dangerousKey();
     }
 
-    for (const key of keys) {
-      const sendResult = await sendKey(paneId, key);
-      if (!sendResult.ok) {
-        return sendResult;
+    return await runSerialized(paneId, async () => {
+      for (const key of keys) {
+        const sendResult = await sendKey(paneId, key);
+        if (!sendResult.ok) {
+          return sendResult;
+        }
       }
-    }
-    return okResult();
+      return okResult();
+    });
   };
 
   const sendRaw = async (
@@ -195,24 +219,26 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
       return dangerousKey();
     }
 
-    for (const item of items) {
-      if (item.kind === "text") {
-        const lengthError = ensureTextLength(item.value);
-        if (lengthError) {
-          return lengthError;
+    return await runSerialized(paneId, async () => {
+      for (const item of items) {
+        if (item.kind === "text") {
+          const lengthError = ensureTextLength(item.value);
+          if (lengthError) {
+            return lengthError;
+          }
+          const sendResult = await sendTextToPane(adapter, paneId, normalizeText(item.value));
+          if (!sendResult.ok) {
+            return sendResult;
+          }
+          continue;
         }
-        const sendResult = await sendTextToPane(adapter, paneId, normalizeText(item.value));
+        const sendResult = await sendKey(paneId, item.value);
         if (!sendResult.ok) {
           return sendResult;
         }
-        continue;
       }
-      const sendResult = await sendKey(paneId, item.value);
-      if (!sendResult.ok) {
-        return sendResult;
-      }
-    }
-    return okResult();
+      return okResult();
+    });
   };
 
   const focusPane = async (paneId: string): Promise<ActionResult> => {
