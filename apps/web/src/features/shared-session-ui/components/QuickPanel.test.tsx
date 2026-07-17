@@ -1,11 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import * as pwaDisplayMode from "@/lib/pwa-display-mode";
 import { buildSessionGroups } from "@/lib/session-group";
+import { createSessionDetail } from "@/pages/SessionDetail/test-helpers";
 
-import { createSessionDetail } from "../test-helpers";
-import { QuickPanel } from "@/features/shared-session-ui/components/QuickPanel";
+import { QuickPanel } from "./QuickPanel";
 
 describe("QuickPanel", () => {
   type QuickPanelState = Parameters<typeof QuickPanel>[0]["state"];
@@ -357,5 +357,61 @@ describe("QuickPanel", () => {
 
     expect(screen.getAllByText("1 / 3 panes").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1 / 2 panes").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the card mounted until the exit animation ends", () => {
+    const actions = buildActions();
+    const { container, rerender } = render(
+      <QuickPanel state={buildState({ open: true })} actions={actions} />,
+    );
+    expect(container.querySelector("[data-quick-panel-card]")).not.toBeNull();
+
+    rerender(<QuickPanel state={buildState({ open: false })} actions={actions} />);
+    const card = container.querySelector("[data-quick-panel-card]");
+    expect(card).not.toBeNull();
+    expect(card?.className).toContain("animate-panel-exit");
+
+    fireEvent.animationEnd(card as Element);
+    expect(container.querySelector("[data-quick-panel-card]")).toBeNull();
+  });
+
+  it("force-unmounts the card when animationend never fires", () => {
+    vi.useFakeTimers();
+    try {
+      const actions = buildActions();
+      const { container, rerender } = render(
+        <QuickPanel state={buildState({ open: true })} actions={actions} />,
+      );
+      rerender(<QuickPanel state={buildState({ open: false })} actions={actions} />);
+      expect(container.querySelector("[data-quick-panel-card]")).not.toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(container.querySelector("[data-quick-panel-card]")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the card open when reopened during the exit animation", () => {
+    vi.useFakeTimers();
+    try {
+      const actions = buildActions();
+      const { container, rerender } = render(
+        <QuickPanel state={buildState({ open: true })} actions={actions} />,
+      );
+      rerender(<QuickPanel state={buildState({ open: false })} actions={actions} />);
+      rerender(<QuickPanel state={buildState({ open: true })} actions={actions} />);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      const card = container.querySelector("[data-quick-panel-card]");
+      expect(card).not.toBeNull();
+      expect(card?.className).toContain("animate-panel-enter");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
