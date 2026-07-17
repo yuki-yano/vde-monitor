@@ -93,6 +93,38 @@ describe("useRawInputHandlers", () => {
     expect(setScreenError).not.toHaveBeenCalled();
   });
 
+  it("drops the pending flush when unmounted before the batch fires", async () => {
+    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
+    const setScreenError = vi.fn();
+    const textarea = document.createElement("textarea");
+
+    const { result, unmount } = renderHook(() =>
+      useRawInputHandlers({
+        paneId: "pane-1",
+        rawMode: true,
+        allowDangerKeys: false,
+        ctrlHeld: false,
+        shiftHeld: false,
+        sendRaw,
+        setScreenError,
+      }),
+    );
+
+    textarea.value = "x";
+    act(() => {
+      result.current.handleRawInput(createFormEvent(textarea, {}));
+    });
+
+    unmount();
+
+    await act(async () => {
+      vi.runAllTimers();
+      await Promise.resolve();
+    });
+
+    expect(sendRaw).not.toHaveBeenCalled();
+  });
+
   it("sends API error message when sendRaw fails logically", async () => {
     const sendRaw = vi.fn().mockResolvedValue({
       ok: false,

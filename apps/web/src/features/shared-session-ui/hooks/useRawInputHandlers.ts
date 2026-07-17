@@ -125,6 +125,17 @@ export const useRawInputHandlers = ({
     }
   }, [rawMode]);
 
+  useEffect(() => {
+    // Drop any pending flush on unmount so queued input is not sent to the
+    // pane after the user has navigated away.
+    return () => {
+      if (rawFlushTimerRef.current != null) {
+        window.clearTimeout(rawFlushTimerRef.current);
+        rawFlushTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const resetRawInputValue = useCallback((target: HTMLTextAreaElement | null) => {
     if (!target) return;
     target.value = "";
