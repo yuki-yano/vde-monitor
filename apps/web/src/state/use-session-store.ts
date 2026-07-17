@@ -67,9 +67,6 @@ const sessionsAtom = atom<SessionSummary[]>([]);
 const setSessionsAtom = atom(null, (get, set, nextSessions: SessionSummary[]) => {
   set(sessionsAtom, reconcileSessions(get(sessionsAtom), toUniqueSessions(nextSessions)));
 });
-const applySessionsSnapshotAtom = atom(null, (get, set, nextSessions: SessionSummary[]) => {
-  set(sessionsAtom, reconcileSessions(get(sessionsAtom), toUniqueSessions(nextSessions)));
-});
 const updateSessionAtom = atom(null, (get, set, session: SessionSummary) => {
   const prev = get(sessionsAtom);
   const existing = prev.find((item) => item.paneId === session.paneId);
@@ -96,7 +93,6 @@ const getSessionDetailByPaneAtom = atom((get) => (paneId: string) => {
 export const useSessionStore = () => {
   const sessions = useAtomValue(sessionsAtom);
   const setSessionsValue = useSetAtom(setSessionsAtom);
-  const applySessionsSnapshotValue = useSetAtom(applySessionsSnapshotAtom);
   const updateSessionValue = useSetAtom(updateSessionAtom);
   const removeSessionValue = useSetAtom(removeSessionAtom);
   const getSessionDetailByPane = useAtomValue(getSessionDetailByPaneAtom);
@@ -106,13 +102,6 @@ export const useSessionStore = () => {
       setSessionsValue(nextSessions);
     },
     [setSessionsValue],
-  );
-
-  const applySessionsSnapshot = useCallback(
-    (nextSessions: SessionSummary[]) => {
-      applySessionsSnapshotValue(nextSessions);
-    },
-    [applySessionsSnapshotValue],
   );
 
   const updateSession = useCallback(
@@ -139,7 +128,6 @@ export const useSessionStore = () => {
   return {
     sessions,
     setSessions,
-    applySessionsSnapshot,
     updateSession,
     removeSession,
     getSessionDetail,

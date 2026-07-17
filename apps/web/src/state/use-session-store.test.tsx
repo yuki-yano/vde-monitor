@@ -52,7 +52,7 @@ describe("useSessionStore", () => {
     const third = createSession("pane-2");
 
     act(() => {
-      result.current.applySessionsSnapshot([first, second, third]);
+      result.current.setSessions([first, second, third]);
     });
 
     expect(result.current.sessions).toHaveLength(2);
@@ -63,12 +63,12 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
     const previous = result.current.sessions;
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
 
     expect(result.current.sessions).toBe(previous);
@@ -78,12 +78,12 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
     const [previousFirst] = result.current.sessions;
 
     act(() => {
-      result.current.applySessionsSnapshot([
+      result.current.setSessions([
         createSession("pane-1"),
         createSession("pane-2", { state: "WAITING_INPUT" }),
       ]);
@@ -112,7 +112,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1")]);
+      result.current.setSessions([createSession("pane-1")]);
     });
     const previous = result.current.sessions;
 
@@ -127,7 +127,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
     const [, previousSecond] = result.current.sessions;
 
@@ -143,7 +143,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1")]);
+      result.current.setSessions([createSession("pane-1")]);
     });
 
     act(() => {
@@ -164,7 +164,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
 
     const first = result.current.getSessionDetail("pane-1");
@@ -178,7 +178,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1")]);
+      result.current.setSessions([createSession("pane-1")]);
     });
     const before = result.current.getSessionDetail("pane-1");
 
@@ -195,7 +195,7 @@ describe("useSessionStore", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.applySessionsSnapshot([createSession("pane-1"), createSession("pane-2")]);
+      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
     const paneOneBefore = result.current.getSessionDetail("pane-1");
 
@@ -203,7 +203,7 @@ describe("useSessionStore", () => {
     // pane-2's content actually changed; reconcileSessions should keep
     // pane-1's SessionSummary reference, and the detail cache should follow.
     act(() => {
-      result.current.applySessionsSnapshot([
+      result.current.setSessions([
         createSession("pane-1"),
         createSession("pane-2", { state: "WAITING_INPUT" }),
       ]);
@@ -218,7 +218,7 @@ describe("useSessionStore", () => {
     const session = createSession("pane-1");
 
     act(() => {
-      result.current.applySessionsSnapshot([session]);
+      result.current.setSessions([session]);
     });
 
     act(() => {
