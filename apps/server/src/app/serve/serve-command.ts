@@ -90,7 +90,6 @@ type RunCmuxCli = (
 
 type ResolveCmuxConnectionOptions = {
   socketPath: string | null;
-  password: string | null;
   env?: NodeJS.ProcessEnv;
 };
 
@@ -107,9 +106,10 @@ const runCmuxCli: RunCmuxCli = async (cliPath, args, env) => {
   };
 };
 
+// The socket password is accepted only through CMUX_SOCKET_PASSWORD; storing
+// it in the config file is intentionally unsupported (plan NFR-04).
 export const resolveCmuxConnectionOptions = ({
   socketPath,
-  password,
   env = process.env,
 }: ResolveCmuxConnectionOptions) => {
   const environmentPassword = env.CMUX_SOCKET_PASSWORD;
@@ -118,7 +118,7 @@ export const resolveCmuxConnectionOptions = ({
   }
   return {
     socketPath: socketPath?.trim() || env.CMUX_SOCKET_PATH?.trim() || null,
-    password: environmentPassword ?? password,
+    password: environmentPassword ?? null,
   };
 };
 
@@ -270,7 +270,6 @@ export const ensureBackendAvailable = async (
   if (config.multiplexer.backend === "cmux") {
     const connection = resolveCmuxConnectionOptions({
       socketPath: config.multiplexer.cmux.socketPath,
-      password: config.multiplexer.cmux.password,
     });
     const capabilities = await ensureCmuxAvailable({
       cliPath: config.multiplexer.cmux.cliPath,

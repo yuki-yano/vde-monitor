@@ -876,7 +876,6 @@ export const configOverrideSchema = strictObject({
     cmux: strictObject({
       cliPath: z.string().optional(),
       socketPath: z.string().nullable().optional(),
-      password: z.string().nullable().optional(),
     }).optional(),
   }).optional(),
   launch: strictObject({

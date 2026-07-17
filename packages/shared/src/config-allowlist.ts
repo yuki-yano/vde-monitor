@@ -86,7 +86,6 @@ export const userConfigAllowlist = {
     cmux: {
       cliPath: true,
       socketPath: true,
-      password: true,
     },
   },
   launch: {

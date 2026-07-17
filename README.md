@@ -269,7 +269,6 @@ Configurable but optional settings (if omitted, runtime defaults are used):
 | `multiplexer.wezterm.target`             | `auto`                                              |
 | `multiplexer.cmux.cliPath`               | `cmux`                                              |
 | `multiplexer.cmux.socketPath`            | `null` (auto-detect)                                |
-| `multiplexer.cmux.password`              | `null`                                              |
 | `notifications.pushEnabled`              | `true`                                              |
 | `notifications.enabledEventTypes`        | `["pane.waiting_permission","pane.task_completed"]` |
 | `usage.session.providers.codex.enabled`  | `true`                                              |
@@ -371,9 +370,9 @@ cmux socket access must be configured explicitly for the way vde-monitor is laun
   authorized descendant process.
 - For a process launched outside cmux, Automation mode allows local clients running as the same
   macOS user without the descendant check. Use Password mode when authentication is required.
-- For Password mode, prefer the `CMUX_SOCKET_PASSWORD` environment variable over storing the secret
-  in `multiplexer.cmux.password`, and configure the matching password in cmux. Do not commit a
-  password to a config file.
+- For Password mode, set the `CMUX_SOCKET_PASSWORD` environment variable and configure the matching
+  password in cmux. The socket password cannot be stored in the config file; a leftover
+  `multiplexer.cmux.password` key is ignored and reported by `config check`.
 - `allowAll` is not recommended and is intentionally rejected because it exposes the control socket
   without authentication.
 

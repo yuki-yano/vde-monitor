@@ -347,7 +347,7 @@ describe("ensureConfig", () => {
     expect(mocks.writeFileSync).not.toHaveBeenCalled();
   });
 
-  it("preserves cmux settings through allowlist, schema parsing, and default merge", () => {
+  it("preserves cmux settings but drops a config-file password", () => {
     setConfigFile({
       ...expectedGeneratedTemplate,
       multiplexer: {
@@ -369,7 +369,8 @@ describe("ensureConfig", () => {
       cmux: {
         cliPath: "/Applications/cmux.app/Contents/Resources/bin/cmux",
         socketPath: "/Users/test/.cmux/cmux.sock",
-        password: "configured-secret",
+        // The socket password is only accepted via CMUX_SOCKET_PASSWORD.
+        password: null,
       },
     });
     expect(result.token).toBe("existing-token");

@@ -86,7 +86,7 @@ describe("ensureCmuxAvailable", () => {
 
     const connection = resolveCmuxConnectionOptions({
       socketPath: "/configured/cmux.sock",
-      password: "secret",
+      env: { CMUX_SOCKET_PASSWORD: "secret" },
     });
     await ensureCmuxAvailable({
       cliPath: "cmux",
@@ -106,7 +106,7 @@ describe("ensureCmuxAvailable", () => {
     expect(capabilitiesCall?.[2]).not.toHaveProperty("CMUX_SOCKET");
   });
 
-  it("prefers CMUX_SOCKET_PASSWORD over the configured password without trimming it", async () => {
+  it("uses CMUX_SOCKET_PASSWORD from the environment without trimming it", async () => {
     process.env.CMUX_SOCKET_PASSWORD = " environment secret ";
     const run = vi
       .fn()
@@ -119,7 +119,6 @@ describe("ensureCmuxAvailable", () => {
 
     const connection = resolveCmuxConnectionOptions({
       socketPath: null,
-      password: "configured-secret",
     });
     await ensureCmuxAvailable({
       cliPath: "cmux",
@@ -139,7 +138,6 @@ describe("ensureCmuxAvailable", () => {
     expect(
       resolveCmuxConnectionOptions({
         socketPath: null,
-        password: null,
         env: { CMUX_SOCKET_PATH: "/environment/cmux.sock" },
       }),
     ).toEqual({
@@ -152,7 +150,6 @@ describe("ensureCmuxAvailable", () => {
     expect(() =>
       resolveCmuxConnectionOptions({
         socketPath: null,
-        password: "configured-secret",
         env: { CMUX_SOCKET_PASSWORD: "" },
       }),
     ).toThrow("CMUX_SOCKET_PASSWORD must not be empty");
