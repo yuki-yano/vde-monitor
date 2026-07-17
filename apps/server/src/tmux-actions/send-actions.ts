@@ -200,6 +200,14 @@ export const createSendActions = ({
     }
 
     if (enter) {
+      // Track the delivered text before sending Enter so a failed Enter still
+      // leaves the danger-command check aware of what reached the pane.
+      setMapEntryWithLimit(
+        pendingCommands,
+        paneId,
+        prepared.combined,
+        PENDING_COMMANDS_MAX_ENTRIES,
+      );
       const enterResult = await sendEnterKeyUnlocked(paneId);
       if (!enterResult.ok) {
         return enterResult;

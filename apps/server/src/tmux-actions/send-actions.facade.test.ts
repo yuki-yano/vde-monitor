@@ -35,6 +35,31 @@ describe("createTmuxActions.sendText", () => {
     expect(adapter.run).toHaveBeenNthCalledWith(3, ["send-keys", "-t", "%1", "C-m"]);
   });
 
+  it("keeps pending text for danger checks when the enter send fails", async () => {
+    const adapter = {
+      run: vi.fn(async (args: string[]) => {
+        if (args[0] === "send-keys" && args.includes("C-m")) {
+          return { stdout: "", stderr: "enter failed", exitCode: 1 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const config = {
+      ...configDefaults,
+      token: "test-token",
+    };
+    const tmuxActions = createTmuxActions(adapter, config);
+
+    const first = await tmuxActions.sendText("%1", "rm ", true);
+    expect(first.ok).toBe(false);
+
+    // The text reached the pane even though Enter failed, so the next
+    // chunk must still be evaluated against the delivered prefix.
+    const second = await tmuxActions.sendText("%1", "-rf /tmp", false);
+    expect(second.ok).toBe(false);
+    expect(second.error?.code).toBe("DANGEROUS_COMMAND");
+  });
+
   it("sends multiline text as a single bracketed paste", async () => {
     const adapter = {
       run: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),

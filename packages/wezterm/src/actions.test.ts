@@ -131,6 +131,38 @@ describe("createWeztermActions", () => {
     expect(second.error?.code).toBe("DANGEROUS_COMMAND");
   });
 
+  it("keeps pending text for danger checks when the enter send fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const run = vi.fn(async (args: string[]) => {
+        if (args.includes("\r")) {
+          return { stdout: "", stderr: "enter failed", exitCode: 1 };
+        }
+        return { stdout: "", stderr: "", exitCode: 0 };
+      });
+      const actions = createWeztermActions(
+        { run },
+        {
+          ...configDefaults,
+          token: "token",
+        },
+      );
+
+      const firstPromise = actions.sendText("1", "rm ", true);
+      await vi.advanceTimersByTimeAsync(100);
+      const first = await firstPromise;
+      expect(first.ok).toBe(false);
+
+      // The text reached the pane even though Enter failed, so the next
+      // chunk must still be evaluated against the delivered prefix.
+      const second = await actions.sendText("1", "-rf /tmp", false);
+      expect(second.ok).toBe(false);
+      expect(second.error?.code).toBe("DANGEROUS_COMMAND");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns WEZTERM_UNAVAILABLE when wezterm is not running", async () => {
     const adapter = {
       run: vi.fn(async () => ({

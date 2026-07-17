@@ -141,6 +141,9 @@ export const createWeztermActions = (adapter: WeztermAdapter, config: AgentMonit
     }
 
     if (enter) {
+      // Track the delivered text before sending Enter so a failed Enter still
+      // leaves the danger-command check aware of what reached the pane.
+      setPending(paneId, combined);
       await waitForEnterDelay();
       const sendEnterResult = await sendTextToPane(adapter, paneId, "\r", true);
       if (!sendEnterResult.ok) {
