@@ -398,9 +398,13 @@ const verifyLaunch = async ({
   };
 };
 
+const HERDR_COMMAND_TIMEOUT_MS = 10_000;
+const RESOLVE_EXECUTABLE_TIMEOUT_MS = 5_000;
+
 const defaultRunCommand: HerdrCommandRunner = async (args) => {
   const result = await execFileAsync("herdr", args, {
     encoding: "utf8",
+    timeout: HERDR_COMMAND_TIMEOUT_MS,
     maxBuffer: 1024 * 1024,
   });
   return {
@@ -439,6 +443,7 @@ const defaultResolveExecutable: HerdrExecutableResolver = async (agent) => {
   try {
     const result = await execFileAsync("which", [agent], {
       encoding: "utf8",
+      timeout: RESOLVE_EXECUTABLE_TIMEOUT_MS,
       maxBuffer: 1024 * 1024,
     });
     executable = result.stdout.trim() || agent;
