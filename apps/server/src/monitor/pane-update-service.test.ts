@@ -230,6 +230,22 @@ describe("createPaneUpdateService", () => {
     expect(savePersistedState).toHaveBeenCalledOnce();
   });
 
+  it("persists committed state before waiting for pipe detach", async () => {
+    const { service, savePersistedState, detachOwnedPipe, getOwnedPaneIds } = createService();
+    getOwnedPaneIds.mockReturnValue(["%stale"]);
+    // A detach that never settles emulates a hung pipe teardown at shutdown.
+    detachOwnedPipe.mockImplementation(() => new Promise<never>(() => undefined));
+
+    const updatePromise = service.updateFromPanes();
+    await vi.waitFor(() => {
+      expect(savePersistedState).toHaveBeenCalled();
+    });
+
+    expect(detachOwnedPipe).toHaveBeenCalledWith("%stale", { forceCheck: true });
+    // updatePromise stays pending by design; the save must not depend on it.
+    void updatePromise;
+  });
+
   it("records transition when repoRoot changes with same state/reason", async () => {
     processPaneMock.mockResolvedValueOnce(createDetail({ repoRoot: "/repo/a" }));
     processPaneMock.mockResolvedValueOnce(createDetail({ repoRoot: "/repo/b" }));

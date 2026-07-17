@@ -524,18 +524,28 @@ export const createSessionMonitor = (
     monitorLoop.stop();
     logActivity.stop();
     observationCoordinator.dispose();
+    // Refuse new pane updates before the final flush; the in-flight update is
+    // awaited during teardown below.
+    const paneUpdaterStopped = paneUpdater.stop();
     // Flush pending state before any await: graceful shutdown caps stop() at
     // five seconds, so a slow teardown below must not stand between us and the
     // final write. Writers that still run during teardown persist immediately
     // because the scheduler is disposed.
-    stateSaveScheduler.dispose();
+    if (!stateSaveScheduler.dispose()) {
+      // One bounded retry; the failure itself was already logged by onError.
+      if (!stateSaveScheduler.flush()) {
+        console.warn(
+          "[vde-monitor] final state flush failed after retry; recent session state may be lost",
+        );
+      }
+    }
     stopPromise = (async () => {
       await Promise.allSettled([runtimeMarker?.removeIfOwned() ?? Promise.resolve()]);
       await Promise.allSettled([
         jsonlTailer.stop(),
         codexJsonlTailer.stop(),
         herdrEventSubscriptions.stop(),
-        paneUpdater.stop(),
+        paneUpdaterStopped,
       ]);
       await detachOwnedPipesForShutdown({
         paneIds: resolveShutdownPaneIds(

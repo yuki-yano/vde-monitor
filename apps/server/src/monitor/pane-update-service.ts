@@ -442,6 +442,9 @@ export const createPaneUpdateService = ({
       stateTimeline.closePane({ paneId });
       repositoryActivity.closePane(paneId);
     });
+    // Persist committed state before the pipe cleanup awaits: during shutdown
+    // a slow detach must not stand between the commits above and the save.
+    savePersistedState();
     const pipeCleanupPaneIds = new Set(removedPaneIds);
     paneLogManager.getOwnedPaneIds().forEach((paneId) => {
       if (!activePaneIds.has(paneId)) {
@@ -453,7 +456,6 @@ export const createPaneUpdateService = ({
         paneLogManager.detachOwnedPipe(paneId, { forceCheck: true }),
       ),
     );
-    savePersistedState();
     pendingTransitionEvents.forEach((transitionEvent) => {
       void Promise.resolve(onStateTransition?.(transitionEvent)).catch((error) => {
         const message = toErrorMessage(error, "failed to dispatch notification event");
