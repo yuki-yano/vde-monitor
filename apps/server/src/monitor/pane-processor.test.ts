@@ -15,6 +15,8 @@ const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntime
   lastResolvedAgent: "unknown",
   agentPresence: "indeterminate",
   agentPresent: false,
+  candidateAgent: null,
+  candidateAgentPresentObservations: 0,
   consecutiveAbsentObservations: 0,
   lastResolvedState: null,
   lastResolvedStateReason: null,
@@ -156,6 +158,47 @@ describe("processPane", () => {
         }),
       }),
     );
+  });
+
+  it("promotes a newly observed Agent only after the second successful poll", async () => {
+    const paneState = createPaneState();
+    const preparePaneLogging = vi.fn(async () => ({
+      pipeAttached: true,
+      pipeConflict: false,
+      logPath: "/tmp/log",
+      ownerTag: `v2:${"a".repeat(64)}`,
+    }));
+    const resolvePaneAgent = vi.fn(async () => ({
+      agent: "codex" as const,
+      ignore: false,
+      presence: "present" as const,
+    }));
+    const args = {
+      pane: basePane,
+      config: baseConfig,
+      paneStates: { get: () => paneState },
+      paneLogManager: createPaneLogManager({ preparePaneLogging }),
+      capturePaneFingerprint: vi.fn(async () => null),
+      getCustomTitle: vi.fn(() => null),
+      resolveRepoRoot: vi.fn(async () => null),
+    };
+    const deps = {
+      resolvePaneAgent,
+      updatePaneOutputState: vi.fn(async () => ({
+        outputAt: "2024-01-01T00:00:00.000Z",
+        hookState: null,
+        inputTouchedAt: null,
+        codexQuestionPromptActive: false,
+      })),
+    };
+
+    const first = await processPane(args, deps);
+    const second = await processPane(args, deps);
+
+    expect(first).toMatchObject({ agent: "unknown", state: "SHELL" });
+    expect(second).toMatchObject({ agent: "codex" });
+    expect(preparePaneLogging).toHaveBeenCalledOnce();
+    expect(preparePaneLogging).toHaveBeenCalledWith(expect.objectContaining({ allowAttach: true }));
   });
 
   it("does not resolve pipe tag fallback for non-agent panes", async () => {

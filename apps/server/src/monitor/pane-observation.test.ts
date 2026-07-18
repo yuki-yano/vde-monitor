@@ -7,6 +7,19 @@ describe("applyAgentPresenceObservation", () => {
   it("confirms absence only after two successful absent observations", () => {
     const paneState = createPaneStateStore().get("%1");
 
+    const firstPresent = applyAgentPresenceObservation({
+      observedAgent: "codex",
+      presence: "present",
+      paneState,
+    });
+    expect(firstPresent).toMatchObject({
+      agent: "unknown",
+      preserveResolvedState: true,
+      confirmedAgentAbsent: false,
+    });
+    expect(paneState.agentPresent).toBe(false);
+    expect(paneState.agentPresence).toBe("indeterminate");
+
     expect(
       applyAgentPresenceObservation({
         observedAgent: "codex",
@@ -52,6 +65,11 @@ describe("applyAgentPresenceObservation", () => {
       paneState,
     });
     applyAgentPresenceObservation({
+      observedAgent: "claude",
+      presence: "present",
+      paneState,
+    });
+    applyAgentPresenceObservation({
       observedAgent: "unknown",
       presence: "absent",
       paneState,
@@ -85,9 +103,71 @@ describe("applyAgentPresenceObservation", () => {
       presence: "present",
       paneState,
     });
+    applyAgentPresenceObservation({
+      observedAgent: "codex",
+      presence: "present",
+      paneState,
+    });
 
     expect(paneState.consecutiveAbsentObservations).toBe(0);
     expect(paneState.agentPresent).toBe(true);
     expect(paneState.lastResolvedAgent).toBe("codex");
+  });
+
+  it("does not promote a one-poll Agent candidate", () => {
+    const paneState = createPaneStateStore().get("%1");
+
+    applyAgentPresenceObservation({
+      observedAgent: "codex",
+      presence: "present",
+      paneState,
+    });
+    const absent = applyAgentPresenceObservation({
+      observedAgent: "unknown",
+      presence: "absent",
+      paneState,
+    });
+
+    expect(absent.agent).toBe("unknown");
+    expect(paneState.agentPresent).toBe(false);
+    expect(paneState.lastResolvedAgent).toBe("unknown");
+    expect(paneState.candidateAgent).toBeNull();
+  });
+
+  it("does not replace a confirmed Agent from one different observation", () => {
+    const paneState = createPaneStateStore().get("%1");
+    applyAgentPresenceObservation({ observedAgent: "claude", presence: "present", paneState });
+    applyAgentPresenceObservation({ observedAgent: "claude", presence: "present", paneState });
+
+    const transient = applyAgentPresenceObservation({
+      observedAgent: "codex",
+      presence: "present",
+      paneState,
+    });
+
+    expect(transient).toMatchObject({ agent: "claude", preserveResolvedState: true });
+    expect(paneState.agentPresent).toBe(true);
+    expect(paneState.lastResolvedAgent).toBe("claude");
+    expect(paneState.agentPresence).toBe("indeterminate");
+  });
+
+  it("requires successful present observations to be consecutive", () => {
+    const paneState = createPaneStateStore().get("%1");
+    applyAgentPresenceObservation({ observedAgent: "codex", presence: "present", paneState });
+    applyAgentPresenceObservation({
+      observedAgent: "unknown",
+      presence: "indeterminate",
+      paneState,
+    });
+
+    const nextPresent = applyAgentPresenceObservation({
+      observedAgent: "codex",
+      presence: "present",
+      paneState,
+    });
+
+    expect(nextPresent.agent).toBe("unknown");
+    expect(paneState.agentPresent).toBe(false);
+    expect(paneState.candidateAgentPresentObservations).toBe(1);
   });
 });

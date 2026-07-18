@@ -101,6 +101,20 @@ describe("resolvePaneAgent", () => {
     expect(result).toEqual({ agent: "codex", ignore: false, presence: "present" });
   });
 
+  it("does not treat a Codex app-server pane as an interactive Agent", async () => {
+    const snapshot = successSnapshot(
+      [
+        "100 1 tty1 zsh",
+        "200 100 tty1 node /repo/apps/server/src/index.ts",
+        "300 200 tty1 /opt/bin/codex app-server --listen stdio://",
+      ].join("\n"),
+    );
+
+    await expect(
+      resolvePaneAgent(buildPane({ currentCommand: "node", panePid: 100 }), snapshot),
+    ).resolves.toEqual({ agent: "unknown", ignore: false, presence: "absent" });
+  });
+
   it("resolves agents from direct process, pid tree, and tty indexes", async () => {
     const snapshot = successSnapshot(
       [

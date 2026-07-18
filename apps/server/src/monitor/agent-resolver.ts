@@ -5,12 +5,7 @@ import {
   getProcessCommand,
 } from "./agent-resolver-process";
 import type { AgentType } from "./agent-resolver-utils";
-import {
-  buildAgent,
-  editorCommandHasAgentArg,
-  isEditorCommand,
-  mergeHints,
-} from "./agent-resolver-utils";
+import { buildAgent, editorCommandHasAgentArg, isEditorCommand } from "./agent-resolver-utils";
 
 export type { AgentType } from "./agent-resolver-utils";
 
@@ -80,7 +75,6 @@ export const resolvePaneAgent = async (
   pane: PaneAgentHints,
   snapshot: AgentProcessSnapshot | null,
 ): Promise<AgentResolution> => {
-  const baseHint = mergeHints(pane.currentCommand, pane.paneStartCommand);
   const isEditorPane =
     isEditorCommand(pane.currentCommand) || isEditorCommand(pane.paneStartCommand);
   const editorContext = resolveEditorPaneContext(pane, isEditorPane, snapshot);
@@ -88,7 +82,11 @@ export const resolvePaneAgent = async (
     return { agent: "unknown", ignore: true, presence: "absent" };
   }
 
-  const hintedAgent = buildAgent(baseHint);
+  const currentCommandAgent = buildAgent(pane.currentCommand ?? "");
+  const hintedAgent =
+    currentCommandAgent === "unknown"
+      ? buildAgent(pane.paneStartCommand ?? "")
+      : currentCommandAgent;
   const agent = await resolveFallbackAgent({
     agent: hintedAgent,
     processCommand: editorContext.processCommand,

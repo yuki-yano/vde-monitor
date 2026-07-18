@@ -37,6 +37,8 @@ export type PaneRuntimeState = {
   lastResolvedAgent: AgentType;
   agentPresence: "present" | "absent" | "indeterminate";
   agentPresent: boolean;
+  candidateAgent: Exclude<AgentType, "unknown"> | null;
+  candidateAgentPresentObservations: number;
   consecutiveAbsentObservations: number;
   lastResolvedState: SessionStateValue | null;
   lastResolvedStateReason: string | null;
@@ -75,6 +77,8 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastResolvedAgent: "unknown",
   agentPresence: "indeterminate",
   agentPresent: false,
+  candidateAgent: null,
+  candidateAgentPresentObservations: 0,
   consecutiveAbsentObservations: 0,
   lastResolvedState: null,
   lastResolvedStateReason: null,

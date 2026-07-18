@@ -22,6 +22,8 @@ describe("updatePaneOutputState", () => {
     lastResolvedAgent: "unknown",
     agentPresence: "indeterminate",
     agentPresent: false,
+    candidateAgent: null,
+    candidateAgentPresentObservations: 0,
     consecutiveAbsentObservations: 0,
     lastResolvedState: null,
     lastResolvedStateReason: null,

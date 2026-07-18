@@ -133,5 +133,12 @@ export const getAgentFromTty = (snapshot: AgentProcessSnapshot, tty: string | nu
     return "unknown";
   }
   const processes = snapshot.processesByTty.get(stripDevPrefix(tty)) ?? [];
-  return buildAgent(processes.map(({ command }) => command).join(" "));
+  const agents = processes.map(({ command }) => buildAgent(command));
+  if (agents.includes("codex")) {
+    return "codex";
+  }
+  if (agents.includes("claude")) {
+    return "claude";
+  }
+  return "unknown";
 };

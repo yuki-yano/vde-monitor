@@ -66,6 +66,12 @@ export type PaneObservation = {
 };
 
 const FINGERPRINT_CAPTURE_INTERVAL_MS = 5000;
+const REQUIRED_AGENT_PRESENT_OBSERVATIONS = 2;
+
+const clearAgentCandidate = (paneState: PaneRuntimeState) => {
+  paneState.candidateAgent = null;
+  paneState.candidateAgentPresentObservations = 0;
+};
 
 export const applyAgentPresenceObservation = ({
   observedAgent,
@@ -80,9 +86,49 @@ export const applyAgentPresenceObservation = ({
   paneState.agentPresence = presence;
 
   if (presence === "present") {
+    paneState.consecutiveAbsentObservations = 0;
+
+    if (observedAgent === "unknown") {
+      clearAgentCandidate(paneState);
+      paneState.agentPresence = "indeterminate";
+      return {
+        agent: paneState.agentPresent ? paneState.lastResolvedAgent : ("unknown" as const),
+        preserveResolvedState: true,
+        confirmedAgentAbsent: false,
+        agentBecameAbsent: false,
+      };
+    }
+
+    if (paneState.agentPresent && paneState.lastResolvedAgent === observedAgent) {
+      clearAgentCandidate(paneState);
+      return {
+        agent: observedAgent,
+        preserveResolvedState: false,
+        confirmedAgentAbsent: false,
+        agentBecameAbsent: false,
+      };
+    }
+
+    if (paneState.candidateAgent === observedAgent) {
+      paneState.candidateAgentPresentObservations += 1;
+    } else {
+      paneState.candidateAgent = observedAgent;
+      paneState.candidateAgentPresentObservations = 1;
+    }
+
+    if (paneState.candidateAgentPresentObservations < REQUIRED_AGENT_PRESENT_OBSERVATIONS) {
+      paneState.agentPresence = "indeterminate";
+      return {
+        agent: paneState.agentPresent ? paneState.lastResolvedAgent : ("unknown" as const),
+        preserveResolvedState: true,
+        confirmedAgentAbsent: false,
+        agentBecameAbsent: false,
+      };
+    }
+
+    clearAgentCandidate(paneState);
     paneState.lastResolvedAgent = observedAgent;
     paneState.agentPresent = true;
-    paneState.consecutiveAbsentObservations = 0;
     return {
       agent: observedAgent,
       preserveResolvedState: false,
@@ -92,6 +138,7 @@ export const applyAgentPresenceObservation = ({
   }
 
   if (presence === "indeterminate") {
+    clearAgentCandidate(paneState);
     return {
       agent: paneState.lastResolvedAgent,
       preserveResolvedState: true,
@@ -100,6 +147,7 @@ export const applyAgentPresenceObservation = ({
     };
   }
 
+  clearAgentCandidate(paneState);
   paneState.consecutiveAbsentObservations += 1;
   const confirmedAgentAbsent = paneState.consecutiveAbsentObservations >= 2;
   if (!confirmedAgentAbsent) {
@@ -262,6 +310,8 @@ export const observePane = async (
           paneState,
         });
   const agent = presenceResult.agent;
+  const effectivePresence =
+    resolution.presence == null ? observedPresence : paneState.agentPresence;
 
   if (presenceResult.confirmedAgentAbsent) {
     await paneLogManager.detachOwnedPipe(pane.paneId);
@@ -275,7 +325,7 @@ export const observePane = async (
   });
   const pipeStatus = await resolvePipeStatus({
     isAgent,
-    allowAttach: observedPresence === "present",
+    allowAttach: effectivePresence === "present",
     pane: paneWithPipeTag,
     paneLogManager,
   });
@@ -357,7 +407,7 @@ export const observePane = async (
     paneState,
     outputAt,
     finalState,
-    agentPresence: observedPresence,
+    agentPresence: effectivePresence,
     confirmedAgentAbsent: presenceResult.confirmedAgentAbsent,
     agentBecameAbsent: presenceResult.agentBecameAbsent,
   };

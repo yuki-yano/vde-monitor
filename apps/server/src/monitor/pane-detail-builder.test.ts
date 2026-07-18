@@ -40,6 +40,8 @@ const observation: PaneObservation = {
     lastResolvedAgent: "codex",
     agentPresence: "present",
     agentPresent: true,
+    candidateAgent: null,
+    candidateAgentPresentObservations: 0,
     consecutiveAbsentObservations: 0,
     lastResolvedState: "RUNNING",
     lastResolvedStateReason: "estimated",
