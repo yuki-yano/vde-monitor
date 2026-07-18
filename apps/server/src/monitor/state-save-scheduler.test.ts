@@ -109,4 +109,50 @@ describe("createStateSaveScheduler", () => {
     scheduler.schedule();
     expect(save).toHaveBeenCalledTimes(2);
   });
+
+  it("retries a late save once when it fails after dispose", () => {
+    const save = vi.fn(() => {
+      if (save.mock.calls.length === 1) {
+        throw new Error("transient failure");
+      }
+    });
+    const onError = vi.fn();
+    const onFinalFailure = vi.fn();
+    const scheduler = createStateSaveScheduler({
+      save,
+      intervalMs: 1000,
+      onError,
+      onFinalFailure,
+    });
+
+    expect(scheduler.dispose()).toBe(true);
+    scheduler.schedule();
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onFinalFailure).not.toHaveBeenCalled();
+    expect(scheduler.flush()).toBe(true);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a final failure when a late save and its retry both fail", () => {
+    const save = vi.fn(() => {
+      throw new Error("disk full");
+    });
+    const onError = vi.fn();
+    const onFinalFailure = vi.fn();
+    const scheduler = createStateSaveScheduler({
+      save,
+      intervalMs: 1000,
+      onError,
+      onFinalFailure,
+    });
+
+    expect(scheduler.dispose()).toBe(true);
+    scheduler.schedule();
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(onError).toHaveBeenCalledTimes(2);
+    expect(onFinalFailure).toHaveBeenCalledOnce();
+  });
 });

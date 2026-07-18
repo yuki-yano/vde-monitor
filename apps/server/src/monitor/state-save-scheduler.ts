@@ -4,6 +4,7 @@ type CreateStateSaveSchedulerOptions = {
   save: () => void;
   intervalMs?: number;
   onError?: (error: unknown) => void;
+  onFinalFailure?: () => void;
 };
 
 export type StateSaveScheduler = {
@@ -18,6 +19,7 @@ export const createStateSaveScheduler = ({
   save,
   intervalMs = DEFAULT_SAVE_COALESCE_MS,
   onError,
+  onFinalFailure,
 }: CreateStateSaveSchedulerOptions): StateSaveScheduler => {
   let dirty = false;
   let disposed = false;
@@ -51,11 +53,23 @@ export const createStateSaveScheduler = ({
     return runSave();
   };
 
+  const flushDisposedSave = () => {
+    if (flush()) {
+      return;
+    }
+    // A producer may commit after dispose() while shutdown teardown is still
+    // running. Retry that final write here because stop() cannot reliably wait
+    // for a producer that may later hang in unrelated pipe cleanup.
+    if (!flush()) {
+      onFinalFailure?.();
+    }
+  };
+
   const schedule = () => {
     dirty = true;
     if (disposed) {
       // Writers that fire during shutdown persist immediately; the timer is gone.
-      flush();
+      flushDisposedSave();
       return;
     }
     if (timer != null) {

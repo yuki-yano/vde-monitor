@@ -325,12 +325,18 @@ export const createSessionMonitor = (
       saveHeartbeat.markWritten();
     }
   };
+  const warnFinalStateFlushFailure = () => {
+    console.warn(
+      "[vde-monitor] final state flush failed after retry; recent session state may be lost",
+    );
+  };
   const stateSaveScheduler = createStateSaveScheduler({
     save: persistStateNow,
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`[vde-monitor] failed to persist state: ${message}`);
     },
+    onFinalFailure: warnFinalStateFlushFailure,
   });
   const savePersistedState = () => {
     stateSaveScheduler.schedule();
@@ -534,9 +540,7 @@ export const createSessionMonitor = (
     if (!stateSaveScheduler.dispose()) {
       // One bounded retry; the failure itself was already logged by onError.
       if (!stateSaveScheduler.flush()) {
-        console.warn(
-          "[vde-monitor] final state flush failed after retry; recent session state may be lost",
-        );
+        warnFinalStateFlushFailure();
       }
     }
     stopPromise = (async () => {
