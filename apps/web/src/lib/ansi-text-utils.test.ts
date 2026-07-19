@@ -105,6 +105,52 @@ describe("ansi-text-utils", () => {
     expect(html).toContain("メイン");
   });
 
+  it("normalizes Codex horizontal-rule column tables from actual output", () => {
+    const lines = [
+      "   対象                  WCAG比       APCA    判定",
+      "  ━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━  ━━━━━━━━━  ━━━━━━",
+      "   詳細タイトル          7.06:1    Lc 79.3    AAA",
+      "  ────────────────────  ────────  ─────────  ──────",
+      "   リポジトリパス        4.90:1    Lc 69.3    AA",
+      "  ────────────────────  ────────  ─────────  ──────",
+      "   候補モーダルの案内    4.82:1    Lc 64.0    AA",
+      "  ────────────────────  ────────  ─────────  ──────",
+      "   非選択タブの文字      4.61:1    Lc 65.3    AA",
+    ];
+    const normalized = normalizeUnicodeTableLines(lines);
+
+    expect(normalized).toHaveLength(1);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain('class="vde-unicode-table"');
+    expect(html).toContain('class="vde-unicode-table-header"');
+    expect(html).toContain("詳細タイトル");
+    expect(html).toContain("Lc 79.3");
+    expect(html).toContain("候補モーダルの案内");
+    expect(html.match(/<tr/g) ?? []).toHaveLength(5);
+    expect(html).not.toMatch(/[━─]/u);
+  });
+
+  it("keeps alignment from padded cells in horizontal-rule column tables", () => {
+    const lines = [
+      "   方式                             難易度    評価",
+      "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━  ━━━━━━━━━━━━━━━━━━",
+      "   common002へSSHユーザー追加           低    簡単",
+      "  ───────────────────────────────  ────────  ──────────────────",
+      "   既存EC2をSSM中継として利用       低〜中    短期導入向け",
+    ];
+    const normalized = normalizeUnicodeTableLines(lines);
+
+    expect(normalized).toHaveLength(1);
+    const html = unwrapUnicodeTableHtmlLine(normalized[0] ?? "");
+    expect(html).toContain('class="vde-unicode-table-cell-right">低</td>');
+    expect(html).toContain('class="vde-unicode-table-cell-left">低〜中</td>');
+  });
+
+  it("does not normalize aligned text without a matching heavy header rule", () => {
+    const lines = ["   対象    判定", "   詳細    AA", "   補足    AAA"];
+    expect(normalizeUnicodeTableLines(lines)).toEqual(lines);
+  });
+
   it("normalizes pane103 style unicode table blocks with long japanese descriptions", () => {
     const lines = [
       "  ┌──────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┐",

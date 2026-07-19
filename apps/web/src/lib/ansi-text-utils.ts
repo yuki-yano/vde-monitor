@@ -12,6 +12,8 @@ const backgroundColorPattern = /background-color:\s*([^;"']+)/i;
 const backgroundColorPatternGlobal = /background-color:\s*([^;"']+)/gi;
 const unicodeTableBorderPattern = /^(\s*)([┌├└]).*([┐┤┘])\s*$/;
 const unicodeTableRowPattern = /^(\s*)│(.*)│\s*$/;
+const unicodeColumnTableHeaderRulePattern = /━{3,}/gu;
+const unicodeColumnTableRowRulePattern = /─{3,}/gu;
 const markdownTableRowPattern = /^(\s*)\|(.+?)(?:\|\s*)?$/;
 const markdownTableListPrefixPattern = /^(\s*(?:[-*+•]|\d+\.)\s+)(\|.+(?:\|\s*)?)$/;
 const markdownTableDelimiterCellPattern = /^:?-{3,}:?$/;
@@ -32,6 +34,11 @@ type MarkdownTableRow = {
 type ParsedMarkdownBodyRow = {
   cells: string[];
   nextIndex: number;
+};
+
+type UnicodeColumnTableLayout = {
+  indent: string;
+  columns: Array<{ start: number; end: number }>;
 };
 
 export const stripAnsi = (value: string) => value.replace(ansiEscapePattern, "");
@@ -146,34 +153,36 @@ const parseUnicodeTableBorder = (plainLine: string) => {
   };
 };
 
+const parsePaddedUnicodeTableCell = (cell: string): UnicodeTableCell => {
+  const leadingSpaces = cell.match(/^ +/)?.[0].length ?? 0;
+  const trailingSpaces = cell.match(/ +$/)?.[0].length ?? 0;
+  const trimmed = cell.trim();
+  let align: UnicodeTableCell["align"] = "left";
+  if (trimmed.length > 0) {
+    // Codex and box-drawing tables usually keep one baseline space on both sides.
+    // Determine intent from the extra spaces beyond that baseline.
+    const extraLeading = Math.max(leadingSpaces - 1, 0);
+    const extraTrailing = Math.max(trailingSpaces - 1, 0);
+    if (extraLeading > 0 && extraTrailing === 0) {
+      align = "right";
+    } else if (extraLeading > 0 && extraTrailing > 0) {
+      align =
+        Math.abs(extraLeading - extraTrailing) <= 1
+          ? "center"
+          : extraLeading > extraTrailing
+            ? "right"
+            : "left";
+    }
+  }
+  return { text: trimmed, align };
+};
+
 const parseUnicodeTableRow = (plainLine: string) => {
   const match = plainLine.match(unicodeTableRowPattern);
   if (!match) return null;
   const indent = match[1] ?? "";
   const body = match[2] ?? "";
-  const cells = body.split("│").map((cell): UnicodeTableCell => {
-    const leadingSpaces = cell.match(/^ +/)?.[0].length ?? 0;
-    const trailingSpaces = cell.match(/ +$/)?.[0].length ?? 0;
-    const trimmed = cell.trim();
-    let align: UnicodeTableCell["align"] = "left";
-    if (trimmed.length > 0) {
-      // Box-drawing tables usually keep one baseline space on both sides.
-      // Determine intent from the *extra* spaces beyond that baseline.
-      const extraLeading = Math.max(leadingSpaces - 1, 0);
-      const extraTrailing = Math.max(trailingSpaces - 1, 0);
-      if (extraLeading > 0 && extraTrailing === 0) {
-        align = "right";
-      } else if (extraLeading > 0 && extraTrailing > 0) {
-        align =
-          Math.abs(extraLeading - extraTrailing) <= 1
-            ? "center"
-            : extraLeading > extraTrailing
-              ? "right"
-              : "left";
-      }
-    }
-    return { text: trimmed, align };
-  });
+  const cells = body.split("│").map(parsePaddedUnicodeTableCell);
   if (cells.length === 0) return null;
   return { indent, cells };
 };
@@ -463,6 +472,96 @@ const getCharacterDisplayWidth = (char: string): number => {
 
 const getTextDisplayWidth = (text: string): number =>
   Array.from(text).reduce((width, char) => width + getCharacterDisplayWidth(char), 0);
+
+const sliceByDisplayColumns = (text: string, start: number, end = Number.POSITIVE_INFINITY) => {
+  let width = 0;
+  let sliced = "";
+  for (const char of text) {
+    const charWidth = getCharacterDisplayWidth(char);
+    const nextWidth = width + charWidth;
+    if (nextWidth > start && width < end) {
+      sliced += char;
+    }
+    width = nextWidth;
+    if (width >= end) break;
+  }
+  return sliced;
+};
+
+const parseUnicodeColumnTableRule = (
+  plainLine: string,
+  pattern: RegExp,
+): UnicodeColumnTableLayout | null => {
+  const line = plainLine.trimEnd();
+  pattern.lastIndex = 0;
+  const matches = Array.from(line.matchAll(pattern));
+  if (matches.length < 2) return null;
+
+  const firstStart = matches[0]?.index;
+  if (firstStart == null || !/^ *$/u.test(line.slice(0, firstStart))) return null;
+
+  for (let index = 1; index < matches.length; index += 1) {
+    const previous = matches[index - 1];
+    const current = matches[index];
+    const previousStart = previous?.index;
+    const currentStart = current?.index;
+    if (!previous || previousStart == null || currentStart == null) return null;
+    const previousEnd = previousStart + previous[0].length;
+    if (!/^ {2,}$/u.test(line.slice(previousEnd, currentStart))) return null;
+  }
+
+  const last = matches.at(-1);
+  const lastStart = last?.index;
+  if (!last || lastStart == null || line.slice(lastStart + last[0].length).length > 0) return null;
+
+  return {
+    indent: line.slice(0, firstStart),
+    columns: matches.map((match) => ({
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+    })),
+  };
+};
+
+const hasSameUnicodeColumnTableLayout = (
+  actual: UnicodeColumnTableLayout,
+  expected: UnicodeColumnTableLayout,
+) =>
+  actual.columns.length === expected.columns.length &&
+  actual.columns.every((column, index) => {
+    const expectedColumn = expected.columns[index];
+    return column.start === expectedColumn?.start && column.end === expectedColumn.end;
+  });
+
+const parseUnicodeColumnTableRow = (
+  plainLine: string,
+  layout: UnicodeColumnTableLayout,
+): UnicodeTableCell[] | null => {
+  if (plainLine.trim().length === 0) return null;
+
+  const firstColumn = layout.columns[0];
+  const lastColumn = layout.columns.at(-1);
+  if (!firstColumn || !lastColumn) return null;
+  if (!/^ *$/u.test(sliceByDisplayColumns(plainLine, 0, firstColumn.start))) return null;
+  if (!/^ *$/u.test(sliceByDisplayColumns(plainLine, lastColumn.end))) return null;
+
+  for (let index = 1; index < layout.columns.length; index += 1) {
+    const previous = layout.columns[index - 1];
+    const current = layout.columns[index];
+    if (
+      !previous ||
+      !current ||
+      !/^ *$/u.test(sliceByDisplayColumns(plainLine, previous.end, current.start))
+    ) {
+      return null;
+    }
+  }
+
+  return layout.columns.map((column) =>
+    parsePaddedUnicodeTableCell(sliceByDisplayColumns(plainLine, column.start, column.end)),
+  );
+};
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
@@ -542,6 +641,51 @@ const buildUnicodeTableHtml = (rows: UnicodeTableCell[][], indent: string) => {
   return `${indent}<span class="vde-unicode-table-wrap"><table class="vde-unicode-table" style="width:${totalWidthCh}ch;"><colgroup>${colgroup}</colgroup><tbody>${rowsHtml}</tbody></table></span>`;
 };
 
+const parseUnicodeColumnTable = (lines: string[], startIndex: number) => {
+  const ruleLine = lines[startIndex + 1];
+  const firstBodyLine = lines[startIndex + 2];
+  if (ruleLine == null || firstBodyLine == null) return null;
+
+  const layout = parseUnicodeColumnTableRule(
+    stripAnsi(ruleLine),
+    unicodeColumnTableHeaderRulePattern,
+  );
+  if (!layout) return null;
+
+  const headerCells = parseUnicodeColumnTableRow(stripAnsi(lines[startIndex] ?? ""), layout);
+  const firstBodyCells = parseUnicodeColumnTableRow(stripAnsi(firstBodyLine), layout);
+  if (
+    !headerCells ||
+    headerCells.some((cell) => cell.text.length === 0) ||
+    !firstBodyCells ||
+    firstBodyCells.every((cell) => cell.text.length === 0)
+  ) {
+    return null;
+  }
+
+  const rows = [headerCells, firstBodyCells];
+  let cursor = startIndex + 3;
+  while (cursor < lines.length) {
+    const rowRuleLayout = parseUnicodeColumnTableRule(
+      stripAnsi(lines[cursor] ?? ""),
+      unicodeColumnTableRowRulePattern,
+    );
+    if (!rowRuleLayout || !hasSameUnicodeColumnTableLayout(rowRuleLayout, layout)) break;
+
+    const nextLine = lines[cursor + 1];
+    if (nextLine == null) break;
+    const nextCells = parseUnicodeColumnTableRow(stripAnsi(nextLine), layout);
+    if (!nextCells || nextCells.every((cell) => cell.text.length === 0)) break;
+    rows.push(nextCells);
+    cursor += 2;
+  }
+
+  return {
+    html: buildUnicodeTableHtml(rows, layout.indent),
+    nextIndex: cursor,
+  };
+};
+
 const buildMarkdownPipeTableHtml = (
   headerCells: string[],
   alignments: MarkdownTableCellAlign[],
@@ -583,6 +727,13 @@ export const normalizeUnicodeTableLines = (lines: string[]): string[] => {
   let index = 0;
 
   while (index < lines.length) {
+    const columnTable = parseUnicodeColumnTable(lines, index);
+    if (columnTable) {
+      normalized.push(`${tableHtmlLinePrefix}${columnTable.html}`);
+      index = columnTable.nextIndex;
+      continue;
+    }
+
     const firstLine = lines[index] ?? "";
     const firstPlain = stripAnsi(firstLine);
     if (!isUnicodeTableCandidateLine(firstPlain)) {

@@ -48,13 +48,31 @@ describe("renderAnsiLines", () => {
     expect(lines[0]).not.toContain("&#x250C;");
   });
 
-  it("keeps unicode table borders for codex agent", () => {
+  it("normalizes Codex unicode table lines into HTML tables", () => {
     const text = ["┌──┐", "│A │", "└──┘"].join("\n");
     const lines = renderAnsiLines(text, "latte", { agent: "codex" });
-    expect(lines).toHaveLength(3);
-    expect(lines[0]).toContain("&#x250C;");
-    expect(lines[1]).toContain("&#x2502;");
-    expect(lines[0]).not.toContain('class="vde-unicode-table"');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('class="vde-unicode-table"');
+    expect(lines[0]).toContain('class="vde-unicode-table-cell-left">A</td>');
+    expect(lines[0]).not.toContain("&#x250C;");
+  });
+
+  it("normalizes Codex horizontal-rule tables with ANSI-styled actual output", () => {
+    const text = [
+      "\u001b[1;38;2;249;226;175m   前回指摘    判定        コメント\u001b[0m",
+      "\u001b[38;2;60;62;78m  ━━━━━━━━━━  ━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m",
+      "   1, 2        解消        同一transaction適用が明文化された",
+      "\u001b[38;2;60;62;78m  ──────────  ──────────  ──────────────────────────────────────────────────\u001b[0m",
+      "   3           部分解消    意味が節間で矛盾している",
+    ].join("\n");
+    const lines = renderAnsiLines(text, "latte", { agent: "codex" });
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('class="vde-unicode-table"');
+    expect(lines[0]).toContain("前回指摘");
+    expect(lines[0]).toContain("同一transaction適用が明文化された");
+    expect(lines[0]).toContain("部分解消");
+    expect(lines[0]).not.toMatch(/[━─]/u);
   });
 
   it("normalizes markdown pipe tables for codex agent", () => {

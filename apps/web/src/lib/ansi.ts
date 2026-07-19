@@ -400,7 +400,8 @@ export const renderAnsiLines = (
   const sanitizedLines = splitLines(sanitizeAnsiForHtml(text));
   const shouldApplyClaudeHighlight = shouldApplyHighlight(options, "claude");
   const lines = shouldApplyClaudeHighlight ? applyAnsiSgrCarryover(sanitizedLines) : sanitizedLines;
-  const shouldNormalizeUnicodeTable = options?.agent === "claude" || options?.agent === "unknown";
+  const shouldNormalizeUnicodeTable =
+    options?.agent === "claude" || options?.agent === "codex" || options?.agent === "unknown";
   const unicodeNormalizedLines = shouldNormalizeUnicodeTable
     ? normalizeUnicodeTableLines(lines)
     : lines;
