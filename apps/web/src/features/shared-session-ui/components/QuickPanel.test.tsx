@@ -37,8 +37,8 @@ describe("QuickPanel", () => {
     const toggleButton = screen.getByLabelText("Toggle session quick panel");
     const quickPanelRoot = document.querySelector("[data-quick-panel-root]");
 
-    expect(quickPanelRoot?.className).toContain("left-0");
-    expect(toggleButton.parentElement?.className).toContain("-translate-x-2");
+    expect(quickPanelRoot?.className).toContain("left-[calc(env(safe-area-inset-left)+0.625rem)]");
+    expect(toggleButton.parentElement?.className).not.toContain("-translate-x-2");
 
     fireEvent.click(toggleButton);
     expect(onToggle).toHaveBeenCalled();
@@ -57,8 +57,10 @@ describe("QuickPanel", () => {
     isPwaDisplayModeSpy.mockReturnValue(true);
     rerender(<QuickPanel state={state} actions={actions} />);
 
-    expect(screen.getByLabelText("Go back")).toBeTruthy();
-    expect(screen.getByLabelText("Go forward")).toBeTruthy();
+    expect(screen.getByLabelText("Go back").className).toContain("h-11");
+    expect(screen.getByLabelText("Go back").className).toContain("w-11");
+    expect(screen.getByLabelText("Go forward").className).toContain("h-11");
+    expect(screen.getByLabelText("Go forward").className).toContain("w-11");
 
     isPwaDisplayModeSpy.mockRestore();
   });

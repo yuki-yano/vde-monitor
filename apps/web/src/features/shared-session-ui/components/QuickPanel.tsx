@@ -309,7 +309,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
     <div
       data-quick-panel-root
       data-open={open ? "true" : "false"}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-0 z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-[calc(env(safe-area-inset-left)+0.625rem)] z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3"
     >
       {panelPhase !== "closed" && (
         <Card
@@ -320,7 +320,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
             }
           }}
           className={cn(
-            "font-body ring-latte-overlay2/20 relative flex max-h-[75dvh] w-[calc(100vw-1.25rem)] max-w-[480px] flex-col overflow-hidden rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-raised)] p-3 shadow-[var(--shadow-popover)] ring-1 ring-inset backdrop-blur-xl sm:w-[calc(100vw-3.5rem)] sm:p-4",
+            "font-body ring-latte-overlay2/20 relative flex max-h-[75dvh] w-[calc(100vw-env(safe-area-inset-left)-env(safe-area-inset-right)-1.25rem)] max-w-[480px] flex-col overflow-hidden rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-raised)] p-3 shadow-[var(--shadow-popover)] ring-1 ring-inset backdrop-blur-xl sm:w-[calc(100vw-3.5rem)] sm:p-4",
             panelPhase === "closing" ? "animate-panel-exit" : "animate-panel-enter",
           )}
         >
@@ -411,7 +411,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           </div>
         </Card>
       )}
-      <div className="flex -translate-x-2 items-center gap-2 sm:translate-x-0">
+      <div className="flex items-center gap-2">
         <IconButton
           type="button"
           onClick={onToggle}
@@ -434,6 +434,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
               }}
               variant="base"
               size="md"
+              className="h-11 w-11"
               aria-label="Go back"
             >
               <ChevronLeft className="h-[18px] w-[18px]" />
@@ -445,6 +446,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
               }}
               variant="base"
               size="md"
+              className="h-11 w-11"
               aria-label="Go forward"
             >
               <ChevronRight className="h-[18px] w-[18px]" />
