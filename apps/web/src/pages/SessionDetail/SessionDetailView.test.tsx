@@ -535,7 +535,7 @@ describe("SessionDetailView", () => {
     expect(screen.queryByText("Session not found.")).toBeNull();
   });
 
-  it("renders main sections when session exists", () => {
+  it("renders the terminal with a single desktop inspector section", () => {
     const props = createViewProps({
       meta: { session: createSessionDetail() },
     });
@@ -545,18 +545,20 @@ describe("SessionDetailView", () => {
     expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Text" })).toBeTruthy();
     expect(screen.getByText("State Timeline")).toBeTruthy();
-    expect(screen.getByText("Changes")).toBeTruthy();
-    expect(screen.getByText("File Navigator")).toBeTruthy();
-    expect(screen.getByText("Commit Log")).toBeTruthy();
-    expect(screen.getByText("Branches")).toBeTruthy();
-    expect(screen.getByText("Worktrees")).toBeTruthy();
-    expect(screen.getByText("Notes")).toBeTruthy();
+    expect(screen.getByRole("tablist", { name: "Session inspector sections" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Changes panel" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "File Navigator" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Commit Log" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Branches" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Worktrees" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Notes" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Timeline panel" })).toBeNull();
     expect(screen.getByLabelText("Toggle session quick panel")).toBeTruthy();
     expect(document.title).toBe("Session Title - VDE Monitor");
   });
 
-  it("places desktop worktree pane below commit log", () => {
+  it("switches desktop inspector sections without rendering every panel", () => {
     const props = createViewProps({
       meta: { session: createSessionDetail() },
       timeline: { isMobile: false },
@@ -564,11 +566,15 @@ describe("SessionDetailView", () => {
     });
     renderWithRouter(<SessionDetailView {...props} />);
 
-    const commitHeading = screen.getByRole("heading", { name: "Commit Log" });
-    const worktreeHeading = screen.getByRole("heading", { name: "Worktrees" });
-    expect(
-      commitHeading.compareDocumentPosition(worktreeHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
+    expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Commits panel" }), { button: 0 });
+    expect(screen.getByRole("heading", { name: "Commit Log" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Changes" })).toBeNull();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Worktrees panel" }), { button: 0 });
+    expect(screen.getByRole("heading", { name: "Worktrees" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Commit Log" })).toBeNull();
   });
 
   it("switches section by icon tabs and stores selected tab", () => {
@@ -749,9 +755,10 @@ describe("SessionDetailView", () => {
     renderWithRouter(<SessionDetailView {...props} />);
 
     expect(screen.getByText("State Timeline")).toBeTruthy();
-    expect(screen.getByText("File Navigator")).toBeTruthy();
-    expect(screen.getByText("Commit Log")).toBeTruthy();
-    expect(screen.getByText("Notes")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "File Navigator" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Commit Log" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Notes" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Close detail sections" })).toBeNull();
   });
 

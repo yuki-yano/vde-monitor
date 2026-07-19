@@ -309,7 +309,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
     <div
       data-quick-panel-root
       data-open={open ? "true" : "false"}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-2.5 z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-0 z-40 flex flex-col items-start gap-2.5 sm:bottom-[calc(env(safe-area-inset-bottom)+1rem)] sm:left-6 sm:gap-3"
     >
       {panelPhase !== "closed" && (
         <Card
@@ -411,7 +411,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           </div>
         </Card>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex -translate-x-2 items-center gap-2 sm:translate-x-0">
         <IconButton
           type="button"
           onClick={onToggle}

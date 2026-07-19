@@ -99,6 +99,8 @@ describe("SessionHeader", () => {
     const titleButton = screen.getByRole("button", { name: "Edit session title" });
     expect(titleButton.className).toContain("flex-1");
     expect(titleButton.className).toContain("truncate");
+    expect(titleButton.className).toContain("font-ident");
+    expect(titleButton.className).toContain("tracking-normal");
   });
 
   it("renders current path with shared truncated-path component style", () => {
@@ -112,6 +114,8 @@ describe("SessionHeader", () => {
     const pathElement = screen.getByTestId("session-header-current-path");
     expect(pathElement.className).toContain("overflow-hidden");
     expect(pathElement.className).toContain("basis-full");
+    expect(pathElement.className).toContain("font-mono");
+    expect(pathElement.className).toContain("tracking-tight");
     expect(pathElement.textContent).toContain(".worktree/feature/very/long");
     expect(pathElement.getAttribute("title")).toContain(".worktree/feature/very/long");
   });
@@ -154,6 +158,7 @@ describe("SessionHeader", () => {
     renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const input = screen.getByLabelText("Custom session title");
+    expect(input.className).toContain("font-ident");
     fireEvent.change(input, { target: { value: "Updated Title" } });
     expect(onTitleDraftChange).toHaveBeenCalledWith("Updated Title");
 

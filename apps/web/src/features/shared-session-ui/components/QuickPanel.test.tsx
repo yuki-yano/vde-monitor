@@ -34,7 +34,13 @@ describe("QuickPanel", () => {
     const actions = buildActions({ onToggle });
     render(<QuickPanel state={state} actions={actions} />);
 
-    fireEvent.click(screen.getByLabelText("Toggle session quick panel"));
+    const toggleButton = screen.getByLabelText("Toggle session quick panel");
+    const quickPanelRoot = document.querySelector("[data-quick-panel-root]");
+
+    expect(quickPanelRoot?.className).toContain("left-0");
+    expect(toggleButton.parentElement?.className).toContain("-translate-x-2");
+
+    fireEvent.click(toggleButton);
     expect(onToggle).toHaveBeenCalled();
   });
 

@@ -69,6 +69,19 @@ const MOBILE_SECTION_TAB_GRID_POSITIONS = [
   "col-start-4 row-start-2",
 ] as const;
 
+const DESKTOP_INSPECTOR_TAB_VALUES: readonly DetailSectionTab[] = [
+  "changes",
+  "file",
+  "commits",
+  "branches",
+  "worktrees",
+  "notes",
+];
+const DEFAULT_DESKTOP_INSPECTOR_TAB: DetailSectionTab = "changes";
+
+const isDesktopInspectorTab = (value: DetailSectionTab | typeof CLOSE_DETAIL_TAB_VALUE) =>
+  DESKTOP_INSPECTOR_TAB_VALUES.includes(value as DetailSectionTab);
+
 const CONFIG_VALIDATION_ERROR_PATTERN = /invalid (?:project )?config(?: JSON)?: /i;
 
 const splitConnectionIssueLines = (connectionIssue: string | null) =>
@@ -203,7 +216,7 @@ export const SessionDetailView = () => {
     <ControlsPanel {...controlsPanelProps} showKeysSection={false} />
   );
   const controlsPanelAllSection = <ControlsPanel {...controlsPanelProps} />;
-  const mobileSectionTabs: DetailSectionTabDefinition[] = [
+  const sectionTabs: DetailSectionTabDefinition[] = [
     {
       value: "keys",
       ariaLabel: "Keys panel",
@@ -262,7 +275,16 @@ export const SessionDetailView = () => {
     },
   ];
   const selectedMobileSectionContent =
-    mobileSectionTabs.find((tab) => tab.value === selectedSectionTabValue)?.render() ?? null;
+    sectionTabs.find((tab) => tab.value === selectedSectionTabValue)?.render() ?? null;
+  const desktopInspectorTabs = sectionTabs.filter((tab) =>
+    DESKTOP_INSPECTOR_TAB_VALUES.includes(tab.value),
+  );
+  const selectedDesktopInspectorTabValue = isDesktopInspectorTab(selectedSectionTabValue)
+    ? selectedSectionTabValue
+    : DEFAULT_DESKTOP_INSPECTOR_TAB;
+  const selectedDesktopInspectorContent =
+    desktopInspectorTabs.find((tab) => tab.value === selectedDesktopInspectorTabValue)?.render() ??
+    null;
 
   return (
     <>
@@ -283,7 +305,7 @@ export const SessionDetailView = () => {
                   aria-label="Session detail sections"
                   className="grid w-full grid-cols-[repeat(4,minmax(0,1fr))_auto] grid-rows-2 gap-1 rounded-2xl"
                 >
-                  {mobileSectionTabs.map((tab, index) => {
+                  {sectionTabs.map((tab, index) => {
                     const Icon = tab.icon;
                     return (
                       <TabsTrigger
@@ -338,7 +360,6 @@ export const SessionDetailView = () => {
                   style={is2xlUp ? { flexBasis: `${detailSplitRatio * 100}%` } : undefined}
                 >
                   <ScreenPanel {...screenPanelProps} controls={controlsPanelAllSection} />
-                  <NotesSection {...notesSectionProps} />
                 </div>
 
                 <div
@@ -361,11 +382,32 @@ export const SessionDetailView = () => {
                   </span>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
-                  <DiffSection {...diffSectionProps} />
-                  <FileNavigatorSection {...fileNavigatorSectionProps} />
-                  <CommitSection {...commitSectionProps} />
-                  <BranchSection {...branchSectionProps} />
-                  <WorktreeSection {...worktreeSectionProps} />
+                  <Tabs
+                    value={selectedDesktopInspectorTabValue}
+                    onValueChange={handleSectionTabChange}
+                  >
+                    <TabsList
+                      aria-label="Session inspector sections"
+                      className="custom-scrollbar flex w-full max-w-full justify-start gap-1 overflow-x-auto rounded-2xl"
+                    >
+                      {desktopInspectorTabs.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                          <TabsTrigger
+                            key={tab.value}
+                            value={tab.value}
+                            aria-label={tab.ariaLabel}
+                            title={tab.label}
+                            className="h-9 min-w-[5.5rem] flex-1 gap-1.5 px-2 text-[11px]"
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{tab.label}</span>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                  </Tabs>
+                  {selectedDesktopInspectorContent}
                 </div>
               </div>
             </>

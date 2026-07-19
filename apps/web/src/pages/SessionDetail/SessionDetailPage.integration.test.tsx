@@ -5,7 +5,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider as JotaiProvider, createStore } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -136,7 +136,7 @@ const renderWithRouter = (ui: ReactNode) => {
 };
 
 describe("SessionDetail Provider <-> View wiring (smoke)", () => {
-  it("mounts the real Provider + View + collector hooks and renders every primary section", async () => {
+  it("mounts the real Provider + View and switches between every inspector section", async () => {
     const store = createStore();
 
     renderWithRouter(
@@ -148,12 +148,23 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
     );
 
     expect(await screen.findByRole("button", { name: "Edit session title" })).toBeTruthy();
-    expect(screen.getByText("State Timeline")).toBeTruthy();
-    expect(screen.getByText("Changes")).toBeTruthy();
-    expect(screen.getByText("File Navigator")).toBeTruthy();
-    expect(screen.getByText("Commit Log")).toBeTruthy();
-    expect(screen.getByText("Branches")).toBeTruthy();
-    expect(screen.getByText("Worktrees")).toBeTruthy();
-    expect(screen.getByText("Notes")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "State Timeline" })).toBeTruthy();
+    expect(screen.getByRole("tablist", { name: "Session inspector sections" })).toBeTruthy();
+
+    const inspectorSections = [
+      ["Changes panel", "Changes"],
+      ["Files panel", "File Navigator"],
+      ["Commits panel", "Commit Log"],
+      ["Branches panel", "Branches"],
+      ["Notes panel", "Notes"],
+    ] as const;
+
+    for (const [tabName, headingName] of inspectorSections) {
+      fireEvent.mouseDown(screen.getByRole("tab", { name: tabName }), { button: 0 });
+      expect(screen.getByRole("heading", { name: headingName })).toBeTruthy();
+    }
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Worktrees panel" }), { button: 0 });
+    expect(screen.getByTestId("worktree-section")).toBeTruthy();
   });
 });

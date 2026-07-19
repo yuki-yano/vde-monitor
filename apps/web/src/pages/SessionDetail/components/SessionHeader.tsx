@@ -152,7 +152,7 @@ const SessionTitleInput = ({
       maxLength={80}
       enterKeyHint="done"
       disabled={titleSaving}
-      className="border-latte-surface2 text-latte-text focus:border-latte-blue focus:ring-latte-blue/25 bg-latte-crust/28 min-w-[180px] flex-1 rounded-xl border px-2.5 py-1 text-xl tracking-[-0.02em] shadow-[0_1px_3px_rgb(var(--ctp-shadow)/0.08)] outline-hidden transition-[border-color,box-shadow,background-color] duration-200 focus:bg-latte-base/78 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
+      className="font-ident border-latte-surface2 text-latte-text focus:border-latte-blue focus:ring-latte-blue/25 bg-latte-crust/28 min-w-[180px] flex-1 rounded-xl border px-2.5 py-1 text-xl tracking-normal shadow-[0_1px_3px_rgb(var(--ctp-shadow)/0.08)] outline-hidden transition-[border-color,box-shadow,background-color] duration-200 focus:bg-latte-base/78 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
       aria-label="Custom session title"
     />
   );
@@ -168,7 +168,7 @@ const SessionTitleButton = ({
     onClick={onOpenTitleEditor}
     variant="title"
     className={cn(
-      "hover:text-latte-blue-text min-w-0 flex-1 cursor-default truncate text-left tracking-[-0.02em] transition-colors duration-200 hover:cursor-pointer",
+      "font-ident hover:text-latte-blue-text min-w-0 flex-1 cursor-default truncate text-left tracking-normal transition-colors duration-200 hover:cursor-pointer",
       titleClassName,
     )}
     aria-label="Edit session title"
@@ -261,7 +261,7 @@ const SessionTitleArea = ({
           path={formattedCurrentPath}
           reservePx={12}
           minVisibleSegments={2}
-          className="text-latte-subtext0 min-w-0 basis-full text-xs sm:max-w-[360px] sm:flex-1 sm:basis-auto sm:text-sm"
+          className="text-latte-subtext0 min-w-0 basis-full font-mono text-xs tracking-tight sm:max-w-[360px] sm:flex-1 sm:basis-auto sm:text-sm"
         />
       </div>
       {titleError ? <p className="text-latte-red-text text-xs">{titleError}</p> : null}

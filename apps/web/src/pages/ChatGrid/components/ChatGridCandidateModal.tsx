@@ -163,6 +163,14 @@ const ChatGridCandidateModalContent = ({
                 const checked = selectedPaneSet.has(session.paneId);
                 const disabled = !checked && reachedMaxSelection;
                 const checkboxId = `chat-grid-candidate-${session.paneId}`;
+                const displayTitle = resolveSessionDisplayTitle(session);
+                const selectionLabel = [
+                  `Select ${displayTitle}`,
+                  `Pane ${session.paneId}`,
+                  isKnownAgent(session.agent) ? agentLabelFor(session.agent) : null,
+                ]
+                  .filter((value) => value != null)
+                  .join(", ");
                 return (
                   <label
                     key={session.paneId}
@@ -174,7 +182,7 @@ const ChatGridCandidateModalContent = ({
                       checked={checked}
                       onChange={() => onTogglePane(session.paneId)}
                       disabled={disabled}
-                      aria-label={`Select ${resolveSessionDisplayTitle(session)}`}
+                      aria-label={selectionLabel}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -192,9 +200,9 @@ const ChatGridCandidateModalContent = ({
                       </div>
                       <p
                         className="text-latte-text mt-1 truncate text-sm font-medium"
-                        title={resolveSessionDisplayTitle(session)}
+                        title={displayTitle}
                       >
-                        {resolveSessionDisplayTitle(session)}
+                        {displayTitle}
                       </p>
                       <div className="text-latte-subtext0 mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                         <span>Session {session.sessionName}</span>
@@ -213,10 +221,14 @@ const ChatGridCandidateModalContent = ({
           )}
         </div>
 
-        {hasSelectionError ? (
-          <Callout tone="warning" size="sm">
-            Select between {MIN_SELECTION_COUNT} and {MAX_SELECTION_COUNT} panes.
-          </Callout>
+        {hasCandidates ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="border-latte-surface1/70 bg-latte-surface0/45 text-latte-subtext1 rounded-2xl border px-3 py-1.5 text-sm sm:px-4 sm:py-2"
+          >
+            {selectedCount} selected. Choose {MIN_SELECTION_COUNT}-{MAX_SELECTION_COUNT} panes.
+          </p>
         ) : null}
 
         <div className="flex items-center justify-between gap-2 pt-1">
