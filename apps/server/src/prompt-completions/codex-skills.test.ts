@@ -21,6 +21,7 @@ reader.on("line", (line) => {
             { name: "react-doctor", description: "Run diagnostics.", path: "/user/react-doctor/SKILL.md", scope: "user", enabled: true },
             { name: "duplicate", description: "User copy.", path: "/user/duplicate/SKILL.md", scope: "user", enabled: true },
             { name: "duplicate", description: "Repo copy.", path: "/repo/duplicate/SKILL.md", scope: "repo", enabled: true },
+            { name: "visualize:visualize", description: "Create visualizations.", path: "/user/.codex/plugins/cache/visualize/SKILL.md", scope: "user", enabled: true },
             { name: "disabled", description: "Disabled Skill.", path: "/user/disabled/SKILL.md", scope: "user", enabled: false }
           ],
           errors: []
@@ -40,7 +41,7 @@ describe("listCodexSkills", () => {
     const items = await listCodexSkills({ cwd: "/repo", port: { spawnAppServer } });
 
     expect(spawnAppServer).toHaveBeenCalledWith("/repo");
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     expect(items[0]).toEqual({
       id: "codex-skill:/user/react-doctor/SKILL.md",
       label: "$react-doctor",
@@ -58,6 +59,15 @@ describe("listCodexSkills", () => {
         }),
       ]),
     );
+    expect(items).toContainEqual({
+      id: "codex-skill:/user/.codex/plugins/cache/visualize/SKILL.md",
+      label: "$visualize:visualize",
+      insertText: "$visualize:visualize",
+      description: "Create visualizations.",
+      argumentHint: "",
+      kind: "skill",
+      scope: "user",
+    });
     expect(items.some((item) => item.label === "$disabled")).toBe(false);
   });
 });

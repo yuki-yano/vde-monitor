@@ -34,7 +34,7 @@ export type PromptCompletionConfig = {
   ) => Promise<RepoFileSearchPage>;
 };
 
-const MAX_VISIBLE_OPTIONS = 5;
+const MAX_FILE_OPTIONS = 5;
 const FILE_SEARCH_DEBOUNCE_MS = 150;
 
 const toAgentOptions = (
@@ -43,7 +43,7 @@ const toAgentOptions = (
 ): PromptCompletionOption[] => items.map((item) => ({ ...item, trigger }));
 
 const toFileOptions = (page: RepoFileSearchPage): PromptCompletionOption[] =>
-  page.items.slice(0, MAX_VISIBLE_OPTIONS).map((item) => ({
+  page.items.slice(0, MAX_FILE_OPTIONS).map((item) => ({
     id: `file:${item.path}`,
     label: item.path,
     insertText: item.path,
@@ -145,13 +145,13 @@ export const usePromptCompletion = ({
           tokenTrigger === "at"
             ? toFileOptions(
                 await requestRepoFileSearch(paneId, tokenQuery, {
-                  limit: MAX_VISIBLE_OPTIONS,
+                  limit: MAX_FILE_OPTIONS,
                 }),
               )
             : toAgentOptions(
                 (await requestPromptCompletions(paneId, tokenTrigger, tokenQuery)).items,
                 tokenTrigger,
-              ).slice(0, MAX_VISIBLE_OPTIONS);
+              );
         if (requestIdRef.current === requestId) {
           setOptions(nextOptions);
           setActiveIndex(0);

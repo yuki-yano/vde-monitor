@@ -47,4 +47,29 @@ describe("createPromptCompletionService", () => {
     expect(listCodexSkills).toHaveBeenNthCalledWith(1, "/repo");
     expect(listCodexSkills).toHaveBeenNthCalledWith(2, "/other");
   });
+
+  it("returns every matching Skill without truncating plugin cache entries", async () => {
+    const cachedPluginSkill = {
+      ...skill("visualize:visualize"),
+      id: "codex-skill:/home/user/.codex/plugins/cache/visualize/SKILL.md",
+    };
+    const skills = [
+      ...Array.from({ length: 55 }, (_, index) => skill(`skill-${String(index).padStart(2, "0")}`)),
+      cachedPluginSkill,
+    ];
+    const service = createPromptCompletionService({
+      listCodexSkills: vi.fn(async () => skills),
+      listClaudeCommands: vi.fn(async () => []),
+    });
+
+    const result = await service.list({
+      agent: "codex",
+      cwd: "/repo",
+      trigger: "dollar",
+      query: "",
+    });
+
+    expect(result.items).toHaveLength(skills.length);
+    expect(result.items).toContainEqual(cachedPluginSkill);
+  });
 });

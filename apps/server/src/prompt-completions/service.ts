@@ -21,7 +21,6 @@ type CachedItems = {
 };
 
 const CACHE_TTL_MS = 30_000;
-const MAX_RESULTS = 50;
 
 const defaultProviders: PromptCompletionProviders = {
   listCodexSkills: (cwd) => listCodexSkills({ cwd }),
@@ -49,7 +48,6 @@ const filterItems = (items: PromptCompletionItem[], query: string) => {
     .sort(
       (left, right) => left.score - right.score || left.item.label.localeCompare(right.item.label),
     )
-    .slice(0, MAX_RESULTS)
     .map(({ item }) => item);
 };
 

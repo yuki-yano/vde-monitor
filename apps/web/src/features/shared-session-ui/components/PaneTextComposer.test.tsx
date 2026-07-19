@@ -284,6 +284,35 @@ describe("PaneTextComposer", () => {
     );
   });
 
+  it("shows Codex plugin cache Skills beyond the first five suggestions", async () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
+      id:
+        index === 5
+          ? "codex-skill:/home/user/.codex/plugins/cache/visualize/SKILL.md"
+          : `codex-skill:skill-${String(index)}`,
+      label: index === 5 ? "$visualize:visualize" : `$skill-${String(index)}`,
+      insertText: index === 5 ? "$visualize:visualize" : `$skill-${String(index)}`,
+      description: `Skill ${String(index)}`,
+      argumentHint: "",
+      kind: "skill" as const,
+      scope: "user",
+    }));
+    const requestPromptCompletions = vi.fn(async () => ({ items }));
+    render(
+      <PaneTextComposer
+        state={buildState({
+          completion: buildCompletion("codex", { requestPromptCompletions }),
+        })}
+        actions={buildActions()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Skill completions" }));
+
+    expect(await screen.findByText("$visualize:visualize")).toBeTruthy();
+    expect(screen.getAllByRole("option")).toHaveLength(items.length);
+  });
+
   it("opens and inserts slash completions at the current caret after existing text", async () => {
     const requestPromptCompletions = vi.fn(async () => ({
       items: [
