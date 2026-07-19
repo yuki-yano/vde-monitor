@@ -13,7 +13,7 @@ const TabsList = ({
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "border-latte-surface2 bg-latte-surface0/60 inline-flex items-center gap-1 rounded-full border p-1",
+      "inline-flex items-center gap-1 rounded-full border border-[var(--control-stroke)] bg-[var(--control-track)] p-1 shadow-[inset_0_1px_2px_rgb(var(--ctp-shadow)/0.12)]",
       className,
     )}
     {...props}
@@ -28,9 +28,9 @@ const TabsTrigger = ({
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "text-latte-subtext0 relative inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold transition after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-['']",
-      "hover:bg-latte-surface1/70 hover:text-latte-text",
-      "data-[state=active]:text-latte-text data-[state=active]:bg-latte-base/90 data-[state=active]:shadow-elev-1",
+      "text-latte-subtext0 relative inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-semibold transition-[background-color,color,box-shadow,scale] duration-200 ease-out after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] active:scale-[0.96] active:duration-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-latte-blue",
+      "hover:bg-latte-surface1/65 hover:text-latte-text",
+      "data-[state=active]:bg-[var(--control-selected)] data-[state=active]:text-latte-text data-[state=active]:shadow-[0_0_0_1px_var(--control-selected-stroke),0_1px_4px_rgb(var(--ctp-shadow)/0.2),inset_0_1px_0_var(--material-highlight)]",
       className,
     )}
     {...props}

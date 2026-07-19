@@ -48,9 +48,11 @@ const SettingRadioGroup = <T extends string>({
             htmlFor={itemId}
             title={option.title}
             className={cn(
-              "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition",
-              "hover:border-latte-lavender/35 hover:bg-latte-mantle/65",
-              checked ? "border-latte-lavender/50 bg-latte-lavender/10 text-latte-text" : null,
+              "border-latte-surface2/80 bg-latte-mantle/52 text-latte-subtext0 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition-[background-color,color,border-color,box-shadow] duration-200",
+              "hover:border-latte-blue/38 hover:bg-latte-mantle/68",
+              checked
+                ? "border-latte-blue/62 bg-latte-blue/16 text-latte-text shadow-[inset_0_0_0_1px_rgb(var(--ctp-blue)/0.12)]"
+                : null,
               option.disabled ? "cursor-not-allowed opacity-60" : null,
               optionClassName,
             )}
@@ -60,11 +62,9 @@ const SettingRadioGroup = <T extends string>({
               value={option.value}
               disabled={option.disabled}
               className={cn(
-                "border-latte-surface2 text-latte-subtext0 inline-flex h-4 w-4 items-center justify-center rounded-full border outline-hidden transition",
-                "focus-visible:ring-latte-lavender/45 focus-visible:ring-2",
-                checked
-                  ? "border-latte-lavender text-latte-lavender-text bg-latte-lavender/15"
-                  : null,
+                "border-latte-surface2 text-latte-subtext0 inline-flex h-4 w-4 items-center justify-center rounded-full border outline-hidden transition-[background-color,color,border-color,box-shadow] duration-200",
+                "focus-visible:ring-latte-blue/45 focus-visible:ring-2",
+                checked ? "border-latte-blue text-latte-blue-text bg-latte-blue/12" : null,
               )}
             >
               <RadioGroupPrimitive.Indicator className="flex items-center justify-center">

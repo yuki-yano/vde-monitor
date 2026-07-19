@@ -14,7 +14,7 @@ const DialogOverlay = ({
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out fixed inset-0 z-110 bg-black/45 backdrop-blur-[2px]",
+      "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out fixed inset-0 z-110 bg-black/32 backdrop-blur-[3px]",
       className,
     )}
     {...props}
@@ -33,7 +33,7 @@ const DialogContent = ({ className, overlayProps, ref, ...props }: DialogContent
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "border-latte-lavender/30 bg-latte-mantle/95 shadow-modal ring-latte-overlay2/25 data-[state=open]:animate-panel-enter data-[state=closed]:animate-panel-exit fixed left-[50%] top-[50%] z-110 w-[min(700px,calc(100vw-1rem))] translate-x-[-50%] translate-y-[-50%] rounded-3xl border p-3 ring-1 ring-inset sm:w-[min(700px,calc(100vw-1.5rem))] sm:p-4 md:p-5",
+        "data-[state=open]:animate-panel-enter data-[state=closed]:animate-panel-exit fixed left-[50%] top-[50%] z-110 w-[min(700px,calc(100vw-1rem))] translate-x-[-50%] translate-y-[-50%] rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-raised)] p-3 shadow-[var(--shadow-modal)] backdrop-blur-2xl sm:w-[min(700px,calc(100vw-1.5rem))] sm:p-4 md:p-5",
         className,
       )}
       {...props}

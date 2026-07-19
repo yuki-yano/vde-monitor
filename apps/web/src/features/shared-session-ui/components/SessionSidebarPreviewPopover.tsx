@@ -214,7 +214,9 @@ export const SessionSidebarPreviewPopover = memo(
             <p className="text-latte-subtext0 text-[10px] uppercase tracking-[0.28em]">
               Live Preview
             </p>
-            <p className="text-latte-text truncate text-sm font-semibold">{title}</p>
+            <p className="font-ident text-latte-text truncate text-sm font-medium tracking-normal">
+              {title}
+            </p>
           </div>
           <TagPill tone="meta">Pane {paneId}</TagPill>
         </div>

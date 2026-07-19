@@ -19,8 +19,10 @@ export const StaticTabChip = ({ tab, label, active, statusClassName }: StaticTab
       )}
       <div
         className={[
-          "border-latte-surface2/70 bg-latte-base/92 text-latte-subtext0 inline-flex min-w-0 items-center gap-1.5 rounded-xl border py-1.5 pl-2 text-[11px] font-semibold",
-          active ? "text-latte-text pr-4.5 min-w-[3.8rem]" : "pr-2",
+          "text-latte-subtext0 inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-[var(--control-stroke)] bg-[var(--control-track)] py-1.5 pl-2 text-[11px] font-semibold",
+          active
+            ? "border-latte-blue/70 bg-latte-blue/16 text-latte-text pr-4.5 min-w-[3.8rem] shadow-[inset_0_0_0_1px_rgb(var(--ctp-blue)/0.14)]"
+            : "pr-2",
         ].join(" ")}
       >
         <span

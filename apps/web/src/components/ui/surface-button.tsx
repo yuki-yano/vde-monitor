@@ -10,7 +10,7 @@ const SurfaceButton = ({ className, ref, ...props }: SurfaceButtonProps) => (
   <button
     ref={ref}
     className={cn(
-      "border-latte-surface2/50 bg-latte-crust/60 hover:border-latte-lavender/50 hover:bg-latte-crust/80 focus-visible:ring-latte-lavender hover:shadow-accent-sm w-full rounded-2xl border px-2.5 py-2 text-left transition duration-200 focus-visible:outline-hidden focus-visible:ring-2 sm:px-3 sm:py-3",
+      "border-latte-surface2/60 bg-latte-crust/52 hover:border-latte-blue/42 hover:bg-latte-crust/72 focus-visible:ring-latte-blue w-full rounded-2xl border px-2.5 py-2 text-left transition-[scale,background-color,border-color,box-shadow] duration-200 ease-out active:scale-[0.985] active:duration-100 focus-visible:outline-hidden focus-visible:ring-2 sm:px-3 sm:py-3",
       className,
     )}
     {...props}

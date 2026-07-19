@@ -7,7 +7,10 @@ type InsetPanelProps = HTMLAttributes<HTMLDivElement>;
 const InsetPanel = ({ className, ...props }: InsetPanelProps) => {
   return (
     <div
-      className={cn("border-latte-surface2/70 bg-latte-base/70 rounded-2xl border", className)}
+      className={cn(
+        "rounded-2xl border border-[var(--material-stroke)] bg-[var(--material-inset)] shadow-[inset_0_1px_3px_rgb(var(--ctp-shadow)/0.07)]",
+        className,
+      )}
       {...props}
     />
   );

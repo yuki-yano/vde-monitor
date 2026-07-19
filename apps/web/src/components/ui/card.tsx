@@ -10,9 +10,9 @@ const Card = ({ className, interactive = false, ...props }: CardProps) => {
   return (
     <div
       className={cn(
-        "shadow-glass border-latte-surface1/60 bg-latte-base/80 rounded-3xl border p-3 backdrop-blur-sm sm:p-4",
+        "rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-3 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:p-4",
         interactive &&
-          "hover:border-latte-lavender/40 hover:shadow-elev-5 cursor-pointer transition duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] active:translate-y-0 active:scale-[0.99]",
+          "cursor-pointer transition-[translate,scale,box-shadow,background-color,border-color] duration-300 ease-out hover:-translate-y-px hover:bg-[var(--material-raised)] hover:shadow-[var(--material-shadow-hover)] active:translate-y-0 active:scale-[0.985] active:duration-100",
         className,
       )}
       {...props}

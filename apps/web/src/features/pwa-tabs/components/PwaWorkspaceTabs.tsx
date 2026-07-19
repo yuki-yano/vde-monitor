@@ -216,7 +216,7 @@ export const PwaWorkspaceTabs = () => {
         aria-hidden="true"
         className="bg-latte-mantle absolute inset-x-0 top-0 h-[env(safe-area-inset-top)]"
       />
-      <div className="border-latte-lavender/30 bg-latte-mantle shadow-accent-panel pointer-events-auto w-full border-b px-2 py-1.5 backdrop-blur-xl">
+      <div className="pointer-events-auto w-full border-b border-[var(--material-stroke)] bg-[var(--material-raised)] px-2 py-1.5 shadow-[var(--shadow-popover)] backdrop-blur-xl">
         <div className="no-scrollbar overflow-x-auto">
           <DndContext
             sensors={sensors}
@@ -288,8 +288,8 @@ export const PwaWorkspaceTabs = () => {
             </div>
             <DragOverlay>
               {activeDragGroup && (
-                <div className="border-latte-surface2/75 bg-latte-mantle/96 shadow-accent-panel flex items-center gap-1.5 rounded-xl border px-1.5 py-1.5 backdrop-blur-xl">
-                  <span className="text-latte-text bg-latte-base/92 rounded-md px-1.5 py-1 text-[10px] font-semibold tracking-wide">
+                <div className="flex items-center gap-1.5 rounded-xl border border-[var(--material-stroke)] bg-[var(--material-raised)] px-1.5 py-1.5 shadow-[var(--shadow-popover)] backdrop-blur-xl">
+                  <span className="text-latte-text rounded-md bg-[var(--control-track)] px-1.5 py-1 text-[10px] font-semibold tracking-wide">
                     {activeDragGroup.label}
                   </span>
                   {activeDragGroup.tabs.map((tab) => (

@@ -199,7 +199,10 @@ const RepositoryActivityRow = ({
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
             <div className="min-w-0">
-              <p className="text-latte-text truncate font-semibold" title={item.repoName}>
+              <p
+                className="font-ident text-latte-text truncate font-medium tracking-normal"
+                title={item.repoName}
+              >
                 {item.repoName}
               </p>
               <p

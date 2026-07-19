@@ -60,23 +60,27 @@ const SessionSidebarHeader = memo(({ totalSessions, repoCount }: SessionSidebarH
       <Link
         to="/"
         search={{ filter: DEFAULT_SESSION_LIST_FILTER }}
-        className="hover:text-latte-lavender-text focus-visible:ring-latte-lavender/40 group inline-flex flex-col rounded-md outline-hidden transition focus-visible:ring-2"
+        className="hover:text-latte-blue-text focus-visible:ring-latte-blue/40 group inline-flex flex-col rounded-md outline-hidden transition-colors duration-200 focus-visible:ring-2"
         aria-label="Go to top"
       >
-        <p className="text-latte-subtext0 text-[10px] tracking-[0.25em]">VDE Monitor</p>
-        <h2 className="font-display text-latte-text text-xl font-semibold">Live Sessions</h2>
+        <p className="text-latte-subtext0 text-[11px] font-medium uppercase tracking-[0.14em]">
+          VDE Monitor
+        </p>
+        <h2 className="font-display text-latte-text text-xl font-semibold tracking-[-0.02em]">
+          Live Sessions
+        </h2>
       </Link>
     </div>
     <div className="flex flex-col items-end gap-2">
       <TagPill
         tone="neutral"
-        className="border-latte-green/35 bg-latte-green/10 text-latte-green-text text-[10px] uppercase tracking-[0.22em]"
+        className="border-latte-green/30 bg-latte-green/10 text-latte-green-text text-[11px] uppercase tracking-[0.08em]"
       >
         {totalSessions} Active
       </TagPill>
       <TagPill
         tone="meta"
-        className="border-latte-blue/35 bg-latte-blue/10 text-latte-blue-text text-[10px] uppercase tracking-[0.22em]"
+        className="border-latte-blue/30 bg-latte-blue/10 text-latte-blue-text text-[11px] uppercase tracking-[0.08em]"
       >
         {repoCount} repos
       </TagPill>
@@ -104,7 +108,7 @@ const SessionSidebarFilterSection = ({
     value={filter}
     onChange={onFilterChange}
     options={SIDEBAR_FILTER_OPTIONS}
-    buttonClassName="uppercase tracking-[0.14em] text-[11px] px-2.5 py-1"
+    buttonClassName="px-2.5 text-[11px] uppercase tracking-[0.08em]"
   />
 );
 

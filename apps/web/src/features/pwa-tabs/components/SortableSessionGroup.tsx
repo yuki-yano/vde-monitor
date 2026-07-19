@@ -99,9 +99,9 @@ export const SortableSessionGroup = ({
         event.preventDefault();
       }}
       className={[
-        "text-latte-subtext0 bg-latte-base/70 hover:bg-latte-base/85 pointer-events-auto rounded-md border border-transparent px-1.5 py-1 text-[10px] font-semibold tracking-wide transition",
+        "text-latte-subtext0 hover:text-latte-text hover:border-latte-blue/38 pointer-events-auto rounded-md border border-[var(--control-stroke)] bg-[var(--control-track)] px-1.5 py-1 text-[10px] font-semibold tracking-wide transition-[scale,background-color,color,border-color,box-shadow] duration-200 ease-out active:scale-[0.96] active:duration-100",
         isActiveGroup
-          ? "text-latte-text border-latte-lavender/45 bg-latte-lavender/20 shadow-accent-sm"
+          ? "text-latte-text border-latte-blue/62 bg-latte-blue/14 shadow-[inset_0_0_0_1px_rgb(var(--ctp-blue)/0.12)]"
           : "",
         "cursor-grab touch-pan-x select-none [-webkit-touch-callout:none] [-webkit-user-select:none] [user-select:none] active:cursor-grabbing",
         isDragging ? "bg-latte-base/90 text-latte-text" : "",

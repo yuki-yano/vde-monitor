@@ -22,15 +22,14 @@ export const SessionWindowSection = ({
   onRegisterPaneScrollTarget,
 }: SessionWindowSectionProps) => {
   return (
-    <InsetPanel className="p-2.5 sm:p-4">
+    <InsetPanel className="@container p-2.5 sm:p-4">
       <div className="flex items-center justify-between gap-2.5 pb-1.5 sm:gap-3 sm:pb-2 sm:pl-1">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-linear-to-br">
-            <div className="bg-latte-sky/25 pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-full blur-xl" />
-            <LayoutGrid className="text-latte-sky h-5 w-5" />
+          <div className="border-latte-surface2/45 bg-latte-base/55 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-[inset_0_1px_0_var(--material-highlight)]">
+            <LayoutGrid className="text-latte-subtext0 h-5 w-5" />
           </div>
           <div className="min-w-0 space-y-0.5">
-            <p className="font-display text-latte-text truncate text-base font-semibold leading-snug">
+            <p className="font-ident text-latte-text truncate text-base font-medium leading-snug tracking-normal">
               Window {group.windowIndex}
             </p>
             <p className="text-latte-subtext0 truncate font-mono text-[11px] leading-normal">

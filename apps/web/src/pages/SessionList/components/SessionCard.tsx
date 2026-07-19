@@ -33,38 +33,30 @@ const sessionStateStyles: Record<
   SessionSummary["state"],
   {
     card: string;
-    overlay: string;
   }
 > = {
   RUNNING: {
-    card: "border-green-500/50 shadow-lg shadow-green-500/10",
-    overlay: "from-green-500/5",
+    card: "before:bg-latte-green",
   },
   WAITING_INPUT: {
-    card: "border-amber-500/50 shadow-lg shadow-amber-500/10",
-    overlay: "from-amber-500/5",
+    card: "before:bg-latte-peach",
   },
   WAITING_PERMISSION: {
-    card: "border-red-500/50 shadow-lg shadow-red-500/10",
-    overlay: "from-red-500/5",
+    card: "before:bg-latte-red",
   },
   DONE: {
-    card: "border-latte-blue/60 shadow-lg shadow-blue-500/10",
-    overlay: "from-latte-blue/10",
+    card: "before:bg-latte-blue",
   },
   SHELL: {
-    card: "border-blue-500/50 shadow-lg shadow-blue-500/10",
-    overlay: "from-blue-500/5",
+    card: "before:bg-latte-blue",
   },
   UNKNOWN: {
-    card: "border-gray-400/50 shadow-lg shadow-gray-400/10",
-    overlay: "from-gray-400/5",
+    card: "before:bg-latte-overlay0",
   },
 };
 
 const editorSessionStyle = {
-  card: "border-latte-maroon/55 shadow-[0_14px_30px_-20px_rgb(var(--ctp-maroon)/0.55)]",
-  overlay: "from-latte-maroon/8",
+  card: "before:bg-latte-maroon",
 } as const;
 
 const SessionCardComponent = ({
@@ -98,17 +90,10 @@ const SessionCardComponent = ({
       <Card
         interactive
         className={cn(
-          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 sm:p-4",
+          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 before:absolute before:inset-y-4 before:left-0 before:w-[3px] before:rounded-r-full before:content-[''] sm:p-4",
           stateStyle.card,
         )}
       >
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-0 rounded-3xl bg-linear-to-br to-transparent opacity-50",
-            stateStyle.overlay,
-          )}
-        />
-
         <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
             <Badge tone={stateBadgeTone} size="sm">
@@ -140,7 +125,7 @@ const SessionCardComponent = ({
         <div className="relative mt-2 flex min-w-0 flex-1 flex-col sm:mt-2.5">
           <h3
             className={cn(
-              "font-display text-latte-text block w-full max-w-full truncate font-semibold leading-snug",
+              "font-ident text-latte-text block w-full max-w-full truncate font-medium leading-snug tracking-normal",
               titleTextClassName,
             )}
             title={sessionTitle}

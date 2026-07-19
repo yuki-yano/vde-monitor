@@ -21,18 +21,18 @@ import {
 } from "@/lib/session-format";
 
 const surfaceLinkClass =
-  "border-latte-surface2/70 bg-latte-base/70 focus-visible:ring-latte-lavender block w-full rounded-2xl border px-3 py-3.5 text-left transition-all duration-200 hover:border-latte-lavender/50 hover:bg-latte-mantle/70 hover:shadow-surface-hover focus-visible:outline-hidden focus-visible:ring-2";
+  "relative block w-full overflow-hidden rounded-2xl border border-[var(--material-stroke)] bg-latte-base/48 px-3 py-3.5 text-left shadow-[0_1px_2px_rgb(var(--ctp-shadow)/0.04)] transition-[scale,background-color,border-color,box-shadow] duration-200 ease-out before:absolute before:inset-y-3.5 before:left-0 before:w-[3px] before:rounded-r-full before:content-[''] hover:bg-latte-base/72 hover:shadow-[var(--material-shadow-hover)] active:scale-[0.985] active:duration-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-latte-blue";
 
 const sidebarSessionBorderClassByState: Record<SessionSummary["state"], string> = {
-  RUNNING: "border-green-500/50",
-  WAITING_INPUT: "border-amber-500/50",
-  WAITING_PERMISSION: "border-red-500/50",
-  DONE: "border-latte-blue/60",
-  SHELL: "border-blue-500/50",
-  UNKNOWN: "border-gray-400/50",
+  RUNNING: "before:bg-latte-green",
+  WAITING_INPUT: "before:bg-latte-peach",
+  WAITING_PERMISSION: "before:bg-latte-red",
+  DONE: "before:bg-latte-blue",
+  SHELL: "before:bg-latte-blue",
+  UNKNOWN: "before:bg-latte-overlay0",
 };
 
-const sidebarEditorSessionBorderClass = "border-latte-maroon/55";
+const sidebarEditorSessionBorderClass = "before:bg-latte-maroon";
 const SIDEBAR_BRANCH_INLINE_MIN_WIDTH = 460;
 const SIDEBAR_BRANCH_COMPACT_MAX_WIDTH = 520;
 const isMacDesktopPlatform = () =>
@@ -166,8 +166,8 @@ export const SessionSidebarItem = memo(
             "min-w-0 flex-1 flex-col gap-3",
             sessionBorderClass,
             isCurrent
-              ? "bg-latte-lavender/20 ring-latte-lavender/40 hover:bg-latte-lavender/25 shadow-accent ring-1 ring-inset"
-              : "hover:border-latte-lavender/60 hover:bg-latte-lavender/10",
+              ? "bg-latte-blue/10 ring-latte-blue/32 hover:bg-latte-blue/14 ring-1 ring-inset"
+              : "hover:border-latte-blue/24",
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -182,7 +182,7 @@ export const SessionSidebarItem = memo(
             </span>
             <span
               className={cn(
-                "text-latte-text min-w-0 truncate font-semibold",
+                "font-ident text-latte-text min-w-0 truncate font-medium tracking-normal",
                 sessionTitleTextClassName,
               )}
               title={displayTitle}
@@ -247,7 +247,7 @@ export const SessionSidebarItem = memo(
                 variant="base"
                 aria-label="Move pane to top"
                 title="Move pane to top"
-                className="border-latte-lavender/35 bg-latte-base/90 text-latte-lavender-text hover:bg-latte-lavender/12"
+                className="border-latte-blue/28 bg-latte-base/76 text-latte-blue-text hover:bg-latte-blue/10"
                 onClick={handlePinButtonClick}
               >
                 <Pin className="h-4 w-4" />

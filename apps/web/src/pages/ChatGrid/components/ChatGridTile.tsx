@@ -130,7 +130,7 @@ const ChatGridTileHeader = ({
               maxLength={80}
               enterKeyHint="done"
               disabled={titleSaving}
-              className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 w-full min-w-[160px] rounded-xl border px-2.5 py-1 text-[15px] font-semibold leading-snug outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="font-ident border-latte-surface2 text-latte-text focus:border-latte-blue focus:ring-latte-blue/25 bg-latte-base/70 w-full min-w-[160px] rounded-xl border px-2.5 py-1 text-[15px] font-medium leading-snug tracking-normal shadow-[inset_0_1px_0_var(--material-highlight),0_1px_2px_rgb(var(--ctp-shadow)/0.08)] outline-hidden transition-[background-color,border-color,box-shadow] duration-200 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Custom session title"
             />
           ) : (
@@ -138,7 +138,7 @@ const ChatGridTileHeader = ({
               type="button"
               onClick={onOpenTitleEditor}
               variant="title"
-              className="hover:text-latte-lavender-text mr-1 block min-w-0 max-w-full truncate text-[15px] font-semibold leading-snug transition"
+              className="font-ident hover:text-latte-blue-text mr-1 block min-w-0 max-w-full truncate text-[15px] font-medium leading-snug tracking-normal transition-colors duration-200"
               aria-label="Edit session title"
               title={sessionDisplayTitle}
             >
@@ -166,7 +166,7 @@ const ChatGridTileHeader = ({
           to="/sessions/$paneId"
           params={{ paneId: session.paneId }}
           aria-label="Open detail"
-          className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-lavender/60 hover:text-latte-lavender-text shadow-elev-3 inline-flex h-6 w-6 items-center justify-center rounded-full border transition"
+          className="border-latte-surface2 bg-latte-base/80 text-latte-subtext0 hover:border-latte-blue/60 hover:text-latte-blue-text focus-visible:ring-latte-blue relative inline-flex h-7 w-7 items-center justify-center rounded-full border shadow-[0_1px_3px_rgb(var(--ctp-shadow)/0.12)] transition-[scale,background-color,color,border-color,box-shadow] duration-200 ease-out after:absolute after:-inset-1.5 after:content-[''] active:scale-[0.96] active:duration-100 focus-visible:outline-hidden focus-visible:ring-2"
         >
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>

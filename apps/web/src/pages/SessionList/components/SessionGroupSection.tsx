@@ -90,17 +90,16 @@ const SessionGroupSectionComponent = ({
   return (
     <GlowCard contentClassName="gap-1.5 sm:gap-3">
       <GlassPanel
-        className="px-2.5 py-2 sm:px-4 sm:py-4"
-        contentClassName="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+        className="@container px-2.5 py-2 sm:px-4 sm:py-4"
+        contentClassName="flex flex-col gap-2.5 @2xl:flex-row @2xl:items-center @2xl:justify-between"
       >
         <div className="flex min-w-0 items-start gap-3">
-          <div className="border-latte-surface2/70 from-latte-crust/70 via-latte-surface0/70 to-latte-mantle/80 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-linear-to-br">
-            <div className="bg-latte-lavender/30 pointer-events-none absolute -bottom-3 -right-3 h-8 w-8 rounded-full blur-xl" />
-            <FolderGit2 className="text-latte-lavender-text h-5 w-5" />
+          <div className="border-latte-blue/18 bg-latte-blue/9 relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-[inset_0_1px_0_var(--material-highlight)]">
+            <FolderGit2 className="text-latte-blue-text h-5 w-5" />
           </div>
           <div className="min-w-0 space-y-1">
             <p
-              className="font-display text-latte-text truncate text-lg font-semibold leading-snug"
+              className="font-ident text-latte-text truncate text-lg font-medium leading-snug tracking-normal"
               title={repoName}
             >
               {repoName}
@@ -115,7 +114,7 @@ const SessionGroupSectionComponent = ({
             )}
           </div>
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:min-w-[320px]">
+        <div className="flex w-full flex-wrap items-center gap-2 @2xl:w-auto @2xl:min-w-[320px]">
           <TagPill tone="neutral" className="text-[11px]">
             {windowGroups.length} windows
           </TagPill>
@@ -167,7 +166,7 @@ const SessionGroupSectionComponent = ({
               className={cn(sessionIndex > 0 ? "pt-2.5 sm:pt-4" : null)}
             >
               <div className="mb-2.5 flex flex-wrap items-center gap-2.5 px-1">
-                <TagPill tone="neutral" className="text-[10px]">
+                <TagPill tone="neutral" className="font-ident text-[10px]">
                   Session {sessionSection.sessionName}
                 </TagPill>
                 {launchAgentAvailable ? (

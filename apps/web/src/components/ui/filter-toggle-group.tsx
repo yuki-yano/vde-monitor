@@ -46,7 +46,7 @@ const FilterToggleGroup = ({
             onClick={() => onChange(option.value)}
             disabled={option.disabled}
             className={cn(
-              "hover:translate-y-0 active:translate-y-0",
+              "relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:translate-y-0 active:translate-y-0",
               shouldFixBorderWidth ? "border border-transparent" : null,
               buttonClassName,
             )}

@@ -74,7 +74,7 @@ const CommandItem = ({
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "aria-selected:bg-latte-lavender/18 aria-selected:text-latte-text relative flex cursor-default select-none items-center rounded-xl px-2.5 py-1.5 text-sm outline-hidden sm:px-3 sm:py-2",
+      "aria-selected:bg-latte-blue/16 aria-selected:text-latte-text relative flex cursor-default select-none items-center rounded-xl px-2.5 py-1.5 text-sm outline-hidden sm:px-3 sm:py-2",
       className,
     )}
     {...props}

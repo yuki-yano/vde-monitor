@@ -170,10 +170,12 @@ export const UsageDashboardView = ({
             </Link>
             <ThemeToggle />
           </div>
-          <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-4 backdrop-blur-sm sm:p-6">
+          <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-4 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:p-5">
             <div>
-              <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
-              <h1 className="font-display text-latte-text text-3xl font-semibold sm:text-4xl">
+              <p className="text-latte-subtext0 text-xs font-medium uppercase tracking-[0.16em]">
+                VDE Monitor
+              </p>
+              <h1 className="font-display text-latte-text text-2xl font-semibold tracking-[-0.025em] sm:text-3xl">
                 Usage Dashboard
               </h1>
               <p className="text-latte-subtext1 mt-1 text-sm">
@@ -251,9 +253,9 @@ export const UsageDashboardView = ({
                   size="sm"
                   onClick={onToggleCompactTimeline}
                   className={cn(
-                    "transition duration-200",
+                    "transition-[scale,background-color,color,box-shadow,border-color] duration-200",
                     compactTimeline
-                      ? "border-latte-lavender/85 bg-latte-lavender/22 text-latte-lavender-text ring-latte-lavender/35 hover:border-latte-lavender hover:bg-latte-lavender/28 shadow-accent ring-1"
+                      ? "border-latte-blue/65 bg-latte-blue/18 text-latte-blue-text hover:border-latte-blue/75 hover:bg-latte-blue/24 shadow-[inset_0_0_0_1px_rgb(var(--ctp-blue)/0.14),0_1px_3px_rgb(var(--ctp-shadow)/0.1)]"
                       : "border-latte-surface2/70 text-latte-subtext0 hover:border-latte-overlay1 hover:bg-latte-base/85 hover:text-latte-text",
                   )}
                 >

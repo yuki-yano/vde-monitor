@@ -30,9 +30,16 @@
   --color-latte-mauve-text: rgb(var(--ctp-mauve-text));
   --color-latte-maroon-text: rgb(var(--ctp-maroon-text));
 
-  --font-display: "Geist", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  --font-display:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue",
+    "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo,
+    sans-serif;
+  --font-ident:
+    ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, monospace;
   --font-body:
-    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
   /*
     Every family name is quoted on purpose: these lists reach elements through
     var() in generated utilities, and an unquoted name that is not a valid
@@ -41,7 +48,7 @@
     back to the inherited font.
   */
   --font-mono:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
     "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
 
   /*
@@ -62,7 +69,6 @@
   --shadow-elev-5: var(--shadow-elev-5);
   --shadow-elev-6: var(--shadow-elev-6);
   --shadow-inner-soft: var(--shadow-inner);
-  --shadow-glass: var(--shadow-glass);
   --shadow-glow: var(--shadow-glow);
   --shadow-accent-inset: var(--shadow-accent-inset);
   --shadow-accent-outline: var(--shadow-accent-outline);
@@ -164,7 +170,6 @@ html.pull-to-refresh-enabled body {
   --shadow-elev-6:
     0 28px 56px -24px rgb(var(--ctp-shadow) / 0.36), 0 14px 28px -20px rgb(var(--ctp-shadow) / 0.28);
   --shadow-inner: inset 0 2px 4px 0 rgb(var(--ctp-shadow) / 0.16);
-  --shadow-glass: 0 20px 60px -30px rgb(var(--ctp-shadow) / 0.35);
   --shadow-glow:
     0 0 0 1px rgb(var(--ctp-lavender) / 0.3), 0 15px 40px -20px rgb(var(--ctp-lavender) / 0.6);
   --shadow-accent-inset: inset 0 0 0 1px rgb(var(--ctp-lavender) / 0.18);
@@ -181,22 +186,37 @@ html.pull-to-refresh-enabled body {
   --shadow-popover: 0 18px 50px -25px rgb(var(--ctp-shadow) / 0.6);
   --shadow-danger-outline: 0 0 0 1px rgb(var(--ctp-red) / 0.3);
   --shadow-inner-highlight: inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --material-canvas: rgb(var(--ctp-base) / 0.88);
+  --material-raised: rgb(var(--ctp-mantle) / 0.9);
+  --material-inset: rgb(var(--ctp-mantle) / 0.76);
+  --material-stroke: rgb(var(--ctp-overlay0) / 0.28);
+  --material-highlight: rgb(255 255 255 / 0.56);
+  --material-wash: rgb(255 255 255 / 0.1);
+  --color-on-accent: rgb(255 255 255);
+  --control-track: rgb(var(--ctp-mantle) / 0.82);
+  --control-stroke: rgb(var(--ctp-overlay0) / 0.34);
+  --control-selected: rgb(var(--ctp-base) / 0.98);
+  --control-selected-stroke: rgb(var(--ctp-overlay0) / 0.38);
+  --material-shadow:
+    0 0 0 1px rgb(var(--ctp-shadow) / 0.06), 0 1px 2px rgb(var(--ctp-shadow) / 0.06),
+    0 18px 46px -28px rgb(var(--ctp-shadow) / 0.34);
+  --material-shadow-hover:
+    0 0 0 1px rgb(var(--ctp-shadow) / 0.08), 0 2px 5px rgb(var(--ctp-shadow) / 0.08),
+    0 22px 52px -28px rgb(var(--ctp-shadow) / 0.42);
   --image-outline: oklch(0 0 0 / 0.1);
-  --grid-dot-alpha: 0.15;
-  --grid-opacity: 0.08;
   --bg-gradient-1: radial-gradient(
     1400px 700px at 10% -10%,
-    rgb(var(--ctp-lavender) / 0.25),
+    rgb(var(--ctp-lavender) / 0.14),
     transparent 50%
   );
   --bg-gradient-2: radial-gradient(
     1000px 600px at 95% 5%,
-    rgb(var(--ctp-peach) / 0.18),
+    rgb(var(--ctp-peach) / 0.1),
     transparent 55%
   );
   --bg-gradient-3: radial-gradient(
     800px 400px at 50% 100%,
-    rgb(var(--ctp-green) / 0.08),
+    rgb(var(--ctp-green) / 0.05),
     transparent 60%
   );
 }
@@ -245,8 +265,6 @@ html.pull-to-refresh-enabled body {
   --shadow-elev-6:
     0 32px 60px -24px rgb(var(--ctp-shadow) / 0.94), 0 0 0 1px rgb(var(--ctp-overlay2) / 0.32);
   --shadow-inner: inset 0 2px 4px 0 rgb(var(--ctp-shadow) / 0.5);
-  --shadow-glass:
-    0 20px 60px -30px rgb(var(--ctp-shadow) / 0.72), 0 0 0 1px rgb(var(--ctp-overlay2) / 0.22);
   --shadow-glow:
     0 0 0 1px rgb(var(--ctp-lavender) / 0.42), 0 18px 40px -20px rgb(var(--ctp-lavender) / 0.5);
   --shadow-accent-inset: inset 0 0 0 1px rgb(var(--ctp-lavender) / 0.32);
@@ -264,29 +282,52 @@ html.pull-to-refresh-enabled body {
     0 18px 50px -25px rgb(var(--ctp-shadow) / 0.82), 0 0 0 1px rgb(var(--ctp-overlay2) / 0.24);
   --shadow-danger-outline: 0 0 0 1px rgb(var(--ctp-red) / 0.44);
   --shadow-inner-highlight: inset 0 1px 0 rgb(var(--ctp-overlay2) / 0.24);
+  --material-canvas: rgb(30 30 46 / 0.82);
+  --material-raised: rgb(36 36 54 / 0.9);
+  --material-inset: rgb(17 17 27 / 0.72);
+  --material-stroke: rgb(255 255 255 / 0.13);
+  --material-highlight: rgb(255 255 255 / 0.08);
+  --material-wash: rgb(255 255 255 / 0.05);
+  --color-on-accent: rgb(var(--ctp-crust));
+  --control-track: rgb(17 17 27 / 0.82);
+  --control-stroke: rgb(255 255 255 / 0.16);
+  --control-selected: rgb(var(--ctp-surface1) / 0.9);
+  --control-selected-stroke: rgb(255 255 255 / 0.18);
+  --material-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08), 0 1px 2px rgb(var(--ctp-shadow) / 0.44),
+    0 20px 52px -28px rgb(var(--ctp-shadow) / 0.9);
+  --material-shadow-hover:
+    0 0 0 1px rgb(255 255 255 / 0.12), 0 2px 6px rgb(var(--ctp-shadow) / 0.52),
+    0 24px 58px -28px rgb(var(--ctp-shadow) / 0.96);
   --image-outline: oklch(1 0 0 / 0.1);
-  --grid-dot-alpha: 0.12;
-  --grid-opacity: 0.12;
   --bg-gradient-1: radial-gradient(
     1400px 700px at 10% -10%,
-    rgb(var(--ctp-lavender) / 0.18),
+    rgb(var(--ctp-lavender) / 0.12),
     transparent 55%
   );
   --bg-gradient-2: radial-gradient(
     1000px 600px at 95% 5%,
-    rgb(var(--ctp-peach) / 0.12),
+    rgb(var(--ctp-peach) / 0.08),
     transparent 60%
   );
   --bg-gradient-3: radial-gradient(
     800px 400px at 50% 100%,
-    rgb(var(--ctp-green) / 0.06),
+    rgb(var(--ctp-green) / 0.04),
     transparent 65%
   );
 }
 
 body {
   font-family:
-    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    "Noto Sans JP",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
@@ -294,6 +335,8 @@ body {
     var(--bg-gradient-1), var(--bg-gradient-2), var(--bg-gradient-3), rgb(var(--ctp-base));
   color: rgb(var(--ctp-text));
   min-height: 100vh;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
 }
 
 body::before {
@@ -301,17 +344,25 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: var(--grid-opacity);
-  background-image: radial-gradient(
-    rgb(var(--ctp-text) / var(--grid-dot-alpha)) 1px,
-    transparent 1px
-  );
-  background-size: 24px 24px;
-  mix-blend-mode: multiply;
+  background:
+    linear-gradient(180deg, var(--material-wash), transparent 28%),
+    radial-gradient(900px 420px at 50% -12%, rgb(var(--ctp-blue) / 0.08), transparent 68%);
 }
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: rgb(var(--ctp-blue) / 0.24);
+  color: rgb(var(--ctp-text));
+}
+
+button,
+[role="button"],
+[role="tab"] {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .vde-unicode-table-wrap {
@@ -324,9 +375,7 @@ body::before {
   table-layout: fixed;
   width: max-content;
   min-width: max-content;
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
+  font-family: var(--font-mono);
   border: 1px solid rgb(var(--ctp-surface2));
   font-kerning: none;
   font-variant-ligatures: none;
@@ -367,9 +416,7 @@ body::before {
   width: max-content;
   min-width: max-content;
   border: 1px solid rgb(var(--ctp-surface2));
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
+  font-family: var(--font-mono);
 }
 
 .vde-markdown-pipe-table th,
@@ -451,38 +498,6 @@ body::before {
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
-@keyframes pulse-attention {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 20px rgb(var(--ctp-red) / 0.5);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.02);
-    box-shadow: 0 0 30px rgb(var(--ctp-red) / 0.7);
-  }
-}
-
-.animate-pulse-attention {
-  animation: pulse-attention 1.5s ease-in-out infinite;
-}
-
-@keyframes bounce-subtle {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
-}
-
-.animate-bounce-subtle {
-  animation: bounce-subtle 1s ease-in-out infinite;
-}
-
 /* Custom scrollbar styling */
 .custom-scrollbar {
   scrollbar-width: thin;
@@ -561,9 +576,7 @@ body::before {
 .vde-file-content-modal-code .shiki .line,
 .vde-file-content-modal-code.vde-shiki-with-line-numbers .line::before,
 .vde-file-content-modal-code .vde-shiki-with-line-numbers .line::before {
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
+  font-family: var(--font-mono);
 }
 
 .vde-file-content-modal-code .shiki,
@@ -576,8 +589,7 @@ body::before {
 }
 
 .vde-markdown {
-  font-family:
-    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-family: var(--font-body);
   font-feature-settings:
     "liga" 1,
     "kern" 1;
@@ -588,7 +600,7 @@ body::before {
 .vde-markdown h2,
 .vde-markdown h3,
 .vde-markdown h4 {
-  font-family: "Geist", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-family: var(--font-display);
   letter-spacing: 0;
 }
 
@@ -616,8 +628,7 @@ body::before {
 .vde-markdown blockquote,
 .vde-markdown td,
 .vde-markdown th {
-  font-family:
-    "IBM Plex Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-family: var(--font-body);
 }
 
 .vde-markdown strong {
@@ -646,9 +657,7 @@ body::before {
   border-radius: 0.4rem;
   color: rgb(var(--ctp-text));
   padding: 0.1rem 0.35rem;
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
 }
 
@@ -717,31 +726,24 @@ body::before {
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .vde-skeleton {
-    animation: none;
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :root[data-theme="mocha"] {
+    --material-canvas: rgb(var(--ctp-base));
+    --material-raised: rgb(var(--ctp-mantle));
   }
 
-  .vde-skeleton::after {
-    display: none;
+  [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
   }
+}
 
-  /*
-    Near-zero duration instead of `animation: none` so `animationend` still
-    fires — QuickPanel unmounts and Radix dialogs close on that event.
-  */
-  .animate-fade-in-up,
-  .animate-fade-in,
-  .animate-fade-out,
-  .animate-panel-enter,
-  .animate-panel-exit {
-    animation-duration: 0.01ms;
-  }
-
-  .animate-pulse-soft,
-  .animate-pulse-attention,
-  .animate-bounce-subtle {
-    animation: none;
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="mocha"] {
+    --material-canvas: rgb(var(--ctp-base) / 0.96);
+    --material-raised: rgb(var(--ctp-mantle) / 0.98);
+    --material-stroke: rgb(var(--ctp-text) / 0.44);
   }
 }
 
@@ -767,7 +769,7 @@ body::before {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.4s ease-out forwards;
+  animation: fade-in-up 0.36s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
 .animate-fade-in {
@@ -803,17 +805,19 @@ body::before {
 }
 
 .animate-panel-enter {
-  animation: panel-enter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: panel-enter 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
 @keyframes panel-exit {
   from {
     opacity: 1;
     transform: translateY(0) scale(1);
+    filter: blur(0);
   }
   to {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
+    filter: blur(2px);
   }
 }
 
@@ -832,6 +836,33 @@ body::before {
 
 .animate-fade-out {
   animation: fade-out 0.15s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vde-skeleton {
+    animation: none;
+  }
+
+  .vde-skeleton::after {
+    display: none;
+  }
+
+  /*
+    Near-zero duration instead of `animation: none` so `animationend` still
+    fires — QuickPanel unmounts and Radix dialogs close on that event.
+    This block must stay after the animation utilities so it wins the cascade.
+  */
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-fade-out,
+  .animate-panel-enter,
+  .animate-panel-exit {
+    animation-duration: 0.01ms;
+  }
+
+  .animate-pulse-soft {
+    animation: none;
+  }
 }
 
 body[data-vde-worktree-selector-open="true"] [data-quick-panel-root][data-open="false"] {

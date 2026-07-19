@@ -1,5 +1,13 @@
 import { BarChart3, LayoutGrid, RefreshCw, Search, X } from "lucide-react";
-import { type ChangeEvent, type MouseEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   Button,
@@ -22,6 +30,7 @@ type SessionListHeaderProps = {
   onRefresh: () => void;
   onOpenChatGrid: () => void;
   onOpenUsage: () => void;
+  themeControl?: ReactNode;
 };
 
 const SEARCH_INPUT_DEBOUNCE_MS = 180;
@@ -125,7 +134,7 @@ const SessionListSearchInput = ({
   };
 
   return (
-    <div className="border-latte-surface2 text-latte-text focus-within:border-latte-lavender focus-within:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 relative overflow-hidden rounded-2xl border transition focus-within:ring-2">
+    <div className="border-latte-surface2/80 text-latte-text focus-within:border-latte-blue focus-within:ring-latte-blue/25 bg-latte-crust/32 relative overflow-hidden rounded-2xl border shadow-[0_1px_3px_rgb(var(--ctp-shadow)/0.08)] transition-[border-color,box-shadow,background-color] duration-200 focus-within:bg-latte-base/82 focus-within:ring-2">
       <Search className="text-latte-subtext0 pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2" />
       <Input
         value={activeSearchQuery}
@@ -166,6 +175,7 @@ export const SessionListHeader = ({
   onRefresh,
   onOpenChatGrid,
   onOpenUsage,
+  themeControl,
 }: SessionListHeaderProps) => {
   const connectionIssueLines = connectionIssue
     ? connectionIssue
@@ -184,21 +194,24 @@ export const SessionListHeader = ({
   });
 
   return (
-    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 animate-fade-in stagger-1 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:gap-4 sm:p-6">
+    <header className="animate-fade-in stagger-1 flex flex-col gap-3 rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-3 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:gap-4 sm:p-5">
       <Toolbar className="gap-3">
         <div>
-          <p className="text-latte-subtext0 text-xs tracking-[0.28em]">VDE Monitor</p>
-          <h1 className="font-display text-latte-text text-3xl font-semibold sm:text-4xl">
+          <p className="text-latte-subtext0 text-xs font-medium uppercase tracking-[0.16em]">
+            VDE Monitor
+          </p>
+          <h1 className="font-display text-latte-text text-2xl font-semibold tracking-[-0.025em] sm:text-3xl">
             Live Sessions
           </h1>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-3">
+        <div className="ml-auto flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto">
+          <ConnectionStatusPill status={connectionStatus} transport={transport} />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.14em] md:inline-flex"
+              className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.1em] lg:inline-flex"
               onClick={onOpenUsage}
             >
               Usage
@@ -207,18 +220,17 @@ export const SessionListHeader = ({
               type="button"
               variant="ghost"
               size="sm"
-              className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.14em] md:inline-flex"
+              className="hidden h-7 gap-1.5 px-2.5 text-[11px] uppercase tracking-[0.1em] lg:inline-flex"
               onClick={onOpenChatGrid}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Chat Grid
             </Button>
-            <ConnectionStatusPill status={connectionStatus} transport={transport} />
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 md:hidden"
+              className="relative h-7 w-7 p-0 after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] lg:hidden"
               onClick={onOpenUsage}
               aria-label="Usage"
               title="Usage"
@@ -226,28 +238,43 @@ export const SessionListHeader = ({
               <BarChart3 className="h-3.5 w-3.5" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0"
+              className="relative hidden h-7 w-7 p-0 after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] md:inline-flex lg:hidden"
+              onClick={onOpenChatGrid}
+              aria-label="Open Chat Grid"
+              title="Chat Grid"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="relative h-7 w-7 p-0 after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
               onClick={onRefresh}
               aria-label="Refresh"
             >
               <RefreshCw className="h-4 w-4" />
               <span className="sr-only">Refresh</span>
             </Button>
+            {themeControl}
           </div>
         </div>
       </Toolbar>
-      <SessionListSearchInput
-        initialSearchQuery={searchQuery}
-        onSearchQueryChange={onSearchQueryChange}
-      />
-      <FilterToggleGroup
-        value={filter}
-        onChange={onFilterChange}
-        buttonClassName="uppercase tracking-[0.14em] text-[11px] px-3 py-1"
-        options={filterOptions}
-      />
+      <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
+        <SessionListSearchInput
+          initialSearchQuery={searchQuery}
+          onSearchQueryChange={onSearchQueryChange}
+        />
+        <FilterToggleGroup
+          value={filter}
+          onChange={onFilterChange}
+          buttonClassName="px-3 text-[11px] uppercase tracking-[0.08em]"
+          options={filterOptions}
+          className="gap-x-1.5 gap-y-2"
+        />
+      </div>
       {connectionIssueLines.length > 0 && (
         <Callout tone="warning" size="sm">
           {connectionIssueRows.map((item) => (

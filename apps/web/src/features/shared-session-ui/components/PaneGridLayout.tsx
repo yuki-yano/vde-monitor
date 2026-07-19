@@ -36,7 +36,7 @@ const rowClassNameMap: Record<PaneGridRows, string> = {
 };
 
 const responsivePresetClassNameMap: Record<PaneGridResponsivePreset, string> = {
-  "session-list": "md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 lg:gap-5",
+  "session-list": "@lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4 @lg:gap-5",
   "chat-grid": "md:grid-cols-2 xl:grid-cols-3 auto-rows-fr",
 };
 

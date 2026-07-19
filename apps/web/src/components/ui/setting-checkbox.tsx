@@ -28,7 +28,7 @@ const SettingCheckbox = ({
   return (
     <label
       className={cn(
-        "border-latte-surface2/80 bg-latte-mantle/45 text-latte-subtext0 hover:border-latte-lavender/35 hover:bg-latte-mantle/65 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition",
+        "border-latte-surface2/80 bg-latte-mantle/52 text-latte-subtext0 hover:border-latte-blue/38 hover:bg-latte-mantle/68 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition-[background-color,color,border-color] duration-200",
         disabled ? "cursor-not-allowed opacity-60" : null,
         className,
       )}

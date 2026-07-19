@@ -87,7 +87,8 @@ const QuickPanelSessionItem = ({
         aria-current={isCurrent ? "true" : undefined}
         className={cn(
           "flex w-full min-w-0 flex-col gap-2.5",
-          isCurrent && "border-latte-lavender/70 bg-latte-lavender/10 shadow-accent",
+          isCurrent &&
+            "border-latte-blue/58 bg-latte-blue/12 shadow-[inset_0_0_0_1px_rgb(var(--ctp-blue)/0.1),0_5px_16px_-10px_rgb(var(--ctp-blue)/0.42)]",
         )}
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -101,7 +102,7 @@ const QuickPanelSessionItem = ({
             <StatusIcon className={cn("h-3.5 w-3.5", statusMeta.className)} />
           </span>
           <span
-            className="text-latte-text min-w-0 truncate text-sm font-semibold"
+            className="font-ident text-latte-text min-w-0 truncate text-sm font-medium tracking-normal"
             title={displayTitle}
           >
             {displayTitle}
@@ -140,20 +141,26 @@ const QuickPanelSessionItem = ({
         <IconButton
           type="button"
           onClick={() => onOpenSessionLink(item.paneId)}
-          variant={isCurrent ? "lavenderStrong" : "lavender"}
+          variant="base"
           size="sm"
           aria-label="Open session link"
-          className="shadow-elev-3 z-10"
+          className={cn(
+            "shadow-elev-3 z-10",
+            isCurrent && "border-latte-blue/58 bg-latte-blue/16 text-latte-blue-text",
+          )}
         >
           <ArrowRight className="h-3.5 w-3.5" />
         </IconButton>
         <IconButton
           type="button"
           onClick={() => onOpenSessionLinkInNewWindow(item.paneId)}
-          variant={isCurrent ? "lavenderStrong" : "lavender"}
+          variant="base"
           size="sm"
           aria-label="Open session link in new window"
-          className="shadow-elev-3 z-10"
+          className={cn(
+            "shadow-elev-3 z-10",
+            isCurrent && "border-latte-blue/58 bg-latte-blue/16 text-latte-blue-text",
+          )}
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </IconButton>
@@ -313,7 +320,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
             }
           }}
           className={cn(
-            "font-body border-latte-lavender/30 bg-latte-mantle/85 shadow-accent-panel ring-latte-overlay2/25 relative flex max-h-[75dvh] w-[calc(100vw-1.25rem)] max-w-[480px] flex-col overflow-hidden rounded-3xl border-2 p-3 ring-1 ring-inset backdrop-blur-xl sm:w-[calc(100vw-3.5rem)] sm:p-4",
+            "font-body ring-latte-overlay2/20 relative flex max-h-[75dvh] w-[calc(100vw-1.25rem)] max-w-[480px] flex-col overflow-hidden rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-raised)] p-3 shadow-[var(--shadow-popover)] ring-1 ring-inset backdrop-blur-xl sm:w-[calc(100vw-3.5rem)] sm:p-4",
             panelPhase === "closing" ? "animate-panel-exit" : "animate-panel-enter",
           )}
         >
@@ -321,7 +328,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
             type="button"
             onClick={onClose}
             className="absolute right-2 top-2 z-30 sm:right-2.5 sm:top-2.5"
-            variant="lavender"
+            variant="base"
             size="sm"
             aria-label="Close quick panel"
           >
@@ -333,7 +340,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
           >
             <div className="space-y-4 pr-3 sm:space-y-5 sm:pr-5">
               {agentGroups.length === 0 && (
-                <div className="border-latte-lavender/20 bg-latte-crust/50 text-latte-subtext0 rounded-xl border px-2.5 py-3 text-center text-xs sm:px-3 sm:py-4">
+                <div className="text-latte-subtext0 rounded-xl border border-[var(--material-stroke)] bg-[var(--material-inset)] px-2.5 py-3 text-center text-xs sm:px-3 sm:py-4">
                   No agent sessions available.
                 </div>
               )}
@@ -352,8 +359,8 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                   <div key={group.repoRoot ?? "no-repo"} className="space-y-3">
                     <div className="border-latte-surface2/70 bg-latte-base/70 flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2">
                       <div className="flex items-center gap-2">
-                        <span className="bg-latte-lavender/70 h-2 w-2 rounded-full shadow-[0_0_8px_rgb(var(--ctp-lavender)/0.5)]" />
-                        <span className="text-latte-lavender-text text-[11px] font-semibold uppercase tracking-wider">
+                        <span className="bg-latte-blue/80 h-2 w-2 rounded-full shadow-[0_0_8px_rgb(var(--ctp-blue)/0.42)]" />
+                        <span className="text-latte-blue-text text-[11px] font-semibold uppercase tracking-wider">
                           {formatRepoDirLabel(group.repoRoot)}
                         </span>
                       </div>
@@ -367,10 +374,10 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
                           {index > 0 && <div className="border-latte-surface2/70 mb-3 border-t" />}
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-latte-subtext0 truncate text-[11px] font-semibold uppercase tracking-wider">
+                              <p className="font-ident text-latte-subtext0 truncate text-[11px] font-medium uppercase tracking-normal">
                                 Window {windowGroup.windowIndex}
                               </p>
-                              <p className="text-latte-subtext0 truncate text-[10px]">
+                              <p className="font-ident text-latte-subtext0 truncate text-[10px] tracking-normal">
                                 Session {windowGroup.sessionName}
                               </p>
                             </div>
@@ -408,9 +415,13 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
         <IconButton
           type="button"
           onClick={onToggle}
-          variant="lavenderStrong"
+          variant="base"
           size="lg"
           aria-label="Toggle session quick panel"
+          className={cn(
+            "border-latte-blue/46 bg-latte-blue/14 text-latte-blue-text shadow-[0_0_0_1px_rgb(var(--ctp-blue)/0.12),0_8px_22px_-12px_rgb(var(--ctp-blue)/0.56)]",
+            open && "border-latte-blue/68 bg-latte-blue/22",
+          )}
         >
           <List className="h-5 w-5" />
         </IconButton>
@@ -421,7 +432,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
               onClick={() => {
                 window.history.back();
               }}
-              variant="lavender"
+              variant="base"
               size="md"
               aria-label="Go back"
             >
@@ -432,7 +443,7 @@ export const QuickPanel = ({ state, actions }: QuickPanelProps) => {
               onClick={() => {
                 window.history.forward();
               }}
-              variant="lavender"
+              variant="base"
               size="md"
               aria-label="Go forward"
             >

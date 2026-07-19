@@ -21,10 +21,10 @@ describe("PaneGridLayout", () => {
       "grid",
       "gap-2.5",
       "sm:gap-4",
-      "md:grid-cols-2",
-      "xl:grid-cols-3",
-      "2xl:grid-cols-4",
-      "lg:gap-5",
+      "@lg:grid-cols-2",
+      "@3xl:grid-cols-3",
+      "@5xl:grid-cols-4",
+      "@lg:gap-5",
     ]);
   });
 

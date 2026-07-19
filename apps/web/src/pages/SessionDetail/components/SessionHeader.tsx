@@ -152,7 +152,7 @@ const SessionTitleInput = ({
       maxLength={80}
       enterKeyHint="done"
       disabled={titleSaving}
-      className="border-latte-surface2 text-latte-text focus:border-latte-lavender focus:ring-latte-lavender/30 bg-latte-base/70 shadow-elev-1 min-w-[180px] flex-1 rounded-xl border px-2.5 py-1 text-xl outline-hidden transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
+      className="border-latte-surface2 text-latte-text focus:border-latte-blue focus:ring-latte-blue/25 bg-latte-crust/28 min-w-[180px] flex-1 rounded-xl border px-2.5 py-1 text-xl tracking-[-0.02em] shadow-[0_1px_3px_rgb(var(--ctp-shadow)/0.08)] outline-hidden transition-[border-color,box-shadow,background-color] duration-200 focus:bg-latte-base/78 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3 sm:py-1.5"
       aria-label="Custom session title"
     />
   );
@@ -168,7 +168,7 @@ const SessionTitleButton = ({
     onClick={onOpenTitleEditor}
     variant="title"
     className={cn(
-      "hover:text-latte-lavender-text min-w-0 flex-1 cursor-default truncate text-left transition hover:cursor-pointer",
+      "hover:text-latte-blue-text min-w-0 flex-1 cursor-default truncate text-left tracking-[-0.02em] transition-colors duration-200 hover:cursor-pointer",
       titleClassName,
     )}
     aria-label="Edit session title"
@@ -303,7 +303,7 @@ export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
         </Link>
         <ThemeToggle />
       </div>
-      <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-2.5 rounded-3xl border p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
+      <header className="flex flex-col gap-2.5 rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-3 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:gap-3 sm:p-4">
         <div className="flex flex-col gap-1.5 sm:gap-2">
           <SessionTitleArea
             canResetTitle={canResetTitle}
@@ -343,7 +343,7 @@ export const SessionHeader = memo(({ state, actions }: SessionHeaderProps) => {
               aria-expanded={detailsOpen}
               aria-controls={detailsOpen ? detailsSectionId : undefined}
               aria-label={detailsOpen ? "Hide header details" : "Show header details"}
-              className="text-latte-subtext0 ml-auto flex h-7 w-7 items-center gap-1.5 p-0 text-[10px] uppercase tracking-[0.18em] sm:h-8 sm:w-8"
+              className="text-latte-subtext0 relative ml-auto flex h-7 w-7 items-center gap-1.5 p-0 text-[10px] uppercase tracking-[0.12em] after:absolute after:-inset-1.5 after:content-[''] sm:h-8 sm:w-8"
             >
               {detailsOpen ? (
                 <ChevronUp className="h-4 w-4" />

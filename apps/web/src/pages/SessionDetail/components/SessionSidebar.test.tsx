@@ -334,7 +334,7 @@ describe("SessionSidebar", () => {
 
     expect(screen.getByText("Codex Session")).toBeTruthy();
     const codexLink = screen.getByText("Codex Session").closest("a");
-    expect(codexLink?.className).toContain("border-green-500/50");
+    expect(codexLink?.className).toContain("before:bg-latte-green");
     expect(screen.queryByText("Shell Session")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "SHELL" }));
@@ -346,7 +346,7 @@ describe("SessionSidebar", () => {
 
     expect(screen.getByText("Neovim Session")).toBeTruthy();
     const neovimLink = screen.getByText("Neovim Session").closest("a");
-    expect(neovimLink?.className).toContain("border-latte-maroon/55");
+    expect(neovimLink?.className).toContain("before:bg-latte-maroon");
     const editorIcon = screen.getByLabelText("EDITOR");
     expect(editorIcon.className).toContain("border-latte-maroon/45");
     expect(screen.queryByText("Codex Session")).toBeNull();

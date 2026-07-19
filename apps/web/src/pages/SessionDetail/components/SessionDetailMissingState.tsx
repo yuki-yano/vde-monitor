@@ -30,7 +30,7 @@ const SessionDetailLoadingSidebar = ({ sidebarWidth }: { sidebarWidth: number })
   <aside
     data-testid="session-detail-loading-sidebar"
     aria-hidden="true"
-    className="fixed left-0 top-0 z-40 hidden h-screen border-r border-latte-surface1/60 bg-latte-base/80 px-3 py-4 backdrop-blur-sm md:flex md:flex-col"
+    className="fixed left-0 top-0 z-40 hidden h-screen border-r border-[var(--material-stroke)] bg-[var(--material-raised)] px-3 py-4 shadow-[var(--shadow-popover)] backdrop-blur-2xl md:flex md:flex-col"
     style={{ width: `${sidebarWidth}px` }}
   >
     <div className="flex items-center justify-between gap-3 px-1">
@@ -78,7 +78,7 @@ const SessionHeaderLoadingSkeleton = () => (
   <header
     data-testid="session-detail-loading-header"
     aria-hidden="true"
-    className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:p-4"
+    className="flex flex-col gap-3 rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-3 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:p-4"
   >
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-2">

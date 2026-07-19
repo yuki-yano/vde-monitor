@@ -20,11 +20,13 @@ export const ChatGridToolbar = ({
   onRefreshAllTiles,
 }: ChatGridToolbarProps) => {
   return (
-    <header className="shadow-glass border-latte-surface1/60 bg-latte-base/80 flex flex-col gap-3 rounded-3xl border p-3 backdrop-blur-sm sm:gap-4 sm:p-5">
+    <header className="flex flex-col gap-3 rounded-3xl border border-[var(--material-stroke)] bg-[var(--material-canvas)] p-3 shadow-[var(--material-shadow)] backdrop-blur-2xl sm:gap-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-latte-subtext0 text-xs tracking-[0.24em]">VDE Monitor</p>
-          <h1 className="font-display text-latte-text text-3xl font-semibold sm:text-4xl">
+          <p className="text-latte-subtext0 text-xs font-medium uppercase tracking-[0.16em]">
+            VDE Monitor
+          </p>
+          <h1 className="font-display text-latte-text text-2xl font-semibold tracking-[-0.025em] sm:text-3xl">
             Chat Grid
           </h1>
         </div>

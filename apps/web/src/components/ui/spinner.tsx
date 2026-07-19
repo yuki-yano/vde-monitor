@@ -15,10 +15,10 @@ const Spinner = ({ className, size = "md", ...props }: SpinnerProps) => {
   const sizing = sizeClass[size];
   return (
     <div className={cn("relative", className)} {...props}>
-      <div className={cn("border-latte-lavender/20 rounded-full border-2", sizing)} />
+      <div className={cn("border-latte-blue/20 rounded-full border-2", sizing)} />
       <div
         className={cn(
-          "border-latte-lavender absolute inset-0 animate-spin rounded-full border-2 border-t-transparent",
+          "border-latte-blue absolute inset-0 animate-spin rounded-full border-2 border-t-transparent",
           sizing,
         )}
       />

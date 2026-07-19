@@ -61,8 +61,8 @@ const SessionListLoadingSkeleton = () => (
     {SKELETON_REPOSITORIES.map((cardIndex) => (
       <GlowCard key={`session-list-loading-${cardIndex}`} contentClassName="gap-1.5 sm:gap-3">
         <GlassPanel
-          className="px-2.5 py-2 sm:px-4 sm:py-4"
-          contentClassName="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+          className="@container px-2.5 py-2 sm:px-4 sm:py-4"
+          contentClassName="flex flex-col gap-2.5 @2xl:flex-row @2xl:items-center @2xl:justify-between"
         >
           <div className="flex min-w-0 items-start gap-3">
             <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
@@ -71,7 +71,7 @@ const SessionListLoadingSkeleton = () => (
               <Skeleton className="h-3 w-56 max-w-[60vw]" />
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:min-w-[320px]">
+          <div className="flex w-full flex-wrap items-center gap-2 @2xl:w-auto @2xl:min-w-[320px]">
             <Skeleton className="h-5 w-20" />
             <Skeleton className="h-5 w-16" />
             <div className="ml-auto flex items-center gap-2">
@@ -87,7 +87,7 @@ const SessionListLoadingSkeleton = () => (
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-7 w-28 rounded-lg" />
           </div>
-          <InsetPanel className="p-2.5 sm:p-4">
+          <InsetPanel className="@container p-2.5 sm:p-4">
             <div className="flex items-center justify-between gap-3 pb-2">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 shrink-0 rounded-2xl" />
@@ -334,10 +334,6 @@ const SessionListMainContent = ({
     style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
   >
     <div className="flex flex-col gap-4 sm:gap-6">
-      <div className="flex items-center justify-between gap-3">
-        <div />
-        <ThemeToggle />
-      </div>
       <SessionListHeader
         connectionStatus={connectionStatus}
         connectionIssue={connectionIssue}
@@ -350,6 +346,7 @@ const SessionListMainContent = ({
         onRefresh={onRefresh}
         onOpenChatGrid={onOpenChatGrid}
         onOpenUsage={onOpenUsage}
+        themeControl={<ThemeToggle />}
       />
       {screenError ? (
         <div
