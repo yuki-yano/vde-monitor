@@ -90,7 +90,7 @@ const SessionCardComponent = ({
       <Card
         interactive
         className={cn(
-          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 before:absolute before:inset-y-4 before:left-0 before:w-[3px] before:rounded-r-full before:content-[''] sm:p-4",
+          "relative flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-3 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:opacity-[0.65] before:content-[''] sm:p-4",
           stateStyle.card,
         )}
       >
