@@ -6,6 +6,12 @@ import { createPaneStateStore } from "./pane-state";
 describe("applyAgentPresenceObservation", () => {
   it("confirms absence only after two successful absent observations", () => {
     const paneState = createPaneStateStore().get("%1");
+    paneState.hookState = {
+      state: "WAITING_INPUT",
+      reason: "hook:stop",
+      at: "2026-07-19T00:00:00.000Z",
+    };
+    paneState.codexQuestionPromptActive = true;
 
     const firstPresent = applyAgentPresenceObservation({
       observedAgent: "codex",
@@ -41,6 +47,8 @@ describe("applyAgentPresenceObservation", () => {
     });
     expect(paneState.consecutiveAbsentObservations).toBe(1);
     expect(paneState.agentPresent).toBe(true);
+    expect(paneState.hookState).not.toBeNull();
+    expect(paneState.codexQuestionPromptActive).toBe(true);
 
     const secondAbsent = applyAgentPresenceObservation({
       observedAgent: "unknown",
@@ -55,6 +63,8 @@ describe("applyAgentPresenceObservation", () => {
     });
     expect(paneState.consecutiveAbsentObservations).toBe(2);
     expect(paneState.agentPresent).toBe(false);
+    expect(paneState.hookState).toBeNull();
+    expect(paneState.codexQuestionPromptActive).toBe(false);
   });
 
   it("keeps the last agent and counter unchanged for indeterminate observations", () => {

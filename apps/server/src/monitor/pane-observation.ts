@@ -160,6 +160,8 @@ export const applyAgentPresenceObservation = ({
   }
 
   paneState.agentPresent = false;
+  paneState.hookState = null;
+  paneState.codexQuestionPromptActive = false;
   return {
     agent: "unknown" as const,
     preserveResolvedState: false,

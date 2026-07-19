@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { updatePaneOutputState } from "./pane-output";
 import type { PaneRuntimeState } from "./pane-state";
+import { estimateSessionState } from "./session-state";
 
 describe("updatePaneOutputState", () => {
   const basePane = {
@@ -95,6 +96,61 @@ describe("updatePaneOutputState", () => {
     expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
     expect(result.hookState).toBeNull();
     expect(state.hookState).toBeNull();
+  });
+
+  it.each([
+    { state: "RUNNING" as const, reason: "hook:UserPromptSubmit" },
+    { state: "WAITING_INPUT" as const, reason: "hook:stop" },
+  ])("keeps Codex $state hook state authoritative when output advances", async (hookState) => {
+    const state = createState({
+      hookState: { ...hookState, at: "2024-01-01T00:00:00.000Z" },
+    });
+    const result = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: true,
+      logPath: "/tmp/log",
+      inactiveThresholdMs: 1000,
+      deps: createDeps({ statLogMtime: async () => "2024-01-02T00:00:00.000Z" }),
+    });
+
+    expect(result.outputAt).toBe("2024-01-02T00:00:00.000Z");
+    expect(result.hookState).toEqual({
+      ...hookState,
+      at: "2024-01-01T00:00:00.000Z",
+    });
+    expect(state.hookState).toEqual(result.hookState);
+  });
+
+  it("keeps a stopped Codex session waiting after later terminal output", async () => {
+    const state = createState({
+      hookState: {
+        state: "WAITING_INPUT",
+        reason: "hook:stop",
+        at: "2024-01-01T00:00:00.000Z",
+      },
+    });
+    const output = await updatePaneOutputState({
+      pane: basePane,
+      paneState: state,
+      isCodexAgentPane: true,
+      logPath: "/tmp/log",
+      inactiveThresholdMs: 1000,
+      deps: createDeps({ statLogMtime: async () => "2024-01-02T00:00:00.000Z" }),
+    });
+
+    const estimated = estimateSessionState({
+      agent: "codex",
+      paneDead: false,
+      lastOutputAt: output.outputAt,
+      hookState: output.hookState,
+      herdrAgentStatus: null,
+      codexQuestionPromptActive: output.codexQuestionPromptActive,
+      activity: { runningThresholdMs: 5000 },
+    });
+
+    expect(output.outputAt).toBe("2024-01-02T00:00:00.000Z");
+    expect(estimated).toEqual({ state: "WAITING_INPUT", reason: "hook:stop" });
   });
 
   it("keeps waiting-permission hook state when output advances", async () => {

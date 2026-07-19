@@ -39,11 +39,14 @@ export const estimateState = (
     return { state: "UNKNOWN", reason: "pane_dead" };
   }
 
-  if (signals.hookState) {
+  if (signals.hookState?.state === "WAITING_PERMISSION") {
     return mapHookState(signals.hookState);
   }
   if (signals.codexQuestionPromptActive) {
     return { state: "WAITING_PERMISSION", reason: "poll:codex_question_prompt" };
+  }
+  if (signals.hookState) {
+    return mapHookState(signals.hookState);
   }
   if (signals.herdrAgentStatus) {
     return mapHerdrAgentStatus(signals.herdrAgentStatus);

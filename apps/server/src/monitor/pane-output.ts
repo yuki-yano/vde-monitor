@@ -194,9 +194,17 @@ const ensureFallbackOutputAt = ({
 
 const shouldKeepHookState = (state: string) => state === "WAITING_PERMISSION";
 
-const resolveHookState = (paneState: PaneRuntimeState, outputAt: string | null) => {
+const resolveHookState = ({
+  paneState,
+  outputAt,
+  codexHookIsAuthoritative,
+}: {
+  paneState: PaneRuntimeState;
+  outputAt: string | null;
+  codexHookIsAuthoritative: boolean;
+}) => {
   const hookState = paneState.hookState;
-  if (!hookState || !outputAt || shouldKeepHookState(hookState.state)) {
+  if (!hookState || !outputAt || codexHookIsAuthoritative || shouldKeepHookState(hookState.state)) {
     return hookState;
   }
   const hookTs = Date.parse(hookState.at);
@@ -314,7 +322,11 @@ export const updatePaneOutputState = async ({
     now,
     setOutputAt: outputAtTracker.setOutputAt,
   });
-  const hookState = resolveHookState(paneState, outputAt);
+  const hookState = resolveHookState({
+    paneState,
+    outputAt,
+    codexHookIsAuthoritative: isCodexAgentPane,
+  });
   let inputTouchedAt: string | null = null;
   if (isAgentPane && logPath) {
     const checkedAt = now().toISOString();

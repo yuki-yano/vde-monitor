@@ -59,6 +59,28 @@ describe("estimateState", () => {
     });
   });
 
+  it.each(["RUNNING", "WAITING_INPUT"] as const)(
+    "prioritizes codex question prompt over %s hook state",
+    (state) => {
+      const result = estimateState({
+        paneDead: false,
+        lastOutputAt: "2026-01-01T00:00:00Z",
+        hookState: {
+          state,
+          reason: state === "RUNNING" ? "hook:UserPromptSubmit" : "hook:stop",
+          at: "2026-01-01T00:00:01Z",
+        },
+        codexQuestionPromptActive: true,
+        thresholds: { runningThresholdMs: 1000, inactiveThresholdMs: 2000 },
+      });
+
+      expect(result).toEqual({
+        state: "WAITING_PERMISSION",
+        reason: "poll:codex_question_prompt",
+      });
+    },
+  );
+
   it("prioritizes hook state over herdr agent status", () => {
     const result = estimateState({
       paneDead: false,
