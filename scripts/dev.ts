@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { createServer as createNetServer } from "node:net";
-
 import { execa } from "execa";
+
+import { findAvailablePort, waitForPort } from "./dev-network";
 
 const argv = process.argv.slice(2);
 const separatorIndex = argv.indexOf("--");
@@ -28,41 +28,9 @@ const shouldExposeWeb = isPublic || isTailscale;
 const shouldExposeServer = isPublic || isTailscale;
 const bindHost = getFlagValue("--bind");
 const DEFAULT_SERVER_PORT = 11080;
-const SERVER_PORT_ATTEMPTS = 100;
-
-const stripAnsi = (input: string) => {
-  let result = "";
-  for (let i = 0; i < input.length; i += 1) {
-    if (input.charCodeAt(i) === 27) {
-      i += 1;
-      while (i < input.length && input[i] !== "m") {
-        i += 1;
-      }
-      continue;
-    }
-    result += input[i];
-  }
-  return result;
-};
-const extractPort = (input: string) => {
-  const cleaned = stripAnsi(input);
-  const matches = cleaned.match(/https?:\/\/\S+/g);
-  if (!matches) {
-    return null;
-  }
-  for (const raw of matches) {
-    const token = raw.replace(/[),]/g, "");
-    try {
-      const url = new URL(token);
-      if (url.port) {
-        return Number(url.port);
-      }
-    } catch {
-      // ignore invalid URL
-    }
-  }
-  return null;
-};
+const DEFAULT_WEB_PORT = 24180;
+const DEV_PORT_ATTEMPTS = 100;
+const SERVER_READY_TIMEOUT_MS = 30_000;
 
 const parsePort = (value: string | null) => {
   if (!value) {
@@ -73,31 +41,6 @@ const parsePort = (value: string | null) => {
     return null;
   }
   return parsed;
-};
-
-const isPortAvailable = (port: number, host: string) =>
-  new Promise<boolean>((resolve) => {
-    const server = createNetServer();
-    server.once("error", () => {
-      server.close();
-      resolve(false);
-    });
-    server.once("listening", () => {
-      server.close(() => resolve(true));
-    });
-    server.listen(port, host);
-  });
-
-const findAvailablePort = async (startPort: number, host: string, attempts: number) => {
-  for (let i = 0; i < attempts; i += 1) {
-    const port = startPort + i;
-    if (await isPortAvailable(port, host)) {
-      return port;
-    }
-  }
-  throw new Error(
-    `No available server port found in range ${startPort}-${startPort + attempts - 1}`,
-  );
 };
 
 const resolvePortProbeHost = () => {
@@ -123,8 +66,11 @@ const resolveServerPort = async () => {
   if (requestedByScript) {
     return requestedByScript;
   }
-  return findAvailablePort(DEFAULT_SERVER_PORT, resolvePortProbeHost(), SERVER_PORT_ATTEMPTS);
+  return findAvailablePort(DEFAULT_SERVER_PORT, resolvePortProbeHost(), DEV_PORT_ATTEMPTS);
 };
+
+const resolveWebPort = () =>
+  findAvailablePort(DEFAULT_WEB_PORT, shouldExposeWeb ? "0.0.0.0" : "127.0.0.1", DEV_PORT_ATTEMPTS);
 
 const spawnPnpm = (args: string[], env?: NodeJS.ProcessEnv) => {
   return execa(pnpmCmd, args, {
@@ -135,7 +81,10 @@ const spawnPnpm = (args: string[], env?: NodeJS.ProcessEnv) => {
 };
 
 const main = async () => {
-  const resolvedServerPort = await resolveServerPort();
+  const [resolvedServerPort, resolvedWebPort] = await Promise.all([
+    resolveServerPort(),
+    resolveWebPort(),
+  ]);
 
   if (isTailscale && !isPublic) {
     console.warn(
@@ -143,91 +92,73 @@ const main = async () => {
     );
   }
 
-  let serverProcess: ReturnType<typeof execa> | null = null;
+  let webProcess: ReturnType<typeof execa> | null = null;
   let shuttingDown = false;
-  let webBuffer = "";
 
-  const webArgs = ["--filter", "@vde-monitor/web", shouldExposeWeb ? "dev:public" : "dev"];
-  const webProcess = spawnPnpm(webArgs, {
-    VITE_API_PROXY_TARGET: `http://${resolveProxyHost()}:${resolvedServerPort}`,
+  const serverArgs = ["--filter", "@vde-monitor/server", "dev", "--"];
+  const hasForwarded = (flag: string) => passthroughArgs.includes(flag);
+  if (shouldExposeServer && !hasForwarded("--public")) {
+    serverArgs.push("--public");
+  }
+  if (isTailscale && !hasForwarded("--tailscale")) {
+    serverArgs.push("--tailscale");
+  }
+  if (bindHost && !hasForwarded("--bind")) {
+    serverArgs.push("--bind", bindHost);
+  }
+  if (!hasForwarded("--port")) {
+    serverArgs.push("--port", String(resolvedServerPort));
+  }
+  serverArgs.push(...passthroughArgs);
+  serverArgs.push("--web-port", String(resolvedWebPort));
+
+  const serverProcess = spawnPnpm(serverArgs);
+  serverProcess.stdout?.on("data", (data) => process.stdout.write(data));
+  serverProcess.stderr?.on("data", (data) => process.stderr.write(data));
+  serverProcess.on("exit", (code, signal) => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    webProcess?.kill("SIGTERM");
+    process.exit(code ?? (signal ? 1 : 0));
   });
 
-  const startServer = (webPort: number) => {
-    if (serverProcess) {
+  const stopChildren = (signal: NodeJS.Signals) => {
+    if (shuttingDown) {
       return;
     }
-    const args = ["--filter", "@vde-monitor/server", "dev", "--"];
-    const hasForwarded = (flag: string) => passthroughArgs.includes(flag);
-    if (shouldExposeServer && !hasForwarded("--public")) {
-      args.push("--public");
-    }
-    if (isTailscale && !hasForwarded("--tailscale")) {
-      args.push("--tailscale");
-    }
-    if (bindHost && !hasForwarded("--bind")) {
-      args.push("--bind", bindHost);
-    }
-    if (!hasForwarded("--port")) {
-      args.push("--port", String(resolvedServerPort));
-    }
-    args.push(...passthroughArgs);
-    args.push("--web-port", String(webPort));
-    serverProcess = spawnPnpm(args);
-    serverProcess.stdout?.on("data", (data) => process.stdout.write(data));
-    serverProcess.stderr?.on("data", (data) => process.stderr.write(data));
-    serverProcess.on("exit", (code, signal) => {
-      if (shuttingDown) {
-        return;
-      }
-      shuttingDown = true;
-      webProcess.kill("SIGTERM");
-      process.exit(code ?? (signal ? 1 : 0));
-    });
+    shuttingDown = true;
+    webProcess?.kill(signal);
+    serverProcess.kill(signal);
   };
+  process.once("SIGINT", () => stopChildren("SIGINT"));
+  process.once("SIGTERM", () => stopChildren("SIGTERM"));
 
-  const handleWebOutput = (data: Buffer, isError = false) => {
-    const text = data.toString();
-    if (isError) {
-      process.stderr.write(text);
-    } else {
-      process.stdout.write(text);
-    }
-    if (serverProcess) {
-      return;
-    }
-    webBuffer += text;
-    const lines = webBuffer.split(/\r?\n/);
-    webBuffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const port = extractPort(line);
-      if (port) {
-        startServer(port);
-        break;
-      }
-    }
-  };
+  try {
+    await waitForPort(resolvedServerPort, resolveProxyHost(), SERVER_READY_TIMEOUT_MS);
+  } catch (error) {
+    stopChildren("SIGTERM");
+    throw error;
+  }
+  if (shuttingDown) {
+    return;
+  }
 
-  webProcess.stdout?.on("data", (data: Buffer) => handleWebOutput(data));
-  webProcess.stderr?.on("data", (data: Buffer) => handleWebOutput(data, true));
-
+  const webArgs = ["--filter", "@vde-monitor/web", shouldExposeWeb ? "dev:public" : "dev"];
+  webProcess = spawnPnpm(webArgs, {
+    VITE_API_PROXY_TARGET: `http://${resolveProxyHost()}:${resolvedServerPort}`,
+    VITE_DEV_PORT: String(resolvedWebPort),
+  });
+  webProcess.stdout?.on("data", (data) => process.stdout.write(data));
+  webProcess.stderr?.on("data", (data) => process.stderr.write(data));
   webProcess.on("exit", (code, signal) => {
     if (shuttingDown) {
       return;
     }
     shuttingDown = true;
-    if (serverProcess) {
-      serverProcess.kill("SIGTERM");
-    }
+    serverProcess.kill("SIGTERM");
     process.exit(code ?? (signal ? 1 : 0));
-  });
-
-  process.on("SIGINT", () => {
-    if (shuttingDown) {
-      return;
-    }
-    shuttingDown = true;
-    webProcess.kill("SIGINT");
-    serverProcess?.kill("SIGINT");
   });
 };
 
