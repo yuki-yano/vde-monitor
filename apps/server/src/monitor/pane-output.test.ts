@@ -37,6 +37,7 @@ describe("updatePaneOutputState", () => {
     lastMessage: null,
     lastInputAt: null,
     lastRunStartedAt: null,
+    lastRunStartedRunId: null,
     manualSortAt: null,
     agentSessionId: null,
     agentSessionSource: null,

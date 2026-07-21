@@ -54,6 +54,7 @@ const observation: PaneObservation = {
     lastMessage: "message",
     lastInputAt: "2024-01-01T00:01:00.000Z",
     lastRunStartedAt: "2024-01-01T00:02:00.000Z",
+    lastRunStartedRunId: "epoch-1:1",
     manualSortAt: "2024-01-01T00:03:00.000Z",
     agentSessionId: null,
     agentSessionSource: null,

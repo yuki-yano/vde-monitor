@@ -35,6 +35,7 @@ export type PersistedSessionRuntimeState = {
   lifecycle: PersistedLifecycle;
   completionCursor: PersistedCompletionCursor | null;
   lastAgent: PersistedAgentIdentity;
+  lastRunStartedRunId: string | null;
 };
 
 export type PersistedSession = {
@@ -44,6 +45,8 @@ export type PersistedSession = {
   lastMessage: string | null;
   lastInputAt: string | null;
   lastRunStartedAt?: string | null;
+  lastRunStartedAtVerified?: boolean;
+  lastRunStartedRunId?: string | null;
   manualSortAt?: string | null;
   agentSessionId?: string | null;
   agentSessionSource?: "hook" | "lsof" | "history" | null;
@@ -202,6 +205,9 @@ const isPersistedSession = (value: unknown): value is PersistedSession => {
     isNullableString(session.lastMessage) &&
     isNullableString(session.lastInputAt) &&
     isOptionalNullableString(session.lastRunStartedAt) &&
+    (session.lastRunStartedAtVerified == null ||
+      typeof session.lastRunStartedAtVerified === "boolean") &&
+    isOptionalNullableString(session.lastRunStartedRunId) &&
     isOptionalNullableString(session.manualSortAt) &&
     isOptionalNullableString(session.agentSessionId) &&
     (session.agentSessionSource == null ||
@@ -294,7 +300,18 @@ export const saveState = (
       paneId,
       {
         ...session,
-        lastRunStartedAt: session.lastRunStartedAt ?? null,
+        lastRunStartedAt:
+          session.lastRunStartedAtVerified === true && session.lastRunStartedRunId != null
+            ? (session.lastRunStartedAt ?? null)
+            : null,
+        lastRunStartedAtVerified:
+          session.lastRunStartedAtVerified === true &&
+          session.lastRunStartedAt != null &&
+          session.lastRunStartedRunId != null,
+        lastRunStartedRunId:
+          session.lastRunStartedAtVerified === true && session.lastRunStartedAt != null
+            ? (session.lastRunStartedRunId ?? null)
+            : null,
         manualSortAt: session.manualSortAt ?? null,
       },
     ]),
@@ -313,7 +330,11 @@ export const saveState = (
           lastEventAt: session.lastEventAt,
           lastMessage: session.lastMessage,
           lastInputAt: session.lastInputAt,
-          lastRunStartedAt: session.lastRunStartedAt,
+          lastRunStartedAt:
+            runtimeState.lastRunStartedRunId != null ? session.lastRunStartedAt : null,
+          lastRunStartedAtVerified:
+            session.lastRunStartedAt != null && runtimeState.lastRunStartedRunId != null,
+          lastRunStartedRunId: runtimeState.lastRunStartedRunId,
           manualSortAt: session.manualSortAt,
           agentSessionId: session.agentSessionId ?? null,
           agentSessionSource: session.agentSessionSource ?? null,
@@ -412,7 +433,26 @@ const restorePersistedSessionMap = (state: PersistedState | null): PersistedSess
     (entry): entry is [string, PersistedSession] =>
       isPersistedSession(entry[1]) && entry[0] === entry[1].paneId,
   );
-  return new Map(entries);
+  return new Map(
+    entries.map(([paneId, session]) => [
+      paneId,
+      {
+        ...session,
+        lastRunStartedAt:
+          session.lastRunStartedAtVerified === true && session.lastRunStartedRunId != null
+            ? (session.lastRunStartedAt ?? null)
+            : null,
+        lastRunStartedAtVerified:
+          session.lastRunStartedAtVerified === true &&
+          session.lastRunStartedAt != null &&
+          session.lastRunStartedRunId != null,
+        lastRunStartedRunId:
+          session.lastRunStartedAtVerified === true && session.lastRunStartedAt != null
+            ? (session.lastRunStartedRunId ?? null)
+            : null,
+      },
+    ]),
+  );
 };
 
 const restorePersistedTimelineMap = (state: PersistedState | null): PersistedTimelineMap => {

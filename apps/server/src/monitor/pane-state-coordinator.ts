@@ -350,6 +350,11 @@ export const createPaneStateCoordinator = ({
       if (alreadyRecorded) {
         return;
       }
+      const runId = `${cursor.epoch}:${cursor.openRunSeq}`;
+      if (paneState.lastRunStartedRunId !== runId) {
+        updateRunStartedAt(paneState, at);
+        paneState.lastRunStartedRunId = runId;
+      }
       aggregate.activityTransitions.push({
         type: "start",
         epoch: cursor.epoch,
@@ -431,7 +436,6 @@ export const createPaneStateCoordinator = ({
       }
       if (event.source === "herdr") {
         if (event.agentStatus === "working") {
-          const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
           const reduction = reducer.reduce(state, {
             type: "begin-run",
             source: "herdr:working",
@@ -440,10 +444,6 @@ export const createPaneStateCoordinator = ({
           });
           state = reduction.state;
           aggregate = mergeReduction(aggregate, reduction);
-          const cursor = state.cursor;
-          if (previousOpenRunSeq == null && cursor?.openRunSeq != null) {
-            updateRunStartedAt(paneState, event.at);
-          }
           recordVerifiedRunStart(event.at);
         } else if (event.agentStatus === "done") {
           const reduction = reducer.reduce(state, {
@@ -471,7 +471,6 @@ export const createPaneStateCoordinator = ({
         event.eventName === "PreToolUse" ||
         event.eventName === "PostToolUse"
       ) {
-        const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
         const begin = reducer.reduce(state, {
           type: "begin-run",
           source: `hook:${event.eventName}`,
@@ -480,10 +479,6 @@ export const createPaneStateCoordinator = ({
         });
         state = begin.state;
         aggregate = mergeReduction(aggregate, begin);
-        const cursor = state.cursor;
-        if (previousOpenRunSeq == null && cursor?.openRunSeq != null) {
-          updateRunStartedAt(paneState, event.at);
-        }
         recordVerifiedRunStart(event.at);
       } else if (event.eventName === "Stop") {
         const complete = reducer.reduce(state, {
@@ -528,7 +523,6 @@ export const createPaneStateCoordinator = ({
       observedLifecycle === "RUNNING" &&
       state.cursor?.openRunSeq == null
     ) {
-      const previousOpenRunSeq = state.cursor?.openRunSeq ?? null;
       const startedAt = resolveNow();
       const begin = reducer.reduce(state, {
         type: "begin-run",
@@ -538,9 +532,6 @@ export const createPaneStateCoordinator = ({
       });
       state = begin.state;
       aggregate = mergeReduction(aggregate, begin);
-      if (previousOpenRunSeq == null && state.cursor?.openRunSeq != null) {
-        updateRunStartedAt(paneState, startedAt);
-      }
     } else if (
       !deferHookLifecycleToEvents &&
       previousLifecycle === "RUNNING" &&

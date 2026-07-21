@@ -29,6 +29,7 @@ const createPaneState = (overrides: Partial<PaneRuntimeState> = {}): PaneRuntime
   lastMessage: null,
   lastInputAt: null,
   lastRunStartedAt: null,
+  lastRunStartedRunId: null,
   manualSortAt: null,
   agentSessionId: null,
   agentSessionSource: null,

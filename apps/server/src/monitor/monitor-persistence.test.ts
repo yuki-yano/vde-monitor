@@ -19,6 +19,8 @@ describe("restoreMonitorRuntimeState", () => {
           lastMessage: "message",
           lastInputAt: "2024-01-01T00:00:02.000Z",
           lastRunStartedAt: "2024-01-01T00:00:03.000Z",
+          lastRunStartedAtVerified: true,
+          lastRunStartedRunId: "epoch-1:1",
           manualSortAt: "2024-01-01T00:00:04.000Z",
           agentSessionId: "session-1",
           agentSessionSource: "hook",
@@ -114,6 +116,7 @@ describe("restoreMonitorRuntimeState", () => {
         lastMessage: "message",
         lastInputAt: "2024-01-01T00:00:02.000Z",
         lastRunStartedAt: "2024-01-01T00:00:03.000Z",
+        lastRunStartedRunId: "epoch-1:1",
         manualSortAt: "2024-01-01T00:00:04.000Z",
         agentSessionId: null,
         agentSessionSource: null,
@@ -165,6 +168,7 @@ describe("restoreMonitorRuntimeState", () => {
         consecutiveAbsentObservations: 1,
       }),
       lastAgent: "codex",
+      lastRunStartedRunId: null,
     });
 
     paneState.completionCursor = { ...paneState.pendingRestoredCompletionCursor };

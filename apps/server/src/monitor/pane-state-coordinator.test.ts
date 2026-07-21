@@ -108,7 +108,7 @@ describe("createPaneStateCoordinator", () => {
     ]);
   });
 
-  it("records an injected detection time for a poll-opened run without an activity transition", () => {
+  it("does not record a sort timestamp for an unverified poll-opened run", () => {
     const paneState = createPaneStateStore().get("%1");
     paneState.agentPresence = "present";
     const coordinator = createCoordinator("2026-07-10T00:00:05.000Z");
@@ -120,15 +120,22 @@ describe("createPaneStateCoordinator", () => {
     });
     const second = coordinator.applyObservation({
       pane,
-      detail: detail({ state: "RUNNING", stateReason: "poll" }),
+      detail: detail({ state: "WAITING_INPUT", stateReason: "inactive_timeout" }),
+      paneState,
+    });
+    const third = coordinator.applyObservation({
+      pane,
+      detail: detail({ state: "RUNNING", stateReason: "recent_output" }),
       paneState,
     });
 
     expect(first.activityTransitions).toEqual([]);
     expect(second.activityTransitions).toEqual([]);
-    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
-    expect(first.detail.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
-    expect(second.detail.lastRunStartedAt).toBe("2026-07-10T00:00:05.000Z");
+    expect(third.activityTransitions).toEqual([]);
+    expect(paneState.lastRunStartedAt).toBeNull();
+    expect(first.detail.lastRunStartedAt).toBeNull();
+    expect(second.detail.lastRunStartedAt).toBeNull();
+    expect(third.detail.lastRunStartedAt).toBeNull();
   });
 
   it.each(["UserPromptSubmit", "PreToolUse", "PostToolUse"] as const)(
@@ -160,6 +167,7 @@ describe("createPaneStateCoordinator", () => {
       expect(verified.activityTransitions).toEqual([
         { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:06.000Z" },
       ]);
+      expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:06.000Z");
       expect(paneState.completionCursor).toMatchObject({
         epoch: "epoch-1",
         runSeq: 1,
@@ -193,6 +201,7 @@ describe("createPaneStateCoordinator", () => {
     expect(verified.activityTransitions).toEqual([
       { type: "start", epoch: "epoch-1", runSeq: 1, at: "2026-07-10T00:00:06.000Z" },
     ]);
+    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:06.000Z");
     expect(paneState.completionCursor).toMatchObject({
       epoch: "epoch-1",
       runSeq: 1,
@@ -261,6 +270,8 @@ describe("createPaneStateCoordinator", () => {
         endedAt: "2026-07-10T00:00:09.000Z",
       }),
     ]);
+    expect(paneState.lastRunStartedAt).toBe("2026-07-10T00:00:06.000Z");
+    expect(paneState.lastRunStartedRunId).toBe("epoch-1:1");
   });
 
   it("records the herdr working event that opens a run", () => {

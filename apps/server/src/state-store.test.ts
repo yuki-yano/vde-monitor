@@ -89,6 +89,7 @@ const createRuntimeState = (
   lifecycle: "RUNNING",
   completionCursor: null,
   lastAgent: "codex",
+  lastRunStartedRunId: null,
   ...overrides,
 });
 
@@ -194,12 +195,49 @@ describe("state-store timeline persistence", () => {
           manualSortAt: "2026-07-14T00:01:00.000Z",
         }),
       ],
-      { runtimeStateByPaneId: createRuntimeStateMap() },
+      {
+        runtimeStateByPaneId: createRuntimeStateMap({ lastRunStartedRunId: "epoch-1:1" }),
+      },
     );
 
     const restored = restorePersistedState().sessions.get("pane-1");
     expect(restored?.lastRunStartedAt).toBe("2026-07-14T00:00:00.000Z");
+    expect(restored?.lastRunStartedAtVerified).toBe(true);
+    expect(restored?.lastRunStartedRunId).toBe("epoch-1:1");
     expect(restored?.manualSortAt).toBe("2026-07-14T00:01:00.000Z");
+  });
+
+  it("drops an unverified legacy run timestamp during restore", () => {
+    fileContents.set(
+      statePath,
+      `${JSON.stringify({
+        version: 3,
+        savedAt: "2026-07-14T00:02:00.000Z",
+        sessions: {
+          "pane-1": {
+            paneId: "pane-1",
+            lastOutputAt: null,
+            lastEventAt: null,
+            lastMessage: null,
+            lastInputAt: null,
+            lastRunStartedAt: "2026-07-14T00:00:00.000Z",
+            manualSortAt: null,
+            customTitle: null,
+            lifecycle: "WAITING_INPUT",
+            completionCursor: null,
+            lastAgent: "codex",
+            stateReason: "inactive_timeout",
+          },
+        },
+        timeline: {},
+        repoNotes: {},
+      })}\n`,
+    );
+
+    const restored = restorePersistedState().sessions.get("pane-1");
+    expect(restored?.lastRunStartedAt).toBeNull();
+    expect(restored?.lastRunStartedAtVerified).toBe(false);
+    expect(restored?.lastRunStartedRunId).toBeNull();
   });
 
   it("restores sessions/timeline/repoNotes from a single read", () => {
@@ -427,7 +465,8 @@ describe("state-store timeline persistence", () => {
     );
 
     const { sessions: restoredSessions, timeline: restoredTimeline } = restorePersistedState();
-    expect(restoredSessions.get("pane-1")?.lastRunStartedAt).toBeUndefined();
+    expect(restoredSessions.get("pane-1")?.lastRunStartedAt).toBeNull();
+    expect(restoredSessions.get("pane-1")?.lastRunStartedAtVerified).toBe(false);
     expect(restoredSessions.get("pane-1")?.manualSortAt).toBeUndefined();
     expect(restoredTimeline.get("pane-1")).toHaveLength(1);
     expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBeUndefined();

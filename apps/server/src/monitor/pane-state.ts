@@ -52,6 +52,7 @@ export type PaneRuntimeState = {
   lastMessage: string | null;
   lastInputAt: string | null;
   lastRunStartedAt: string | null;
+  lastRunStartedRunId: string | null;
   manualSortAt: string | null;
   agentSessionId: string | null;
   agentSessionSource: "hook" | "lsof" | "history" | null;
@@ -92,6 +93,7 @@ const createDefaultState = (): PaneRuntimeState => ({
   lastMessage: null,
   lastInputAt: null,
   lastRunStartedAt: null,
+  lastRunStartedRunId: null,
   manualSortAt: null,
   agentSessionId: null,
   agentSessionSource: null,

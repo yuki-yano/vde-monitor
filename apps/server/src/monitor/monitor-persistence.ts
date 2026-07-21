@@ -44,6 +44,7 @@ export const resolvePersistedSessionRuntimeState = (
     lastAgent: pendingFallback
       ? (state.pendingRestoredLastAgent ?? state.lastResolvedAgent)
       : state.lastResolvedAgent,
+    lastRunStartedRunId: state.lastRunStartedRunId,
   };
 };
 
@@ -64,6 +65,7 @@ export const restoreMonitorRuntimeState = ({
     state.lastMessage = session.lastMessage ?? null;
     state.lastInputAt = session.lastInputAt ?? null;
     state.lastRunStartedAt = session.lastRunStartedAt ?? null;
+    state.lastRunStartedRunId = session.lastRunStartedRunId ?? null;
     state.manualSortAt = session.manualSortAt ?? null;
     state.lifecycle = session.lifecycle;
     state.completionCursor = completionCursor;
