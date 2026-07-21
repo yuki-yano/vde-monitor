@@ -527,7 +527,7 @@ describe("UsageDashboardView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Usage breakdown (last 30 days)" }));
 
-    const expectedDate = new Date("2026-02-24T00:00:00.000Z").toLocaleDateString();
+    const expectedDate = new Date(2026, 1, 24).toLocaleDateString();
     expect(screen.getByText(expectedDate)).toBeTruthy();
   });
 });

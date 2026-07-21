@@ -4,6 +4,8 @@ import path from "node:path";
 
 import type { UsageTokenCounters, UsageTokenUsageResult } from "./types";
 
+const USAGE_DAY_START_HOUR = 3;
+
 export type CachedResult = {
   fetchedAtMs: number;
   result: UsageTokenUsageResult;
@@ -31,22 +33,32 @@ export const addUsageTokenCounters = (target: UsageTokenCounters, delta: UsageTo
   target.totalTokens += delta.totalTokens;
 };
 
+const toUsageDayStart = (value: Date) => {
+  const dayStart = new Date(value);
+  dayStart.setHours(USAGE_DAY_START_HOUR, 0, 0, 0);
+  if (value.getTime() < dayStart.getTime()) {
+    dayStart.setDate(dayStart.getDate() - 1);
+  }
+  return dayStart;
+};
+
+export const toUsageDayKey = (timestampMs: number) => {
+  const dayStart = toUsageDayStart(new Date(timestampMs));
+  const year = dayStart.getFullYear();
+  const month = String(dayStart.getMonth() + 1).padStart(2, "0");
+  const day = String(dayStart.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const toUsageWindowBoundaries = (now: Date) => {
   const nowMs = now.getTime();
-  const todayStartMs = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    0,
-    0,
-    0,
-    0,
-  );
-  const last30daysStartMs = todayStartMs - 29 * 24 * 60 * 60 * 1000;
+  const todayStart = toUsageDayStart(now);
+  const last30daysStart = new Date(todayStart);
+  last30daysStart.setDate(last30daysStart.getDate() - 29);
   return {
     nowMs,
-    todayStartMs,
-    last30daysStartMs,
+    todayStartMs: todayStart.getTime(),
+    last30daysStartMs: last30daysStart.getTime(),
   };
 };
 

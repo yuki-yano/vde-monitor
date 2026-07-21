@@ -12,6 +12,7 @@ import {
   listJsonlFilesRecursively,
   parseFiniteNumber,
   resolveAllowedJsonlPath,
+  toUsageDayKey,
   toUsageWindowBoundaries,
 } from "./token-source-utils";
 import { parseIsoToMs } from "../../utils/time";
@@ -229,7 +230,7 @@ export class CodexSessionTokenSource implements UsageTokenSource {
           totalTokens: rawUsage.totalTokens || rawUsage.inputTokens + rawUsage.outputTokens,
         };
         addUsageTokenCounters(modelEntry.last30days, delta);
-        const dateKey = new Date(timestampMs).toISOString().slice(0, 10);
+        const dateKey = toUsageDayKey(timestampMs);
         const dailyCounter =
           modelEntry.daily.get(dateKey) ??
           (() => {

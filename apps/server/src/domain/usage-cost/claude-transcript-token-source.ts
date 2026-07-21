@@ -12,6 +12,7 @@ import {
   listJsonlFilesRecursively,
   parseFiniteNumber,
   resolveAllowedJsonlPath,
+  toUsageDayKey,
   toUsageWindowBoundaries,
 } from "./token-source-utils";
 import { parseIsoToMs } from "../../utils/time";
@@ -160,7 +161,7 @@ export class ClaudeTranscriptTokenSource implements UsageTokenSource {
       totalTokens,
     };
     addUsageTokenCounters(next.last30days, delta);
-    const dateKey = new Date(timestampMs).toISOString().slice(0, 10);
+    const dateKey = toUsageDayKey(timestampMs);
     const dailyCounter =
       next.daily.get(dateKey) ??
       (() => {

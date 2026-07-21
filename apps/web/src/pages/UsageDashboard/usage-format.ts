@@ -122,7 +122,7 @@ type BillingBreakdownAggregate = {
   hasUsd: boolean;
 };
 
-const parseUtcDay = (value: string): Date | null => {
+const parseLocalDay = (value: string): Date | null => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) {
     return null;
@@ -130,11 +130,11 @@ const parseUtcDay = (value: string): Date | null => {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const parsed = new Date(year, month - 1, day);
   if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
   ) {
     return null;
   }
@@ -171,7 +171,7 @@ const resolveBreakdownBucket = (
   dateText: string,
   granularity: BillingBreakdownGranularity,
 ): { key: string; label: string; startMs: number } | null => {
-  const parsed = parseUtcDay(dateText);
+  const parsed = parseLocalDay(dateText);
   if (!parsed) {
     return null;
   }
