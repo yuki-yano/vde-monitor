@@ -184,6 +184,34 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(state)).toBe("RUNNING");
   });
 
+  it("prioritizes the current non-agent lifecycle after the agent becomes absent", () => {
+    const { reducer, observeInitialPresence } = createHarness();
+    let state = observeInitialPresence();
+    state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
+    state = reducer.reduce(state, { type: "complete-run", source: "hook:stop" }).state;
+    expect(hasUnacknowledgedCompletion(state.cursor)).toBe(true);
+
+    state = reducer.reduce(state, {
+      type: "observe-presence",
+      presence: "absent",
+      lifecycleWhenAbsent: "SHELL",
+    }).state;
+    state = reducer.reduce(state, {
+      type: "observe-presence",
+      presence: "absent",
+      lifecycleWhenAbsent: "SHELL",
+    }).state;
+    expect(requireCursor(state)).toMatchObject({
+      agentPresent: false,
+      completedSeq: 1,
+      acknowledgedSeq: 0,
+    });
+    expect(resolvePublicPaneState(state)).toBe("SHELL");
+
+    state = reducer.reduce(state, { type: "set-lifecycle", lifecycle: "UNKNOWN" }).state;
+    expect(resolvePublicPaneState(state)).toBe("UNKNOWN");
+  });
+
   it("S12-S13: restores state only for the same identity", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence({
@@ -287,7 +315,7 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState(explicit)).toBe("WAITING_INPUT");
   });
 
-  it("S18: closes an open run only after two successful snapshots report absence", () => {
+  it("S18: closes an open run after confirmed absence without masking the shell", () => {
     const { reducer, observeInitialPresence } = createHarness();
     let state = observeInitialPresence();
     state = reducer.reduce(state, { type: "begin-run", source: "hook:start" }).state;
@@ -329,7 +357,7 @@ describe("completion state reducer", () => {
       completedSeq: 1,
       acknowledgedSeq: 0,
     });
-    expect(resolvePublicPaneState(state)).toBe("DONE");
+    expect(resolvePublicPaneState(state)).toBe("SHELL");
 
     const oldEpoch = requireCursor(state).epoch;
     state = reducer.reduce(state, {
@@ -525,7 +553,7 @@ describe("completion state reducer", () => {
     expect(resolvePublicPaneState({ lifecycle: "UNKNOWN", cursor })).toBe("UNKNOWN");
     expect(
       resolvePublicPaneState({ lifecycle: "SHELL", cursor: { ...cursor, agentPresent: false } }),
-    ).toBe("DONE");
+    ).toBe("SHELL");
     expect(isAuthoritativeCompletionSource("hook:stop")).toBe(true);
     expect(isAuthoritativeCompletionSource("herdr:done")).toBe(true);
     expect(isAuthoritativeCompletionSource("poll")).toBe(false);

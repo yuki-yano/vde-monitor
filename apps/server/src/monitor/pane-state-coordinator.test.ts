@@ -503,7 +503,7 @@ describe("createPaneStateCoordinator", () => {
     expect(acknowledged.detail.completion).toMatchObject({ acknowledgedSeq: 2 });
   });
 
-  it("keeps absent pending completion as DONE and projects shell after acknowledgement", () => {
+  it("projects the current shell while retaining pending completion metadata", () => {
     const paneState = createPaneStateStore().get("%1");
     paneState.lifecycle = "SHELL";
     paneState.completionCursor = {
@@ -528,8 +528,8 @@ describe("createPaneStateCoordinator", () => {
       throughSeq: 1,
     });
     expect(current.detail).toMatchObject({
-      agent: "claude",
-      state: "DONE",
+      agent: "unknown",
+      state: "SHELL",
       completion: { epoch: "epoch-absent" },
     });
 
@@ -920,7 +920,7 @@ describe("createPaneStateCoordinator", () => {
     expect(paneState.pendingRestoredCompletionCursor?.epoch).toBe("persisted");
   });
 
-  it("confirms restored absence on the second success while retaining unacknowledged DONE", () => {
+  it("confirms restored absence on the second success without projecting stale DONE", () => {
     const paneState = createPaneStateStore().get("%1");
     const restoredCursor = {
       epoch: "persisted",
@@ -960,8 +960,8 @@ describe("createPaneStateCoordinator", () => {
     expect(commit.advancedCompletions).toEqual([]);
     expect(commit.activityTransitions).toEqual([]);
     expect(commit.detail).toMatchObject({
-      agent: "codex",
-      state: "DONE",
+      agent: "unknown",
+      state: "UNKNOWN",
       completion: { epoch: "persisted", completedSeq: 1, acknowledgedSeq: 0 },
     });
     expect(paneState.completionCursor).toMatchObject({

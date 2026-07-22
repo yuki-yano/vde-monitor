@@ -137,7 +137,7 @@ const projectPublicDetail = (detail: SessionDetail, state: CompletionState): Ses
       : null;
   return {
     ...detail,
-    agent: cursor.agentPresent || pending ? cursor.agent : "unknown",
+    agent: cursor.agentPresent ? cursor.agent : "unknown",
     completion,
     state: resolvePublicPaneState(state),
     agentSessionId: cursor.agentSessionId ?? detail.agentSessionId,

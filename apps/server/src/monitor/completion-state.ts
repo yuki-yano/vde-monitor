@@ -216,10 +216,7 @@ export const resolvePublicPaneState = ({ lifecycle, cursor }: CompletionState): 
   if (lifecycle === "RUNNING") {
     return "RUNNING";
   }
-  if (
-    hasUnacknowledgedCompletion(cursor) &&
-    (lifecycle === "WAITING_INPUT" || cursor?.agentPresent === false)
-  ) {
+  if (hasUnacknowledgedCompletion(cursor) && lifecycle === "WAITING_INPUT") {
     return "DONE";
   }
   if (lifecycle === "WAITING_INPUT") {
