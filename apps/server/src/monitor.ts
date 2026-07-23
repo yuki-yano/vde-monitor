@@ -530,6 +530,7 @@ export const createSessionMonitor = (
     monitorLoop.stop();
     logActivity.stop();
     observationCoordinator.dispose();
+    paneUpdateService.dispose();
     // Refuse new pane updates before the final flush; the in-flight update is
     // awaited during teardown below.
     const paneUpdaterStopped = paneUpdater.stop();

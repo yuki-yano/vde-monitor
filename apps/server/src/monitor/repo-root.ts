@@ -1,7 +1,7 @@
 import { setMapEntryWithLimit } from "../cache";
 import { resolveRepoRoot as resolveRepoRootShared } from "../domain/git/git-utils";
 
-const repoRootCacheTtlMs = 10000;
+const negativeRepoRootCacheTtlMs = 10_000;
 const REPO_ROOT_CACHE_MAX_ENTRIES = 1000;
 const repoRootCache = new Map<string, { repoRoot: string | null; at: number }>();
 
@@ -20,7 +20,7 @@ export const resolveRepoRootCached = async (cwd: string | null) => {
   if (!normalized) return null;
   const nowMs = Date.now();
   const cached = repoRootCache.get(normalized);
-  if (cached && nowMs - cached.at < repoRootCacheTtlMs) {
+  if (cached && (cached.repoRoot != null || nowMs - cached.at < negativeRepoRootCacheTtlMs)) {
     return cached.repoRoot;
   }
   const repoRoot = await resolveRepoRoot(normalized);

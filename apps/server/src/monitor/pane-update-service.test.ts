@@ -5,9 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSessionRegistry } from "../session-registry";
 import { createPaneStateStore } from "./pane-state";
 import { createPaneUpdateService } from "./pane-update-service";
+import { resolveRepoRootCached } from "./repo-root";
+import { resolveVwWorktreeSnapshotCached } from "./vw-worktree";
 
 const processPaneMock = vi.hoisted(() => vi.fn());
 const createAgentProcessSnapshotMock = vi.hoisted(() => vi.fn());
+const vwSnapshotWatcherMock = vi.hoisted(() => ({
+  dispose: vi.fn(),
+  observe: vi.fn(),
+  prune: vi.fn(),
+}));
 
 const createPaneLogManagerMock = () => ({
   detachOwnedPipe: vi.fn(async () => ({ ok: true, owned: false, detached: false })),
@@ -24,6 +31,10 @@ vi.mock("./agent-resolver-process", () => ({
 
 vi.mock("./repo-root", () => ({
   resolveRepoRootCached: vi.fn(async () => "/repo/default"),
+}));
+
+vi.mock("./vw-snapshot-watcher", () => ({
+  createVwSnapshotWatcher: vi.fn(() => vwSnapshotWatcherMock),
 }));
 
 vi.mock("./vw-worktree", () => ({
@@ -287,6 +298,117 @@ describe("createPaneUpdateService", () => {
         processSnapshot: expect.objectContaining({ status: "success" }),
       }),
     );
+  });
+
+  it("uses an event-invalidated stale-while-revalidate snapshot for pane monitoring", async () => {
+    processPaneMock.mockResolvedValueOnce(createDetail());
+    const { service } = createService();
+
+    await service.updateFromPanes();
+
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledWith("/repo/default", {
+      ghMode: "never",
+      cacheTtlMs: Number.POSITIVE_INFINITY,
+      monitor: true,
+      staleWhileRevalidate: true,
+    });
+  });
+
+  it("deduplicates vw snapshots for panes in the same repository within an update", async () => {
+    const secondPane: PaneMeta = {
+      ...basePane,
+      paneId: "%2",
+      paneIndex: 1,
+      panePid: 101,
+    };
+    processPaneMock.mockImplementation(async ({ pane }) =>
+      createDetail({
+        paneId: pane.paneId,
+        paneIndex: pane.paneIndex,
+        panePid: pane.panePid,
+      }),
+    );
+    const { service, inspector } = createService();
+    inspector.listPanes.mockResolvedValueOnce([basePane, secondPane]);
+
+    await service.updateFromPanes();
+
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses a known common repo root across different worktree paths", async () => {
+    const firstPane = { ...basePane, currentPath: "/repo/worktree-a" };
+    const secondPane: PaneMeta = {
+      ...basePane,
+      paneId: "%2",
+      paneIndex: 1,
+      panePid: 101,
+      currentPath: "/repo/worktree-b",
+    };
+    vi.mocked(resolveRepoRootCached).mockImplementation(async (currentPath) => currentPath);
+    processPaneMock.mockImplementation(async ({ pane }) =>
+      createDetail({
+        paneId: pane.paneId,
+        paneIndex: pane.paneIndex,
+        panePid: pane.panePid,
+        currentPath: pane.currentPath,
+        repoRoot: "/repo",
+      }),
+    );
+    const { service, inspector, registry } = createService();
+    registry.update(createDetail({ currentPath: "/repo/worktree-a", repoRoot: "/repo" }));
+    registry.update(
+      createDetail({
+        paneId: "%2",
+        paneIndex: 1,
+        panePid: 101,
+        currentPath: "/repo/worktree-b",
+        repoRoot: "/repo",
+      }),
+    );
+    inspector.listPanes.mockResolvedValueOnce([firstPane, secondPane]);
+
+    await service.updateFromPanes();
+
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledTimes(1);
+    expect(resolveVwWorktreeSnapshotCached).toHaveBeenCalledWith("/repo", expect.any(Object));
+  });
+
+  it("does not request a vw snapshot outside a Git repository", async () => {
+    vi.mocked(resolveRepoRootCached).mockResolvedValueOnce(null);
+    processPaneMock.mockResolvedValueOnce(
+      createDetail({
+        currentPath: "/tmp/not-a-repository",
+        repoRoot: null,
+      }),
+    );
+    const { service, inspector } = createService();
+    inspector.listPanes.mockResolvedValueOnce([
+      { ...basePane, currentPath: "/tmp/not-a-repository" },
+    ]);
+
+    await service.updateFromPanes();
+
+    expect(resolveVwWorktreeSnapshotCached).not.toHaveBeenCalled();
+    expect(vwSnapshotWatcherMock.prune).toHaveBeenCalledWith(new Set());
+  });
+
+  it("observes resolved snapshots and disposes the watcher", async () => {
+    const snapshot = {
+      repoRoot: "/repo/default",
+      baseBranch: "main",
+      entries: [],
+    };
+    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce(snapshot);
+    processPaneMock.mockResolvedValueOnce(createDetail());
+    const { service } = createService();
+
+    await service.updateFromPanes();
+    service.dispose();
+
+    expect(vwSnapshotWatcherMock.observe).toHaveBeenCalledWith(snapshot);
+    expect(vwSnapshotWatcherMock.prune).toHaveBeenCalledWith(new Set(["/repo/default"]));
+    expect(vwSnapshotWatcherMock.dispose).toHaveBeenCalledOnce();
   });
 
   it("does not add duplicate transition when state/reason/repoRoot are unchanged", async () => {

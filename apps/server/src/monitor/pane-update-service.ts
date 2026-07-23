@@ -12,6 +12,7 @@ import { createPaneStateCoordinator } from "./pane-state-coordinator";
 import { cleanupRegistry } from "./registry-cleanup";
 import { resolveRepoBranchCached } from "./repo-branch";
 import { resolveRepoRootCached } from "./repo-root";
+import { createVwSnapshotWatcher } from "./vw-snapshot-watcher";
 import { resolveVwWorktreeSnapshotCached, resolveWorktreeStatusFromSnapshot } from "./vw-worktree";
 
 const PANE_PROCESS_CONCURRENCY = 8;
@@ -156,6 +157,7 @@ export const createPaneUpdateService = ({
   const panePipeTagCache = new Map<string, string | null>();
   const panePipeTagInflight = new Map<string, Promise<string | null>>();
   const paneProcessingFailures = new Map<string, PaneProcessingFailure>();
+  const vwSnapshotWatcher = createVwSnapshotWatcher();
 
   const recordPaneProcessingFailure = (paneId: string, reason: unknown) => {
     const failedAt = new Date().toISOString();
@@ -256,6 +258,7 @@ export const createPaneUpdateService = ({
       config.multiplexer.backend === "herdr" ? null : await createAgentProcessSnapshot();
     const activePaneIds = new Set<string>();
     const pendingTransitionEvents: SessionTransitionEvent[] = [];
+    const activeVwRepoRoots = new Set<string>();
     const repoRootByCurrentPath = new Map<string, Promise<string | null>>();
     const vwSnapshotByCwd = new Map<
       string,
@@ -282,9 +285,34 @@ export const createPaneUpdateService = ({
       if (existing) {
         return existing;
       }
-      const request = resolveVwWorktreeSnapshotCached(cwd, { ghMode: "never" });
+      const request = resolveVwWorktreeSnapshotCached(cwd, {
+        ghMode: "never",
+        cacheTtlMs: Number.POSITIVE_INFINITY,
+        monitor: true,
+        staleWhileRevalidate: true,
+      }).then((snapshot) => {
+        if (snapshot) {
+          vwSnapshotWatcher.observe(snapshot);
+          const repoRoot = normalizeCacheKey(snapshot.repoRoot);
+          if (repoRoot) {
+            activeVwRepoRoots.add(repoRoot);
+          }
+        }
+        return snapshot;
+      });
       vwSnapshotByCwd.set(key, request);
       return request;
+    };
+
+    const resolveSnapshotCwd = (pane: PaneMeta, paneRepoRoot: string) => {
+      const existing = registry.getDetail(pane.paneId);
+      if (
+        normalizeCacheKey(existing?.currentPath ?? null) === normalizeCacheKey(pane.currentPath) &&
+        existing?.repoRoot
+      ) {
+        return existing.repoRoot;
+      }
+      return paneRepoRoot;
     };
 
     const paneResults = await mapWithConcurrencyLimitSettled(
@@ -292,8 +320,9 @@ export const createPaneUpdateService = ({
       PANE_PROCESS_CONCURRENCY,
       async (pane) => {
         const paneRepoRoot = await resolvePaneRepoRoot(pane.currentPath);
-        const snapshotCwd = paneRepoRoot ?? pane.currentPath ?? process.cwd();
-        const vwSnapshot = await resolveSnapshotByCwd(snapshotCwd);
+        const vwSnapshot = paneRepoRoot
+          ? await resolveSnapshotByCwd(resolveSnapshotCwd(pane, paneRepoRoot))
+          : null;
         return processPane({
           pane,
           processSnapshot,
@@ -312,6 +341,7 @@ export const createPaneUpdateService = ({
         });
       },
     );
+    vwSnapshotWatcher.prune(activeVwRepoRoots);
 
     for (const [index, paneResult] of paneResults.entries()) {
       const pane = panes[index];
@@ -513,8 +543,13 @@ export const createPaneUpdateService = ({
     return next;
   };
 
+  const dispose = () => {
+    vwSnapshotWatcher.dispose();
+  };
+
   return {
     acknowledgeView,
+    dispose,
     markPaneViewed,
     moveSessionToTop,
     updateFromPanes,
