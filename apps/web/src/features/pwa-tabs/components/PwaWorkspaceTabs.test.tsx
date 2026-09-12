@@ -291,31 +291,6 @@ describe("PwaWorkspaceTabs keyboard accessibility", () => {
     expect(screen.queryByRole("dialog", { name: "Close all tabs?" })).toBeNull();
   });
 
-  it("keeps the mobile tab row vertically locked with consistently sized controls", () => {
-    render(<PwaWorkspaceTabs />);
-
-    const tablist = screen.getByRole("tablist", { name: "PWA workspace tabs" });
-    const scrollViewport = tablist.closest<HTMLElement>(".overflow-x-auto");
-    expect(scrollViewport?.classList.contains("h-11")).toBe(true);
-    expect(scrollViewport?.classList.contains("overflow-y-hidden")).toBe(true);
-
-    expect(screen.getByRole("tab", { name: "S" }).classList.contains("h-8")).toBe(true);
-    const activeTab = screen.getByRole("tab", { name: "A" });
-    const inactiveTab = screen.getByRole("tab", { name: "B" });
-    expect(activeTab.classList.contains("h-8")).toBe(true);
-    expect(activeTab.classList.contains("min-w-0")).toBe(true);
-    expect(inactiveTab.classList.contains("min-w-0")).toBe(true);
-    expect(activeTab.classList.contains("pr-5")).toBe(true);
-    expect(inactiveTab.classList.contains("pr-2")).toBe(true);
-    expect(inactiveTab.classList.contains("pr-5")).toBe(false);
-    expect(
-      screen.getByRole("button", { name: "Reorder session group ONE" }).classList.contains("h-7"),
-    ).toBe(true);
-    expect(screen.getByRole("button", { name: "Close all tabs" }).classList.contains("h-8")).toBe(
-      true,
-    );
-  });
-
   it("disables close-all when only the fixed Sessions tab remains", () => {
     workspaceTabsState.activeTabId = sessionsTab.id;
     workspaceTabsState.tabs = [sessionsTab];

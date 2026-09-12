@@ -60,133 +60,32 @@ describe("highlightCode", () => {
     });
   });
 
-  it.each(["rs", "rust"])("maps the %s alias and loads Rust highlighting", async (lang) => {
-    codeToHtmlMock.mockReturnValue("<pre>rust</pre>");
-
-    const result = await highlightCode({
-      code: "fn main() {}",
-      lang,
-      theme: "mocha",
-    });
-
-    expect(result.language).toBe("rust");
-    expect(createHighlighterMock).toHaveBeenCalledWith({
-      themes: ["catppuccin-latte", "catppuccin-mocha"],
-      langs: expect.arrayContaining(["rust"]),
-    });
-    expect(codeToHtmlMock).toHaveBeenCalledWith("fn main() {}", {
-      lang: "rust",
-      theme: "catppuccin-mocha",
-    });
-  });
-
-  it.each(["go", "golang"])("maps the %s alias and loads Go highlighting", async (lang) => {
-    codeToHtmlMock.mockReturnValue("<pre>go</pre>");
-
-    const result = await highlightCode({
-      code: "package main\nfunc main() {}",
-      lang,
-      theme: "latte",
-    });
-
-    expect(result.language).toBe("go");
-    expect(createHighlighterMock).toHaveBeenCalledWith({
-      themes: ["catppuccin-latte", "catppuccin-mocha"],
-      langs: expect.arrayContaining(["go"]),
-    });
-    expect(codeToHtmlMock).toHaveBeenCalledWith("package main\nfunc main() {}", {
-      lang: "go",
-      theme: "catppuccin-latte",
-    });
-  });
-
-  it("loads Swift highlighting", async () => {
-    codeToHtmlMock.mockReturnValue("<pre>swift</pre>");
-
-    const code = "struct App: SwiftUI.App {}";
-    const result = await highlightCode({
-      code,
-      lang: "swift",
-      theme: "mocha",
-    });
-
-    expect(result.language).toBe("swift");
-    expect(createHighlighterMock).toHaveBeenCalledWith({
-      themes: ["catppuccin-latte", "catppuccin-mocha"],
-      langs: expect.arrayContaining(["swift"]),
-    });
-    expect(codeToHtmlMock).toHaveBeenCalledWith(code, {
-      lang: "swift",
-      theme: "catppuccin-mocha",
-    });
-  });
-
-  it("loads Nix highlighting", async () => {
-    codeToHtmlMock.mockReturnValue("<pre>nix</pre>");
-
-    const code = "{ pkgs, ... }: { environment.systemPackages = [ pkgs.git ]; }";
-    const result = await highlightCode({
-      code,
-      lang: "nix",
-      theme: "latte",
-    });
-
-    expect(result.language).toBe("nix");
-    expect(createHighlighterMock).toHaveBeenCalledWith({
-      themes: ["catppuccin-latte", "catppuccin-mocha"],
-      langs: expect.arrayContaining(["nix"]),
-    });
-    expect(codeToHtmlMock).toHaveBeenCalledWith(code, {
-      lang: "nix",
-      theme: "catppuccin-latte",
-    });
-  });
-
   it.each([
-    ["css", "css", ":root { color-scheme: dark; }"],
-    ["sql", "sql", "SELECT id FROM users;"],
-    ["makefile", "make", "build:\\n\\tpnpm build"],
-    ["py", "python", 'print("release")'],
-    ["rb", "ruby", "class VdeMonitor < Formula; end"],
-  ])("maps the %s alias and loads %s highlighting", async (alias, language, code) => {
-    codeToHtmlMock.mockReturnValue(`<pre>${language}</pre>`);
+    ["rs", "rust"],
+    ["rust", "rust"],
+    ["go", "go"],
+    ["golang", "go"],
+    ["swift", "swift"],
+    ["nix", "nix"],
+    ["css", "css"],
+    ["sql", "sql"],
+    ["makefile", "make"],
+    ["py", "python"],
+    ["rb", "ruby"],
+    ["lua", "lua"],
+    ["toml", "toml"],
+  ])("maps %s to the registered %s language", async (alias, language) => {
+    codeToHtmlMock.mockReturnValue("<pre>highlighted</pre>");
 
-    const result = await highlightCode({
-      code,
-      lang: alias,
-      theme: "mocha",
-    });
+    const result = await highlightCode({ code: "source", lang: alias, theme: "mocha" });
 
     expect(result.language).toBe(language);
     expect(createHighlighterMock).toHaveBeenCalledWith({
       themes: ["catppuccin-latte", "catppuccin-mocha"],
       langs: expect.arrayContaining([language]),
     });
-    expect(codeToHtmlMock).toHaveBeenCalledWith(code, {
+    expect(codeToHtmlMock).toHaveBeenCalledWith("source", {
       lang: language,
-      theme: "catppuccin-mocha",
-    });
-  });
-
-  it.each([
-    ["lua", "local value = 1"],
-    ["toml", 'name = "vde-monitor"'],
-  ])("loads %s highlighting", async (lang, code) => {
-    codeToHtmlMock.mockReturnValue(`<pre>${lang}</pre>`);
-
-    const result = await highlightCode({
-      code,
-      lang,
-      theme: "mocha",
-    });
-
-    expect(result.language).toBe(lang);
-    expect(createHighlighterMock).toHaveBeenCalledWith({
-      themes: ["catppuccin-latte", "catppuccin-mocha"],
-      langs: expect.arrayContaining([lang]),
-    });
-    expect(codeToHtmlMock).toHaveBeenCalledWith(code, {
-      lang,
       theme: "catppuccin-mocha",
     });
   });

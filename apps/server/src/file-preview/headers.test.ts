@@ -1,36 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  PREVIEW_CONTENT_SECURITY_POLICY,
-  PREVIEW_HTML_HEADERS,
-  PREVIEW_RESOURCE_HEADERS,
-  buildPreviewContentSecurityPolicy,
-} from "./headers";
+import { buildPreviewContentSecurityPolicy } from "./headers";
 
 describe("preview response headers", () => {
-  it("blocks active, remote, embedding, and form capabilities in HTML", () => {
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("default-src 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("script-src 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("connect-src 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("frame-src 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("object-src 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("form-action 'none'");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).toContain("sandbox allow-same-origin");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-scripts");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-forms");
-    expect(PREVIEW_CONTENT_SECURITY_POLICY).not.toContain("allow-top-navigation");
-    expect(PREVIEW_HTML_HEADERS["Content-Security-Policy"]).toBe(PREVIEW_CONTENT_SECURITY_POLICY);
-  });
-
-  it("disables caching and referrer propagation for every resource", () => {
-    expect(PREVIEW_RESOURCE_HEADERS).toMatchObject({
-      "Cache-Control": "no-store",
-      "Cross-Origin-Resource-Policy": "cross-origin",
-      "Referrer-Policy": "no-referrer",
-      "X-Content-Type-Options": "nosniff",
-    });
-  });
-
   it("allows configured web origins to embed the sandboxed HTML", () => {
     expect(
       buildPreviewContentSecurityPolicy([

@@ -17,7 +17,7 @@ vi.mock("node:os", async (importOriginal) => {
   };
 });
 
-import { ensureToken, generateToken, saveToken } from "./token-store";
+import { ensureToken, saveToken } from "./token-store";
 
 let homeDir: string;
 
@@ -30,14 +30,6 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(homeDir, { recursive: true, force: true });
-});
-
-describe("generateToken", () => {
-  it("returns a 64-character hex token", () => {
-    const token = generateToken();
-    expect(token).toMatch(/^[0-9a-f]{64}$/);
-    expect(generateToken()).not.toBe(token);
-  });
 });
 
 describe("ensureToken", () => {

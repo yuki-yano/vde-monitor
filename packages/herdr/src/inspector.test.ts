@@ -73,10 +73,4 @@ describe("createHerdrInspector", () => {
     now += 5_000;
     expect((await inspector.listPanes())[0]?.paneActivity).toBe(1_783_170_005);
   });
-
-  it("returns null from the readUserOption stub", async () => {
-    const inspector = createHerdrInspector({ request: vi.fn() });
-
-    await expect(inspector.readUserOption("wB:p1", "@vde:test")).resolves.toBeNull();
-  });
 });

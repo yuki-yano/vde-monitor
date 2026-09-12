@@ -81,24 +81,6 @@ describe("DiffSection", () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
-  it("keeps the diff toggle at the trailing edge after the preview action", () => {
-    const onToggle = vi.fn();
-    const state = buildState({ diffSummary: createDiffSummary() });
-    const actions = buildActions({ onToggle });
-    const wrapper = createWrapper();
-    render(<DiffSection state={state} actions={actions} />, { wrapper });
-
-    const previewButton = screen.getByRole("button", { name: "Preview src/index.ts" });
-    const diffButton = screen.getByRole("button", { name: "Show diff for src/index.ts" });
-
-    expect(
-      previewButton.compareDocumentPosition(diffButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-
-    fireEvent.click(diffButton);
-    expect(onToggle).toHaveBeenCalledWith("src/index.ts");
-  });
-
   it("does not offer a preview for a deleted file", () => {
     const state = buildState({
       diffSummary: createDiffSummary({
@@ -156,52 +138,6 @@ describe("DiffSection", () => {
     const branch = screen.getByTestId("diff-scope-text");
     expect(branch.textContent).toContain("feature/changes-tab");
     expect(branch.getAttribute("title")).toBe("feature/changes-tab → working tree");
-  });
-
-  it("pins refresh button to top-right in header", () => {
-    const state = buildState({
-      diffSummary: createDiffSummary(),
-      diffScope: {
-        kind: "workingTree",
-        mode: "total",
-        baseBranch: "main",
-        branch: "feature/a-very-long-branch-name-to-verify-header-layout",
-        path: null,
-        selected: false,
-      },
-    });
-    const actions = buildActions();
-    const wrapper = createWrapper();
-    render(<DiffSection state={state} actions={actions} />, { wrapper });
-
-    const header = screen.getByTestId("changes-header");
-    const refresh = screen.getByRole("button", { name: "Refresh changes" });
-    expect(header.className).toContain("items-start");
-    expect(refresh.className).toContain("self-start");
-  });
-
-  it("uses shared truncation component for long branch labels", () => {
-    const state = buildState({
-      diffSummary: createDiffSummary(),
-      diffScope: {
-        kind: "workingTree",
-        mode: "total",
-        baseBranch: "main",
-        branch: "feature/very/long/branch/name/for/start-truncation",
-        path: null,
-        selected: false,
-      },
-    });
-    const actions = buildActions();
-    const wrapper = createWrapper();
-    render(<DiffSection state={state} actions={actions} />, { wrapper });
-
-    const branch = screen.getByTestId("diff-scope-text");
-    const summaryLine = screen.getByTestId("diff-summary-line");
-    expect(branch.className).toContain("overflow-hidden");
-    expect(branch.className).toContain("flex-1");
-    expect(branch.className).not.toContain("[direction:rtl]");
-    expect(summaryLine.className).toContain("w-full");
   });
 
   it("shows A/M/D categories to the left of line totals in header summary", () => {

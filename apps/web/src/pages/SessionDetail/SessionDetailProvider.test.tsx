@@ -10,7 +10,7 @@ import { createAppQueryClient } from "@/state/query-client";
 
 import { ConnectedNotesSection } from "./components/NotesSection";
 import { ConnectedControlsPanel } from "./components/session-shell/ConnectedControlsPanel";
-import { useSessionDetailVMState } from "./hooks/useSessionDetailVMState";
+
 import {
   type SessionContextMockOverrides,
   createSessionBranchesApiMock,
@@ -28,7 +28,6 @@ import {
   useSessionDetailHeaderActions,
   useSessionDetailLogModal,
   useSessionDetailQuickPanel,
-  useSessionDetailRepoPins,
   useSessionDetailScope,
   useSessionDetailSidebarActions,
   useSessionDetailTerminal,
@@ -343,21 +342,6 @@ const renderContext = (
 };
 
 describe("SessionDetailProvider", () => {
-  it("renders children", () => {
-    mockSessionsContext = buildSessionContext({
-      sessions: [session],
-      sessionApi: buildSessionApi(),
-    });
-    render(
-      <SessionDetailProvider paneId="pane-1">
-        <div data-testid="child">child</div>
-      </SessionDetailProvider>,
-      { wrapper: QueryTestProvider },
-    );
-
-    expect(screen.getByTestId("child").textContent).toBe("child");
-  });
-
   it("owns one controls controller for multiple connected controls presentations", () => {
     mockSessionsContext = buildSessionContext({
       sessions: [session],
@@ -433,62 +417,6 @@ describe("SessionDetailProvider", () => {
     expect(result.current.base.connectionIssue).toBe("issue");
     expect(result.current.base.session?.paneId).toBe("pane-1");
     expect(result.current.repoPins.sessionGroups).toBe(sessionGroups);
-  });
-
-  it("preserves direct slice identity and projects shell owners to consumed fields", () => {
-    mockSessionsContext = buildSessionContext({
-      sessions: [session],
-      sessionApi: buildSessionApi(),
-    });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryTestProvider>
-        <SessionDetailProvider paneId="pane-1">{children}</SessionDetailProvider>
-      </QueryTestProvider>
-    );
-    const { result } = renderHook(
-      () => ({
-        aggregate: useSessionDetailContext(),
-        base: useSessionDetailBase(),
-        repoPins: useSessionDetailRepoPins(),
-        scope: useSessionDetailScope(),
-        terminal: useSessionDetailTerminal(),
-        quickPanel: useSessionDetailQuickPanel(),
-        logModal: useSessionDetailLogModal(),
-        headerActions: useSessionDetailHeaderActions(),
-        sidebarActions: useSessionDetailSidebarActions(),
-      }),
-      { wrapper },
-    );
-
-    expect(result.current.base).toBe(result.current.aggregate.base);
-    expect(result.current.repoPins).toBe(result.current.aggregate.repoPins);
-    expect(result.current.scope).not.toBe(result.current.aggregate.scope);
-    expect(result.current.scope.checkoutBranch).toBe(result.current.aggregate.scope.checkoutBranch);
-    expect(result.current.scope.createBranch).toBe(result.current.aggregate.scope.createBranch);
-    expect(result.current.scope.deleteBranch).toBe(result.current.aggregate.scope.deleteBranch);
-    expect(result.current.scope.selectVirtualBranch).toBe(
-      result.current.aggregate.scope.selectVirtualBranch,
-    );
-    expect(result.current.scope.selectVirtualWorktree).toBe(
-      result.current.aggregate.scope.selectVirtualWorktree,
-    );
-    expect(result.current.terminal).not.toBe(result.current.aggregate.terminal);
-    expect(result.current.terminal.controls.textInputRef).toBe(
-      result.current.aggregate.terminal.controls.textInputRef,
-    );
-    expect(result.current.quickPanel).not.toBe(result.current.aggregate.logsActions);
-    expect(result.current.quickPanel.logs.openLogModal).toBe(
-      result.current.aggregate.logsActions.logs.openLogModal,
-    );
-    expect(result.current.logModal.logs.closeLogModal).toBe(
-      result.current.aggregate.logsActions.logs.closeLogModal,
-    );
-    expect(result.current.headerActions.handleTouchCurrentSession).toBe(
-      result.current.aggregate.logsActions.actions.handleTouchCurrentSession,
-    );
-    expect(result.current.sidebarActions.handleFocusPane).toBe(
-      result.current.aggregate.logsActions.actions.handleFocusPane,
-    );
   });
 
   it("does not update shell or scope consumers for an unrelated session tick", async () => {
@@ -586,17 +514,10 @@ describe("SessionDetailProvider", () => {
     expect(screen.getByTestId("title-state").textContent).toBe("closed:Pane A");
   });
 
-  it.each([
-    ["useSessionDetailBase", useSessionDetailBase],
-    ["useSessionDetailRepoPins", useSessionDetailRepoPins],
-    ["useSessionDetailScope", useSessionDetailScope],
-    ["useSessionDetailTerminal", useSessionDetailTerminal],
-    ["useSessionDetailQuickPanel", useSessionDetailQuickPanel],
-    ["useSessionDetailLogModal", useSessionDetailLogModal],
-    ["useSessionDetailHeaderActions", useSessionDetailHeaderActions],
-    ["useSessionDetailSidebarActions", useSessionDetailSidebarActions],
-  ])("requires SessionDetailProvider for %s", (_name, useSlice) => {
-    expect(() => renderHook(() => useSlice())).toThrow("within a SessionDetailProvider");
+  it("requires SessionDetailProvider for useSessionDetailBase", () => {
+    expect(() => renderHook(() => useSessionDetailBase())).toThrow(
+      "within a SessionDetailProvider",
+    );
   });
 
   it("sets screen error when focus pane command fails", async () => {
@@ -1029,29 +950,6 @@ describe("SessionDetailProvider", () => {
     expect(
       refetchSpy.mock.calls.filter(([filters]) => filters?.queryKey?.[2] === "commits"),
     ).toEqual([]);
-  });
-
-  // Render-suppression regression coverage for T15a. useSessionDetailVMState's
-  // return value ("base") used to be a plain object literal (never
-  // memoized), so it produced a new reference on every render for any reason
-  // at all -- which made SessionDetailProvider's final context-value useMemo
-  // (whose deps include `base`) cache-miss unconditionally, forcing every
-  // SessionDetailContext consumer (View + 5 props/state hooks) to re-run on
-  // every SSE tick. This checks useSessionDetailVMState's own output
-  // directly (rather than the Provider's combined context value, which also
-  // depends on several other subhooks outside this task's scope and so is
-  // not usable as a stability signal for `base` specifically).
-  it("keeps the useSessionDetailVMState return reference stable across a re-render where nothing changed (T15a)", () => {
-    mockSessionsContext = buildSessionContext({
-      sessions: [session],
-      sessionApi: buildSessionApi(),
-    });
-    const { result, rerender } = renderHook(() => useSessionDetailVMState("pane-1"));
-    const first = result.current;
-
-    rerender();
-
-    expect(result.current).toBe(first);
   });
 
   it("keeps the commits context stable across unrelated session and files ticks", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getPromptStartPatterns, isPromptStartLine, stripPromptStartMarker } from "./prompt-start";
+import { isPromptStartLine, stripPromptStartMarker } from "./prompt-start";
 
 describe("prompt-start", () => {
   it("matches codex prompt starts", () => {
@@ -34,13 +34,5 @@ describe("prompt-start", () => {
     expect(stripPromptStartMarker("› run", "codex")).toBe("run");
     expect(stripPromptStartMarker("> run", "shell")).toBe("run");
     expect(stripPromptStartMarker("\u276F\u00A0hello", "claude")).toBe("hello");
-  });
-
-  it("returns stable pattern array for each target", () => {
-    expect(getPromptStartPatterns("codex")).toHaveLength(1);
-    expect(getPromptStartPatterns("claude")).toHaveLength(1);
-    expect(getPromptStartPatterns("shell")).toHaveLength(1);
-    expect(getPromptStartPatterns("agent")).toHaveLength(2);
-    expect(getPromptStartPatterns("any")).toHaveLength(3);
   });
 });

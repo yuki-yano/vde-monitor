@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyClaudeDiffMask, buildClaudeDiffMask, renderClaudeDiffLine } from "./ansi-claude-diff";
+import { applyClaudeDiffMask, buildClaudeDiffMask } from "./ansi-claude-diff";
 
 describe("buildClaudeDiffMask", () => {
   it("marks diff blocks including continuation and neutral lines", () => {
@@ -17,14 +17,6 @@ describe("buildClaudeDiffMask", () => {
 
     expect(mask).toEqual([true, true, true, true, true, false]);
   });
-
-  it("does not mark numbered blocks when no +/- marker is present", () => {
-    const lines = ["  10 context", "  11 more-context", "outside"];
-
-    const mask = buildClaudeDiffMask(lines);
-
-    expect(mask).toEqual([false, false, false]);
-  });
 });
 
 describe("applyClaudeDiffMask", () => {
@@ -38,15 +30,5 @@ describe("applyClaudeDiffMask", () => {
     expect(rendered[1]).toContain('class="text-latte-green-text"');
     expect(rendered[2]).toBeNull();
     expect(rendered[3]).toContain('class="text-latte-text"');
-  });
-});
-
-describe("renderClaudeDiffLine", () => {
-  it("escapes html and applies diff marker class", () => {
-    const rendered = renderClaudeDiffLine("  10 +<tag>");
-
-    expect(rendered).toContain("&lt;tag&gt;");
-    expect(rendered).toContain('class="text-latte-text"');
-    expect(rendered).toContain('class="text-latte-green-text"');
   });
 });

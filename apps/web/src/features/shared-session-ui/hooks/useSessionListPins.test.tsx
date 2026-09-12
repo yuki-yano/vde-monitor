@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useSessionListPins } from "./useSessionListPins";
@@ -29,24 +29,8 @@ describe("useSessionListPins", () => {
     expect(result.current.getRepoSortAnchorAt("/repo/b")).toBeNull();
   });
 
-  it("touches repo pin and persists storage", async () => {
-    const { result } = renderHook(() => useSessionListPins({}));
-
-    act(() => {
-      result.current.touchRepoPin("/repo/a");
-    });
-
-    await waitFor(() => {
-      expect(result.current.getRepoSortAnchorAt("/repo/a")).toBeTypeOf("number");
-    });
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    expect(stored).not.toBeNull();
-    const parsed = JSON.parse(stored ?? "{}") as { repos?: Record<string, number> };
-    expect(parsed.repos?.["repo:/repo/a"]).toBeTypeOf("number");
-  });
-
   it("composes consecutive repo pin updates before a rerender", () => {
-    const { result } = renderHook(() => useSessionListPins({}));
+    const { result, unmount } = renderHook(() => useSessionListPins({}));
 
     act(() => {
       result.current.touchRepoPin("/repo/a");
@@ -57,6 +41,15 @@ describe("useSessionListPins", () => {
     const parsed = JSON.parse(stored ?? "{}") as { repos?: Record<string, number> };
     expect(parsed.repos?.["repo:/repo/a"]).toBeTypeOf("number");
     expect(parsed.repos?.["repo:/repo/b"]).toBeTypeOf("number");
+    expect(result.current.getRepoSortAnchorAt("/repo/a")).toBeTypeOf("number");
+    unmount();
+    const restored = renderHook(() => useSessionListPins({}));
+    expect(restored.result.current.getRepoSortAnchorAt("/repo/a")).toBe(
+      parsed.repos?.["repo:/repo/a"],
+    );
+    expect(restored.result.current.getRepoSortAnchorAt("/repo/b")).toBe(
+      parsed.repos?.["repo:/repo/b"],
+    );
   });
 
   it("touches pane pin and triggers onTouchPane callback", async () => {

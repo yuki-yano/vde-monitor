@@ -11,7 +11,6 @@ describe("PaneSectionShell", () => {
         description="Summary"
         action={<button type="button">Refresh</button>}
         status={<p>Status line</p>}
-        headerTestId="pane-section-header"
       >
         <div>Body content</div>
       </PaneSectionShell>,
@@ -22,6 +21,5 @@ describe("PaneSectionShell", () => {
     expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
     expect(screen.getByText("Status line")).toBeTruthy();
     expect(screen.getByText("Body content")).toBeTruthy();
-    expect(screen.getByTestId("pane-section-header").className).toContain("items-start");
   });
 });

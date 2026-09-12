@@ -52,9 +52,21 @@ describe("runConfigCheckCommand", () => {
       ],
     });
 
-    expect(() => runConfigCheckCommand()).toThrow(/config check failed: \/tmp\/config.yml/);
-    expect(() => runConfigCheckCommand()).toThrow(/- \[extra-key\] logs: unused key: logs/);
-    expect(() => runConfigCheckCommand()).toThrow(/vde-monitor config prune/);
-    expect(() => runConfigCheckCommand()).toThrow(/vde-monitor config regenerate/);
+    let error: unknown;
+    try {
+      runConfigCheckCommand();
+    } catch (cause) {
+      error = cause;
+    }
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/config check failed: \/tmp\/config.yml/),
+    });
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/- \[extra-key\] logs: unused key: logs/),
+    });
+    expect(error).toMatchObject({ message: expect.stringMatching(/vde-monitor config prune/) });
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/vde-monitor config regenerate/),
+    });
   });
 });

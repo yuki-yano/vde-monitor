@@ -39,16 +39,6 @@ describe("TerminalHtmlLine", () => {
     expect(document.body.textContent).not.toContain("leak");
   });
 
-  it("preserves vde data attributes used by screen interactions", () => {
-    render(
-      <TerminalHtmlLine html='<span data-vde-file-ref="src/main.ts:1">src/main.ts:1</span>' />,
-    );
-
-    expect(screen.getByText("src/main.ts:1").getAttribute("data-vde-file-ref")).toBe(
-      "src/main.ts:1",
-    );
-  });
-
   it("preserves file reference keyboard and screen reader attributes", () => {
     render(
       <TerminalHtmlLine html='<span data-vde-file-ref="src/main.ts:1" role="button" tabindex="0" aria-label="Open file src/main.ts line 1">src/main.ts:1</span>' />,

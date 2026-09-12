@@ -353,7 +353,12 @@ describe("processPane", () => {
   });
 
   it("returns estimated detail with resolved worktree context", async () => {
-    const paneState = createPaneState({ lastMessage: "msg" });
+    const paneState = createPaneState({
+      lastMessage: "msg",
+      lastInputAt: "2024-01-01T00:01:00.000Z",
+      lastRunStartedAt: "2024-01-01T00:02:00.000Z",
+      manualSortAt: "2024-01-01T00:03:00.000Z",
+    });
     const worktreePath = "/tmp/project/.worktree/feature/worktree";
     const resolveRepoRoot = vi.fn(async () => worktreePath);
     const resolveBranch = vi.fn(async () => "feature/fallback");
@@ -399,7 +404,18 @@ describe("processPane", () => {
       },
     );
 
-    expect(detail).not.toBeNull();
+    expect(detail).toMatchObject({
+      paneId: "%1",
+      sessionId: "$1",
+      windowId: "@0",
+      agent: "codex",
+      lastMessage: "msg",
+      lastOutputAt: "2024-01-01T00:00:00.000Z",
+      lastInputAt: "2024-01-01T00:01:00.000Z",
+      lastRunStartedAt: "2024-01-01T00:02:00.000Z",
+      manualSortAt: "2024-01-01T00:03:00.000Z",
+      repoRoot: "/tmp/project",
+    });
     expect(detail?.state).toBe("RUNNING");
     expect(detail?.stateReason).toBe("estimated");
     expect(detail?.customTitle).toBe("Custom");

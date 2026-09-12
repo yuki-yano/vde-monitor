@@ -5,21 +5,6 @@ import { createSessionDetail } from "../test-helpers";
 import { useSessionTitleEditor } from "./useSessionTitleEditor";
 
 describe("useSessionTitleEditor", () => {
-  it("initializes with custom title", () => {
-    const session = createSessionDetail({ customTitle: "Custom" });
-    const { result } = renderHook(() =>
-      useSessionTitleEditor({
-        session,
-        paneId: session.paneId,
-        updateSessionTitle: vi.fn(),
-        resetSessionTitle: vi.fn(),
-      }),
-    );
-
-    expect(result.current.titleDraft).toBe("Custom");
-    expect(result.current.titleEditing).toBe(false);
-  });
-
   it("opens editor and saves trimmed title", async () => {
     const session = createSessionDetail({ customTitle: "Custom" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
@@ -32,6 +17,9 @@ describe("useSessionTitleEditor", () => {
         resetSessionTitle,
       }),
     );
+
+    expect(result.current.titleDraft).toBe("Custom");
+    expect(result.current.titleEditing).toBe(false);
 
     act(() => {
       result.current.openTitleEditor();
@@ -73,27 +61,6 @@ describe("useSessionTitleEditor", () => {
 
   it("resets custom title", async () => {
     const session = createSessionDetail({ customTitle: "Custom Title" });
-    const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() =>
-      useSessionTitleEditor({
-        session,
-        paneId: session.paneId,
-        updateSessionTitle,
-        resetSessionTitle,
-      }),
-    );
-
-    await act(async () => {
-      await result.current.resetTitle();
-    });
-
-    expect(resetSessionTitle).toHaveBeenCalledWith(session.paneId);
-    expect(updateSessionTitle).not.toHaveBeenCalled();
-  });
-
-  it("resets title when custom title is not set", async () => {
-    const session = createSessionDetail({ customTitle: null, title: "✳ Initial Greeting" });
     const updateSessionTitle = vi.fn().mockResolvedValue(undefined);
     const resetSessionTitle = vi.fn().mockResolvedValue(undefined);
     const { result } = renderHook(() =>

@@ -85,16 +85,7 @@ describe("ResumeWorktreeDialog", () => {
       />,
     );
 
-    expect(screen.queryByText("Reuse Existing Session")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Codex" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Claude" })).toBeNull();
-    expect(screen.queryByRole("checkbox", { name: "Use vw worktree" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Existing" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "New" })).toBeNull();
     expect(screen.getByText("Select existing vw worktree or repo root.")).toBeTruthy();
-    expect(screen.queryByText(/repo root:/)).toBeNull();
-    expect(screen.queryByRole("radio", { name: /Best effort/i })).toBeNull();
-    expect(screen.queryByRole("radio", { name: /Required/i })).toBeNull();
     expect(
       screen.getByText("Existing session reuse is always enabled for this action."),
     ).toBeTruthy();

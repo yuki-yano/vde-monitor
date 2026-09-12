@@ -44,7 +44,7 @@ const makeRegistry = (): Registry => {
 };
 
 describe("createSessionsStreamSource", () => {
-  it("snapshot returns current registry state with id=0 when no events have been pushed", () => {
+  it("snapshots expose current sessions and the last buffered event id", () => {
     const registry = makeRegistry();
     registry.update(makeDetail("pane-1"));
     const source = createSessionsStreamSource({ registry });
@@ -58,19 +58,9 @@ describe("createSessionsStreamSource", () => {
       expect(event.sessions[0]?.paneId).toBe("pane-1");
     }
 
-    source.dispose();
-  });
-
-  it("snapshot id reflects the last buffered event id", () => {
-    const registry = makeRegistry();
-    const source = createSessionsStreamSource({ registry });
-
-    // Push 2 events (upsert via registry.update).
-    registry.update(makeDetail("pane-1"));
     registry.update(makeDetail("pane-2"));
-
-    const { id } = source.snapshot();
-    expect(id).toBe(2);
+    registry.update(makeDetail("pane-3"));
+    expect(source.snapshot().id).toBe(2);
 
     source.dispose();
   });
@@ -197,23 +187,6 @@ describe("createSessionsStreamSource", () => {
 
     const replay = source.replaySince(0);
     expect(replay).toEqual([]);
-
-    source.dispose();
-  });
-
-  it("monotonically increasing event ids", () => {
-    const registry = makeRegistry();
-    const source = createSessionsStreamSource({ registry });
-    const entries: number[] = [];
-    source.subscribe((entry) => entries.push(entry.id));
-
-    registry.update(makeDetail("pane-1"));
-    registry.update(makeDetail("pane-1")); // no change → no event
-    registry.removeMissing(new Set());
-
-    // pane-1 was upserted (id=1) and removed (id=2).
-    // Second update with same data produces no event (registry dedup).
-    expect(entries).toEqual([1, 2]);
 
     source.dispose();
   });

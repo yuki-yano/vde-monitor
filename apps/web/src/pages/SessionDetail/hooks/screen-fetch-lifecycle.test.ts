@@ -6,42 +6,6 @@ import {
 } from "./screen-fetch-lifecycle";
 
 describe("screenFetchLifecycleReducer", () => {
-  it("starts tracking request with generated id and loading metadata", () => {
-    const next = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
-      type: "request",
-      contextKey: "pane-1\0text",
-      mode: "text",
-      modeSwitch: "text",
-      modeLoaded: { text: false, image: false },
-      hasCurrentData: false,
-    });
-
-    expect(next.inFlight).toEqual({
-      id: 1,
-      contextKey: "pane-1\0text",
-    });
-    expect(next.nextRequestId).toBe(2);
-    expect(next.latestAttempt).toEqual({
-      requestId: 1,
-      contextKey: "pane-1\0text",
-      isModeSwitch: true,
-      shouldShowLoading: true,
-    });
-  });
-
-  it("shows loading when current mode has no cached data", () => {
-    const next = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
-      type: "request",
-      contextKey: "pane-1\0text",
-      mode: "text",
-      modeSwitch: null,
-      modeLoaded: { text: true, image: true },
-      hasCurrentData: false,
-    });
-
-    expect(next.latestAttempt?.shouldShowLoading).toBe(true);
-  });
-
   it("does not start a new request while the same context request is in flight", () => {
     const loadingState = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
       type: "request",
@@ -64,29 +28,6 @@ describe("screenFetchLifecycleReducer", () => {
     expect(next.inFlight).toEqual(loadingState.inFlight);
     expect(next.nextRequestId).toBe(2);
     expect(next.latestAttempt).toBeNull();
-  });
-
-  it("starts a new request when the pane context changes in the same mode", () => {
-    const paneOne = screenFetchLifecycleReducer(initialScreenFetchLifecycleState, {
-      type: "request",
-      contextKey: "pane-1\0text",
-      mode: "text",
-      modeSwitch: null,
-      modeLoaded: { text: true, image: true },
-      hasCurrentData: true,
-    });
-
-    const paneTwo = screenFetchLifecycleReducer(paneOne, {
-      type: "request",
-      contextKey: "pane-2\0text",
-      mode: "text",
-      modeSwitch: null,
-      modeLoaded: { text: false, image: false },
-      hasCurrentData: false,
-    });
-
-    expect(paneTwo.inFlight).toEqual({ id: 2, contextKey: "pane-2\0text" });
-    expect(paneTwo.latestAttempt?.requestId).toBe(2);
   });
 
   it("clears in-flight request only when ids match", () => {

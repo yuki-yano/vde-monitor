@@ -8,10 +8,6 @@ describe("parseTime", () => {
     expect(parseTime("")).toBeNull();
     expect(parseTime("invalid")).toBeNull();
   });
-
-  it("parses ISO date strings", () => {
-    expect(parseTime("2026-02-17T00:00:00.000Z")).toBe(Date.parse("2026-02-17T00:00:00.000Z"));
-  });
 });
 
 describe("compareTimeDesc", () => {

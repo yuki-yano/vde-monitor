@@ -97,62 +97,6 @@ describe("session-api-request-executors", () => {
     vi.useRealTimers();
   });
 
-  it("requestSessionField returns requested field on success", async () => {
-    const ensureToken = vi.fn();
-    const onConnectionIssue = vi.fn();
-    const handleSessionMissing = vi.fn();
-    server.use(
-      http.get(pathToUrl("/tests/session-field-success"), () => {
-        return HttpResponse.json({ summary: { rev: "main" } });
-      }),
-    );
-
-    const summary = await requestSessionField<{ summary?: { rev: string } }, "summary">({
-      paneId: "pane-1",
-      request: getRequest("/tests/session-field-success"),
-      field: "summary",
-      fallbackMessage: "failed",
-      ensureToken,
-      onConnectionIssue,
-      handleSessionMissing,
-    });
-
-    expect(summary).toEqual({ rev: "main" });
-    expect(ensureToken).toHaveBeenCalledTimes(1);
-    expect(handleSessionMissing).not.toHaveBeenCalled();
-    expect(onConnectionIssue).toHaveBeenCalledWith(null);
-  });
-
-  it("requestSessionField propagates API errors and marks missing panes", async () => {
-    const ensureToken = vi.fn();
-    const onConnectionIssue = vi.fn();
-    const handleSessionMissing = vi.fn();
-    server.use(
-      http.get(pathToUrl("/tests/session-field-error"), () => {
-        return HttpResponse.json(
-          { error: { code: "INVALID_PANE", message: "pane not found" } },
-          { status: 404 },
-        );
-      }),
-    );
-
-    await expect(
-      requestSessionField<{ summary?: { rev: string } }, "summary">({
-        paneId: "pane-1",
-        request: getRequest("/tests/session-field-error"),
-        field: "summary",
-        fallbackMessage: "failed",
-        ensureToken,
-        onConnectionIssue,
-        handleSessionMissing,
-        includeStatus: true,
-      }),
-    ).rejects.toThrow("pane not found");
-
-    expect(handleSessionMissing).toHaveBeenCalledTimes(1);
-    expect(onConnectionIssue).toHaveBeenCalledWith("pane not found");
-  });
-
   it("does not report query cancellation as a connection issue", async () => {
     const ensureToken = vi.fn();
     const onConnectionIssue = vi.fn();
@@ -204,34 +148,6 @@ describe("session-api-request-executors", () => {
     expect(onSessionUpdated).toHaveBeenCalledWith(session);
     expect(onConnectionIssue).toHaveBeenCalledWith(null);
     expect(refreshSessionsMock).not.toHaveBeenCalled();
-  });
-
-  it("mutateSession refreshes sessions when payload omits session", async () => {
-    const ensureToken = vi.fn();
-    const onConnectionIssue = vi.fn();
-    const handleSessionMissing = vi.fn();
-    const onSessionUpdated = vi.fn();
-    const refreshSessionsMock = vi.fn(async () => ({ ok: true }));
-    server.use(
-      http.post(pathToUrl("/tests/mutate-session-refresh"), () => {
-        return HttpResponse.json({});
-      }),
-    );
-
-    const updated = await mutateSession({
-      paneId: "pane-1",
-      request: postRequest("/tests/mutate-session-refresh"),
-      fallbackMessage: "failed",
-      ensureToken,
-      onConnectionIssue,
-      handleSessionMissing,
-      onSessionUpdated,
-      refreshSessions: refreshSessionsMock,
-    });
-
-    expect(updated).toBeNull();
-    expect(onSessionUpdated).not.toHaveBeenCalled();
-    expect(refreshSessionsMock).toHaveBeenCalledTimes(1);
   });
 
   it("requestCommand returns command payload and clears connection issue", async () => {

@@ -10,22 +10,6 @@ import {
 } from "./proxy-codec";
 
 describe("proxy-codec", () => {
-  it("encodes and decodes pdu frame", () => {
-    const frame = encodePduFrame({
-      ident: 11,
-      serial: 7,
-      data: Buffer.from([1, 2, 3]),
-    });
-    const decoded = decodeNextPduFrame(frame);
-
-    expect(decoded).toEqual({
-      ident: 11,
-      serial: 7,
-      data: Buffer.from([1, 2, 3]),
-      bytesConsumed: frame.length,
-    });
-  });
-
   it("encodes SendKeyDown payload", () => {
     const payload = encodeSendKeyDownPayload({
       paneId: 12,
@@ -46,10 +30,19 @@ describe("proxy-codec", () => {
       data: Buffer.from([0x0c, 0x1d, 0x08, 0xd2, 0x09]),
     });
     expect(frame).toEqual(Buffer.from([0x07, 0x07, 0x0b, 0x0c, 0x1d, 0x08, 0xd2, 0x09]));
+    expect(
+      decodeNextPduFrame(Buffer.from([0x07, 0x07, 0x0b, 0x0c, 0x1d, 0x08, 0xd2, 0x09])),
+    ).toEqual({
+      ident: 11,
+      serial: 7,
+      data: Buffer.from([0x0c, 0x1d, 0x08, 0xd2, 0x09]),
+      bytesConsumed: 8,
+    });
   });
 
-  it("encodes and decodes ErrorResponse reason", () => {
-    const data = encodeErrorResponseReason("pane 9 not found");
+  it("uses the known wire format for an ErrorResponse reason", () => {
+    const data = Buffer.concat([Buffer.from([0x10]), Buffer.from("pane 9 not found")]);
+    expect(encodeErrorResponseReason("pane 9 not found")).toEqual(data);
     expect(decodeErrorResponseReason(data)).toBe("pane 9 not found");
   });
 

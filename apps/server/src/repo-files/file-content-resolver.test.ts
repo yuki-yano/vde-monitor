@@ -133,229 +133,41 @@ describe("file content resolver", () => {
     }
   });
 
-  it("returns html language hint for HTML files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-html-"));
+  it("resolves language hints for supported extensions and extensionless names", async () => {
+    const fixtures = [
+      ["public/preview.html", "html", "<main>Preview</main>\n"],
+      ["src/main.rs", "rust", "fn main() {}\n"],
+      ["cmd/main.go", "go", "package main\nfunc main() {}\n"],
+      ["Sources/App.swift", "swift", "import SwiftUI\n"],
+      ["flake.nix", "nix", '{ description = "vde-monitor"; }\n'],
+      ["src/styles.css", "css", ":root { color-scheme: dark; }\n"],
+      ["migrations/0001_create_users.sql", "sql", "CREATE TABLE users (id INTEGER PRIMARY KEY);\n"],
+      ["Makefile", "make", "build:\n\tpnpm build\n"],
+      ["build/rules.mk", "make", "test:\n\tpnpm test\n"],
+      ["scripts/release.py", "python", 'print("release")\n'],
+      ["src/types.pyi", "python", "def release() -> None: ...\n"],
+      ["Formula/vde-monitor.rb", "ruby", "class VdeMonitor < Formula\nend\n"],
+      ["Gemfile", "ruby", 'source "https://rubygems.org"\n'],
+      ["config.lua", "lua", "local value = 1\n"],
+      ["config.toml", "toml", 'name = "vde-monitor"\n'],
+    ] as const;
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-languages-"));
     try {
-      await mkdir(path.join(repoRoot, "public"), { recursive: true });
-      await writeFile(path.join(repoRoot, "public", "preview.html"), "<main>Preview</main>\n");
+      for (const [normalizedPath, languageHint, content] of fixtures) {
+        const absolutePath = path.join(repoRoot, normalizedPath);
+        await mkdir(path.dirname(absolutePath), { recursive: true });
+        await writeFile(absolutePath, content);
 
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "public/preview.html",
-        maxBytes: 1024,
-      });
+        const result = await resolveFileContent({ repoRoot, normalizedPath, maxBytes: 1024 });
 
-      expect(result).toMatchObject({
-        path: "public/preview.html",
-        isBinary: false,
-        truncated: false,
-        languageHint: "html",
-        content: "<main>Preview</main>\n",
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("returns rust language hint for Rust files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-rust-"));
-    try {
-      await mkdir(path.join(repoRoot, "src"), { recursive: true });
-      await writeFile(path.join(repoRoot, "src", "main.rs"), "fn main() {}\n");
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "src/main.rs",
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: "src/main.rs",
-        isBinary: false,
-        truncated: false,
-        languageHint: "rust",
-        content: "fn main() {}\n",
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("returns go language hint for Go files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-go-"));
-    try {
-      await mkdir(path.join(repoRoot, "cmd"), { recursive: true });
-      await writeFile(path.join(repoRoot, "cmd", "main.go"), "package main\n\nfunc main() {}\n");
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "cmd/main.go",
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: "cmd/main.go",
-        isBinary: false,
-        truncated: false,
-        languageHint: "go",
-        content: "package main\n\nfunc main() {}\n",
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("returns swift language hint for Swift files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-swift-"));
-    try {
-      await mkdir(path.join(repoRoot, "Sources"), { recursive: true });
-      await writeFile(
-        path.join(repoRoot, "Sources", "App.swift"),
-        "import SwiftUI\n\n@main struct App: SwiftUI.App {\n  var body: some Scene { WindowGroup {} }\n}\n",
-      );
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "Sources/App.swift",
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: "Sources/App.swift",
-        isBinary: false,
-        truncated: false,
-        languageHint: "swift",
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("returns nix language hint for Nix files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-nix-"));
-    try {
-      await writeFile(
-        path.join(repoRoot, "flake.nix"),
-        '{\n  description = "vde-monitor";\n  outputs = { self }: {};\n}\n',
-      );
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "flake.nix",
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: "flake.nix",
-        isBinary: false,
-        truncated: false,
-        languageHint: "nix",
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it.each([
-    {
-      normalizedPath: "src/styles.css",
-      content: ":root { color-scheme: dark; }\n",
-      languageHint: "css",
-    },
-    {
-      normalizedPath: "migrations/0001_create_users.sql",
-      content: "CREATE TABLE users (id INTEGER PRIMARY KEY);\n",
-      languageHint: "sql",
-    },
-    {
-      normalizedPath: "Makefile",
-      content: "build:\n\tpnpm build\n",
-      languageHint: "make",
-    },
-    {
-      normalizedPath: "build/rules.mk",
-      content: "test:\n\tpnpm test\n",
-      languageHint: "make",
-    },
-    {
-      normalizedPath: "scripts/release.py",
-      content: 'print("release")\n',
-      languageHint: "python",
-    },
-    {
-      normalizedPath: "src/types.pyi",
-      content: "def release() -> None: ...\n",
-      languageHint: "python",
-    },
-    {
-      normalizedPath: "Formula/vde-monitor.rb",
-      content: "class VdeMonitor < Formula\nend\n",
-      languageHint: "ruby",
-    },
-    {
-      normalizedPath: "Gemfile",
-      content: 'source "https://rubygems.org"\n',
-      languageHint: "ruby",
-    },
-  ])("returns $languageHint language hint for $normalizedPath", async (fixture) => {
-    const repoRoot = await mkdtemp(
-      path.join(os.tmpdir(), `vde-monitor-file-content-${fixture.languageHint}-`),
-    );
-    try {
-      const directory = path.dirname(path.join(repoRoot, fixture.normalizedPath));
-      await mkdir(directory, { recursive: true });
-      await writeFile(path.join(repoRoot, fixture.normalizedPath), fixture.content);
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: fixture.normalizedPath,
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: fixture.normalizedPath,
-        isBinary: false,
-        truncated: false,
-        languageHint: fixture.languageHint,
-        content: fixture.content,
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it.each([
-    {
-      extension: "lua",
-      content: "local value = 1\n",
-      languageHint: "lua",
-    },
-    {
-      extension: "toml",
-      content: 'name = "vde-monitor"\n',
-      languageHint: "toml",
-    },
-  ])("returns $languageHint language hint for .$extension files", async (fixture) => {
-    const repoRoot = await mkdtemp(
-      path.join(os.tmpdir(), `vde-monitor-file-content-${fixture.extension}-`),
-    );
-    try {
-      const normalizedPath = `config.${fixture.extension}`;
-      await writeFile(path.join(repoRoot, normalizedPath), fixture.content);
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath,
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: normalizedPath,
-        isBinary: false,
-        truncated: false,
-        languageHint: fixture.languageHint,
-        content: fixture.content,
-      });
+        expect(result, normalizedPath).toMatchObject({
+          path: normalizedPath,
+          isBinary: false,
+          truncated: false,
+          languageHint,
+          content,
+        });
+      }
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
     }

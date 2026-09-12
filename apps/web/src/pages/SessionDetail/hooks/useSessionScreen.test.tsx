@@ -64,35 +64,6 @@ describe("useSessionScreen", () => {
     expect(result.current.isScreenLoading).toBe(false);
   });
 
-  it("shows loading before first response arrives", () => {
-    const requestScreen = vi.fn().mockImplementation(() => new Promise<never>(() => {}));
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useSessionScreen(buildArgs({ requestScreen })), {
-      wrapper,
-    });
-
-    expect(result.current.isScreenLoading).toBe(true);
-  });
-
-  it("loads screen lines when connected", async () => {
-    const requestScreen = vi.fn().mockResolvedValue({
-      ok: true,
-      paneId: "pane-1",
-      mode: "text",
-      capturedAt: new Date(0).toISOString(),
-      screen: "hello",
-    });
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useSessionScreen(buildArgs({ requestScreen })), {
-      wrapper,
-    });
-
-    await waitFor(() => {
-      expect(result.current.screenLines).toEqual(["hello"]);
-    });
-  });
-
   it("finishes loading when the current pane has an empty screen", async () => {
     const requestScreen = vi.fn().mockResolvedValue({
       ok: true,

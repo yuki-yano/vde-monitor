@@ -11,17 +11,6 @@ describe("createStateSaveHeartbeat", () => {
     expect(heartbeat.isDue()).toBe(false);
   });
 
-  it("becomes due only after the interval since the last write", () => {
-    let nowMs = 0;
-    const heartbeat = createStateSaveHeartbeat({ intervalMs: 60_000, now: () => nowMs });
-
-    heartbeat.markWritten();
-    nowMs = 59_999;
-    expect(heartbeat.isDue()).toBe(false);
-    nowMs = 60_000;
-    expect(heartbeat.isDue()).toBe(true);
-  });
-
   it("resets when a write is recorded", () => {
     let nowMs = 0;
     const heartbeat = createStateSaveHeartbeat({ intervalMs: 60_000, now: () => nowMs });

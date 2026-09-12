@@ -213,38 +213,11 @@ describe("ChatGridCandidateModal", () => {
 
     expect(screen.getByLabelText("Select First Session, Pane pane-1, CODEX")).toBeTruthy();
     expect(screen.queryByLabelText("Select Second Session, Pane pane-2, CODEX")).toBeNull();
-  });
-
-  it("keeps candidate list viewport height stable while filtering", () => {
-    vi.useFakeTimers();
-    render(
-      <ChatGridCandidateModal
-        open
-        candidateItems={[
-          buildSession({ paneId: "pane-1", title: "First Session", sessionName: "alpha" }),
-          buildSession({ paneId: "pane-2", title: "Second Session", sessionName: "beta" }),
-        ]}
-        selectedPaneIds={[]}
-        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
-        onOpenChange={vi.fn()}
-        canSyncSelectionFromCurrentGrid
-        onSyncSelectionFromCurrentGrid={vi.fn()}
-        onTogglePane={vi.fn()}
-        onApply={vi.fn()}
-      />,
-    );
-
-    const listViewport = screen.getByTestId("candidate-pane-list");
-    expect(listViewport.className).toContain("h-[64vh]");
-
-    const searchInput = screen.getByLabelText("Filter candidate panes");
     fireEvent.change(searchInput, { target: { value: "no-match" } });
     act(() => {
       vi.advanceTimersByTime(CHAT_GRID_CANDIDATE_SEARCH_DEBOUNCE_MS);
     });
-
     expect(screen.getByText('No candidate panes match "no-match".')).toBeTruthy();
-    expect(screen.getByTestId("candidate-pane-list").className).toContain("h-[64vh]");
   });
 
   it("clears search query when modal is reopened", () => {

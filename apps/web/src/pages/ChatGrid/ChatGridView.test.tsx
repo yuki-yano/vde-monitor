@@ -157,12 +157,6 @@ const createProps = (overrides: Partial<ChatGridViewProps> = {}): ChatGridViewPr
 });
 
 describe("ChatGridView", () => {
-  it("renders selected sessions in board", () => {
-    render(<ChatGridView {...createProps()} />);
-    expect(screen.getByTestId("chat-grid-board-count").textContent).toBe("2");
-    expect(screen.getByTestId("session-sidebar")).toBeTruthy();
-  });
-
   it("renders connection issue and wires toolbar action", () => {
     const onOpenCandidateModal = vi.fn();
     const onBackToSessionList = vi.fn();
@@ -176,6 +170,8 @@ describe("ChatGridView", () => {
       />,
     );
 
+    expect(screen.getByTestId("chat-grid-board-count").textContent).toBe("2");
+    expect(screen.getByTestId("session-sidebar")).toBeTruthy();
     expect(screen.getByText("Disconnected. Reconnecting...")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "open-candidates" }));
     expect(onOpenCandidateModal).toHaveBeenCalledTimes(1);

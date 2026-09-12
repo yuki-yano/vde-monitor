@@ -61,51 +61,6 @@ describe("createScreenResponse", () => {
     );
   });
 
-  it("reports joined-physical lineModel when tmux joinLines is enabled", async () => {
-    const captureText = vi.fn(async () => ({
-      screen: "hello",
-      alternateOn: false,
-      truncated: null,
-    }));
-    const monitor = {
-      getScreenCapture: () => ({ captureText }),
-    } as unknown as Monitor;
-    const target = {
-      paneId: "%1",
-      paneTty: "tty1",
-      alternateOn: false,
-      agent: "codex",
-    } as SessionDetail;
-    const screenCache = createScreenCache();
-
-    const response = await createScreenResponse({
-      config: baseConfig,
-      monitor,
-      target,
-      mode: "text",
-      lines: 5,
-      screenLimiter: () => true,
-      limiterKey: "rest",
-      buildTextResponse: screenCache.buildTextResponse,
-    });
-
-    expect(response.ok).toBe(true);
-    expect(response.captureMeta).toMatchObject({
-      backend: "tmux",
-      lineModel: "joined-physical",
-      joinLinesApplied: true,
-      captureMethod: "tmux-capture-pane",
-    });
-    expect(captureText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        paneId: "%1",
-        lines: 5,
-        joinLines: true,
-        includeTruncated: false,
-      }),
-    );
-  });
-
   it("reports joinLinesApplied false for wezterm text capture", async () => {
     const captureText = vi.fn(async () => ({
       screen: "hello",

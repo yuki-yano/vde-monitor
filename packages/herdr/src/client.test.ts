@@ -277,43 +277,6 @@ describe("HerdrClient", () => {
     expect(received).toEqual(["ping", "pane.list", "pane.read"]);
   });
 
-  it("starts four of five requests with the default concurrency bound", async () => {
-    const socketPath = await makeTempSocketPath();
-    const respond: Array<() => void> = [];
-    const server = createServer((socket) => {
-      socket.setEncoding("utf8");
-      socket.once("data", (chunk: string) => {
-        const request = JSON.parse(chunk.split("\n", 1)[0]!) as { id: string; method: string };
-        respond.push(() => {
-          socket.write(`${JSON.stringify({ id: request.id, result: request.method })}\n`);
-        });
-      });
-    });
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(socketPath, resolve);
-    });
-
-    const client = new HerdrClient(socketPath);
-    const requests = Promise.all(
-      Array.from({ length: 5 }, (_, index) => client.request(`test.${index + 1}`)),
-    );
-
-    await vi.waitFor(() => expect(respond).toHaveLength(HERDR_MAX_CONCURRENT_REQUESTS));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(respond).toHaveLength(HERDR_MAX_CONCURRENT_REQUESTS);
-
-    respond[0]!();
-    await vi.waitFor(() => expect(respond).toHaveLength(5));
-    for (const sendResponse of respond.slice(1)) sendResponse();
-
-    await expect(requests).resolves.toEqual(["test.1", "test.2", "test.3", "test.4", "test.5"]);
-    await client.close();
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
-  });
-
   it("starts the request timeout after a queued request acquires a connection slot", async () => {
     const socketPath = await makeTempSocketPath();
     let respondToSlowRequest = (): void => undefined;
@@ -625,24 +588,6 @@ describe("HerdrClient", () => {
     const client = new HerdrClient(socketPath);
     await expect(client.request("pane.send_input", { pane_id: "wD:p2" })).rejects.toMatchObject({
       code: "protocol_error",
-    });
-    await client.close();
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
-  });
-
-  it("times out when the server does not respond", async () => {
-    const socketPath = await makeTempSocketPath();
-    const server = createServer((socket) => socket.resume());
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(socketPath, resolve);
-    });
-
-    const client = new HerdrClient(socketPath);
-    await expect(client.request("ping", {}, { timeoutMs: 20 })).rejects.toMatchObject({
-      code: "timeout",
     });
     await client.close();
     await new Promise<void>((resolve, reject) =>

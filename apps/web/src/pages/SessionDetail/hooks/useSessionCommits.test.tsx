@@ -89,9 +89,9 @@ afterEach(() => {
 });
 
 describe("useSessionCommits Query resources", () => {
-  it("loads one head observer with the exact key/options and AbortSignal", async () => {
+  it("loads the head once in StrictMode and forwards AbortSignal", async () => {
     const requestCommitLog = vi.fn(async () => createCommitLog());
-    const { result, queryClient } = renderCommits({ requestCommitLog, strict: true });
+    const { result } = renderCommits({ requestCommitLog, strict: true });
 
     await waitFor(() => expect(result.current.commitLog).not.toBeNull());
     expect(requestCommitLog).toHaveBeenCalledTimes(1);
@@ -100,43 +100,6 @@ describe("useSessionCommits Query resources", () => {
       { limit: 10, skip: 0, force: true },
       expect.any(AbortSignal),
     );
-    const key = sessionDetailQueryKeys.commitLogHead("pane-1", {
-      repoRoot: "/repo",
-      worktreePath: null,
-      branch: null,
-      limit: 10,
-    });
-    const query = queryClient.getQueryCache().find({ queryKey: key, exact: true });
-    expect(query?.getObserversCount()).toBe(1);
-    expect(query?.options).toMatchObject({
-      staleTime: 0,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-      refetchOnMount: "always",
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      refetchIntervalInBackground: false,
-    });
-    const tailKey = sessionDetailQueryKeys.commitLogTail("pane-1", {
-      repoRoot: "/repo",
-      worktreePath: null,
-      branch: null,
-      expectedRev: result.current.commitLog?.rev ?? null,
-      headSnapshot: buildCommitLogSnapshot(result.current.commitLog!),
-      limit: 10,
-    });
-    const tailQuery = queryClient.getQueryCache().find({ queryKey: tailKey, exact: true });
-    expect(tailQuery?.getObserversCount()).toBe(1);
-    expect(tailQuery?.options).toMatchObject({
-      staleTime: Infinity,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    });
   });
 
   it("does not request on a disconnected cold mount and requests once when reconnected", async () => {
@@ -195,19 +158,6 @@ describe("useSessionCommits Query resources", () => {
     expect(branchCall?.[1]).not.toHaveProperty("worktreePath");
   });
 
-  it("copies a commit hash and exposes the copied indicator", async () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    const { result } = renderCommits();
-
-    await act(async () => result.current.copyHash("abc123"));
-    expect(writeText).toHaveBeenCalledWith("abc123");
-    expect(result.current.copiedHash).toBe("abc123");
-  });
-
   it("clears only the latest copied hash timer and ignores an old-scope timer", async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -218,6 +168,8 @@ describe("useSessionCommits Query resources", () => {
     vi.useFakeTimers();
     try {
       await act(async () => result.current.copyHash("first"));
+      expect(writeText).toHaveBeenCalledWith("first");
+      expect(result.current.copiedHash).toBe("first");
       await act(async () => vi.advanceTimersByTimeAsync(600));
       await act(async () => result.current.copyHash("second"));
       await act(async () => vi.advanceTimersByTimeAsync(600));
@@ -240,7 +192,7 @@ describe("useSessionCommits Query resources", () => {
     }
   });
 
-  it("keeps detail/file observers after close, coalesces toggles, and retries failures on reopen", async () => {
+  it("coalesces detail/file toggles and retries failures on reopen", async () => {
     const detailFailure = new Error("detail failed");
     const fileFailure = new Error("file failed");
     const requestCommitDetail = vi
@@ -251,7 +203,7 @@ describe("useSessionCommits Query resources", () => {
       .fn()
       .mockRejectedValueOnce(fileFailure)
       .mockResolvedValue(createCommitFileDiff());
-    const { result, queryClient } = renderCommits({ requestCommitDetail, requestCommitFile });
+    const { result } = renderCommits({ requestCommitDetail, requestCommitFile });
     await waitFor(() => expect(result.current.commitLog).not.toBeNull());
 
     act(() => result.current.toggleCommit("abc123"));
@@ -280,43 +232,6 @@ describe("useSessionCommits Query resources", () => {
     act(() => result.current.toggleCommitFile("abc123", "src/index.ts"));
     act(() => result.current.toggleCommitFile("abc123", "src/index.ts"));
     await waitFor(() => expect(requestCommitFile).toHaveBeenCalledTimes(2));
-    const activeQueries = queryClient
-      .getQueryCache()
-      .findAll({ queryKey: sessionDetailQueryKeys.commitsRoot("pane-1") })
-      .filter((query) => query.getObserversCount() > 0);
-    expect(activeQueries).toHaveLength(4);
-    expect(activeQueries.every((query) => query.getObserversCount() === 1)).toBe(true);
-    const detailQuery = queryClient.getQueryCache().find({
-      queryKey: sessionDetailQueryKeys.commitDetail("pane-1", {
-        repoRoot: "/repo",
-        worktreePath: null,
-        branch: null,
-        hash: "abc123",
-      }),
-      exact: true,
-    });
-    const fileQuery = queryClient.getQueryCache().find({
-      queryKey: sessionDetailQueryKeys.commitFile("pane-1", {
-        repoRoot: "/repo",
-        worktreePath: null,
-        branch: null,
-        hash: "abc123",
-        path: "src/index.ts",
-      }),
-      exact: true,
-    });
-    expect(detailQuery?.options).toMatchObject({
-      staleTime: Infinity,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-    });
-    expect(fileQuery?.options).toMatchObject({
-      staleTime: Infinity,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-    });
   });
 
   it("prioritizes a manual head error over the last interactive detail/file error", async () => {

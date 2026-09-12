@@ -150,61 +150,101 @@ describe("state-store timeline persistence", () => {
     expect(restored.repoNotes.size).toBe(0);
   });
 
-  it("saves and restores timeline events", () => {
-    saveState([createSessionDetail()], {
-      runtimeStateByPaneId: createRuntimeStateMap(),
-      timeline: {
-        "pane-1": [
-          {
-            id: "pane-1:1700000000000:1",
-            paneId: "pane-1",
-            state: "DONE",
-            reason: "completion:pending",
-            repoRoot: "/repo/a",
-            startedAt: "2026-02-07T00:00:00.000Z",
-            endedAt: null,
-            source: "view",
-          },
-        ],
-      },
-    });
-
-    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
-    expect(parsed.version).toBe(3);
-    expect(parsed.sessions["pane-1"].lifecycle).toBe("RUNNING");
-    expect(parsed.sessions["pane-1"].state).toBeUndefined();
-    expect(parsed.timeline["pane-1"]).toHaveLength(1);
-
-    const { sessions: restoredSessions, timeline: restoredTimeline } = restorePersistedState();
-    expect(restoredSessions.get("pane-1")?.paneId).toBe("pane-1");
-
-    expect(restoredTimeline.get("pane-1")).toHaveLength(1);
-    expect(restoredTimeline.get("pane-1")?.[0]?.id).toBe("pane-1:1700000000000:1");
-    expect(restoredTimeline.get("pane-1")?.[0]?.repoRoot).toBe("/repo/a");
-    expect(restoredTimeline.get("pane-1")?.[0]).toMatchObject({
-      state: "DONE",
-      source: "view",
-    });
-  });
-
-  it("roundtrips run and manual sort timestamps", () => {
+  it("roundtrips session runtime, timestamps, timeline, and repository notes", () => {
+    const completionCursor: PersistedCompletionCursor = {
+      epoch: "epoch-1",
+      paneInstanceKey: "pane-instance-1",
+      agent: "codex",
+      agentSessionId: "session-1",
+      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+      agentPresent: false,
+      syntheticCompletionArmed: false,
+      consecutiveAbsentObservations: 2,
+      runSeq: 3,
+      openRunSeq: null,
+      completedSeq: 3,
+      acknowledgedSeq: 2,
+    };
     saveState(
       [
         createSessionDetail({
+          state: "RUNNING",
           lastRunStartedAt: "2026-07-14T00:00:00.000Z",
           manualSortAt: "2026-07-14T00:01:00.000Z",
         }),
       ],
       {
-        runtimeStateByPaneId: createRuntimeStateMap({ lastRunStartedRunId: "epoch-1:1" }),
+        runtimeStateByPaneId: createRuntimeStateMap({
+          lifecycle: "WAITING_INPUT",
+          completionCursor,
+          lastAgent: "codex",
+          lastRunStartedRunId: "epoch-1:3",
+        }),
+        timeline: {
+          "pane-1": [
+            {
+              id: "pane-1:1700000000000:1",
+              paneId: "pane-1",
+              state: "DONE",
+              reason: "completion:pending",
+              repoRoot: "/repo/a",
+              startedAt: "2026-02-07T00:00:00.000Z",
+              endedAt: null,
+              source: "view",
+            },
+          ],
+        },
+        repoNotes: {
+          "/repo/a": [
+            {
+              id: "note-1",
+              repoRoot: "/repo/a",
+              title: "todo",
+              body: "update tests",
+              createdAt: "2026-02-07T00:00:00.000Z",
+              updatedAt: "2026-02-07T00:00:00.000Z",
+            },
+          ],
+        },
       },
     );
 
-    const restored = restorePersistedState().sessions.get("pane-1");
-    expect(restored?.lastRunStartedAt).toBe("2026-07-14T00:00:00.000Z");
-    expect(restored?.lastRunStartedAtVerified).toBe(true);
-    expect(restored?.lastRunStartedRunId).toBe("epoch-1:1");
-    expect(restored?.manualSortAt).toBe("2026-07-14T00:01:00.000Z");
+    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
+    expect(parsed.version).toBe(3);
+    expect(parsed.sessions["pane-1"].state).toBeUndefined();
+    expect(parsed.sessions["pane-1"]).toMatchObject({
+      lifecycle: "WAITING_INPUT",
+      lastAgent: "codex",
+      completionCursor: {
+        epoch: "epoch-1",
+        identityConfirmedAt: "2026-07-10T00:00:00.000Z",
+        completedSeq: 3,
+        acknowledgedSeq: 2,
+      },
+    });
+    expect(parsed.timeline["pane-1"]).toHaveLength(1);
+    expect(parsed.repoNotes["/repo/a"]).toHaveLength(1);
+
+    const restored = restorePersistedState();
+    expect(restored.sessions.get("pane-1")).toMatchObject({
+      paneId: "pane-1",
+      lifecycle: "WAITING_INPUT",
+      lastAgent: "codex",
+      lastRunStartedAt: "2026-07-14T00:00:00.000Z",
+      lastRunStartedAtVerified: true,
+      lastRunStartedRunId: "epoch-1:3",
+      manualSortAt: "2026-07-14T00:01:00.000Z",
+      completionCursor,
+    });
+    expect(restored.timeline.get("pane-1")).toHaveLength(1);
+    expect(restored.timeline.get("pane-1")?.[0]).toMatchObject({
+      id: "pane-1:1700000000000:1",
+      repoRoot: "/repo/a",
+      state: "DONE",
+      source: "view",
+    });
+    expect(restored.repoNotes.get("/repo/a")).toHaveLength(1);
+    expect(restored.repoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
   });
 
   it("drops an unverified legacy run timestamp during restore", () => {
@@ -277,31 +317,6 @@ describe("state-store timeline persistence", () => {
     expect(restored.sessions.get("pane-1")?.paneId).toBe("pane-1");
     expect(restored.timeline.get("pane-1")).toHaveLength(1);
     expect(restored.repoNotes.get("/repo/a")).toHaveLength(1);
-  });
-
-  it("saves and restores repository notes", () => {
-    saveState([createSessionDetail()], {
-      runtimeStateByPaneId: createRuntimeStateMap(),
-      repoNotes: {
-        "/repo/a": [
-          {
-            id: "note-1",
-            repoRoot: "/repo/a",
-            title: "todo",
-            body: "update tests",
-            createdAt: "2026-02-07T00:00:00.000Z",
-            updatedAt: "2026-02-07T00:00:00.000Z",
-          },
-        ],
-      },
-    });
-
-    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
-    expect(parsed.repoNotes["/repo/a"]).toHaveLength(1);
-
-    const { repoNotes: restoredRepoNotes } = restorePersistedState();
-    expect(restoredRepoNotes.get("/repo/a")).toHaveLength(1);
-    expect(restoredRepoNotes.get("/repo/a")?.[0]?.id).toBe("note-1");
   });
 
   it("roundtrips repository activity without coupling it to session persistence", () => {
@@ -478,48 +493,6 @@ describe("state-store timeline persistence", () => {
     const resaved = JSON.parse(fileContents.get(statePath) ?? "{}");
     expect(resaved.sessions["pane-1"].lastRunStartedAt).toBeNull();
     expect(resaved.sessions["pane-1"].manualSortAt).toBeNull();
-  });
-
-  it("roundtrips the completion cursor, identity timestamp, and last agent", () => {
-    const completionCursor: PersistedCompletionCursor = {
-      epoch: "epoch-1",
-      paneInstanceKey: "pane-instance-1",
-      agent: "codex",
-      agentSessionId: "session-1",
-      identityConfirmedAt: "2026-07-10T00:00:00.000Z",
-      agentPresent: false,
-      syntheticCompletionArmed: false,
-      consecutiveAbsentObservations: 2,
-      runSeq: 3,
-      openRunSeq: null,
-      completedSeq: 3,
-      acknowledgedSeq: 2,
-    };
-
-    saveState([createSessionDetail({ state: "WAITING_INPUT" })], {
-      runtimeStateByPaneId: createRuntimeStateMap({
-        lifecycle: "WAITING_INPUT",
-        completionCursor,
-        lastAgent: "codex",
-      }),
-    });
-
-    const parsed = JSON.parse(fileContents.get(statePath) ?? "{}");
-    expect(parsed.sessions["pane-1"]).toMatchObject({
-      lifecycle: "WAITING_INPUT",
-      lastAgent: "codex",
-      completionCursor: {
-        epoch: "epoch-1",
-        identityConfirmedAt: "2026-07-10T00:00:00.000Z",
-        completedSeq: 3,
-        acknowledgedSeq: 2,
-      },
-    });
-
-    const restored = restorePersistedState().sessions.get("pane-1");
-    expect(restored?.lifecycle).toBe("WAITING_INPUT");
-    expect(restored?.lastAgent).toBe("codex");
-    expect(restored?.completionCursor).toEqual(completionCursor);
   });
 
   it("retains a cold-restored cursor when no pane has committed yet", () => {

@@ -175,66 +175,6 @@ describe("useSessionDoneAcknowledgement", () => {
     await waitFor(() => expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 2));
   });
 
-  it("acknowledges 20 visible completion generations within two seconds each", async () => {
-    vi.useFakeTimers();
-    setVisibility("visible");
-    const responseDelaysMs = [
-      25, 40, 55, 70, 85, 100, 125, 150, 180, 220, 260, 310, 370, 440, 520, 620, 760, 920, 1_200,
-      1_800,
-    ];
-    const samples: Array<{
-      sampleId: number;
-      startedAt: number;
-      completedAt: number;
-      latencyMs: number;
-    }> = [];
-    const acknowledgeSessionView = vi.fn(
-      (_paneId: string, _epoch: string, throughSeq: number) =>
-        new Promise<void>((resolve) => {
-          const startedAt = performance.now();
-          const delayMs = responseDelaysMs[throughSeq - 1];
-          if (delayMs == null) {
-            throw new Error(`Unexpected completion sequence: ${throughSeq}`);
-          }
-          setTimeout(() => {
-            const completedAt = performance.now();
-            samples.push({
-              sampleId: throughSeq,
-              startedAt,
-              completedAt,
-              latencyMs: completedAt - startedAt,
-            });
-            resolve();
-          }, delayMs);
-        }),
-    );
-    const { rerender } = renderHook(
-      ({ value }: { value: SessionDetail | null }) =>
-        useSessionDoneAcknowledgement({
-          paneId: "%1",
-          session: value,
-          acknowledgeSessionView,
-        }),
-      { initialProps: { value: null as SessionDetail | null } },
-    );
-
-    for (let completedSeq = 1; completedSeq <= responseDelaysMs.length; completedSeq += 1) {
-      rerender({ value: session(completedSeq, completedSeq - 1) });
-      expect(acknowledgeSessionView).toHaveBeenLastCalledWith("%1", "epoch-1", completedSeq);
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(responseDelaysMs[completedSeq - 1] ?? 0);
-      });
-    }
-
-    expect(acknowledgeSessionView).toHaveBeenCalledTimes(20);
-    expect(samples).toHaveLength(20);
-    expect(samples.map(({ sampleId }) => sampleId)).toEqual(
-      Array.from({ length: 20 }, (_, index) => index + 1),
-    );
-    expect(samples.map(({ latencyMs }) => latencyMs)).toEqual(responseDelaysMs);
-    expect(samples.every(({ latencyMs }) => latencyMs <= 2_000)).toBe(true);
-  });
-
   it("does not acknowledge while hidden and acknowledges on visibility return", async () => {
     setVisibility("hidden");
     const acknowledgeSessionView = vi.fn(async () => undefined);

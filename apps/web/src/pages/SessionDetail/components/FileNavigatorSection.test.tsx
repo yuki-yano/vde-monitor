@@ -62,8 +62,6 @@ describe("FileNavigatorSection", () => {
     render(<FileNavigatorSection {...props} />);
 
     const refreshButton = screen.getByRole("button", { name: "Refresh file navigator" });
-    expect(refreshButton.className).toContain("h-[30px]");
-    expect(refreshButton.className).toContain("w-[30px]");
     fireEvent.click(refreshButton);
     expect(props.actions.onRefresh).toHaveBeenCalledTimes(1);
   });
@@ -111,7 +109,7 @@ describe("FileNavigatorSection", () => {
     expect(nextProps.actions.onSearchQueryChange).toHaveBeenCalledWith("");
   });
 
-  it("renders ignored directories with muted row, text, and icon styling", () => {
+  it("visually mutes ignored directories", () => {
     const props = createProps();
     props.state.treeNodes = [
       {
@@ -130,9 +128,7 @@ describe("FileNavigatorSection", () => {
     render(<FileNavigatorSection {...props} />);
 
     const label = screen.getByText("generated");
-    expect(label.className).toContain("text-latte-subtext0");
     const row = label.closest("button");
     expect(row?.className).toContain("opacity-75");
-    expect(row?.querySelector("svg")?.getAttribute("class")).toContain("text-latte-subtext0");
   });
 });

@@ -32,7 +32,7 @@ describe("useScreenPollingPauseReason", () => {
     vi.unstubAllGlobals();
   });
 
-  it("tracks hidden state and resumes on visibility change", () => {
+  it("tracks offline, online, visibility, and focus browser events", () => {
     Object.defineProperty(document, "hidden", { value: true, configurable: true });
     const { result } = renderHook(() =>
       useScreenPollingPauseReason({
@@ -42,22 +42,11 @@ describe("useScreenPollingPauseReason", () => {
     );
 
     expect(result.current).toBe("hidden");
-
     Object.defineProperty(document, "hidden", { value: false, configurable: true });
     act(() => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
-
     expect(result.current).toBeNull();
-  });
-
-  it("tracks offline, online, visibility, and focus browser events", () => {
-    const { result } = renderHook(() =>
-      useScreenPollingPauseReason({
-        connected: true,
-        connectionIssue: null,
-      }),
-    );
 
     Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
     act(() => {

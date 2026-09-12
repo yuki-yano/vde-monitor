@@ -66,13 +66,18 @@ describe("useVisibilityPolling", () => {
     expect(onResume).toHaveBeenCalledTimes(1);
     expect(setIntervalSpy).toHaveBeenCalled();
 
+    expect(onTick).not.toHaveBeenCalled();
     act(() => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(999);
+    });
+    expect(onTick).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1);
     });
     expect(onTick).toHaveBeenCalledTimes(1);
   });
 
-  it("stops active polling when offline event is received", () => {
+  it("pauses offline polling and waits for the next tick after reconnecting", () => {
     vi.useFakeTimers();
     Object.defineProperty(document, "hidden", { value: false, configurable: true });
     Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
@@ -107,6 +112,18 @@ describe("useVisibilityPolling", () => {
       vi.advanceTimersByTime(2000);
     });
     expect(onTick).toHaveBeenCalledTimes(1);
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(onTick).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(999);
+    });
+    expect(onTick).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onTick).toHaveBeenCalledTimes(2);
   });
 
   it("triggers resume handler on pageshow", () => {

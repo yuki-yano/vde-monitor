@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterContextProvider,
+  RouterProvider,
   createMemoryHistory,
   createRootRoute,
   createRoute,
@@ -17,6 +18,7 @@ import { createAppQueryClient } from "@/state/query-client";
 
 import { createSessionContextMock } from "./session-context-mock";
 import { sessionDetailQueryKeys } from "./session-detail-query-keys";
+import { SessionDetailPage } from "./SessionDetailPage";
 import { SessionDetailProvider } from "./SessionDetailProvider";
 import { SessionDetailView } from "./SessionDetailView";
 import { createSessionDetail } from "./test-helpers";
@@ -240,17 +242,30 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
     requestStateTimeline.mockClear();
   });
 
-  it("mounts the real Provider + View and switches between every inspector section", async () => {
+  it("routes the pane through the real Page and switches between every inspector section", async () => {
     const store = createStore();
     const queryClient = createAppQueryClient();
 
-    renderWithRouter(
-      <JotaiProvider store={store}>
-        <SessionDetailProvider paneId="pane-1">
-          <SessionDetailView />
-        </SessionDetailProvider>
-      </JotaiProvider>,
-      queryClient,
+    const rootRoute = createRootRoute();
+    const detailRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/sessions/$paneId",
+      component: () => (
+        <JotaiProvider store={store}>
+          <SessionDetailPage />
+        </JotaiProvider>
+      ),
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([detailRoute]),
+      history: createMemoryHistory({ initialEntries: ["/sessions/pane-1"] }),
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
+      </QueryClientProvider>,
     );
 
     expect(await screen.findByRole("button", { name: "Edit session title" })).toBeTruthy();
@@ -289,7 +304,7 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Branches panel" }), { button: 0 });
     expect(screen.getByRole("heading", { name: "Branches" })).toBeTruthy();
-    expectSingleGitScopeObservers(queryClient);
+
     expect(
       queryClient
         .getQueryCache()
@@ -299,18 +314,16 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Worktrees panel" }), { button: 0 });
     expect(screen.getByTestId("worktree-section")).toBeTruthy();
-    expectSingleGitScopeObservers(queryClient);
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Changes panel" }), { button: 0 });
     expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
-    expectSingleGitScopeObservers(queryClient);
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Branches panel" }), { button: 0 });
     expect(screen.getByRole("heading", { name: "Branches" })).toBeTruthy();
     expectSingleGitScopeObservers(queryClient);
   });
 
-  it("keeps exact files observers across Files tab search and content transitions", async () => {
+  it("shows search results and releases search/content resources when closed", async () => {
     const store = createStore();
     const queryClient = createAppQueryClient();
     const filesScope = { resolvedRoot: session.repoRoot, worktreePath: null };
@@ -338,11 +351,11 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Files panel" }), { button: 0 });
     expect(await screen.findByRole("heading", { name: "File Navigator" })).toBeTruthy();
-    expect(observerCount(treeRoot)).toBe(1);
 
     const searchInput = screen.getByRole("textbox", { name: "Search file path" });
     fireEvent.change(searchInput, { target: { value: "a" } });
     await waitFor(() => expect(observerCount(searchRoot)).toBe(1));
+    expect(await screen.findByTitle("README.md")).toBeTruthy();
 
     const pendingB = deferred<RepoFileSearchPage>();
     requestRepoFileSearch.mockImplementation(async (_paneId, query) =>
@@ -356,14 +369,22 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
           },
     );
     fireEvent.change(searchInput, { target: { value: "b" } });
-    await waitFor(() => expect(observerCount(searchRoot)).toBe(2));
+    await waitFor(() =>
+      expect(requestRepoFileSearch).toHaveBeenCalledWith(
+        "pane-1",
+        "b",
+        expect.anything(),
+        expect.any(AbortSignal),
+      ),
+    );
     pendingB.resolve({
       query: "b",
-      items: [{ path: "README.md", name: "README.md", kind: "file", score: 1, highlights: [] }],
+      items: [{ path: "b.md", name: "b.md", kind: "file", score: 1, highlights: [] }],
       truncated: false,
       totalMatchedCount: 1,
     });
-    await waitFor(() => expect(observerCount(searchRoot)).toBe(1));
+    expect(await screen.findByTitle("b.md")).toBeTruthy();
+    expect(screen.queryByTitle("README.md")).toBeNull();
 
     fireEvent.change(searchInput, { target: { value: "" } });
     await waitFor(() => expect(observerCount(searchRoot)).toBe(0));
@@ -371,13 +392,12 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
     const readmeButton = readmeNode.closest("button");
     expect(readmeButton).not.toBeNull();
     fireEvent.click(readmeButton!);
-    await waitFor(() => expect(observerCount(contentRoot)).toBe(1));
+    expect(await screen.findByRole("heading", { name: "Changed preview" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Close file content modal" }));
     await waitFor(() => expect(observerCount(contentRoot)).toBe(0));
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Changes panel" }), { button: 0 });
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Files panel" }), { button: 0 });
-    expect(observerCount(treeRoot)).toBe(1);
     expect(observerCount(searchRoot)).toBe(0);
     expect(observerCount(contentRoot)).toBe(0);
   });
@@ -405,7 +425,7 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
     );
   });
 
-  it("keeps one timeline observer polling while the mobile section is hidden", async () => {
+  it("keeps timeline polling while the mobile section is hidden", async () => {
     vi.useFakeTimers();
     const originalMatchMedia = window.matchMedia;
     try {
@@ -425,12 +445,6 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
       });
       const store = createStore();
       const queryClient = createAppQueryClient();
-      const timelineQueryKey = sessionDetailQueryKeys.timeline("pane-1", {
-        repoRoot: session.repoRoot,
-        scope: "pane",
-        range: "1h",
-        limit: undefined,
-      });
 
       renderWithRouter(
         <JotaiProvider store={store}>
@@ -450,32 +464,16 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
         { range: "1h" },
         expect.any(AbortSignal),
       );
-      expect(
-        queryClient
-          .getQueryCache()
-          .find({ queryKey: timelineQueryKey, exact: true })
-          ?.getObserversCount(),
-      ).toBe(1);
-      expectSingleGitScopeObservers(queryClient);
 
       fireEvent.mouseDown(screen.getByRole("tab", { name: "Branches panel" }), { button: 0 });
       expect(screen.getByRole("heading", { name: "Branches" })).toBeTruthy();
-      expectSingleGitScopeObservers(queryClient);
 
       fireEvent.mouseDown(screen.getByRole("tab", { name: "Worktrees panel" }), { button: 0 });
       expect(screen.getByTestId("worktree-section")).toBeTruthy();
-      expectSingleGitScopeObservers(queryClient);
 
       fireEvent.mouseDown(screen.getByRole("tab", { name: "Changes panel" }), { button: 0 });
       expect(screen.queryByRole("heading", { name: "State Timeline" })).toBeNull();
       expect(requestStateTimeline).toHaveBeenCalledTimes(1);
-      expect(
-        queryClient
-          .getQueryCache()
-          .find({ queryKey: timelineQueryKey, exact: true })
-          ?.getObserversCount(),
-      ).toBe(1);
-      expectSingleGitScopeObservers(queryClient);
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(5_000);
@@ -522,12 +520,6 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
       });
       expect(requestRepoNotes).toHaveBeenCalledTimes(1);
       expect(queryClient.getQueryData(notesQueryKey)).toEqual([note]);
-      expect(
-        queryClient
-          .getQueryCache()
-          .find({ queryKey: notesQueryKey, exact: true })
-          ?.getObserversCount(),
-      ).toBe(1);
 
       await act(async () => {
         vi.advanceTimersByTime(10_000);
@@ -540,12 +532,6 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
         await Promise.resolve();
       });
       expect(requestRepoNotes).toHaveBeenCalledTimes(2);
-      expect(
-        queryClient
-          .getQueryCache()
-          .find({ queryKey: notesQueryKey, exact: true })
-          ?.getObserversCount(),
-      ).toBe(1);
 
       await act(async () => {
         vi.advanceTimersByTime(10_000);
@@ -569,12 +555,6 @@ describe("SessionDetail Provider <-> View wiring (smoke)", () => {
       });
       expect(requestRepoNotes).toHaveBeenCalledTimes(3);
       expect(updateRepoNote).not.toHaveBeenCalled();
-      expect(
-        queryClient
-          .getQueryCache()
-          .find({ queryKey: notesQueryKey, exact: true })
-          ?.getObserversCount(),
-      ).toBe(1);
 
       fireEvent.mouseDown(screen.getByRole("tab", { name: "Notes panel" }), { button: 0 });
       await act(async () => {

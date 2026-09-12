@@ -650,39 +650,6 @@ describe("SessionDetailView", () => {
     expect(timelineHookSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("lays out mobile section tabs in two rows with notes on first row", () => {
-    const session = createSessionDetail({ repoRoot: "/Users/test/repo-a", branch: "main" });
-    const props = createViewProps({
-      meta: { session },
-      timeline: { isMobile: true },
-    });
-    renderWithRouter(<SessionDetailView {...props} />);
-
-    expect(screen.getByRole("tab", { name: "Keys panel" }).className).toContain("row-start-1");
-    expect(screen.getByRole("tab", { name: "Keys panel" }).className).toContain("col-start-1");
-
-    expect(screen.getByRole("tab", { name: "Timeline panel" }).className).toContain("row-start-1");
-    expect(screen.getByRole("tab", { name: "Timeline panel" }).className).toContain("col-start-2");
-
-    expect(screen.getByRole("tab", { name: "Files panel" }).className).toContain("row-start-1");
-    expect(screen.getByRole("tab", { name: "Files panel" }).className).toContain("col-start-3");
-
-    expect(screen.getByRole("tab", { name: "Notes panel" }).className).toContain("row-start-1");
-    expect(screen.getByRole("tab", { name: "Notes panel" }).className).toContain("col-start-4");
-
-    expect(screen.getByRole("tab", { name: "Changes panel" }).className).toContain("row-start-2");
-    expect(screen.getByRole("tab", { name: "Changes panel" }).className).toContain("col-start-1");
-
-    expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("row-start-2");
-    expect(screen.getByRole("tab", { name: "Commits panel" }).className).toContain("col-start-2");
-
-    expect(screen.getByRole("tab", { name: "Branches panel" }).className).toContain("row-start-2");
-    expect(screen.getByRole("tab", { name: "Branches panel" }).className).toContain("col-start-3");
-
-    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("row-start-2");
-    expect(screen.getByRole("tab", { name: "Worktrees panel" }).className).toContain("col-start-4");
-  });
-
   it("restores last selected tab from localStorage", () => {
     const session = createSessionDetail({ repoRoot: "/Users/test/repo-a", branch: "main" });
     const storageKey = buildSectionTabStorageKey({

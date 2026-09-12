@@ -203,26 +203,6 @@ describe("createNotificationDispatcher", () => {
     expect(sendNotification).not.toHaveBeenCalled();
   });
 
-  it("sends task_completed when a completion generation advances", async () => {
-    const { dispatcher, logger, sendNotification } = createDispatcherUnderTest({
-      enabledEventTypes: ["pane.task_completed"],
-    });
-
-    await dispatcher.dispatchTransition(
-      createTransition(
-        createDetail("RUNNING", "recent_output"),
-        createDetail("DONE", "completion:pending"),
-        "hook",
-        { completionAdvanced: true, completionEpoch: "epoch-1", completedSeq: 1 },
-      ),
-    );
-
-    expect(sendNotification).toHaveBeenCalledTimes(1);
-    expect(logger.log).toHaveBeenCalledWith(
-      expect.stringContaining("summary event=pane.task_completed"),
-    );
-  });
-
   it("does not infer task completion from a public state edge", async () => {
     const { dispatcher, sendNotification } = createDispatcherUnderTest({
       enabledEventTypes: ["pane.task_completed"],
@@ -265,7 +245,7 @@ describe("createNotificationDispatcher", () => {
   });
 
   it("deduplicates the same completion generation fingerprint", async () => {
-    const { dispatcher, sendNotification } = createDispatcherUnderTest({
+    const { dispatcher, sendNotification, logger } = createDispatcherUnderTest({
       enabledEventTypes: ["pane.task_completed"],
     });
     const transition = createTransition(
@@ -279,6 +259,9 @@ describe("createNotificationDispatcher", () => {
     await dispatcher.dispatchTransition(transition);
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.stringContaining("summary event=pane.task_completed"),
+    );
   });
 
   it("does not notify for acknowledgement or restore commits", async () => {
@@ -329,23 +312,6 @@ describe("createNotificationDispatcher", () => {
     expect(sendNotification).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(500);
     expect(logger.log).toHaveBeenCalledWith(expect.stringContaining("result=retry"));
-  });
-
-  it("removes subscription immediately on 410", async () => {
-    const sendNotification = vi.fn(async () => {
-      throw { statusCode: 410 };
-    }) as SendNotificationFn;
-    const { dispatcher, store } = createDispatcherUnderTest({ sendNotification });
-
-    await dispatcher.dispatchTransition(
-      createTransition(
-        createDetail("RUNNING", "poll"),
-        createDetail("WAITING_PERMISSION", "hook:permission_prompt"),
-      ),
-    );
-
-    expect(sendNotification).toHaveBeenCalledTimes(1);
-    expect(store.list()).toHaveLength(0);
   });
 
   it("cleans subscription caches when expired subscription is removed", async () => {

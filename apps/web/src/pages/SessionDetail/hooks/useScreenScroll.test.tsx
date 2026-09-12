@@ -12,35 +12,6 @@ describe("useScreenScroll", () => {
     vi.unstubAllGlobals();
   });
 
-  it("flushes pending updates when user stops scrolling", () => {
-    const onFlushPending = vi.fn();
-    const onClearPending = vi.fn();
-
-    const { result } = renderHook(() =>
-      useScreenScroll({
-        paneId: "pane-1",
-        mode: "text",
-        screenLinesLength: 1,
-        onFlushPending,
-        onClearPending,
-      }),
-    );
-
-    act(() => {
-      result.current.handleUserScrollStateChange(true);
-    });
-
-    expect(result.current.isUserScrolling()).toBe(true);
-    expect(result.current.isAtBottom).toBe(true);
-    expect(result.current.shouldFollowOutput).toBe(false);
-
-    act(() => {
-      result.current.handleUserScrollStateChange(false);
-    });
-
-    expect(onFlushPending).toHaveBeenCalledTimes(1);
-  });
-
   it("does not flush pending output from a bottom measurement during user scrolling", () => {
     const onFlushPending = vi.fn();
     const onClearPending = vi.fn();
@@ -56,6 +27,12 @@ describe("useScreenScroll", () => {
 
     act(() => {
       result.current.handleUserScrollStateChange(true);
+    });
+    expect(result.current.isUserScrolling()).toBe(true);
+    expect(result.current.isAtBottom).toBe(true);
+    expect(result.current.shouldFollowOutput).toBe(false);
+
+    act(() => {
       result.current.handleAtBottomChange(true);
     });
     expect(onFlushPending).not.toHaveBeenCalled();
@@ -255,35 +232,6 @@ describe("useScreenScroll", () => {
     expect(scrollTo).toHaveBeenCalledTimes(2);
   });
 
-  it("resets at-bottom state when pane changes", () => {
-    const onFlushPending = vi.fn();
-    const onClearPending = vi.fn();
-
-    const { result, rerender } = renderHook(
-      ({ paneId }: { paneId: string }) =>
-        useScreenScroll({
-          paneId,
-          mode: "text",
-          screenLinesLength: 0,
-          onFlushPending,
-          onClearPending,
-        }),
-      { initialProps: { paneId: "pane-1" } },
-    );
-
-    expect(result.current.isAtBottom).toBe(true);
-
-    act(() => {
-      result.current.handleAtBottomChange(false);
-    });
-
-    expect(result.current.isAtBottom).toBe(false);
-
-    rerender({ paneId: "pane-2" });
-
-    expect(result.current.isAtBottom).toBe(true);
-  });
-
   it("clears transient scrolling state and pending output on pane change", () => {
     const onFlushPending = vi.fn();
     const onClearPending = vi.fn();
@@ -307,12 +255,15 @@ describe("useScreenScroll", () => {
       } as unknown as HTMLDivElement;
       result.current.handleUserScrollStateChange(true);
       result.current.scrollToBottom("auto");
+      result.current.handleAtBottomChange(false);
     });
     expect(result.current.shouldFollowOutput).toBe(true);
+    expect(result.current.isAtBottom).toBe(false);
 
     rerender({ paneId: "pane-2" });
 
     expect(result.current.isUserScrolling()).toBe(false);
+    expect(result.current.isAtBottom).toBe(true);
     expect(result.current.shouldFollowOutput).toBe(false);
     expect(onClearPending).toHaveBeenCalledTimes(2);
   });

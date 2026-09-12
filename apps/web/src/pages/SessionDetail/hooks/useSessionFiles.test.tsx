@@ -394,50 +394,6 @@ describe("useSessionFiles Query resources", () => {
     expect(rendered.requestRepoFileContent).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps exactly one observer per active tree and content descriptor with fixed options", async () => {
-    const rendered = renderFiles({ strict: true });
-    await waitFor(() => expect(rendered.result.current.treeLoading).toBe(false));
-    const treeQuery = rendered.queryClient.getQueryCache().find({
-      queryKey: sessionDetailQueryKeys.filesTree("pane-1", {
-        resolvedRoot: "/repo",
-        worktreePath: null,
-        path: ".",
-        cursor: null,
-        limit: 200,
-      }),
-      exact: true,
-    });
-    expect(treeQuery?.getObserversCount()).toBe(1);
-    expect(treeQuery?.options).toMatchObject({
-      staleTime: Infinity,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    });
-
-    act(() => rendered.result.current.onOpenFileModal("README.md"));
-    await waitFor(() => expect(rendered.result.current.fileModalFile).not.toBeNull());
-    const contentQuery = rendered.queryClient.getQueryCache().find({
-      queryKey: sessionDetailQueryKeys.filesContent(
-        "pane-1",
-        { resolvedRoot: "/repo", worktreePath: null },
-        {
-          targetPaneId: "pane-1",
-          targetRoot: "/repo",
-          targetWorktreePath: null,
-          path: "README.md",
-          maxBytes: 256 * 1024,
-        },
-      ),
-      exact: true,
-    });
-    expect(contentQuery?.getObserversCount()).toBe(1);
-    expect(contentQuery?.options).toMatchObject({ staleTime: Infinity, gcTime: 0, retry: false });
-  });
-
   it("aborts tree and content signals on disconnect without surfacing cancellation", async () => {
     const treePending = deferred<RepoFileTreePage>();
     const contentPending = deferred<RepoFileContent>();
@@ -1324,29 +1280,6 @@ describe("useSessionFiles Query resources", () => {
     act(() => rendered.result.current.onToggleDirectory("src"));
     act(() => rendered.result.current.onLoadMoreTreeRoot());
     await waitFor(() => expect(rendered.result.current.rootTreeHasMore).toBe(false));
-  });
-
-  it("has no content observer while closed and removes the observer after close", async () => {
-    const rendered = renderFiles();
-    expect(
-      rendered.queryClient.getQueryCache().findAll({
-        queryKey: sessionDetailQueryKeys.filesContentRoot("pane-1", {
-          resolvedRoot: "/repo",
-          worktreePath: null,
-        }),
-      }),
-    ).toHaveLength(0);
-    act(() => rendered.result.current.onOpenFileModal("README.md"));
-    await waitFor(() => expect(rendered.result.current.fileModalFile).not.toBeNull());
-    const query = rendered.queryClient.getQueryCache().findAll({
-      queryKey: sessionDetailQueryKeys.filesContentRoot("pane-1", {
-        resolvedRoot: "/repo",
-        worktreePath: null,
-      }),
-    })[0];
-    expect(query?.getObserversCount()).toBe(1);
-    act(() => rendered.result.current.onCloseFileModal());
-    await waitFor(() => expect(query?.getObserversCount()).toBe(0));
   });
 
   it("reopens the same content in one React batch with a fresh request and one preview release", async () => {

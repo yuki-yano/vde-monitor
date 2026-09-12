@@ -80,24 +80,6 @@ describe("createNotificationSubscriptionStore", () => {
     expect(store.list()[0]?.deviceId).toBe("device-2");
   });
 
-  it("removes all subscriptions", () => {
-    const store = createNotificationSubscriptionStore({
-      filePath: createTempPath(),
-      createId: (() => {
-        let seq = 0;
-        return () => `sub-${++seq}`;
-      })(),
-      now: () => "2026-02-20T00:00:00.000Z",
-    });
-    store.upsert(createUpsertInput("device-1", "https://push.example/sub/1"));
-    store.upsert(createUpsertInput("device-2", "https://push.example/sub/2"));
-
-    const removed = store.removeAll();
-
-    expect(removed).toBe(2);
-    expect(store.list()).toHaveLength(0);
-  });
-
   it("persists subscriptions to disk", () => {
     const filePath = createTempPath();
     const store = createNotificationSubscriptionStore({

@@ -16,17 +16,18 @@ describe("ansi-colors", () => {
     expect(parseColor("nope")).toBeNull();
   });
 
-  it("computes luminance ordering", () => {
-    expect(luminance([0, 0, 0])).toBeLessThan(luminance([255, 255, 255]));
+  it("matches known luminance and contrast values", () => {
+    expect(luminance([0, 0, 0])).toBe(0);
+    expect(luminance([255, 255, 255])).toBeCloseTo(1, 5);
+    expect(luminance([255, 0, 0])).toBeCloseTo(0.2126, 5);
+    expect(luminance([0, 255, 0])).toBeCloseTo(0.7152, 5);
+    expect(contrastRatio([0, 0, 0], [255, 255, 255])).toBeCloseTo(21, 5);
   });
 
-  it("computes contrast ratio", () => {
-    expect(contrastRatio([0, 0, 0], [0, 0, 0])).toBeCloseTo(1, 5);
-  });
-
-  it("blends and clamps ratio", () => {
-    expect(blendRgb([0, 0, 0], [255, 255, 255], 0)).toEqual([0, 0, 0]);
-    expect(blendRgb([0, 0, 0], [255, 255, 255], 1)).toEqual([255, 255, 255]);
-    expect(blendRgb([0, 0, 0], [255, 255, 255], 2)).toEqual([255, 255, 255]);
+  it("blends unequal channels with rounding and clamps outside ratios", () => {
+    expect(blendRgb([10, 31, 100], [111, 80, 20], 0.25)).toEqual([35, 43, 80]);
+    expect(blendRgb([0, 0, 0], [255, 255, 255], 0.5)).toEqual([128, 128, 128]);
+    expect(blendRgb([10, 31, 100], [111, 80, 20], 2)).toEqual([111, 80, 20]);
+    expect(blendRgb([10, 31, 100], [111, 80, 20], -1)).toEqual([10, 31, 100]);
   });
 });

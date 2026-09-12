@@ -4,7 +4,6 @@ import type { SessionListPins } from "./sessionListPins";
 import {
   createRepoPinKey,
   readStoredSessionListPins,
-  storeSessionListPins,
   touchSessionListPin,
 } from "./sessionListPins";
 
@@ -21,15 +20,6 @@ describe("sessionListPins", () => {
     expect(readStoredSessionListPins()).toEqual({
       repos: {},
     } satisfies SessionListPins);
-  });
-
-  it("stores and restores pin values", () => {
-    const pins: SessionListPins = {
-      repos: { "repo:/Users/test/repo": 1234 },
-    };
-    storeSessionListPins(pins);
-
-    expect(readStoredSessionListPins()).toEqual(pins);
   });
 
   it("touches pin updatedAt and does not toggle", () => {

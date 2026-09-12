@@ -6,11 +6,9 @@ import {
   applyHerdrAgentStatusSignal,
   deriveCodexHookState,
   deriveHookState,
-  hostCandidates,
   mapHookToPane,
   markHerdrLifecycleDirty,
   normalizeFingerprint,
-  normalizeTitle,
   sanitizePaneTitle,
 } from "./monitor-utils";
 
@@ -18,12 +16,6 @@ describe("monitor-utils", () => {
   it("normalizes fingerprints and limits lines", () => {
     const input = "a  \n b  \n c  \n";
     expect(normalizeFingerprint(input, 2)).toBe(" b\n c");
-  });
-
-  it("normalizes titles", () => {
-    expect(normalizeTitle("  hello  ")).toBe("hello");
-    expect(normalizeTitle("   ")).toBeNull();
-    expect(normalizeTitle(null)).toBeNull();
   });
 
   it("sanitizes pane titles", () => {
@@ -178,9 +170,5 @@ describe("monitor-utils", () => {
       { paneId: "2", paneTty: "tty2", currentPath: "/var" },
     ];
     expect(mapHookToPane(panes, { cwd: "/var" })).toBe("2");
-  });
-
-  it("exposes host candidates", () => {
-    expect(hostCandidates.size).toBeGreaterThan(0);
   });
 });

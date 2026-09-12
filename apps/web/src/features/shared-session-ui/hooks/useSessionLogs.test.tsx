@@ -42,43 +42,6 @@ describe("useSessionLogs", () => {
     );
   };
 
-  it("opens log modal and loads log lines", async () => {
-    const session = createSessionDetail();
-    const requestScreen = vi.fn().mockResolvedValue({
-      ok: true,
-      paneId: session.paneId,
-      mode: "text",
-      capturedAt: new Date(0).toISOString(),
-      screen: "line1\nline2",
-    });
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionLogs({
-          connected: true,
-          connectionIssue: null,
-          sessions: [session],
-          requestScreen,
-          resolvedTheme: "latte",
-        }),
-      { wrapper },
-    );
-
-    act(() => {
-      result.current.toggleQuickPanel();
-    });
-    act(() => {
-      result.current.openLogModal(session.paneId);
-    });
-
-    await waitFor(() => {
-      expect(result.current.selectedLogLines.length).toBe(2);
-    });
-
-    expect(requestScreen).toHaveBeenCalledWith(session.paneId, { mode: "text" });
-  });
-
   it("linkifies http/https URLs in selected log lines", async () => {
     const session = createSessionDetail();
     const requestScreen = vi.fn().mockResolvedValue({
@@ -119,28 +82,7 @@ describe("useSessionLogs", () => {
     expect(link?.getAttribute("target")).toBe("_blank");
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
     expect(result.current.selectedLogLines[1]).toBe("plain line");
-  });
-
-  it("toggles quick panel state", () => {
-    const session = createSessionDetail();
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionLogs({
-          connected: true,
-          connectionIssue: null,
-          sessions: [session],
-          requestScreen: vi.fn(),
-          resolvedTheme: "latte",
-        }),
-      { wrapper },
-    );
-
-    expect(result.current.quickPanelOpen).toBe(false);
-    act(() => {
-      result.current.toggleQuickPanel();
-    });
-    expect(result.current.quickPanelOpen).toBe(true);
+    expect(requestScreen).toHaveBeenCalledWith(session.paneId, { mode: "text" });
   });
 
   it("opens log modal without quick panel", () => {
@@ -192,9 +134,11 @@ describe("useSessionLogs", () => {
       { wrapper },
     );
 
+    expect(result.current.quickPanelOpen).toBe(false);
     act(() => {
       result.current.toggleQuickPanel();
     });
+    expect(result.current.quickPanelOpen).toBe(true);
     act(() => {
       result.current.openLogModal(session.paneId);
     });

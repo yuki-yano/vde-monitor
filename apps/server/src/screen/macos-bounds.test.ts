@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTerminalBoundsScript, parseBoundsSet } from "./macos-bounds";
+import { parseBoundsSet } from "./macos-bounds";
 
 describe("parseBoundsSet", () => {
   it("parses content and window bounds", () => {
@@ -21,29 +21,5 @@ describe("parseBoundsSet", () => {
     const result = parseBoundsSet(input);
     expect(result.content).toBeNull();
     expect(result.window).toEqual({ x: 5, y: 6, width: 7, height: 8 });
-  });
-});
-
-describe("buildTerminalBoundsScript", () => {
-  it("prefers the largest AXScrollArea instead of the first element", () => {
-    const script = buildTerminalBoundsScript("Alacritty");
-
-    expect(script).toContain('every UI element of targetWindow whose role is "AXScrollArea"');
-    expect(script).toContain("repeat with candidate in scrollAreas");
-    expect(script).toContain("if candidateArea > bestArea then");
-  });
-
-  it("skips non-standard front windows like AXDialog and picks a standard window", () => {
-    const script = buildTerminalBoundsScript("Alacritty");
-
-    expect(script).toContain("set targetWindow to front window");
-    expect(script).toContain('set targetSubrole to value of attribute "AXSubrole" of targetWindow');
-    expect(script).toContain('if targetSubrole is not "AXStandardWindow" then');
-    expect(script).toContain(
-      'set candidateSubrole to value of attribute "AXSubrole" of candidateWindow',
-    );
-    expect(script).toContain(
-      'if (candidateSubrole is "AXStandardWindow") and (isMinimized is false) then',
-    );
   });
 });

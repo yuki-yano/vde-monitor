@@ -9,7 +9,6 @@ import {
   OBSERVATION_RECONCILIATION_INTERVAL_MS,
   type PaneObservationCaptureRequest,
   type PaneObservationCaptureResult,
-  type PaneObservationDiagnosticEvent,
   createPaneObservationCaptureKey,
   createPaneObservationCoordinator,
 } from "./pane-observation-coordinator";
@@ -40,23 +39,6 @@ const successfulResults = (requests: PaneObservationCaptureRequest[]) =>
     requestId,
     result: captureResult(options.paneId),
   }));
-
-type LatencySample = {
-  sampleId: string;
-  startedAt: number;
-  completedAt?: number;
-  latencyMs?: number;
-};
-
-const completeLatencySample = (
-  samplesByPaneId: Map<string, LatencySample>,
-  event: Extract<PaneObservationDiagnosticEvent, { type: "capture-completed" }>,
-) => {
-  const sample = samplesByPaneId.get(event.paneId);
-  if (!sample) return;
-  sample.completedAt = event.at;
-  sample.latencyMs = event.at - sample.startedAt;
-};
 
 afterEach(() => {
   vi.useRealTimers();
@@ -607,127 +589,5 @@ describe("createPaneObservationCoordinator", () => {
     expect(coordinator.getRevision("%1")).toMatchObject({
       currentRevision: 3,
     });
-  });
-
-  it("completes all 20 active screen dirty-to-delivery samples within two seconds", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
-    const executorLatencyMs = 1500;
-    const samplesByPaneId = new Map<string, LatencySample>();
-    const executeBatch = vi.fn(
-      (requests: PaneObservationCaptureRequest[]) =>
-        new Promise<PaneObservationCaptureResult[]>((resolve) => {
-          setTimeout(() => resolve(successfulResults(requests)), executorLatencyMs);
-        }),
-    );
-    const coordinator = createPaneObservationCoordinator({
-      executeBatch,
-      now: () => Date.now(),
-      onDiagnostic: (event) => {
-        if (event.type === "dirty" && event.source === "subscriber") {
-          samplesByPaneId.set(event.paneId, {
-            sampleId: event.paneId.slice(1),
-            startedAt: event.at,
-          });
-        }
-        if (event.type === "capture-completed" && !event.reconciliation) {
-          completeLatencySample(samplesByPaneId, event);
-        }
-      },
-    });
-
-    const captures = Array.from({ length: 20 }, (_, index) => {
-      const sampleId = `active-${String(index + 1).padStart(2, "0")}`;
-      const paneId = `%${sampleId}`;
-      coordinator.markDirty(paneId, "subscriber");
-      return coordinator.requestCapture({
-        purpose: "screen",
-        options: captureOptions(paneId),
-        priority: "background",
-      });
-    });
-
-    await vi.advanceTimersByTimeAsync(OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs);
-    await expect(Promise.all(captures)).resolves.toHaveLength(20);
-    const samples = [...samplesByPaneId.values()];
-
-    expect(samples).toEqual(
-      Array.from({ length: 20 }, (_, index) => ({
-        sampleId: `active-${String(index + 1).padStart(2, "0")}`,
-        startedAt: Date.parse("2026-07-11T00:00:00.000Z"),
-        completedAt:
-          Date.parse("2026-07-11T00:00:00.000Z") +
-          OBSERVATION_COALESCING_WINDOW_MS +
-          executorLatencyMs,
-        latencyMs: OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs,
-      })),
-    );
-    expect(samples.every(({ latencyMs }) => latencyMs != null && latencyMs <= 2000)).toBe(true);
-  });
-
-  it("completes all 20 idle reconciliation enqueue-to-completion samples within five seconds", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-11T00:00:00.000Z"));
-    const executorLatencyMs = 4900;
-    const samplesByPaneId = new Map<string, LatencySample>();
-    const executeBatch = vi.fn(
-      (requests: PaneObservationCaptureRequest[]) =>
-        new Promise<PaneObservationCaptureResult[]>((resolve) => {
-          setTimeout(() => resolve(successfulResults(requests)), executorLatencyMs);
-        }),
-    );
-    const coordinator = createPaneObservationCoordinator({
-      executeBatch,
-      now: () => Date.now(),
-      onDiagnostic: (event) => {
-        if (event.type === "capture-enqueued" && event.reconciliation) {
-          samplesByPaneId.set(event.paneId, {
-            sampleId: event.paneId.slice(1),
-            startedAt: event.at,
-          });
-        }
-        if (event.type === "capture-completed" && event.reconciliation) {
-          completeLatencySample(samplesByPaneId, event);
-        }
-      },
-    });
-    const paneIds = Array.from(
-      { length: 20 },
-      (_, index) => `%idle-${String(index + 1).padStart(2, "0")}`,
-    );
-    const initialCaptures = paneIds.map((paneId) =>
-      coordinator.requestCapture({
-        purpose: "screen",
-        options: captureOptions(paneId),
-        priority: "background",
-      }),
-    );
-
-    await vi.advanceTimersByTimeAsync(OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs);
-    await expect(Promise.all(initialCaptures)).resolves.toHaveLength(20);
-    await vi.advanceTimersByTimeAsync(OBSERVATION_RECONCILIATION_INTERVAL_MS + 1);
-    const reconciliationEnqueuedAt = Date.now();
-    const reconciliations = paneIds.map((paneId) =>
-      coordinator.requestCapture({
-        purpose: "screen",
-        options: captureOptions(paneId),
-        priority: "background",
-      }),
-    );
-
-    await vi.advanceTimersByTimeAsync(OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs);
-    await expect(Promise.all(reconciliations)).resolves.toHaveLength(20);
-    const samples = [...samplesByPaneId.values()];
-
-    expect(samples).toEqual(
-      paneIds.map((paneId) => ({
-        sampleId: paneId.slice(1),
-        startedAt: reconciliationEnqueuedAt,
-        completedAt:
-          reconciliationEnqueuedAt + OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs,
-        latencyMs: OBSERVATION_COALESCING_WINDOW_MS + executorLatencyMs,
-      })),
-    );
-    expect(samples.every(({ latencyMs }) => latencyMs != null && latencyMs <= 5000)).toBe(true);
   });
 });

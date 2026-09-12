@@ -446,12 +446,20 @@ describe("ensureConfig", () => {
       launch: configDefaults.launch,
     });
 
-    expect(() => ensureConfig()).toThrowError(
-      /config is missing required generated keys: .*config\.yml/s,
-    );
-    expect(() => ensureConfig()).toThrow(/dangerCommandPatterns/);
-    expect(() => ensureConfig()).toThrow(/workspaceTabs\.displayMode/);
-    expect(() => ensureConfig()).toThrow(/vde-monitor config regenerate/);
+    let error: unknown;
+    try {
+      ensureConfig();
+    } catch (cause) {
+      error = cause;
+    }
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/config is missing required generated keys: .*config\.yml/s),
+    });
+    expect(error).toMatchObject({ message: expect.stringMatching(/dangerCommandPatterns/) });
+    expect(error).toMatchObject({ message: expect.stringMatching(/workspaceTabs\.displayMode/) });
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/vde-monitor config regenerate/),
+    });
   });
 });
 

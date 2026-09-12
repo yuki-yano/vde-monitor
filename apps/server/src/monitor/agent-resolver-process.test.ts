@@ -9,7 +9,6 @@ import {
   createAgentProcessSnapshot,
   findAgentFromPidTree,
   getAgentFromTty,
-  getProcessCommand,
   parseProcessSnapshotLine,
 } from "./agent-resolver-process";
 
@@ -77,23 +76,6 @@ describe("agent-resolver-process", () => {
       status: "failed",
       error: "timeout",
     });
-  });
-
-  it("resolves direct pid, descendant, and tty agents from one snapshot", () => {
-    const snapshot = {
-      status: "success" as const,
-      ...buildProcessSnapshotIndexes(
-        [
-          "100 1 ttys001 zsh",
-          "200 100 ttys001 node /opt/codex",
-          "300 1 ttys002 /usr/bin/claude",
-        ].join("\n"),
-      ),
-    };
-
-    expect(getProcessCommand(snapshot, 100)).toBe("zsh");
-    expect(findAgentFromPidTree(snapshot, 100)).toBe("codex");
-    expect(getAgentFromTty(snapshot, "/dev/ttys002")).toBe("claude");
   });
 
   it("does not classify a server pane from its transient Codex app-server child", () => {

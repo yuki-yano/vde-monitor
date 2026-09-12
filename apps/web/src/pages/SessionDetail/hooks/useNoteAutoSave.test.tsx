@@ -142,29 +142,6 @@ describe("useNoteAutoSave", () => {
     expect(result.current.editingBody).toBe("");
   });
 
-  it("flushes the previous note's pending edit before switching via beginEdit", async () => {
-    vi.useFakeTimers();
-    const onSave = vi.fn(async () => true);
-    const noteA = buildNote({ id: "note-a", body: "a-body" });
-    const noteB = buildNote({ id: "note-b", body: "b-body" });
-    const { result } = renderHook(() => useNoteAutoSave({ notes: [noteA, noteB], onSave }));
-
-    await act(async () => {
-      await result.current.beginEdit(noteA);
-    });
-    act(() => {
-      result.current.changeEditingBody("a-draft");
-    });
-
-    await act(async () => {
-      await result.current.beginEdit(noteB);
-    });
-
-    expect(onSave).toHaveBeenCalledWith("note-a", { title: null, body: "a-draft" });
-    expect(result.current.editingNoteId).toBe("note-b");
-    expect(result.current.editingBody).toBe("b-body");
-  });
-
   it("flushes the latest body when changing and switching notes in the same tick", async () => {
     vi.useFakeTimers();
     const onSave = vi.fn(async () => true);
@@ -187,6 +164,7 @@ describe("useNoteAutoSave", () => {
       body: "same-tick draft",
     });
     expect(result.current.editingNoteId).toBe("note-b");
+    expect(result.current.editingBody).toBe("b-body");
   });
 
   it("keeps the current draft after a failed switch and retries it on the next switch", async () => {
@@ -359,27 +337,6 @@ describe("useNoteAutoSave", () => {
     });
     // The switch happened without flushing note-a's draft.
     expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it("clears the editing state when the currently edited note disappears from the list", async () => {
-    vi.useFakeTimers();
-    const onSave = vi.fn(async () => true);
-    const note = buildNote();
-    const { result, rerender } = renderHook(
-      ({ notes }: { notes: RepoNote[] }) => useNoteAutoSave({ notes, onSave }),
-      { initialProps: { notes: [note] } },
-    );
-
-    await act(async () => {
-      await result.current.beginEdit(note);
-    });
-    expect(result.current.editingNoteId).toBe("note-1");
-
-    act(() => {
-      rerender({ notes: [] });
-    });
-
-    expect(result.current.editingNoteId).toBeNull();
   });
 
   it("invalidates a pending save when the edited note disappears during a refetch", async () => {

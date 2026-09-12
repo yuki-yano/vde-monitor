@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ScreenResponse } from "@vde-monitor/shared";
 
@@ -269,60 +269,22 @@ describe("runSessionsSseSession", () => {
 // ---- tests -----------------------------------------------------------------
 
 describe("GET /streams/sessions", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("returns 200 with text/event-stream content type", async () => {
+  it("opens a registered SSE subscription with headers and an initial snapshot", async () => {
     const deps = createDeps();
-    const app = createApp(deps);
-
-    const res = app.request("/streams/sessions", {
+    const response = await createApp(deps).request("/streams/sessions", {
       headers: { Accept: "text/event-stream" },
     });
 
-    // We need to abort the request after getting the response.
-    const response = await res;
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
-    await response.body?.cancel();
-  });
-
-  it("sets Cache-Control: no-cache, no-transform header", async () => {
-    const deps = createDeps();
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions");
     expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
-    await response.body?.cancel();
-  });
-
-  it("sets X-Accel-Buffering: no header", async () => {
-    const deps = createDeps();
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions");
     expect(response.headers.get("x-accel-buffering")).toBe("no");
-    await response.body?.cancel();
-  });
-
-  it("sends snapshot as first event when no Last-Event-ID", async () => {
-    vi.useRealTimers();
-    const deps = createDeps();
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions");
-    const body = response.body;
-    if (!body) throw new Error("no body");
-
-    const text = await readFirstChunk(body);
-    const eventNames = parseSSEEventNames(text);
-
-    expect(eventNames).toContain("sessions");
-    expect(deps.streamSource.snapshot).toHaveBeenCalled();
+    if (!response.body) throw new Error("no body");
+    const text = await readFirstChunk(response.body);
+    expect(parseSSEEventNames(text)).toEqual(["sessions"]);
+    expect(deps.streamSource.snapshot).toHaveBeenCalledOnce();
+    expect(deps.streamSource.subscribe).toHaveBeenCalledOnce();
+    expect(deps.streamConnections.add).toHaveBeenCalledOnce();
   });
 
   it("attempts replay when Last-Event-ID is provided", async () => {
@@ -377,31 +339,6 @@ describe("GET /streams/sessions", () => {
 
     expect(deps.streamSource.snapshot).toHaveBeenCalled();
   });
-
-  it("subscribes to streamSource after initial delivery", async () => {
-    vi.useRealTimers();
-    const deps = createDeps();
-    (deps.streamSource.replaySince as ReturnType<typeof vi.fn>).mockReturnValue([]);
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions", {
-      headers: { "Last-Event-ID": "0" },
-    });
-    await response.body?.cancel();
-
-    expect(deps.streamSource.subscribe).toHaveBeenCalled();
-  });
-
-  it("registers connection with streamConnections", async () => {
-    vi.useRealTimers();
-    const deps = createDeps();
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions");
-    await response.body?.cancel();
-
-    expect(deps.streamConnections.add).toHaveBeenCalled();
-  });
 });
 
 describe("GET /streams/sessions/:paneId/screen", () => {
@@ -415,51 +352,17 @@ describe("GET /streams/sessions/:paneId/screen", () => {
     expect(body.error.code).toBe("INVALID_PANE");
   });
 
-  it("returns 200 with text/event-stream for valid pane", async () => {
-    const deps = createDeps(makeSessionSummary("pane-1"));
-    const app = createApp(deps);
+  it("opens a registered pane subscription with SSE headers and screen data", async () => {
+    const deps = createDeps();
+    const response = await createApp(deps).request("/streams/sessions/pane-1/screen");
 
-    const response = await app.request("/streams/sessions/pane-1/screen");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
-    await response.body?.cancel();
-  });
-
-  it("sets Cache-Control: no-cache, no-transform for screen stream", async () => {
-    const deps = createDeps(makeSessionSummary("pane-1"));
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions/pane-1/screen");
     expect(response.headers.get("cache-control")).toBe("no-cache, no-transform");
-    await response.body?.cancel();
-  });
-
-  it("sets X-Accel-Buffering: no for screen stream", async () => {
-    const deps = createDeps(makeSessionSummary("pane-1"));
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions/pane-1/screen");
     expect(response.headers.get("x-accel-buffering")).toBe("no");
-    await response.body?.cancel();
-  });
-
-  it("subscribes screenScheduler for the requested paneId", async () => {
-    const deps = createDeps(makeSessionSummary("pane-1"));
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions/pane-1/screen");
-    await response.body?.cancel();
-
+    if (!response.body) throw new Error("no body");
+    expect(parseSSEEventNames(await readFirstChunk(response.body))).toEqual(["screen"]);
     expect(deps.screenScheduler.subscribe).toHaveBeenCalledWith("pane-1", expect.any(Function));
-  });
-
-  it("registers connection with streamConnections", async () => {
-    const deps = createDeps(makeSessionSummary("pane-1"));
-    const app = createApp(deps);
-
-    const response = await app.request("/streams/sessions/pane-1/screen");
-    await response.body?.cancel();
-
-    expect(deps.streamConnections.add).toHaveBeenCalled();
+    expect(deps.streamConnections.add).toHaveBeenCalledOnce();
   });
 });

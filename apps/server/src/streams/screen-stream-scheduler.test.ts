@@ -102,21 +102,6 @@ describe("createScreenStreamScheduler", () => {
     vi.useRealTimers();
   });
 
-  it("subscribe triggers an immediate capture and delivers full response to listener", async () => {
-    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
-    const listener = vi.fn();
-
-    scheduler.subscribe("pane-1", listener);
-    await flushMicrotasks();
-
-    expect(monitor.markPaneObservationDirty).toHaveBeenCalledWith("pane-1", "subscriber");
-    expect(captureText).toHaveBeenCalledOnce();
-    expect(buildTextResponse).toHaveBeenCalledWith(expect.objectContaining({ cursor: undefined }));
-    expect(listener).toHaveBeenCalledOnce();
-
-    scheduler.dispose();
-  });
-
   it("delivers cmux screen streams as text with cmux capture metadata", async () => {
     config = {
       ...config,
@@ -304,6 +289,12 @@ describe("createScreenStreamScheduler", () => {
     scheduler.subscribe("pane-1", listener2);
     await flushMicrotasks();
 
+    expect(monitor.markPaneObservationDirty).toHaveBeenCalledWith("pane-1", "subscriber");
+    expect(captureText).toHaveBeenCalledOnce();
+    expect(buildTextResponse).toHaveBeenCalledWith(expect.objectContaining({ cursor: undefined }));
+    expect(listener1).toHaveBeenCalledOnce();
+    expect(listener2).toHaveBeenCalledOnce();
+
     listener1.mockClear();
     listener2.mockClear();
     captureText.mockClear();
@@ -362,36 +353,6 @@ describe("createScreenStreamScheduler", () => {
     scheduler.dispose();
   });
 
-  it("unsubscribe stops future delivery to that subscriber", async () => {
-    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
-    const listener = vi.fn();
-
-    const unsubscribe = scheduler.subscribe("pane-1", listener);
-    await flushMicrotasks();
-    listener.mockClear();
-
-    unsubscribe();
-
-    captureText.mockResolvedValueOnce({ screen: "changed", alternateOn: false, truncated: null });
-    await vi.advanceTimersByTimeAsync(1000);
-    await flushMicrotasks();
-
-    expect(listener).not.toHaveBeenCalled();
-
-    scheduler.dispose();
-  });
-
-  it("no captures are scheduled when there are no subscribers", async () => {
-    const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
-
-    await vi.advanceTimersByTimeAsync(3000);
-    await flushMicrotasks();
-
-    expect(captureText).not.toHaveBeenCalled();
-
-    scheduler.dispose();
-  });
-
   it("subscriber cursor is updated on each delivery", async () => {
     let callCount = 0;
     buildTextResponse.mockImplementation(() => makeScreenResponse(`cursor-${++callCount}`));
@@ -438,9 +399,13 @@ describe("createScreenStreamScheduler", () => {
     const scheduler = createScreenStreamScheduler({ monitor, config, buildTextResponse });
     const listener = vi.fn();
 
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(captureText).not.toHaveBeenCalled();
+
     const unsubscribe = scheduler.subscribe("pane-1", listener);
     await flushMicrotasks();
     captureText.mockClear();
+    listener.mockClear();
 
     unsubscribe();
 
@@ -449,6 +414,8 @@ describe("createScreenStreamScheduler", () => {
     await flushMicrotasks();
 
     expect(captureText).not.toHaveBeenCalled();
+
+    expect(listener).not.toHaveBeenCalled();
 
     scheduler.dispose();
   });

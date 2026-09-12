@@ -98,42 +98,15 @@ describe("ChatGridBoard", () => {
     expect(screen.getByText("Loading Grid...")).toBeTruthy();
   });
 
-  it("applies 3x2 board classes and renders one tile per session", () => {
-    const sessions = [
-      buildSession({ paneId: "pane-1" }),
-      buildSession({ paneId: "pane-2" }),
-      buildSession({ paneId: "pane-3" }),
-      buildSession({ paneId: "pane-4" }),
-      buildSession({ paneId: "pane-5" }),
-    ];
-    const { container } = render(
-      <ChatGridBoard
-        sessions={sessions}
-        isRestoringSelection={false}
-        layout={{ columns: 3, rows: 2 }}
-        nowMs={Date.now()}
-        connected
-        screenByPane={{}}
-        screenLoadingByPane={{}}
-        screenErrorByPane={{}}
-        onTouchSession={vi.fn(async () => undefined)}
-        onRemovePaneFromGrid={vi.fn()}
-      />,
-    );
-
-    const grid = container.querySelector(".grid");
-    expect(grid?.className).toContain("xl:grid-cols-3");
-    expect(grid?.className).toContain("md:grid-rows-2");
-    expect(screen.getAllByTestId("chat-grid-tile")).toHaveLength(5);
-  });
-
   it("wires remove action for each tile", () => {
     const onRemovePaneFromGrid = vi.fn();
     render(
       <ChatGridBoard
-        sessions={[buildSession({ paneId: "pane-1" })]}
+        sessions={Array.from({ length: 5 }, (_, index) =>
+          buildSession({ paneId: `pane-${index + 1}` }),
+        )}
         isRestoringSelection={false}
-        layout={{ columns: 2, rows: 1 }}
+        layout={{ columns: 3, rows: 2 }}
         nowMs={Date.now()}
         connected
         screenByPane={{}}
@@ -144,7 +117,8 @@ describe("ChatGridBoard", () => {
       />,
     );
 
-    screen.getByRole("button", { name: "remove" }).click();
+    expect(screen.getAllByTestId("chat-grid-tile")).toHaveLength(5);
+    screen.getAllByRole("button", { name: "remove" })[0]!.click();
     expect(onRemovePaneFromGrid).toHaveBeenCalledWith("pane-1");
   });
 });

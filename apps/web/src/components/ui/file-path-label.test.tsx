@@ -99,14 +99,10 @@ describe("FilePathLabel", () => {
     });
 
     const container = screen.getByTestId("path-label");
-    const hint = container.querySelector("span.text-latte-subtext0:not([aria-hidden='true'])");
     await waitFor(() => {
-      expect(hint?.textContent).toContain("SessionDetail/components");
+      const hint = container.querySelector("span.text-latte-subtext0:not([aria-hidden='true'])");
+      expect(hint?.textContent).toBe(".../SessionDetail/components");
     });
-    expect([
-      ".../SessionDetail/components",
-      "apps/web/src/pages/SessionDetail/components",
-    ]).toContain(hint?.textContent);
   });
 
   it("keeps full label when dirTruncate is start", async () => {

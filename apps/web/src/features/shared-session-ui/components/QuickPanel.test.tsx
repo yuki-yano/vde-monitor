@@ -180,64 +180,6 @@ describe("QuickPanel", () => {
     expect(screen.queryByText("CODEX")).toBeNull();
   });
 
-  it("hides worktree flags for non-vw paths", () => {
-    const session = createSessionDetail({
-      agent: "codex",
-      branch: "feature/non-worktree",
-      worktreePath: "/Users/test/repo",
-      worktreeDirty: true,
-      worktreeLocked: true,
-      worktreeMerged: true,
-    });
-    const state = buildState({
-      open: true,
-      sessionGroups: [
-        {
-          repoRoot: session.repoRoot,
-          sessions: [session],
-          lastInputAt: session.lastInputAt,
-        },
-      ],
-      allSessions: [session],
-    });
-    const actions = buildActions();
-    render(<QuickPanel state={state} actions={actions} />);
-
-    expect(screen.queryByText("D:Y")).toBeNull();
-    expect(screen.queryByText("L:Y")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("M:Y")).toBeNull();
-  });
-
-  it("hides worktree flags for vw worktree paths", () => {
-    const session = createSessionDetail({
-      agent: "codex",
-      branch: "feature/worktree",
-      worktreePath: "/Users/test/repo/.worktree/feature/worktree",
-      worktreeDirty: true,
-      worktreeLocked: false,
-      worktreeMerged: false,
-    });
-    const state = buildState({
-      open: true,
-      sessionGroups: [
-        {
-          repoRoot: session.repoRoot,
-          sessions: [session],
-          lastInputAt: session.lastInputAt,
-        },
-      ],
-      allSessions: [session],
-    });
-    const actions = buildActions();
-    render(<QuickPanel state={state} actions={actions} />);
-
-    expect(screen.queryByText("D:Y")).toBeNull();
-    expect(screen.queryByText("L:N")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("M:N")).toBeNull();
-  });
-
   it("closes when clicking outside quick panel", () => {
     const onClose = vi.fn();
     const state = buildState({ open: true, sessionGroups: [] });

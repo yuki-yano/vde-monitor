@@ -10,9 +10,6 @@ import {
   buildDiffQuery,
   buildForceQuery,
   buildLaunchAgentJson,
-  buildPaneHashParam,
-  buildPaneNoteParam,
-  buildPaneParam,
   buildRefreshFailureResult,
   buildRepoFileContentQuery,
   buildRepoFileSearchQuery,
@@ -20,14 +17,9 @@ import {
   buildRepoNotePayloadJson,
   buildScreenRequestJson,
   buildScreenRequestKeys,
-  buildSendKeysJson,
-  buildSendRawJson,
   buildSendTextJson,
-  buildSessionTitleJson,
   buildTimelineQuery,
   buildUploadImageForm,
-  executeInflightRequest,
-  resolveInflightScreenRequest,
 } from "./session-api-utils";
 
 describe("session-api-utils", () => {
@@ -100,83 +92,12 @@ describe("session-api-utils", () => {
     });
   });
 
-  it("resolves inflight request by direct key and fallback key", () => {
-    const directPromise = Promise.resolve({ ok: true });
-    const fallbackPromise = Promise.resolve({ ok: false });
-    const map = new Map<string, Promise<unknown>>([
-      ["pane-1:text:50:c", directPromise],
-      ["pane-1:text:50:", fallbackPromise],
-    ]);
-
-    expect(
-      resolveInflightScreenRequest({
-        inFlightMap: map,
-        requestKey: "pane-1:text:50:c",
-        fallbackKey: "pane-1:text:50:",
-      }),
-    ).toBe(directPromise);
-    expect(
-      resolveInflightScreenRequest({
-        inFlightMap: map,
-        requestKey: "missing",
-        fallbackKey: "pane-1:text:50:",
-      }),
-    ).toBe(fallbackPromise);
-    expect(
-      resolveInflightScreenRequest({
-        inFlightMap: map,
-        requestKey: "missing",
-        fallbackKey: null,
-      }),
-    ).toBeNull();
-  });
-
-  it("executes inflight request once and clears map after completion", async () => {
-    const map = new Map<string, Promise<number>>();
-    let runCount = 0;
-    const execute = async () => {
-      runCount += 1;
-      return 42;
-    };
-
-    const [first, second] = await Promise.all([
-      executeInflightRequest({
-        inFlightMap: map,
-        requestKey: "pane-1:text:50:cursor",
-        fallbackKey: "pane-1:text:50:",
-        execute,
-      }),
-      executeInflightRequest({
-        inFlightMap: map,
-        requestKey: "pane-1:text:50:cursor",
-        fallbackKey: "pane-1:text:50:",
-        execute,
-      }),
-    ]);
-
-    expect(first).toBe(42);
-    expect(second).toBe(42);
-    expect(runCount).toBe(1);
-    expect(map.size).toBe(0);
-  });
-
   it("builds query helpers", () => {
-    expect(buildPaneParam("pane-1")).toEqual({ paneId: "pane-1" });
-    expect(buildPaneHashParam("pane-1", "hash")).toEqual({ paneId: "pane-1", hash: "hash" });
-    expect(buildPaneNoteParam("pane-1", "note-1")).toEqual({ paneId: "pane-1", noteId: "note-1" });
-    expect(buildSendTextJson("echo test", true)).toEqual({ text: "echo test", enter: true });
     expect(buildSendTextJson("echo test", true, "req-1")).toEqual({
       text: "echo test",
       enter: true,
       requestId: "req-1",
     });
-    expect(buildSendKeysJson(["Enter"])).toEqual({ keys: ["Enter"] });
-    expect(buildSendRawJson([{ kind: "text", value: "abc" }], false)).toEqual({
-      items: [{ kind: "text", value: "abc" }],
-      unsafe: false,
-    });
-    expect(buildSessionTitleJson("next title")).toEqual({ title: "next title" });
-    expect(buildRepoNotePayloadJson("note", "body")).toEqual({ title: "note", body: "body" });
     expect(buildRepoNotePayloadJson(undefined, "body")).toEqual({ title: null, body: "body" });
     expect(
       buildLaunchAgentJson({

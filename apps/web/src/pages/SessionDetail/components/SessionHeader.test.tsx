@@ -97,22 +97,7 @@ describe("SessionHeader", () => {
     expect(screen.getByText("Pane pane-1")).toBeTruthy();
   });
 
-  it("uses full remaining width for title button", () => {
-    const session = createSessionDetail({
-      customTitle: "Implemented summary in monitor and notification pipeline",
-    });
-    const state = buildState({ session });
-    const actions = buildActions();
-    renderWithRouter(<SessionHeader state={state} actions={actions} />);
-
-    const titleButton = screen.getByRole("button", { name: "Edit session title" });
-    expect(titleButton.className).toContain("flex-1");
-    expect(titleButton.className).toContain("truncate");
-    expect(titleButton.className).toContain("font-ident");
-    expect(titleButton.className).toContain("tracking-normal");
-  });
-
-  it("renders current path with shared truncated-path component style", () => {
+  it("renders current path with its full title", () => {
     const session = createSessionDetail({
       currentPath: "/tmp/vde-monitor/.worktree/feature/very/long/session/header/path",
     });
@@ -121,31 +106,8 @@ describe("SessionHeader", () => {
     renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const pathElement = screen.getByTestId("session-header-current-path");
-    expect(pathElement.className).toContain("overflow-hidden");
-    expect(pathElement.className).toContain("basis-full");
-    expect(pathElement.className).toContain("font-mono");
-    expect(pathElement.className).toContain("tracking-tight");
     expect(pathElement.textContent).toContain(".worktree/feature/very/long");
     expect(pathElement.getAttribute("title")).toContain(".worktree/feature/very/long");
-  });
-
-  it("does not render worktree flags in header details", () => {
-    const session = createSessionDetail({
-      worktreePath: "/Users/test/repo/.worktree/feature/awesome",
-      worktreeDirty: true,
-      worktreeLocked: false,
-      worktreeMerged: false,
-    });
-    const state = buildState({ session });
-    const actions = buildActions();
-    renderWithRouter(<SessionHeader state={state} actions={actions} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Show header details" }));
-
-    expect(screen.queryByText("Dirty:Y")).toBeNull();
-    expect(screen.queryByText("Lock:N")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("Merged:N")).toBeNull();
   });
 
   it("handles title editing interactions", () => {
@@ -167,7 +129,6 @@ describe("SessionHeader", () => {
     renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
     const input = screen.getByLabelText("Custom session title") as HTMLInputElement;
-    expect(input.className).toContain("font-ident");
     expect(document.activeElement).toBe(input);
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(input.value.length);
@@ -284,8 +245,7 @@ describe("SessionHeader", () => {
 
     renderWithRouter(<SessionHeader state={state} actions={actions} />);
 
-    const editorBadge = screen.getByText("EDITOR");
-    expect(editorBadge.className).toContain("text-latte-maroon");
+    expect(screen.getByText("EDITOR")).toBeTruthy();
     expect(screen.queryByText("UNKNOWN")).toBeNull();
   });
 

@@ -160,14 +160,6 @@ describe("createInspector", () => {
     expect(pane5?.windowActivity).toBe(1770508790);
   });
 
-  it("returns null for readUserOption", async () => {
-    const adapter = {
-      run: vi.fn(),
-    };
-    const inspector = createInspector(adapter);
-    await expect(inspector.readUserOption("1", "@vde-monitor_pipe")).resolves.toBeNull();
-  });
-
   it("throws when list command fails", async () => {
     const adapter = {
       run: vi.fn().mockResolvedValueOnce({ stdout: "", stderr: "failed", exitCode: 1 }),

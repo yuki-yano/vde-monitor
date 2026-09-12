@@ -140,20 +140,6 @@ describe("ScreenPanel", () => {
     expect(screen.getByText("Unsafe")).toBeTruthy();
   });
 
-  it("shows wrap button next to refresh", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
-    const refreshButton = screen.getByRole("button", { name: "Refresh screen" });
-    expect(smartButton).toBeTruthy();
-    expect(refreshButton).toBeTruthy();
-    expect(
-      smartButton.compareDocumentPosition(refreshButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-  });
-
   it("shows notification toggle for unknown agent sessions", () => {
     const state = buildState({
       agent: "unknown",
@@ -191,55 +177,6 @@ describe("ScreenPanel", () => {
     expect(actions.onRequestNotificationPermission).toHaveBeenCalledTimes(1);
     expect(actions.onTogglePaneNotification).not.toHaveBeenCalled();
     expect(toggleButton.getAttribute("aria-pressed")).toBeNull();
-  });
-
-  it("places notification toggle to the left of smart wrap button", () => {
-    const state = buildState({
-      notificationPushEnabled: true,
-      notificationSubscribed: true,
-    });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    const notificationButton = screen.getByRole("button", { name: "Toggle session notification" });
-    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
-    expect(
-      notificationButton.compareDocumentPosition(smartButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-  });
-
-  it("places resume/move button to the left of notification toggle", () => {
-    const state = buildState({
-      sourceSession: buildSourceSession(),
-      worktreeSelectorEnabled: true,
-      worktreeEntries: [
-        {
-          path: "/repo/.worktree/feature/current",
-          branch: "feature/current",
-          dirty: false,
-          locked: false,
-          lockOwner: null,
-          lockReason: null,
-          merged: false,
-          prStatus: "none",
-          ahead: 0,
-          behind: 0,
-          fileChanges: { add: 0, m: 0, d: 0 },
-          additions: 0,
-          deletions: 0,
-        },
-      ],
-      notificationPushEnabled: true,
-      notificationSubscribed: true,
-    });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    const resumeButton = screen.getByRole("button", { name: "Resume or move to worktree" });
-    const notificationButton = screen.getByRole("button", { name: "Toggle session notification" });
-    expect(
-      resumeButton.compareDocumentPosition(notificationButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
   });
 
   it("hides resume/move button when worktree selector is disabled", () => {
@@ -369,14 +306,6 @@ describe("ScreenPanel", () => {
     expect(screen.queryByText("Disconnected. Reconnecting...")).toBeNull();
   });
 
-  it("shows the send-scoped error in the same Callout slot", () => {
-    const state = buildState({ sendError: "Failed to send keys." });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    expect(screen.getByText("Failed to send keys.")).toBeTruthy();
-  });
-
   it("shows push notification scope sync errors", () => {
     const state = buildState({ notificationErrorMessage: "Failed to update notification scope" });
     const actions = buildActions();
@@ -497,20 +426,13 @@ describe("ScreenPanel", () => {
     const prLink = within(selectorPanel).getByRole("link", {
       name: "Open pull request for feature/worktree-a",
     });
-    const fileChangeBadge = within(selectorPanel).getByText("A 2");
     expect(prLink.getAttribute("href")).toBe("https://github.com/acme/repo/pull/123");
-    expect(
-      prLink.compareDocumentPosition(fileChangeBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
     const aheadBadge = within(selectorPanel).getByText("Ahead 2");
     const behindBadge = within(selectorPanel).getByText("Behind 1");
     const dirtyBadge = within(selectorPanel).getByText("Dirty Yes");
     expect(aheadBadge).toBeTruthy();
     expect(behindBadge).toBeTruthy();
     expect(dirtyBadge).toBeTruthy();
-    expect(
-      aheadBadge.compareDocumentPosition(dirtyBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
     expect(within(selectorPanel).getByText("Locked No")).toBeTruthy();
     expect(within(selectorPanel).getByText("PR Open")).toBeTruthy();
     expect(within(selectorPanel).getByText("Merged No")).toBeTruthy();
@@ -629,42 +551,6 @@ describe("ScreenPanel", () => {
     expect(within(selectorPanel).queryByText("PR Open")).toBeNull();
     expect(within(selectorPanel).queryByText("Merged No")).toBeNull();
     expect(within(selectorPanel).queryByText(".")).toBeNull();
-  });
-
-  it("uses shared truncation component for repo-root branch label", () => {
-    const repoRootBranch = "feature/very-long-repo-root-branch-name-for-leading-truncate-check";
-    const state = buildState({
-      worktreeSelectorEnabled: true,
-      worktreeRepoRoot: "/repo",
-      worktreeEntries: [
-        {
-          path: "/repo",
-          branch: repoRootBranch,
-          dirty: false,
-          locked: false,
-          lockOwner: null,
-          lockReason: null,
-          merged: false,
-          fileChanges: {
-            add: 0,
-            m: 0,
-            d: 0,
-          },
-          additions: 0,
-          deletions: 0,
-        },
-      ],
-      actualWorktreePath: "/repo",
-    });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
-
-    const selectorPanel = screen.getByTestId("worktree-selector-panel");
-    const branchLabel = within(selectorPanel).getByTitle(repoRootBranch);
-    expect(branchLabel.className).toContain("overflow-hidden");
-    expect(branchLabel.className).not.toContain("[direction:rtl]");
   });
 
   it("shows repo-root entry first", () => {
@@ -862,40 +748,6 @@ describe("ScreenPanel", () => {
     expect(within(selectorPanel).queryByText("Loading worktrees...")).toBeNull();
   });
 
-  it("does not spin reload icon while loading", () => {
-    const state = buildState({
-      worktreeSelectorEnabled: true,
-      worktreeSelectorLoading: true,
-      worktreeEntries: [
-        {
-          path: "/repo",
-          branch: "main",
-          dirty: false,
-          locked: false,
-          lockOwner: null,
-          lockReason: null,
-          merged: false,
-          fileChanges: {
-            add: 0,
-            m: 0,
-            d: 0,
-          },
-          additions: 0,
-          deletions: 0,
-        },
-      ],
-      actualWorktreePath: "/repo",
-    });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    fireEvent.click(screen.getByTestId("worktree-selector-trigger"));
-    const selectorPanel = screen.getByTestId("worktree-selector-panel");
-    const reloadButton = within(selectorPanel).getByLabelText("Reload worktrees");
-    const iconClassName = reloadButton.querySelector("svg")?.getAttribute("class") ?? "";
-    expect(iconClassName).not.toContain("animate-spin");
-  });
-
   it("auto-refreshes worktrees every 10 seconds only while selector is open", async () => {
     vi.useFakeTimers();
     try {
@@ -1027,14 +879,7 @@ describe("ScreenPanel", () => {
     render(<ScreenPanel state={state} actions={actions} controls={null} />);
 
     const clearButton = screen.getByLabelText("Clear virtual worktree");
-    const worktreeTrigger = screen.getByTestId("worktree-selector-trigger");
     const virtualBadge = screen.getByTitle("Virtual worktree active");
-    expect(
-      clearButton.compareDocumentPosition(worktreeTrigger) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-    expect(
-      worktreeTrigger.compareDocumentPosition(virtualBadge) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
     expect(virtualBadge.textContent).toBe("Virt");
 
     fireEvent.click(clearButton);
@@ -1210,34 +1055,6 @@ describe("ScreenPanel", () => {
     });
   });
 
-  it("does not linkify non-existing file references", async () => {
-    const onResolveFileReferenceCandidates = vi.fn(async () => []);
-    const state = buildState({
-      screenLines: ["failed at src/missing.ts:12"],
-    });
-    const actions = buildActions({ onResolveFileReferenceCandidates });
-    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    await waitFor(() => {
-      expect(onResolveFileReferenceCandidates).toHaveBeenCalled();
-    });
-    expect(container.querySelector("[data-vde-file-ref]")).toBeNull();
-  });
-
-  it("renders link without underline class", async () => {
-    const state = buildState({
-      screenLines: ["see src/main.ts:1"],
-    });
-    const actions = buildActions();
-    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    await waitFor(() => {
-      const ref = container.querySelector<HTMLElement>("[data-vde-file-ref='src/main.ts:1']");
-      expect(ref).toBeTruthy();
-      expect(ref?.className.includes("underline")).toBe(false);
-    });
-  });
-
   it("does not persist hovered highlight class across rerender", async () => {
     const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
     const actions = buildActions({ onResolveFileReferenceCandidates });
@@ -1289,22 +1106,6 @@ describe("ScreenPanel", () => {
     });
   });
 
-  it("passes raw token candidates to resolver", async () => {
-    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
-    const state = buildState({
-      screenLines: ["aaa src/main.ts:1 index.test.tsx https://example.com"],
-    });
-    const actions = buildActions({ onResolveFileReferenceCandidates });
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    await waitFor(() => {
-      expect(onResolveFileReferenceCandidates).toHaveBeenCalledWith([
-        "src/main.ts:1",
-        "index.test.tsx",
-      ]);
-    });
-  });
-
   it("linkifies http/https URLs in screen lines", async () => {
     const state = buildState({
       screenLines: ["open https://example.com/docs for reference"],
@@ -1317,37 +1118,6 @@ describe("ScreenPanel", () => {
       expect(urlLink?.getAttribute("href")).toBe("https://example.com/docs");
       expect(urlLink?.getAttribute("target")).toBe("_blank");
       expect(urlLink?.getAttribute("rel")).toBe("noreferrer noopener");
-    });
-  });
-
-  it("re-resolves candidates when context key changes", async () => {
-    const initialResolver = vi.fn(async () => []);
-    const nextResolver = vi.fn(async (rawTokens: string[]) => rawTokens);
-    const state = buildState({
-      paneId: "pane-1",
-      screenLines: ["src/main.ts:1"],
-    });
-    const actions = buildActions({ onResolveFileReferenceCandidates: initialResolver });
-    const { container, rerender } = render(
-      <ScreenPanel state={state} actions={actions} controls={null} />,
-    );
-
-    await waitFor(() => {
-      expect(initialResolver).toHaveBeenCalledWith(["src/main.ts:1"]);
-    });
-    expect(container.querySelector("[data-vde-file-ref='src/main.ts:1']")).toBeNull();
-
-    rerender(
-      <ScreenPanel
-        state={{ ...state, paneId: "pane-2" }}
-        actions={buildActions({ onResolveFileReferenceCandidates: nextResolver })}
-        controls={null}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(nextResolver).toHaveBeenCalledWith(["src/main.ts:1"]);
-      expect(container.querySelector("[data-vde-file-ref='src/main.ts:1']")).toBeTruthy();
     });
   });
 

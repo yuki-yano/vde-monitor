@@ -235,31 +235,6 @@ describe("useUsageBillingData", () => {
     await waitFor(() => expect(result.current.billingRefreshingByProvider.codex).toBe(false));
   });
 
-  it("polls provider billing every 180 seconds", async () => {
-    vi.useFakeTimers();
-    const requestUsageProviderBilling = vi.fn(
-      async ({ provider }: { provider: "codex" | "claude" }) => createProvider(provider),
-    );
-    renderHook(
-      () =>
-        useUsageBillingData({
-          canRequest: true,
-          queryScope: createUsageDashboardQueryScope("/api", "token"),
-          dashboardCore: createDashboard("2026-08-25T00:00:00.000Z"),
-          requestUsageProviderBilling,
-          resolveErrorMessage: (_error, fallback) => fallback,
-        }),
-      { wrapper: createWrapper() },
-    );
-
-    await act(async () => Promise.resolve());
-    expect(requestUsageProviderBilling).toHaveBeenCalledTimes(2);
-    await act(async () => vi.advanceTimersByTimeAsync(179_999));
-    expect(requestUsageProviderBilling).toHaveBeenCalledTimes(2);
-    await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(requestUsageProviderBilling).toHaveBeenCalledTimes(4);
-  });
-
   it("does not expose a background poll as cold loading or manual refreshing", async () => {
     vi.useFakeTimers();
     const codexPoll = createDeferred<UsageProviderSnapshot>();
@@ -283,7 +258,9 @@ describe("useUsageBillingData", () => {
 
     await act(async () => vi.advanceTimersByTimeAsync(1));
     expect(result.current.billingLoadingByProvider.codex).toBe(false);
-    await act(async () => vi.advanceTimersByTimeAsync(179_999));
+    await act(async () => vi.advanceTimersByTimeAsync(179_998));
+    expect(codexRequests).toBe(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
     expect(codexRequests).toBe(2);
     expect(result.current.billingLoadingByProvider.codex).toBe(false);
     expect(result.current.billingRefreshingByProvider.codex).toBe(false);

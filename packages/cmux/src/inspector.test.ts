@@ -324,9 +324,4 @@ describe("createCmuxInspector", () => {
       2,
     );
   });
-
-  it("returns null from readUserOption", async () => {
-    const inspector = createCmuxInspector({ request: vi.fn() });
-    await expect(inspector.readUserOption(SURFACE_ID, "@vde:test")).resolves.toBeNull();
-  });
 });

@@ -132,62 +132,47 @@ describe("createSessionTimelineStore", () => {
     expect(timeline.totalsMs.WAITING_INPUT).toBe(5 * 60 * 1000);
   });
 
-  it("retains enough history for 24h range by default", () => {
+  it("retains thirty days of history while restricting the daily timeline", () => {
     const clock = nowAt;
     clock.set("2026-02-06T21:00:00.000Z");
     const store = createSessionTimelineStore({ now: clock.now });
-
     store.record({
-      paneId: "%24h",
+      paneId: "%history",
+      state: "WAITING_PERMISSION",
+      reason: "old-event",
+      at: "2026-01-12T12:00:00.000Z",
+      source: "hook",
+    });
+    store.closePane({ paneId: "%history", at: "2026-02-05T20:00:00.000Z" });
+    store.record({
+      paneId: "%history",
       state: "WAITING_INPUT",
       reason: "hook:stop",
       at: "2026-02-05T22:00:00.000Z",
       source: "hook",
     });
     store.record({
-      paneId: "%24h",
+      paneId: "%history",
       state: "RUNNING",
       reason: "hook:PreToolUse",
       at: "2026-02-06T08:00:00.000Z",
       source: "hook",
     });
 
-    const timeline = store.getTimeline({ paneId: "%24h", range: "24h" });
+    const daily = store.getTimeline({ paneId: "%history", range: "24h" });
+    expect(daily.items.map(({ state }) => state)).toEqual(["RUNNING", "WAITING_INPUT"]);
+    expect(daily.items[0]?.durationMs).toBe(13 * 60 * 60 * 1000);
+    expect(daily.items[1]?.durationMs).toBe(10 * 60 * 60 * 1000);
+    expect(daily.totalsMs.RUNNING).toBe(13 * 60 * 60 * 1000);
+    expect(daily.totalsMs.WAITING_INPUT).toBe(10 * 60 * 60 * 1000);
 
-    expect(timeline.items).toHaveLength(2);
-    expect(timeline.items[0]?.state).toBe("RUNNING");
-    expect(timeline.items[0]?.durationMs).toBe(13 * 60 * 60 * 1000);
-    expect(timeline.items[1]?.state).toBe("WAITING_INPUT");
-    expect(timeline.items[1]?.durationMs).toBe(10 * 60 * 60 * 1000);
-    expect(timeline.totalsMs.RUNNING).toBe(13 * 60 * 60 * 1000);
-    expect(timeline.totalsMs.WAITING_INPUT).toBe(10 * 60 * 60 * 1000);
-  });
-
-  it("retains enough history for 30d range by default", () => {
-    const clock = nowAt;
-    clock.set("2026-03-05T12:00:00.000Z");
-    const store = createSessionTimelineStore({ now: clock.now });
-
-    store.record({
-      paneId: "%30d",
-      state: "WAITING_INPUT",
-      reason: "hook:stop",
-      at: "2026-02-10T12:00:00.000Z",
-      source: "hook",
-    });
-    store.record({
-      paneId: "%30d",
-      state: "RUNNING",
-      reason: "hook:PreToolUse",
-      at: "2026-03-01T00:00:00.000Z",
-      source: "hook",
-    });
-
-    const timeline = store.getTimeline({ paneId: "%30d", range: "30d" });
-
-    expect(timeline.items).toHaveLength(2);
-    expect(timeline.items[0]?.state).toBe("RUNNING");
-    expect(timeline.items[1]?.state).toBe("WAITING_INPUT");
+    const monthly = store.getTimeline({ paneId: "%history", range: "30d" });
+    expect(monthly.items.map(({ state }) => state)).toEqual([
+      "RUNNING",
+      "WAITING_INPUT",
+      "WAITING_PERMISSION",
+    ]);
+    expect(monthly.items[2]?.reason).toBe("old-event");
   });
 
   it("uses range-aware default limit for pane timeline", () => {

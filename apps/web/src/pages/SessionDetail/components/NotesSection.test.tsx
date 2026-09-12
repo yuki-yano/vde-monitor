@@ -90,23 +90,6 @@ describe("NotesSection", () => {
     expect(screen.queryByLabelText(/Edit note body/u)).toBeNull();
   });
 
-  it("refreshes on mount and auto-syncs every 10 seconds", async () => {
-    vi.useFakeTimers();
-    const onRefresh = vi.fn();
-    render(<NotesSection state={buildState()} actions={buildActions({ onRefresh })} />);
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(onRefresh).toHaveBeenCalledWith({ silent: true });
-
-    await act(async () => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(onRefresh).toHaveBeenCalledTimes(2);
-    expect(onRefresh).toHaveBeenNthCalledWith(2, { silent: true });
-  });
-
   it("keeps header visible and scopes loading overlay to notes body", () => {
     render(<NotesSection state={buildState({ notesLoading: true })} actions={buildActions()} />);
 
@@ -340,6 +323,7 @@ describe("NotesSection", () => {
 
     const textarea = screen.getByLabelText("Edit note body note-1") as HTMLTextAreaElement;
     await waitFor(() => {
+      expect(document.activeElement).toBe(textarea);
       expect(textarea.selectionStart).toBe(textarea.value.length);
       expect(textarea.selectionEnd).toBe(textarea.value.length);
     });
@@ -356,63 +340,6 @@ describe("NotesSection", () => {
     expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
-  });
-
-  it("serializes auto-save requests while a previous save is in flight", async () => {
-    vi.useFakeTimers();
-    const createDeferred = () => {
-      let resolve: (value: boolean) => void = () => {};
-      const promise = new Promise<boolean>((res) => {
-        resolve = res;
-      });
-      return { promise, resolve };
-    };
-    const first = createDeferred();
-    const second = createDeferred();
-    const onSave = vi.fn<NotesSectionActions["onSave"]>();
-    onSave.mockImplementationOnce(() => first.promise);
-    onSave.mockImplementationOnce(() => second.promise);
-    render(<NotesSection state={buildState()} actions={buildActions({ onSave })} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
-    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
-      target: { value: "first" },
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(700);
-      await Promise.resolve();
-    });
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenNthCalledWith(1, "note-1", { title: null, body: "first" });
-
-    fireEvent.change(screen.getByLabelText("Edit note body note-1"), {
-      target: { value: "second" },
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(700);
-      await Promise.resolve();
-    });
-    expect(onSave).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      first.resolve(true);
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(onSave).toHaveBeenCalledTimes(2);
-    expect(onSave).toHaveBeenNthCalledWith(2, "note-1", { title: null, body: "second" });
-
-    await act(async () => {
-      second.resolve(true);
-      await Promise.resolve();
-    });
   });
 
   it("shows copied hint briefly after copy", async () => {

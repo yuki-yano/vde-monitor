@@ -3,46 +3,29 @@ import { describe, expect, it, vi } from "vitest";
 import { createStreamConnections } from "./stream-connections";
 
 describe("createStreamConnections", () => {
-  it("registers a close callback and returns a deregister function", () => {
+  it("deregisters individual connections and closes the remaining connections only once", () => {
     const connections = createStreamConnections();
-    const close = vi.fn();
+    const removed = vi.fn();
+    const first = vi.fn();
+    const second = vi.fn();
+    const deregister = connections.add(removed);
+    connections.add(first);
+    connections.add(second);
 
-    const deregister = connections.add(close);
-    expect(typeof deregister).toBe("function");
-    expect(close).not.toHaveBeenCalled();
-
-    // deregister removes the entry without calling close
     deregister();
-    connections.closeAll();
-    expect(close).not.toHaveBeenCalled();
-  });
-
-  it("closeAll calls every registered close callback", () => {
-    const connections = createStreamConnections();
-    const close1 = vi.fn();
-    const close2 = vi.fn();
-    const close3 = vi.fn();
-
-    connections.add(close1);
-    connections.add(close2);
-    connections.add(close3);
+    deregister();
+    expect(removed).not.toHaveBeenCalled();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
 
     connections.closeAll();
+    expect(removed).not.toHaveBeenCalled();
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).toHaveBeenCalledOnce();
 
-    expect(close1).toHaveBeenCalledOnce();
-    expect(close2).toHaveBeenCalledOnce();
-    expect(close3).toHaveBeenCalledOnce();
-  });
-
-  it("closeAll clears the registry so a second call is a no-op", () => {
-    const connections = createStreamConnections();
-    const close = vi.fn();
-
-    connections.add(close);
     connections.closeAll();
-    connections.closeAll();
-
-    expect(close).toHaveBeenCalledOnce();
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).toHaveBeenCalledOnce();
   });
 
   it("closeAll tolerates errors thrown by a close callback", () => {
@@ -57,17 +40,5 @@ describe("createStreamConnections", () => {
 
     expect(() => connections.closeAll()).not.toThrow();
     expect(safe).toHaveBeenCalledOnce();
-  });
-
-  it("deregister is idempotent", () => {
-    const connections = createStreamConnections();
-    const close = vi.fn();
-
-    const deregister = connections.add(close);
-    deregister();
-    deregister(); // second call should not throw
-
-    connections.closeAll();
-    expect(close).not.toHaveBeenCalled();
   });
 });

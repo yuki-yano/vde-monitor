@@ -58,6 +58,15 @@ describe("createFilePreviewRoutes", () => {
     expect(htmlResponse.headers.get("cache-control")).toBe("no-store");
     expect(htmlResponse.headers.get("referrer-policy")).toBe("no-referrer");
     expect(htmlResponse.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(htmlResponse.headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+    const csp = htmlResponse.headers.get("content-security-policy");
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("frame-src 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("form-action 'none'");
+    expect(csp).not.toContain("allow-scripts");
+    expect(csp).not.toContain("allow-forms");
+    expect(csp).not.toContain("allow-top-navigation");
     expect(htmlResponse.headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(htmlResponse.headers.get("content-security-policy")).toContain("connect-src 'none'");
     expect(htmlResponse.headers.get("content-security-policy")).toContain(

@@ -82,22 +82,6 @@ describe("pane-log-manager", () => {
     expect(logActivity.register).not.toHaveBeenCalled();
   });
 
-  it("keeps an already owned pipe without reattaching", async () => {
-    const pipeCapability = createPipeCapability();
-    const { manager } = createManager({ pipeCapability });
-
-    const result = await manager.preparePaneLogging({
-      paneId: "%1",
-      panePipe: true,
-      pipeTagValue: OWNER_TAG,
-    });
-
-    expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
-    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
-    expect(result.pipeAttached).toBe(true);
-    expect(result.pipeConflict).toBe(false);
-  });
-
   it("detaches and repairs an owned pipe whose daemon session is unhealthy", async () => {
     const pipeCapability = createPipeCapability({
       isPipeHealthy: vi.fn(async () => false),
@@ -181,20 +165,6 @@ describe("pane-log-manager", () => {
     expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
     expect(result).toMatchObject({ pipeAttached: true, pipeConflict: false });
     expect(logActivity.register).toHaveBeenCalledWith("%1", "/logs/%1.log");
-  });
-
-  it("keeps an owned pipe during normal polling", async () => {
-    const pipeCapability = createPipeCapability();
-    const { manager } = createManager({ pipeCapability });
-
-    await manager.preparePaneLogging({
-      paneId: "%1",
-      panePipe: true,
-      pipeTagValue: OWNER_TAG,
-    });
-
-    expect(pipeCapability.detachOwnedPipe).not.toHaveBeenCalled();
-    expect(pipeCapability.attachPipe).not.toHaveBeenCalled();
   });
 
   it("checks a confirmed absence once and retries only after a failed ownership check", async () => {

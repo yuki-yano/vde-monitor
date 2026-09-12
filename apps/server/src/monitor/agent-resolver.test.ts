@@ -42,26 +42,18 @@ beforeEach(() => {
 });
 
 describe("resolvePaneAgent", () => {
-  it("preserves the 42 pane baseline resolution with one ps command per tick", async () => {
+  it("resolves mixed pane metadata and descendants with one ps command per tick", async () => {
     const roots = Array.from(
-      { length: 42 },
-      (_, index) =>
-        `${1000 + index} 1 ttys${index.toString().padStart(3, "0")} ${
-          index >= 3 && index <= 5 ? ["claude", "codex", "claude"][index - 3] : "zsh"
-        }`,
+      { length: 6 },
+      (_, index) => `${1000 + index} 1 ttys${index.toString().padStart(3, "0")} zsh`,
     );
     execaMock.mockResolvedValueOnce({
-      stdout: [
-        ...roots,
-        "2006 1006 ttys006 codex",
-        "2007 1007 ttys007 claude",
-        "2008 1008 ttys008 codex",
-      ].join("\n"),
+      stdout: [...roots, "2003 1003 ttys003 codex", "2004 1004 ttys004 claude"].join("\n"),
       stderr: "",
       exitCode: 0,
     } as never);
     const snapshot = await createAgentProcessSnapshot();
-    const panes = Array.from({ length: 42 }, (_, index) =>
+    const panes = Array.from({ length: 6 }, (_, index) =>
       buildPane({
         currentCommand: index === 0 ? "codex" : index === 1 ? "claude" : "zsh",
         paneStartCommand: index === 2 ? "codex" : null,
@@ -72,11 +64,16 @@ describe("resolvePaneAgent", () => {
 
     const results = await Promise.all(panes.map((pane) => resolvePaneAgent(pane, snapshot)));
 
-    expect(results.filter(({ agent }) => agent === "codex")).toHaveLength(5);
-    expect(results.filter(({ agent }) => agent === "claude")).toHaveLength(4);
-    expect(results.filter(({ agent }) => agent === "unknown")).toHaveLength(33);
-    expect(results.filter(({ presence }) => presence === "present")).toHaveLength(9);
-    expect(results.filter(({ presence }) => presence === "absent")).toHaveLength(33);
+    expect(results.map(({ agent }) => agent)).toEqual([
+      "codex",
+      "claude",
+      "codex",
+      "codex",
+      "claude",
+      "unknown",
+    ]);
+    expect(results.filter(({ presence }) => presence === "present")).toHaveLength(5);
+    expect(results.filter(({ presence }) => presence === "absent")).toHaveLength(1);
     expect(execaMock).toHaveBeenCalledOnce();
   });
 

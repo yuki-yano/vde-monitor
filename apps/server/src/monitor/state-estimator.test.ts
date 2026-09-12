@@ -121,19 +121,6 @@ describe("estimateState", () => {
     expect(result).toEqual({ state: "WAITING_INPUT", reason: "herdr:agent_status:blocked" });
   });
 
-  it("returns RUNNING when recent output is within threshold", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:10Z"));
-    const result = estimateState({
-      paneDead: false,
-      lastOutputAt: "2026-01-01T00:00:05Z",
-      hookState: null,
-      thresholds: { runningThresholdMs: 6000, inactiveThresholdMs: 20000 },
-    });
-    expect(result).toEqual({ state: "RUNNING", reason: "recent_output" });
-    vi.useRealTimers();
-  });
-
   it("treats output at running threshold as RUNNING", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:10Z"));
@@ -144,19 +131,6 @@ describe("estimateState", () => {
       thresholds: { runningThresholdMs: 10000, inactiveThresholdMs: 20000 },
     });
     expect(result).toEqual({ state: "RUNNING", reason: "recent_output" });
-    vi.useRealTimers();
-  });
-
-  it("returns WAITING_INPUT when output is older than inactive threshold", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:01:10Z"));
-    const result = estimateState({
-      paneDead: false,
-      lastOutputAt: "2026-01-01T00:00:00Z",
-      hookState: null,
-      thresholds: { runningThresholdMs: 10000, inactiveThresholdMs: 60000 },
-    });
-    expect(result).toEqual({ state: "WAITING_INPUT", reason: "inactive_timeout" });
     vi.useRealTimers();
   });
 

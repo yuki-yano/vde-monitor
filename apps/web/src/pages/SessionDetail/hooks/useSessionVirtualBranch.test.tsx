@@ -48,21 +48,6 @@ const createBranchList = (overrides: Partial<BranchList> = {}): BranchList => ({
 });
 
 describe("useSessionVirtualBranch", () => {
-  it("selects a virtual branch and persists it to pane-scoped storage", async () => {
-    const paneId = "pane-1";
-    const branchList = createBranchList();
-    const { result } = renderHook(() => useSessionVirtualBranch({ paneId, branchList }));
-
-    act(() => {
-      result.current.selectVirtualBranch("feature/a");
-    });
-
-    expect(result.current.virtualBranch).toBe("feature/a");
-    await waitFor(() => {
-      expect(window.localStorage.getItem(buildStorageKey(paneId))).toContain("feature/a");
-    });
-  });
-
   it("clears selection when selecting the default branch (no-op selection)", async () => {
     const paneId = "pane-1";
     const branchList = createBranchList({ defaultBranch: "main" });
@@ -91,6 +76,7 @@ describe("useSessionVirtualBranch", () => {
     });
     await waitFor(() => {
       expect(window.localStorage.getItem(buildStorageKey(paneId))).toContain("feature/a");
+      expect(result.current.virtualBranch).toBe("feature/a");
     });
 
     act(() => {

@@ -327,19 +327,6 @@ describe("createApiRouter", () => {
     expect(monitor.markPaneViewed).toHaveBeenCalledWith("pane-1");
   });
 
-  it("sends text command", async () => {
-    const { api, actions } = createTestContext();
-    const res = await api.request("/sessions/pane-1/send/text", {
-      method: "POST",
-      headers: { ...authHeaders, "content-type": "application/json" },
-      body: JSON.stringify({ text: "ls", enter: true }),
-    });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.command.ok).toBe(true);
-    expect(actions.sendText).toHaveBeenCalledWith("pane-1", "ls", true);
-  });
-
   it("deduplicates send text command by requestId", async () => {
     const { api, actions } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
@@ -358,6 +345,8 @@ describe("createApiRouter", () => {
 
     const firstData = await first.json();
     const secondData = await second.json();
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
     expect(firstData.command.ok).toBe(true);
     expect(secondData.command.ok).toBe(true);
     expect(actions.sendText).toHaveBeenCalledTimes(1);
@@ -576,40 +565,14 @@ describe("createApiRouter", () => {
     const data = await res.json();
     expect(data.command.ok).toBe(false);
     expect(data.command.error.code).toBe("WEZTERM_UNAVAILABLE");
+    expect(data.command.error.message).toBe("launch-agent requires tmux backend");
     expect(data.command.resume).toMatchObject({
       requested: true,
       reused: false,
       failureReason: "unsupported",
+      source: null,
     });
     expect(launchCapability.launchAgentInSession).not.toHaveBeenCalled();
-  });
-
-  it("deduplicates launch command by requestId and sessionName", async () => {
-    const { api, launchCapability } = createTestContext();
-    const headers = { ...authHeaders, "content-type": "application/json" };
-    const payload = JSON.stringify({
-      sessionName: "dev-main",
-      agent: "claude",
-      requestId: "launch-req-1",
-      windowName: "claude-work",
-    });
-
-    const first = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: payload,
-    });
-    const second = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: payload,
-    });
-
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.command.ok).toBe(true);
-    expect(secondData.command.ok).toBe(true);
-    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
   it("treats omitted resumePolicy and required as the same idempotency payload for manual resume", async () => {

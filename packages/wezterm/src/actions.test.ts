@@ -33,34 +33,6 @@ describe("createWeztermActions", () => {
     vi.useRealTimers();
   });
 
-  it("sends text and enter", async () => {
-    const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
-
-    const actions = createWeztermActions(
-      {
-        run,
-      },
-      {
-        ...configDefaults,
-        token: "token",
-      },
-    );
-
-    const result = await actions.sendText("1", "echo hi", true);
-
-    expect(result.ok).toBe(true);
-    expect(run).toHaveBeenCalledTimes(2);
-    expect(run).toHaveBeenNthCalledWith(1, ["send-text", "--pane-id", "1", "--", "echo hi"]);
-    expect(run).toHaveBeenNthCalledWith(2, [
-      "send-text",
-      "--pane-id",
-      "1",
-      "--no-paste",
-      "--",
-      "\r",
-    ]);
-  });
-
   it("waits fixed enter delay before sending enter", async () => {
     vi.useFakeTimers();
     const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
@@ -203,104 +175,38 @@ describe("createWeztermActions", () => {
     expect(result.error?.code).toBe("WEZTERM_UNAVAILABLE");
   });
 
-  it("sends keys through wezterm proxy", async () => {
+  it("uses the proxy for keys and propagates errors without sending text", async () => {
     const child = createFakeChild();
     const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
-
+    let rejectKey = false;
     child.stdin.on("data", (chunk: Buffer) => {
       const frame = decodeNextPduFrame(Buffer.from(chunk));
-      if (!frame) {
-        return;
-      }
+      if (!frame) return;
       expect(frame.ident).toBe(11);
       (child.stdout as unknown as PassThrough).write(
         encodePduFrame({
-          ident: 10,
+          ident: rejectKey ? 0 : 10,
           serial: frame.serial,
-          data: Buffer.alloc(0),
+          data: rejectKey ? encodeErrorResponseReason("pane 404 not found") : Buffer.alloc(0),
         }),
       );
     });
-
     const actions = createWeztermActions(
-      {
-        run,
-        spawnProxy: () => child,
-      },
+      { run, spawnProxy: () => child },
       {
         ...configDefaults,
         token: "token",
       },
     );
 
-    const result = await actions.sendKeys("12", ["Enter"]);
-
-    expect(result.ok).toBe(true);
+    await expect(actions.sendKeys("12", ["Enter"])).resolves.toMatchObject({ ok: true });
     expect(run).not.toHaveBeenCalled();
-  });
 
-  it("returns proxy error without fallback to send-text", async () => {
-    const child = createFakeChild();
-    const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
-
-    child.stdin.on("data", (chunk: Buffer) => {
-      const frame = decodeNextPduFrame(Buffer.from(chunk));
-      if (!frame) {
-        return;
-      }
-      (child.stdout as unknown as PassThrough).write(
-        encodePduFrame({
-          ident: 0,
-          serial: frame.serial,
-          data: encodeErrorResponseReason("pane 404 not found"),
-        }),
-      );
+    rejectKey = true;
+    await expect(actions.sendKeys("404", ["Enter"])).resolves.toMatchObject({
+      ok: false,
+      error: { code: "INVALID_PANE" },
     });
-
-    const actions = createWeztermActions(
-      {
-        run,
-        spawnProxy: () => child,
-      },
-      {
-        ...configDefaults,
-        token: "token",
-      },
-    );
-
-    const result = await actions.sendKeys("404", ["Enter"]);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("INVALID_PANE");
-    }
-    expect(run).not.toHaveBeenCalled();
-  });
-
-  it("returns INTERNAL when proxy times out", async () => {
-    vi.useFakeTimers();
-    const child = createFakeChild();
-    const run = vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 }));
-
-    const actions = createWeztermActions(
-      {
-        run,
-        spawnProxy: () => child,
-      },
-      {
-        ...configDefaults,
-        token: "token",
-      },
-    );
-
-    const resultPromise = actions.sendKeys("12", ["Enter"]);
-    await vi.advanceTimersByTimeAsync(1600);
-    const result = await resultPromise;
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("INTERNAL");
-      expect(result.error.message).toContain("timed out");
-    }
     expect(run).not.toHaveBeenCalled();
   });
 

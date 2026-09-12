@@ -19,25 +19,16 @@ describe("useScreenWrapMode", () => {
     window.localStorage.removeItem(__testables.SCREEN_WRAP_MODE_STORAGE_KEY);
   });
 
-  it("uses off when no stored value exists", () => {
-    const { result } = renderHook(() => useScreenWrapMode(), { wrapper: createWrapper() });
+  it("starts off, persists a toggle, and restores it into a fresh store", async () => {
+    const { result, unmount } = renderHook(() => useScreenWrapMode(), { wrapper: createWrapper() });
     expect(result.current.wrapMode).toBe("off");
-  });
 
-  it("restores stored wrap mode from localStorage", async () => {
-    window.localStorage.setItem(__testables.SCREEN_WRAP_MODE_STORAGE_KEY, "smart");
-    const { result } = renderHook(() => useScreenWrapMode(), { wrapper: createWrapper() });
-    await waitFor(() => {
-      expect(result.current.wrapMode).toBe("smart");
-    });
-  });
-
-  it("persists toggled value to localStorage", () => {
-    const { result } = renderHook(() => useScreenWrapMode(), { wrapper: createWrapper() });
-    act(() => {
-      result.current.toggleWrapMode();
-    });
+    act(() => result.current.toggleWrapMode());
     expect(result.current.wrapMode).toBe("smart");
     expect(window.localStorage.getItem(__testables.SCREEN_WRAP_MODE_STORAGE_KEY)).toBe("smart");
+    unmount();
+
+    const restored = renderHook(() => useScreenWrapMode(), { wrapper: createWrapper() });
+    await waitFor(() => expect(restored.result.current.wrapMode).toBe("smart"));
   });
 });

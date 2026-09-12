@@ -17,41 +17,23 @@ import {
 describe("repo file service context helpers", () => {
   it("normalizes search query and rejects empty query", () => {
     expect(normalizeSearchQuery("  src test  ")).toBe("src test");
-    expect(() => normalizeSearchQuery("   ")).toThrowError();
-    try {
-      normalizeSearchQuery("   ");
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: "INVALID_PAYLOAD",
-        status: 400,
-      });
-    }
+    expect(() => normalizeSearchQuery("   ")).toThrowError(
+      expect.objectContaining({ code: "INVALID_PAYLOAD", status: 400 }),
+    );
   });
 
   it("normalizes content path and rejects directory root", () => {
     expect(normalizeFileContentPath("./src/index.ts")).toBe("src/index.ts");
-    expect(() => normalizeFileContentPath(".")).toThrowError();
-    try {
-      normalizeFileContentPath(".");
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: "INVALID_PAYLOAD",
-        status: 400,
-      });
-    }
+    expect(() => normalizeFileContentPath(".")).toThrowError(
+      expect.objectContaining({ code: "INVALID_PAYLOAD", status: 400 }),
+    );
   });
 
   it("validates maxBytes as positive number", () => {
     expect(() => validateMaxBytes(1)).not.toThrow();
-    expect(() => validateMaxBytes(0)).toThrowError();
-    try {
-      validateMaxBytes(0);
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: "INVALID_PAYLOAD",
-        status: 400,
-      });
-    }
+    expect(() => validateMaxBytes(0)).toThrowError(
+      expect.objectContaining({ code: "INVALID_PAYLOAD", status: 400 }),
+    );
   });
 
   it("maps path guard errors with toServiceError", () => {

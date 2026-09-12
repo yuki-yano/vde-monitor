@@ -2,10 +2,8 @@ import type { CommitFileDiff, CommitLog } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
 import {
-  buildCommitListClassName,
   buildRenderedPatches,
   formatCommitCountDescription,
-  getCommits,
   isCommitListEmpty,
   shouldShowLoadMore,
 } from "./commit-section-utils";
@@ -61,13 +59,5 @@ describe("commit-section-utils", () => {
     expect(shouldShowLoadMore(createCommitLog({ reason: "error" }), true)).toBe(false);
     expect(shouldShowLoadMore(createCommitLog({ commits: [] }), true)).toBe(true);
     expect(shouldShowLoadMore(createCommitLog({ commits: [] }), false)).toBe(false);
-  });
-
-  it("returns commits and class name", () => {
-    const commits = [{ hash: "a" }, { hash: "b" }] as CommitLog["commits"];
-    expect(getCommits(createCommitLog({ commits }))).toEqual(commits);
-    expect(getCommits(null)).toEqual([]);
-    expect(buildCommitListClassName(true)).toContain("min-h-[120px]");
-    expect(buildCommitListClassName(false)).toBe("relative ");
   });
 });

@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppQueryClient } from "@/state/query-client";
 
-import { sessionDetailQueryKeys } from "../session-detail-query-keys";
 import { createDeferred } from "../test-helpers";
 import { useSessionRepoNotes } from "./useSessionRepoNotes";
 
@@ -41,14 +40,14 @@ afterEach(() => {
 });
 
 describe("useSessionRepoNotes", () => {
-  it("uses the scoped query options and forwards its AbortSignal", async () => {
+  it("forwards the pane and AbortSignal", async () => {
     let receivedSignal: AbortSignal | undefined;
     const requestRepoNotes = vi.fn(async (_paneId: string, signal?: AbortSignal) => {
       receivedSignal = signal;
       return [];
     });
     const actions = createDefaultActions();
-    const { queryClient, Wrapper } = createQueryWrapper();
+    const { Wrapper } = createQueryWrapper();
 
     renderHook(
       () =>
@@ -63,21 +62,7 @@ describe("useSessionRepoNotes", () => {
     );
 
     await waitFor(() => expect(receivedSignal).toBeInstanceOf(AbortSignal));
-    const query = queryClient.getQueryCache().find({
-      queryKey: sessionDetailQueryKeys.notes("pane-1", "/repo"),
-      exact: true,
-    });
-    expect(query?.options).toMatchObject({
-      staleTime: 0,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      refetchOnMount: "always",
-      refetchInterval: false,
-      refetchIntervalInBackground: false,
-    });
+    expect(requestRepoNotes).toHaveBeenCalledWith("pane-1", expect.any(AbortSignal));
   });
 
   it("shows a cold offline error without a spinner and resumes with one request", async () => {

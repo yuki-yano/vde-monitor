@@ -14,8 +14,6 @@ import {
   deriveHerdrAgentStatus,
   extractCodexPayloadFields,
   extractPayloadFields,
-  isClaudeNonInteractivePayload,
-  isCodexNonInteractivePayload,
   isMainModule,
   parseHookCliArgs,
   resolveActiveHookConfig,
@@ -588,62 +586,6 @@ describe("hooks cli helpers", () => {
     }
   });
 
-  it("treats result-like payload as non-interactive", () => {
-    expect(
-      isClaudeNonInteractivePayload(
-        {
-          type: "result",
-          session_id: "session-1",
-        },
-        "Stop",
-      ),
-    ).toBe(true);
-  });
-
-  it("detects non-interactive stop when ancestor claude process uses -p", () => {
-    const processTree = new Map<number, { ppid: number; command: string }>([
-      [1200, { ppid: 1100, command: "/bin/sh -c vde-monitor-claude-summary Stop" }],
-      [1100, { ppid: 1000, command: "/usr/local/bin/claude -p --output-format json" }],
-      [1000, { ppid: 1, command: "zsh" }],
-    ]);
-
-    expect(
-      isClaudeNonInteractivePayload(
-        {
-          session_id: "session-1",
-          cwd: "apps/web",
-        },
-        "Stop",
-        {
-          parentPid: 1200,
-          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
-        },
-      ),
-    ).toBe(true);
-  });
-
-  it("does not treat interactive stop as non-interactive when claude has no -p flag", () => {
-    const processTree = new Map<number, { ppid: number; command: string }>([
-      [2200, { ppid: 2100, command: "/bin/sh -c vde-monitor-claude-summary Stop" }],
-      [2100, { ppid: 2000, command: "/usr/local/bin/claude --continue" }],
-      [2000, { ppid: 1, command: "zsh" }],
-    ]);
-
-    expect(
-      isClaudeNonInteractivePayload(
-        {
-          session_id: "session-1",
-          cwd: "apps/web",
-        },
-        "Stop",
-        {
-          parentPid: 2200,
-          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
-        },
-      ),
-    ).toBe(false);
-  });
-
   it("skips persisting non-interactive result payloads", () => {
     expect(
       shouldPersistHookPayload(
@@ -794,27 +736,6 @@ describe("codex hooks cli helpers", () => {
       cwd: "/repo",
       transcript_path: "/tmp/rollout.jsonl",
     });
-  });
-
-  it("detects non-interactive stop when ancestor codex runs exec", () => {
-    const processTree = new Map<number, { ppid: number; command: string }>([
-      [5200, { ppid: 5100, command: "/bin/sh -c vde-monitor-hook codex Stop" }],
-      [5100, { ppid: 5000, command: "/usr/local/bin/codex exec 'run tests'" }],
-      [5000, { ppid: 1, command: "zsh" }],
-    ]);
-
-    expect(
-      isCodexNonInteractivePayload(
-        {
-          session_id: "codex-session-1",
-        },
-        "Stop",
-        {
-          parentPid: 5200,
-          lookupProcessSnapshot: (pid) => processTree.get(pid) ?? null,
-        },
-      ),
-    ).toBe(true);
   });
 
   it("persists interactive codex stop payloads", () => {

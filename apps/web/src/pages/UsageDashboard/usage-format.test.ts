@@ -14,7 +14,10 @@ import {
   formatTokenCount,
   formatTokens,
   formatUsedElapsedLabel,
+  resolveBufferTone,
+  resolvePaceTone,
   resolveRemainingBufferPercent,
+  resolveUsageColor,
   resolveWeekStartLocal,
 } from "./usage-format";
 
@@ -95,6 +98,26 @@ describe("usage-format", () => {
     expect(formatBufferLabel(null)).toBe("Buffer unavailable");
     expect(formatPaceLabel(metric)).toBe("Pace unavailable");
     expect(formatUsedElapsedLabel(metric)).toBe("-- / --");
+  });
+
+  it.each([
+    [-5.1, "red"],
+    [-5, "yellow"],
+    [5, "yellow"],
+    [5.1, "green"],
+  ] as const)("uses the relative usage threshold at %s percent", (margin, color) => {
+    expect(resolveUsageColor(margin)).toBe(`bg-latte-${color}/85`);
+    expect(resolveBufferTone(margin)).toContain(`text-latte-${color}-text`);
+    expect(resolvePaceTone("unknown", margin)).toContain(`text-latte-${color}-text`);
+  });
+
+  it("uses neutral tones for missing usage and falls back to pace status", () => {
+    expect(resolveUsageColor(null)).toBe("bg-latte-surface1/80");
+    expect(resolveBufferTone(null)).toContain("text-latte-subtext0");
+    expect(resolvePaceTone("unknown", null)).toContain("text-latte-subtext0");
+    expect(resolvePaceTone("margin", null)).toContain("text-latte-green-text");
+    expect(resolvePaceTone("over", null)).toContain("text-latte-red-text");
+    expect(resolvePaceTone("balanced", null)).toContain("text-latte-yellow-text");
   });
 
   it("resolves local week starts on Monday", () => {

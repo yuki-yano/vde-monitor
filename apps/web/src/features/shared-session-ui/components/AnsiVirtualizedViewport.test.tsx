@@ -115,22 +115,7 @@ describe("AnsiVirtualizedViewport", () => {
     expect(virtualizerState.options?.followOnAppend).toBe(false);
   });
 
-  it("contains the absolute scroller and avoids commit-time flushSync", () => {
-    render(
-      <AnsiVirtualizedViewport {...defaultProps} lines={["line-1"]} isAtBottom height="320px" />,
-    );
-
-    const log = screen.getByRole("log", { name: "Terminal output" });
-    const region = screen.getByRole("region", { name: "Scrollable terminal output" });
-    expect(log.className).toContain("relative");
-    expect(log.className).toContain("flex-none");
-    expect(log.className).not.toContain("flex-1");
-    expect(log.style.height).toBe("320px");
-    expect(region.className).toContain("absolute");
-    expect(virtualizerState.options?.useFlushSync).toBe(false);
-  });
-
-  it("uses the supplied line-height estimate", () => {
+  it("uses the supplied line-height estimate without commit-time flushSync", () => {
     render(
       <AnsiVirtualizedViewport
         {...defaultProps}
@@ -141,6 +126,7 @@ describe("AnsiVirtualizedViewport", () => {
     );
 
     expect(virtualizerState.options?.estimateSize?.()).toBe(20);
+    expect(virtualizerState.options?.useFlushSync).toBe(false);
   });
 
   it("stretches every row to the widest rendered line without losing horizontal position", () => {

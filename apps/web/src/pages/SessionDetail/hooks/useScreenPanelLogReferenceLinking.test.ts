@@ -13,7 +13,11 @@ describe("useScreenPanelLogReferenceLinking", () => {
         paneId: "%1",
         sourceRepoRoot: "/repo",
         agent: "codex",
-        screenLines: ["src/start.ts", "plain line", "tail.tsx"],
+        screenLines: [
+          "src/start.ts",
+          "aaa src/main.ts:1 index.test.tsx https://example.com",
+          "tail.tsx",
+        ],
         onResolveFileReferenceCandidates,
       }),
     );
@@ -22,7 +26,12 @@ describe("useScreenPanelLogReferenceLinking", () => {
       expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(1);
     });
     const firstCallTokens = onResolveFileReferenceCandidates.mock.calls[0]?.[0] ?? [];
-    expect(firstCallTokens).toEqual(expect.arrayContaining(["src/start.ts", "tail.tsx"]));
+    expect([...firstCallTokens].sort()).toEqual([
+      "index.test.tsx",
+      "src/main.ts:1",
+      "src/start.ts",
+      "tail.tsx",
+    ]);
     expect(result.current.linkifiedScreenLines.length).toBe(3);
   });
 
@@ -77,10 +86,11 @@ describe("useScreenPanelLogReferenceLinking", () => {
     expect(result.current.linkifiedScreenLines).toEqual([]);
   });
 
-  it("re-runs resolve when context key changes even if tokens are unchanged", async () => {
-    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
-    const { rerender } = renderHook(
-      ({ paneId }: { paneId: string }) =>
+  it("re-resolves unchanged tokens for a new context and updates linkified output", async () => {
+    const initialResolver = vi.fn(async (_rawTokens: string[]) => [] as string[]);
+    const nextResolver = vi.fn(async (rawTokens: string[]) => rawTokens);
+    const { result, rerender } = renderHook(
+      ({ paneId, onResolveFileReferenceCandidates }) =>
         useScreenPanelLogReferenceLinking({
           mode: "text",
           effectiveWrapMode: "smart",
@@ -90,17 +100,14 @@ describe("useScreenPanelLogReferenceLinking", () => {
           screenLines: ["src/reused.ts"],
           onResolveFileReferenceCandidates,
         }),
-      { initialProps: { paneId: "%1" } },
+      { initialProps: { paneId: "%1", onResolveFileReferenceCandidates: initialResolver } },
     );
-
+    await waitFor(() => expect(initialResolver).toHaveBeenCalledExactlyOnceWith(["src/reused.ts"]));
+    expect(result.current.linkifiedScreenLines[0]).not.toContain("data-vde-file-ref");
+    rerender({ paneId: "%2", onResolveFileReferenceCandidates: nextResolver });
     await waitFor(() => {
-      expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(1);
-    });
-
-    rerender({ paneId: "%2" });
-
-    await waitFor(() => {
-      expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(2);
+      expect(nextResolver).toHaveBeenCalledExactlyOnceWith(["src/reused.ts"]);
+      expect(result.current.linkifiedScreenLines[0]).toContain('data-vde-file-ref="src/reused.ts"');
     });
   });
 

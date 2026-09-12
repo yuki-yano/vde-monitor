@@ -12,26 +12,6 @@ import { useScreenStream } from "./useScreenStream";
 
 const enc = new TextEncoder();
 
-const sseResponse = (chunks: string[]) => {
-  const stream = new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(enc.encode(chunk));
-      }
-      controller.close();
-    },
-  });
-  return new HttpResponse(stream, {
-    headers: { "Content-Type": "text/event-stream" },
-  });
-};
-
-const neverEndingStream = () =>
-  new ReadableStream({
-    start() {},
-    cancel() {},
-  });
-
 const openSseResponse = (chunks: string[]) =>
   new HttpResponse(
     new ReadableStream({
@@ -94,33 +74,40 @@ describe("useScreenStream", () => {
     expect(result.current.transport).toBe("polling");
   });
 
-  it("transport is 'connecting' before the initial stream opens", async () => {
+  it("connects with an encoded pane and auth, then delivers the first screen", async () => {
     let releaseConnection!: () => void;
     const connectionGate = new Promise<void>((resolve) => {
       releaseConnection = resolve;
     });
+    const onScreenEvent = vi.fn();
+    let capturedUrl: string | undefined;
+    let capturedAuth: string | null = null;
     server.use(
-      http.get(SCREEN_URL, async () => {
+      http.get(ENCODED_URL, async ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get("Authorization");
         await connectionGate;
-        return openSseResponse([buildScreenEvent()]);
+        return openSseResponse([buildScreenEvent({ paneId: "pane x", screen: "world" })]);
       }),
     );
-
     const { result, unmount } = renderHook(() =>
       useScreenStream({
         enabled: true,
-        paneId: "pane-1",
+        paneId: "pane x",
         apiBasePath: "/api",
-        token: "tok",
-        onScreenEvent: vi.fn(),
+        token: "my-token",
+        onScreenEvent,
       }),
     );
-
     expect(result.current.transport).toBe("connecting");
+    await waitFor(() => expect(capturedUrl).toContain("pane%20x"));
+    expect(capturedAuth).toBe("Bearer my-token");
+    expect(onScreenEvent).not.toHaveBeenCalled();
     releaseConnection();
-    await waitFor(() => {
-      expect(result.current.transport).toBe("sse");
-    });
+    await waitFor(() => expect(result.current.transport).toBe("sse"));
+    expect(onScreenEvent).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ paneId: "pane x", screen: "world" }),
+    );
     unmount();
   });
 
@@ -157,52 +144,6 @@ describe("useScreenStream", () => {
       expect(result.current.transport).toBe("sse");
     });
     unmount();
-  });
-
-  it("transport becomes 'sse' when the first screen event arrives", async () => {
-    server.use(http.get(SCREEN_URL, () => openSseResponse([buildScreenEvent()])));
-
-    const { result } = renderHook(() =>
-      useScreenStream({
-        enabled: true,
-        paneId: "pane-1",
-        apiBasePath: "/api",
-        token: "tok",
-        onScreenEvent: vi.fn(),
-      }),
-    );
-
-    await waitFor(() => {
-      expect(result.current.transport).toBe("sse");
-    });
-  });
-
-  it("calls onScreenEvent when a screen event arrives", async () => {
-    const received: ScreenResponse[] = [];
-    let resolveFirst!: () => void;
-    const firstEvent = new Promise<void>((resolve) => {
-      resolveFirst = resolve;
-    });
-
-    server.use(http.get(SCREEN_URL, () => sseResponse([buildScreenEvent({ screen: "world" })])));
-
-    renderHook(() =>
-      useScreenStream({
-        enabled: true,
-        paneId: "pane-1",
-        apiBasePath: "/api",
-        token: "tok",
-        onScreenEvent: (r) => {
-          received.push(r);
-          resolveFirst();
-        },
-      }),
-    );
-
-    await firstEvent;
-
-    expect(received).toHaveLength(1);
-    expect(received[0]?.screen).toBe("world");
   });
 
   it("uses the latest event callback without recreating the stream", async () => {
@@ -294,72 +235,6 @@ describe("useScreenStream", () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
     expect(onScreenEvent).not.toHaveBeenCalled();
-  });
-
-  it("encodes paneId in the URL", async () => {
-    let capturedUrl: string | null = null;
-    let resolveRequest!: () => void;
-    const requestMade = new Promise<void>((resolve) => {
-      resolveRequest = resolve;
-    });
-
-    server.use(
-      http.get(ENCODED_URL, ({ request }) => {
-        capturedUrl = request.url;
-        resolveRequest();
-        return new HttpResponse(neverEndingStream(), {
-          headers: { "Content-Type": "text/event-stream" },
-        });
-      }),
-    );
-
-    const { unmount } = renderHook(() =>
-      useScreenStream({
-        enabled: true,
-        paneId: "pane x",
-        apiBasePath: "/api",
-        token: "tok",
-        onScreenEvent: vi.fn(),
-      }),
-    );
-
-    await requestMade;
-    expect(capturedUrl).toContain("pane%20x");
-
-    unmount();
-  });
-
-  it("sends Authorization header", async () => {
-    let capturedAuth: string | null = null;
-    let resolveRequest!: () => void;
-    const requestMade = new Promise<void>((resolve) => {
-      resolveRequest = resolve;
-    });
-
-    server.use(
-      http.get(SCREEN_URL, ({ request }) => {
-        capturedAuth = request.headers.get("Authorization");
-        resolveRequest();
-        return new HttpResponse(neverEndingStream(), {
-          headers: { "Content-Type": "text/event-stream" },
-        });
-      }),
-    );
-
-    const { unmount } = renderHook(() =>
-      useScreenStream({
-        enabled: true,
-        paneId: "pane-1",
-        apiBasePath: "/api",
-        token: "my-token",
-        onScreenEvent: vi.fn(),
-      }),
-    );
-
-    await requestMade;
-    expect(capturedAuth).toBe("Bearer my-token");
-
-    unmount();
   });
 
   it("closes the SSE connection on unmount (no further requests)", async () => {

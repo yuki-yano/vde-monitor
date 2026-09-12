@@ -197,84 +197,42 @@ describe("SessionSidebar", () => {
     expect(screen.getByText("Window 2")).toBeTruthy();
     expect(screen.getByText("feature/codex")).toBeTruthy();
     expect(screen.getByText("feature/claude")).toBeTruthy();
-    expect(screen.queryByText("D:Y")).toBeNull();
-    expect(screen.queryByText("L:N")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("M:N")).toBeNull();
-    expect(screen.queryByText("D:?")).toBeNull();
     expect(screen.getByText("2 windows")).toBeTruthy();
     expect(screen.getAllByText("1 / 2 panes")).toHaveLength(2);
   });
 
-  it("renders agent/time row with branch on the next line", () => {
+  it("moves the branch to its own row below the 460px sidebar boundary", () => {
     const session = createSessionDetail({
       paneId: "pane-1",
       title: "Codex Session",
       agent: "codex",
-      branch: "feature/sidebar-layout",
+      branch: "feature/sidebar",
       lastInputAt: "2026-02-07T10:00:00.000Z",
       windowIndex: 1,
       sessionName: "alpha",
     });
     const state = buildState({
       nowMs: Date.parse("2026-02-07T10:01:00.000Z"),
-      sidebarWidth: 400,
+      sidebarWidth: 459,
       sessionGroups: [
-        {
-          repoRoot: "/Users/test/repo",
-          sessions: [session],
-          lastInputAt: session.lastInputAt,
-        },
+        { repoRoot: "/Users/test/repo", sessions: [session], lastInputAt: session.lastInputAt },
       ],
     });
-
-    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
-
+    const first = renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
     expect(screen.getByText("CODEX")).toBeTruthy();
-    const branchText = screen.getByText("feature/sidebar-layout");
-    const branchPill = branchText.parentElement;
-    expect(branchPill?.className).toContain("max-w-[140px]");
-    expect(branchPill?.className).not.toContain("basis-full");
-
-    const lastInputValue = screen.getByText("1m ago");
-    const lastInputPill = lastInputValue.closest("span.inline-flex");
-    expect(lastInputPill?.parentElement?.className).not.toContain("ml-auto");
-    const sessionLink = screen.getByText("Codex Session").closest("a");
-    expect(sessionLink?.querySelector("span.basis-full")).toBeTruthy();
-  });
-
-  it("renders branch inline to the right of last input when sidebar is 460px or wider", () => {
-    const session = createSessionDetail({
-      paneId: "pane-1",
-      title: "Codex Session",
-      agent: "codex",
-      branch: "feature/sidebar-inline",
-      lastInputAt: "2026-02-07T10:00:00.000Z",
-      windowIndex: 1,
-      sessionName: "alpha",
-    });
-    const state = buildState({
-      nowMs: Date.parse("2026-02-07T10:01:00.000Z"),
-      sidebarWidth: 460,
-      sessionGroups: [
-        {
-          repoRoot: "/Users/test/repo",
-          sessions: [session],
-          lastInputAt: session.lastInputAt,
-        },
-      ],
-    });
-
-    renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
-
-    const branchPill = screen.getByText("feature/sidebar-inline").parentElement;
-    expect(branchPill?.className).toContain("ml-auto");
-    expect(branchPill?.className).toContain("max-w-[140px]");
-    const lastInputValue = screen.getByText("1m ago");
-    const lastInputPill = lastInputValue.closest("span.inline-flex");
-    expect(lastInputPill?.parentElement?.className).toContain("flex-nowrap");
-    const sessionLink = screen.getByText("Codex Session").closest("a");
-    expect(sessionLink?.querySelector("span.basis-full")).toBeNull();
+    expect(screen.getByText("1m ago")).toBeTruthy();
+    expect(screen.getByText("feature/sidebar")).toBeTruthy();
+    expect(
+      screen.getByText("Codex Session").closest("a")?.querySelector("span.basis-full"),
+    ).toBeTruthy();
+    first.unmount();
+    renderWithRouter(
+      <SessionSidebar state={{ ...state, sidebarWidth: 460 }} actions={buildActions()} />,
+    );
+    expect(screen.getByText("feature/sidebar")).toBeTruthy();
+    expect(
+      screen.getByText("Codex Session").closest("a")?.querySelector("span.basis-full"),
+    ).toBeNull();
   });
 
   it("shows empty state when no agent sessions", () => {
@@ -338,8 +296,6 @@ describe("SessionSidebar", () => {
     renderWithRouter(<SessionSidebar state={state} actions={buildActions()} />);
 
     expect(screen.getByText("Codex Session")).toBeTruthy();
-    const codexLink = screen.getByText("Codex Session").closest("a");
-    expect(codexLink?.className).toContain("before:bg-latte-green");
     expect(screen.queryByText("Shell Session")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "SHELL" }));
@@ -350,10 +306,6 @@ describe("SessionSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "EDITOR" }));
 
     expect(screen.getByText("Neovim Session")).toBeTruthy();
-    const neovimLink = screen.getByText("Neovim Session").closest("a");
-    expect(neovimLink?.className).toContain("before:bg-latte-maroon");
-    const editorIcon = screen.getByLabelText("EDITOR");
-    expect(editorIcon.className).toContain("border-latte-maroon/45");
     expect(screen.queryByText("Codex Session")).toBeNull();
     expect(screen.queryByText("Shell Session")).toBeNull();
   });

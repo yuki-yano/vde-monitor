@@ -8,23 +8,6 @@ describe("useDebouncedCallback", () => {
     vi.useRealTimers();
   });
 
-  it("fires the callback once after delayMs of inactivity", () => {
-    vi.useFakeTimers();
-    const callback = vi.fn();
-    const { result } = renderHook(() => useDebouncedCallback(callback, 500));
-
-    act(() => {
-      result.current.run();
-    });
-
-    expect(callback).not.toHaveBeenCalled();
-
-    act(() => {
-      vi.advanceTimersByTime(500);
-    });
-    expect(callback).toHaveBeenCalledTimes(1);
-  });
-
   it("does not fire before delayMs elapses, then fires exactly at the boundary", () => {
     vi.useFakeTimers();
     const callback = vi.fn();

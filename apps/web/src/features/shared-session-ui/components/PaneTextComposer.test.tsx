@@ -133,8 +133,9 @@ describe("PaneTextComposer", () => {
     expect(sendButton.disabled).toBe(true);
   });
 
-  it("reflects auto-enter state in the checkbox", () => {
-    const actions = buildActions();
+  it("reflects auto-enter state and forwards checkbox toggles", () => {
+    const onToggleAutoEnter = vi.fn();
+    const actions = buildActions({ onToggleAutoEnter });
     const view = render(
       <PaneTextComposer state={buildState({ autoEnter: true })} actions={actions} />,
     );
@@ -148,19 +149,7 @@ describe("PaneTextComposer", () => {
     expect(
       (screen.getByRole("checkbox", { name: "Enter after send" }) as HTMLInputElement).checked,
     ).toBe(false);
-  });
-
-  it("toggles auto-enter from the checkbox", () => {
-    const onToggleAutoEnter = vi.fn();
-    render(
-      <PaneTextComposer
-        state={buildState({ autoEnter: false })}
-        actions={buildActions({ onToggleAutoEnter })}
-      />,
-    );
-
     fireEvent.click(screen.getByRole("checkbox", { name: "Enter after send" }));
-
     expect(onToggleAutoEnter).toHaveBeenCalledTimes(1);
   });
 

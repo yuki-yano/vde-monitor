@@ -96,21 +96,23 @@ describe("ControlsPanel", () => {
     expect(screen.queryByText("Sending...")).toBeNull();
   });
 
-  it("sends keys", async () => {
+  it("sends keys and keeps permission shortcuts available when the keys section is hidden", async () => {
     const onSendKey = vi.fn();
     const onToggleShift = vi.fn();
     const onToggleCtrl = vi.fn();
     const onKillPane = vi.fn();
     const onKillWindow = vi.fn();
-    const state = buildState();
+    const state = buildState({ showPermissionShortcuts: true });
+    const onSendPermissionShortcut = vi.fn();
     const actions = buildActions({
       onSendKey,
+      onSendPermissionShortcut,
       onToggleShift,
       onToggleCtrl,
       onKillPane,
       onKillWindow,
     });
-    render(<ControlsPanel state={state} actions={actions} />);
+    const view = render(<ControlsPanel state={state} actions={actions} />);
 
     fireEvent.click(screen.getByText("Shift"));
     expect(onToggleShift).toHaveBeenCalled();
@@ -136,17 +138,9 @@ describe("ControlsPanel", () => {
     await waitFor(() => {
       expect(onKillWindow).toHaveBeenCalled();
     });
-  });
-
-  it("shows permission shortcuts and forwards selected values", () => {
-    const onSendPermissionShortcut = vi.fn();
-    const state = buildState({ showPermissionShortcuts: true });
-    const actions = buildActions({ onSendPermissionShortcut });
-    render(<ControlsPanel state={state} actions={actions} showKeysSection={false} />);
-
+    view.rerender(<ControlsPanel state={state} actions={actions} showKeysSection={false} />);
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.click(screen.getByRole("button", { name: "Esc" }));
-
     expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(1, "1");
     expect(onSendPermissionShortcut).toHaveBeenNthCalledWith(2, "Escape");
   });

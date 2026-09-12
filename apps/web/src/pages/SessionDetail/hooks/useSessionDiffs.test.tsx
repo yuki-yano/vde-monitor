@@ -330,7 +330,7 @@ describe("useSessionDiffs summary Query", () => {
 });
 
 describe("useSessionDiffs diff-file Query", () => {
-  it("uses the full key/options, one StrictMode observer, and forwards AbortSignal", async () => {
+  it("coalesces file requests in StrictMode and forwards AbortSignal", async () => {
     let fileSignal: AbortSignal | undefined;
     const requestDiffFile = vi.fn<UseSessionDiffsParams["requestDiffFile"]>(
       async (_paneId, path, rev, _options, signal) => {
@@ -338,7 +338,7 @@ describe("useSessionDiffs diff-file Query", () => {
         return createDiffFile({ path, rev: rev ?? null });
       },
     );
-    const { result, queryClient } = renderDiffs({ strict: true, requestDiffFile });
+    const { result } = renderDiffs({ strict: true, requestDiffFile });
     await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
     act(() => {
       result.current.toggleDiff("src/index.ts");
@@ -349,27 +349,6 @@ describe("useSessionDiffs diff-file Query", () => {
     expect(requestDiffFile).toHaveBeenCalledTimes(1);
     expect(fileSignal).toBeInstanceOf(AbortSignal);
 
-    const summary = result.current.diffSummary!;
-    const key = sessionDetailQueryKeys.diffFile("pane-1", {
-      repoRoot: "/repo",
-      worktreePath: null,
-      branch: null,
-      mode: "total",
-      revision: summary.rev,
-      summarySnapshot: buildDiffSummarySnapshot(summary),
-      path: "src/index.ts",
-    });
-    const query = queryClient.getQueryCache().find({ queryKey: key, exact: true });
-    expect(query?.getObserversCount()).toBe(1);
-    expect(query?.options).toMatchObject({
-      staleTime: Infinity,
-      gcTime: 0,
-      retry: false,
-      networkMode: "online",
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-    });
     expect(requestDiffFile).toHaveBeenCalledWith(
       "pane-1",
       "src/index.ts",

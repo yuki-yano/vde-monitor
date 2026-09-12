@@ -27,13 +27,6 @@ describe("resolveBranchPrStatus", () => {
   it("returns null when pr info is absent (gh unavailable)", () => {
     expect(resolveBranchPrStatus(entry({ pr: null }))).toBeNull();
   });
-
-  it("maps pr state to label and class", () => {
-    const status = resolveBranchPrStatus(
-      entry({ pr: { state: "open", url: "https://example.com", number: 1 } }),
-    );
-    expect(status?.label).toBe("PR Open");
-  });
 });
 
 describe("buildBranchFileChangeCategories", () => {

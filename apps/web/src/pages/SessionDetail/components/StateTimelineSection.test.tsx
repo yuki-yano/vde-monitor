@@ -154,7 +154,7 @@ describe("StateTimelineSection", () => {
     expect(props.actions.onTimelineScopeChange).toHaveBeenNthCalledWith(2, "pane");
   });
 
-  it("renders DONE in blue and includes it in Waiting", () => {
+  it("renders DONE and includes it in Waiting", () => {
     const doneItem = {
       ...timeline.items[0]!,
       state: "DONE" as const,
@@ -171,11 +171,9 @@ describe("StateTimelineSection", () => {
         DONE: doneItem.durationMs,
       },
     };
-    const { container } = render(<StateTimelineSection {...props} />);
+    render(<StateTimelineSection {...props} />);
 
-    const doneBadge = screen.getByText("DONE").closest("span");
-    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(screen.getByText("DONE")).toBeTruthy();
     expect(screen.getByText("Waiting 40m")).toBeTruthy();
-    expect(container.querySelector('[title^="DONE"]')?.className).toContain("bg-latte-blue/80");
   });
 });

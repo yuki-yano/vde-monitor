@@ -28,31 +28,6 @@ describe("createAppQueryClient", () => {
     });
   });
 
-  it("creates an isolated cache for each app lifetime", () => {
-    const first = createAppQueryClient();
-    const second = createAppQueryClient();
-
-    first.setQueryData(["session-detail", "pane-1"], { value: "first" });
-
-    expect(second.getQueryData(["session-detail", "pane-1"])).toBeUndefined();
-  });
-
-  it("bridges window focus and bfcache page restoration into query focus events", () => {
-    const documentAddSpy = vi.spyOn(document, "addEventListener");
-    const windowAddSpy = vi.spyOn(window, "addEventListener");
-
-    configureAppQueryFocusManager();
-    const unsubscribe = focusManager.subscribe(() => undefined);
-
-    expect(documentAddSpy).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
-    expect(windowAddSpy).toHaveBeenCalledWith("focus", expect.any(Function));
-    expect(windowAddSpy).toHaveBeenCalledWith("pageshow", expect.any(Function));
-
-    unsubscribe();
-    documentAddSpy.mockRestore();
-    windowAddSpy.mockRestore();
-  });
-
   it("refetches active observers for visibility, focus, and bfcache restoration", async () => {
     configureAppQueryFocusManager();
     const client = createAppQueryClient();

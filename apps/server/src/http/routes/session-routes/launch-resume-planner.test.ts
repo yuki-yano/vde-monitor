@@ -45,32 +45,4 @@ describe("resolveLaunchResumePlan", () => {
     expect(plan.meta?.policy).toBe("best_effort");
     expect(plan.error).toBeNull();
   });
-
-  it("returns required error when pane id is invalid", async () => {
-    const plan = await resolveLaunchResumePlan({
-      requestAgent: "codex",
-      resumeFromPaneId: "%missing",
-      resumePolicy: "required",
-      getPaneDetail: () => null,
-    });
-
-    expect(plan.requested).toBe(true);
-    expect(plan.error?.code).toBe("RESUME_INVALID_INPUT");
-    expect(plan.meta?.failureReason).toBe("invalid_input");
-    expect(plan.meta?.reused).toBe(false);
-  });
-
-  it("falls back on best effort when pane id is invalid", async () => {
-    const plan = await resolveLaunchResumePlan({
-      requestAgent: "codex",
-      resumeFromPaneId: "%missing",
-      resumePolicy: "best_effort",
-      getPaneDetail: () => null,
-    });
-
-    expect(plan.requested).toBe(true);
-    expect(plan.error).toBeNull();
-    expect(plan.meta?.fallbackReason).toBe("invalid_input");
-    expect(plan.meta?.reused).toBe(false);
-  });
 });

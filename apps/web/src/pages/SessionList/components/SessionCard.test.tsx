@@ -98,36 +98,6 @@ describe("SessionCard", () => {
     expect(text.indexOf("feature/worktree-branch")).toBeLessThan(text.indexOf("Pane pane-1"));
   });
 
-  it("does not show worktree flags when session is outside vw worktree", () => {
-    const session = buildSession({
-      worktreePath: "/Users/test/repo",
-      worktreeDirty: true,
-      worktreeLocked: true,
-      worktreeMerged: true,
-    });
-    renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
-
-    expect(screen.queryByText("D:Y")).toBeNull();
-    expect(screen.queryByText("L:Y")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("M:Y")).toBeNull();
-  });
-
-  it("does not show worktree flags when session is under vw worktree", () => {
-    const session = buildSession({
-      worktreePath: "/Users/test/repo/.worktree/feature/foo",
-      worktreeDirty: true,
-      worktreeLocked: false,
-      worktreeMerged: false,
-    });
-    renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
-
-    expect(screen.queryByText("D:Y")).toBeNull();
-    expect(screen.queryByText("L:N")).toBeNull();
-    expect(screen.queryByText("PR:Y")).toBeNull();
-    expect(screen.queryByText("M:N")).toBeNull();
-  });
-
   it("shows EDITOR badge for unknown state with nvim command", () => {
     const session = buildSession({
       state: "UNKNOWN",

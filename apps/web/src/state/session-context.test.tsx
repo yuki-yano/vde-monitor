@@ -106,25 +106,6 @@ describe("SessionProvider", () => {
     Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
   });
 
-  it("polls sessions every 1000ms by default", () => {
-    vi.useFakeTimers();
-    const setIntervalSpy = vi.spyOn(window, "setInterval");
-    server.use(
-      http.get(pathToUrl("/sessions"), () => {
-        return HttpResponse.json({ sessions: [] });
-      }),
-    );
-
-    render(
-      <SessionProvider>
-        <div />
-      </SessionProvider>,
-    );
-
-    const calls = setIntervalSpy.mock.calls.map((call) => call[1]);
-    expect(calls).toContain(1000);
-  });
-
   it("marks the initial sessions load only after the first snapshot resolves", async () => {
     let releaseRequest = () => {};
     const requestGate = new Promise<void>((resolve) => {

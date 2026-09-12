@@ -45,25 +45,6 @@ describe("useScreenCache", () => {
     return { ...hook, requestScreen };
   };
 
-  it("caches screen within ttl", async () => {
-    const { result, requestScreen } = setup();
-
-    await act(async () => {
-      await result.current.fetchScreen("pane-1");
-    });
-
-    await waitFor(() => {
-      expect(result.current.cache["pane-1"]).toBeDefined();
-    });
-
-    await act(async () => {
-      await result.current.fetchScreen("pane-1");
-    });
-
-    expect(requestScreen).toHaveBeenCalledTimes(1);
-    expect(result.current.cache["pane-1"]?.screen).toBe("hello");
-  });
-
   it("sets error when disconnected", async () => {
     const { result, requestScreen } = setup({
       connected: false,
@@ -153,7 +134,7 @@ describe("useScreenCache", () => {
     expect(result.current.second.cache["pane-1"]).toBeUndefined();
   });
 
-  it("re-fetches after ttl expires", async () => {
+  it("reuses cached screen content until the ttl expires", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(0));
     const { result, requestScreen } = setup({ ttlMs: 1000 });
@@ -163,6 +144,13 @@ describe("useScreenCache", () => {
     });
 
     expect(requestScreen).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date(999));
+    await act(async () => {
+      await result.current.fetchScreen("pane-1");
+    });
+    expect(requestScreen).toHaveBeenCalledTimes(1);
+    expect(result.current.cache["pane-1"]?.screen).toBe("hello");
 
     vi.setSystemTime(new Date(2000));
 

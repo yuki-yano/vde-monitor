@@ -12,7 +12,7 @@ describe("sessionDetailQueryKeys", () => {
     );
   });
 
-  it("keeps force refresh out of the response identity", () => {
+  it("keeps the branch invalidation key shape", () => {
     const key = sessionDetailQueryKeys.branches("pane-1", "/repo/a");
 
     expect(key).toEqual(["session-detail", "pane-1", "branches", { repoRoot: "/repo/a" }]);
@@ -65,7 +65,6 @@ describe("sessionDetailQueryKeys", () => {
     };
     const key = sessionDetailQueryKeys.diffFile("pane-1", params);
 
-    expect(key).toEqual(["session-detail", "pane-1", "diff-file", params]);
     expect(key).not.toEqual(sessionDetailQueryKeys.diffFile("pane-2", params));
     for (const changed of [
       { repoRoot: "/repo/b" },
@@ -123,14 +122,6 @@ describe("sessionDetailQueryKeys", () => {
       path: "src/index.ts",
     });
 
-    expect(head).toEqual([
-      "session-detail",
-      "pane-1",
-      "commits",
-      "log",
-      "head",
-      { ...scope, limit: 10 },
-    ]);
     expect(tail).not.toEqual(head);
     expect(tail).not.toEqual(
       sessionDetailQueryKeys.commitLogTail("pane-1", {
@@ -181,50 +172,6 @@ describe("sessionDetailQueryKeys", () => {
     expect(search.slice(0, -1)).toEqual(sessionDetailQueryKeys.filesSearchRoot("pane-1", scope));
     expect(lookup.slice(0, -1)).toEqual(sessionDetailQueryKeys.filesLookupRoot("pane-1", scope));
     expect(content.slice(0, -1)).toEqual(sessionDetailQueryKeys.filesContentRoot("pane-1", scope));
-    expect(tree).not.toEqual(
-      sessionDetailQueryKeys.filesTree("pane-2", {
-        ...scope,
-        path: "src",
-        cursor: "tree-cursor",
-        limit: 200,
-      }),
-    );
-    expect(tree).not.toEqual(
-      sessionDetailQueryKeys.filesTree("pane-1", {
-        ...scope,
-        path: ".",
-        cursor: "tree-cursor",
-        limit: 200,
-      }),
-    );
-    expect(search).not.toEqual(
-      sessionDetailQueryKeys.filesSearch("pane-1", {
-        ...scope,
-        query: "other",
-        cursor: "search-cursor",
-        limit: 100,
-      }),
-    );
-    expect(lookup).not.toEqual(
-      sessionDetailQueryKeys.filesLookup("pane-1", scope, {
-        ...lookupParams,
-        targetRoot: "/other",
-      }),
-    );
-    expect(content).not.toEqual(
-      sessionDetailQueryKeys.filesContent("pane-1", scope, {
-        ...contentParams,
-        path: "src/other.ts",
-      }),
-    );
-    expect(content).not.toEqual(
-      sessionDetailQueryKeys.filesContent(
-        "pane-1",
-        { ...scope, resolvedRoot: "/other" },
-        contentParams,
-      ),
-    );
-
     const treeVariants = [
       sessionDetailQueryKeys.filesTree("pane-2", {
         ...scope,

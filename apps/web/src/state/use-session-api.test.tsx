@@ -137,6 +137,13 @@ describe("useSessionApi", () => {
 
     await expect(promise1).resolves.toMatchObject({ ok: true, paneId: "pane-1" });
     await expect(promise2).resolves.toMatchObject({ ok: true, paneId: "pane-1" });
+    await expect(
+      result.current.core.requestScreen("pane-1", { mode: "text" }),
+    ).resolves.toMatchObject({
+      ok: true,
+      paneId: "pane-1",
+    });
+    expect(requestCount).toBe(2);
   });
 
   it("updates connectionIssue on diff summary errors and clears on success", async () => {

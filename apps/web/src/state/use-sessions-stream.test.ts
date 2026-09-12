@@ -113,160 +113,30 @@ describe("useSessionsStream", () => {
     vi.restoreAllMocks();
   });
 
-  // -------------------------------------------------------------------------
-  // 1. transport transitions to "sse" when stream opens
-  // -------------------------------------------------------------------------
-
-  it('calls onTransportChange("sse") when SSE connection opens', async () => {
+  it("opens the stream and delivers snapshot, upsert, and remove while ignoring heartbeats", async () => {
+    const initial = makeSession("pane-1");
+    const updated = makeSession("pane-2");
+    const events = [
+      { type: "snapshot", sessions: [initial] },
+      { type: "upsert", session: updated },
+      { type: "remove", paneId: "pane-3" },
+    ];
     server.use(
-      http.get(
-        STREAM_URL,
-        () =>
-          new HttpResponse(neverEndingStream(), {
-            headers: { "Content-Type": "text/event-stream" },
-          }),
+      http.get(STREAM_URL, () =>
+        openSseResponse([
+          "event: heartbeat\ndata: {}\n\n",
+          ...events.map(
+            (event) =>
+              `event: sessions\ndata: ${JSON.stringify({ ...event, serverTime: new Date(0).toISOString() })}\n\n`,
+          ),
+        ]),
       ),
     );
-
-    const onTransportChange = vi.fn();
-    renderHook(() =>
-      useSessionsStream({
-        enabled: true,
-        apiBaseUrl: API_BASE_URL,
-        token: TOKEN,
-        onSnapshot: vi.fn(),
-        onUpsert: vi.fn(),
-        onRemove: vi.fn(),
-        onTransportChange,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onTransportChange).toHaveBeenCalledWith("sse");
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // 2. snapshot event
-  // -------------------------------------------------------------------------
-
-  it("calls onSnapshot with sessions from a snapshot event", async () => {
-    const session = makeSession("pane-1");
-    const payload = JSON.stringify({
-      type: "snapshot",
-      serverTime: new Date().toISOString(),
-      sessions: [session],
-    });
-    const chunk = `event: sessions\ndata: ${payload}\n\n`;
-
-    server.use(http.get(STREAM_URL, () => openSseResponse([chunk])));
-
-    const onSnapshot = vi.fn();
-
-    renderHook(() =>
-      useSessionsStream({
-        enabled: true,
-        apiBaseUrl: API_BASE_URL,
-        token: TOKEN,
-        onSnapshot,
-        onUpsert: vi.fn(),
-        onRemove: vi.fn(),
-        onTransportChange: vi.fn(),
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onSnapshot).toHaveBeenCalledOnce();
-    });
-    expect(onSnapshot.mock.calls[0]?.[0]).toHaveLength(1);
-    expect(onSnapshot.mock.calls[0]?.[0]?.[0]?.paneId).toBe("pane-1");
-  });
-
-  // -------------------------------------------------------------------------
-  // 3. upsert event
-  // -------------------------------------------------------------------------
-
-  it("calls onUpsert with session from an upsert event", async () => {
-    const session = makeSession("pane-2");
-    const payload = JSON.stringify({
-      type: "upsert",
-      serverTime: new Date().toISOString(),
-      session,
-    });
-    const chunk = `event: sessions\ndata: ${payload}\n\n`;
-
-    server.use(http.get(STREAM_URL, () => openSseResponse([chunk])));
-
-    const onUpsert = vi.fn();
-
-    renderHook(() =>
-      useSessionsStream({
-        enabled: true,
-        apiBaseUrl: API_BASE_URL,
-        token: TOKEN,
-        onSnapshot: vi.fn(),
-        onUpsert,
-        onRemove: vi.fn(),
-        onTransportChange: vi.fn(),
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onUpsert).toHaveBeenCalledOnce();
-    });
-    expect(onUpsert.mock.calls[0]?.[0]?.paneId).toBe("pane-2");
-  });
-
-  // -------------------------------------------------------------------------
-  // 4. remove event
-  // -------------------------------------------------------------------------
-
-  it("calls onRemove with paneId from a remove event", async () => {
-    const payload = JSON.stringify({
-      type: "remove",
-      serverTime: new Date().toISOString(),
-      paneId: "pane-3",
-    });
-    const chunk = `event: sessions\ndata: ${payload}\n\n`;
-
-    server.use(http.get(STREAM_URL, () => openSseResponse([chunk])));
-
-    const onRemove = vi.fn();
-
-    renderHook(() =>
-      useSessionsStream({
-        enabled: true,
-        apiBaseUrl: API_BASE_URL,
-        token: TOKEN,
-        onSnapshot: vi.fn(),
-        onUpsert: vi.fn(),
-        onRemove,
-        onTransportChange: vi.fn(),
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onRemove).toHaveBeenCalledOnce();
-    });
-    expect(onRemove.mock.calls[0]?.[0]).toBe("pane-3");
-  });
-
-  // -------------------------------------------------------------------------
-  // 5. Non-sessions events are ignored (e.g. heartbeat)
-  // -------------------------------------------------------------------------
-
-  it("ignores heartbeat events and does not call session callbacks", async () => {
-    // Send a heartbeat, then keep the stream open
-    const heartbeatChunk = `event: heartbeat\ndata: {}\n\n`;
-
-    server.use(http.get(STREAM_URL, () => openSseResponse([heartbeatChunk])));
-
     const onSnapshot = vi.fn();
     const onUpsert = vi.fn();
     const onRemove = vi.fn();
     const onTransportChange = vi.fn();
-
-    renderHook(() =>
+    const { unmount } = renderHook(() =>
       useSessionsStream({
         enabled: true,
         apiBaseUrl: API_BASE_URL,
@@ -277,21 +147,12 @@ describe("useSessionsStream", () => {
         onTransportChange,
       }),
     );
-
-    // Wait for transport to open
-    await waitFor(() => {
-      expect(onTransportChange).toHaveBeenCalledWith("sse");
-    });
-
-    // Session callbacks should not have been triggered
-    expect(onSnapshot).not.toHaveBeenCalled();
-    expect(onUpsert).not.toHaveBeenCalled();
-    expect(onRemove).not.toHaveBeenCalled();
+    await waitFor(() => expect(onRemove).toHaveBeenCalledExactlyOnceWith("pane-3"));
+    expect(onTransportChange).toHaveBeenCalledWith("sse");
+    expect(onSnapshot).toHaveBeenCalledExactlyOnceWith([initial]);
+    expect(onUpsert).toHaveBeenCalledExactlyOnceWith(updated);
+    unmount();
   });
-
-  // -------------------------------------------------------------------------
-  // 6. 401 triggers onAuthError and transport stays "polling"
-  // -------------------------------------------------------------------------
 
   it("calls onAuthError and keeps transport as polling on 401", async () => {
     server.use(

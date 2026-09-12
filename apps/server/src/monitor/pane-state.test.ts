@@ -9,43 +9,6 @@ import {
 } from "./pane-state";
 
 describe("pane-state", () => {
-  it("initializes default state", () => {
-    const store = createPaneStateStore();
-    const state = store.get("pane-1");
-    expect(state.lifecycle).toBe("UNKNOWN");
-    expect(state.completionCursor).toBeNull();
-    expect(state.pendingRestoredCompletionCursor).toBeNull();
-    expect(state.pendingRestoredLifecycle).toBeNull();
-    expect(state.pendingRestoredLastAgent).toBeNull();
-    expect(state.lastResolvedAgent).toBe("unknown");
-    expect(state.agentPresence).toBe("indeterminate");
-    expect(state.agentPresent).toBe(false);
-    expect(state.consecutiveAbsentObservations).toBe(0);
-    expect(state.pendingAgentLifecycleEvents).toEqual([]);
-    expect(state.lastOutputAt).toBeNull();
-    expect(state.lastEventAt).toBeNull();
-    expect(state.lastMessage).toBeNull();
-    expect(state.lastInputAt).toBeNull();
-    expect(state.lastRunStartedAt).toBeNull();
-    expect(state.manualSortAt).toBeNull();
-    expect(state.agentSessionId).toBeNull();
-    expect(state.agentSessionSource).toBeNull();
-    expect(state.agentSessionConfidence).toBeNull();
-    expect(state.agentSessionObservedAt).toBeNull();
-    expect(state.externalInputCursorBytes).toBeNull();
-    expect(state.externalInputSignature).toBeNull();
-    expect(state.externalInputLastDetectedAt).toBeNull();
-    expect(state.externalInputLastCheckedAt).toBeNull();
-    expect(state.externalInputLastReason).toBeNull();
-    expect(state.externalInputLastReasonCode).toBeNull();
-    expect(state.externalInputLastErrorMessage).toBeNull();
-    expect(state.lastFingerprint).toBeNull();
-    expect(state.lastFingerprintCaptureAtMs).toBeNull();
-    expect(state.hookState).toBeNull();
-    expect(state.herdrAgentStatus).toBeNull();
-    expect(state.codexQuestionPromptActive).toBe(false);
-  });
-
   it("updates input timestamp only when newer", () => {
     const state = createPaneStateStore().get("pane-1");
     state.lastInputAt = "2024-01-02T00:00:00.000Z";

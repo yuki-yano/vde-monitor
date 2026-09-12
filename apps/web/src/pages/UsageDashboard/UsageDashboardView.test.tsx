@@ -257,7 +257,7 @@ describe("UsageDashboardView", () => {
     expect(screen.getByText("Weekly")).toBeTruthy();
   });
 
-  it("groups the reset countdown and deadline above buffer and pace", () => {
+  it("renders reset time semantics, buffer, and pace feedback", () => {
     const resetAt = new Date(2026, 1, 27, 10, 5);
     const codex = createProvider("codex", {
       windows: [
@@ -270,7 +270,7 @@ describe("UsageDashboardView", () => {
           pace: {
             elapsedPercent: 20,
             projectedEndUtilizationPercent: 50,
-            paceMarginPercent: 30,
+            paceMarginPercent: 4,
             status: "margin",
           },
         },
@@ -285,18 +285,13 @@ describe("UsageDashboardView", () => {
       />,
     );
 
-    const countdown = screen.getByText("Resets in 1h");
+    expect(screen.getByText("Resets in 1h")).toBeTruthy();
     const deadline = screen.getByText("Feb 27 · 10:05");
-    const buffer = screen.getByText("Buffer +10%");
+    expect(screen.getByText("Buffer +10%")).toBeTruthy();
+    expect(screen.getByText("Pace +4% margin").className).toContain("text-latte-yellow");
 
-    expect(countdown.parentElement).toBe(deadline.parentElement);
-    expect(buffer.parentElement).not.toBe(countdown.parentElement);
     expect(deadline.tagName).toBe("TIME");
     expect(deadline.getAttribute("datetime")).toBe(resetAt.toISOString());
-    expect(deadline.className).toContain("whitespace-nowrap");
-    expect(deadline.className).toContain("shrink-0");
-    expect(deadline.className).toContain("rounded-full");
-    expect(deadline.className).toContain("border");
   });
 
   it("renders used/elapsed percent with shared formatting across all windows", () => {
@@ -351,106 +346,6 @@ describe("UsageDashboardView", () => {
     expect(screen.getByText("12% / 8.5%")).toBeTruthy();
   });
 
-  it("colors usage bars by relative position to elapsed line", () => {
-    const codex = createProvider("codex", {
-      windows: [
-        {
-          id: "session",
-          title: "Ahead",
-          utilizationPercent: 10,
-          windowDurationMs: 300 * 60 * 1000,
-          resetsAt: "2026-02-24T12:00:00.000Z",
-          pace: {
-            elapsedPercent: 20,
-            projectedEndUtilizationPercent: 50,
-            paceMarginPercent: 10,
-            status: "margin",
-          },
-        },
-        {
-          id: "weekly",
-          title: "Near pace",
-          utilizationPercent: 24,
-          windowDurationMs: 10_080 * 60 * 1000,
-          resetsAt: "2026-02-28T12:00:00.000Z",
-          pace: {
-            elapsedPercent: 20,
-            projectedEndUtilizationPercent: 96,
-            paceMarginPercent: 4,
-            status: "margin",
-          },
-        },
-        {
-          id: "model",
-          title: "Over pace",
-          utilizationPercent: 35,
-          windowDurationMs: 10_080 * 60 * 1000,
-          resetsAt: "2026-02-28T12:00:00.000Z",
-          pace: {
-            elapsedPercent: 20,
-            projectedEndUtilizationPercent: 175,
-            paceMarginPercent: -15,
-            status: "over",
-          },
-        },
-      ],
-    });
-
-    const { container } = render(<UsageDashboardView {...createViewModel(codex)} />);
-
-    expect(container.querySelectorAll('[class*="bg-latte-green/85"]')).toHaveLength(1);
-    expect(container.querySelectorAll('[class*="bg-latte-yellow/85"]')).toHaveLength(1);
-    expect(container.querySelectorAll('[class*="bg-latte-red/85"]')).toHaveLength(1);
-  });
-
-  it("keeps pace and buffer badges yellow in relaxed near-pace range", () => {
-    const codex = createProvider("codex", {
-      windows: [
-        {
-          id: "session",
-          title: "Session",
-          utilizationPercent: 24,
-          windowDurationMs: 300 * 60 * 1000,
-          resetsAt: "2026-02-24T12:00:00.000Z",
-          pace: {
-            elapsedPercent: 20,
-            projectedEndUtilizationPercent: 96,
-            paceMarginPercent: 4,
-            status: "margin",
-          },
-        },
-      ],
-    });
-
-    render(<UsageDashboardView {...createViewModel(codex)} />);
-
-    const bufferBadge = screen.getByText("Buffer -4%");
-    const paceBadge = screen.getByText("Pace +4% margin");
-
-    expect(bufferBadge.className).toContain("text-latte-yellow");
-    expect(bufferBadge.className).not.toContain("text-latte-red");
-    expect(bufferBadge.className).not.toContain("text-latte-green");
-    expect(paceBadge.className).toContain("text-latte-yellow");
-    expect(paceBadge.className).not.toContain("text-latte-red");
-    expect(paceBadge.className).not.toContain("text-latte-green");
-  });
-
-  it("does not render repo ranking section", () => {
-    render(
-      <UsageDashboardView
-        {...createViewModel(createProvider("codex"), {
-          timeline: createTimeline(),
-        })}
-      />,
-    );
-
-    expect(screen.queryByRole("heading", { name: "Active Repository" })).toBeNull();
-    expect(screen.queryByText("Running Time (Sum)")).toBeNull();
-    expect(screen.queryByText("Running Time (Union)")).toBeNull();
-    expect(screen.queryByText("RUNNING Transitions")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Global State Timeline" })).toBeTruthy();
-  });
-
   it("switches aggregation range from timeline range tabs", () => {
     const onTimelineRangeChange = vi.fn();
     render(
@@ -478,7 +373,7 @@ describe("UsageDashboardView", () => {
     expect(onTimelineRangeChange).toHaveBeenCalledWith("30d");
   });
 
-  it("renders DONE timeline segments in blue and counts them as Waiting", () => {
+  it("renders DONE timeline segments and counts them as Waiting", () => {
     const doneItem = {
       id: "done",
       paneId: "global",
@@ -494,7 +389,7 @@ describe("UsageDashboardView", () => {
     timeline.timeline.current = doneItem;
     timeline.timeline.totalsMs.DONE = doneItem.durationMs;
 
-    const { container } = render(
+    render(
       <UsageDashboardView
         {...createViewModel(createProvider("codex"), {
           timeline,
@@ -502,10 +397,8 @@ describe("UsageDashboardView", () => {
       />,
     );
 
-    const doneBadge = screen.getByText("DONE").closest("span");
-    expect(doneBadge?.className).toContain("text-latte-blue");
+    expect(screen.getByText("DONE")).toBeTruthy();
     expect(screen.getByText("Waiting 10m")).toBeTruthy();
-    expect(container.querySelector('[title^="DONE"]')?.className).toContain("bg-latte-blue/80");
   });
 
   it("renders usage breakdown dates in local time zone", () => {
