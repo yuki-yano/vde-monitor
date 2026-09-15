@@ -157,9 +157,8 @@ const handleProviderBilling = async ({
     return rateLimitResponse;
   }
   try {
-    const provider = await usageDashboardService.getProviderSnapshot(query.provider, {
+    const provider = await usageDashboardService.getProviderBillingSnapshot(query.provider, {
       forceRefresh,
-      includeWindows: false,
     });
     return c.json({
       provider,

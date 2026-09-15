@@ -122,6 +122,15 @@ When terminal height allows, a QR code is also printed for quick access from ano
 - Review issues/warnings surfaced by providers, then jump back to Session List for action.
 - Useful for deciding when to rebalance active sessions or reduce costly runs.
 
+Usage API responsibilities (Bearer authentication required):
+
+- `GET /api/claude/usage`, `GET /api/codex/usage`, and `GET /api/usage/dashboard` return
+  core usage snapshots without starting or awaiting transcript cost calculation. Upstream data
+  such as Codex credit balances remains available. Upstream usage requests can still be slow.
+- `GET /api/usage/billing?provider=claude|codex` adds transcript-derived costs to the core
+  snapshot and returns it with empty `windows`. The Web dashboard fetches this separately and
+  merges billing into its usage display. Billing keeps its existing cache and `refresh=1` behavior.
+
 ## Mobile device usage
 
 Recommended access methods:

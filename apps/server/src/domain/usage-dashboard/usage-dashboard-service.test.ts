@@ -1,6 +1,7 @@
 import { configDefaults } from "@vde-monitor/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { UsageProviderError } from "../usage-shared/usage-error";
 import { createUsageDashboardService } from "./usage-dashboard-service";
 
 const mocks = vi.hoisted(() => ({
@@ -58,7 +59,7 @@ const createCostResult = (updatedAt: string) => ({
     usd: 12.3,
     tokens: 12300,
   },
-  source: "exact" as const,
+  source: "actual" as const,
   sourceLabel: "test-source",
   confidence: "high" as const,
   updatedAt,
@@ -221,34 +222,47 @@ describe("createUsageDashboardService", () => {
     }
   });
 
-  it("keeps codex billing cache for 10 minutes by default", async () => {
-    vi.useFakeTimers();
-    try {
-      vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
-      const getProviderCost = vi
-        .fn()
-        .mockResolvedValue(createCostResult("2026-02-24T00:00:00.000Z"));
-      const service = createUsageDashboardService({
-        usageConfig: configDefaults.usage,
-        costProvider: {
-          getProviderCost,
-        },
-      });
+  it.each([
+    { providerId: "codex" as const, ttlMs: 600_000 },
+    { providerId: "claude" as const, ttlMs: 180_000 },
+  ])(
+    "keeps $providerId billing cached for $ttlMs ms and supports forced refresh",
+    async ({ providerId, ttlMs }) => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date("2026-02-24T00:00:00.000Z"));
+        const getProviderCost = vi
+          .fn()
+          .mockResolvedValue(createCostResult("2026-02-24T00:00:00.000Z"));
+        const service = createUsageDashboardService({
+          usageConfig: configDefaults.usage,
+          costProvider: {
+            getProviderCost,
+          },
+        });
 
-      await service.getProviderSnapshot("codex");
-      expect(getProviderCost).toHaveBeenCalledTimes(1);
+        await service.getProviderBillingSnapshot(providerId);
+        expect(getProviderCost).toHaveBeenCalledTimes(1);
 
-      vi.setSystemTime(new Date("2026-02-24T00:05:00.000Z"));
-      await service.getProviderSnapshot("codex");
-      expect(getProviderCost).toHaveBeenCalledTimes(1);
+        vi.setSystemTime(new Date(Date.parse("2026-02-24T00:00:00.000Z") + ttlMs - 1));
+        await service.getProviderBillingSnapshot(providerId);
+        expect(getProviderCost).toHaveBeenCalledTimes(1);
 
-      vi.setSystemTime(new Date("2026-02-24T00:10:01.000Z"));
-      await service.getProviderSnapshot("codex");
-      expect(getProviderCost).toHaveBeenCalledTimes(2);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+        vi.setSystemTime(new Date(Date.parse("2026-02-24T00:00:00.000Z") + ttlMs));
+        await service.getProviderBillingSnapshot(providerId);
+        expect(getProviderCost).toHaveBeenCalledTimes(2);
+
+        const refreshed = await service.getProviderBillingSnapshot(providerId, {
+          forceRefresh: true,
+        });
+        expect(getProviderCost).toHaveBeenCalledTimes(3);
+        expect(refreshed.billing.costTodayUsd).toBe(1.2);
+        expect(refreshed.windows).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("reuses provider core snapshot until the ttl expires", async () => {
     vi.useFakeTimers();
@@ -274,6 +288,84 @@ describe("createUsageDashboardService", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("keeps upstream credits and core metadata separate from transcript billing", async () => {
+    const getProviderCost = vi.fn().mockResolvedValue(createCostResult(new Date().toISOString()));
+    const service = createUsageDashboardService({ costProvider: { getProviderCost } });
+    const core = await service.getProviderSnapshot("codex");
+    expect(core.billing.creditsLeft).toBe(100);
+    expect(core.capabilities.credits).toBe(true);
+    expect(core.billing.costTodayUsd).toBeNull();
+    expect(core.capabilities.cost).toBe(false);
+    expect(getProviderCost).not.toHaveBeenCalled();
+
+    const billing = await service.getProviderBillingSnapshot("codex");
+    expect(billing).toMatchObject({
+      status: core.status,
+      issues: core.issues,
+      fetchedAt: core.fetchedAt,
+      staleAt: core.staleAt,
+      windows: [],
+      billing: { creditsLeft: 100, costTodayUsd: 1.2, costLast30DaysUsd: 12.3 },
+      capabilities: { credits: true, cost: true },
+    });
+    expect(await service.getProviderSnapshot("codex")).toEqual(core);
+    expect((await service.getDashboard({ provider: "codex" })).providers).toEqual([core]);
+    expect(getProviderCost).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["claude", "codex"] as const)(
+    "preserves %s usage failures even when billing succeeds",
+    async (providerId) => {
+      const fetchUsage =
+        providerId === "claude"
+          ? mocks.fetchClaudeOauthUsageWithFallback
+          : mocks.fetchCodexRateLimits;
+      const issue = {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "upstream unavailable",
+        severity: "error",
+      };
+      const getProviderCost = vi.fn().mockResolvedValue(createCostResult(new Date().toISOString()));
+      const service = createUsageDashboardService({ costProvider: { getProviderCost } });
+      const healthy = await service.getProviderSnapshot(providerId);
+      fetchUsage.mockRejectedValue(new UsageProviderError("UPSTREAM_UNAVAILABLE", issue.message));
+
+      const degraded = await service.getProviderSnapshot(providerId, { forceRefresh: true });
+      expect(degraded).toEqual({ ...healthy, status: "degraded", issues: [issue] });
+      expect(await service.getProviderBillingSnapshot(providerId)).toMatchObject({
+        status: "degraded",
+        issues: [issue],
+        fetchedAt: healthy.fetchedAt,
+        staleAt: healthy.staleAt,
+        billing: { costTodayUsd: 1.2 },
+      });
+
+      const coldService = createUsageDashboardService({ costProvider: { getProviderCost } });
+      const failed = await coldService.getProviderSnapshot(providerId);
+      expect(failed).toMatchObject({ status: "error", windows: [], issues: [issue] });
+      expect(await coldService.getProviderBillingSnapshot(providerId)).toMatchObject({
+        status: "error",
+        windows: [],
+        issues: [issue],
+        billing: { costTodayUsd: 1.2 },
+      });
+    },
+  );
+
+  it("keeps billing failure issues out of the core snapshot", async () => {
+    const getProviderCost = vi.fn().mockRejectedValue(new Error("transcript failure"));
+    const service = createUsageDashboardService({ costProvider: { getProviderCost } });
+    const core = await service.getProviderSnapshot("claude");
+    const billing = await service.getProviderBillingSnapshot("claude");
+    expect(billing.billing.costTodayUsd).toBeNull();
+    expect(billing.issues).toContainEqual(
+      expect.objectContaining({ code: "COST_SOURCE_UNAVAILABLE" }),
+    );
+    expect(await service.getProviderSnapshot("claude")).toEqual(core);
+    expect(getProviderCost).toHaveBeenCalledTimes(1);
   });
 
   it("serves degraded cached data during provider backoff and retries after backoff expires", async () => {

@@ -156,7 +156,10 @@ export const createTestStreamDeps = () => {
   return { streamSource, screenScheduler, streamConnections };
 };
 
-export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> = {}) => {
+export const createTestContext = (
+  configOverrides: Partial<AgentMonitorConfig> = {},
+  usageService?: UsageDashboardService,
+) => {
   const config: AgentMonitorConfig = { ...configDefaults, token: "token", ...configOverrides };
   const registry = createSessionRegistry();
   const detail = createSessionDetail();
@@ -334,10 +337,15 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
   const getProviderSnapshot = vi.fn(async (providerId: "codex" | "claude") =>
     providerId === "codex" ? codexProviderSnapshot : claudeProviderSnapshot,
   );
+  const getProviderBillingSnapshot = vi.fn(async (providerId: "codex" | "claude") => ({
+    ...(providerId === "codex" ? codexProviderSnapshot : claudeProviderSnapshot),
+    windows: [],
+  }));
   const usageDashboardService = {
     getDashboard,
     getProviderSnapshot,
-  } as unknown as UsageDashboardService;
+    getProviderBillingSnapshot,
+  } satisfies UsageDashboardService;
   const streamDeps = createTestStreamDeps();
   const api = createApiRouter({
     config,
@@ -345,7 +353,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     actions,
     launchCapability: config.multiplexer.backend === "tmux" ? launchCapability : undefined,
     notificationService,
-    usageDashboardService,
+    usageDashboardService: usageService ?? usageDashboardService,
     ...streamDeps,
   });
   return {
@@ -367,6 +375,7 @@ export const createTestContext = (configOverrides: Partial<AgentMonitorConfig> =
     acknowledgeView,
     getDashboard,
     getProviderSnapshot,
+    getProviderBillingSnapshot,
     ...streamDeps,
   };
 };

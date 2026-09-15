@@ -228,6 +228,10 @@ export type UsageDashboardService = {
     providerId: SupportedProviderId,
     options?: ProviderSnapshotOptions,
   ) => Promise<UsageProviderSnapshot>;
+  getProviderBillingSnapshot: (
+    providerId: SupportedProviderId,
+    options?: { forceRefresh?: boolean },
+  ) => Promise<UsageProviderSnapshot>;
 };
 
 export const createUsageDashboardService = (
@@ -293,51 +297,48 @@ export const createUsageDashboardService = (
     providerId,
     providerOptions = {},
   ) => {
-    const includeWindows = providerOptions.includeWindows !== false;
     const coreSnapshot = await cache.getProviderCoreSnapshot(providerId, {
       forceRefresh: providerOptions.forceRefresh,
     });
+    const visibleSnapshot = applySessionVisibility({ snapshot: coreSnapshot, providerId });
+    return providerOptions.includeWindows === false
+      ? { ...visibleSnapshot, windows: [] }
+      : visibleSnapshot;
+  };
 
+  const getProviderBillingSnapshot: UsageDashboardService["getProviderBillingSnapshot"] = async (
+    providerId,
+    providerOptions = {},
+  ) => {
+    const coreSnapshot = await getProviderSnapshot(providerId, {
+      forceRefresh: providerOptions.forceRefresh,
+      includeWindows: false,
+    });
     const enriched = await cache.enrichSnapshotWithCost({
       snapshot: toSnapshotCore(coreSnapshot),
       providerId,
       now: new Date(),
       forceRefresh: providerOptions.forceRefresh,
     });
-    const snapshot: UsageProviderSnapshot = {
+    return {
       ...coreSnapshot,
       ...enriched,
       fetchedAt: coreSnapshot.fetchedAt,
       staleAt: coreSnapshot.staleAt,
     };
-    const visibleSnapshot = applySessionVisibility({ snapshot, providerId });
-
-    if (!includeWindows) {
-      return {
-        ...visibleSnapshot,
-        windows: [],
-      };
-    }
-    return visibleSnapshot;
   };
 
   const getDashboard: UsageDashboardService["getDashboard"] = async (dashboardOptions = {}) => {
     const providerIds = normalizeProviderId(dashboardOptions.provider);
     const providers = await Promise.all(
       providerIds.map((providerId) =>
-        cache.getProviderCoreSnapshot(providerId, {
+        getProviderSnapshot(providerId, {
           forceRefresh: dashboardOptions.forceRefresh,
         }),
       ),
     );
-    const visibleProviders = providers.map((provider) =>
-      applySessionVisibility({
-        snapshot: provider,
-        providerId: provider.providerId as SupportedProviderId,
-      }),
-    );
     return {
-      providers: visibleProviders,
+      providers,
       fetchedAt: new Date().toISOString(),
     };
   };
@@ -345,5 +346,6 @@ export const createUsageDashboardService = (
   return {
     getDashboard,
     getProviderSnapshot,
+    getProviderBillingSnapshot,
   };
 };
