@@ -29,7 +29,7 @@ export const useSessionDetailViewDataSectionProps = () => {
     toggleDiff,
   } = diffs;
   const { onOpenFileModal, onResolveLogFileReference, onResolveLogFileReferenceCandidates } = files;
-  const sessionBranch = screenEffectiveBranch ?? session?.branch ?? null;
+  const sessionBranch = screenEffectiveBranch;
   const virtualBranch = scope.virtualBranch.virtualBranch;
   const onClearVirtualBranch = scope.virtualBranch.clearVirtualBranch;
   const diffScope = useMemo<DiffScope>(

@@ -30,6 +30,8 @@ export type UseSessionDiffsParams = {
   paneId: string;
   repoRoot: string | null;
   connected: boolean;
+  worktreeBranch: string | null;
+  defaultBranch: string | null;
   worktreePath?: string | null;
   branch?: string | null;
   requestDiffSummary: (
@@ -139,10 +141,19 @@ const upsertDiffFileRequest = (
   );
 };
 
+const resolveWorktreeDiffMode = (
+  worktreeBranch: string | null,
+  defaultBranch: string | null,
+  selectedMode: DiffMode,
+): DiffMode =>
+  defaultBranch != null && worktreeBranch === defaultBranch ? "uncommitted" : selectedMode;
+
 export const useSessionDiffs = ({
   paneId,
   repoRoot,
   connected,
+  worktreeBranch,
+  defaultBranch,
   worktreePath = null,
   branch = null,
   requestDiffSummary,
@@ -155,7 +166,10 @@ export const useSessionDiffs = ({
     getServerBrowserOnlineSnapshot,
   );
   const [worktreeDiffMode, setWorktreeDiffMode] = useState<DiffMode>("total");
-  const diffMode: DiffMode = branch == null ? worktreeDiffMode : "committed";
+  const diffMode: DiffMode =
+    branch != null
+      ? "committed"
+      : resolveWorktreeDiffMode(worktreeBranch, defaultBranch, worktreeDiffMode);
   const activeScopeRef = useRef<DiffScopeIdentity | null>(null);
   const [committedFileLifetimeRef] = useState(() =>
     createCommittedDiffFileLifetimeRef<DiffScopeIdentity>(),

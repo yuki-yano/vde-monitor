@@ -10,6 +10,7 @@ import { createAppQueryClient } from "@/state/query-client";
 
 import { ConnectedNotesSection } from "./components/NotesSection";
 import { ConnectedControlsPanel } from "./components/session-shell/ConnectedControlsPanel";
+import { useSessionDetailViewDataSectionProps } from "./hooks/useSessionDetailViewDataSectionProps";
 
 import {
   type SessionContextMockOverrides,
@@ -636,6 +637,108 @@ describe("SessionDetailProvider", () => {
       "/Users/test/repo-worktrees/wt-a",
     );
     expect(result.current.scope.virtualBranch.virtualBranch).toBeNull();
+  });
+
+  it("uses the displayed worktree branch for diff requests and scope labels", async () => {
+    window.localStorage.clear();
+    const mainSession = createSessionDetail({ branch: "main", worktreePath: "/repo" });
+    const requestDiffSummary = vi.fn<
+      ReturnType<typeof createSessionBranchesApiMock>["requestDiffSummary"]
+    >(async () => ({
+      repoRoot: mainSession.repoRoot,
+      rev: "HEAD",
+      generatedAt: new Date(0).toISOString(),
+      files: [],
+    }));
+    mockSessionsContext = buildSessionContext({
+      sessions: [mainSession],
+      sessionApi: buildSessionApi({
+        branches: {
+          requestDiffSummary,
+          requestBranches: vi.fn(async () => ({
+            repoRoot: mainSession.repoRoot,
+            defaultBranch: "main",
+            currentBranch: "main",
+            entries: [],
+          })),
+          requestWorktrees: vi.fn(async () => ({
+            repoRoot: mainSession.repoRoot,
+            currentPath: "/repo",
+            baseBranch: "main",
+            entries: [
+              { path: "/feature", branch: "feature/a" },
+              { path: "/detached", branch: null },
+              { path: "/repo", branch: "main" },
+            ].map((entry) => ({
+              ...entry,
+              dirty: false,
+              locked: false,
+              lockOwner: null,
+              lockReason: null,
+              merged: false,
+            })),
+          })),
+        },
+      }),
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryTestProvider>
+        <SessionDetailProvider paneId="pane-1">{children}</SessionDetailProvider>
+      </QueryTestProvider>
+    );
+    const { result } = renderHook(
+      () => ({
+        context: useSessionDetailContext(),
+        ...useSessionDetailViewDataSectionProps(),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.diffSectionProps.state.diffScope).toMatchObject({
+        branch: "main",
+        mode: "uncommitted",
+      }),
+    );
+    expect(requestDiffSummary).toHaveBeenLastCalledWith(
+      "pane-1",
+      { force: true, mode: "uncommitted" },
+      expect.any(AbortSignal),
+    );
+
+    for (const [path, branch] of [
+      ["/feature", "feature/a"],
+      ["/detached", null],
+    ] as const) {
+      act(() => result.current.context.scope.selectVirtualWorktree(path));
+      expect(result.current.diffSectionProps.state.diffScope).toMatchObject({
+        path,
+        branch,
+        mode: "total",
+        selected: true,
+      });
+      await waitFor(() =>
+        expect(requestDiffSummary).toHaveBeenLastCalledWith(
+          "pane-1",
+          { force: true, mode: "total", worktreePath: path },
+          expect.any(AbortSignal),
+        ),
+      );
+    }
+
+    act(() => result.current.context.scope.selectVirtualWorktree("/repo"));
+    expect(result.current.diffSectionProps.state.diffScope).toMatchObject({
+      branch: "main",
+      mode: "uncommitted",
+      selected: false,
+    });
+    await waitFor(() =>
+      expect(requestDiffSummary).toHaveBeenLastCalledWith(
+        "pane-1",
+        { force: true, mode: "uncommitted" },
+        expect.any(AbortSignal),
+      ),
+    );
   });
 
   it("refreshes diff and commit log after a successful branch checkout", async () => {

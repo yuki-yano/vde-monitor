@@ -108,6 +108,8 @@ const useSessionDetailContextValue = (paneId: string, pushNotifications: PushNot
     repoRoot: base.session?.repoRoot ?? null,
     connected: base.connected,
     worktreePath: effectiveWorktreeScope,
+    worktreeBranch: virtualWorktree.effectiveBranch,
+    defaultBranch: branches.defaultBranch,
     branch: effectiveBranchScope,
     requestDiffSummary: base.requestDiffSummary,
     requestDiffFile: base.requestDiffFile,

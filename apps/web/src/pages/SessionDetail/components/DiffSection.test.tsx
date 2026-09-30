@@ -316,7 +316,17 @@ describe("DiffSection", () => {
 
   it("switches between total, committed, and uncommitted worktree layers", () => {
     const onModeChange = vi.fn();
-    const state = buildState({ diffSummary: createDiffSummary() });
+    const state = buildState({
+      diffSummary: createDiffSummary(),
+      diffScope: {
+        kind: "workingTree",
+        mode: "total",
+        baseBranch: "main",
+        branch: "feature/a",
+        path: null,
+        selected: false,
+      },
+    });
     const wrapper = createWrapper();
     render(<DiffSection state={state} actions={buildActions({ onModeChange })} />, { wrapper });
 
@@ -364,14 +374,14 @@ describe("DiffSection", () => {
     expect(screen.getByTestId("diff-scope-text").getAttribute("title")).toBe("HEAD → working tree");
   });
 
-  it("describes the default branch committed layer without self-divergence", () => {
+  it.each(["main", "master", "trunk"])("hides change layers on the default branch %s", (branch) => {
     const state = buildState({
       diffSummary: createDiffSummary({ files: [] }),
       diffScope: {
         kind: "workingTree",
-        mode: "committed",
-        baseBranch: "main",
-        branch: "main",
+        mode: "uncommitted",
+        baseBranch: branch,
+        branch,
         path: null,
         selected: false,
       },
@@ -379,7 +389,11 @@ describe("DiffSection", () => {
     const wrapper = createWrapper();
     render(<DiffSection state={state} actions={buildActions()} />, { wrapper });
 
-    expect(screen.getByText("No committed changes beyond main")).toBeTruthy();
+    expect(screen.queryByRole("tablist", { name: "Change layer" })).toBeNull();
+    expect(screen.getByText("Working tree is clean")).toBeTruthy();
+    expect(screen.getByTestId("diff-scope-text").getAttribute("title")).toBe(
+      `${branch} → working tree`,
+    );
   });
 
   it("disables working-tree preview for the committed worktree layer", () => {

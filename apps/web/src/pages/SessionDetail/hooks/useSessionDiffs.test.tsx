@@ -16,6 +16,8 @@ type HookProps = {
   worktreePath: string | null;
   branch: string | null;
   connected: boolean;
+  worktreeBranch?: string | null;
+  defaultBranch?: string | null;
 };
 
 const createControllable = <T,>() => {
@@ -65,13 +67,23 @@ const renderDiffs = ({
     return strict ? <StrictMode>{content}</StrictMode> : content;
   };
   const rendered = renderHook<ReturnType<typeof useSessionDiffs>, HookProps>(
-    ({ paneId, repoRoot, worktreePath, branch, connected }) =>
+    ({
+      paneId,
+      repoRoot,
+      worktreePath,
+      branch,
+      connected,
+      worktreeBranch = "feature/a",
+      defaultBranch = "main",
+    }) =>
       useSessionDiffs({
         paneId,
         repoRoot,
         worktreePath,
         branch,
         connected,
+        worktreeBranch,
+        defaultBranch,
         requestDiffSummary,
         requestDiffFile,
       }),
@@ -98,6 +110,106 @@ afterEach(() => {
 });
 
 describe("useSessionDiffs summary Query", () => {
+  it.each(["main", "master", "trunk"])(
+    "requests only uncommitted summaries and patches on the default branch %s",
+    async (defaultBranch) => {
+      const { result, requestDiffSummary, requestDiffFile } = renderDiffs({
+        initialProps: { defaultBranch, worktreeBranch: defaultBranch },
+      });
+
+      await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
+      expect(result.current.diffMode).toBe("uncommitted");
+      expect(requestDiffSummary).toHaveBeenCalledExactlyOnceWith(
+        "pane-1",
+        { force: true, mode: "uncommitted" },
+        expect.any(AbortSignal),
+      );
+
+      act(() => result.current.toggleDiff("src/index.ts"));
+      await waitFor(() =>
+        expect(requestDiffFile).toHaveBeenCalledWith(
+          "pane-1",
+          "src/index.ts",
+          "HEAD",
+          { force: true, mode: "uncommitted" },
+          expect.any(AbortSignal),
+        ),
+      );
+    },
+  );
+
+  it("restores the selected feature mode after switching through the default branch", async () => {
+    const props: HookProps = {
+      paneId: "pane-1",
+      repoRoot: "/repo",
+      worktreePath: null,
+      branch: null,
+      connected: true,
+      defaultBranch: "main",
+      worktreeBranch: "feature/a",
+    };
+    const { result, rerender, requestDiffSummary } = renderDiffs({ initialProps: props });
+    await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
+    act(() => result.current.setDiffMode("committed"));
+    await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
+
+    rerender({ ...props, worktreeBranch: "main" });
+    expect(result.current.diffMode).toBe("uncommitted");
+    await waitFor(() =>
+      expect(requestDiffSummary).toHaveBeenLastCalledWith(
+        "pane-1",
+        { force: true, mode: "uncommitted" },
+        expect.any(AbortSignal),
+      ),
+    );
+
+    rerender(props);
+    expect(result.current.diffMode).toBe("committed");
+    await waitFor(() =>
+      expect(requestDiffSummary).toHaveBeenLastCalledWith(
+        "pane-1",
+        { force: true, mode: "committed" },
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
+  it.each([
+    { worktreeBranch: null, defaultBranch: "main" },
+    { worktreeBranch: "main", defaultBranch: null },
+    { worktreeBranch: null, defaultBranch: null },
+  ])("keeps mode selection when branch identity is unknown: %j", async (initialProps) => {
+    const { result } = renderDiffs({ initialProps });
+    await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
+    expect(result.current.diffMode).toBe("total");
+    act(() => result.current.setDiffMode("committed"));
+    expect(result.current.diffMode).toBe("committed");
+  });
+
+  it("switches to uncommitted when the default branch is resolved", async () => {
+    const props: HookProps = {
+      paneId: "pane-1",
+      repoRoot: "/repo",
+      worktreePath: null,
+      branch: null,
+      connected: true,
+      worktreeBranch: "main",
+      defaultBranch: null,
+    };
+    const { result, rerender, requestDiffSummary } = renderDiffs({ initialProps: props });
+    await waitFor(() => expect(result.current.diffSummary).not.toBeNull());
+
+    rerender({ ...props, defaultBranch: "main" });
+    expect(result.current.diffMode).toBe("uncommitted");
+    await waitFor(() =>
+      expect(requestDiffSummary).toHaveBeenLastCalledWith(
+        "pane-1",
+        { force: true, mode: "uncommitted" },
+        expect.any(AbortSignal),
+      ),
+    );
+  });
+
   it("uses the full summary scope key and forwards its AbortSignal", async () => {
     let signal: AbortSignal | undefined;
     const requestDiffSummary = vi.fn<UseSessionDiffsParams["requestDiffSummary"]>(
@@ -142,6 +254,7 @@ describe("useSessionDiffs summary Query", () => {
       repoRoot: "/repo",
       worktreePath: null,
       branch: "feature/a",
+      worktreeBranch: "main",
       connected: true,
     });
     await waitFor(() => expect(result.current.diffMode).toBe("committed"));

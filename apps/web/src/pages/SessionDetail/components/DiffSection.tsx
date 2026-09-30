@@ -466,7 +466,8 @@ export const DiffSection = memo(({ state, actions }: DiffSectionProps) => {
   const sectionStatus = useMemo(
     () => (
       <>
-        {diffScope.kind === "workingTree" ? (
+        {diffScope.kind === "workingTree" &&
+        (diffScope.baseBranch == null || diffScope.branch !== diffScope.baseBranch) ? (
           <DiffModeSelector mode={diffScope.mode} onModeChange={onModeChange} />
         ) : null}
         <DiffScopeNotice scope={diffScope} onClear={onClearScope} />
