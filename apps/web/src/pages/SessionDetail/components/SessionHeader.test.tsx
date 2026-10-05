@@ -86,6 +86,7 @@ describe("SessionHeader", () => {
 
     const titleButton = screen.getByRole("button", { name: "Edit session title" });
     expect(titleButton.textContent).toContain("Custom Title");
+    expect(screen.getByLabelText("Reset session title")).toBeTruthy();
     expect(screen.getByText("RUNNING")).toBeTruthy();
     expect(screen.queryByText("feature/vw-pill")).toBeNull();
 
@@ -95,6 +96,9 @@ describe("SessionHeader", () => {
     expect(screen.getByText("Session session-1")).toBeTruthy();
     expect(screen.getByText("Window 1")).toBeTruthy();
     expect(screen.getByText("Pane pane-1")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide header details" }));
+    expect(screen.queryByText("feature/vw-pill")).toBeNull();
   });
 
   it("renders current path with its full title", () => {
@@ -217,20 +221,6 @@ describe("SessionHeader", () => {
     expect(screen.getByText("Title error")).toBeTruthy();
   });
 
-  it("toggles header details", () => {
-    const state = buildState({ session: createSessionDetail({ branch: "feature/toggle" }) });
-    const actions = buildActions();
-    renderWithRouter(<SessionHeader state={state} actions={actions} />);
-
-    expect(screen.queryByText("feature/toggle")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Show header details" }));
-    expect(screen.getByText("feature/toggle")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide header details" }));
-    expect(screen.queryByText("feature/toggle")).toBeNull();
-  });
-
   it("shows EDITOR badge for unknown state with vim command", () => {
     const session = createSessionDetail({
       state: "UNKNOWN",
@@ -247,15 +237,6 @@ describe("SessionHeader", () => {
 
     expect(screen.getByText("EDITOR")).toBeTruthy();
     expect(screen.queryByText("UNKNOWN")).toBeNull();
-  });
-
-  it("shows reset button when custom title is set", () => {
-    const session = createSessionDetail({ customTitle: "Custom" });
-    const state = buildState({ session });
-    const actions = buildActions();
-    renderWithRouter(<SessionHeader state={state} actions={actions} />);
-
-    expect(screen.getByLabelText("Reset session title")).toBeTruthy();
   });
 
   it("shows reset button when title is set without custom title", () => {

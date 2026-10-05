@@ -107,8 +107,11 @@ describe("RepositoryActivitySection", () => {
       })),
     });
 
-    renderSection({ activity });
+    const onRangeChange = vi.fn();
+    renderSection({ activity, onRangeChange });
     expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "7d" }));
+    expect(onRangeChange).toHaveBeenCalledWith("7d");
 
     fireEvent.click(screen.getByRole("button", { name: "Agent time" }));
     expect(within(screen.getAllByRole("listitem")[0]!).getByText("repo-6")).toBeTruthy();
@@ -179,13 +182,5 @@ describe("RepositoryActivitySection", () => {
     expect(screen.getAllByRole("listitem").length).toBeGreaterThan(0);
     expect(screen.queryByRole("status", { name: "Loading repository activity" })).toBeNull();
     expect(screen.queryByTestId("repository-activity-skeleton-row")).toBeNull();
-  });
-
-  it("requests the selected range", () => {
-    const onRangeChange = vi.fn();
-    renderSection({ onRangeChange });
-
-    fireEvent.click(screen.getByRole("button", { name: "7d" }));
-    expect(onRangeChange).toHaveBeenCalledWith("7d");
   });
 });

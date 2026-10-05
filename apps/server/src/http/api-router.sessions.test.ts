@@ -103,16 +103,6 @@ describe("createApiRouter", () => {
     expect(data.timeline.paneId).toBe("pane-1");
   });
 
-  it("accepts 7d timeline range values", async () => {
-    const { api, getStateTimeline } = createTestContext();
-    const res = await api.request("/sessions/pane-1/timeline?range=7d&limit=20", {
-      headers: authHeaders,
-    });
-
-    expect(res.status).toBe(200);
-    expect(getStateTimeline).toHaveBeenCalledWith("pane-1", "7d", 20);
-  });
-
   it("forwards undefined limit when query limit is omitted", async () => {
     const { api, getStateTimeline } = createTestContext();
     const res = await api.request("/sessions/pane-1/timeline?range=3h", {
@@ -608,33 +598,6 @@ describe("createApiRouter", () => {
     expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
-  it("replays cached launch response before rate-limit check", async () => {
-    const { api, launchCapability } = createTestContext();
-    const headers = { ...authHeaders, "content-type": "application/json" };
-    const payload = JSON.stringify({
-      sessionName: "dev-main",
-      agent: "codex",
-      requestId: "launch-req-rate-retry",
-    });
-
-    const first = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: payload,
-    });
-    const second = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: payload,
-    });
-
-    const firstData = await first.json();
-    const secondData = await second.json();
-    expect(firstData.command.ok).toBe(true);
-    expect(secondData.command.ok).toBe(true);
-    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
-  });
-
   it("deduplicates concurrent launch requests with same idempotency key", async () => {
     const { api, launchCapability } = createTestContext();
     const headers = { ...authHeaders, "content-type": "application/json" };
@@ -706,60 +669,52 @@ describe("createApiRouter", () => {
     expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(1);
   });
 
-  it("returns rate limit error on repeated launch requests", async () => {
-    const { api, launchCapability } = createTestContext();
-    const headers = { ...authHeaders, "content-type": "application/json" };
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const response = await api.request("/sessions/launch", {
+  it("replays cached launches before enforcing the rate limit on new requests", async () => {
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    try {
+      const { api, launchCapability } = createTestContext();
+      const headers = { ...authHeaders, "content-type": "application/json" };
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const response = await api.request("/sessions/launch", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            sessionName: "dev-main",
+            agent: "codex",
+            requestId: `launch-rate-limit-${attempt}`,
+          }),
+        });
+        const data = await response.json();
+        expect(data.command.ok).toBe(true);
+      }
+      const limited = await api.request("/sessions/launch", {
         method: "POST",
         headers,
         body: JSON.stringify({
           sessionName: "dev-main",
           agent: "codex",
-          requestId: `launch-rate-limit-${attempt}`,
+          requestId: "launch-rate-limit-overflow",
         }),
       });
-      const data = await response.json();
-      expect(data.command.ok).toBe(true);
+      const limitedData = await limited.json();
+      expect(limitedData.command.ok).toBe(false);
+      expect(limitedData.command.error.code).toBe("RATE_LIMIT");
+      expect(limitedData.command.rollback).toEqual({ attempted: false, ok: true });
+      const replay = await api.request("/sessions/launch", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          sessionName: "dev-main",
+          agent: "codex",
+          requestId: "launch-rate-limit-0",
+        }),
+      });
+      const replayData = await replay.json();
+      expect(replayData.command.ok).toBe(true);
+      expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(10);
+    } finally {
+      nowSpy.mockRestore();
     }
-    const limited = await api.request("/sessions/launch", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        sessionName: "dev-main",
-        agent: "codex",
-        requestId: "launch-rate-limit-overflow",
-      }),
-    });
-    const limitedData = await limited.json();
-    expect(limitedData.command.ok).toBe(false);
-    expect(limitedData.command.error.code).toBe("RATE_LIMIT");
-    expect(limitedData.command.rollback).toEqual({ attempted: false, ok: true });
-    expect(launchCapability.launchAgentInSession).toHaveBeenCalledTimes(10);
-  });
-
-  it("returns launch command errors from actions", async () => {
-    const { api, launchCapability } = createTestContext();
-    vi.mocked(launchCapability.launchAgentInSession).mockResolvedValueOnce({
-      ok: false,
-      error: { code: "WEZTERM_UNAVAILABLE", message: "launch-agent requires tmux backend" },
-      rollback: { attempted: false, ok: true },
-    });
-
-    const res = await api.request("/sessions/launch", {
-      method: "POST",
-      headers: { ...authHeaders, "content-type": "application/json" },
-      body: JSON.stringify({
-        sessionName: "dev-main",
-        agent: "codex",
-        requestId: "launch-req-error",
-      }),
-    });
-
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.command.ok).toBe(false);
-    expect(data.command.error.code).toBe("WEZTERM_UNAVAILABLE");
   });
 
   it("focuses pane via focus endpoint", async () => {

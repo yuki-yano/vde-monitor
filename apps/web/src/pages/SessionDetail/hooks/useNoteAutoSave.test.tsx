@@ -20,33 +20,6 @@ describe("useNoteAutoSave", () => {
     vi.useRealTimers();
   });
 
-  it("does not save until 700ms after the last body change, then saves once", async () => {
-    vi.useFakeTimers();
-    const onSave = vi.fn(async () => true);
-    const note = buildNote();
-    const { result } = renderHook(() => useNoteAutoSave({ notes: [note], onSave }));
-
-    await act(async () => {
-      await result.current.beginEdit(note);
-    });
-
-    act(() => {
-      result.current.changeEditingBody("updated");
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(699);
-    });
-    expect(onSave).not.toHaveBeenCalled();
-
-    await act(async () => {
-      vi.advanceTimersByTime(1);
-      await Promise.resolve();
-    });
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith("note-1", { title: null, body: "updated" });
-  });
-
   it("collapses rapid edits into a single save using the latest body", async () => {
     vi.useFakeTimers();
     const onSave = vi.fn(async () => true);
@@ -97,6 +70,8 @@ describe("useNoteAutoSave", () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith("note-1", { title: null, body: "latest" });
+    expect(result.current.editingNoteId).toBeNull();
+    expect(result.current.editingBody).toBe("");
   });
 
   it("does not arm a save when the body matches the last saved body", async () => {
@@ -117,29 +92,6 @@ describe("useNoteAutoSave", () => {
       vi.advanceTimersByTime(5000);
     });
     expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it("flushes a pending save immediately (bypassing the debounce) on finishEdit", async () => {
-    vi.useFakeTimers();
-    const onSave = vi.fn(async () => true);
-    const note = buildNote();
-    const { result } = renderHook(() => useNoteAutoSave({ notes: [note], onSave }));
-
-    await act(async () => {
-      await result.current.beginEdit(note);
-    });
-    act(() => {
-      result.current.changeEditingBody("flushed body");
-    });
-
-    await act(async () => {
-      await result.current.finishEdit();
-    });
-
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith("note-1", { title: null, body: "flushed body" });
-    expect(result.current.editingNoteId).toBeNull();
-    expect(result.current.editingBody).toBe("");
   });
 
   it("flushes the latest body when changing and switching notes in the same tick", async () => {
@@ -226,10 +178,15 @@ describe("useNoteAutoSave", () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(700);
+      vi.advanceTimersByTime(699);
+    });
+    expect(onSave).not.toHaveBeenCalled();
+    await act(async () => {
+      vi.advanceTimersByTime(1);
       await Promise.resolve();
     });
     expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenNthCalledWith(1, "note-1", { title: null, body: "first" });
 
     act(() => {
       result.current.changeEditingBody("second");

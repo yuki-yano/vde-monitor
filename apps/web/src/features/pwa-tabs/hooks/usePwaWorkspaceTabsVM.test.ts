@@ -49,22 +49,6 @@ const buildTab = (paneId: string): WorkspaceTab => ({
 });
 
 describe("buildPwaWorkspaceTabGroups", () => {
-  it("keeps same-name sessions separate by stable session id", () => {
-    const sessions = [
-      buildSession("surface-1", "workspace-1"),
-      buildSession("surface-2", "workspace-2"),
-    ];
-    const groups = buildPwaWorkspaceTabGroups(
-      [buildTab("surface-1"), buildTab("surface-2")],
-      new Map(sessions.map((session) => [session.paneId, session])),
-    );
-
-    expect(groups.map(({ key, label }) => ({ key, label }))).toEqual([
-      { key: "session:workspace-1", label: "SAME·1" },
-      { key: "session:workspace-2", label: "SAME·2" },
-    ]);
-  });
-
   it("keeps duplicate-name labels attached to stable session ids after tab reorder", () => {
     const sessions = [
       buildSession("surface-1", "workspace-1"),

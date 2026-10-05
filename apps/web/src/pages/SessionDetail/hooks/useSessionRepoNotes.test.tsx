@@ -40,31 +40,6 @@ afterEach(() => {
 });
 
 describe("useSessionRepoNotes", () => {
-  it("forwards the pane and AbortSignal", async () => {
-    let receivedSignal: AbortSignal | undefined;
-    const requestRepoNotes = vi.fn(async (_paneId: string, signal?: AbortSignal) => {
-      receivedSignal = signal;
-      return [];
-    });
-    const actions = createDefaultActions();
-    const { Wrapper } = createQueryWrapper();
-
-    renderHook(
-      () =>
-        useSessionRepoNotes({
-          paneId: "pane-1",
-          repoRoot: "/repo",
-          connected: true,
-          requestRepoNotes,
-          ...actions,
-        }),
-      { wrapper: Wrapper },
-    );
-
-    await waitFor(() => expect(receivedSignal).toBeInstanceOf(AbortSignal));
-    expect(requestRepoNotes).toHaveBeenCalledWith("pane-1", expect.any(AbortSignal));
-  });
-
   it("shows a cold offline error without a spinner and resumes with one request", async () => {
     onlineManager.setOnline(false);
     const requestRepoNotes = vi.fn(async () => [buildNote()]);
@@ -192,6 +167,7 @@ describe("useSessionRepoNotes", () => {
 
     await waitFor(() => expect(result.current.notes).toHaveLength(1));
     expect(requestRepoNotes).toHaveBeenCalledTimes(1);
+    expect(requestRepoNotes).toHaveBeenCalledWith("pane-1", expect.any(AbortSignal));
   });
 
   it("cancels a cold request and gives the latest interactive refresh priority", async () => {

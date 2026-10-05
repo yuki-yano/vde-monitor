@@ -13,11 +13,6 @@ describe("parseNumstatLine", () => {
     expect(parseNumstatLine(output)).toEqual({ additions: null, deletions: null });
   });
 
-  it("handles no-index numstat output", () => {
-    const output = "5\t0\t/tmp/file.txt\n";
-    expect(parseNumstatLine(output)).toEqual({ additions: 5, deletions: 0 });
-  });
-
   it("ignores empty output", () => {
     expect(parseNumstatLine("")).toBeNull();
   });

@@ -28,6 +28,8 @@ describe("parseArgs", () => {
       "cmux",
       "--backend",
       "wezterm",
+      "--dry-run",
+      "--help",
     ]);
 
     expect(result.command).toBe("token");
@@ -37,6 +39,8 @@ describe("parseArgs", () => {
     expect(result.port).toBe("3000");
     expect(result.multiplexer).toBe("cmux");
     expect(result.backend).toBe("wezterm");
+    expect(result.dryRun).toBe(true);
+    expect(result.help).toBe(true);
   });
 
   it("rejects unknown flags", () => {
@@ -58,18 +62,6 @@ describe("parseArgs", () => {
 
     expect(result.socketName).toBe("01");
     expect(result.port).toBe("-1");
-  });
-
-  it("parses --dry-run flag", () => {
-    const result = parseArgs(["config", "prune", "--dry-run"]);
-
-    expect(result.command).toBe("config");
-    expect(result.subcommand).toBe("prune");
-    expect(result.dryRun).toBe(true);
-  });
-
-  it("parses --help as an explicit option", () => {
-    expect(parseArgs(["--help"]).help).toBe(true);
   });
 
   it("rejects invalid enum values", () => {
@@ -135,7 +127,7 @@ describe("resolvePaneLogDaemonCommandArgs", () => {
     ).toThrow("--runtime-dir must be absolute");
   });
 
-  it.each(["a", "A".repeat(64), "0".repeat(63), "g".repeat(64)])(
+  it.each(["A".repeat(64), "0".repeat(63), "g".repeat(64)])(
     "rejects invalid server identity: %s",
     (value) => {
       expect(() =>

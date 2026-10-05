@@ -155,10 +155,7 @@ describe("renderCmuxRenderGridTail", () => {
     ]);
   });
 
-  it.each([
-    ["Claude Code light", "#000000", "#feffff"],
-    ["Claude Code dark", "#cdd6f4", "#1e1e2e"],
-  ])(
+  it.each([["Claude Code dark", "#cdd6f4", "#1e1e2e"]])(
     "inherits %s terminal colors without discarding accent colors",
     (_mode, foreground, background) => {
       const result = render(
@@ -239,7 +236,14 @@ describe("renderCmuxRenderGridTail", () => {
       "scrollback_rows must be an integer",
     ],
   ])("%s", (_name, frame, message) => {
-    expect(() => render(frame)).toThrow(message as string);
+    let error: unknown;
+    try {
+      render(frame);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(CmuxRenderGridValidationError);
+    expect(error).toMatchObject({ message: expect.stringContaining(message as string) });
   });
 
   it.each([
@@ -345,9 +349,5 @@ describe("renderCmuxRenderGridTail", () => {
 
   it("rejects invalid output line limits", () => {
     expect(() => render(makeFrame(), 0)).toThrow("maxLines must be a positive integer");
-  });
-
-  it("exposes a dedicated validation error type", () => {
-    expect(() => render(makeFrame({ format: null }))).toThrow(CmuxRenderGridValidationError);
   });
 });

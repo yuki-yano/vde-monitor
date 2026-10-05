@@ -169,18 +169,7 @@ describe("LogModal", () => {
     expect(onOpenNewTab).toHaveBeenCalled();
   });
 
-  it("closes when clicking outside panel", () => {
-    const onClose = vi.fn();
-    const state = buildState({ open: true, session: createSessionDetail(), logLines: ["line1"] });
-    const actions = buildActions({ onClose });
-    const wrapper = createWrapper();
-    render(<LogModal state={state} actions={actions} />, { wrapper });
-
-    fireEvent.pointerDown(screen.getByTestId("log-modal-overlay"));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not close when clicking inside panel", () => {
+  it("keeps inside clicks open and closes once when clicking outside", () => {
     const onClose = vi.fn();
     const state = buildState({ open: true, session: createSessionDetail(), logLines: ["line1"] });
     const actions = buildActions({ onClose });
@@ -189,6 +178,8 @@ describe("LogModal", () => {
 
     fireEvent.pointerDown(screen.getByTestId("log-modal-panel"));
     expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(screen.getByTestId("log-modal-overlay"));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("buffers log lines while user is scrolling", () => {

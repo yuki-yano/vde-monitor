@@ -92,31 +92,6 @@ describe("createApiRouter", () => {
     expect(getDashboard).not.toHaveBeenCalled();
   });
 
-  it("applies refresh throttle on usage dashboard", async () => {
-    const { api } = createTestContext();
-    const first = await api.request("/usage/dashboard?refresh=1", {
-      headers: authHeaders,
-    });
-    expect(first.status).toBe(200);
-
-    const second = await api.request("/usage/dashboard?refresh=1", {
-      headers: authHeaders,
-    });
-    expect(second.status).toBe(200);
-
-    const third = await api.request("/usage/dashboard?refresh=1", {
-      headers: authHeaders,
-    });
-    expect(third.status).toBe(200);
-
-    const fourth = await api.request("/usage/dashboard?refresh=1", {
-      headers: authHeaders,
-    });
-    expect(fourth.status).toBe(429);
-    const body = await fourth.json();
-    expect(body.error.code).toBe("RATE_LIMIT");
-  });
-
   it("does not share usage refresh throttle across dashboard and billing providers", async () => {
     const { api } = createTestContext();
 
@@ -130,6 +105,7 @@ describe("createApiRouter", () => {
       headers: authHeaders,
     });
     expect(dashboardLimited.status).toBe(429);
+    expect((await dashboardLimited.json()).error.code).toBe("RATE_LIMIT");
 
     const codexBilling = await api.request("/usage/billing?provider=codex&refresh=1", {
       headers: authHeaders,
@@ -206,7 +182,7 @@ describe("createApiRouter", () => {
 
   it("returns global usage state timeline", async () => {
     const { api, getGlobalStateTimeline } = createTestContext();
-    const res = await api.request("/usage/state-timeline?range=3d&limit=25", {
+    const res = await api.request("/usage/state-timeline?range=3d&limit=not-a-number", {
       headers: authHeaders,
     });
 
@@ -214,24 +190,19 @@ describe("createApiRouter", () => {
     expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d");
     const data = await res.json();
     expect(data.timeline.paneId).toBe("global");
-    const removedRankingKey = "repo" + "Ranking";
-    expect(data[removedRankingKey]).toBeUndefined();
     expect(Object.keys(data).sort()).toEqual([
       "activePaneCount",
       "fetchedAt",
       "paneCount",
       "timeline",
     ]);
-  });
 
-  it("ignores usage state timeline limit query as no-op", async () => {
-    const { api, getGlobalStateTimeline } = createTestContext();
-    const res = await api.request("/usage/state-timeline?range=3d&limit=not-a-number", {
+    const numericLimitResponse = await api.request("/usage/state-timeline?range=3d&limit=25", {
       headers: authHeaders,
     });
-
-    expect(res.status).toBe(200);
-    expect(getGlobalStateTimeline).toHaveBeenCalledWith("3d");
+    expect(numericLimitResponse.status).toBe(200);
+    expect(getGlobalStateTimeline).toHaveBeenCalledTimes(2);
+    expect(getGlobalStateTimeline).toHaveBeenLastCalledWith("3d");
   });
 
   it("returns repository activity for the selected range", async () => {

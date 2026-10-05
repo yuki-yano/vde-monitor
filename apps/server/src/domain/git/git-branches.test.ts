@@ -50,13 +50,6 @@ describe("parseForEachRefBranches", () => {
     ]);
   });
 
-  it("parses lines without a sha field as sha null", () => {
-    const output = "main\x002026-07-01T10:00:00+09:00\x00*";
-    expect(parseForEachRefBranches(output)).toEqual([
-      { name: "main", committedAt: "2026-07-01T10:00:00+09:00", current: true, sha: null },
-    ]);
-  });
-
   it("returns empty array for empty output", () => {
     expect(parseForEachRefBranches("")).toEqual([]);
   });
@@ -142,10 +135,7 @@ describe("parseAheadBehindOutput", () => {
     // `git rev-list --left-right --count base...branch` prints
     // `<left(behind)> <right(ahead)>`.
     expect(parseAheadBehindOutput("2\t5")).toEqual({ ahead: 5, behind: 2 });
-  });
-
-  it("maps space-separated output to { ahead, behind }", () => {
-    expect(parseAheadBehindOutput("0 3")).toEqual({ ahead: 3, behind: 0 });
+    expect(parseAheadBehindOutput("0\t3")).toEqual({ ahead: 3, behind: 0 });
   });
 
   it("returns nulls for malformed input", () => {

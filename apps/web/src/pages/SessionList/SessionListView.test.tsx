@@ -382,39 +382,20 @@ describe("SessionListView", () => {
     expect(onSearchQueryChange).toHaveBeenCalledWith("");
   });
 
-  it("calls refresh when refresh button is clicked", () => {
-    const onRefresh = vi.fn();
-    const props = createViewProps({ connectionStatus: "healthy", onRefresh });
-    renderWithRouter(<SessionListView {...props} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-    expect(onRefresh).toHaveBeenCalled();
-  });
-
-  it("calls onOpenChatGrid when chat grid button is clicked", () => {
-    const onOpenChatGrid = vi.fn();
-    const props = createViewProps({ onOpenChatGrid });
-    renderWithRouter(<SessionListView {...props} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Chat Grid" }));
-    expect(onOpenChatGrid).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onOpenUsage when usage button is clicked", () => {
-    const onOpenUsage = vi.fn();
-    const props = createViewProps({ onOpenUsage });
-    renderWithRouter(<SessionListView {...props} />);
-
-    const usageButton = screen.getAllByRole("button", { name: "Usage" })[0]!;
-    fireEvent.click(usageButton);
-    expect(onOpenUsage).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onFilterChange when filter button is clicked", () => {
+  it("wires navigation, refresh, and scope filter actions", () => {
     const onFilterChange = vi.fn();
-    const props = createViewProps({ onFilterChange });
+    const props = createViewProps({ connectionStatus: "healthy", onFilterChange });
     renderWithRouter(<SessionListView {...props} />);
 
+    expect(screen.getByRole("button", { name: "AGENT" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "SHELL" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "UNKNOWN" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(props.onRefresh).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Chat Grid" }));
+    expect(props.onOpenChatGrid).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getAllByRole("button", { name: "Usage" })[0]!);
+    expect(props.onOpenUsage).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "SHELL" }));
     expect(onFilterChange).toHaveBeenCalledWith("SHELL");
   });
@@ -434,15 +415,6 @@ describe("SessionListView", () => {
       vi.advanceTimersByTime(180);
     });
     expect(onSearchQueryChange).toHaveBeenCalledWith("repo");
-  });
-
-  it("includes scope filter buttons", () => {
-    const props = createViewProps();
-    renderWithRouter(<SessionListView {...props} />);
-
-    expect(screen.getByRole("button", { name: "AGENT" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "SHELL" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "UNKNOWN" })).toBeTruthy();
   });
 
   it("renders window group and session card", () => {

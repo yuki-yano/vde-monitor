@@ -22,17 +22,12 @@ describe("normalizeCommandLines", () => {
 describe("isDangerousCommand", () => {
   it("detects dangerous commands line by line", () => {
     const patterns = compileDangerPatterns(["rm\\s+-rf"]);
-    expect(isDangerousCommand("echo ok\nrm -rf /tmp", patterns)).toBe(true);
+    expect(isDangerousCommand("echo ok\nrm -rf /tmp\npwd", patterns)).toBe(true);
   });
 
   it("returns false when no patterns match", () => {
     const patterns = compileDangerPatterns(["mkfs"]);
     expect(isDangerousCommand("echo safe", patterns)).toBe(false);
-  });
-
-  it("detects patterns across multiple lines", () => {
-    const patterns = compileDangerPatterns(["curl.*\\|\\s*sh"]);
-    expect(isDangerousCommand("echo ok\ncurl example | sh\npwd", patterns)).toBe(true);
   });
 
   it("matches patterns case-insensitively", () => {

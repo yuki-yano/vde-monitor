@@ -314,7 +314,7 @@ describe("useSessionControls", () => {
     expect(textarea.value).toBe("hello　/tmp/image.png\nworld");
   });
 
-  it("shows upload errors and keeps existing prompt text", async () => {
+  it("clears an upload failure's send-error after a subsequent successful upload", async () => {
     const sendText = vi.fn().mockResolvedValue({ ok: true });
     const sendKeys = vi.fn().mockResolvedValue({ ok: true });
     const sendRaw = vi.fn().mockResolvedValue({ ok: true });
@@ -348,47 +348,9 @@ describe("useSessionControls", () => {
     await act(async () => {
       await result.current.handleUploadImage(createImageFile());
     });
-
+    expect(result.current.sendError).toBe("upload failed");
     expect(textarea.value).toBe("keep this");
-    // Upload failures land on the dedicated send-error state, not the shared
-    // screenError, matching ChatGridTile's handlePickImage -> composerError.
     expect(setScreenError).not.toHaveBeenCalled();
-    expect(result.current.sendError).toBe("upload failed");
-  });
-
-  it("clears an upload failure's send-error after a subsequent successful send", async () => {
-    const sendText = vi.fn().mockResolvedValue({ ok: true });
-    const sendKeys = vi.fn().mockResolvedValue({ ok: true });
-    const sendRaw = vi.fn().mockResolvedValue({ ok: true });
-    const uploadImageAttachment = vi.fn().mockRejectedValue(new Error("upload failed"));
-    const setScreenError = vi.fn();
-    const scrollToBottom = vi.fn();
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionControls({
-          paneId: "pane-1",
-          mode: "text",
-          sendText,
-          sendKeys,
-          sendRaw,
-          uploadImageAttachment,
-          setScreenError,
-          scrollToBottom,
-        }),
-      { wrapper },
-    );
-
-    const textarea = document.createElement("textarea");
-    textarea.value = "keep this";
-    act(() => {
-      result.current.textInputRef.current = textarea;
-    });
-
-    await act(async () => {
-      await result.current.handleUploadImage(createImageFile());
-    });
-    expect(result.current.sendError).toBe("upload failed");
 
     uploadImageAttachment.mockResolvedValueOnce({
       path: "/tmp/image.png",

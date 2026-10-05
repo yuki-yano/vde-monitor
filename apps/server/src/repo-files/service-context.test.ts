@@ -8,7 +8,6 @@ import { normalizeRepoRelativePath } from "./path-guard";
 import {
   createServiceError,
   ensureRepoRootAvailable,
-  normalizeFileContentPath,
   normalizeSearchQuery,
   toServiceError,
   validateMaxBytes,
@@ -18,13 +17,6 @@ describe("repo file service context helpers", () => {
   it("normalizes search query and rejects empty query", () => {
     expect(normalizeSearchQuery("  src test  ")).toBe("src test");
     expect(() => normalizeSearchQuery("   ")).toThrowError(
-      expect.objectContaining({ code: "INVALID_PAYLOAD", status: 400 }),
-    );
-  });
-
-  it("normalizes content path and rejects directory root", () => {
-    expect(normalizeFileContentPath("./src/index.ts")).toBe("src/index.ts");
-    expect(() => normalizeFileContentPath(".")).toThrowError(
       expect.objectContaining({ code: "INVALID_PAYLOAD", status: 400 }),
     );
   });

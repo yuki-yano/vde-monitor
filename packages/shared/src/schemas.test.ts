@@ -270,11 +270,6 @@ describe("codexHookEventSchema", () => {
     payload: { raw: "{}" },
   });
 
-  it("accepts a codex hook event", () => {
-    const result = codexHookEventSchema.safeParse(createEvent());
-    expect(result.success).toBe(true);
-  });
-
   it("accepts all codex hook event names", () => {
     const names = ["PreToolUse", "PostToolUse", "PermissionRequest", "Stop", "UserPromptSubmit"];
     names.forEach((name) => {

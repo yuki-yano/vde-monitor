@@ -85,14 +85,6 @@ describe("QuickPanel", () => {
     forwardSpy.mockRestore();
   });
 
-  it("renders empty state when no sessions", () => {
-    const state = buildState({ open: true, sessionGroups: [] });
-    const actions = buildActions();
-    render(<QuickPanel state={state} actions={actions} />);
-
-    expect(screen.getByText("No agent sessions available.")).toBeTruthy();
-  });
-
   it("opens log modal for selected session", () => {
     const session = createSessionDetail();
     const onOpenLogModal = vi.fn();

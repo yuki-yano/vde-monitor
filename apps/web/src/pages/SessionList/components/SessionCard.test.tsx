@@ -64,14 +64,6 @@ describe("SessionCard", () => {
     cleanup();
   });
 
-  it("prefers customTitle over title and sessionName", () => {
-    const session = buildSession();
-    renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
-
-    expect(screen.getByText("Custom Title")).toBeTruthy();
-    expect(screen.queryByText("Session Title")).toBeNull();
-  });
-
   it("does not render last message when it is null", () => {
     const session = buildSession({ lastMessage: null });
     renderWithRouter(<SessionCard session={session} nowMs={Date.now()} />);
@@ -126,6 +118,8 @@ describe("SessionCard", () => {
     const onTouchPin = vi.fn();
     renderWithRouter(<SessionCard session={session} nowMs={Date.now()} onTouchPin={onTouchPin} />);
 
+    expect(screen.getByText("Custom Title")).toBeTruthy();
+    expect(screen.queryByText("Session Title")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Move pane to top" }));
     expect(onTouchPin).toHaveBeenCalledWith("pane-1");
   });

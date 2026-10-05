@@ -68,6 +68,7 @@ describe("useSessionLogs", () => {
     act(() => {
       result.current.openLogModal(session.paneId);
     });
+    expect(result.current.logModalOpen).toBe(true);
 
     await waitFor(() => {
       expect(result.current.selectedLogLines.length).toBe(2);
@@ -83,34 +84,6 @@ describe("useSessionLogs", () => {
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
     expect(result.current.selectedLogLines[1]).toBe("plain line");
     expect(requestScreen).toHaveBeenCalledWith(session.paneId, { mode: "text" });
-  });
-
-  it("opens log modal without quick panel", () => {
-    const session = createSessionDetail();
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useSessionLogs({
-          connected: true,
-          connectionIssue: null,
-          sessions: [session],
-          requestScreen: vi.fn().mockResolvedValue({
-            ok: true,
-            paneId: session.paneId,
-            mode: "text",
-            capturedAt: new Date(0).toISOString(),
-            screen: "line1",
-          }),
-          resolvedTheme: "latte",
-        }),
-      { wrapper },
-    );
-
-    act(() => {
-      result.current.openLogModal(session.paneId);
-    });
-
-    expect(result.current.logModalOpen).toBe(true);
   });
 
   it("closes log modal when quick panel closes", async () => {

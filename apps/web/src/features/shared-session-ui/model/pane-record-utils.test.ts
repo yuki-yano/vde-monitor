@@ -1,19 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findStalePaneIds, prunePaneRecord } from "./pane-record-utils";
-
-describe("findStalePaneIds", () => {
-  it("returns pane ids not included in active set", () => {
-    const stalePaneIds = findStalePaneIds(
-      {
-        "%1": 1,
-        "%2": 2,
-      },
-      new Set(["%2"]),
-    );
-    expect(stalePaneIds).toEqual(["%1"]);
-  });
-});
+import { prunePaneRecord } from "./pane-record-utils";
 
 describe("prunePaneRecord", () => {
   it("returns same reference when no stale keys exist", () => {

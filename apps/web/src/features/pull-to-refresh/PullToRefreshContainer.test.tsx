@@ -32,11 +32,6 @@ describe("PullToRefreshContainer", () => {
     cleanup();
   });
 
-  it("renders children", () => {
-    renderContainer(() => Promise.resolve());
-    expect(screen.getByRole("button", { name: "tap me" })).toBeDefined();
-  });
-
   it("does not hijack a tap with small finger drift", () => {
     const onRefresh = vi.fn(() => Promise.resolve());
     renderContainer(onRefresh);

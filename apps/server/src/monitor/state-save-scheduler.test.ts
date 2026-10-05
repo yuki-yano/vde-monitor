@@ -48,14 +48,6 @@ describe("createStateSaveScheduler", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it("flush without pending changes does nothing", () => {
-    const save = vi.fn();
-    const scheduler = createStateSaveScheduler({ save, intervalMs: 1000 });
-
-    scheduler.flush();
-    expect(save).not.toHaveBeenCalled();
-  });
-
   it("keeps the state dirty and reports the error when save throws", () => {
     const error = new Error("disk full");
     const save = vi.fn(() => {

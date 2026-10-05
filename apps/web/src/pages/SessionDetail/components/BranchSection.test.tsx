@@ -103,7 +103,13 @@ describe("BranchSection", () => {
     const actions = buildActions();
     render(<BranchSection state={state} actions={actions} />);
 
+    const isAdditionsMetric = (_content: string, element: Element | null) =>
+      element?.textContent === "+—";
     const mainRow = findRow("main");
+    expect(within(mainRow).queryByText(isAdditionsMetric)).toBeNull();
+    expect(
+      (within(mainRow).getByRole("button", { name: "Checkout" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
     expect(within(mainRow).queryByText("Default")).not.toBeNull();
     expect(within(mainRow).queryByText("Current")).not.toBeNull();
     expect(within(mainRow).queryByText("Worktree")).toBeNull();
@@ -114,6 +120,10 @@ describe("BranchSection", () => {
     expect(within(worktreeRow).queryByText("Current")).toBeNull();
 
     const plainRow = findRow("feature/plain-branch");
+    expect(within(plainRow).queryByText(isAdditionsMetric)).not.toBeNull();
+    expect(
+      (within(plainRow).getByRole("button", { name: "Checkout" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
     expect(within(plainRow).queryByText("Default")).toBeNull();
     expect(within(plainRow).queryByText("Current")).toBeNull();
     expect(within(plainRow).queryByText("Worktree")).toBeNull();
@@ -156,38 +166,6 @@ describe("BranchSection", () => {
     expect(screen.queryByText("feature/plain-branch")).toBeNull();
   });
 
-  it("hides diff metrics on the default branch entry only", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<BranchSection state={state} actions={actions} />);
-
-    const isAdditionsMetric = (_content: string, element: Element | null) =>
-      element?.textContent === "+—";
-    const mainRow = findRow("main");
-    expect(within(mainRow).queryByText(isAdditionsMetric)).toBeNull();
-
-    const plainRow = findRow("feature/plain-branch");
-    expect(within(plainRow).queryByText(isAdditionsMetric)).not.toBeNull();
-  });
-
-  it("disables the Checkout button for the current entry but not for others", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<BranchSection state={state} actions={actions} />);
-
-    const mainRow = findRow("main");
-    const mainCheckoutButton = within(mainRow).getByRole("button", {
-      name: "Checkout",
-    }) as HTMLButtonElement;
-    expect(mainCheckoutButton.disabled).toBe(true);
-
-    const plainRow = findRow("feature/plain-branch");
-    const plainCheckoutButton = within(plainRow).getByRole("button", {
-      name: "Checkout",
-    }) as HTMLButtonElement;
-    expect(plainCheckoutButton.disabled).toBe(false);
-  });
-
   it("calls onSelectVirtualBranch when an entry is clicked", () => {
     const state = buildState();
     const actions = buildActions();
@@ -225,24 +203,6 @@ describe("BranchSection", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Checkout" }));
 
     expect(actions.onCheckoutBranch).toHaveBeenCalledWith("feature/plain-branch");
-  });
-
-  it("opens the delete dialog when the delete icon is clicked", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<BranchSection state={state} actions={actions} />);
-
-    const deleteButton = screen.getByRole("button", {
-      name: "Delete branch feature/plain-branch",
-    });
-    fireEvent.click(deleteButton);
-
-    expect(screen.getByText("Delete branch")).not.toBeNull();
-    expect(
-      screen.getByText(
-        (_content, element) => element?.textContent === "Delete local branch feature/plain-branch?",
-      ),
-    ).not.toBeNull();
   });
 
   it("maps wrapped branch actions through the connected entry", () => {
@@ -296,6 +256,12 @@ describe("BranchSection", () => {
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Delete branch feature/plain-branch" }));
+    expect(within(screen.getByRole("dialog")).getByText("Delete branch")).toBeTruthy();
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        (_content, element) => element?.textContent === "Delete local branch feature/plain-branch?",
+      ),
+    ).toBeTruthy();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
 
     expect(refreshBranches).toHaveBeenCalledTimes(1);

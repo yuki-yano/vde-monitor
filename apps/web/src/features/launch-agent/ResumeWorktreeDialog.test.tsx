@@ -419,6 +419,16 @@ describe("ResumeWorktreeDialog", () => {
     fireEvent.click(screen.getByRole("radio", { name: /repo root \(main\)/i }));
     rerender(<ResumeWorktreeDialog {...props} worktreeEntries={[managedWorktreeEntry]} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
+
+    await waitFor(() => {
+      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "codex", {
+        worktreePath: "/repo/.worktree/feature/current",
+        worktreeBranch: "feature/current",
+        resumeFromPaneId: "pane-1",
+      });
+    });
+
     await waitFor(() => {
       expect(
         screen.getByRole("radio", { name: /feature\/current/i }).getAttribute("aria-checked"),
@@ -468,35 +478,6 @@ describe("ResumeWorktreeDialog", () => {
     expect(
       screen.getByRole("radio", { name: /repo root \(main\)/i }).getAttribute("aria-checked"),
     ).toBe("true");
-  });
-
-  it("submits the resolved fallback when the selected target disappears", async () => {
-    const onLaunchAgentInSession = vi.fn(async () => undefined);
-    const props = {
-      open: true,
-      onOpenChange: () => undefined,
-      sessionName: "dev-main",
-      sourceSession: buildSession(),
-      launchConfig: defaultLaunchConfig,
-      worktreeRepoRoot: "/repo",
-      onLaunchAgentInSession,
-    };
-    const { rerender } = render(
-      <ResumeWorktreeDialog {...props} worktreeEntries={[managedWorktreeEntry, repoRootEntry]} />,
-    );
-
-    fireEvent.click(screen.getByRole("radio", { name: /repo root \(main\)/i }));
-    rerender(<ResumeWorktreeDialog {...props} worktreeEntries={[managedWorktreeEntry]} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Resume / Move" }));
-
-    await waitFor(() => {
-      expect(onLaunchAgentInSession).toHaveBeenCalledWith("dev-main", "codex", {
-        worktreePath: "/repo/.worktree/feature/current",
-        worktreeBranch: "feature/current",
-        resumeFromPaneId: "pane-1",
-      });
-    });
   });
 
   it("ignores an old successful submission after close and reopen", async () => {

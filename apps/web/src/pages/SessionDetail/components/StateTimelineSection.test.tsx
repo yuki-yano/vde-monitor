@@ -83,15 +83,6 @@ describe("StateTimelineSection", () => {
     expect(screen.getByText("Timeline unavailable")).toBeTruthy();
   });
 
-  it("shows only one history row when collapsed", () => {
-    const props = buildProps({ timelineExpanded: false, isMobile: false });
-    render(<StateTimelineSection {...props} />);
-
-    expect(screen.getByText("inactive_timeout")).toBeTruthy();
-    expect(screen.queryByText("recent_output")).toBeNull();
-    expect(screen.getByLabelText("Expand timeline")).toBeTruthy();
-  });
-
   it("shows all history rows when expanded", () => {
     const props = buildProps({ timelineExpanded: true, isMobile: true });
     render(<StateTimelineSection {...props} />);
@@ -116,6 +107,8 @@ describe("StateTimelineSection", () => {
     const props = buildProps({ timelineExpanded: false, isMobile: false });
     render(<StateTimelineSection {...props} />);
 
+    expect(screen.getByText("inactive_timeout")).toBeTruthy();
+    expect(screen.queryByText("recent_output")).toBeNull();
     fireEvent.click(screen.getByLabelText("Expand timeline"));
     expect(props.actions.onToggleTimelineExpanded).toHaveBeenCalledTimes(1);
   });

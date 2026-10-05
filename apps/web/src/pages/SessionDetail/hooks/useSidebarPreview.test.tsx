@@ -190,32 +190,6 @@ describe("useSidebarPreview", () => {
     expect(result.current.preview?.timelineLoading).toBe(false);
     expect(result.current.preview?.timelineError).toBeNull();
     expect(prefetchPreview).toHaveBeenCalledWith("pane-1");
-  });
-
-  it("clears preview on select", async () => {
-    const { result } = setup();
-    const node = document.createElement("div");
-    node.getBoundingClientRect = () =>
-      ({
-        width: 200,
-        height: 40,
-        top: 100,
-        left: 20,
-        right: 220,
-        bottom: 140,
-        x: 20,
-        y: 100,
-        toJSON: () => ({}),
-      }) as DOMRect;
-
-    act(() => {
-      result.current.registerItemRef("pane-1", node);
-      result.current.handleFocus("pane-1");
-    });
-
-    await waitFor(() => {
-      expect(result.current.preview).not.toBeNull();
-    });
 
     act(() => {
       result.current.handleSelect();

@@ -42,23 +42,6 @@ afterEach(() => {
 });
 
 describe("useSessionDoneAcknowledgement", () => {
-  it("acknowledges a pending completion when the detail is visible", async () => {
-    setVisibility("visible");
-    const acknowledgeSessionView = vi.fn(async () => undefined);
-
-    renderHook(() =>
-      useSessionDoneAcknowledgement({
-        paneId: "%1",
-        session: session(2, 1),
-        acknowledgeSessionView,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 2);
-    });
-  });
-
   it("coalesces StrictMode replay into one acknowledgement request", async () => {
     setVisibility("visible");
     const acknowledgeSessionView = vi.fn(async () => undefined);
@@ -75,6 +58,7 @@ describe("useSessionDoneAcknowledgement", () => {
 
     await waitFor(() => {
       expect(acknowledgeSessionView).toHaveBeenCalledOnce();
+      expect(acknowledgeSessionView).toHaveBeenCalledWith("%1", "epoch-1", 2);
     });
   });
 

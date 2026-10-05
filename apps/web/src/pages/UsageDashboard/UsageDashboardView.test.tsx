@@ -186,47 +186,30 @@ const createViewModel = (
 });
 
 describe("UsageDashboardView", () => {
-  it("renders desktop sidebar shell", () => {
-    render(<UsageDashboardView {...createViewModel(createProvider("codex"))} />);
-
-    expect(screen.getByTestId("session-sidebar")).toBeTruthy();
-    expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeTruthy();
-  });
-
-  it("shows history controls only in pwa display mode", () => {
-    const usePwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "usePwaDisplayMode");
-    const viewModel = createViewModel(createProvider("codex"));
-    usePwaDisplayModeSpy.mockReturnValue(false);
-    const { rerender } = render(<UsageDashboardView {...viewModel} />);
-
-    expect(screen.queryByLabelText("Go back")).toBeNull();
-    expect(screen.queryByLabelText("Go forward")).toBeNull();
-
-    usePwaDisplayModeSpy.mockReturnValue(true);
-    rerender(<UsageDashboardView {...viewModel} />);
-
-    expect(screen.getByLabelText("Go back")).toBeTruthy();
-    expect(screen.getByLabelText("Go forward")).toBeTruthy();
-
-    usePwaDisplayModeSpy.mockRestore();
-  });
-
-  it("calls browser history methods from history controls", () => {
+  it("keeps the desktop sidebar and enables history actions only in pwa mode", () => {
     const usePwaDisplayModeSpy = vi.spyOn(pwaDisplayMode, "usePwaDisplayMode");
     const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
     const forwardSpy = vi.spyOn(window.history, "forward").mockImplementation(() => undefined);
-    usePwaDisplayModeSpy.mockReturnValue(true);
-    render(<UsageDashboardView {...createViewModel(createProvider("codex"))} />);
+    try {
+      const viewModel = createViewModel(createProvider("codex"));
+      usePwaDisplayModeSpy.mockReturnValue(false);
+      const { rerender } = render(<UsageDashboardView {...viewModel} />);
+      expect(screen.getByTestId("session-sidebar")).toBeTruthy();
+      expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeTruthy();
+      expect(screen.queryByLabelText("Go back")).toBeNull();
+      expect(screen.queryByLabelText("Go forward")).toBeNull();
 
-    fireEvent.click(screen.getByLabelText("Go back"));
-    fireEvent.click(screen.getByLabelText("Go forward"));
-
-    expect(backSpy).toHaveBeenCalledTimes(1);
-    expect(forwardSpy).toHaveBeenCalledTimes(1);
-
-    usePwaDisplayModeSpy.mockRestore();
-    backSpy.mockRestore();
-    forwardSpy.mockRestore();
+      usePwaDisplayModeSpy.mockReturnValue(true);
+      rerender(<UsageDashboardView {...viewModel} />);
+      fireEvent.click(screen.getByLabelText("Go back"));
+      fireEvent.click(screen.getByLabelText("Go forward"));
+      expect(backSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      usePwaDisplayModeSpy.mockRestore();
+      backSpy.mockRestore();
+      forwardSpy.mockRestore();
+    }
   });
 
   it("hides session metric when capabilities.session is false", () => {
@@ -245,15 +228,6 @@ describe("UsageDashboardView", () => {
     render(<UsageDashboardView {...createViewModel(codex)} />);
 
     expect(screen.queryByText("Session")).toBeNull();
-    expect(screen.getByText("Weekly")).toBeTruthy();
-  });
-
-  it("renders session metric when capabilities.session is true", () => {
-    const codex = createProvider("codex");
-
-    render(<UsageDashboardView {...createViewModel(codex)} />);
-
-    expect(screen.getByText("Session")).toBeTruthy();
     expect(screen.getByText("Weekly")).toBeTruthy();
   });
 
@@ -341,6 +315,8 @@ describe("UsageDashboardView", () => {
 
     render(<UsageDashboardView {...createViewModel(codex)} />);
 
+    expect(screen.getByText("Session")).toBeTruthy();
+    expect(screen.getByText("Weekly")).toBeTruthy();
     expect(screen.getByText("10% / 20%")).toBeTruthy();
     expect(screen.getByText("40% / 30%")).toBeTruthy();
     expect(screen.getByText("12% / 8.5%")).toBeTruthy();

@@ -4,6 +4,9 @@ import { formatDurationMs } from "./time-format";
 
 describe("formatDurationMs", () => {
   it("keeps minute precision across the 24-hour boundary", () => {
+    expect(formatDurationMs(0)).toBe("0s");
+    expect(formatDurationMs(90_000)).toBe("1m");
+    expect(formatDurationMs(25 * 60 * 60 * 1000)).toBe("1d 1h");
     expect(formatDurationMs(24 * 60 * 60 * 1000 - 1)).toBe("23h 59m");
     expect(formatDurationMs(24 * 60 * 60 * 1000)).toBe("1d");
     expect(formatDurationMs((24 * 60 + 1) * 60 * 1000)).toBe("1d 1m");

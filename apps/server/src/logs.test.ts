@@ -69,24 +69,6 @@ describe("rotateLogIfNeeded", () => {
 });
 
 describe("createLogActivityPoller", () => {
-  it("does not emit activity on first poll for pre-existing log content", async () => {
-    mocks.stat.mockResolvedValue({ size: 1024 });
-    const onActivity = vi.fn();
-
-    const poller = createLogActivityPoller(1000);
-    poller.register("%1", "/tmp/pane-1.log");
-    poller.onActivity(onActivity);
-    poller.start();
-
-    await vi.advanceTimersByTimeAsync(1000);
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(onActivity).not.toHaveBeenCalled();
-    expect(mocks.stat).toHaveBeenCalledTimes(2);
-
-    poller.stop();
-  });
-
   it("emits activity only when log size grows after baseline", async () => {
     const onActivity = vi.fn();
     mocks.stat

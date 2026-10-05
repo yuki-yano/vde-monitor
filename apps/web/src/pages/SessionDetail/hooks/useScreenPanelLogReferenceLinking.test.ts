@@ -4,37 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { useScreenPanelLogReferenceLinking } from "./useScreenPanelLogReferenceLinking";
 
 describe("useScreenPanelLogReferenceLinking", () => {
-  it("resolves candidates from full range in smart mode", async () => {
-    const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
-    const { result } = renderHook(() =>
-      useScreenPanelLogReferenceLinking({
-        mode: "text",
-        effectiveWrapMode: "smart",
-        paneId: "%1",
-        sourceRepoRoot: "/repo",
-        agent: "codex",
-        screenLines: [
-          "src/start.ts",
-          "aaa src/main.ts:1 index.test.tsx https://example.com",
-          "tail.tsx",
-        ],
-        onResolveFileReferenceCandidates,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(1);
-    });
-    const firstCallTokens = onResolveFileReferenceCandidates.mock.calls[0]?.[0] ?? [];
-    expect([...firstCallTokens].sort()).toEqual([
-      "index.test.tsx",
-      "src/main.ts:1",
-      "src/start.ts",
-      "tail.tsx",
-    ]);
-    expect(result.current.linkifiedScreenLines.length).toBe(3);
-  });
-
   it("uses visible-range fallback window in off mode", async () => {
     const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
     const screenLines = Array.from({ length: 300 }, (_, index) => {
@@ -144,12 +113,12 @@ describe("useScreenPanelLogReferenceLinking", () => {
   it("switches from smart full-range to off fallback-window behavior", async () => {
     const onResolveFileReferenceCandidates = vi.fn(async (rawTokens: string[]) => rawTokens);
     const screenLines = [
-      "src/early.ts",
-      ...Array.from({ length: 170 }, () => "plain"),
-      "src/late.ts",
-      ...Array.from({ length: 9 }, () => "plain"),
+      "src/start.ts",
+      "aaa src/main.ts:1 index.test.tsx https://example.com",
+      ...Array.from({ length: 178 }, () => "plain"),
+      "tail.tsx",
     ];
-    const { rerender } = renderHook(
+    const { result, rerender } = renderHook(
       ({ effectiveWrapMode }: { effectiveWrapMode: "off" | "smart" }) =>
         useScreenPanelLogReferenceLinking({
           mode: "text",
@@ -166,14 +135,23 @@ describe("useScreenPanelLogReferenceLinking", () => {
     await waitFor(() => {
       expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(1);
     });
-    expect(onResolveFileReferenceCandidates.mock.calls[0]?.[0]).toContain("src/early.ts");
+    expect([...(onResolveFileReferenceCandidates.mock.calls[0]?.[0] ?? [])].sort()).toEqual([
+      "index.test.tsx",
+      "src/main.ts:1",
+      "src/start.ts",
+      "tail.tsx",
+    ]);
+    expect(result.current.linkifiedScreenLines.length).toBe(screenLines.length);
 
     rerender({ effectiveWrapMode: "off" });
 
     await waitFor(() => {
       expect(onResolveFileReferenceCandidates).toHaveBeenCalledTimes(2);
     });
-    expect(onResolveFileReferenceCandidates.mock.calls[1]?.[0]).not.toContain("src/early.ts");
-    expect(onResolveFileReferenceCandidates.mock.calls[1]?.[0]).toContain("src/late.ts");
+    const offTokens = onResolveFileReferenceCandidates.mock.calls[1]?.[0] ?? [];
+    expect(offTokens).not.toContain("src/start.ts");
+    expect(offTokens).not.toContain("src/main.ts:1");
+    expect(offTokens).not.toContain("index.test.tsx");
+    expect(offTokens).toContain("tail.tsx");
   });
 });

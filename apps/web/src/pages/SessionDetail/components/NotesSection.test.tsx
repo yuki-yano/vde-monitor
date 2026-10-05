@@ -277,23 +277,6 @@ describe("NotesSection", () => {
     expect(openPreview?.textContent).toBe("line-1");
   });
 
-  it("starts editing on body click and exits edit mode on blur", async () => {
-    render(<NotesSection state={buildState()} actions={buildActions()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start editing note note-1" }));
-
-    const textarea = screen.getByLabelText("Edit note body note-1");
-    expect(textarea).toBeTruthy();
-
-    fireEvent.blur(textarea);
-
-    await waitFor(() => {
-      expect(screen.queryByLabelText("Edit note body note-1")).toBeNull();
-    });
-    expect(screen.getByRole("button", { name: "Start editing note note-1" })).toBeTruthy();
-  });
-
   it("keeps editing current note when switching fails to save", async () => {
     const onSave = vi.fn(async () => false);
     const notes = [createNote({ id: "note-1" }), createNote({ id: "note-2", body: "second" })];
@@ -315,7 +298,7 @@ describe("NotesSection", () => {
     expect(screen.queryByLabelText("Edit note body note-2")).toBeNull();
   });
 
-  it("moves caret to end when entering edit mode", async () => {
+  it("focuses the caret at the end and exits edit mode on blur", async () => {
     render(<NotesSection state={buildState()} actions={buildActions()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Expand note note-1" }));
@@ -327,6 +310,13 @@ describe("NotesSection", () => {
       expect(textarea.selectionStart).toBe(textarea.value.length);
       expect(textarea.selectionEnd).toBe(textarea.value.length);
     });
+
+    fireEvent.blur(textarea);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit note body note-1")).toBeNull();
+    });
+    expect(screen.getByRole("button", { name: "Start editing note note-1" })).toBeTruthy();
   });
 
   it("keeps delete action disabled when dialog target disappears", async () => {

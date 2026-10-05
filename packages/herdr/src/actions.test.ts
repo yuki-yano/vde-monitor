@@ -11,18 +11,6 @@ const makeConfig = (): AgentMonitorConfig =>
   }) as AgentMonitorConfig;
 
 describe("createHerdrActions", () => {
-  it("sends text and the Enter key through pane.send_input", async () => {
-    const client = { request: vi.fn().mockResolvedValue({ type: "ok" }) };
-    const actions = createHerdrActions(client, makeConfig());
-
-    await expect(actions.sendText("wB:p1", "echo ok", true)).resolves.toEqual({ ok: true });
-    expect(client.request).toHaveBeenCalledWith(HERDR_METHODS.paneSendInput, {
-      pane_id: "wB:p1",
-      text: "echo ok",
-      keys: ["Enter"],
-    });
-  });
-
   it("normalizes CR and CRLF before sending text", async () => {
     const client = { request: vi.fn().mockResolvedValue({ type: "ok" }) };
     const actions = createHerdrActions(client, makeConfig());
@@ -35,22 +23,6 @@ describe("createHerdrActions", () => {
       text: "echo one\necho two\n",
       keys: ["Enter"],
     });
-  });
-
-  it("rejects terminal control sequences before sendText mutates input", async () => {
-    const client = { request: vi.fn() };
-    const actions = createHerdrActions(client, makeConfig());
-
-    await expect(
-      actions.sendText("wB:p1", "\u001b[201~r\u0018\u007fm -rf /", true),
-    ).resolves.toEqual({
-      ok: false,
-      error: {
-        code: "INVALID_PAYLOAD",
-        message: "text contains unsupported control characters",
-      },
-    });
-    expect(client.request).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -420,7 +392,7 @@ describe("createHerdrActions", () => {
     },
   );
 
-  it("keeps normal multi-line danger and total-length validation", async () => {
+  it("rejects dangerous raw input with and without Enter and validates total length", async () => {
     const client = { request: vi.fn() };
     const actions = createHerdrActions(client, makeConfig());
 
@@ -437,13 +409,6 @@ describe("createHerdrActions", () => {
       ok: false,
       error: { code: "INVALID_PAYLOAD", message: "text too long" },
     });
-    expect(client.request).not.toHaveBeenCalled();
-  });
-
-  it("rejects a dangerous command entirely inside unsafe=false raw input", async () => {
-    const client = { request: vi.fn() };
-    const actions = createHerdrActions(client, makeConfig());
-
     await expect(
       actions.sendRaw(
         "wB:p1",

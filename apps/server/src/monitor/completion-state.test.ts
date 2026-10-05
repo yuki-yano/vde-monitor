@@ -267,7 +267,12 @@ describe("completion state reducer", () => {
     poll = reducer.reduce(poll, { type: "begin-run", source: "poll:running" }).state;
     const pollResult = reducer.reduce(poll, { type: "complete-run", source: "poll" });
     expect(pollResult.completionAdvanced).toBe(true);
-    expect(requireCursor(pollResult.state)).toMatchObject({ runSeq: 1, completedSeq: 1 });
+    expect(requireCursor(pollResult.state)).toMatchObject({
+      runSeq: 1,
+      completedSeq: 1,
+      openRunSeq: null,
+    });
+    expect(resolvePublicPaneState(pollResult.state)).toBe("DONE");
 
     // S16: An armed cursor without a session ID binds the Stop ID and completes synthetically.
     let stop = observeInitialPresence();
@@ -374,17 +379,6 @@ describe("completion state reducer", () => {
     });
     expect(requireCursor(state).epoch).not.toBe(oldEpoch);
     expectValid(state);
-  });
-
-  it("S19: completes an explicitly opened run when polling observes its end", () => {
-    const { reducer, observeInitialPresence } = createHarness();
-    let state = observeInitialPresence();
-    state = reducer.reduce(state, { type: "begin-run", source: "poll:running" }).state;
-    const completed = reducer.reduce(state, { type: "complete-run", source: "poll" });
-
-    expect(completed.completionAdvanced).toBe(true);
-    expect(requireCursor(completed.state)).toMatchObject({ openRunSeq: null, completedSeq: 1 });
-    expect(resolvePublicPaneState(completed.state)).toBe("DONE");
   });
 
   it("S20-S21: drops delayed old-identity events and changes epoch on a newer explicit start", () => {

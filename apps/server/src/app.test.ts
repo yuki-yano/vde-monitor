@@ -151,8 +151,13 @@ describe("createApp /api/admin/token/rotate", () => {
       );
       expect(contentResponse.status).toBe(200);
       const content = await contentResponse.json();
+      expect(content.file.path).toBe("large.png");
+      expect(content.file.isBinary).toBe(true);
+      expect(content.file.content).toBeNull();
+      expect(content.file.preview).toMatchObject({ mimeType: "image/png" });
+      expect(content.file.preview.token).not.toBe("");
       const previewPath = content.file.preview.url;
-      expect(previewPath).toMatch(/^\/file-preview\//);
+      expect(previewPath).toMatch(/^\/file-preview\/[^/]+\/r\/repo\/large\.png$/);
 
       const previewResponse = await app.request(previewPath);
       expect(previewResponse.status).toBe(200);

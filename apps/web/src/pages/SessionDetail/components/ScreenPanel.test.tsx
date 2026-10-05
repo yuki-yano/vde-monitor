@@ -261,14 +261,6 @@ describe("ScreenPanel", () => {
     expect(toggleButton.getAttribute("disabled")).not.toBeNull();
   });
 
-  it("disables wrap button in image mode", () => {
-    const state = buildState({ mode: "image" });
-    const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
-    const smartButton = screen.getByRole("button", { name: "Toggle wrap mode" });
-    expect(smartButton.getAttribute("disabled")).not.toBeNull();
-  });
-
   it("uses non-virtualized rendering path when smart wrap is enabled", () => {
     const state = buildState({
       wrapMode: "smart",
@@ -906,15 +898,21 @@ describe("ScreenPanel", () => {
     expect(screen.getByText("RECONNECTING...")).toBeTruthy();
   });
 
-  it("renders image mode content", () => {
-    const state = buildState({
-      mode: "image",
-      imageBase64: "abc123",
-      screenLines: [],
-    });
+  it("disables wrapping in image mode and renders image content", () => {
+    const state = buildState({ mode: "image", imageBase64: null });
     const actions = buildActions();
-    render(<ScreenPanel state={state} actions={actions} controls={null} />);
+    const { rerender } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
+    expect(
+      screen.getByRole("button", { name: "Toggle wrap mode" }).getAttribute("disabled"),
+    ).not.toBeNull();
 
+    rerender(
+      <ScreenPanel
+        state={{ ...state, imageBase64: "abc123", screenLines: [] }}
+        actions={actions}
+        controls={null}
+      />,
+    );
     const img = screen.getByAltText("screen") as HTMLImageElement;
     expect(img.src).toContain("data:image/png;base64,abc123");
   });
@@ -1158,23 +1156,6 @@ describe("ScreenPanel", () => {
 
     fireEvent.click(container.querySelector("[data-vde-file-ref='src/exists.ts:2']") as Element);
     expect(onResolveFileReference).toHaveBeenCalledWith("src/exists.ts:2");
-  });
-
-  it("linkifies comma-separated filename tokens in explored logs", async () => {
-    const state = buildState({
-      screenLines: ["└ Read SessionDetailView.test.tsx, useSessionDetailVM.test.tsx"],
-    });
-    const actions = buildActions();
-    const { container } = render(<ScreenPanel state={state} actions={actions} controls={null} />);
-
-    await waitFor(() => {
-      expect(
-        container.querySelector("[data-vde-file-ref='SessionDetailView.test.tsx,']"),
-      ).toBeTruthy();
-      expect(
-        container.querySelector("[data-vde-file-ref='useSessionDetailVM.test.tsx']"),
-      ).toBeTruthy();
-    });
   });
 
   it("keeps existing verified links when follow-up candidate resolution returns empty", async () => {

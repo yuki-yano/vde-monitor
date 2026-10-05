@@ -217,27 +217,6 @@ describe("useSessionScreen", () => {
     });
   });
 
-  it("changes mode via handler", () => {
-    const requestScreen = vi.fn().mockResolvedValue({
-      ok: true,
-      paneId: "pane-1",
-      mode: "text",
-      capturedAt: new Date(0).toISOString(),
-      screen: "hello",
-    });
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useSessionScreen(buildArgs({ requestScreen })), {
-      wrapper,
-    });
-
-    act(() => {
-      result.current.handleModeChange("image");
-    });
-
-    expect(result.current.mode).toBe("image");
-  });
-
   it("suppresses updates while user is scrolling", async () => {
     const requestScreen = vi
       .fn()
@@ -399,6 +378,7 @@ describe("useSessionScreen", () => {
     });
     await waitFor(() => expect(result.current.screenLines).toEqual(["text"]));
     act(() => result.current.handleModeChange("image"));
+    expect(result.current.mode).toBe("image");
     await waitFor(() => expect(result.current.imageBase64).toBe("image-1"));
     act(() => result.current.handleUserScrollStateChange(true));
     await act(async () => result.current.refreshScreen());

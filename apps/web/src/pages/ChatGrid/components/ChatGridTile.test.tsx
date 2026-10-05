@@ -286,33 +286,6 @@ describe("ChatGridTile", () => {
     });
   });
 
-  it("sends text through sendText when send is clicked", async () => {
-    mockSessionApi.sendText.mockClear();
-    renderWithRouter(
-      <ChatGridTile
-        session={buildSession()}
-        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
-        connected
-        screenLines={["line 1"]}
-        screenLoading={false}
-        screenError={null}
-        onTouchSession={vi.fn(async () => undefined)}
-      />,
-    );
-
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "hello from tile" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
-
-    await waitFor(() => {
-      expect(mockSessionApi.sendText).toHaveBeenCalledWith(
-        "pane-1",
-        "hello from tile",
-        true,
-        expect.any(String),
-      );
-    });
-  });
-
   it("sends text without Enter when auto-enter is unchecked", async () => {
     mockSessionApi.sendText.mockClear();
     renderWithRouter(
@@ -338,32 +311,6 @@ describe("ChatGridTile", () => {
         false,
         expect.any(String),
       );
-    });
-  });
-
-  it("sends key input from expanded keys panel", async () => {
-    mockSessionApi.sendKeys.mockClear();
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
-    renderWithRouter(
-      <ChatGridTile
-        session={buildSession()}
-        nowMs={Date.parse("2026-02-17T00:10:00.000Z")}
-        connected
-        screenLines={["line 1"]}
-        screenLoading={false}
-        screenError={null}
-        onTouchSession={vi.fn(async () => undefined)}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Show key options" }));
-    fireEvent.click(screen.getByRole("button", { name: "Enter" }));
-
-    await waitFor(() => {
-      expect(mockSessionApi.sendKeys).toHaveBeenCalledWith("pane-1", ["Enter"]);
     });
   });
 
@@ -460,12 +407,14 @@ describe("ChatGridTile", () => {
 
     await waitFor(() => {
       expect(screen.getByText("boom")).toBeTruthy();
+      expect(mockSessionApi.sendKeys).toHaveBeenNthCalledWith(1, "pane-1", ["Enter"]);
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Enter" }));
 
     await waitFor(() => {
       expect(screen.queryByText("boom")).toBeNull();
+      expect(mockSessionApi.sendKeys).toHaveBeenNthCalledWith(2, "pane-1", ["Enter"]);
     });
   });
 
@@ -500,7 +449,12 @@ describe("ChatGridTile", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
-      expect(mockSessionApi.sendText).toHaveBeenCalled();
+      expect(mockSessionApi.sendText).toHaveBeenCalledWith(
+        "pane-1",
+        "hello from tile",
+        true,
+        expect.any(String),
+      );
     });
     await waitFor(() => {
       expect(screen.queryByText("boom")).toBeNull();

@@ -20,13 +20,6 @@ const collect = () => {
 // ---------------------------------------------------------------------------
 
 describe("createSseParser", () => {
-  it("parses a simple event in a single chunk", () => {
-    const { events, parser } = collect();
-    parser.push("event: sessions\ndata: hello\n\n");
-    expect(events).toHaveLength(1);
-    expect(events[0]).toEqual({ event: "sessions", data: "hello" });
-  });
-
   it("defaults event type to 'message' when event field is absent", () => {
     const { events, parser } = collect();
     parser.push("data: world\n\n");
@@ -109,9 +102,10 @@ describe("createSseParser", () => {
   it("parses multiple events from a single push", () => {
     const { events, parser } = collect();
     parser.push("event: a\ndata: first\n\nevent: b\ndata: second\n\n");
-    expect(events).toHaveLength(2);
-    expect(events[0]).toMatchObject({ event: "a", data: "first" });
-    expect(events[1]).toMatchObject({ event: "b", data: "second" });
+    expect(events).toEqual([
+      { event: "a", data: "first" },
+      { event: "b", data: "second" },
+    ]);
   });
 
   it("carries lastEventId forward to subsequent events that lack an id field", () => {

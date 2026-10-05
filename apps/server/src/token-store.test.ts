@@ -41,13 +41,6 @@ describe("ensureToken", () => {
     expect(persisted.token).toBe(token);
   });
 
-  it("returns the persisted token on subsequent calls", () => {
-    const first = ensureToken();
-    const second = ensureToken();
-
-    expect(second).toBe(first);
-  });
-
   it("regenerates the token when the file contains invalid JSON", () => {
     fs.mkdirSync(path.dirname(tokenPath()), { recursive: true });
     fs.writeFileSync(tokenPath(), "{not json");

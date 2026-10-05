@@ -305,16 +305,10 @@ describe("useSessionListVM", () => {
     expect(screen.getByTestId("query").textContent).toBe("");
   });
 
-  it("updates filter when onFilterChange is called", async () => {
+  it("updates UNKNOWN and EDITOR filter values", async () => {
     await renderWithRouter(["/?filter=AGENT"]);
     fireEvent.click(screen.getByRole("button", { name: "set-unknown" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("filter").textContent).toBe("UNKNOWN");
-    });
-  });
-
-  it("accepts EDITOR filter value", async () => {
-    await renderWithRouter(["/?filter=AGENT"]);
+    await waitFor(() => expect(screen.getByTestId("filter").textContent).toBe("UNKNOWN"));
     fireEvent.click(screen.getByRole("button", { name: "set-editor" }));
     await waitFor(() => {
       expect(screen.getByTestId("filter").textContent).toBe("EDITOR");
@@ -334,16 +328,10 @@ describe("useSessionListVM", () => {
     expect(screen.getByTestId("query").textContent).toBe("backend");
   });
 
-  it("updates query when onSearchQueryChange is called", async () => {
-    await renderWithRouter(["/?filter=AGENT"]);
-    fireEvent.click(screen.getByRole("button", { name: "set-query" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("query").textContent).toBe("repo");
-    });
-  });
-
   it("keeps space-separated query terms", async () => {
     await renderWithRouter(["/?filter=AGENT"]);
+    fireEvent.click(screen.getByRole("button", { name: "set-query" }));
+    await waitFor(() => expect(screen.getByTestId("query").textContent).toBe("repo"));
     fireEvent.click(screen.getByRole("button", { name: "set-query-words" }));
     await waitFor(() => {
       expect(screen.getByTestId("query").textContent).toBe("repo backend");

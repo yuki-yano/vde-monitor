@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isCssPreviewMimeType,
-  isHtmlPreviewMimeType,
-  isImagePreviewMimeType,
-  resolvePreviewMimeType,
-} from "./mime";
+import { isImagePreviewMimeType, resolvePreviewMimeType } from "./mime";
 
 describe("preview MIME helpers", () => {
   it("maps browser image, HTML, CSS, and font extensions", () => {
@@ -16,9 +11,7 @@ describe("preview MIME helpers", () => {
     expect(resolvePreviewMimeType("unknown.bin")).toBe("application/octet-stream");
   });
 
-  it("classifies preview response types", () => {
-    expect(isHtmlPreviewMimeType("text/html; charset=utf-8")).toBe(true);
-    expect(isCssPreviewMimeType("text/css; charset=utf-8")).toBe(true);
+  it("recognizes SVG image MIME types", () => {
     expect(isImagePreviewMimeType("image/svg+xml")).toBe(true);
   });
 });

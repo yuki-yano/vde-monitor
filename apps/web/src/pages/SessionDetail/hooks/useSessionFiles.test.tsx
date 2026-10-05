@@ -327,7 +327,10 @@ describe("useSessionFiles Query resources", () => {
 
   it("binds content to its target root and close-reopen performs a fresh request", async () => {
     const { result, requestRepoFileContent } = renderFiles();
+    act(() => result.current.onToggleFileModalLineNumbers());
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
     act(() => result.current.onOpenFileModal("README.md"));
+    expect(result.current.fileModalShowLineNumbers).toBe(true);
     await waitFor(() => expect(result.current.fileModalFile?.path).toBe("README.md"));
     expect(requestRepoFileContent).toHaveBeenCalledWith(
       "pane-1",
@@ -335,9 +338,15 @@ describe("useSessionFiles Query resources", () => {
       { maxBytes: 256 * 1024, worktreePath: "/repo" },
       expect.any(AbortSignal),
     );
+    act(() => result.current.onToggleFileModalLineNumbers());
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
     act(() => result.current.onCloseFileModal());
+    expect(result.current.fileModalShowLineNumbers).toBe(true);
     await act(async () => Promise.resolve());
+    act(() => result.current.onToggleFileModalLineNumbers());
+    expect(result.current.fileModalShowLineNumbers).toBe(false);
     act(() => result.current.onOpenFileModal("README.md"));
+    expect(result.current.fileModalShowLineNumbers).toBe(true);
     await waitFor(() => expect(requestRepoFileContent).toHaveBeenCalledTimes(2));
   });
 
@@ -726,17 +735,6 @@ describe("useSessionFiles Query resources", () => {
     await waitFor(() =>
       expect(rendered.revokeRepoFilePreview).toHaveBeenCalledWith("pane-1", "late-b"),
     );
-  });
-
-  it("resets line numbers on open and close", async () => {
-    const rendered = renderFiles();
-    act(() => rendered.result.current.onToggleFileModalLineNumbers());
-    expect(rendered.result.current.fileModalShowLineNumbers).toBe(false);
-    act(() => rendered.result.current.onOpenFileModal("a.ts"));
-    expect(rendered.result.current.fileModalShowLineNumbers).toBe(true);
-    act(() => rendered.result.current.onToggleFileModalLineNumbers());
-    act(() => rendered.result.current.onCloseFileModal());
-    expect(rendered.result.current.fileModalShowLineNumbers).toBe(true);
   });
 
   it("opens exact HTML and Markdown references with the expected view and highlight", async () => {

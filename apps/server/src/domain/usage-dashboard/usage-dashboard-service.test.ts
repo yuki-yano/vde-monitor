@@ -162,25 +162,6 @@ describe("createUsageDashboardService", () => {
     expect(provider.capabilities.modelWindows).toBe(true);
   });
 
-  it("hides the session window when Codex only returns a weekly limit", async () => {
-    mocks.fetchCodexRateLimits.mockResolvedValue(codexWeeklyOnlyRateLimitsResponse);
-    const service = createUsageDashboardService({
-      usageConfig: configDefaults.usage,
-    });
-
-    const provider = await service.getProviderSnapshot("codex");
-
-    expect(provider.status).toBe("ok");
-    expect(provider.windows).toEqual([
-      expect.objectContaining({
-        id: "weekly",
-        utilizationPercent: 45,
-      }),
-    ]);
-    expect(provider.capabilities.session).toBe(false);
-    expect(provider.capabilities.weekly).toBe(true);
-  });
-
   it("refreshes weekly usage when the Codex session limit disappears", async () => {
     vi.useFakeTimers();
     try {
@@ -216,6 +197,7 @@ describe("createUsageDashboardService", () => {
         }),
       ]);
       expect(provider?.capabilities.session).toBe(false);
+      expect(provider?.capabilities.weekly).toBe(true);
       expect(mocks.fetchCodexRateLimits).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();

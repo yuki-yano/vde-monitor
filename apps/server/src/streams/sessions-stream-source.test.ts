@@ -151,18 +151,6 @@ describe("createSessionsStreamSource", () => {
     source.dispose();
   });
 
-  it("replaySince returns empty array when no new events since lastEventId", () => {
-    const registry = makeRegistry();
-    const source = createSessionsStreamSource({ registry });
-
-    registry.update(makeDetail("pane-1")); // id=1
-
-    const replay = source.replaySince(1);
-    expect(replay).toEqual([]);
-
-    source.dispose();
-  });
-
   it("replaySince returns null when lastEventId is older than buffer", () => {
     const registry = makeRegistry();
     const source = createSessionsStreamSource({ registry });

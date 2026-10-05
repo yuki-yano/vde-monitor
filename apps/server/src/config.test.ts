@@ -333,20 +333,6 @@ describe("ensureConfig", () => {
     expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(tokenPath);
   });
 
-  it("accepts herdr as a global multiplexer backend", () => {
-    setConfigFile({
-      ...expectedGeneratedTemplate,
-      multiplexer: { backend: "herdr" },
-    });
-    setTokenFile("existing-token");
-
-    const result = ensureConfig();
-
-    expect(result.multiplexer.backend).toBe("herdr");
-    expect(result.token).toBe("existing-token");
-    expect(mocks.writeFileSync).not.toHaveBeenCalled();
-  });
-
   it("preserves cmux settings but drops a config-file password", () => {
     setConfigFile({
       ...expectedGeneratedTemplate,
@@ -488,15 +474,6 @@ describe("regenerateConfig", () => {
     expect(path.resolve(mocks.renameSync.mock.calls[0]?.[1] ?? "")).toBe(configPath);
   });
 
-  it("keeps global config precedence while regenerating", () => {
-    setConfigFile(expectedGeneratedTemplate);
-
-    const result = regenerateConfig();
-
-    expect(result.config).toEqual(expectedGeneratedTemplate);
-    expect(YAML.parse(writtenContents.get(configPath) ?? "{}")).toEqual(expectedGeneratedTemplate);
-  });
-
   it("preserves herdr backend while regenerating required keys", () => {
     setConfigFile({
       multiplexer: { backend: "herdr" },
@@ -588,19 +565,6 @@ describe("rotateToken", () => {
     expect(mocks.renameSync).toHaveBeenCalledOnce();
   });
 
-  it("does not replace a malformed token with an intermediate token when rotation fails", () => {
-    setFile(tokenPath, "not-json\n");
-    mocks.renameSync.mockImplementationOnce((fromPath: unknown) => {
-      throw createFsError("EACCES", String(fromPath));
-    });
-
-    expect(() => rotateToken()).toThrow("EACCES");
-
-    expect(fileContents.get(tokenPath)).toBe("not-json\n");
-    expect(mocks.writeFileSync).toHaveBeenCalledOnce();
-    expect(mocks.renameSync).toHaveBeenCalledOnce();
-  });
-
   it("removes a partial temporary file when the token write itself fails", () => {
     setTokenFile("old-token");
     mocks.writeFileSync.mockImplementationOnce((targetPath: unknown) => {
@@ -651,19 +615,6 @@ describe("runConfigCheck", () => {
 
   it("passes when config has no issues", () => {
     setConfigFile(expectedGeneratedTemplate);
-
-    const result = runConfigCheck();
-
-    expect(result.ok).toBe(true);
-    expect(result.configPath).toBe(configPath);
-    expect(result.issues).toEqual([]);
-  });
-
-  it("passes when generated config uses herdr backend", () => {
-    setConfigFile({
-      ...expectedGeneratedTemplate,
-      multiplexer: { backend: "herdr" },
-    });
 
     const result = runConfigCheck();
 

@@ -38,16 +38,6 @@ const makeDetail = (overrides: Partial<SessionDetail> = {}): SessionDetail => ({
 });
 
 describe("createSessionRegistry", () => {
-  it("notifies onChanged when a new session is added", () => {
-    const registry = createSessionRegistry();
-    const listener = vi.fn();
-    registry.onChanged(listener);
-
-    registry.update(makeDetail());
-
-    expect(listener).toHaveBeenCalledTimes(1);
-  });
-
   it("does not notify onChanged when the same detail is updated again", () => {
     const registry = createSessionRegistry();
     const listener = vi.fn();

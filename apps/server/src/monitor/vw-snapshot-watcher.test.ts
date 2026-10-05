@@ -79,7 +79,7 @@ describe("createVwSnapshotWatcher", () => {
     expect(invalidate).toHaveBeenCalledWith("/repo");
   });
 
-  it("invalidates once at max wait while changes remain continuous", () => {
+  it("starts a new max-wait burst after the previous max wait fires", () => {
     const invalidate = vi.fn();
     const harness = createWatchHarness();
     const watcher = createVwSnapshotWatcher({ invalidate, watchPath: harness.watchPath });
@@ -92,25 +92,9 @@ describe("createVwSnapshotWatcher", () => {
     }
     vi.advanceTimersByTime(19_999);
     expect(invalidate).not.toHaveBeenCalled();
-
     vi.advanceTimersByTime(1);
     expect(invalidate).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenCalledWith("/repo");
-  });
-
-  it("starts a new max-wait burst after the previous max wait fires", () => {
-    const invalidate = vi.fn();
-    const harness = createWatchHarness();
-    const watcher = createVwSnapshotWatcher({ invalidate, watchPath: harness.watchPath });
-    watcher.observe(createSnapshot("/repo", ["/repo"]));
-
-    harness.triggerChange("/repo");
-    for (let elapsedMs = 20_000; elapsedMs <= 100_000; elapsedMs += 20_000) {
-      vi.advanceTimersByTime(20_000);
-      harness.triggerChange("/repo");
-    }
-    vi.advanceTimersByTime(20_000);
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenNthCalledWith(1, "/repo");
 
     harness.triggerChange("/repo");
     for (let elapsedMs = 20_000; elapsedMs <= 100_000; elapsedMs += 20_000) {

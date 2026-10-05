@@ -16,34 +16,6 @@ describe("useScreenMode", () => {
     );
   };
 
-  it("starts loading and clears the delta base when switching modes while connected", () => {
-    const dispatchScreenLoading = vi.fn();
-    const modeSwitchRef = { current: null as "text" | "image" | null };
-    const resetDeltaBase = vi.fn();
-
-    const wrapper = createWrapper();
-    const { result } = renderHook(
-      () =>
-        useScreenMode({
-          connected: true,
-          paneId: "pane-1",
-          dispatchScreenLoading,
-          modeSwitchRef,
-          resetDeltaBase,
-        }),
-      { wrapper },
-    );
-
-    act(() => {
-      result.current.handleModeChange("image");
-    });
-
-    expect(result.current.mode).toBe("image");
-    expect(modeSwitchRef.current).toBe("image");
-    expect(resetDeltaBase).toHaveBeenCalledTimes(1);
-    expect(dispatchScreenLoading).toHaveBeenCalledWith({ type: "start", mode: "image" });
-  });
-
   it("resets loading when disconnected", () => {
     const dispatchScreenLoading = vi.fn();
     const modeSwitchRef = { current: "text" as "text" | "image" | null };
@@ -132,6 +104,9 @@ describe("useScreenMode", () => {
       result.current.handleModeChange("image");
     });
     expect(result.current.mode).toBe("image");
+    expect(modeSwitchRef.current).toBe("image");
+    expect(resetDeltaBase).toHaveBeenCalledTimes(1);
+    expect(dispatchScreenLoading).toHaveBeenCalledWith({ type: "start", mode: "image" });
 
     act(() => {
       rerender({ paneId: "pane-2" });

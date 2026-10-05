@@ -9,14 +9,19 @@ const styled = (plain: string): CmuxRenderGridLine => ({
 });
 
 describe("mergeCmuxStyledTail", () => {
-  it("replaces an aligned tail and keeps older lines plain", () => {
+  it("replaces an aligned wide-character tail and keeps older lines plain", () => {
     expect(
       mergeCmuxStyledTail({
-        plainLines: ["old", "one", "two", "three"],
-        gridLines: [styled("one"), styled("two"), styled("three")],
+        plainLines: ["before", "こんにちは！", "幅広文字の行", "after"],
+        gridLines: [styled("こんにちは！"), styled("幅広文字の行"), styled("after")],
         maxLines: 10,
       }),
-    ).toEqual(["old", "\u001b[0mone\u001b[0m", "\u001b[0mtwo\u001b[0m", "\u001b[0mthree\u001b[0m"]);
+    ).toEqual([
+      "before",
+      "\u001b[0mこんにちは！\u001b[0m",
+      "\u001b[0m幅広文字の行\u001b[0m",
+      "\u001b[0mafter\u001b[0m",
+    ]);
   });
 
   it("includes output appended after the plain snapshot", () => {
@@ -53,21 +58,6 @@ describe("mergeCmuxStyledTail", () => {
         maxLines: 10,
       }),
     ).toEqual(["\u001b[0mone\u001b[0m", "\u001b[0mtwo\u001b[0m", "\u001b[0mthree\u001b[0m"]);
-  });
-
-  it("aligns rows containing wide characters without synthetic spaces", () => {
-    expect(
-      mergeCmuxStyledTail({
-        plainLines: ["before", "こんにちは！", "幅広文字の行", "after"],
-        gridLines: [styled("こんにちは！"), styled("幅広文字の行"), styled("after")],
-        maxLines: 10,
-      }),
-    ).toEqual([
-      "before",
-      "\u001b[0mこんにちは！\u001b[0m",
-      "\u001b[0m幅広文字の行\u001b[0m",
-      "\u001b[0mafter\u001b[0m",
-    ]);
   });
 
   it("returns null when alignment is ambiguous", () => {

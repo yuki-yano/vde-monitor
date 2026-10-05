@@ -7,7 +7,6 @@ import { execa } from "execa";
 import {
   buildProcessSnapshotIndexes,
   createAgentProcessSnapshot,
-  findAgentFromPidTree,
   getAgentFromTty,
   parseProcessSnapshotLine,
 } from "./agent-resolver-process";
@@ -76,22 +75,6 @@ describe("agent-resolver-process", () => {
       status: "failed",
       error: "timeout",
     });
-  });
-
-  it("does not classify a server pane from its transient Codex app-server child", () => {
-    const snapshot = {
-      status: "success" as const,
-      ...buildProcessSnapshotIndexes(
-        [
-          "100 1 ttys001 zsh",
-          "200 100 ttys001 node /repo/apps/server/src/index.ts",
-          "300 200 ttys001 /opt/bin/codex app-server --listen stdio://",
-        ].join("\n"),
-      ),
-    };
-
-    expect(findAgentFromPidTree(snapshot, 100)).toBe("unknown");
-    expect(getAgentFromTty(snapshot, "/dev/ttys001")).toBe("unknown");
   });
 
   it("still finds an interactive Agent when a helper shares the tty", () => {

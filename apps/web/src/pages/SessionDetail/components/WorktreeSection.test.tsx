@@ -52,27 +52,6 @@ describe("WorktreeSection", () => {
     ...overrides,
   });
 
-  it("wires the refresh button", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<WorktreeSection state={state} actions={actions} />);
-
-    const refreshButton = screen.getByRole("button", { name: "Refresh worktrees" });
-    fireEvent.click(refreshButton);
-    expect(actions.onRefreshWorktrees).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders a safe PR link when prUrl is available", () => {
-    const state = buildState();
-    const actions = buildActions();
-    render(<WorktreeSection state={state} actions={actions} />);
-
-    const prLink = screen.getByRole("link", { name: "Open pull request for feature/a" });
-    expect(prLink.getAttribute("href")).toBe("https://github.com/acme/repo/pull/123");
-    expect(prLink.getAttribute("target")).toBe("_blank");
-    expect(prLink.getAttribute("rel")).toContain("noopener");
-  });
-
   it("does not render PR link button when prUrl is missing", () => {
     const state = buildState({
       worktreeEntries: [
@@ -151,6 +130,10 @@ describe("WorktreeSection", () => {
     } as unknown as SessionDetailScopeContextValue;
 
     render(<ConnectedWorktreeSection />);
+    const prLink = screen.getByRole("link", { name: "Open pull request for feature/a" });
+    expect(prLink.getAttribute("href")).toBe("https://github.com/acme/repo/pull/123");
+    expect(prLink.getAttribute("target")).toBe("_blank");
+    expect(prLink.getAttribute("rel")).toContain("noopener");
     fireEvent.click(screen.getByRole("button", { name: "Refresh worktrees" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear virtual worktree" }));
     fireEvent.click(screen.getByRole("button", { name: /feature\/a/ }));

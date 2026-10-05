@@ -89,33 +89,6 @@ describe("useSessionVirtualWorktree", () => {
     window.localStorage.clear();
   });
 
-  it("loads worktrees with the query abort signal", async () => {
-    const repoRoot = "/tmp/repo-a";
-    const paneId = "pane-1";
-    const requestWorktrees = vi.fn(async () => createWorktreeList(repoRoot));
-    const { result } = renderHook(
-      () =>
-        useSessionVirtualWorktree({
-          paneId,
-          session: createSessionDetail({
-            paneId,
-            repoRoot,
-            worktreePath: `${repoRoot}/main`,
-            branch: "main",
-          }),
-          requestWorktrees,
-        }),
-      { wrapper: createQueryWrapper() },
-    );
-
-    expect(result.current.loading).toBe(true);
-    await waitFor(() => {
-      expect(result.current.entries).toHaveLength(2);
-      expect(result.current.loading).toBe(false);
-    });
-    expect(requestWorktrees).toHaveBeenCalledWith(paneId, expect.any(AbortSignal));
-  });
-
   it("pauses an offline cold mount without a spinner and resumes once online", async () => {
     onlineManager.setOnline(false);
     const repoRoot = "/tmp/repo-offline";
@@ -204,9 +177,12 @@ describe("useSessionVirtualWorktree", () => {
       { wrapper },
     );
 
+    expect(result.current.loading).toBe(true);
     await waitFor(() => {
       expect(result.current.entries).toHaveLength(2);
+      expect(result.current.loading).toBe(false);
     });
+    expect(requestWorktrees).toHaveBeenCalledWith(paneId, expect.any(AbortSignal));
     expect(requestWorktrees).toHaveBeenCalledTimes(1);
     expect(abortedRequests).toBe(0);
     expect(maxActiveRequests).toBe(1);

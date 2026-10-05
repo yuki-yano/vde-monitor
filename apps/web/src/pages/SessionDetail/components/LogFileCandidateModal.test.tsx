@@ -56,26 +56,6 @@ describe("LogFileCandidateModal", () => {
   });
 
   it("focuses the search input when opened", async () => {
-    render(
-      <LogFileCandidateModal
-        state={{
-          open: true,
-          reference: "index.ts",
-          items: [{ path: "apps/server/src/index.ts", name: "index.ts" }],
-        }}
-        actions={{
-          onClose: vi.fn(),
-          onSelect: vi.fn(),
-        }}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(document.activeElement).toBe(screen.getByPlaceholderText("Search files..."));
-    });
-  });
-
-  it("closes when close button is clicked", () => {
     const onClose = vi.fn();
     render(
       <LogFileCandidateModal
@@ -91,7 +71,11 @@ describe("LogFileCandidateModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText("Close file candidate modal"));
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByPlaceholderText("Search files..."));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close file candidate modal" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

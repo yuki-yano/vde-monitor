@@ -54,32 +54,11 @@ describe("AuthGate", () => {
     expect(screen.getByText("Authentication required")).toBeTruthy();
   });
 
-  it("clears cached server state before accepting a replacement token", () => {
+  it("clears cache synchronously and cancels old-token requests on token replacement", async () => {
     const setToken = vi.fn();
     const reconnect = vi.fn();
     const queryClient = createAppQueryClient();
     queryClient.setQueryData(["session-detail", "pane-1", "branches"], { private: true });
-    useSessionsMock.mockReturnValue({
-      authError: "Unauthorized",
-      setToken,
-      reconnect,
-    });
-    renderAuthGate(<AuthGate>secured-content</AuthGate>, queryClient);
-
-    fireEvent.change(screen.getByPlaceholderText("Paste access token"), {
-      target: { value: "replacement-token" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save token" }));
-
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-    expect(setToken).toHaveBeenCalledWith("replacement-token");
-    expect(reconnect).toHaveBeenCalledTimes(1);
-  });
-
-  it("cancels old-token requests before reconnecting with a replacement token", async () => {
-    const setToken = vi.fn();
-    const reconnect = vi.fn();
-    const queryClient = createAppQueryClient();
     let receivedSignal: AbortSignal | null = null;
     useSessionsMock.mockReturnValue({ authError: "Unauthorized", setToken, reconnect });
     const request = queryClient.fetchQuery({
@@ -97,10 +76,12 @@ describe("AuthGate", () => {
       target: { value: "replacement-token" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save token" }));
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(setToken).toHaveBeenCalledWith("replacement-token");
+    expect(reconnect).toHaveBeenCalledTimes(1);
 
     await assertion;
     expect((receivedSignal as AbortSignal | null)?.aborted).toBe(true);
-    expect(setToken).toHaveBeenCalledWith("replacement-token");
     expect(reconnect).toHaveBeenCalledTimes(1);
   });
 });

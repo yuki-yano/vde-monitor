@@ -19,35 +19,6 @@ describe("useSessionsStream lifecycle", () => {
     createSseSubscriptionMock.mockReset();
   });
 
-  it("closes the active replacement subscription after a forced reconnect", () => {
-    const firstClose = vi.fn();
-    const replacementClose = vi.fn();
-    createSseSubscriptionMock
-      .mockReturnValueOnce({ close: firstClose })
-      .mockReturnValueOnce({ close: replacementClose });
-
-    const { unmount } = renderHook(() =>
-      useSessionsStream({
-        enabled: true,
-        apiBaseUrl: "/api",
-        token: "token",
-        onSnapshot: vi.fn(),
-        onUpsert: vi.fn(),
-        onRemove: vi.fn(),
-        onTransportChange: vi.fn(),
-      }),
-    );
-
-    document.dispatchEvent(new Event("visibilitychange"));
-
-    expect(createSseSubscriptionMock).toHaveBeenCalledTimes(2);
-    expect(firstClose).toHaveBeenCalledOnce();
-
-    unmount();
-
-    expect(replacementClose).toHaveBeenCalledOnce();
-  });
-
   it("does not reconnect when visibility changes to hidden", () => {
     const close = vi.fn();
     createSseSubscriptionMock.mockReturnValue({ close });

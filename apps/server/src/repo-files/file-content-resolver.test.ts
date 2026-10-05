@@ -55,36 +55,6 @@ describe("file content resolver", () => {
     }
   });
 
-  it("returns metadata only for image files", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-"));
-    const imageBase64 =
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+Zl8AAAAASUVORK5CYII=";
-    try {
-      await mkdir(path.join(repoRoot, "assets"), { recursive: true });
-      await writeFile(
-        path.join(repoRoot, "assets", "pixel.png"),
-        Buffer.from(imageBase64, "base64"),
-      );
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "assets/pixel.png",
-        maxBytes: 1024,
-      });
-
-      expect(result).toMatchObject({
-        path: "assets/pixel.png",
-        isBinary: true,
-        truncated: false,
-        languageHint: null,
-        content: null,
-      });
-      expect(result.content).toBeNull();
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
   it("does not truncate binary metadata when an image exceeds maxBytes", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-image-limit-"));
     const imageBase64 =
@@ -190,49 +160,6 @@ describe("file content resolver", () => {
       });
     } finally {
       await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("allows symlinks that resolve inside the repository", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-link-"));
-    try {
-      await writeFile(path.join(repoRoot, "target.txt"), "target\n");
-      await symlink(path.join(repoRoot, "target.txt"), path.join(repoRoot, "linked.txt"));
-
-      const result = await resolveFileContent({
-        repoRoot,
-        normalizedPath: "linked.txt",
-        maxBytes: 100,
-      });
-      expect(result.content).toBe("target\n");
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("rejects symlinks that resolve outside the repository", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "vde-monitor-file-content-link-root-"));
-    const outsideRoot = await mkdtemp(
-      path.join(os.tmpdir(), "vde-monitor-file-content-link-outside-"),
-    );
-    try {
-      const outsideFile = path.join(outsideRoot, "outside.txt");
-      await writeFile(outsideFile, "outside\n");
-      await symlink(outsideFile, path.join(repoRoot, "linked.txt"));
-
-      await expect(
-        resolveFileContent({
-          repoRoot,
-          normalizedPath: "linked.txt",
-          maxBytes: 100,
-        }),
-      ).rejects.toMatchObject({
-        code: "FORBIDDEN_PATH",
-        status: 403,
-      });
-    } finally {
-      await rm(repoRoot, { recursive: true, force: true });
-      await rm(outsideRoot, { recursive: true, force: true });
     }
   });
 

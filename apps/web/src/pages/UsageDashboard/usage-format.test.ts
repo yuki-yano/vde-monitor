@@ -1,8 +1,6 @@
 import type { UsageMetricWindow, UsageProviderSnapshot } from "@vde-monitor/shared";
 import { describe, expect, it } from "vitest";
 
-import { formatDurationMs } from "@/lib/time-format";
-
 import {
   aggregateBillingBreakdownRows,
   clampPercent,
@@ -59,9 +57,6 @@ describe("usage-format", () => {
     expect(formatPercent(12.34)).toBe("12.3%");
     expect(formatPercent(-12.34, true)).toBe("-12.3%");
     expect(formatPercent(12, true)).toBe("+12%");
-    expect(formatDurationMs(0)).toBe("0s");
-    expect(formatDurationMs(90_000)).toBe("1m");
-    expect(formatDurationMs(25 * 60 * 60 * 1000)).toBe("1d 1h");
     expect(formatResetIn("2026-02-27T01:00:00.000Z", Date.parse("2026-02-27T00:00:00.000Z"))).toBe(
       "Resets in 1h",
     );

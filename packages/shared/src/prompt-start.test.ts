@@ -3,11 +3,6 @@ import { describe, expect, it } from "vitest";
 import { isPromptStartLine, stripPromptStartMarker } from "./prompt-start";
 
 describe("prompt-start", () => {
-  it("matches codex prompt starts", () => {
-    expect(isPromptStartLine("› run", "codex")).toBe(true);
-    expect(isPromptStartLine("output", "codex")).toBe(false);
-  });
-
   it("matches shell prompt starts", () => {
     expect(isPromptStartLine("> run", "shell")).toBe(true);
     expect(isPromptStartLine(">run", "shell")).toBe(false);

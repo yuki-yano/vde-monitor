@@ -79,21 +79,13 @@ describe("ControlsPanel", () => {
     const actions = buildActions({ onSendText });
     render(<ControlsPanel state={state} actions={actions} />);
 
+    expect(screen.getByLabelText("Send").textContent).toContain("Send");
+    expect(screen.queryByText("Sending...")).toBeNull();
     const textarea = screen.getByPlaceholderText("Type a prompt…");
     fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
 
     expect(onSendText).not.toHaveBeenCalled();
     expect((screen.getByLabelText("Send") as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("keeps send label stable while showing sending indicator", () => {
-    const state = buildState({ isSendingText: true });
-    const actions = buildActions();
-    render(<ControlsPanel state={state} actions={actions} />);
-
-    const sendButton = screen.getByLabelText("Send");
-    expect(sendButton.textContent).toContain("Send");
-    expect(screen.queryByText("Sending...")).toBeNull();
   });
 
   it("sends keys and keeps permission shortcuts available when the keys section is hidden", async () => {
@@ -164,15 +156,6 @@ describe("ControlsPanel", () => {
     expect(onPickImage).toHaveBeenCalledWith(file);
   });
 
-  it("disables image attachment when interactive is false", () => {
-    const state = buildState({ interactive: false });
-    const actions = buildActions();
-    render(<ControlsPanel state={state} actions={actions} />);
-
-    const button = screen.getByLabelText("Attach image") as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-  });
-
   it("disables key buttons when interactive is false", () => {
     const onSendKey = vi.fn();
     const state = buildState({ interactive: false });
@@ -183,6 +166,7 @@ describe("ControlsPanel", () => {
     const leftButton = screen.getByLabelText("Left") as HTMLButtonElement;
     expect(enterButton.disabled).toBe(true);
     expect(leftButton.disabled).toBe(true);
+    expect((screen.getByLabelText("Attach image") as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(enterButton);
     fireEvent.click(leftButton);

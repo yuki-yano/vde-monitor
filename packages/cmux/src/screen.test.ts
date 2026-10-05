@@ -40,13 +40,14 @@ describe("createCmuxScreenCapture", () => {
     const client = {
       request: vi.fn().mockResolvedValue({ text: "line1\nline2\nline3\n" }),
     };
-    const capture = createCmuxScreenCapture(client);
+    const capture = createCmuxScreenCapture(client, { surfaceWorkspaceIndex });
 
     await expect(capture.captureText(makeOptions())).resolves.toEqual({
       screen: "line2\nline3",
       truncated: true,
       alternateOn: false,
     });
+    expect(client.request).toHaveBeenCalledOnce();
     expect(client.request).toHaveBeenCalledWith(
       CMUX_METHODS.readText,
       {
@@ -273,19 +274,6 @@ describe("createCmuxScreenCapture", () => {
       truncated: true,
       alternateOn: false,
     });
-  });
-
-  it("returns plain text without calling render methods when ANSI is disabled", async () => {
-    const request = vi.fn().mockResolvedValue({ text: "one\ntwo\nthree\n" });
-    const capture = createCmuxScreenCapture(
-      { request: request as CmuxRequester["request"] },
-      { surfaceWorkspaceIndex },
-    );
-
-    await capture.captureText(makeOptions());
-
-    expect(request).toHaveBeenCalledOnce();
-    expect(request).toHaveBeenCalledWith(CMUX_METHODS.readText, expect.any(Object), undefined);
   });
 
   it("falls back to plain text when the surface workspace is not indexed", async () => {

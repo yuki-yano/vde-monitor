@@ -104,11 +104,4 @@ describe("decorateSmartWrapLine", () => {
     const decorated = decorateSmartWrapLine(lines[0]!, classifications[0]!);
     expect(decorated.className).toBe("vde-smart-wrap-diff-block");
   });
-
-  it("adds claude tool-block class", () => {
-    const line = "⏺ Read 1 file";
-    const classification = classifySmartWrapLines([line, "❯ "], "claude")[0]!;
-    const decorated = decorateSmartWrapLine(line, classification);
-    expect(decorated.className).toBe("vde-smart-wrap-claude-block");
-  });
 });

@@ -87,34 +87,6 @@ describe("useScreenScroll", () => {
     expect(result.current.shouldFollowOutput).toBe(false);
   });
 
-  it("enables force follow at the current bottom for subsequent output", () => {
-    const onFlushPending = vi.fn();
-    const onClearPending = vi.fn();
-
-    const { result } = renderHook(() =>
-      useScreenScroll({
-        paneId: "pane-1",
-        mode: "text",
-        screenLinesLength: 2,
-        onFlushPending,
-        onClearPending,
-      }),
-    );
-
-    act(() => {
-      result.current.viewportRef.current = {
-        scrollToEnd: vi.fn(),
-      } as unknown as typeof result.current.viewportRef.current;
-      result.current.scrollerRef.current = {
-        scrollTo: vi.fn(),
-        scrollHeight: 200,
-      } as unknown as HTMLDivElement;
-      result.current.scrollToBottom("auto");
-    });
-
-    expect(result.current.shouldFollowOutput).toBe(true);
-  });
-
   it("clears pending on image mode and snaps on image->text", () => {
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
@@ -300,35 +272,6 @@ describe("useScreenScroll", () => {
     expect(onClearPending).toHaveBeenCalledTimes(2);
   });
 
-  it("clears transient state on unmount", () => {
-    const onFlushPending = vi.fn();
-    const onClearPending = vi.fn();
-
-    const { result, unmount } = renderHook(() =>
-      useScreenScroll({
-        paneId: "pane-1",
-        mode: "text",
-        screenLinesLength: 2,
-        onFlushPending,
-        onClearPending,
-      }),
-    );
-
-    act(() => {
-      result.current.scrollerRef.current = {
-        scrollTo: vi.fn(),
-        scrollHeight: 200,
-      } as unknown as HTMLDivElement;
-      result.current.handleUserScrollStateChange(true);
-      result.current.scrollToBottom("auto");
-    });
-
-    unmount();
-
-    expect(result.current.isUserScrolling()).toBe(false);
-    expect(onClearPending).toHaveBeenCalledTimes(2);
-  });
-
   it("uses the latest clear callback on unmount without resetting the same context", () => {
     const firstOnClearPending = vi.fn();
     const latestOnClearPending = vi.fn();
@@ -359,20 +302,30 @@ describe("useScreenScroll", () => {
   it("runs each transient cleanup once during StrictMode replay and final unmount", () => {
     const onClearPending = vi.fn();
 
-    const { result, unmount } = renderHook(
-      () =>
+    const { result, rerender, unmount } = renderHook(
+      ({ screenLinesLength }) =>
         useScreenScroll({
           paneId: "pane-1",
           mode: "text",
-          screenLinesLength: 0,
+          screenLinesLength,
           onFlushPending: vi.fn(),
           onClearPending,
         }),
-      { wrapper: StrictMode },
+      { wrapper: StrictMode, initialProps: { screenLinesLength: 0 } },
     );
 
     expect(onClearPending).toHaveBeenCalledTimes(2);
-    act(() => result.current.handleUserScrollStateChange(true));
+    act(() => rerender({ screenLinesLength: 2 }));
+    act(() => {
+      result.current.scrollerRef.current = {
+        scrollTo: vi.fn(),
+        scrollHeight: 200,
+      } as unknown as HTMLDivElement;
+      result.current.handleUserScrollStateChange(true);
+      result.current.scrollToBottom("auto");
+    });
+    expect(result.current.isUserScrolling()).toBe(true);
+    expect(result.current.shouldFollowOutput).toBe(true);
 
     unmount();
 

@@ -431,14 +431,22 @@ describe("useSessionApi", () => {
     expect(onSessionRemoved).toHaveBeenCalledWith("pane-1");
   });
 
-  it("refreshes sessions when touch response has no session payload", async () => {
+  it("refreshes sessions for each mutation endpoint that omits the session payload", async () => {
     const onSessions = vi.fn();
     const onSessionUpdated = vi.fn();
+    const mutationRequests = vi.fn();
+    const snapshotRequests = vi.fn();
+    const withoutSession = ({ request }: { request: Request }) => {
+      mutationRequests(request.method, request.url);
+      return HttpResponse.json({});
+    };
     server.use(
-      http.post(pathToUrl("/sessions/:paneId/touch"), () => {
-        return HttpResponse.json({});
-      }),
-      http.get(pathToUrl("/sessions"), () => {
+      http.post(pathToUrl("/sessions/pane-1/move-to-top"), withoutSession),
+      http.post(pathToUrl("/sessions/pane-1/touch"), withoutSession),
+      http.put(pathToUrl("/sessions/pane-1/title"), withoutSession),
+      http.post(pathToUrl("/sessions/pane-1/title/reset"), withoutSession),
+      http.get(pathToUrl("/sessions"), ({ request }) => {
+        snapshotRequests(request.method, request.url);
         return HttpResponse.json({ sessions: [] });
       }),
     );
@@ -456,99 +464,39 @@ describe("useSessionApi", () => {
       }),
     );
 
-    await expect(result.current.core.touchSession("pane-1")).resolves.toBeUndefined();
-    expect(onSessionUpdated).not.toHaveBeenCalled();
-    expect(onSessions).toHaveBeenCalledWith([]);
-  });
+    const operations = [
+      [
+        "POST",
+        "/sessions/pane-1/move-to-top",
+        () => result.current.core.moveSessionToTop("pane-1"),
+      ],
+      ["POST", "/sessions/pane-1/touch", () => result.current.core.touchSession("pane-1")],
+      [
+        "PUT",
+        "/sessions/pane-1/title",
+        () => result.current.core.updateSessionTitle("pane-1", "next"),
+      ],
+      [
+        "POST",
+        "/sessions/pane-1/title/reset",
+        () => result.current.core.resetSessionTitle("pane-1"),
+      ],
+    ] as const;
+    for (const [method, path, operation] of operations) {
+      mutationRequests.mockClear();
+      snapshotRequests.mockClear();
+      onSessions.mockClear();
+      onSessionUpdated.mockClear();
 
-  it("refreshes sessions when move-to-top response has no session payload", async () => {
-    const onSessions = vi.fn();
-    const onSessionUpdated = vi.fn();
-    server.use(
-      http.post(pathToUrl("/sessions/:paneId/move-to-top"), () => {
-        return HttpResponse.json({});
-      }),
-      http.get(pathToUrl("/sessions"), () => {
-        return HttpResponse.json({ sessions: [] });
-      }),
-    );
-
-    const { result } = renderHook(() =>
-      useSessionApi({
-        token: "token",
-        apiBaseUrl: API_BASE_URL,
-        onSessions,
-        onConnectionIssue: vi.fn(),
-        onSessionUpdated,
-        onSessionRemoved: vi.fn(),
-        onHighlightCorrections: vi.fn(),
-        onFileNavigatorConfig: vi.fn(),
-      }),
-    );
-
-    await expect(result.current.core.moveSessionToTop("pane-1")).resolves.toBeUndefined();
-    expect(onSessionUpdated).not.toHaveBeenCalled();
-    expect(onSessions).toHaveBeenCalledWith([]);
-  });
-
-  it("refreshes sessions when title update response has no session payload", async () => {
-    const onSessions = vi.fn();
-    const onSessionUpdated = vi.fn();
-    server.use(
-      http.put(pathToUrl("/sessions/:paneId/title"), () => {
-        return HttpResponse.json({});
-      }),
-      http.get(pathToUrl("/sessions"), () => {
-        return HttpResponse.json({ sessions: [] });
-      }),
-    );
-
-    const { result } = renderHook(() =>
-      useSessionApi({
-        token: "token",
-        apiBaseUrl: API_BASE_URL,
-        onSessions,
-        onConnectionIssue: vi.fn(),
-        onSessionUpdated,
-        onSessionRemoved: vi.fn(),
-        onHighlightCorrections: vi.fn(),
-        onFileNavigatorConfig: vi.fn(),
-      }),
-    );
-
-    await expect(result.current.core.updateSessionTitle("pane-1", "next")).resolves.toBeUndefined();
-    expect(onSessionUpdated).not.toHaveBeenCalled();
-    expect(onSessions).toHaveBeenCalledWith([]);
-  });
-
-  it("refreshes sessions when title reset response has no session payload", async () => {
-    const onSessions = vi.fn();
-    const onSessionUpdated = vi.fn();
-    server.use(
-      http.post(pathToUrl("/sessions/:paneId/title/reset"), () => {
-        return HttpResponse.json({});
-      }),
-      http.get(pathToUrl("/sessions"), () => {
-        return HttpResponse.json({ sessions: [] });
-      }),
-    );
-
-    const { result } = renderHook(() =>
-      useSessionApi({
-        token: "token",
-        apiBaseUrl: API_BASE_URL,
-        onSessions,
-        onConnectionIssue: vi.fn(),
-        onSessionUpdated,
-        onSessionRemoved: vi.fn(),
-        onHighlightCorrections: vi.fn(),
-        onFileNavigatorConfig: vi.fn(),
-      }),
-    );
-
-    await expect(result.current.core.resetSessionTitle("pane-1")).resolves.toBeUndefined();
-    expect(onSessionUpdated).not.toHaveBeenCalled();
-    expect(onSessions).toHaveBeenCalledWith([]);
+      await expect(operation()).resolves.toBeUndefined();
+      expect(mutationRequests).toHaveBeenCalledTimes(1);
+      expect(mutationRequests).toHaveBeenCalledWith(method, pathToUrl(path));
+      expect(snapshotRequests).toHaveBeenCalledTimes(1);
+      expect(snapshotRequests).toHaveBeenCalledWith("GET", pathToUrl("/sessions"));
+      expect(onSessionUpdated).not.toHaveBeenCalled();
+      expect(onSessions).toHaveBeenCalledTimes(1);
+      expect(onSessions).toHaveBeenCalledWith([]);
+    }
   });
 
   it("sends text command successfully", async () => {

@@ -156,7 +156,7 @@ describe("worktree-utils", () => {
 
     const resolved = await resolveRequestedWorktreePath({
       detail: { repoRoot: "/repo", currentPath: "/repo/worktree-a" },
-      worktreePath: "/repo/worktree-a",
+      worktreePath: "/repo/worktree-a/",
       fallbackPath: "/repo",
     });
 
@@ -224,30 +224,5 @@ describe("worktree-utils", () => {
     });
 
     expect(resolved).toEqual({ ok: false, reason: "invalid_worktree_path" });
-  });
-
-  it("returns normalized worktree path when override is valid", async () => {
-    vi.mocked(resolveVwWorktreeSnapshotCached).mockResolvedValueOnce({
-      repoRoot: "/repo",
-      baseBranch: "main",
-      entries: [
-        {
-          path: "/repo/worktree-a",
-          branch: "feature/a",
-          dirty: true,
-          locked: { value: false, owner: null, reason: null },
-          merged: { overall: false, byPR: null },
-          pr: { status: "unknown" },
-        },
-      ],
-    });
-
-    const resolved = await resolveRequestedWorktreePath({
-      detail: { repoRoot: "/repo", currentPath: "/repo/worktree-a" },
-      worktreePath: "/repo/worktree-a/",
-      fallbackPath: "/repo",
-    });
-
-    expect(resolved).toEqual({ ok: true, path: "/repo/worktree-a" });
   });
 });

@@ -100,37 +100,6 @@ describe("useSessionTimeline", () => {
     focusManager.setFocused(undefined);
   });
 
-  it("loads timeline through its scoped query key and forwards the abort signal", async () => {
-    const queryClient = createAppQueryClient();
-    const requestStateTimeline = vi.fn<TimelineRequest>(async (paneId) => buildTimeline(paneId));
-    const { result } = renderTimeline({
-      requestStateTimeline,
-      queryClient,
-      limit: 75,
-    });
-
-    expect(result.current.timelineLoading).toBe(true);
-    await waitFor(() => {
-      expect(result.current.timeline?.paneId).toBe("pane-1");
-      expect(result.current.timelineLoading).toBe(false);
-    });
-    expect(requestStateTimeline).toHaveBeenCalledWith(
-      "pane-1",
-      { range: "1h", limit: 75 },
-      expect.any(AbortSignal),
-    );
-    expect(
-      queryClient.getQueryData(
-        sessionDetailQueryKeys.timeline("pane-1", {
-          repoRoot: "/repo/a",
-          scope: "pane",
-          range: "1h",
-          limit: 75,
-        }),
-      ),
-    ).toEqual(buildTimeline("pane-1"));
-  });
-
   it("uses separate queries when range and scope change", async () => {
     const requestStateTimeline = vi.fn<TimelineRequest>(async (paneId, options) =>
       buildTimeline(paneId, options?.range, options?.scope),
@@ -570,13 +539,31 @@ describe("useSessionTimeline", () => {
           requestStateTimeline,
           hasRepoTimeline: true,
           mobileDefaultCollapsed: false,
+          limit: 75,
         }),
       { wrapper },
     );
 
+    expect(result.current.timelineLoading).toBe(true);
     await waitFor(() => {
       expect(result.current.timeline?.paneId).toBe("pane-strict");
+      expect(result.current.timelineLoading).toBe(false);
     });
+    expect(requestStateTimeline).toHaveBeenCalledWith(
+      "pane-strict",
+      { range: "1h", limit: 75 },
+      expect.any(AbortSignal),
+    );
+    expect(
+      queryClient.getQueryData(
+        sessionDetailQueryKeys.timeline("pane-strict", {
+          repoRoot: "/repo/strict",
+          scope: "pane",
+          range: "1h",
+          limit: 75,
+        }),
+      ),
+    ).toEqual(buildTimeline("pane-strict"));
     expect(requestStateTimeline).toHaveBeenCalledTimes(1);
     expect(maxActiveRequests).toBe(1);
     expect(abortedRequests).toBe(0);

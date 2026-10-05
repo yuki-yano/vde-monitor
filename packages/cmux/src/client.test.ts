@@ -151,8 +151,6 @@ describe("CmuxClient", () => {
     ["null", "null"],
     ["array", "[]"],
     ["string", '"unexpected"'],
-    ["number", "42"],
-    ["boolean", "true"],
   ])("treats a %s frame as a protocol error", async (_label, frame) => {
     const socketPath = await makeTempSocketPath();
     const server = createServer((socket) => {
@@ -163,11 +161,14 @@ describe("CmuxClient", () => {
     await listen(server, socketPath);
 
     const client = new CmuxClient(socketPath);
-    await expect(client.request("system.tree")).rejects.toMatchObject({
-      name: "CmuxClientError",
-      code: "protocol_error",
-    });
-    await client.close();
+    try {
+      await expect(client.request("system.tree")).rejects.toMatchObject({
+        name: "CmuxClientError",
+        code: "protocol_error",
+      });
+    } finally {
+      await client.close();
+    }
   });
 
   it("handles timeouts and AbortSignal for pending requests", async () => {

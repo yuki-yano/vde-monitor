@@ -93,21 +93,6 @@ describe("useSessionStore", () => {
     expect(result.current.sessions[1]?.state).toBe("WAITING_INPUT");
   });
 
-  it("keeps the sessions array reference when setSessions receives identical content", () => {
-    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.setSessions([createSession("pane-1")]);
-    });
-    const previous = result.current.sessions;
-
-    act(() => {
-      result.current.setSessions([createSession("pane-1")]);
-    });
-
-    expect(result.current.sessions).toBe(previous);
-  });
-
   it("keeps the sessions array reference when updateSession receives an identical session", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
 
@@ -160,19 +145,6 @@ describe("useSessionStore", () => {
   // reading `session` saw a new object every render and could never bail out
   // of useMemo/React.memo. This exercises the real useSessionStore path
   // (not a hand-rolled mock) so it reflects actual production behavior.
-  it("returns a stable SessionDetail reference across repeated getSessionDetail calls for an unchanged session", () => {
-    const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
-
-    act(() => {
-      result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
-    });
-
-    const first = result.current.getSessionDetail("pane-1");
-    const second = result.current.getSessionDetail("pane-1");
-
-    expect(first).not.toBeNull();
-    expect(second).toBe(first);
-  });
 
   it("returns a new SessionDetail reference once the underlying session actually changes", () => {
     const { result } = renderHook(() => useSessionStore(), { wrapper: createWrapper() });
@@ -198,6 +170,8 @@ describe("useSessionStore", () => {
       result.current.setSessions([createSession("pane-1"), createSession("pane-2")]);
     });
     const paneOneBefore = result.current.getSessionDetail("pane-1");
+    expect(paneOneBefore).not.toBeNull();
+    expect(result.current.getSessionDetail("pane-1")).toBe(paneOneBefore);
 
     // Simulate an SSE tick that re-parses the whole sessions payload but only
     // pane-2's content actually changed; reconcileSessions should keep

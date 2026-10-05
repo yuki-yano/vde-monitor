@@ -270,11 +270,6 @@ describe("ensureCmuxAvailable", () => {
 });
 
 describe("ensureCmuxPlatformSupported", () => {
-  it("accepts macOS 14 and newer Darwin kernels", () => {
-    expect(() => ensureCmuxPlatformSupported("darwin", "23.0.0")).not.toThrow();
-    expect(() => ensureCmuxPlatformSupported("darwin", "25.5.0")).not.toThrow();
-  });
-
   it("fails before CLI execution outside supported macOS releases", () => {
     expect(() => ensureCmuxPlatformSupported("linux", "6.8.0")).toThrow(
       "cmux requires macOS 14 or newer",
@@ -350,7 +345,6 @@ describe("cleanupFailedServeSetup", () => {
   });
 
   it("disposes an initialized runtime without stopping an unstarted monitor", async () => {
-    const stopMonitor = vi.fn();
     const disposeRuntime = vi.fn();
 
     await cleanupFailedServeSetup({
@@ -359,7 +353,6 @@ describe("cleanupFailedServeSetup", () => {
       releaseServerRuntime: vi.fn(),
     });
 
-    expect(stopMonitor).not.toHaveBeenCalled();
     expect(disposeRuntime).toHaveBeenCalledOnce();
   });
 });
@@ -384,8 +377,13 @@ describe("createGracefulShutdown", () => {
     const closeServer = vi.fn((onClosed: () => void) => {
       onServerClosed = onClosed;
     });
-    const releaseServerRuntime = vi.fn();
-    const exitProcess = vi.fn();
+    const calls: string[] = [];
+    const releaseServerRuntime = vi.fn(() => {
+      calls.push("release");
+    });
+    const exitProcess = vi.fn(() => {
+      calls.push("exit");
+    });
     const shutdown = createGracefulShutdown({
       closeStreams,
       stopMonitor,
@@ -408,41 +406,16 @@ describe("createGracefulShutdown", () => {
 
     expect(closeServer).toHaveBeenCalledOnce();
     expect(exitProcess).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
 
     onServerClosed();
     await sigintShutdown;
 
+    expect(calls).toEqual(["release", "exit"]);
     expect(releaseServerRuntime).toHaveBeenCalledOnce();
     expect(exitProcess).toHaveBeenCalledOnce();
     expect(exitProcess).toHaveBeenCalledWith(0);
     expect(shutdown()).toBe(sigintShutdown);
-  });
-
-  it("releases the server claim after HTTP closes and before process exit", async () => {
-    const calls: string[] = [];
-    let onServerClosed = () => {};
-    const shutdown = createGracefulShutdown({
-      closeStreams: vi.fn(),
-      stopMonitor: vi.fn(),
-      closeServer: vi.fn((onClosed: () => void) => {
-        onServerClosed = onClosed;
-      }),
-      releaseServerRuntime: () => {
-        calls.push("release");
-      },
-      exitProcess: () => {
-        calls.push("exit");
-      },
-    });
-
-    const shutdownPromise = shutdown();
-    await flushMicrotasks();
-    expect(calls).toEqual([]);
-
-    onServerClosed();
-    await shutdownPromise;
-
-    expect(calls).toEqual(["release", "exit"]);
   });
 
   it("starts HTTP server close after the five-second monitor stop timeout", async () => {

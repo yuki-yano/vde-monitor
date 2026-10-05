@@ -73,22 +73,6 @@ describe("useSessionBranches", () => {
     focusManager.setFocused(undefined);
   });
 
-  it("loads a pane and repository scoped query with the abort signal", async () => {
-    const queryClient = createAppQueryClient();
-    const requestBranches = vi.fn<BranchesRequest>(async (paneId) => buildBranchList(paneId));
-    const { result } = renderBranches({ requestBranches, queryClient });
-
-    expect(result.current.branchesLoading).toBe(true);
-    await waitFor(() => {
-      expect(result.current.currentBranch).toBe("pane-a");
-      expect(result.current.branchesLoading).toBe(false);
-    });
-    expect(requestBranches).toHaveBeenCalledWith("pane-a", undefined, expect.any(AbortSignal));
-    expect(queryClient.getQueryData(sessionDetailQueryKeys.branches("pane-a", "/repo/a"))).toEqual(
-      buildBranchList("pane-a"),
-    );
-  });
-
   it("pauses an offline cold mount and resumes it once online", async () => {
     onlineManager.setOnline(false);
     const requestBranches = vi.fn<BranchesRequest>(async (paneId) => buildBranchList(paneId));
@@ -155,9 +139,15 @@ describe("useSessionBranches", () => {
       { wrapper },
     );
 
+    expect(result.current.branchesLoading).toBe(true);
     await waitFor(() => {
       expect(result.current.currentBranch).toBe("pane-strict");
+      expect(result.current.branchesLoading).toBe(false);
     });
+    expect(requestBranches).toHaveBeenCalledWith("pane-strict", undefined, expect.any(AbortSignal));
+    expect(
+      queryClient.getQueryData(sessionDetailQueryKeys.branches("pane-strict", "/repo/strict")),
+    ).toEqual(buildBranchList("pane-strict"));
     expect(requestBranches).toHaveBeenCalledTimes(1);
     expect(maxActiveRequests).toBe(1);
     expect(successfulRequests).toBe(1);

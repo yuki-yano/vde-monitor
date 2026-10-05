@@ -3,13 +3,6 @@ import { describe, expect, it } from "vitest";
 import { applyScreenDeltas } from "./screen-delta";
 
 describe("applyScreenDeltas", () => {
-  it("applies a single delta", () => {
-    const before = ["a", "b", "c"];
-    const result = applyScreenDeltas(before, [{ start: 1, deleteCount: 1, insertLines: ["x"] }]);
-    expect(result.ok).toBe(true);
-    expect(result.lines).toEqual(["a", "x", "c"]);
-  });
-
   it("applies multiple deltas in order", () => {
     const before = ["a", "b", "c", "d", "e"];
     const result = applyScreenDeltas(before, [
